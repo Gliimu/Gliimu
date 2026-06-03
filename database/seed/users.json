@@ -1,0 +1,36 @@
+[
+  {
+    "username": "admin",
+    "password": "$2b$10$encryptedpasswordhere",
+    "firstName": "Super",
+    "lastName": "Admin",
+    "email": "admin@gliimu.com",
+    "phone": "+2347058929080",
+    "role": "Admin",
+    "status": "Active",
+    "createdAt": { "$date": "2025-01-01T00:00:00Z" }
+  },
+  {
+    "username": "student_demo",
+    "password": "$2b$10$encryptedpasswordhere",
+    "firstName": "Demo",
+    "lastName": "Student",
+    "email": "student@example.com",
+    "phone": "+2348000000000",
+    "role": "Student",
+    "track": "media_track",
+    "status": "Active",
+    "createdAt": { "$date": "2025-01-15T00:00:00Z" }
+  },
+  {
+    "username": "instructor_demo",
+    "password": "$2b$10$encryptedpasswordhere",
+    "firstName": "Demo",
+    "lastName": "Instructor",
+    "email": "instructor@example.com",
+    "phone": "+2348000000001",
+    "role": "Instructor",
+    "status": "Active",
+    "createdAt": { "$date": "2025-01-10T00:00:00Z" }
+  }
+]
