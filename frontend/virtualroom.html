@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Virtual Room – Live Class | Gliimu Institute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Live virtual classroom for Gliimu Institute. Join your class in real-time with video, audio, and interactive whiteboard.">
+  
+  <link rel="icon" type="image/png" href="icons/logo2.png">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- PeerJS for WebRTC -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  
+  <!-- External CSS Files -->
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/virtualroom.css">
+</head>
+<body>
+
+  <!-- Header Placeholder -->
+  <div id="header-placeholder"></div>
+
+  <!-- Virtual Room Container -->
+  <div class="virtual-room">
+    
+    <!-- Top Bar -->
+    <div class="room-top-bar">
+      <div class="room-info">
+        <div class="room-title" id="roomTitle">Loading...</div>
+        <div class="room-status live">
+          <span class="status-dot"></span>
+          <span>LIVE</span>
+        </div>
+        <div class="room-timer" id="roomTimer">00:00</div>
+      </div>
+      <div class="room-actions">
+        <button class="room-btn" onclick="toggleSidebar()">
+          <i class="fas fa-users"></i> <span>Participants</span>
+        </button>
+        <button class="room-btn danger" id="leaveBtn">
+          <i class="fas fa-sign-out-alt"></i> <span>Leave</span>
+        </button>
+        <button class="room-btn danger" id="endClassBtn" data-role="teacher">
+          <i class="fas fa-phone-slash"></i> <span>End Class</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="room-main">
+      
+      <!-- Video Grid -->
+      <div class="video-grid" id="videoGrid">
+        <!-- Local Video (hidden by default, shown when streaming) -->
+        <video id="localVideo" autoplay muted playsinline style="display: none;"></video>
+        
+        <!-- Waiting State -->
+        <div class="waiting-state" id="waitingState">
+          <div class="waiting-spinner"></div>
+          <h3>Connecting to class...</h3>
+          <p>Please wait while we connect you to the virtual classroom.</p>
+        </div>
+      </div>
+      
+      <!-- Sidebar (Chat & Participants) -->
+      <div class="room-sidebar" id="roomSidebar">
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" onclick="switchTab('chat')">Chat</button>
+          <button class="sidebar-tab" onclick="switchTab('participants')">Participants</button>
+        </div>
+        
+        <!-- Chat Panel -->
+        <div class="chat-messages" id="chatMessages" style="display: flex;">
+          <div class="chat-message">
+            <div class="chat-bubble">
+              <div class="chat-sender">System</div>
+              <div>Welcome to the virtual classroom!</div>
+              <div class="chat-time">Just now</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Participants Panel -->
+        <div class="participants-list" id="participantsList" style="display: none;">
+          <!-- Participants will be loaded here -->
+        </div>
+        
+        <!-- Chat Input -->
+        <div class="chat-input-area">
+          <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
+          <button class="chat-send-btn" id="chatSendBtn">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+      
+    </div>
+    
+    <!-- Controls Bar -->
+    <div class="controls-bar">
+      <button class="control-btn" id="toggleMic" title="Microphone">
+        <i class="fas fa-microphone"></i>
+      </button>
+      <button class="control-btn" id="toggleCam" title="Camera">
+        <i class="fas fa-video"></i>
+      </button>
+      <button class="control-btn" id="shareScreen" title="Share Screen" data-role="teacher">
+        <i class="fas fa-desktop"></i>
+      </button>
+      <button class="control-btn" id="whiteboardBtn" title="Whiteboard">
+        <i class="fas fa-chalkboard"></i>
+      </button>
+      <button class="control-btn" id="raiseHand" title="Raise Hand" data-role="student">
+        <i class="fas fa-hand-paper"></i>
+      </button>
+    </div>
+    
+  </div>
+
+  <!-- Whiteboard Overlay -->
+  <div class="whiteboard-overlay" id="whiteboardOverlay">
+    <div class="whiteboard-toolbar">
+      <button class="wb-tool active" onclick="setWbTool('pen')">
+        <i class="fas fa-pen"></i>
+      </button>
+      <button class="wb-tool" onclick="setWbTool('eraser')">
+        <i class="fas fa-eraser"></i>
+      </button>
+      <input type="color" class="wb-color" value="#000000" onchange="setWbColor(this.value)">
+      <button class="wb-tool" onclick="clearWhiteboard()">
+        <i class="fas fa-trash"></i>
+      </button>
+      <button class="wb-tool" onclick="toggleWhiteboard()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <canvas id="wbCanvas"></canvas>
+  </div>
+
+  <!-- Footer Placeholder -->
+  <div id="footer-placeholder"></div>
+
+  <!-- Login Modal Placeholder -->
+  <div id="login-modal-placeholder"></div>
+
+  <!-- JS Files -->
+  <script src="js/pages/header.js"></script>
+  <script src="js/pages/virtualroom.js"></script>
+
+  <!-- Load Partials -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('header-placeholder')) {
+        Promise.all([
+          fetch('partials/header.html').then(r => r.text()),
+          fetch('partials/footer.html').then(r => r.text()),
+          fetch('partials/login-modal.html').then(r => r.text())
+        ]).then(results => {
+          document.getElementById('header-placeholder').innerHTML = results[0];
+          document.getElementById('footer-placeholder').innerHTML = results[1];
+          document.getElementById('login-modal-placeholder').innerHTML = results[2];
+          console.log('Partials loaded');
+        }).catch(err => console.error('Failed to load partials:', err));
+      }
+    });
+  </script>
+</body>
+</html>
