@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Community Chat – Gliimu Institute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Join the Gliimu community chat. Connect with students, instructors, and alumni in real-time.">
+  
+  <link rel="icon" type="image/png" href="icons/logo2.png">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Socket.IO Client -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  
+  <!-- External CSS Files -->
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/chat.css">
+</head>
+<body>
+
+  <!-- Header Placeholder -->
+  <div id="header-placeholder"></div>
+
+  <!-- Chat Section -->
+  <section class="chat-section">
+    
+    <!-- Sidebar -->
+    <aside class="chat-sidebar" id="chatSidebar">
+      <div class="sidebar-header">
+        <h3>Community Chat</h3>
+        <p>Connect with peers</p>
+      </div>
+      
+      <div class="channels-list">
+        <div class="channel-item active" onclick="switchChannel('general')">
+          <div class="channel-icon"><i class="fas fa-hashtag"></i></div>
+          <div class="channel-name">general</div>
+        </div>
+        <div class="channel-item" onclick="switchChannel('announcements')">
+          <div class="channel-icon"><i class="fas fa-bullhorn"></i></div>
+          <div class="channel-name">announcements</div>
+        </div>
+        <div class="channel-item" onclick="switchChannel('help')">
+          <div class="channel-icon"><i class="fas fa-question-circle"></i></div>
+          <div class="channel-name">help</div>
+        </div>
+        <div class="channel-item" onclick="switchChannel('random')">
+          <div class="channel-icon"><i class="fas fa-random"></i></div>
+          <div class="channel-name">random</div>
+        </div>
+      </div>
+      
+      <div class="online-users">
+        <h4><i class="fas fa-circle" style="color: var(--success); font-size: 0.7rem;"></i> Online · <span class="online-count">0</span></h4>
+        <div id="onlineUsersList">
+          <!-- Online users will be loaded here -->
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Main Chat Area -->
+    <main class="chat-main">
+      
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <h2><i class="fas fa-hashtag"></i> <span id="channelName">general</span></h2>
+          <p id="channelDesc">General discussion for everyone</p>
+        </div>
+        <div class="chat-actions">
+          <button class="chat-action-btn" onclick="toggleSidebar()">
+            <i class="fas fa-users"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Messages Container -->
+      <div class="messages-container" id="messagesContainer">
+        <!-- Messages will be loaded here -->
+      </div>
+      
+      <!-- Typing Indicator -->
+      <div id="typingIndicator"></div>
+      
+      <!-- Scroll to Bottom Button -->
+      <button class="scroll-to-bottom" id="scrollToBottom">
+        <i class="fas fa-arrow-down"></i>
+      </button>
+      
+      <!-- Input Area -->
+      <div class="chat-input-area">
+        
+        <!-- File/Voice Preview -->
+        <div class="input-preview" id="inputPreview">
+          <div class="preview-content" id="previewText">File ready</div>
+          <button class="preview-cancel" onclick="cancelPreview()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <!-- Input Wrapper -->
+        <div class="input-wrapper">
+          <input type="text" class="message-input" id="messageInput" placeholder="Type a message..." autocomplete="off">
+          
+          <div class="input-actions">
+            <button class="input-btn" id="attachBtn" title="Attach File">
+              <i class="fas fa-paperclip"></i>
+            </button>
+            <input type="file" id="fileInput" style="display: none;" accept="image/*,.pdf,.doc,.docx" onchange="handleFileSelect(this)">
+            
+            <button class="input-btn" id="emojiBtn" title="Emoji">
+              <i class="far fa-smile"></i>
+            </button>
+            
+            <button class="input-btn" id="voiceBtn" title="Voice Message">
+              <i class="fas fa-microphone"></i>
+            </button>
+            
+            <button class="input-btn send-btn" id="sendBtn">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Emoji Picker -->
+        <div class="emoji-picker" id="emojiPicker">
+          <div class="emoji-grid">
+            <div class="emoji-item" onclick="addEmoji('😀')">😀</div>
+            <div class="emoji-item" onclick="addEmoji('😂')">😂</div>
+            <div class="emoji-item" onclick="addEmoji('❤️')">❤️</div>
+            <div class="emoji-item" onclick="addEmoji('👍')">👍</div>
+            <div class="emoji-item" onclick="addEmoji('🔥')">🔥</div>
+            <div class="emoji-item" onclick="addEmoji('🎉')">🎉</div>
+            <div class="emoji-item" onclick="addEmoji('😎')">😎</div>
+            <div class="emoji-item" onclick="addEmoji('🤔')">🤔</div>
+            <div class="emoji-item" onclick="addEmoji('💯')">💯</div>
+            <div class="emoji-item" onclick="addEmoji('🚀')">🚀</div>
+            <div class="emoji-item" onclick="addEmoji('🎨')">🎨</div>
+            <div class="emoji-item" onclick="addEmoji('💻')">💻</div>
+            <div class="emoji-item" onclick="addEmoji('🎬')">🎬</div>
+            <div class="emoji-item" onclick="addEmoji('📸')">📸</div>
+            <div class="emoji-item" onclick="addEmoji('👋')">👋</div>
+            <div class="emoji-item" onclick="addEmoji('🙌')">🙌</div>
+          </div>
+        </div>
+        
+      </div>
+    </main>
+    
+  </section>
+
+  <!-- Mobile Sidebar Toggle -->
+  <button class="mobile-sidebar-toggle" onclick="toggleSidebar()">
+    <i class="fas fa-comments"></i>
+  </button>
+
+  <!-- Footer Placeholder -->
+  <div id="footer-placeholder"></div>
+
+  <!-- Login Modal Placeholder -->
+  <div id="login-modal-placeholder"></div>
+
+  <!-- JS Files -->
+  <script src="js/pages/header.js"></script>
+  <script src="js/pages/chat.js"></script>
+
+  <!-- Load Partials -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('header-placeholder')) {
+        Promise.all([
+          fetch('partials/header.html').then(r => r.text()),
+          fetch('partials/footer.html').then(r => r.text()),
+          fetch('partials/login-modal.html').then(r => r.text())
+        ]).then(results => {
+          document.getElementById('header-placeholder').innerHTML = results[0];
+          document.getElementById('footer-placeholder').innerHTML = results[1];
+          document.getElementById('login-modal-placeholder').innerHTML = results[2];
+          console.log('Partials loaded');
+        }).catch(err => console.error('Failed to load partials:', err));
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gliimu Virtual Hall</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- PeerJS for P2P Video -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Socket.IO for Signaling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+
+    <style>
+        /* --- VARIABLES --- */
+        :root {
+            --bg-body: #0f172a;
+            --bg-panel: rgba(30, 41, 59, 0.85);
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --accent: #f59e0b;
+            --text-main: #f3f4f6;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #10b981;
+            --border: rgba(255, 255, 255, 0.1);
+            --radius: 12px;
+            --header-height: 60px;
+            --control-height: 70px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg-body); color: var(--text-main); overflow: hidden; height: 100vh; width: 100vw; display: flex; flex-direction: column; }
+
+        /* --- LAYOUT --- */
+        #classroom-app { display: flex; flex: 1; height: 100%; position: relative; }
+        
+        /* --- MAIN STAGE --- */
+        .stage-area { 
+            flex: 1; 
+            position: relative; 
+            background: #000; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden;
+        }
+
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            background: #1e1e1e;
+        }
+
+        /* Large main video */
+        #mainStageVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            /* Added cursor to hint user interaction is needed */
+            cursor: pointer;
+        }
+        #mainStageVideo:hover {
+            opacity: 0.9;
+        }
+
+        /* PIP Video (User's own face) */
+        #localVideo { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 240px; 
+            height: 180px; 
+            border-radius: var(--radius); 
+            border: 2px solid var(--primary); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            z-index: 10; 
+            background: #000;
+            transition: all 0.3s ease;
+        }
+        #localVideo.hidden { display: none; }
+
+        /* --- WHITEBOARD --- */
+        #whiteboard {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95);
+            z-index: 5;
+            display: none;
+            cursor: crosshair;
+        }
+        #whiteboard.active { display: block; }
+        
+        .wb-controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 30px;
+            display: flex;
+            gap: 10px;
+            border: 1px solid var(--border);
+            z-index: 6;
+        }
+        .wb-btn {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: #333;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .wb-btn:hover, .wb-btn.active { background: var(--primary); color: white; }
+
+        /* --- SIDEBAR (Chat/Participants) --- */
+        .class-sidebar {
+            width: 320px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            z-index: 20;
+            position: absolute;
+            right: 0; top: 0; bottom: 0;
+            transform: translateX(100%);
+        }
+        .class-sidebar.active { transform: translateX(0); }
+
+        .sidebar-header {
+            height: var(--header-height);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-weight: 600;
+        }
+
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .chat-msg {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            position: relative;
+            word-wrap: break-word;
+            animation: msgPop 0.3s ease;
+        }
+        .chat-msg.system {
+            align-self: center;
+            background: rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .chat-msg.instructor {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-msg.student {
+            align-self: flex-start;
+            background: rgba(255,255,255,0.1);
+            color: var(--text-main);
+            border-bottom-left-radius: 2px;
+        }
+        .chat-msg .sender { 
+            font-size: 0.7rem; 
+            opacity: 0.7; 
+            margin-bottom: 2px; 
+            display: block; 
+            font-weight: 600;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input {
+            flex: 1;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 10px 15px;
+            color: white;
+            outline: none;
+        }
+        .chat-input:focus { border-color: var(--primary); }
+
+        /* --- BOTTOM CONTROLS --- */
+        .controls-bar {
+            height: var(--control-height);
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 0 20px;
+            z-index: 30;
+            position: absolute; bottom: 0; left: 0; right: 0;
+        }
+
+        .ctrl-btn {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+            transition: 0.2s;
+            position: relative;
+        }
+        .ctrl-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+        .ctrl-btn.off { background: var(--danger); color: white; }
+        .ctrl-btn.active { background: var(--primary); color: white; }
+        
+        /* Specific Hand Raising Style */
+        .ctrl-btn.hand-raised {
+            background: var(--accent);
+            color: black;
+            animation: pulseHand 1s infinite;
+        }
+
+        @keyframes pulseHand {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        .btn-end { 
+            background: var(--danger); 
+            border-radius: 20px; 
+            width: auto; 
+            padding: 0 20px; 
+            font-weight: 600; 
+            gap: 8px;
+        }
+
+        .timer-badge {
+            position: absolute; left: 20px; bottom: 90px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.85rem;
+            display: none;
+            align-items: center; gap: 6px;
+        }
+        .timer-badge.visible { display: flex; }
+        .live-dot { width: 8px; height: 8px; background: var(--danger); border-radius: 50%; animation: pulse 1s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        @keyframes msgPop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+        /* --- IDLE STATE --- */
+        .idle-state {
+            text-align: center;
+            color: var(--text-muted);
+            z-index: 1;
+            position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            width: 30px; height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* --- TOAST --- */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--bg-panel); backdrop-filter: blur(10px); padding: 12px 20px; border-radius: 8px; border-left: 4px solid var(--primary); box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideIn 0.3s ease; color: white; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
+        
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            .class-sidebar { width: 100%; }
+            #localVideo { width: 120px; height: 90px; }
+            .wb-controls { width: 90%; flex-wrap: wrap; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="classroom-app">
+        <!-- Sidebar (Chat/Participants) -->
+        <aside class="class-sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span><i class="fas fa-comments"></i> Class Chat</span>
+                <button class="ctrl-btn" onclick="toggleSidebar()" style="width:32px; height:32px; font-size:0.9rem;"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="chat-area" id="chatArea">
+                <div class="chat-msg system">Welcome to the live session.</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Type a message..." onkeypress="handleChatKey(event)">
+                <button class="ctrl-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </aside>
+
+        <!-- Main Stage -->
+        <main class="stage-area" id="stageArea">
+            
+            <!-- Idle State -->
+            <div class="idle-state" id="idleState">
+                <div style="margin-top: 20px;">
+                    <div class="spinner" style="border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
+                </div>
+                <h2 id="idleText">Connecting to Session...</h2>
+            </div>
+
+            <!-- Whiteboard Overlay -->
+            <div id="whiteboard">
+                <div class="wb-controls" id="wbControls">
+                    <button class="wb-btn active" onclick="setWbTool('pen')"><i class="fas fa-pen"></i></button>
+                    <button class="wb-btn" onclick="setWbTool('eraser')"><i class="fas fa-eraser"></i></button>
+                    <input type="color" class="wb-color-picker" id="wbColor" value="#000000" onchange="setWbColor(this.value)">
+                    <button class="wb-btn" onclick="clearWb()"><i class="fas fa-trash"></i></button>
+                    <button class="wb-btn" onclick="toggleWhiteboard()" title="Close Whiteboard"><i class="fas fa-times"></i></button>
+                </div>
+                <canvas id="wbCanvas"></canvas>
+            </div>
+
+            <!-- Video Elements -->
+            <!-- Main Video: Shows Instructor for Students, or Self for Instructor -->
+            <video id="mainStageVideo" autoplay playsinline style="display:none;"></video>
+            
+            <!-- PIP: Shows Self for Students, or Students for Instructor -->
+            <video id="localVideo" autoplay muted playsinline style="display:none;"></video>
+
+            <!-- Timer -->
+            <div class="timer-badge" id="timerBadge">
+                <div class="live-dot"></div> <span id="timerDisplay">00:00</span>
+            </div>
+        </main>
+
+        <!-- Bottom Controls -->
+        <footer class="controls-bar" id="controlsBar" style="display:none;">
+            
+            <!-- INSTRUCTOR CONTROLS -->
+            <div id="instructorControls" style="display:none; gap: 10px;">
+                <button class="ctrl-btn" id="btnMic" onclick="toggleMic()"><i class="fas fa-microphone"></i></button>
+                <button class="ctrl-btn" id="btnCam" onclick="toggleCam()"><i class="fas fa-video"></i></button>
+                <button class="ctrl-btn" id="btnShare" onclick="toggleScreenShare()"><i class="fas fa-desktop"></i></button>
+                <button class="ctrl-btn" id="btnWb" onclick="toggleWhiteboard()"><i class="fas fa-pen-nib"></i></button>
+                <button class="ctrl-btn" id="btnChat" onclick="toggleSidebar()"><i class="fas fa-comment-alt"></i></button>
+                <button class="ctrl-btn btn-end" onclick="endClass()"><i class="fas fa-phone-slash"></i> End Class</button>
+            </div>
+
+            <!-- STUDENT CONTROLS -->
+            <div id="studentControls" style="display:none; gap: 10px;">
+                <button class="ctrl-btn" id="btnRaise" onclick="toggleHandRaise()"><i class="fas fa-hand-paper"></i></button>
+                <button class="ctrl-btn" id="btnChatStu" onclick="toggleSidebar()"><i class="fas fa-comment-alt"></i></button>
+                <button class="ctrl-btn btn-end" onclick="leaveClass()"><i class="fas fa-sign-out-alt"></i> Leave</button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // ============================
+        // 1. CONFIG & STATE
+        // ============================
+        const SERVER_URL = 'http://127.0.0.1:3000';
+        
+        // Get User from LocalStorage (Set in instructor/user.html)
+        let user = JSON.parse(localStorage.getItem('gliimu_user') || '{}');
+        if (!user.username) { 
+            alert("Access Denied. Please log in."); 
+            window.location.href = 'index.html';
+        }
+
+        const role = user.role; 
+        const name = user.name;
+
+        let peer = null;
+        let localStream = null;
+        let screenStream = null;
+        let call = null; // PeerJS call object
+        let peerId = null;
+        
+        let isMicOn = true;
+        let isCamOn = true;
+        let isHandRaised = false;
+        let isWbActive = false;
+        
+        let streamTimer = null;
+        let streamSeconds = 0;
+
+        // Whiteboard State
+        const canvas = document.getElementById('wbCanvas');
+        const ctx = canvas.getContext('2d');
+        let painting = false;
+        let wbTool = 'pen'; 
+        let wbColor = '#000000';
+
+        // ============================
+        // 2. INITIALIZATION
+        // ============================
+        document.addEventListener('DOMContentLoaded', () => {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Initialize Socket.IO
+            const socket = io(SERVER_URL);
+
+            // Route based on Role
+            if (role === 'Instructor') {
+                initInstructor(socket);
+            } else if (role === 'Student') {
+                initStudent(socket);
+            } else {
+                alert("Invalid Role detected.");
+                window.location.href = 'index.html';
+            }
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // ============================
+        // 3. INSTRUCTOR LOGIC
+        // ============================
+        async function initInstructor(socket) {
+            // UI Setup
+            document.getElementById('idleText').textContent = "Starting Broadcast...";
+            
+            try {
+                // 1. Get Media
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                
+                // Show own video in main stage initially
+                const mainVid = document.getElementById('mainStageVideo');
+                mainVid.srcObject = localStream;
+                mainVid.style.display = 'block';
+                
+                // 2. Init Peer
+                peer = new Peer(); 
+                
+                peer.on('open', (id) => {
+                    peerId = id;
+                    console.log('Instructor Peer ID:', id);
+                    
+                    // Notify Server that class is live
+                    socket.emit('class_started', { 
+                        peerId: id, 
+                        instructorName: name 
+                    });
+
+                    // UI Updates
+                    document.getElementById('idleState').style.display = 'none';
+                    document.getElementById('instructorControls').style.display = 'flex';
+                    document.getElementById('controlsBar').style.display = 'flex';
+                    startTimer();
+                    showToast('Class Started! Live to students.', 'success');
+                });
+
+                peer.on('call', (call) => {
+                    // A student is calling. We answer them.
+                    const currentStream = screenStream ? screenStream : localStream;
+                    call.answer(currentStream);
+                    
+                    // Listen for student's stream (their video)
+                    call.on('stream', (studentStream) => {
+                        showToast('Student Joined', 'info');
+                        // NOTE: In a full grid view, you would append this studentStream to a grid container.
+                        // For Mini Zoom simplicity, we can just log it or toggle PIP.
+                    });
+                    
+                    call.on('close', () => {
+                        showToast('Student Left', 'info');
+                    });
+                });
+
+                peer.on('error', (err) => {
+                    console.error(err);
+                    showToast('Connection error.', 'error');
+                });
+
+            } catch (err) {
+                console.error(err);
+                showToast('Could not access camera/mic.', 'error');
+                document.getElementById('idleText').textContent = "Camera Access Denied";
+            }
+        }
+
+        // ============================
+        // 4. STUDENT LOGIC (ROBUST)
+        // ============================
+        function initStudent(socket) {
+            document.getElementById('idleText').textContent = "Waiting for Instructor...";
+
+            // 1. Wait for Class Started Signal
+            socket.on('classroom_live', async (data) => {
+                console.log("Classroom Live Event Received:", data);
+                
+                if (!data.peerId) {
+                    console.error("No PeerID received from server.");
+                    showToast("Connection Error: Instructor ID missing", "error");
+                    return;
+                }
+
+                // Hide Idle State
+                document.getElementById('idleState').style.display = 'none';
+                document.getElementById('mainStageVideo').style.display = 'block';
+                
+                // Initialize Peer for Student
+                // We use a unique ID based on username to avoid conflicts
+                peer = new Peer(`student_${user.username}_${Date.now()}`); 
+                
+                peer.on('open', (id) => {
+                    console.log('Student Peer ID:', id);
+                    
+                    // --- CRITICAL FIX: Call Instructor ---
+                    // We pass 'null' as the second argument because we are NOT sending our video (listen-only mode)
+                    const call = peer.call(data.peerId, null);
+                    
+                    if (!call) {
+                        showToast("Failed to connect to Instructor.", "error");
+                        return;
+                    }
+
+                    // Handle Incoming Stream
+                    call.on('stream', (instructorStream) => {
+                        console.log("Stream received", instructorStream);
+                        
+                        const vid = document.getElementById('mainStageVideo');
+                        
+                        // 1. Validate Stream has Video
+                        if (instructorStream && instructorStream.getVideoTracks().length > 0) {
+                            vid.srcObject = instructorStream;
+                            
+                            // 2. Force Play (Fixes Black Screen due to Autoplay Policy)
+                            vid.play().then(() => {
+                                showToast(`Connected to ${data.instructorName}`, 'success');
+                                startTimer();
+                            }).catch(err => {
+                                console.error("Autoplay blocked:", err);
+                                showToast("Video paused. Click screen to start.", "info");
+                                // Visual cue for user to click
+                                vid.style.opacity = "0.5";
+                                vid.onclick = () => {
+                                    vid.play();
+                                    vid.style.opacity = "1";
+                                    vid.onclick = null;
+                                };
+                            });
+                        } else {
+                            showToast("Instructor has no video signal.", "error");
+                        }
+                    });
+
+                    // Handle Errors
+                    call.on('error', (err) => {
+                        console.error("Call Error:", err);
+                        showToast("Connection Error: " + err.type, "error");
+                        // Revert UI
+                        document.getElementById('idleState').style.display = 'flex';
+                    });
+
+                    // Handle Disconnect
+                    call.on('close', () => {
+                        console.log("Instructor disconnected");
+                        showToast("Instructor ended the class", "info");
+                        setTimeout(() => window.location.href = 'user.html', 2000);
+                    });
+                });
+
+                // Handle Peer Initialization Errors
+                peer.on('error', (err) => {
+                    console.error("PeerJS Error:", err);
+                    showToast("Network Error. Check Internet Connection.", "error");
+                });
+            });
+
+            // Listen for Hand Raise confirmations
+            socket.on('student_raised_hand', (data) => {
+                if (data.name === user.name) {
+                    showToast("Instructor acknowledged your hand raise", "success");
+                }
+            });
+        }
+
+        // ============================
+        // 5. CONTROLS (TOGGLES)
+        // ============================
+        function activateClassroomUI() {
+            document.getElementById('idleState').style.display = 'none';
+            document.getElementById('controlsBar').style.display = 'flex';
+            document.getElementById('timerBadge').classList.add('visible');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+
+        // Mic Toggle
+        function toggleMic() {
+            if(localStream) {
+                isMicOn = !isMicOn;
+                localStream.getAudioTracks()[0].enabled = isMicOn;
+                const btn = document.getElementById('btnMic');
+                btn.innerHTML = isMicOn ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+                btn.classList.toggle('off', !isMicOn);
+            }
+        }
+
+        // Cam Toggle
+        function toggleCam() {
+            if(localStream) {
+                isCamOn = !isCamOn;
+                localStream.getVideoTracks()[0].enabled = isCamOn;
+                const btn = document.getElementById('btnCam');
+                btn.innerHTML = isCamOn ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+                btn.classList.toggle('off', !isCamOn);
+            }
+        }
+
+        // Screen Share (Instructor Only)
+        async function toggleScreenShare() {
+            const btn = document.getElementById('btnShare');
+            const mainVid = document.getElementById('mainStageVideo');
+            const pipVid = document.getElementById('localVideo');
+
+            try {
+                if (!screenStream) {
+                    // Start Sharing
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ cursor: true });
+                    const videoTrack = screenStream.getVideoTracks()[0];
+                    
+                    // 1. Update Local UI (Show Screen in Main, Camera in PIP)
+                    mainVid.srcObject = screenStream;
+                    pipVid.srcObject = localStream;
+                    pipVid.style.display = 'block'; 
+
+                    videoTrack.onended = () => toggleScreenShare(); 
+                    
+                    btn.classList.add('active');
+                    showToast('Screen sharing started', 'success');
+                } else {
+                    // Stop Sharing
+                    screenStream.getTracks().forEach(track => track.stop());
+                    screenStream = null;
+                    
+                    // Revert UI
+                    mainVid.srcObject = localStream;
+                    pipVid.style.display = 'none';
+
+                    btn.classList.remove('active');
+                    showToast('Screen sharing stopped', 'info');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Screen share cancelled', 'error');
+            }
+        }
+
+        // Hand Raise (Student Only)
+        function toggleHandRaise() {
+            if(!peer) return;
+            const btn = document.getElementById('btnRaise');
+            isHandRaised = !isHandRaised;
+            
+            // UI Visual
+            if(isHandRaised) {
+                btn.classList.add('hand-raised');
+                showToast('Hand Raised', 'info');
+            } else {
+                btn.classList.remove('hand-raised');
+            }
+
+            // Socket Emit
+            const socket = io(SERVER_URL);
+            if(isHandRaised) {
+                socket.emit('raise_hand', { name: user.name });
+            } else {
+                socket.emit('lower_hand', { name: user.name });
+            }
+        }
+
+        // ============================
+        // 6. WHITEBOARD LOGIC
+        // ============================
+        function toggleWhiteboard() {
+            const wb = document.getElementById('whiteboard');
+            isWbActive = !isWbActive;
+            if (isWbActive) {
+                wb.classList.add('active');
+                document.getElementById('wbControls').style.display = 'flex';
+                showToast('Whiteboard Active', 'info');
+            } else {
+                wb.classList.remove('active');
+                document.getElementById('wbControls').style.display = 'none';
+            }
+        }
+
+        function setupCanvasEvents() {
+            canvas.addEventListener('mousedown', startPosition);
+            canvas.addEventListener('mouseup', finishedPosition);
+            canvas.addEventListener('mousemove', draw);
+            // Touch support...
+        }
+        setupCanvasEvents();
+
+        function startPosition(e) { painting = true; draw(e); }
+        function finishedPosition() { painting = false; ctx.beginPath(); }
+
+        function draw(e) {
+            if (!painting || !isWbActive) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || e.touches[0].clientX) - rect.left;
+            const y = (e.clientY || e.touches[0].clientY) - rect.top;
+            
+            drawOnCanvas(x, y, true, wbColor, wbTool);
+            
+            // Emit to socket
+            const socket = io(SERVER_URL);
+            socket.emit('whiteboard_draw', { x, y, isDown: true, color: wbColor, tool: wbTool });
+        }
+
+        function drawOnCanvas(x, y, isDown, color, tool) {
+            if (!isDown) return;
+            ctx.lineWidth = tool === 'eraser' ? 20 : 3;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // Listen for remote draw events
+        const socket = io(SERVER_URL);
+        socket.on('whiteboard_draw_received', (data) => drawOnCanvas(data.x, data.y, data.isDown, data.color, data.tool));
+        socket.on('whiteboard_clear_received', () => ctx.clearRect(0, 0, canvas.width, canvas.height));
+
+        function clearWb() { 
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            socket.emit('whiteboard_clear'); 
+        }
+        function setWbTool(tool) { wbTool = tool; }
+        function setWbColor(color) { wbColor = color; }
+
+        // ============================
+        // 7. CHAT LOGIC
+        // ============================
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const msgData = {
+                sender: user.username,
+                name: user.name,
+                text: text,
+                role: user.role,
+                time: new Date().toLocaleTimeString()
+            };
+
+            // Emit via SocketIO
+            socket.emit('classroom_message', msgData);
+            
+            // Add locally
+            appendChat(user.name, text, user.role === 'Instructor' ? 'instructor' : 'student');
+            input.value = '';
+        }
+
+        socket.on('classroom_message_received', (data) => {
+            if (data.sender !== user.username) {
+                const type = data.role === 'Instructor' ? 'instructor' : 'student';
+                appendChat(data.name, data.text, type);
+            }
+        });
+
+        function appendChat(name, text, type) {
+            const area = document.getElementById('chatArea');
+            const div = document.createElement('div');
+            div.className = `chat-msg ${type}`;
+            div.innerHTML = `<span class="sender">${name}</span>${text}`;
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function handleChatKey(e) { if (e.key === 'Enter') sendMessage(); }
+
+        // ============================
+        // 8. UTILS (Timer, Toast, etc)
+        // ============================
+        function startTimer() {
+            streamSeconds = 0;
+            updateTimerDisplay();
+            streamTimer = setInterval(() => {
+                streamSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(streamSeconds / 60).toString().padStart(2, '0');
+            const s = (streamSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+        }
+
+        function endClass() {
+            if(confirm("End class for all students?")) {
+                if (localStream) localStream.getTracks().forEach(t => t.stop());
+                if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+                if (peer) peer.destroy();
+                window.location.href = 'instructor.html';
+            }
+        }
+
+        function leaveClass() {
+            if(confirm("Leave the live class?")) {
+                if (localStream) localStream.getTracks().forEach(t => t.stop());
+                if (peer) peer.destroy();
+                window.location.href = 'user.html';
+            }
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.borderLeftColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#4f46e5';
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i> ${msg}`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+    </script>
+</body>
+</html>

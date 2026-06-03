@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAQs – Gliimu Institute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Find answers to frequently asked questions about admissions, tuition, learning structure, and accreditation at Gliimu Institute of Media Technologies.">
+  
+  <link rel="icon" type="image/png" href="icons/logo2.png">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- External CSS Files -->
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/faq.css">
+</head>
+<body>
+
+  <!-- Header Placeholder -->
+  <div id="header-placeholder"></div>
+
+  <!-- FAQ Section -->
+  <section class="faq-section">
+    <div class="container">
+      
+      <!-- Hero -->
+      <div class="faq-hero">
+        <h1>Frequently Asked Questions</h1>
+        <p>Find answers to common questions about admissions, tuition, and more.</p>
+      </div>
+      
+      <!-- Search Box -->
+      <div class="faq-search">
+        <i class="fas fa-search"></i>
+        <input type="text" id="faqSearchInput" placeholder="Search for answers...">
+      </div>
+      
+      <!-- Results Count -->
+      <div class="search-results-count" id="resultsCount"></div>
+      
+      <!-- Categories Navigation -->
+      <div class="categories-nav" id="categoriesNav"></div>
+      
+      <!-- FAQ Container -->
+      <div class="faq-container" id="faqContainer">
+        <!-- FAQs will be loaded here dynamically -->
+        <div class="no-results">
+          <i class="fas fa-spinner fa-spin"></i>
+          <h3>Loading FAQs...</h3>
+        </div>
+      </div>
+      
+      <!-- Still Have Questions -->
+      <div class="still-questions">
+        <h3>Still have questions?</h3>
+        <p>Can't find the answer you're looking for? We're here to help.</p>
+        <a href="contact.html" class="contact-link">
+          <i class="fas fa-envelope"></i> Contact Us
+        </a>
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- Footer Placeholder -->
+  <div id="footer-placeholder"></div>
+
+  <!-- Login Modal Placeholder -->
+  <div id="login-modal-placeholder"></div>
+
+  <!-- JS Files -->
+  <script src="js/pages/header.js"></script>
+  <script src="js/pages/faq.js"></script>
+
+  <!-- Load Partials -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('header-placeholder')) {
+        Promise.all([
+          fetch('partials/header.html').then(r => r.text()),
+          fetch('partials/footer.html').then(r => r.text()),
+          fetch('partials/login-modal.html').then(r => r.text())
+        ]).then(results => {
+          document.getElementById('header-placeholder').innerHTML = results[0];
+          document.getElementById('footer-placeholder').innerHTML = results[1];
+          document.getElementById('login-modal-placeholder').innerHTML = results[2];
+          console.log('Partials loaded');
+        }).catch(err => console.error('Failed to load partials:', err));
+      }
+    });
+  </script>
+</body>
+</html>

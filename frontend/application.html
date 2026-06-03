@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Application – Gliimu Institute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Apply to Gliimu Institute of Media Technologies. Start your journey in media, design, or technology today.">
+  
+  <link rel="icon" type="image/png" href="icons/logo2.png">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- External CSS Files -->
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/application.css">
+</head>
+<body>
+
+  <!-- Header Placeholder -->
+  <div id="header-placeholder"></div>
+
+  <!-- Main Content -->
+  <section class="admission-section">
+    <div class="container">
+      <div class="admission-grid">
+        
+        <!-- Form Card -->
+        <div class="form-card">
+          
+          <!-- Progress Bar -->
+          <div class="progress-bar">
+            <div class="step-item active" id="step-nav-1">
+              <div class="step-circle">1</div>
+              <span>Apply as</span>
+            </div>
+            <div class="step-item" id="step-nav-2">
+              <div class="step-circle">2</div>
+              <span>Details</span>
+            </div>
+            <div class="step-item" id="step-nav-3">
+              <div class="step-circle">3</div>
+              <span>Review</span>
+            </div>
+          </div>
+          
+          <form id="applicationForm">
+            <div class="form-body">
+              
+              <!-- STEP 1: Application Type -->
+              <div class="form-step active" id="step-1">
+                <h2 class="section-title">Application Type</h2>
+                <p class="section-desc">Tell us how you want to be part of Gliimu.</p>
+                
+                <div class="form-group">
+                  <label>I am applying as *</label>
+                  <select class="input-field" id="applicationType" required>
+                    <option value="" disabled selected>-- Select Type --</option>
+                    <option value="Student">🎓 Student (Diploma Program)</option>
+                    <option value="Instructor">👨‍🏫 Instructor (Teach Courses)</option>
+                    <option value="Others">🤝 Partner / Vendor / Other</option>
+                  </select>
+                  
+                  <br><br>
+                  <label id="trackLabel">Additional Selection *</label>
+                  <div id="track-options-container">
+                    <select class="input-field disabled-input" name="track" id="modeSelect" disabled>
+                      <option value="" disabled selected>Please select an application type first</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-actions">
+                  <button type="button" class="btn btn-primary" onclick="nextStep()">
+                    Continue <i class="fas fa-arrow-right"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <!-- STEP 2: Personal Details -->
+              <div class="form-step" id="step-2">
+                <h2 class="section-title">Personal Information</h2>
+                <p class="section-desc">Please fill in your details accurately.</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>First Name *</label>
+                    <input type="text" class="input-field" id="firstName" placeholder="John" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Last Name *</label>
+                    <input type="text" class="input-field" id="lastName" placeholder="Doe" required>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" class="input-field" id="email" placeholder="you@example.com" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Phone Number *</label>
+                    <input type="tel" class="input-field" id="phone" placeholder="+234 800 000 0000" required>
+                  </div>
+                </div>
+                
+                <div class="form-actions">
+                  <button type="button" class="btn btn-secondary" onclick="prevStep()">
+                    <i class="fas fa-arrow-left"></i> Back
+                  </button>
+                  <button type="button" class="btn btn-primary" onclick="nextStep()">
+                    Continue <i class="fas fa-arrow-right"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <!-- STEP 3: Motivation & Terms -->
+              <div class="form-step" id="step-3">
+                <h2 class="section-title">Final Details</h2>
+                <p class="section-desc">Tell us about your interest in Gliimu.</p>
+                
+                <div class="form-group">
+                  <label>What do you hope to achieve at Gliimu? *</label>
+                  <textarea class="input-field" name="motivation" placeholder="Share your goals and expectations..." rows="3" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                  <label>How did you hear about us? *</label>
+                  <select class="input-field" name="source" required>
+                    <option value="" disabled selected>-- Select an option --</option>
+                    <option value="friend">A Friend</option>
+                    <option value="social_media">Social Media</option>
+                    <option value="recommendation">Recommendation</option>
+                    <option value="advertisement">Advertisement</option>
+                    <option value="others">Others</option>
+                  </select>
+                </div>
+                
+                <!-- Referral Code (Optional) -->
+                <div class="form-group" id="referralSection" style="display: none;">
+                  <label>Referral Code (Optional)</label>
+                  <input type="text" class="input-field" id="referralCode" placeholder="e.g. GLI-REF-XXXX">
+                  <p class="terms-box" style="margin-top: 8px; font-size: 0.75rem;">
+                    <i class="fas fa-gift"></i> Have a referral code? Enter it above to earn rewards!
+                  </p>
+                </div>
+                
+                <!-- Terms & Conditions -->
+                <div class="form-group">
+                  <label class="checkbox-container">
+                    <input type="checkbox" id="termsCheckbox" required>
+                    <span class="checkmark"></span>
+                    I agree to the <a href="policy.html" target="_blank">Terms & Conditions</a> and 
+                    <a href="policy.html" target="_blank">Privacy Policy</a>
+                  </label>
+                </div>
+                
+                <div class="terms-box">
+                  <p><i class="fas fa-shield-alt"></i> <strong>One application per person.</strong> Your device will be recorded to prevent duplicate submissions.</p>
+                </div>
+                
+                <div class="form-actions">
+                  <button type="button" class="btn btn-secondary" onclick="prevStep()">
+                    <i class="fas fa-arrow-left"></i> Back
+                  </button>
+                  <button type="button" class="btn btn-primary" id="submitBtn" onclick="submitApplication()">
+                    Submit Application <i class="fas fa-check"></i>
+                  </button>
+                </div>
+              </div>
+              
+            </div>
+          </form>
+        </div>
+        
+        <!-- Sidebar Info -->
+        <aside class="info-sidebar">
+          <div class="info-card">
+            <h3><i class="fas fa-info-circle"></i> What happens next?</h3>
+            <ul class="info-list">
+              <li><i class="fas fa-check-circle"></i> Submit your application (free)</li>
+              <li><i class="fas fa-envelope"></i> Receive your credentials instantly</li>
+              <li><i class="fas fa-sign-in-alt"></i> Login to your dashboard</li>
+              <li><i class="fas fa-clock"></i> Start within 48 hours</li>
+            </ul>
+          </div>
+          
+          <div class="info-card">
+            <h3><i class="fas fa-question-circle"></i> Need Help?</h3>
+            <ul class="info-list">
+              <li><i class="fas fa-link"></i> <a href="faq.html">gliimu.com/faq</a></li>
+              <li><i class="fas fa-phone"></i> +234 (0) 705 8929 080</li>
+              <li><i class="fas fa-map-marker-alt"></i> Gwarinpa, Abuja</li>
+            </ul>
+          </div>
+        </aside>
+        
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer Placeholder -->
+  <div id="footer-placeholder"></div>
+
+  <!-- Login Modal Placeholder -->
+  <div id="login-modal-placeholder"></div>
+
+  <!-- Success Modal -->
+  <div class="modal-overlay" id="successModal">
+    <div class="modal-content">
+      <div class="modal-icon">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <h3 class="modal-title">Application Submitted!</h3>
+      <p class="modal-text">
+        Your application has been received. Please save your credentials below.
+        <br><br>
+        <strong>Username:</strong><br>
+        <div class="credential-box" id="generatedUsername">--</div>
+        <br>
+        <strong>PassCode (ID):</strong><br>
+        <div class="credential-box" id="generatedPasscode">--</div>
+        <br>
+        <small>Use these to sign in to your dashboard.</small>
+      </p>
+      <button class="modal-btn" onclick="closeSuccessModal()">Got it</button>
+    </div>
+  </div>
+
+  <!-- JS Files -->
+  <script src="js/pages/header.js"></script>
+  <script src="js/pages/application.js"></script>
+
+  <!-- Load Partials -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('header-placeholder')) {
+        Promise.all([
+          fetch('partials/header.html').then(r => r.text()),
+          fetch('partials/footer.html').then(r => r.text()),
+          fetch('partials/login-modal.html').then(r => r.text())
+        ]).then(results => {
+          document.getElementById('header-placeholder').innerHTML = results[0];
+          document.getElementById('footer-placeholder').innerHTML = results[1];
+          document.getElementById('login-modal-placeholder').innerHTML = results[2];
+          console.log('Partials loaded');
+        }).catch(err => console.error('Failed to load partials:', err));
+      }
+    });
+  </script>
+</body>
+</html>

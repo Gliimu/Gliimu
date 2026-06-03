@@ -1,0 +1,613 @@
+/* =========================================
+   VIRTUAL ROOM - Live Classroom Styles
+   ========================================= */
+
+.virtual-room {
+  margin-top: 72px;
+  height: calc(100vh - 72px);
+  background: #0a0a14;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* =========================================
+   TOP BAR
+   ========================================= */
+.room-top-bar {
+  background: rgba(15, 15, 26, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.room-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.room-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.room-status.live {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.5s infinite;
+}
+
+.room-timer {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+.room-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.room-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 30px;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.room-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.room-btn.danger {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.room-btn.danger:hover {
+  background: #dc2626;
+}
+
+/* =========================================
+   MAIN CONTENT
+   ========================================= */
+.room-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Video Grid */
+.video-grid {
+  flex: 1;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  overflow-y: auto;
+  background: #0a0a14;
+}
+
+.video-card {
+  background: #1a1a2a;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border: 2px solid transparent;
+  transition: all 0.3s;
+}
+
+.video-card.active-speaker {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(251, 176, 64, 0.3);
+}
+
+.video-card video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-card .video-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2a2a3a, #1a1a2a);
+  color: white;
+  font-size: 2rem;
+}
+
+.video-label {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.video-label i {
+  font-size: 0.6rem;
+}
+
+.video-label.teacher {
+  background: var(--accent);
+  color: #111;
+}
+
+.hand-raised-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--warning);
+  color: #111;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: bounce 0.5s ease;
+}
+
+/* Featured Video (Teacher) */
+.video-card.featured {
+  grid-column: span 2;
+  grid-row: span 1;
+}
+
+/* =========================================
+   SIDEBAR (Chat & Participants)
+   ========================================= */
+.room-sidebar {
+  width: 320px;
+  background: rgba(20, 20, 30, 0.95);
+  backdrop-filter: blur(10px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-tab {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-tab.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+/* Chat Messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-message {
+  display: flex;
+  gap: 10px;
+  animation: fadeInUp 0.2s ease;
+}
+
+.chat-message.self {
+  flex-direction: row-reverse;
+}
+
+.chat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.chat-bubble {
+  max-width: 80%;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 8px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.chat-message.self .chat-bubble {
+  background: var(--accent);
+  color: #111;
+}
+
+.chat-sender {
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+
+.chat-time {
+  font-size: 0.6rem;
+  opacity: 0.5;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* Participants List */
+.participants-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.participant-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.participant-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.participant-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.participant-info {
+  flex: 1;
+}
+
+.participant-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: white;
+}
+
+.participant-role {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.participant-hand {
+  color: var(--warning);
+  animation: wave 1s infinite;
+}
+
+/* Chat Input */
+.chat-input-area {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 30px;
+  padding: 10px 16px;
+  color: white;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.chat-input:focus {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.chat-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  color: #111;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chat-send-btn:hover {
+  transform: scale(1.05);
+}
+
+/* =========================================
+   CONTROLS BAR
+   ========================================= */
+.controls-bar {
+  background: rgba(15, 15, 26, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.control-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.control-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.control-btn.active {
+  background: var(--primary);
+  color: white;
+}
+
+body.dark-mode .control-btn.active {
+  background: var(--accent);
+  color: #111;
+}
+
+.control-btn.off {
+  background: var(--danger);
+}
+
+.control-btn.end-call {
+  background: var(--danger);
+  width: auto;
+  padding: 0 20px;
+  border-radius: 30px;
+  gap: 8px;
+}
+
+.control-btn.end-call:hover {
+  background: #dc2626;
+}
+
+/* Whiteboard Overlay */
+.whiteboard-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  z-index: 200;
+  display: none;
+  flex-direction: column;
+}
+
+.whiteboard-overlay.active {
+  display: flex;
+}
+
+.whiteboard-toolbar {
+  background: #2c2f78;
+  padding: 12px 20px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.wb-tool {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wb-tool.active {
+  background: var(--accent);
+  color: #111;
+}
+
+.wb-color {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px solid white;
+  cursor: pointer;
+}
+
+#wbCanvas {
+  flex: 1;
+  cursor: crosshair;
+}
+
+/* =========================================
+   IDLE / WAITING STATE
+   ========================================= */
+.waiting-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: white;
+  z-index: 10;
+}
+
+.waiting-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+.waiting-state h3 {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+}
+
+.waiting-state p {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .room-sidebar {
+    position: fixed;
+    right: -320px;
+    top: 72px;
+    height: calc(100vh - 72px);
+    z-index: 50;
+  }
+  
+  .room-sidebar.open {
+    right: 0;
+  }
+  
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .video-card.featured {
+    grid-column: span 1;
+  }
+  
+  .control-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  
+  .control-btn.end-call {
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .room-top-bar {
+    padding: 10px 16px;
+  }
+  
+  .room-title {
+    font-size: 0.9rem;
+  }
+  
+  .room-btn span {
+    display: none;
+  }
+  
+  .room-btn {
+    padding: 8px 12px;
+  }
+  
+  .controls-bar {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  
+  .control-btn {
+    width: 36px;
+    height: 36px;
+  }
+}

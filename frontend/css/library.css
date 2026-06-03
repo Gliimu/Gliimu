@@ -1,0 +1,368 @@
+/* =========================================
+   LIBRARY PAGE STYLES
+   ========================================= */
+
+/* Hero Section */
+.library-hero {
+  padding: 140px 0 60px;
+  background: radial-gradient(circle at top left, #1d1f5a, #050515);
+  color: var(--white);
+  position: relative;
+  overflow: hidden;
+}
+
+.library-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.1;
+  z-index: 0;
+}
+
+.library-hero-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.library-hero h1 {
+  font-size: 2.8rem;
+  font-weight: 750;
+  margin-bottom: 16px;
+}
+
+.library-hero p {
+  font-size: 1.05rem;
+  opacity: 0.9;
+  margin-bottom: 30px;
+}
+
+/* Search Box */
+.search-box-large {
+  background: var(--white);
+  border-radius: 60px;
+  padding: 8px 8px 8px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 500px;
+  margin: 0 auto;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+}
+
+.search-box-large:focus-within {
+  border-color: var(--accent);
+}
+
+.search-box-large input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  background: transparent;
+  color: #000;
+}
+
+.search-box-large button {
+  background: var(--accent);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  color: #111;
+}
+
+.search-box-large button:hover {
+  background: #cc8a2a;
+}
+
+/* Materials Section */
+.materials-section {
+  padding: 60px 0;
+  position: relative;
+  background: var(--bg-body);
+}
+
+.section-header {
+  margin-bottom: 40px;
+}
+
+.section-header h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.section-header p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* Masonry Grid */
+.pinterest-grid {
+  column-count: 4;
+  column-gap: 24px;
+}
+
+/* Grid Items */
+.grid-item {
+  break-inside: avoid;
+  margin-bottom: 24px;
+  background: var(--bg-card);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.grid-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Book Card */
+.item-book .card-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 2.5;
+  background-size: cover;
+  background-position: center;
+  background-color: #f0f0f0;
+  transition: transform 0.4s ease;
+}
+
+.item-book:hover .card-cover {
+  transform: scale(1.03);
+}
+
+/* Price Tag */
+.price-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  z-index: 2;
+  letter-spacing: 0.5px;
+}
+
+body.dark-mode .price-tag {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Bundle Card */
+.item-bundle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-section-alt) 100%);
+  border-left: 4px solid var(--accent);
+}
+
+.item-bundle .bundle-content {
+  flex: 1;
+}
+
+.item-bundle .bundle-title {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 6px;
+  color: var(--text-main);
+}
+
+.item-bundle .bundle-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.price-btn {
+  background: var(--accent);
+  border: none;
+  padding: 10px 18px;
+  border-radius: 30px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #111;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.price-btn:hover {
+  background: #cc8a2a;
+  transform: scale(1.05);
+}
+
+/* Card Info */
+.card-info {
+  padding: 16px;
+}
+
+.card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+.card-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  grid-column: 1 / -1;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+  color: var(--text-main);
+}
+
+/* Ripple Effect Background */
+.ripple-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.ripple-bg::before,
+.ripple-bg::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(251, 176, 64, 0.08) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  animation: ripple-pulse 8s ease-in-out infinite;
+}
+
+.ripple-bg::after {
+  animation-delay: -4s;
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(circle, rgba(44, 47, 120, 0.08) 0%, transparent 70%);
+}
+
+body.dark-mode .ripple-bg::before {
+  background: radial-gradient(circle, rgba(251, 176, 64, 0.05) 0%, transparent 70%);
+}
+
+body.dark-mode .ripple-bg::after {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+}
+
+@keyframes ripple-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.5;
+  }
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .pinterest-grid {
+    column-count: 3;
+  }
+}
+
+@media (max-width: 900px) {
+  .library-hero h1 {
+    font-size: 2rem;
+  }
+  
+  .library-hero {
+    padding: 110px 0 50px;
+  }
+  
+  .pinterest-grid {
+    column-count: 2;
+  }
+  
+  .search-box-large {
+    padding: 6px 6px 6px 18px;
+  }
+  
+  .search-box-large input {
+    font-size: 0.9rem;
+  }
+  
+  .search-box-large button {
+    padding: 10px 18px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .pinterest-grid {
+    column-count: 1;
+  }
+  
+  .library-hero h1 {
+    font-size: 1.6rem;
+  }
+  
+  .library-hero p {
+    font-size: 0.9rem;
+  }
+  
+  .section-header h2 {
+    font-size: 1.4rem;
+  }
+  
+  .item-bundle {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .price-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Diploma in Full-Stack Media Production – Gliimu Institute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Become a Digital Architect. The only T-Shaped Diploma combining Media, Design, and Code. Master the full production pipeline in 12 months.">
+  
+  <link rel="icon" type="image/png" href="icons/logo2.png">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- External CSS Files -->
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/course.css">
+</head>
+<body>
+
+  <!-- Header Placeholder -->
+  <div id="header-placeholder"></div>
+
+  <!-- Course Page -->
+  <div class="course-page">
+    
+    <!-- Hero Section -->
+    <section class="course-hero">
+      <div class="container">
+        <div class="course-hero-content">
+          <div class="course-badge">🎓 Advanced Diploma</div>
+          <h1>Full-Stack Media Production</h1>
+          <p>Master the complete creative pipeline — from concept to code, design to deployment.</p>
+          
+          <div class="course-stats">
+            <div class="stat-item">
+              <span class="stat-number">12</span>
+              <span class="stat-label">Months</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number">4</span>
+              <span class="stat-label">Phases</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number">15+</span>
+              <span class="stat-label">Modules</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number">2</span>
+              <span class="stat-label">Tracks</span>
+            </div>
+          </div>
+          
+          <div class="course-actions">
+            <a href="application.html" class="btn btn-primary btn-large">Apply Now <i class="fas fa-arrow-right"></i></a>
+            <button class="btn btn-outline-light btn-large" id="downloadBrochure">
+              <i class="fas fa-download"></i> Download Brochure
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Overview Section -->
+    <section class="overview-section">
+      <div class="container">
+        <div class="overview-grid">
+          <div class="overview-content">
+            <h2>Become a Digital Architect</h2>
+            <p>Traditional education teaches you ONE skill. We teach you the ENTIRE pipeline. Our diploma merges <strong>Content Creation, Design Management, and Advanced Computing</strong> into a unified curriculum.</p>
+            <p>You'll graduate as a <strong>Media Architect</strong> — someone who can conceive an idea, design the visual experience, AND build the technology that powers it.</p>
+            <ul class="feature-list">
+              <li><i class="fas fa-check-circle"></i> Industry-recognized certification</li>
+              <li><i class="fas fa-check-circle"></i> Real-world client projects</li>
+              <li><i class="fas fa-check-circle"></i> Portfolio development</li>
+              <li><i class="fas fa-check-circle"></i> Job placement assistance</li>
+            </ul>
+          </div>
+          <div class="overview-image">
+            <img src="photos/ads4.jpg" alt="Students working on media production">
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Curriculum Section -->
+    <section class="curriculum-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Curriculum Structure</h2>
+          <p>A progressive learning journey designed to build expertise step by step.</p>
+        </div>
+        <div class="curriculum-timeline" id="curriculumContainer">
+          <!-- Curriculum will be loaded here -->
+        </div>
+      </div>
+    </section>
+    
+    <!-- Tracks Section -->
+    <section class="tracks-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Choose Your Path</h2>
+          <p>Specialize in what you love while maintaining a T-shaped skillset.</p>
+        </div>
+        <div class="tracks-grid">
+          
+          <!-- Creative Media Track -->
+          <div class="track-card">
+            <div class="track-icon">
+              <i class="fas fa-palette"></i>
+            </div>
+            <h3>Creative Media Track</h3>
+            <p>Master visual storytelling, design, and content creation.</p>
+            <ul class="track-features">
+              <li><i class="fas fa-video"></i> Video Production & Editing</li>
+              <li><i class="fas fa-paint-brush"></i> Motion Graphics & VFX</li>
+              <li><i class="fas fa-draw-polygon"></i> UI/UX Design</li>
+              <li><i class="fas fa-chart-line"></i> Brand Strategy</li>
+            </ul>
+            <button class="track-btn" onclick="selectTrack('creative')">Select Track</button>
+          </div>
+          
+          <!-- Tech Track -->
+          <div class="track-card">
+            <div class="track-icon">
+              <i class="fas fa-code"></i>
+            </div>
+            <h3>Tech Track</h3>
+            <p>Build robust applications and digital platforms.</p>
+            <ul class="track-features">
+              <li><i class="fab fa-html5"></i> Frontend Development</li>
+              <li><i class="fab fa-js"></i> Backend & APIs</li>
+              <li><i class="fas fa-cloud"></i> Cloud Computing</li>
+              <li><i class="fas fa-database"></i> Database Management</li>
+            </ul>
+            <button class="track-btn" onclick="selectTrack('tech')">Select Track</button>
+          </div>
+          
+        </div>
+      </div>
+    </section>
+    
+    <!-- Instructors Section -->
+    <section class="instructors-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Meet Your Instructors</h2>
+          <p>Learn from industry professionals with real-world experience.</p>
+        </div>
+        <div class="instructors-grid">
+          
+          <div class="instructor-card">
+            <img src="photos/jerry.jpeg" alt="Jeremiah Iyo" class="instructor-avatar" onerror="this.src='https://ui-avatars.com/api/?name=Jeremiah+Iyo&background=2c2f78&color=fff'">
+            <h3 class="instructor-name">Jeremiah Iyo</h3>
+            <div class="instructor-role">Academic Director / Cinematography</div>
+            <p class="instructor-bio">Documentary filmmaker with 5+ years of experience in camera operation and visual storytelling.</p>
+          </div>
+          
+          <div class="instructor-card">
+            <img src="photos/adam.png" alt="Adam Kshel" class="instructor-avatar" onerror="this.src='https://ui-avatars.com/api/?name=Adam+Kshel&background=2c2f78&color=fff'">
+            <h3 class="instructor-name">Adam Kshel</h3>
+            <div class="instructor-role">Web Development / UI/UX</div>
+            <p class="instructor-bio">Frontend specialist focusing on creating intuitive user experiences and modern web applications.</p>
+          </div>
+          
+          <div class="instructor-card">
+            <img src="photos/finiks.jpg" alt="Finiks Kshel" class="instructor-avatar" onerror="this.src='https://ui-avatars.com/api/?name=Finiks+Kshel&background=2c2f78&color=fff'">
+            <h3 class="instructor-name">Finiks Kshel</h3>
+            <div class="instructor-role">Audio Production</div>
+            <p class="instructor-bio">Music producer and sound engineer with expertise in studio recording and live sound.</p>
+          </div>
+          
+        </div>
+      </div>
+    </section>
+    
+    <!-- Pricing Section -->
+    <section class="pricing-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Investment & Payment Plans</h2>
+          <p>Flexible options to fit your budget.</p>
+        </div>
+        <div class="pricing-grid">
+          
+          <!-- One-Time Payment -->
+          <div class="pricing-card">
+            <div class="pricing-title">One-Time Payment</div>
+            <div class="pricing-price">₦250,000 <span>/ one-time</span></div>
+            <ul class="pricing-features">
+              <li><i class="fas fa-check"></i> Full 12-month access</li>
+              <li><i class="fas fa-check"></i> 10% Early Bird Discount</li>
+              <li><i class="fas fa-check"></i> Library Pass</li>
+              <li><i class="fas fa-check"></i> Certificate Included</li>
+            </ul>
+            <button class="pricing-btn" onclick="selectPlan('one-time')">Enroll Now</button>
+          </div>
+          
+          <!-- Installment Payment (Featured) -->
+          <div class="pricing-card featured">
+            <div class="pricing-title">Installment Plan</div>
+            <div class="pricing-price">₦90,000 <span>/ first payment</span></div>
+            <ul class="pricing-features">
+              <li><i class="fas fa-check"></i> 3 Easy Payments</li>
+              <li><i class="fas fa-check"></i> 0% Interest</li>
+              <li><i class="fas fa-check"></i> Full Access from Day 1</li>
+              <li><i class="fas fa-check"></i> Certificate Included</li>
+            </ul>
+            <button class="pricing-btn" onclick="selectPlan('installment')">Start Learning</button>
+          </div>
+          
+          <!-- Early Bird Scholarship -->
+          <div class="pricing-card">
+            <div class="pricing-title">Scholarship</div>
+            <div class="pricing-price">₦237,500 <span>/ limited slots</span></div>
+            <ul class="pricing-features">
+              <li><i class="fas fa-check"></i> 5% Discount</li>
+              <li><i class="fas fa-check"></i> Priority Admission</li>
+              <li><i class="fas fa-check"></i> Library Pass</li>
+              <li><i class="fas fa-check"></i> Certificate Included</li>
+            </ul>
+            <button class="pricing-btn" onclick="selectPlan('scholarship')">Apply Now</button>
+          </div>
+          
+        </div>
+      </div>
+    </section>
+    
+    <!-- CTA Section -->
+    <section class="cta-section">
+      <div class="container">
+        <h2>Ready to Start Your Journey?</h2>
+        <p>Join the next cohort of Media Architects and transform your creative career.</p>
+        <div class="cta-buttons">
+          <a href="application.html" class="btn-cta btn-cta-primary">Apply Now</a>
+          <a href="contact.html" class="btn-cta btn-cta-outline">Talk to an Advisor</a>
+        </div>
+      </div>
+    </section>
+    
+  </div>
+
+  <!-- Footer Placeholder -->
+  <div id="footer-placeholder"></div>
+
+  <!-- Login Modal Placeholder -->
+  <div id="login-modal-placeholder"></div>
+
+  <!-- JS Files -->
+  <script src="js/pages/header.js"></script>
+  <script src="js/pages/course.js"></script>
+
+  <!-- Load Partials -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('header-placeholder')) {
+        Promise.all([
+          fetch('partials/header.html').then(r => r.text()),
+          fetch('partials/footer.html').then(r => r.text()),
+          fetch('partials/login-modal.html').then(r => r.text())
+        ]).then(results => {
+          document.getElementById('header-placeholder').innerHTML = results[0];
+          document.getElementById('footer-placeholder').innerHTML = results[1];
+          document.getElementById('login-modal-placeholder').innerHTML = results[2];
+          console.log('Partials loaded');
+        }).catch(err => console.error('Failed to load partials:', err));
+      }
+    });
+  </script>
+</body>
+</html>

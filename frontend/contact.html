@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Contact Us – Gliimu Institute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Get in touch with Gliimu Institute of Media Technologies. Visit us in Gwarinpa, Abuja or send us a message.">
+  
+  <link rel="icon" type="image/png" href="icons/logo2.png">
+  <link rel="apple-touch-icon" href="icons/logo2.png">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- External CSS Files -->
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/contact.css">
+</head>
+<body>
+
+  <!-- Header Placeholder -->
+  <div id="header-placeholder"></div>
+
+  <!-- Contact Section -->
+  <section class="contact-section">
+    
+    <!-- Hero -->
+    <div class="contact-hero">
+      <h1>Let's Talk</h1>
+      <p>Have questions? We're here to help. Reach out to us anytime.</p>
+    </div>
+    
+    <div class="contact-wrapper">
+      
+      <!-- Info Cards Grid -->
+      <div class="info-grid">
+        
+        <div class="info-card-modern">
+          <div class="card-icon-modern">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <h3>Visit Us</h3>
+          <p>2 Sanusi Street, Foreign Affairs Estate,<br>1st Avenue, Gwarinpa, Abuja, Nigeria.</p>
+          <button id="getDirectionsBtn" style="background: none; border: none; color: var(--accent); margin-top: 12px; cursor: pointer; font-weight: 600;">Get Directions →</button>
+        </div>
+        
+        <div class="info-card-modern">
+          <div class="card-icon-modern">
+            <i class="fas fa-phone-alt"></i>
+          </div>
+          <h3>Call Us</h3>
+          <p><a href="tel:+2347058929080">+234 (0) 705 8929 080</a></p>
+          <p style="margin-top: 8px; font-size: 0.8rem;">Mon - Fri, 9AM - 5PM</p>
+        </div>
+        
+        <div class="info-card-modern">
+          <div class="card-icon-modern">
+            <i class="fas fa-envelope-open-text"></i>
+          </div>
+          <h3>Email Us</h3>
+          <p><a href="mailto:contactgliimu@gmail.com">contactgliimu@gmail.com</a></p>
+          <p style="margin-top: 8px; font-size: 0.8rem;">Response within 24 hours</p>
+        </div>
+        
+      </div>
+      
+      <!-- Main Contact Form & Map -->
+      <div class="contact-main-grid">
+        
+        <!-- Map Side -->
+        <div class="map-side">
+          <div class="map-container-modern">
+            <iframe 
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3940.5!2d7.4!3d9.1!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zOcKwMDYnMDAuMC4iTicwMsKwMTgnNDIuMiJX!5e0!3m2!1sen!2sng!4v1234567890" 
+              width="600" 
+              height="500" 
+              style="border:0;" 
+              allowfullscreen="" 
+              loading="lazy">
+            </iframe>
+          </div>
+          <div class="map-overlay">
+            <i class="fas fa-location-dot"></i>
+            <p>2 Sanusi Street, Foreign Affairs Estate, Gwarinpa, Abuja</p>
+            <a href="#" onclick="getDirections(); return false;">Get Directions →</a>
+          </div>
+        </div>
+        
+        <!-- Form Side -->
+        <div class="form-side">
+          <h2>Send a Message</h2>
+          <p>Fill out the form and we'll get back to you within 24 hours.</p>
+          
+          <form id="contactForm">
+            <div class="form-row-modern">
+              <div class="form-group-modern">
+                <label for="name">Full Name *</label>
+                <div class="input-group">
+                  <i class="fas fa-user"></i>
+                  <input type="text" id="name" class="input-field-modern" placeholder="John Doe" required>
+                </div>
+              </div>
+              <div class="form-group-modern">
+                <label for="phone">Phone Number</label>
+                <div class="input-group">
+                  <i class="fas fa-phone"></i>
+                  <input type="tel" id="phone" class="input-field-modern" placeholder="+234 800 000 0000">
+                </div>
+              </div>
+            </div>
+            
+            <div class="form-group-modern">
+              <label for="contactEmail">Email Address *</label>
+              <div class="input-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" id="contactEmail" class="input-field-modern" placeholder="you@example.com" required>
+              </div>
+            </div>
+            
+            <div class="form-group-modern">
+              <label for="subject">Subject *</label>
+              <div class="input-group">
+                <i class="fas fa-tag"></i>
+                <select id="subject" class="input-field-modern" required>
+                  <option value="" disabled selected>-- Select a subject --</option>
+                  <option value="admissions">📘 Admissions Inquiry</option>
+                  <option value="partnership">🤝 Partnership / Collaboration</option>
+                  <option value="support">🛠️ Technical Support</option>
+                  <option value="feedback">💡 Feedback / Suggestion</option>
+                  <option value="other">📬 Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-group-modern">
+              <label for="message">Message *</label>
+              <div class="input-group">
+                <i class="fas fa-comment"></i>
+                <textarea id="message" class="input-field-modern" rows="4" placeholder="How can we help you?" required></textarea>
+              </div>
+            </div>
+            
+            <button type="submit" class="submit-btn-modern">
+              Send Message <i class="fas fa-paper-plane"></i>
+            </button>
+          </form>
+          
+          <div class="social-section">
+            <p>Follow us for updates and news</p>
+            <div class="social-icons-modern">
+              <a href="https://www.youtube.com/@gliimu" target="_blank" class="social-icon-modern"><i class="fab fa-youtube"></i></a>
+              <a href="https://www.tiktok.com/@officialgliimu" target="_blank" class="social-icon-modern"><i class="fab fa-tiktok"></i></a>
+              <a href="https://www.facebook.com/gliimu" target="_blank" class="social-icon-modern"><i class="fab fa-facebook-f"></i></a>
+              <a href="https://pinterest.com/gliimu" target="_blank" class="social-icon-modern"><i class="fab fa-pinterest-p"></i></a>
+              <a href="https://www.instagram.com/gliimu" target="_blank" class="social-icon-modern"><i class="fab fa-instagram"></i></a>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+      
+      <!-- FAQ Link -->
+      <div class="faq-link">
+        <p><i class="fas fa-question-circle"></i> Have questions before reaching out? Check our <a href="faq.html">Frequently Asked Questions</a>.</p>
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- Footer Placeholder -->
+  <div id="footer-placeholder"></div>
+
+  <!-- Login Modal Placeholder -->
+  <div id="login-modal-placeholder"></div>
+
+  <!-- JS Files -->
+  <script src="js/pages/header.js"></script>
+  <script src="js/pages/contact.js"></script>
+
+  <!-- Load Partials -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('header-placeholder')) {
+        Promise.all([
+          fetch('partials/header.html').then(r => r.text()),
+          fetch('partials/footer.html').then(r => r.text()),
+          fetch('partials/login-modal.html').then(r => r.text())
+        ]).then(results => {
+          document.getElementById('header-placeholder').innerHTML = results[0];
+          document.getElementById('footer-placeholder').innerHTML = results[1];
+          document.getElementById('login-modal-placeholder').innerHTML = results[2];
+          console.log('Partials loaded');
+        }).catch(err => console.error('Failed to load partials:', err));
+      }
+    });
+  </script>
+</body>
+</html>

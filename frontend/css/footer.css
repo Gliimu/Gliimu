@@ -1,0 +1,130 @@
+/* =========================================
+   FOOTER STYLES - Matches Original index.html
+   ========================================= */
+
+footer {
+  background: var(--bg-body);
+  padding: 40px 0 24px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 0;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 2fr;
+  grid-template-rows: auto auto;
+  column-gap: 24px;
+  row-gap: 40px;
+}
+
+.footer-col-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.footer-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* IMPORTANT: This makes the links appear in a GRID, not horizontal line */
+.footer-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 18px;
+  font-size: 0.8rem;
+}
+
+.footer-links a {
+  display: inline-block;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.footer-links a:hover {
+  color: var(--primary);
+  font-weight: bold;
+}
+
+body.dark-mode .footer-links a:hover {
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.footer-contact {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.footer-contact p {
+  margin-bottom: 6px;
+}
+
+.footer-social {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.footer-social a {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  background: transparent;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.footer-social a:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(44, 47, 120, 0.05);
+}
+
+body.dark-mode .footer-social a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Copyright Bar */
+.site-bottom-bar {
+  background: var(--footer-bar-bg);
+  color: var(--footer-bar-text);
+  padding: 12px 0;
+  font-size: 0.75rem;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* =========================================
+   RESPONSIVE FOOTER
+   ========================================= */
+@media (max-width: 900px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    row-gap: 24px;
+  }
+  
+  /* On mobile, links become 2 columns instead of 3 */
+  .footer-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  footer {
+    padding: 30px 0 20px;
+  }
+  
+  .footer-links {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
