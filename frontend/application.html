@@ -20,6 +20,21 @@
 </head>
 <body>
 
+  <!-- Theme initialization - MUST be first -->
+  <script>
+    // Apply saved theme immediately to prevent flash
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+    } else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+    } else {
+      // Default to dark mode
+      document.body.classList.add('dark-mode');
+      localStorage.setItem('theme', 'dark');
+    }
+  </script>
+
   <!-- Simple Top Bar (No header, just sign in link) -->
   <div class="top-bar">
     <div class="container">
@@ -27,6 +42,9 @@
         <img src="icons/logo.png" alt="Gliimu logo">
       </a>
       <div class="top-bar-right">
+        <button class="theme-toggle-mini" id="themeToggleMini" aria-label="Toggle dark mode">
+          <i class="fas fa-moon"></i>
+        </button>
         <a href="#" onclick="openLoginModal(); return false;" class="signin-link">Sign in <i class="fas fa-arrow-right"></i></a>
       </div>
     </div>
@@ -45,7 +63,7 @@
         <div class="step-line"></div>
         <div class="step" data-step="2">
           <div class="step-number">2</div>
-          <div class="step-label">Details</div>
+          <div class="step-label">Background</div>
         </div>
         <div class="step-line"></div>
         <div class="step" data-step="3">
@@ -193,6 +211,10 @@
                 <span class="review-label">Experience:</span>
                 <span class="review-value" id="reviewExperience">—</span>
               </div>
+              <div class="review-row">
+                <span class="review-label">Motivation:</span>
+                <span class="review-value" id="reviewMotivation">—</span>
+              </div>
             </div>
           </div>
           
@@ -243,14 +265,14 @@
         <i class="fa-solid fa-check"></i>
       </div>
       <h3 class="modal-title">Application Submitted!</h3>
-      <p class="modal-text">
-        Your application has been received.
-        <br><br>
+      <div class="modal-text" id="successMessage">
+        <p>Your application has been received.</p>
+        <br>
         <strong>Next steps:</strong><br>
         1. Check your email for confirmation<br>
         2. We'll contact you within 48 hours<br>
         3. Complete your enrollment
-      </p>
+      </div>
       <button class="modal-btn" onclick="closeSuccessModal()">Go to Homepage</button>
     </div>
   </div>
@@ -285,8 +307,32 @@
   <script src="js/pages/application.js"></script>
 
   <script>
-    // Simple auth for login modal
+    // Theme Toggle for mini button
     document.addEventListener('DOMContentLoaded', function() {
+      const themeToggleMini = document.getElementById('themeToggleMini');
+      const body = document.body;
+      
+      if (themeToggleMini) {
+        // Update icon based on current theme
+        const isDark = body.classList.contains('dark-mode');
+        const icon = themeToggleMini.querySelector('i');
+        if (icon) {
+          icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
+        
+        themeToggleMini.addEventListener('click', () => {
+          body.classList.toggle('dark-mode');
+          const nowDark = body.classList.contains('dark-mode');
+          localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+          
+          // Update icon
+          if (icon) {
+            icon.className = nowDark ? 'fas fa-sun' : 'fas fa-moon';
+          }
+        });
+      }
+      
+      // Login modal logic
       const modal = document.getElementById('loginModal');
       const closeBtn = document.getElementById('closeLoginBtn');
       const loginForm = document.getElementById('loginForm');
@@ -312,21 +358,40 @@
           const password = document.getElementById('loginPassword').value;
           const errorDiv = document.getElementById('loginError');
           
-          // Mock login for demo
-          if (username && password) {
-            const user = {
-              id: 'demo_' + Date.now(),
-              username: username,
-              name: 'Demo User',
-              email: username,
-              role: 'Student',
-              avatar: `https://ui-avatars.com/api/?name=Demo+User&background=random&color=fff`
-            };
-            localStorage.setItem('gliimu_user', JSON.stringify(user));
-            window.location.href = 'dashboard.html';
-          } else {
-            errorDiv.textContent = 'Please enter email and password';
-            errorDiv.style.display = 'block';
+          // Try real backend first
+          try {
+            const response = await fetch('https://gliimu.onrender.com/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, password })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+              localStorage.setItem('token', data.token);
+              localStorage.setItem('user', JSON.stringify(data.user));
+              window.location.href = data.redirectUrl || 'dashboard.html';
+            } else {
+              errorDiv.textContent = data.message || 'Invalid credentials';
+              errorDiv.style.display = 'block';
+            }
+          } catch (err) {
+            // Mock login for demo if backend unavailable
+            if (username && password) {
+              const user = {
+                id: 'demo_' + Date.now(),
+                username: username,
+                name: username.split('@')[0],
+                email: username,
+                role: 'Student',
+                avatar: `https://ui-avatars.com/api/?name=${username.split('@')[0]}&background=random&color=fff`
+              };
+              localStorage.setItem('gliimu_user', JSON.stringify(user));
+              window.location.href = 'dashboard.html';
+            } else {
+              errorDiv.textContent = 'Please enter email and password';
+              errorDiv.style.display = 'block';
+            }
           }
         });
       }
