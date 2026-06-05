@@ -139,7 +139,7 @@ function initStudentGallery() {
 // SCROLL REVEAL ANIMATION
 // ============================================
 function initScrollReveal() {
-  const elements = document.querySelectorAll('.calculator-card, .squad-grid, .course-card-container, .payment-card, .testimonial-card, .service-card');
+  const elements = document.querySelectorAll('.calculator-card, .squad-grid, .course-feature-card, .course-showcase, .payment-card, .testimonial-card, .service-card');
   
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -181,6 +181,38 @@ function initEarningsCalculator() {
 }
 
 // ============================================
+// PARTNERS SLIDER
+// ============================================
+function initPartnersSlider() {
+  const track = document.getElementById('partnersTrack');
+  if (!track) return;
+  
+  // Replace these with your actual partner logos
+  const partnerLogos = [
+    'icons/logo.png',
+    'icons/logo2.png',
+    'https://placehold.co/100x50/2c2f78/white?text=Partner+1',
+    'https://placehold.co/100x50/8b5cf6/white?text=Partner+2',
+    'https://placehold.co/100x50/10b981/white?text=Partner+3',
+    'https://placehold.co/100x50/f59e0b/white?text=Partner+4',
+  ];
+  
+  // Double the array for seamless loop
+  const allLogos = [...partnerLogos, ...partnerLogos];
+  
+  let html = '';
+  allLogos.forEach(logo => {
+    html += `
+      <div class="partners-slide">
+        <img src="${logo}" alt="Partner Logo" class="partner-logo" loading="lazy" onerror="this.style.display='none'">
+      </div>
+    `;
+  });
+  
+  track.innerHTML = html;
+}
+
+// ============================================
 // SMOOTH SCROLL
 // ============================================
 function initSmoothScroll() {
@@ -209,6 +241,7 @@ function initHomepage() {
   initScrollReveal();
   initEarningsCalculator();
   initSmoothScroll();
+  initPartnersSlider();
 }
 
 // Start when DOM is ready
