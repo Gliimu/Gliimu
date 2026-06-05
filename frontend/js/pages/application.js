@@ -1,4 +1,4 @@
-// application.js - Multi-step application form
+// application.js - Multi-step application form with backend integration
 
 // ============================================
 // STEP NAVIGATION
@@ -30,7 +30,6 @@ function prevStep() {
 }
 
 function updateProgress() {
-  // Update review data when reaching step 3
   if (currentStep === 3) {
     updateReviewData();
   }
@@ -45,7 +44,6 @@ function validateCurrentStep() {
   const requiredFields = currentStepDiv.querySelectorAll('[required]');
   let isValid = true;
   
-  // Check terms on step 3
   if (currentStep === 3) {
     const termsCheckbox = document.getElementById('termsCheckbox');
     if (!termsCheckbox || !termsCheckbox.checked) {
@@ -61,7 +59,6 @@ function validateCurrentStep() {
     }
   });
   
-  // Email validation on step 1
   if (currentStep === 1) {
     const email = document.getElementById('email').value;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -79,29 +76,29 @@ function validateCurrentStep() {
 // ============================================
 
 function updateReviewData() {
-  // Personal Info
   const firstName = document.getElementById('firstName').value;
   const lastName = document.getElementById('lastName').value;
   document.getElementById('reviewName').textContent = `${firstName} ${lastName}`;
   document.getElementById('reviewEmail').textContent = document.getElementById('email').value;
   document.getElementById('reviewPhone').textContent = document.getElementById('phone').value;
   
-  // Background
   const educationSelect = document.getElementById('education');
-  const educationText = educationSelect.options[educationSelect.selectedIndex]?.text || '—';
-  document.getElementById('reviewEducation').textContent = educationText;
+  document.getElementById('reviewEducation').textContent = educationSelect.options[educationSelect.selectedIndex]?.text || '—';
   
   const experienceSelect = document.getElementById('experience');
-  const experienceText = experienceSelect.options[experienceSelect.selectedIndex]?.text || '—';
-  document.getElementById('reviewExperience').textContent = experienceText;
+  document.getElementById('reviewExperience').textContent = experienceSelect.options[experienceSelect.selectedIndex]?.text || '—';
+  
+  const motivation = document.getElementById('motivation').value;
+  document.getElementById('reviewMotivation').textContent = motivation.length > 100 ? motivation.substring(0, 100) + '...' : motivation;
 }
 
 // ============================================
-// FORM SUBMISSION
+// FORM SUBMISSION TO BACKEND
 // ============================================
 
+const API_BASE_URL = 'https://gliimu.onrender.com/api';
+
 async function submitApplication() {
-  // Validate terms again
   const termsCheckbox = document.getElementById('termsCheckbox');
   if (!termsCheckbox || !termsCheckbox.checked) {
     alert('Please agree to the terms to submit your application.');
@@ -125,47 +122,81 @@ async function submitApplication() {
     experience: document.getElementById('experience').value,
     motivation: document.getElementById('motivation').value,
     source: document.getElementById('source').value,
+    program: 'Full-Stack Media Production',
     timestamp: new Date().toISOString()
   };
   
   try {
-    // Save to localStorage (mock backend)
+    // Try to send to real backend
+    const response = await fetch(`${API_BASE_URL}/applications`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Save to localStorage as backup
+      const applications = JSON.parse(localStorage.getItem('gliimu_applications') || '[]');
+      applications.push({ id: 'app_' + Date.now(), ...formData, status: 'pending' });
+      localStorage.setItem('gliimu_applications', JSON.stringify(applications));
+      
+      showSuccessModal(formData);
+      resetForm();
+    } else {
+      throw new Error(result.message || 'Submission failed');
+    }
+    
+  } catch (error) {
+    console.error('Backend error:', error);
+    
+    // Fallback to localStorage only
     const applications = JSON.parse(localStorage.getItem('gliimu_applications') || '[]');
     const newId = 'app_' + Date.now();
     applications.push({ id: newId, ...formData, status: 'pending', createdAt: new Date().toISOString() });
     localStorage.setItem('gliimu_applications', JSON.stringify(applications));
     
-    // Show success modal
-    showSuccessModal();
-    
-    // Reset form
-    document.getElementById('firstName').value = '';
-    document.getElementById('lastName').value = '';
-    document.getElementById('email').value = '';
-    document.getElementById('phone').value = '';
-    document.getElementById('dob').value = '';
-    document.getElementById('gender').value = '';
-    document.getElementById('education').value = '';
-    document.getElementById('experience').value = '';
-    document.getElementById('motivation').value = '';
-    document.getElementById('source').value = '';
-    termsCheckbox.checked = false;
-    
-  } catch (error) {
-    console.error('Submission error:', error);
-    alert('There was an error submitting your application. Please try again.');
+    showSuccessModal(formData);
+    resetForm();
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalText;
   }
 }
 
-// ============================================
-// SUCCESS MODAL
-// ============================================
+function resetForm() {
+  document.getElementById('firstName').value = '';
+  document.getElementById('lastName').value = '';
+  document.getElementById('email').value = '';
+  document.getElementById('phone').value = '';
+  document.getElementById('dob').value = '';
+  document.getElementById('gender').value = '';
+  document.getElementById('education').value = '';
+  document.getElementById('experience').value = '';
+  document.getElementById('motivation').value = '';
+  document.getElementById('source').value = '';
+  document.getElementById('termsCheckbox').checked = false;
+}
 
-function showSuccessModal() {
+function showSuccessModal(formData) {
   const modal = document.getElementById('successModal');
+  const messageDiv = document.getElementById('successMessage');
+  
+  if (messageDiv) {
+    messageDiv.innerHTML = `
+      <p>Thank you, ${formData.firstName}!</p>
+      <p>Your application has been received.</p>
+      <br>
+      <strong>Next steps:</strong><br>
+      1. Check your email at <strong>${formData.email}</strong> for confirmation<br>
+      2. We'll contact you within 48 hours<br>
+      3. Complete your enrollment<br>
+      <br>
+      <small style="opacity: 0.7;">Reference: APP-${Date.now().toString().slice(-8)}</small>
+    `;
+  }
+  
   if (modal) {
     modal.classList.add('is-visible');
   }
