@@ -1,51 +1,7 @@
 // application.js - Multi-step application form
 
 // ============================================
-// DEVICE FINGERPRINT (Prevents multiple signups)
-// ============================================
-
-function getDeviceFingerprint() {
-  const components = [
-    navigator.userAgent,
-    screen.width + 'x' + screen.height,
-    screen.colorDepth,
-    new Date().getTimezoneOffset(),
-    navigator.language,
-    navigator.hardwareConcurrency || 'unknown',
-    !!navigator.maxTouchPoints
-  ];
-  
-  // Simple hash function
-  let hash = 0;
-  const str = components.join('|');
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  
-  return Math.abs(hash).toString(36);
-}
-
-function checkExistingApplication() {
-  const fingerprint = getDeviceFingerprint();
-  const submittedApps = JSON.parse(localStorage.getItem('gliimu_submitted_fingerprints') || '[]');
-  
-  if (submittedApps.includes(fingerprint)) {
-    alert('You have already submitted an application from this device.\n\nIf you need to apply again, please contact support.');
-    return true;
-  }
-  return false;
-}
-
-function recordApplicationSubmission() {
-  const fingerprint = getDeviceFingerprint();
-  const submittedApps = JSON.parse(localStorage.getItem('gliimu_submitted_fingerprints') || '[]');
-  submittedApps.push(fingerprint);
-  localStorage.setItem('gliimu_submitted_fingerprints', JSON.stringify(submittedApps));
-}
-
-// ============================================
-// FORM STEP NAVIGATION
+// STEP NAVIGATION
 // ============================================
 
 let currentStep = 1;
@@ -54,30 +10,29 @@ const totalSteps = 3;
 function nextStep() {
   if (validateCurrentStep()) {
     document.getElementById(`step-${currentStep}`).classList.remove('active');
-    document.getElementById(`step-nav-${currentStep}`).classList.remove('active');
-    document.getElementById(`step-nav-${currentStep}`).classList.add('completed');
+    document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
+    document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('completed');
     currentStep++;
     document.getElementById(`step-${currentStep}`).classList.add('active');
-    document.getElementById(`step-nav-${currentStep}`).classList.add('active');
+    document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
     updateProgress();
   }
 }
 
 function prevStep() {
   document.getElementById(`step-${currentStep}`).classList.remove('active');
-  document.getElementById(`step-nav-${currentStep}`).classList.remove('active');
-  document.getElementById(`step-nav-${currentStep}`).classList.remove('completed');
+  document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
+  document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('completed');
   currentStep--;
   document.getElementById(`step-${currentStep}`).classList.add('active');
-  document.getElementById(`step-nav-${currentStep}`).classList.add('active');
+  document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
   updateProgress();
 }
 
 function updateProgress() {
-  const percent = ((currentStep - 1) / (totalSteps - 1)) * 100;
-  const progressBar = document.querySelector('.progress-bar-fill');
-  if (progressBar) {
-    progressBar.style.width = `${percent}%`;
+  // Update review data when reaching step 3
+  if (currentStep === 3) {
+    updateReviewData();
   }
 }
 
@@ -94,7 +49,7 @@ function validateCurrentStep() {
   if (currentStep === 3) {
     const termsCheckbox = document.getElementById('termsCheckbox');
     if (!termsCheckbox || !termsCheckbox.checked) {
-      alert('Please agree to the Terms & Conditions to continue.');
+      alert('Please agree to the terms to continue.');
       return false;
     }
   }
@@ -106,15 +61,13 @@ function validateCurrentStep() {
     }
   });
   
-  // Special validation for Instructor courses
+  // Email validation on step 1
   if (currentStep === 1) {
-    const appType = document.getElementById('applicationType');
-    if (appType && appType.value === 'Instructor') {
-      const checkedCourses = document.querySelectorAll('input[name="courses"]:checked');
-      if (checkedCourses.length === 0) {
-        alert('Please select at least one course you can teach.');
-        isValid = false;
-      }
+    const email = document.getElementById('email').value;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && !emailRegex.test(email)) {
+      alert('Please enter a valid email address.');
+      return false;
     }
   }
   
@@ -122,86 +75,25 @@ function validateCurrentStep() {
 }
 
 // ============================================
-// DYNAMIC FORM FIELDS
+// UPDATE REVIEW DATA
 // ============================================
 
-function initDynamicFields() {
-  const appTypeSelect = document.getElementById('applicationType');
-  const trackContainer = document.getElementById('track-options-container');
-  const trackLabel = document.getElementById('trackLabel');
-  const referralSection = document.getElementById('referralSection');
+function updateReviewData() {
+  // Personal Info
+  const firstName = document.getElementById('firstName').value;
+  const lastName = document.getElementById('lastName').value;
+  document.getElementById('reviewName').textContent = `${firstName} ${lastName}`;
+  document.getElementById('reviewEmail').textContent = document.getElementById('email').value;
+  document.getElementById('reviewPhone').textContent = document.getElementById('phone').value;
   
-  if (!appTypeSelect) return;
+  // Background
+  const educationSelect = document.getElementById('education');
+  const educationText = educationSelect.options[educationSelect.selectedIndex]?.text || '—';
+  document.getElementById('reviewEducation').textContent = educationText;
   
-  appTypeSelect.addEventListener('change', function() {
-    const value = this.value;
-    trackContainer.innerHTML = '';
-    
-    // Show referral section for Student and Others
-    if (value === 'Student' || value === 'Others') {
-      referralSection.style.display = 'block';
-    } else {
-      referralSection.style.display = 'none';
-      const refInput = document.getElementById('referralCode');
-      if (refInput) refInput.value = '';
-    }
-    
-    if (value === 'Student') {
-      trackLabel.textContent = 'Select Track *';
-      trackLabel.style.display = 'block';
-      const select = document.createElement('select');
-      select.className = 'input-field';
-      select.name = 'track';
-      select.id = 'modeSelect';
-      select.required = true;
-      select.innerHTML = `
-        <option value="" disabled selected>-- Select Track --</option>
-        <option value="media_track">🎬 Media Track (Video/Audio Production)</option>
-        <option value="design_track">🎨 Design Track (Graphics/UI/UX)</option>
-        <option value="tech_track">💻 Tech Track (Programming/Web)</option>
-      `;
-      trackContainer.appendChild(select);
-      
-    } else if (value === 'Instructor') {
-      trackLabel.textContent = 'Select Courses to Teach *';
-      trackLabel.style.display = 'block';
-      
-      const wrapper = document.createElement('div');
-      wrapper.className = 'checkbox-group-container';
-      
-      const courses = [
-        "Video Production", "Audio Production", "Animation", "Graphic Design",
-        "UI/UX Design", "Web Development", "Programming (Python/JS)",
-        "Cloud Computing", "Event Management", "Digital Marketing"
-      ];
-      
-      courses.forEach((course, index) => {
-        const item = document.createElement('div');
-        item.className = 'checkbox-item';
-        item.innerHTML = `
-          <input type="checkbox" name="courses" id="course-${index}" value="${course}">
-          <label for="course-${index}">${course}</label>
-        `;
-        wrapper.appendChild(item);
-      });
-      
-      trackContainer.appendChild(wrapper);
-      
-    } else if (value === 'Others') {
-      trackLabel.textContent = 'Specify Your Role';
-      trackLabel.style.display = 'block';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'input-field';
-      input.name = 'otherRole';
-      input.id = 'otherRoleInput';
-      input.placeholder = 'e.g. Parent, Partner, Vendor, Consultant...';
-      input.required = true;
-      trackContainer.appendChild(input);
-    } else {
-      trackLabel.style.display = 'none';
-    }
-  });
+  const experienceSelect = document.getElementById('experience');
+  const experienceText = experienceSelect.options[experienceSelect.selectedIndex]?.text || '—';
+  document.getElementById('reviewExperience').textContent = experienceText;
 }
 
 // ============================================
@@ -209,121 +101,88 @@ function initDynamicFields() {
 // ============================================
 
 async function submitApplication() {
-  // Check for existing application from this device
-  if (checkExistingApplication()) {
+  // Validate terms again
+  const termsCheckbox = document.getElementById('termsCheckbox');
+  if (!termsCheckbox || !termsCheckbox.checked) {
+    alert('Please agree to the terms to submit your application.');
     return;
   }
   
   const btn = document.getElementById('submitBtn');
   const originalText = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
   
   // Collect form data
-  const category = document.getElementById('applicationType').value;
   const formData = {
     firstName: document.getElementById('firstName').value,
     lastName: document.getElementById('lastName').value,
     email: document.getElementById('email').value,
     phone: document.getElementById('phone').value,
-    category: category,
-    motivation: document.querySelector('textarea[name="motivation"]').value,
-    source: document.querySelector('select[name="source"]').value,
-    referralCode: document.getElementById('referralCode')?.value || null,
-    fingerprint: getDeviceFingerprint(),
+    dob: document.getElementById('dob').value,
+    gender: document.getElementById('gender').value,
+    education: document.getElementById('education').value,
+    experience: document.getElementById('experience').value,
+    motivation: document.getElementById('motivation').value,
+    source: document.getElementById('source').value,
     timestamp: new Date().toISOString()
   };
   
-  // Handle track based on category
-  if (category === 'Instructor') {
-    const checkboxes = document.querySelectorAll('input[name="courses"]:checked');
-    formData.courses = Array.from(checkboxes).map(cb => cb.value);
-    formData.track = null;
-    formData.otherRole = null;
-  } else if (category === 'Others') {
-    const roleInput = document.getElementById('otherRoleInput');
-    formData.otherRole = roleInput ? roleInput.value.trim() : null;
-    formData.track = 'others';
-    formData.courses = [];
-  } else {
-    formData.track = document.getElementById('modeSelect')?.value || null;
-    formData.courses = [];
-    formData.otherRole = null;
+  try {
+    // Save to localStorage (mock backend)
+    const applications = JSON.parse(localStorage.getItem('gliimu_applications') || '[]');
+    const newId = 'app_' + Date.now();
+    applications.push({ id: newId, ...formData, status: 'pending', createdAt: new Date().toISOString() });
+    localStorage.setItem('gliimu_applications', JSON.stringify(applications));
+    
+    // Show success modal
+    showSuccessModal();
+    
+    // Reset form
+    document.getElementById('firstName').value = '';
+    document.getElementById('lastName').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('phone').value = '';
+    document.getElementById('dob').value = '';
+    document.getElementById('gender').value = '';
+    document.getElementById('education').value = '';
+    document.getElementById('experience').value = '';
+    document.getElementById('motivation').value = '';
+    document.getElementById('source').value = '';
+    termsCheckbox.checked = false;
+    
+  } catch (error) {
+    console.error('Submission error:', error);
+    alert('There was an error submitting your application. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
   }
-  
-  // Generate username and passcode
-  const timestamp = Date.now();
-  const randomNum = Math.floor(Math.random() * 1000);
-  formData.generatedUsername = `${formData.firstName}_${formData.lastName}_${timestamp.toString().slice(-4)}`.toUpperCase();
-  formData.generatedPasscode = `GLI-${timestamp.toString().slice(-6)}-${randomNum}`;
-  
-  // Store in localStorage (mock backend)
-  const applications = JSON.parse(localStorage.getItem('gliimu_applications') || '[]');
-  applications.push(formData);
-  localStorage.setItem('gliimu_applications', JSON.stringify(applications));
-  
-  // Record fingerprint to prevent duplicate
-  recordApplicationSubmission();
-  
-  // Show success modal
-  showSuccessModal(formData);
-  
-  btn.disabled = false;
-  btn.innerHTML = originalText;
 }
 
-function showSuccessModal(data) {
+// ============================================
+// SUCCESS MODAL
+// ============================================
+
+function showSuccessModal() {
   const modal = document.getElementById('successModal');
-  const usernameSpan = document.getElementById('generatedUsername');
-  const passcodeSpan = document.getElementById('generatedPasscode');
-  
-  if (usernameSpan) usernameSpan.textContent = data.generatedUsername;
-  if (passcodeSpan) passcodeSpan.textContent = data.generatedPasscode;
-  
-  if (modal) modal.classList.add('is-visible');
-  
-  // Reset form after modal is shown
-  document.getElementById('applicationForm').reset();
-  resetFormSteps();
-}
-
-function resetFormSteps() {
-  currentStep = 1;
-  document.querySelectorAll('.form-step').forEach(step => step.classList.remove('active'));
-  document.querySelectorAll('.step-item').forEach(step => {
-    step.classList.remove('active', 'completed');
-  });
-  document.getElementById('step-1').classList.add('active');
-  document.getElementById('step-nav-1').classList.add('active');
-  
-  // Reset dynamic fields
-  const trackContainer = document.getElementById('track-options-container');
-  if (trackContainer) {
-    trackContainer.innerHTML = `
-      <select class="input-field disabled-input" name="track" id="modeSelect" disabled>
-        <option value="" disabled selected>Please select an application type first</option>
-      </select>
-    `;
+  if (modal) {
+    modal.classList.add('is-visible');
   }
-  const referralSection = document.getElementById('referralSection');
-  if (referralSection) referralSection.style.display = 'none';
 }
 
 function closeSuccessModal() {
   const modal = document.getElementById('successModal');
-  if (modal) modal.classList.remove('is-visible');
+  if (modal) {
+    modal.classList.remove('is-visible');
+  }
+  window.location.href = 'index.html';
 }
 
 // ============================================
-// INITIALIZATION
+// EXPOSE GLOBALLY
 // ============================================
-
-document.addEventListener('DOMContentLoaded', () => {
-  initDynamicFields();
-  
-  // Make functions global for onclick
-  window.nextStep = nextStep;
-  window.prevStep = prevStep;
-  window.submitApplication = submitApplication;
-  window.closeSuccessModal = closeSuccessModal;
-});
+window.nextStep = nextStep;
+window.prevStep = prevStep;
+window.submitApplication = submitApplication;
+window.closeSuccessModal = closeSuccessModal;
