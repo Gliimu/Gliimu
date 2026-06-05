@@ -2,110 +2,167 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Learning Materials – Gliimu</title>
+  <title>Library – Gliimu Institute</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Access textbooks, module handouts, slides, and practice files for Video Production, Computing, and Design at Gliimu Institute.">
+  <meta name="description" content="Digital library with learning materials, books, and bundles for Media Architects.">
   
-  <link rel="shortcut icon" type="image/png" href="icons/logo2.png">
+  <link rel="icon" type="image/png" href="icons/logo2.png">
   
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
   <!-- External CSS Files -->
   <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/header.css">
-  <link rel="stylesheet" href="css/footer.css">
-  <link rel="stylesheet" href="css/modal.css">
   <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
 
-  <!-- Header Placeholder -->
-  <div id="header-placeholder"></div>
+  <!-- Theme initialization -->
+  <script>
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+    } else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+    } else {
+      document.body.classList.add('dark-mode');
+      localStorage.setItem('theme', 'dark');
+    }
+  </script>
+
+  <!-- Top Bar (No Header) -->
+  <div class="library-top-bar">
+    <div class="container">
+      <div class="top-bar-left">
+        <a href="index.html" class="logo-small">
+          <img src="icons/logo.png" alt="Gliimu">
+        </a>
+      </div>
+      <div class="top-bar-right">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18">
+            <circle cx="12" cy="12" r="5" stroke="currentColor" fill="none"></circle>
+            <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor"></line>
+            <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor"></line>
+            <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor"></line>
+            <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor"></line>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" fill="none"></path>
+          </svg>
+        </button>
+        <div class="user-mini" id="userMini">
+          <img src="" alt="User" id="userAvatar" class="user-avatar-mini">
+          <span id="userName">User</span>
+          <i class="fas fa-chevron-down"></i>
+          <div class="user-dropdown" id="userDropdown">
+            <a href="dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Hero Section -->
   <section class="library-hero">
-    <div class="library-hero-bg" style="background-image: url('https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=2000&q=80');"></div>
-    <div class="container library-hero-inner">
-      <h1>Gliimu Library</h1>
-      <p>Search for Textbooks & practice files. Expand your knowledge with our curated collection.</p>
-      <div class="search-box-large">
-        <input type="text" placeholder="Type a title, topic or file type..." id="heroSearchInput">
-        <button id="heroSearchBtn"><i class="fas fa-search"></i> Search</button>
-      </div>
+    <div class="container">
+      <h1>Digital Library</h1>
+      <p>Access premium learning materials, books, and resource bundles</p>
     </div>
   </section>
 
   <!-- Main Content -->
-  <main>
-    <section class="materials-section">
-      <div class="ripple-bg"></div>
-      <div class="container">
-        <div class="section-header">
-          <h2>Learning Materials</h2>
-          <p>Textbooks, design assets, and downloadable resources to accelerate your learning.</p>
-        </div>
-
-        <!-- Dynamic Grid -->
-        <div class="pinterest-grid" id="unifiedGrid">
-          <div class="empty-state">
-            <i class="fas fa-spinner fa-spin"></i>
-            <h3>Loading materials...</h3>
+  <div class="library-wrapper">
+    <div class="library-container">
+      
+      <!-- Tabs -->
+      <div class="library-tabs">
+        <button class="tab-btn active" data-tab="browse" onclick="switchTab('browse')"><i class="fas fa-book-open"></i> Browse</button>
+        <button class="tab-btn" data-tab="purchases" onclick="switchTab('purchases')"><i class="fas fa-shopping-bag"></i> My Purchases</button>
+        <button class="tab-btn admin-only" data-tab="admin" onclick="switchTab('admin')" style="display: none;"><i class="fas fa-cog"></i> Admin</button>
+      </div>
+      
+      <!-- Browse Content -->
+      <div id="browseContent">
+        <!-- Search and Filter Bar -->
+        <div class="search-filter-bar">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search materials...">
+          </div>
+          <div class="filter-group">
+            <select id="categoryFilter" class="filter-select">
+              <option value="all">All Categories</option>
+              <option value="video">Video Production</option>
+              <option value="design">Design</option>
+              <option value="code">Code/Programming</option>
+            </select>
+            <select id="typeFilter" class="filter-select">
+              <option value="all">All Types</option>
+              <option value="book">Books</option>
+              <option value="bundle">Bundles</option>
+            </select>
           </div>
         </div>
+        
+        <!-- Materials Grid -->
+        <div class="materials-grid" id="materialsGrid">
+          <!-- Materials will be loaded here -->
+        </div>
       </div>
-    </section>
-  </main>
-
-  <!-- Footer Placeholder -->
-  <div id="footer-placeholder"></div>
-
-  <!-- Login Modal Placeholder -->
-  <div id="login-modal-placeholder"></div>
-
-  <!-- Book Details Modal -->
-  <div class="modal-overlay" id="detailsModal">
-    <div class="details-card">
-      <button class="close-btn" id="closeDetailsBtn"><i class="fas fa-times"></i></button>
-      <div class="details-header">
-        <h2 id="detailsTitle">Book Title</h2>
+      
+      <!-- Purchases Content -->
+      <div id="purchasesContent" style="display: none;">
+        <div id="purchasesList"></div>
       </div>
-      <div class="details-price-display" id="detailsPrice">₦0.00</div>
-      <div class="details-meta">Instant Digital Download</div>
-      <div class="details-body" id="detailsText">
-        <!-- About text goes here -->
+      
+      <!-- Admin Content -->
+      <div id="adminContent" style="display: none;"></div>
+      
+    </div>
+  </div>
+
+  <!-- Purchase Modal -->
+  <div class="modal-overlay" id="purchaseModal" onclick="if(event.target === this) closePurchaseModal()">
+    <div class="purchase-modal">
+      <div class="modal-icon">
+        <i class="fas fa-shopping-cart"></i>
       </div>
-      <button class="buy-btn" id="buyNowBtn">
-        <i class="fas fa-shopping-cart"></i> Buy Now
-      </button>
+      <h3 class="modal-title" id="modalTitle">Confirm Purchase</h3>
+      <p class="modal-text" id="modalDescription"></p>
+      <p class="modal-text"><strong id="modalPrice">₦0</strong></p>
+      <div class="modal-actions">
+        <button class="modal-btn confirm" onclick="confirmPurchase()">Confirm Purchase</button>
+        <button class="modal-btn cancel" onclick="closePurchaseModal()">Cancel</button>
+      </div>
     </div>
   </div>
 
   <!-- JS Files -->
-  <!-- header.js handles header functionality -->
-  <script src="js/pages/header.js"></script>
-  
-  <!-- Library page specific JS -->
   <script src="js/pages/library.js"></script>
 
-  <!-- Load partials (header, footer, modal) -->
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      if (document.getElementById('header-placeholder')) {
-        Promise.all([
-          fetch('partials/header.html').then(function(r) { return r.text(); }),
-          fetch('partials/footer.html').then(function(r) { return r.text(); }),
-          fetch('partials/login-modal.html').then(function(r) { return r.text(); })
-        ]).then(function(results) {
-          document.getElementById('header-placeholder').innerHTML = results[0];
-          document.getElementById('footer-placeholder').innerHTML = results[1];
-          document.getElementById('login-modal-placeholder').innerHTML = results[2];
-          console.log('Partials loaded');
-        }).catch(function(err) {
-          console.error('Failed to load partials:', err);
-        });
+    // Show admin tab if user is admin
+    const user = JSON.parse(localStorage.getItem('gliimu_user') || '{}');
+    if (user.role === 'Admin') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'inline-flex');
+    }
+    
+    window.logout = function() {
+      if (confirm('Are you sure you want to sign out?')) {
+        localStorage.removeItem('gliimu_user');
+        localStorage.removeItem('token');
+        window.location.href = 'index.html';
       }
-    });
+    };
   </script>
 </body>
 </html>
