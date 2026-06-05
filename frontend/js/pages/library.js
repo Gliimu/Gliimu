@@ -1,19 +1,21 @@
-// library.js - Complete library functionality
+// library.js - Redesigned library functionality
 
 let currentUser = null;
 let currentTab = 'browse';
 let materials = [];
 let purchases = [];
+let selectedMaterial = null;
 
-// Mock materials data
+// Mock materials data with realistic images
 const mockMaterials = [
+  // Books
   {
     id: 'mat_001',
     type: 'book',
     title: 'Complete Guide to Video Production',
     description: 'Master professional video production from pre-production to final delivery. Learn camera techniques, lighting, sound design, and post-production editing.',
     price: 3500,
-    image: 'https://placehold.co/400x500/2c2f78/white?text=Video+Production',
+    image: 'https://images.unsplash.com/photo-1536240474400-3f5c8c6ee9d1?w=400&h=500&fit=crop',
     category: 'video',
     stock: 50
   },
@@ -23,7 +25,7 @@ const mockMaterials = [
     title: 'UI/UX Design Mastery',
     description: 'Learn the fundamentals of user interface and experience design. Master Figma, prototyping, user research, and accessibility.',
     price: 2800,
-    image: 'https://placehold.co/400x500/8b5cf6/white?text=UI+UX+Design',
+    image: 'https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?w=400&h=500&fit=crop',
     category: 'design',
     stock: 45
   },
@@ -33,41 +35,73 @@ const mockMaterials = [
     title: 'JavaScript: The Complete Guide',
     description: 'From beginner to advanced. Master JavaScript, ES6+, async programming, and modern frameworks.',
     price: 4200,
-    image: 'https://placehold.co/400x500/10b981/white?text=JavaScript',
+    image: 'https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?w=400&h=500&fit=crop',
     category: 'code',
     stock: 30
   },
   {
     id: 'mat_004',
+    type: 'book',
+    title: 'Motion Graphics with After Effects',
+    description: 'Create stunning animations and motion graphics. Learn keyframing, expressions, and visual effects.',
+    price: 3200,
+    image: 'https://images.unsplash.com/photo-1558655146-9f40138edf9f?w=400&h=500&fit=crop',
+    category: 'video',
+    stock: 35
+  },
+  {
+    id: 'mat_005',
+    type: 'book',
+    title: 'Branding & Identity Design',
+    description: 'Build powerful brands. Learn logo design, color theory, typography, and brand strategy.',
+    price: 2500,
+    image: 'https://images.unsplash.com/photo-1545235617-9465d2a55698?w=400&h=500&fit=crop',
+    category: 'design',
+    stock: 40
+  },
+  {
+    id: 'mat_006',
+    type: 'book',
+    title: 'Python for Data Science',
+    description: 'Learn Python programming for data analysis, visualization, and machine learning.',
+    price: 3800,
+    image: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=400&h=500&fit=crop',
+    category: 'code',
+    stock: 25
+  },
+  // Bundles (horizontal cards)
+  {
+    id: 'bun_001',
     type: 'bundle',
     title: 'Full-Stack Web Development Bundle',
-    description: 'Complete web development resources including HTML, CSS, JavaScript, React, Node.js, and MongoDB.',
+    description: 'Complete web development resources including HTML, CSS, JavaScript, React, Node.js, and MongoDB. 5 courses + 10 projects + Source code.',
     price: 15000,
-    image: 'https://placehold.co/400x500/f59e0b/white?text=Web+Bundle',
+    image: 'https://images.unsplash.com/photo-1461749280699-6d844bd4a1c5?w=200&h=200&fit=crop',
     category: 'code',
     stock: 20,
     bundleItems: 5
   },
   {
-    id: 'mat_005',
-    type: 'book',
-    title: 'Motion Graphics with After Effects',
-    description: 'Create stunning animations and motion graphics. Learn keyframing, expressions, and visual effects.',
-    price: 3200,
-    image: 'https://placehold.co/400x500/ef4444/white?text=Motion+Graphics',
-    category: 'video',
-    stock: 35
-  },
-  {
-    id: 'mat_006',
+    id: 'bun_002',
     type: 'bundle',
     title: 'Creative Media Production Pack',
-    description: 'Everything you need for video and audio production. Includes templates, presets, and project files.',
+    description: 'Everything you need for video and audio production. Includes templates, presets, and project files. 50+ templates + Sound effects + Presets.',
     price: 12000,
-    image: 'https://placehold.co/400x500/06b6d4/white?text=Media+Pack',
+    image: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=200&h=200&fit=crop',
     category: 'video',
     stock: 15,
     bundleItems: 10
+  },
+  {
+    id: 'bun_003',
+    type: 'bundle',
+    title: 'Design Resource Toolkit',
+    description: 'Ultimate design resource pack with UI kits, mockups, fonts, and design systems. 100+ UI components + 50+ mockups + Fonts.',
+    price: 8000,
+    image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=200&h=200&fit=crop',
+    category: 'design',
+    stock: 30,
+    bundleItems: 8
   }
 ];
 
@@ -76,7 +110,6 @@ const mockMaterials = [
 // ============================================
 
 function initLibrary() {
-  // Get logged-in user
   const storedUser = localStorage.getItem('gliimu_user');
   
   if (!storedUser) {
@@ -86,7 +119,7 @@ function initLibrary() {
   
   currentUser = JSON.parse(storedUser);
   
-  // Load materials (from localStorage or mock)
+  // Load materials
   const storedMaterials = localStorage.getItem('gliimu_materials');
   if (storedMaterials) {
     materials = JSON.parse(storedMaterials);
@@ -103,32 +136,25 @@ function initLibrary() {
     purchases = [];
   }
   
-  // Update UI with user info
+  // Update UI
   document.getElementById('userName').textContent = currentUser.name || currentUser.username;
   document.getElementById('userAvatar').src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || currentUser.username)}&background=random&color=fff`;
   
-  // Set up event listeners
   setupEventListeners();
-  
-  // Load initial view
   renderMaterials();
-  updateCartCount();
 }
 
 function setupEventListeners() {
-  // Search input
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('input', () => renderMaterials());
   }
   
-  // Category filter
   const categoryFilter = document.getElementById('categoryFilter');
   if (categoryFilter) {
     categoryFilter.addEventListener('change', () => renderMaterials());
   }
   
-  // Type filter
   const typeFilter = document.getElementById('typeFilter');
   if (typeFilter) {
     typeFilter.addEventListener('change', () => renderMaterials());
@@ -142,7 +168,6 @@ function setupEventListeners() {
 function switchTab(tabId) {
   currentTab = tabId;
   
-  // Update active tab
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.remove('active');
     if (btn.getAttribute('data-tab') === tabId) {
@@ -150,7 +175,6 @@ function switchTab(tabId) {
     }
   });
   
-  // Show appropriate content
   const browseContent = document.getElementById('browseContent');
   const purchasesContent = document.getElementById('purchasesContent');
   const adminContent = document.getElementById('adminContent');
@@ -174,7 +198,7 @@ function switchTab(tabId) {
 }
 
 // ============================================
-// RENDER MATERIALS (BROWSE TAB)
+// RENDER MATERIALS
 // ============================================
 
 function renderMaterials() {
@@ -184,7 +208,6 @@ function renderMaterials() {
   
   let filtered = [...materials];
   
-  // Apply search
   if (searchTerm) {
     filtered = filtered.filter(m => 
       m.title.toLowerCase().includes(searchTerm) || 
@@ -192,12 +215,10 @@ function renderMaterials() {
     );
   }
   
-  // Apply category filter
   if (categoryFilter !== 'all') {
     filtered = filtered.filter(m => m.category === categoryFilter);
   }
   
-  // Apply type filter
   if (typeFilter !== 'all') {
     filtered = filtered.filter(m => m.type === typeFilter);
   }
@@ -215,80 +236,107 @@ function renderMaterials() {
     return;
   }
   
-  container.innerHTML = filtered.map(material => `
-    <div class="material-card ${material.type === 'bundle' ? 'bundle' : ''}" onclick="showPurchaseModal('${material.id}')">
-      <div class="card-image">
-        <img src="${material.image}" alt="${material.title}">
-        <div class="price-badge">₦${material.price.toLocaleString()}</div>
-        <div class="type-badge">${material.type === 'book' ? '📖 Book' : '📦 Bundle'}</div>
-        ${material.type === 'bundle' ? '<div class="bundle-icon"><i class="fas fa-layer-group"></i></div>' : ''}
-      </div>
-      <div class="card-info">
-        <h3 class="card-title">${material.title}</h3>
-        <p class="card-description">${material.description.substring(0, 80)}${material.description.length > 80 ? '...' : ''}</p>
-        <div class="card-meta">
-          <span class="card-category">${material.category.toUpperCase()}</span>
-          <button class="purchase-btn" onclick="event.stopPropagation(); showPurchaseModal('${material.id}')">Purchase</button>
+  container.innerHTML = filtered.map(material => {
+    if (material.type === 'book') {
+      return `
+        <div class="book-card" onclick="showDetailModal('${material.id}')">
+          <div class="book-cover">
+            <img src="${material.image}" alt="${material.title}" loading="lazy">
+            <div class="price-tag">₦${material.price.toLocaleString()}</div>
+          </div>
         </div>
-      </div>
-    </div>
-  `).join('');
+      `;
+    } else {
+      return `
+        <div class="bundle-card" onclick="showDetailModal('${material.id}')">
+          <div class="bundle-cover">
+            <img src="${material.image}" alt="${material.title}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\'fas fa-layer-group\'></i>'">
+          </div>
+          <div class="bundle-info">
+            <div class="bundle-title">${material.title}</div>
+            <div class="bundle-price">₦${material.price.toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+    }
+  }).join('');
+}
+
+// ============================================
+// DETAIL MODAL
+// ============================================
+
+function showDetailModal(materialId) {
+  selectedMaterial = materials.find(m => m.id === materialId);
+  if (!selectedMaterial) return;
+  
+  document.getElementById('detailImage').src = selectedMaterial.image;
+  document.getElementById('detailTitle').textContent = selectedMaterial.title;
+  document.getElementById('detailPrice').textContent = `₦${selectedMaterial.price.toLocaleString()}`;
+  document.getElementById('detailDescription').textContent = selectedMaterial.description;
+  document.getElementById('detailCategory').innerHTML = `<i class="fas fa-tag"></i> ${selectedMaterial.category.toUpperCase()}`;
+  document.getElementById('detailType').innerHTML = selectedMaterial.type === 'book' ? '<i class="fas fa-book"></i> Book' : '<i class="fas fa-layer-group"></i> Bundle';
+  
+  document.getElementById('detailModal').classList.add('active');
+}
+
+function closeDetailModal() {
+  document.getElementById('detailModal').classList.remove('active');
+  selectedMaterial = null;
+}
+
+function purchaseFromModal() {
+  if (!selectedMaterial) return;
+  closeDetailModal();
+  showPurchaseModal(selectedMaterial.id);
 }
 
 // ============================================
 // PURCHASE MODAL
 // ============================================
 
-let selectedMaterial = null;
+let purchaseMaterial = null;
 
 function showPurchaseModal(materialId) {
-  selectedMaterial = materials.find(m => m.id === materialId);
-  if (!selectedMaterial) return;
+  purchaseMaterial = materials.find(m => m.id === materialId);
+  if (!purchaseMaterial) return;
   
-  const modal = document.getElementById('purchaseModal');
-  const modalTitle = document.getElementById('modalTitle');
-  const modalPrice = document.getElementById('modalPrice');
-  const modalDescription = document.getElementById('modalDescription');
+  const alreadyPurchased = purchases.some(p => p.materialId === purchaseMaterial.id);
+  if (alreadyPurchased) {
+    alert('You have already purchased this item.');
+    return;
+  }
   
-  modalTitle.textContent = selectedMaterial.title;
-  modalPrice.textContent = `₦${selectedMaterial.price.toLocaleString()}`;
-  modalDescription.textContent = selectedMaterial.description;
+  document.getElementById('modalTitle').textContent = purchaseMaterial.title;
+  document.getElementById('modalDescription').textContent = purchaseMaterial.description;
+  document.getElementById('modalPrice').textContent = `₦${purchaseMaterial.price.toLocaleString()}`;
   
-  modal.classList.add('active');
+  document.getElementById('purchaseModal').classList.add('active');
 }
 
 function closePurchaseModal() {
   document.getElementById('purchaseModal').classList.remove('active');
-  selectedMaterial = null;
+  purchaseMaterial = null;
 }
 
 function confirmPurchase() {
-  if (!selectedMaterial) return;
+  if (!purchaseMaterial) return;
   
-  // Check if already purchased
-  const alreadyPurchased = purchases.some(p => p.materialId === selectedMaterial.id);
-  if (alreadyPurchased) {
-    alert('You have already purchased this item.');
+  // Mock wallet check
+  const walletBalance = 25000;
+  
+  if (walletBalance < purchaseMaterial.price) {
+    alert(`Insufficient funds!\n\nYour balance: ₦25,000\nItem price: ₦${purchaseMaterial.price.toLocaleString()}\n\nPlease top up your wallet.`);
     closePurchaseModal();
     return;
   }
   
-  // Get user wallet (mock)
-  const walletBalance = 25000; // Mock balance
-  
-  if (walletBalance < selectedMaterial.price) {
-    alert(`Insufficient funds!\n\nYour balance: ₦25,000\nItem price: ₦${selectedMaterial.price.toLocaleString()}\n\nPlease top up your wallet.`);
-    closePurchaseModal();
-    return;
-  }
-  
-  // Process purchase
   const newPurchase = {
     id: 'pur_' + Date.now(),
-    materialId: selectedMaterial.id,
-    title: selectedMaterial.title,
-    price: selectedMaterial.price,
-    type: selectedMaterial.type,
+    materialId: purchaseMaterial.id,
+    title: purchaseMaterial.title,
+    price: purchaseMaterial.price,
+    type: purchaseMaterial.type,
     date: new Date().toISOString(),
     downloadUrl: '#'
   };
@@ -296,18 +344,20 @@ function confirmPurchase() {
   purchases.push(newPurchase);
   localStorage.setItem(`gliimu_purchases_${currentUser.id}`, JSON.stringify(purchases));
   
-  // Show success
-  alert(`Purchase successful!\n\n${selectedMaterial.title} has been added to your library.`);
   closePurchaseModal();
-  
-  // If on purchases tab, refresh
+  document.getElementById('successMessage').innerHTML = `${purchaseMaterial.title} has been added to your library.`;
+  document.getElementById('successModal').classList.add('active');
+}
+
+function closeSuccessModal() {
+  document.getElementById('successModal').classList.remove('active');
   if (currentTab === 'purchases') {
     renderPurchases();
   }
 }
 
 // ============================================
-// RENDER PURCHASES
+// PURCHASES
 // ============================================
 
 function renderPurchases() {
@@ -445,8 +495,7 @@ function showAddMaterialForm() {
     </div>
   `;
   
-  const adminContent = document.getElementById('adminContent');
-  adminContent.innerHTML = html;
+  document.getElementById('adminContent').innerHTML = html;
 }
 
 function cancelMaterialForm() {
@@ -460,7 +509,7 @@ function saveNewMaterial() {
     title: document.getElementById('matTitle').value,
     description: document.getElementById('matDesc').value,
     price: parseInt(document.getElementById('matPrice').value),
-    image: document.getElementById('matImage').value || 'https://placehold.co/400x500/2c2f78/white?text=New+Material',
+    image: document.getElementById('matImage').value || 'https://images.unsplash.com/photo-1536240474400-3f5c8c6ee9d1?w=400&h=500&fit=crop',
     category: document.getElementById('matCategory').value,
     stock: 100
   };
@@ -469,7 +518,7 @@ function saveNewMaterial() {
   localStorage.setItem('gliimu_materials', JSON.stringify(materials));
   
   renderAdminPanel();
-  renderMaterials(); // Refresh browse view
+  renderMaterials();
   alert('Material added successfully!');
 }
 
@@ -494,9 +543,9 @@ function editMaterial(materialId) {
       <div class="form-group">
         <label>Category</label>
         <select id="matCategory">
-          <option value="video" ${material.category === 'video' ? 'selected' : ''}>Video Production</option>
+          <option value="video" ${material.category === 'video' ? 'selected' : ''}>Video</option>
           <option value="design" ${material.category === 'design' ? 'selected' : ''}>Design</option>
-          <option value="code" ${material.category === 'code' ? 'selected' : ''}>Code/Programming</option>
+          <option value="code" ${material.category === 'code' ? 'selected' : ''}>Code</option>
         </select>
       </div>
       <div class="form-group">
@@ -518,8 +567,7 @@ function editMaterial(materialId) {
     </div>
   `;
   
-  const adminContent = document.getElementById('adminContent');
-  adminContent.innerHTML = html;
+  document.getElementById('adminContent').innerHTML = html;
 }
 
 function updateMaterial(materialId) {
@@ -537,7 +585,6 @@ function updateMaterial(materialId) {
   };
   
   localStorage.setItem('gliimu_materials', JSON.stringify(materials));
-  
   renderAdminPanel();
   renderMaterials();
   alert('Material updated successfully!');
@@ -551,10 +598,6 @@ function deleteMaterial(materialId) {
     renderMaterials();
     alert('Material deleted successfully!');
   }
-}
-
-function updateCartCount() {
-  // For future cart functionality
 }
 
 // ============================================
@@ -586,9 +629,12 @@ function initThemeToggle() {
 
 // Make functions globally available
 window.switchTab = switchTab;
-window.showPurchaseModal = showPurchaseModal;
+window.showDetailModal = showDetailModal;
+window.closeDetailModal = closeDetailModal;
+window.purchaseFromModal = purchaseFromModal;
 window.closePurchaseModal = closePurchaseModal;
 window.confirmPurchase = confirmPurchase;
+window.closeSuccessModal = closeSuccessModal;
 window.downloadMaterial = downloadMaterial;
 window.showAddMaterialForm = showAddMaterialForm;
 window.saveNewMaterial = saveNewMaterial;
@@ -597,7 +643,7 @@ window.editMaterial = editMaterial;
 window.updateMaterial = updateMaterial;
 window.deleteMaterial = deleteMaterial;
 
-// Initialize on DOM ready
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
   initLibrary();
   initThemeToggle();
