@@ -71,15 +71,7 @@
     </div>
   </div>
 
-  <!-- Hero Section -->
-  <section class="library-hero">
-    <div class="container">
-      <h1>Digital Library</h1>
-      <p>Access premium learning materials, books, and resource bundles</p>
-    </div>
-  </section>
-
-  <!-- Main Content -->
+  <!-- Main Content (No Hero) -->
   <div class="library-wrapper">
     <div class="library-container">
       
@@ -130,7 +122,29 @@
     </div>
   </div>
 
-  <!-- Purchase Modal -->
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detailModal" onclick="if(event.target === this) closeDetailModal()">
+    <div class="detail-modal">
+      <button class="detail-close" onclick="closeDetailModal()">&times;</button>
+      <div class="detail-modal-content">
+        <div class="detail-image">
+          <img id="detailImage" src="" alt="">
+        </div>
+        <div class="detail-info">
+          <h2 id="detailTitle"></h2>
+          <div class="detail-price" id="detailPrice"></div>
+          <p class="detail-description" id="detailDescription"></p>
+          <div class="detail-meta">
+            <span id="detailCategory"></span>
+            <span id="detailType"></span>
+          </div>
+          <button class="detail-purchase-btn" id="detailPurchaseBtn" onclick="purchaseFromModal()">Purchase Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Purchase Confirmation Modal -->
   <div class="modal-overlay" id="purchaseModal" onclick="if(event.target === this) closePurchaseModal()">
     <div class="purchase-modal">
       <div class="modal-icon">
@@ -142,6 +156,20 @@
       <div class="modal-actions">
         <button class="modal-btn confirm" onclick="confirmPurchase()">Confirm Purchase</button>
         <button class="modal-btn cancel" onclick="closePurchaseModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="modal-overlay" id="successModal" onclick="if(event.target === this) closeSuccessModal()">
+    <div class="purchase-modal">
+      <div class="modal-icon">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <h3 class="modal-title">Purchase Successful!</h3>
+      <p class="modal-text" id="successMessage"></p>
+      <div class="modal-actions">
+        <button class="modal-btn confirm" onclick="closeSuccessModal()">Continue</button>
       </div>
     </div>
   </div>
