@@ -1,93 +1,7 @@
-// dashboard.js - Unified Dashboard for All Roles
+// dashboard.js - Role-based dashboard
 
-// ============================================
-// USER DATA (Mock - Replace with API later)
-// ============================================
-
-const mockUsers = {
-  student: {
-    id: "stu_001",
-    username: "john_doe",
-    name: "John Doe",
-    email: "john@example.com",
-    role: "Student",
-    track: "Media Track",
-    avatar: "https://ui-avatars.com/api/?name=John+Doe&background=4f46e5&color=fff",
-    walletBalance: 25000,
-    enrolledCourses: 4,
-    completedAssignments: 8,
-    pendingAssignments: 3,
-    attendance: 92
-  },
-  instructor: {
-    id: "ins_001",
-    username: "jane_smith",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    role: "Instructor",
-    track: "Tech Track",
-    avatar: "https://ui-avatars.com/api/?name=Jane+Smith&background=f59e0b&color=fff",
-    walletBalance: 150000,
-    totalStudents: 45,
-    pendingGrading: 12,
-    coursesTaught: 3
-  },
-  admin: {
-    id: "adm_001",
-    username: "admin",
-    name: "Super Admin",
-    email: "admin@gliimu.com",
-    role: "Admin",
-    avatar: "https://ui-avatars.com/api/?name=Super+Admin&background=2c2f78&color=fff"
-  },
-  others: {
-    id: "oth_001",
-    username: "partner_001",
-    name: "Partner User",
-    email: "partner@example.com",
-    role: "Others",
-    avatar: "https://ui-avatars.com/api/?name=Partner+User&background=8b5cf6&color=fff"
-  }
-};
-
-// Mock data for different sections
-const mockWalletTransactions = [
-  { id: 1, description: "Tuition Payment", amount: 25000, type: "debit", date: "2025-03-01", status: "approved" },
-  { id: 2, description: "Book Purchase", amount: 3500, type: "debit", date: "2025-03-05", status: "approved" },
-  { id: 3, description: "Wallet Top-up", amount: 10000, type: "credit", date: "2025-02-28", status: "approved" }
-];
-
-const mockAssignments = [
-  { id: 1, title: "Short Film Project", dueDate: "2025-03-20", status: "pending", grade: null },
-  { id: 2, title: "Color Grading Exercise", dueDate: "2025-03-15", status: "submitted", grade: 85 },
-  { id: 3, title: "UI/UX Design Challenge", dueDate: "2025-03-25", status: "pending", grade: null }
-];
-
-const mockPortfolio = [
-  { id: 1, title: "Short Film: The Journey", image: "https://via.placeholder.com/300x180?text=Project+1", date: "2025-02-15" },
-  { id: 2, title: "Brand Identity Design", image: "https://via.placeholder.com/300x180?text=Project+2", date: "2025-02-20" },
-  { id: 3, title: "E-commerce Website", image: "https://via.placeholder.com/300x180?text=Project+3", date: "2025-02-25" }
-];
-
-const mockStudents = [
-  { id: 1, name: "Alice Johnson", email: "alice@example.com", track: "Media", submissions: 5, completed: 4 },
-  { id: 2, name: "Bob Williams", email: "bob@example.com", track: "Tech", submissions: 3, completed: 2 },
-  { id: 3, name: "Carol Davis", email: "carol@example.com", track: "Design", submissions: 4, completed: 3 }
-];
-
-const mockSubmissions = [
-  { id: 1, student: "Alice Johnson", assignment: "Short Film Project", submitted: "2025-03-10", status: "pending" },
-  { id: 2, student: "Bob Williams", assignment: "JavaScript Assignment", submitted: "2025-03-12", status: "pending" }
-];
-
-const mockApplications = [
-  { id: 1, name: "David Lee", email: "david@example.com", type: "Student", date: "2025-03-10", status: "pending" },
-  { id: 2, name: "Emma Wilson", email: "emma@example.com", type: "Instructor", date: "2025-03-11", status: "pending" }
-];
-
-const mockPayments = [
-  { id: 1, user: "John Doe", amount: 10000, date: "2025-03-10", reference: "REF123456", status: "pending" }
-];
+let currentUser = null;
+let currentTab = 'dashboard';
 
 // ============================================
 // ROLE-BASED TAB CONFIGURATION
@@ -95,111 +9,126 @@ const mockPayments = [
 
 const roleTabs = {
   Student: [
-    { id: "dashboard", icon: "fas fa-th-large", label: "Dashboard" },
-    { id: "my-courses", icon: "fas fa-book-open", label: "My Courses" },
-    { id: "wallet", icon: "fas fa-wallet", label: "Wallet" },
-    { id: "library", icon: "fas fa-book", label: "Library" },
-    { id: "assignments", icon: "fas fa-tasks", label: "Assignments" },
-    { id: "portfolio", icon: "fas fa-id-card", label: "Portfolio" },
-    { id: "live-class", icon: "fas fa-chalkboard-teacher", label: "Live Class" },
-    { id: "community", icon: "fas fa-comments", label: "Community" },
-    { id: "settings", icon: "fas fa-cog", label: "Settings" }
+    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
+    { id: 'courses', icon: 'fas fa-book-open', label: 'My Courses' },
+    { id: 'assignments', icon: 'fas fa-tasks', label: 'Assignments' },
+    { id: 'wallet', icon: 'fas fa-wallet', label: 'Wallet' },
+    { id: 'library', icon: 'fas fa-book', label: 'Library' },
+    { id: 'portfolio', icon: 'fas fa-id-card', label: 'Portfolio' },
+    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
+  ],
+  Partner: [
+    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
+    { id: 'projects', icon: 'fas fa-briefcase', label: 'My Projects' },
+    { id: 'submit-project', icon: 'fas fa-plus-circle', label: 'Submit Project' },
+    { id: 'invoices', icon: 'fas fa-file-invoice', label: 'Invoices' },
+    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
   ],
   Instructor: [
-    { id: "dashboard", icon: "fas fa-th-large", label: "Dashboard" },
-    { id: "my-students", icon: "fas fa-user-graduate", label: "My Students" },
-    { id: "submissions", icon: "fas fa-file-import", label: "Submissions" },
-    { id: "create-assignment", icon: "fas fa-plus-circle", label: "Create Assignment" },
-    { id: "live-class", icon: "fas fa-chalkboard-teacher", label: "Live Class" },
-    { id: "wallet", icon: "fas fa-wallet", label: "Wallet" },
-    { id: "community", icon: "fas fa-comments", label: "Community" },
-    { id: "settings", icon: "fas fa-cog", label: "Settings" }
+    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
+    { id: 'students', icon: 'fas fa-users', label: 'My Students' },
+    { id: 'submissions', icon: 'fas fa-file-import', label: 'Submissions' },
+    { id: 'create-assignment', icon: 'fas fa-plus-circle', label: 'Create' },
+    { id: 'wallet', icon: 'fas fa-wallet', label: 'Wallet' },
+    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
   ],
-  Admin: [
-    { id: "dashboard", icon: "fas fa-th-large", label: "Dashboard" },
-    { id: "user-management", icon: "fas fa-users-cog", label: "User Management" },
-    { id: "finance", icon: "fas fa-chart-line", label: "Finance" },
-    { id: "content-hub", icon: "fas fa-newspaper", label: "Content Hub" },
-    { id: "analytics", icon: "fas fa-chart-bar", label: "Analytics" },
-    { id: "settings", icon: "fas fa-cog", label: "Settings" },
-    { id: "support", icon: "fas fa-headset", label: "Support" }
-  ],
-  Others: [
-    { id: "dashboard", icon: "fas fa-th-large", label: "Dashboard" },
-    { id: "directory", icon: "fas fa-address-book", label: "Directory" },
-    { id: "events", icon: "fas fa-calendar-alt", label: "Events" },
-    { id: "contact", icon: "fas fa-envelope", label: "Contact" },
-    { id: "settings", icon: "fas fa-cog", label: "Settings" }
+  Other: [
+    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
+    { id: 'announcements', icon: 'fas fa-bullhorn', label: 'Announcements' },
+    { id: 'contact', icon: 'fas fa-envelope', label: 'Contact Support' },
+    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
   ]
 };
 
 // ============================================
-// GLOBAL VARIABLES
+// MOCK DATA
 // ============================================
 
-let currentUser = null;
-let currentTab = "dashboard";
+const mockData = {
+  Student: {
+    stats: { enrolledCourses: 4, completedAssignments: 8, pendingAssignments: 3, walletBalance: 25000 },
+    assignments: [
+      { title: 'Short Film Project', dueDate: '2025-03-20', status: 'pending', grade: null },
+      { title: 'Color Grading Exercise', dueDate: '2025-03-15', status: 'submitted', grade: 85 },
+      { title: 'UI/UX Design Challenge', dueDate: '2025-03-25', status: 'pending', grade: null }
+    ],
+    transactions: [
+      { id: 1, description: 'Tuition Payment', amount: 25000, type: 'debit', date: '2025-03-01', status: 'approved' },
+      { id: 2, description: 'Book Purchase', amount: 3500, type: 'debit', date: '2025-03-05', status: 'approved' }
+    ]
+  },
+  Instructor: {
+    stats: { totalStudents: 12, pendingGrading: 5, coursesTaught: 2, earnings: 150000 },
+    submissions: [
+      { student: 'John Doe', assignment: 'Short Film', submitted: '2025-03-10', status: 'pending' },
+      { student: 'Jane Smith', assignment: 'UI Design', submitted: '2025-03-12', status: 'pending' }
+    ]
+  },
+  Partner: {
+    stats: { activeProjects: 2, completedProjects: 5, pendingInvoices: 1 },
+    projects: [
+      { name: 'Website Development', status: 'in-progress', budget: 250000, deadline: '2025-04-15' },
+      { name: 'Brand Identity', status: 'completed', budget: 150000, deadline: '2025-02-28' }
+    ]
+  },
+  Other: {
+    stats: { announcements: 3, supportTickets: 1 },
+    announcements: [
+      { title: 'New Campus Opening', date: '2025-03-01', content: 'We are expanding to Lagos!' },
+      { title: 'Scholarship Available', date: '2025-02-15', content: 'Apply for early bird discount' }
+    ]
+  }
+};
 
 // ============================================
 // INITIALIZATION
 // ============================================
 
 function initDashboard() {
-  // Get user from localStorage (or use mock for demo)
+  // Get logged-in user
   const storedUser = localStorage.getItem('gliimu_user');
   
-  if (storedUser) {
-    currentUser = JSON.parse(storedUser);
-  } else {
-    // For demo, default to student
-    currentUser = mockUsers.student;
-    localStorage.setItem('gliimu_user', JSON.stringify(currentUser));
+  if (!storedUser) {
+    window.location.href = 'index.html';
+    return;
+  }
+  
+  currentUser = JSON.parse(storedUser);
+  
+  // Ensure user has a role (default to Student if missing)
+  if (!currentUser.role) {
+    currentUser.role = 'Student';
   }
   
   // Update UI with user info
-  updateUserUI();
+  document.getElementById('userName').textContent = currentUser.name || currentUser.username;
+  document.getElementById('userAvatar').src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || currentUser.username)}&background=random&color=fff`;
   
-  // Render sidebar based on role
+  // Render sidebar tabs based on role
   renderSidebar();
   
-  // Load dashboard content based on role
+  // Load dashboard content
   loadDashboardContent();
-  
-  // Setup event listeners
-  setupEventListeners();
-  
-  // Set current date
-  setCurrentDate();
-}
-
-function updateUserUI() {
-  document.getElementById('userNameSidebar').textContent = currentUser.name;
-  document.getElementById('userRoleSidebar').textContent = currentUser.role;
-  document.getElementById('userAvatarSidebar').src = currentUser.avatar;
-  document.getElementById('pageTitle').textContent = `${currentUser.role} Dashboard`;
 }
 
 function renderSidebar() {
-  const tabs = roleTabs[currentUser.role] || roleTabs.Others;
-  const navMenu = document.getElementById('navMenu');
-  const logoutBtn = document.getElementById('logoutBtn');
+  const tabs = roleTabs[currentUser.role] || roleTabs.Other;
+  const sidebarNav = document.getElementById('sidebarNav');
   
-  navMenu.innerHTML = '';
-  
-  tabs.forEach(tab => {
-    const navItem = document.createElement('div');
-    navItem.className = `nav-item ${tab.id === currentTab ? 'active' : ''}`;
-    navItem.setAttribute('data-tab', tab.id);
-    navItem.innerHTML = `
+  sidebarNav.innerHTML = tabs.map(tab => `
+    <div class="nav-item ${tab.id === currentTab ? 'active' : ''}" data-tab="${tab.id}">
       <i class="${tab.icon}"></i>
       <span>${tab.label}</span>
-    `;
-    navItem.addEventListener('click', () => switchTab(tab.id));
-    navMenu.appendChild(navItem);
-  });
+    </div>
+  `).join('');
   
-  // Re-append logout button
-  navMenu.appendChild(logoutBtn);
+  // Add event listeners to nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const tabId = item.getAttribute('data-tab');
+      switchTab(tabId);
+    });
+  });
 }
 
 function switchTab(tabId) {
@@ -213,555 +142,272 @@ function switchTab(tabId) {
     }
   });
   
-  // Hide all sections
-  document.querySelectorAll('.dashboard-section').forEach(section => {
-    section.classList.remove('active');
-  });
-  
-  // Show selected section
-  const targetSection = document.getElementById(`section-${tabId}`);
-  if (targetSection) {
-    targetSection.classList.add('active');
-  }
-  
-  // Load section-specific data
-  loadSectionData(tabId);
+  // Load content for the selected tab
+  loadTabContent(tabId);
 }
 
-function loadSectionData(tabId) {
-  switch(tabId) {
+function loadTabContent(tabId) {
+  const mainContent = document.getElementById('dashboardContent');
+  
+  switch (tabId) {
     case 'dashboard':
-      loadDashboardStats();
+      mainContent.innerHTML = renderDashboard();
       break;
-    case 'wallet':
-      loadWalletData();
+    case 'courses':
+      mainContent.innerHTML = renderCourses();
       break;
     case 'assignments':
-      loadAssignmentsData();
+      mainContent.innerHTML = renderAssignments();
+      break;
+    case 'wallet':
+      mainContent.innerHTML = renderWallet();
+      break;
+    case 'library':
+      mainContent.innerHTML = renderLibrary();
       break;
     case 'portfolio':
-      loadPortfolioData();
+      mainContent.innerHTML = renderPortfolio();
       break;
-    case 'my-students':
-      loadStudentsData();
+    case 'settings':
+      mainContent.innerHTML = renderSettings();
+      break;
+    case 'students':
+      mainContent.innerHTML = renderStudents();
       break;
     case 'submissions':
-      loadSubmissionsData();
+      mainContent.innerHTML = renderSubmissions();
       break;
-    case 'user-management':
-      loadUserManagementData();
+    case 'create-assignment':
+      mainContent.innerHTML = renderCreateAssignment();
       break;
-    case 'finance':
-      loadFinanceData();
+    case 'projects':
+      mainContent.innerHTML = renderProjects();
       break;
+    case 'submit-project':
+      mainContent.innerHTML = renderSubmitProject();
+      break;
+    case 'invoices':
+      mainContent.innerHTML = renderInvoices();
+      break;
+    case 'announcements':
+      mainContent.innerHTML = renderAnnouncements();
+      break;
+    case 'contact':
+      mainContent.innerHTML = renderContact();
+      break;
+    default:
+      mainContent.innerHTML = renderDashboard();
   }
 }
 
 // ============================================
-// DASHBOARD CONTENT LOADERS
+// DASHBOARD CONTENT RENDERERS
 // ============================================
 
 function loadDashboardContent() {
-  // Based on role, show different dashboard content
-  const role = currentUser.role;
-  const dashboardContent = document.getElementById('dashboard-content');
+  const mainContent = document.getElementById('dashboardContent');
+  mainContent.innerHTML = renderDashboard();
+}
+
+function renderDashboard() {
+  const data = mockData[currentUser.role] || mockData.Other;
+  const isStudent = currentUser.role === 'Student';
+  const isInstructor = currentUser.role === 'Instructor';
+  const isPartner = currentUser.role === 'Partner';
   
-  if (role === 'Student') {
-    renderStudentDashboard();
-  } else if (role === 'Instructor') {
-    renderInstructorDashboard();
-  } else if (role === 'Admin') {
-    renderAdminDashboard();
+  let statsHtml = '';
+  let actionCardsHtml = '';
+  
+  if (isStudent) {
+    statsHtml = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-info"><h4>Enrolled Courses</h4><div class="stat-number">${data.stats.enrolledCourses}</div><div class="stat-label">Active this semester</div></div><div class="stat-icon"><i class="fas fa-book-open"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Completed</h4><div class="stat-number">${data.stats.completedAssignments}</div><div class="stat-label">Assignments done</div></div><div class="stat-icon"><i class="fas fa-check-circle"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Pending</h4><div class="stat-number">${data.stats.pendingAssignments}</div><div class="stat-label">Awaiting submission</div></div><div class="stat-icon"><i class="fas fa-clock"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Wallet</h4><div class="stat-number">₦${data.stats.walletBalance.toLocaleString()}</div><div class="stat-label">Available balance</div></div><div class="stat-icon"><i class="fas fa-wallet"></i></div></div>
+      </div>
+      <div class="cards-grid">
+        <div class="action-card" onclick="switchTab('courses')"><div class="action-icon"><i class="fas fa-book-open"></i></div><div class="action-info"><h3>My Courses</h3><p>Continue your learning journey</p></div></div>
+        <div class="action-card" onclick="switchTab('assignments')"><div class="action-icon"><i class="fas fa-tasks"></i></div><div class="action-info"><h3>Assignments</h3><p>${data.stats.pendingAssignments} pending submissions</p></div></div>
+        <div class="action-card" onclick="switchTab('wallet')"><div class="action-icon"><i class="fas fa-wallet"></i></div><div class="action-info"><h3>Wallet</h3><p>₦${data.stats.walletBalance.toLocaleString()} balance</p></div></div>
+      </div>
+    `;
+  } else if (isInstructor) {
+    statsHtml = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-info"><h4>Total Students</h4><div class="stat-number">${data.stats.totalStudents}</div><div class="stat-label">Enrolled</div></div><div class="stat-icon"><i class="fas fa-users"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Pending Grading</h4><div class="stat-number">${data.stats.pendingGrading}</div><div class="stat-label">Submissions to review</div></div><div class="stat-icon"><i class="fas fa-file-alt"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Courses</h4><div class="stat-number">${data.stats.coursesTaught}</div><div class="stat-label">Active</div></div><div class="stat-icon"><i class="fas fa-chalkboard"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Earnings</h4><div class="stat-number">₦${data.stats.earnings.toLocaleString()}</div><div class="stat-label">This month</div></div><div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div></div>
+      </div>
+      <div class="cards-grid">
+        <div class="action-card" onclick="switchTab('students')"><div class="action-icon"><i class="fas fa-users"></i></div><div class="action-info"><h3>My Students</h3><p>Manage your class</p></div></div>
+        <div class="action-card" onclick="switchTab('submissions')"><div class="action-icon"><i class="fas fa-file-import"></i></div><div class="action-info"><h3>Grade Submissions</h3><p>${data.stats.pendingGrading} pending</p></div></div>
+        <div class="action-card" onclick="switchTab('create-assignment')"><div class="action-icon"><i class="fas fa-plus-circle"></i></div><div class="action-info"><h3>Create Assignment</h3><p>Post new tasks</p></div></div>
+      </div>
+    `;
+  } else if (isPartner) {
+    statsHtml = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-info"><h4>Active Projects</h4><div class="stat-number">${data.stats.activeProjects}</div><div class="stat-label">In progress</div></div><div class="stat-icon"><i class="fas fa-spinner"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Completed</h4><div class="stat-number">${data.stats.completedProjects}</div><div class="stat-label">Delivered</div></div><div class="stat-icon"><i class="fas fa-check-circle"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Pending Invoices</h4><div class="stat-number">${data.stats.pendingInvoices}</div><div class="stat-label">Awaiting payment</div></div><div class="stat-icon"><i class="fas fa-file-invoice"></i></div></div>
+      </div>
+      <div class="cards-grid">
+        <div class="action-card" onclick="switchTab('projects')"><div class="action-icon"><i class="fas fa-briefcase"></i></div><div class="action-info"><h3>My Projects</h3><p>Track your work</p></div></div>
+        <div class="action-card" onclick="switchTab('submit-project')"><div class="action-icon"><i class="fas fa-plus-circle"></i></div><div class="action-info"><h3>Submit Project</h3><p>Send new project brief</p></div></div>
+      </div>
+    `;
   } else {
-    renderOthersDashboard();
+    statsHtml = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-info"><h4>Announcements</h4><div class="stat-number">${data.stats.announcements}</div><div class="stat-label">New updates</div></div><div class="stat-icon"><i class="fas fa-bullhorn"></i></div></div>
+        <div class="stat-card"><div class="stat-info"><h4>Support Tickets</h4><div class="stat-number">${data.stats.supportTickets}</div><div class="stat-label">Open requests</div></div><div class="stat-icon"><i class="fas fa-headset"></i></div></div>
+      </div>
+      <div class="cards-grid">
+        <div class="action-card" onclick="switchTab('announcements')"><div class="action-icon"><i class="fas fa-bullhorn"></i></div><div class="action-info"><h3>Announcements</h3><p>Latest updates</p></div></div>
+        <div class="action-card" onclick="switchTab('contact')"><div class="action-icon"><i class="fas fa-envelope"></i></div><div class="action-info"><h3>Contact Support</h3><p>Get help</p></div></div>
+      </div>
+    `;
   }
-}
-
-function renderStudentDashboard() {
-  const container = document.getElementById('dashboard-content');
-  container.innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Enrolled Courses</h4>
-          <h2>${currentUser.enrolledCourses || 4}</h2>
-          <p>Active this semester</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-book-open"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Completed</h4>
-          <h2>${currentUser.completedAssignments || 8}</h2>
-          <p>Assignments done</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Pending</h4>
-          <h2>${currentUser.pendingAssignments || 3}</h2>
-          <p>Awaiting submission</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-clock"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Attendance</h4>
-          <h2>${currentUser.attendance || 92}%</h2>
-          <p>This month</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
-      </div>
-    </div>
-    
-    <div class="cards-grid">
-      <div class="dashboard-card" onclick="switchTab('live-class')">
-        <div class="card-icon-large"><i class="fas fa-chalkboard-teacher"></i></div>
-        <h3>Join Live Class</h3>
-        <p>Enter the virtual classroom to attend lectures in real-time.</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('wallet')">
-        <div class="card-icon-large"><i class="fas fa-wallet"></i></div>
-        <h3>Wallet Balance</h3>
-        <p>₦${currentUser.walletBalance.toLocaleString()}</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('assignments')">
-        <div class="card-icon-large"><i class="fas fa-tasks"></i></div>
-        <h3>Pending Assignments</h3>
-        <p>${currentUser.pendingAssignments || 3} tasks waiting</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-    </div>
-  `;
-}
-
-function renderInstructorDashboard() {
-  const container = document.getElementById('dashboard-content');
-  container.innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Total Students</h4>
-          <h2>${currentUser.totalStudents || 45}</h2>
-          <p>Enrolled in your courses</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-users"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Pending Grading</h4>
-          <h2>${currentUser.pendingGrading || 12}</h2>
-          <p>Submissions to review</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Courses</h4>
-          <h2>${currentUser.coursesTaught || 3}</h2>
-          <p>Active this semester</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-chalkboard"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Earnings</h4>
-          <h2>₦${currentUser.walletBalance.toLocaleString()}</h2>
-          <p>This month</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
-      </div>
-    </div>
-    
-    <div class="cards-grid">
-      <div class="dashboard-card" onclick="switchTab('live-class')">
-        <div class="card-icon-large"><i class="fas fa-video"></i></div>
-        <h3>Start Live Class</h3>
-        <p>Begin a live session with your students.</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('submissions')">
-        <div class="card-icon-large"><i class="fas fa-file-import"></i></div>
-        <h3>Grade Submissions</h3>
-        <p>${currentUser.pendingGrading || 12} assignments pending</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('create-assignment')">
-        <div class="card-icon-large"><i class="fas fa-plus-circle"></i></div>
-        <h3>Create Assignment</h3>
-        <p>Post new tasks for students</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-    </div>
-  `;
-}
-
-function renderAdminDashboard() {
-  const container = document.getElementById('dashboard-content');
-  container.innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Total Users</h4>
-          <h2>156</h2>
-          <p>Students + Instructors</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-users"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Pending Apps</h4>
-          <h2>8</h2>
-          <p>Awaiting review</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Revenue</h4>
-          <h2>₦450K</h2>
-          <p>This month</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h4>Active Today</h4>
-          <h2>42</h2>
-          <p>Users online</p>
-        </div>
-        <div class="stat-icon"><i class="fas fa-user-check"></i></div>
-      </div>
-    </div>
-    
-    <div class="cards-grid">
-      <div class="dashboard-card" onclick="switchTab('user-management')">
-        <div class="card-icon-large"><i class="fas fa-users-cog"></i></div>
-        <h3>User Management</h3>
-        <p>Review applications, manage users</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('finance')">
-        <div class="card-icon-large"><i class="fas fa-chart-line"></i></div>
-        <h3>Finance Overview</h3>
-        <p>Approve payments, view reports</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('analytics')">
-        <div class="card-icon-large"><i class="fas fa-chart-bar"></i></div>
-        <h3>Analytics</h3>
-        <p>View platform statistics</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-    </div>
-  `;
-}
-
-function renderOthersDashboard() {
-  const container = document.getElementById('dashboard-content');
-  container.innerHTML = `
-    <div class="welcome-banner">
-      <div>
-        <h2>Welcome, ${currentUser.name}!</h2>
-        <p>Thank you for being part of the Gliimu community.</p>
+  
+  const now = new Date();
+  const day = now.getDate();
+  const month = now.toLocaleString('default', { month: 'long' });
+  
+  return `
+    <div class="welcome-card">
+      <div class="welcome-text">
+        <h2>Welcome back, ${currentUser.name || currentUser.username}!</h2>
+        <p>Here's what's happening with your ${currentUser.role === 'Student' ? 'learning' : currentUser.role === 'Instructor' ? 'teaching' : 'account'} today.</p>
       </div>
       <div class="welcome-date">
-        <h3 id="currentDateDisplay"></h3>
+        <div class="day">${day}</div>
+        <div class="month">${month}</div>
       </div>
     </div>
-    
-    <div class="cards-grid">
-      <div class="dashboard-card" onclick="switchTab('directory')">
-        <div class="card-icon-large"><i class="fas fa-address-book"></i></div>
-        <h3>Directory</h3>
-        <p>Find instructors and students</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('events')">
-        <div class="card-icon-large"><i class="fas fa-calendar-alt"></i></div>
-        <h3>Upcoming Events</h3>
-        <p>Workshops and webinars</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-      
-      <div class="dashboard-card" onclick="switchTab('contact')">
-        <div class="card-icon-large"><i class="fas fa-envelope"></i></div>
-        <h3>Contact Support</h3>
-        <p>Get help from our team</p>
-        <div class="card-arrow"><i class="fas fa-arrow-right"></i></div>
-      </div>
-    </div>
+    ${statsHtml}
   `;
 }
 
-// ============================================
-// SECTION DATA LOADERS
-// ============================================
-
-function loadDashboardStats() {
-  // Already handled by render functions above
+function renderCourses() {
+  return `<div class="table-container"><table><thead><tr><th>Course</th><th>Progress</th><th>Instructor</th><th>Next Session</th></tr></thead><tbody><tr><td>Full-Stack Media Production</td><td><div style="background:#e0e0e0; border-radius:10px; height:6px; width:100%;"><div style="background:var(--accent); width:45%; height:6px; border-radius:10px;"></div></div>45%</td><td>Jeremiah Iyo</td><td>Mar 20, 2025</td></tr><tr><td>Video Production</td><td><div style="background:#e0e0e0; border-radius:10px; height:6px; width:100%;"><div style="background:var(--accent); width:60%; height:6px; border-radius:10px;"></div></div>60%</td><td>Finiks Kshel</td><td>Mar 18, 2025</td></tr></tbody></table></div>`;
 }
 
-function loadWalletData() {
-  const container = document.getElementById('wallet-content');
-  if (!container) return;
-  
-  container.innerHTML = `
-    <div class="wallet-balance-card">
-      <h4>Total Balance</h4>
-      <h2>₦${currentUser.walletBalance.toLocaleString()}</h2>
-      <div class="wallet-actions">
-        <button class="wallet-btn" onclick="alert('Top-up coming soon')"><i class="fas fa-plus"></i> Top Up</button>
-        <button class="wallet-btn" onclick="alert('Withdrawal coming soon')"><i class="fas fa-download"></i> Withdraw</button>
-      </div>
-    </div>
-    
-    <div class="dashboard-card" style="padding: 20px;">
-      <h3 style="margin-bottom: 16px;">Recent Transactions</h3>
-      <div class="transaction-list" id="transactionList"></div>
-    </div>
-  `;
-  
-  const transactionList = document.getElementById('transactionList');
-  if (transactionList) {
-    transactionList.innerHTML = mockWalletTransactions.map(t => `
-      <div class="transaction-item">
-        <div>
-          <div class="transaction-desc">${t.description}</div>
-          <div class="transaction-date">${t.date}</div>
-        </div>
-        <div class="transaction-amount ${t.type === 'credit' ? 'credit' : 'debit'}">
-          ${t.type === 'credit' ? '+' : '-'}₦${t.amount.toLocaleString()}
-        </div>
-      </div>
-    `).join('');
-  }
-}
-
-function loadAssignmentsData() {
-  const container = document.getElementById('assignments-content');
-  if (!container) return;
-  
-  container.innerHTML = `
+function renderAssignments() {
+  const data = mockData.Student;
+  return `
     <div class="table-container">
       <table>
-        <thead>
-          <tr><th>Assignment</th><th>Due Date</th><th>Status</th><th>Grade</th><th>Action</th></tr>
-        </thead>
-        <tbody id="assignmentsTableBody"></tbody>
+        <thead><tr><th>Assignment</th><th>Due Date</th><th>Status</th><th>Grade</th><th>Action</th></tr></thead>
+        <tbody>
+          ${data.assignments.map(a => `
+            <tr>
+              <td><strong>${a.title}</strong></td>
+              <td>${a.dueDate}</td>
+              <td><span class="badge ${a.status === 'submitted' ? 'badge-success' : 'badge-warning'}">${a.status}</span></td>
+              <td>${a.grade ? a.grade + '%' : '-'}</td>
+              <td><button class="btn-sm" onclick="alert('Submit assignment')">Submit</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
       </table>
     </div>
   `;
-  
-  const tableBody = document.getElementById('assignmentsTableBody');
-  if (tableBody) {
-    tableBody.innerHTML = mockAssignments.map(a => `
-      <tr>
-        <td><strong>${a.title}</strong></td>
-        <td>${a.dueDate}</td>
-        <td><span class="badge ${a.status === 'submitted' ? 'badge-success' : 'badge-warning'}">${a.status}</span></td>
-        <td>${a.grade ? a.grade + '%' : '-'}</td>
-        <td><button class="btn-sm btn-outline" onclick="alert('Submit assignment')">Submit</button></td>
-      </tr>
-    `).join('');
-  }
 }
 
-function loadPortfolioData() {
-  const container = document.getElementById('portfolio-content');
-  if (!container) return;
-  
-  container.innerHTML = `
-    <div class="portfolio-grid" id="portfolioGrid"></div>
-  `;
-  
-  const grid = document.getElementById('portfolioGrid');
-  if (grid) {
-    grid.innerHTML = mockPortfolio.map(p => `
-      <div class="portfolio-item" onclick="alert('View project: ${p.title}')">
-        <div class="portfolio-image" style="background-image: url('${p.image}')"></div>
-        <div class="portfolio-info">
-          <div class="portfolio-title">${p.title}</div>
-          <div class="portfolio-date">${p.date}</div>
-        </div>
-      </div>
-    `).join('');
-  }
-}
-
-function loadStudentsData() {
-  const container = document.getElementById('my-students-content');
-  if (!container) return;
-  
-  container.innerHTML = `
+function renderWallet() {
+  const data = mockData.Student;
+  return `
+    <div class="stats-grid" style="margin-bottom:24px;">
+      <div class="stat-card"><div class="stat-info"><h4>Current Balance</h4><div class="stat-number" style="font-size:2rem;">₦${data.stats.walletBalance.toLocaleString()}</div></div><div class="stat-icon"><i class="fas fa-wallet"></i></div></div>
+    </div>
     <div class="table-container">
       <table>
-        <thead><tr><th>Student</th><th>Email</th><th>Track</th><th>Submissions</th><th>Completed</th><th>Action</th></tr></thead>
-        <tbody id="studentsTableBody"></tbody>
+        <thead><tr><th>Description</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+        <tbody>
+          ${data.transactions.map(t => `
+            <tr>
+              <td>${t.description}</td>
+              <td>${t.date}</td>
+              <td style="color:${t.type === 'credit' ? 'var(--success)' : 'var(--danger)'}">${t.type === 'credit' ? '+' : '-'}₦${t.amount.toLocaleString()}</td>
+              <td><span class="badge badge-success">${t.status}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
       </table>
     </div>
   `;
-  
-  const tableBody = document.getElementById('studentsTableBody');
-  if (tableBody) {
-    tableBody.innerHTML = mockStudents.map(s => `
-      <tr>
-        <td><strong>${s.name}</strong></td>
-        <td>${s.email}</td>
-        <td><span class="badge badge-success">${s.track}</span></td>
-        <td>${s.submissions}</td>
-        <td>${s.completed}</td>
-        <td><button class="btn-sm btn-outline">View</button></td>
-      </tr>
-    `).join('');
-  }
 }
 
-function loadSubmissionsData() {
-  const container = document.getElementById('submissions-content');
-  if (!container) return;
-  
-  container.innerHTML = `
+function renderLibrary() {
+  return `<div class="table-container"><table><thead><tr><th>Title</th><th>Type</th><th>Date Purchased</th><th>Action</th></tr></thead><tbody><tr><td>Complete Guide to Video Production</td><td>Book</td><td>2025-03-01</td><td><button class="btn-sm">Download</button></td></tr><tr><td>UI/UX Design Mastery</td><td>Book</td><td>2025-02-15</td><td><button class="btn-sm">Download</button></td></tr></tbody></table></div>`;
+}
+
+function renderPortfolio() {
+  return `<div class="cards-grid"><div class="action-card"><div class="action-icon"><i class="fas fa-image"></i></div><div class="action-info"><h3>Short Film Project</h3><p>Submitted Mar 10, 2025</p></div></div><div class="action-card"><div class="action-icon"><i class="fas fa-palette"></i></div><div class="action-info"><h3>Brand Identity Design</h3><p>Submitted Feb 28, 2025</p></div></div></div>`;
+}
+
+function renderSettings() {
+  return `
+    <div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);">
+      <h3 style="margin-bottom:20px;">Account Settings</h3>
+      <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px;">Display Name</label><input type="text" class="input-field" value="${currentUser.name || ''}" placeholder="Your name"></div>
+      <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px;">Email</label><input type="email" class="input-field" value="${currentUser.email || ''}" placeholder="Email (optional)"></div>
+      <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px;">Phone</label><input type="tel" class="input-field" placeholder="Phone (optional)"></div>
+      <button class="btn-sm" onclick="alert('Settings saved (demo)')">Save Changes</button>
+    </div>
+  `;
+}
+
+function renderStudents() {
+  return `<div class="table-container"><table><thead><tr><th>Student</th><th>Track</th><th>Progress</th><th>Actions</th></tr></thead><tbody><tr><td>John Doe</td><td>Media</td><td>45%</td><td><button class="btn-sm">View</button></td></tr><tr><td>Jane Smith</td><td>Tech</td><td>60%</td><td><button class="btn-sm">View</button></td></tr></tbody></table></div>`;
+}
+
+function renderSubmissions() {
+  const data = mockData.Instructor;
+  return `
     <div class="table-container">
       <table>
         <thead><tr><th>Student</th><th>Assignment</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="submissionsTableBody"></tbody>
+        <tbody>
+          ${data.submissions.map(s => `
+            <tr><td>${s.student}</td><td>${s.assignment}</td><td>${s.submitted}</td><td><span class="badge badge-warning">${s.status}</span></td><td><button class="btn-sm">Grade</button></td></tr>
+          `).join('')}
+        </tbody>
       </table>
     </div>
   `;
-  
-  const tableBody = document.getElementById('submissionsTableBody');
-  if (tableBody) {
-    tableBody.innerHTML = mockSubmissions.map(s => `
-      <tr>
-        <td><strong>${s.student}</strong></td>
-        <td>${s.assignment}</td>
-        <td>${s.submitted}</td>
-        <td><span class="badge badge-warning">${s.status}</span></td>
-        <td><button class="btn-sm btn-outline">Grade</button></td>
-      </tr>
-    `).join('');
-  }
 }
 
-function loadUserManagementData() {
-  const container = document.getElementById('user-management-content');
-  if (!container) return;
-  
-  container.innerHTML = `
-    <div style="margin-bottom: 20px;">
-      <button class="wallet-btn" style="background: var(--primary); color: white;" onclick="alert('Add user form')"><i class="fas fa-plus"></i> Add User</button>
-    </div>
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="applicationsTableBody"></tbody>
-      </table>
-    </div>
-  `;
-  
-  const tableBody = document.getElementById('applicationsTableBody');
-  if (tableBody) {
-    tableBody.innerHTML = mockApplications.map(a => `
-      <tr>
-        <td><strong>${a.name}</strong></td>
-        <td>${a.email}</td>
-        <td>${a.type}</td>
-        <td>${a.date}</td>
-        <td><span class="badge badge-warning">${a.status}</span></td>
-        <td><button class="btn-sm btn-outline">Review</button></td>
-      </tr>
-    `).join('');
-  }
+function renderCreateAssignment() {
+  return `<div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);"><h3 style="margin-bottom:20px;">Create New Assignment</h3><div style="margin-bottom:16px;"><label>Title</label><input type="text" class="input-field" placeholder="Assignment title"></div><div style="margin-bottom:16px;"><label>Due Date</label><input type="date" class="input-field"></div><div style="margin-bottom:16px;"><label>Instructions</label><textarea class="input-field" rows="4" placeholder="Describe the assignment..."></textarea></div><button class="btn-sm" onclick="alert('Assignment created (demo)')">Publish Assignment</button></div>`;
 }
 
-function loadFinanceData() {
-  const container = document.getElementById('finance-content');
-  if (!container) return;
-  
-  container.innerHTML = `
-    <div class="table-container">
-      <table>
-        <thead><tr><th>User</th><th>Amount</th><th>Date</th><th>Reference</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="paymentsTableBody"></tbody>
-      </table>
-    </div>
-  `;
-  
-  const tableBody = document.getElementById('paymentsTableBody');
-  if (tableBody) {
-    tableBody.innerHTML = mockPayments.map(p => `
-      <tr>
-        <td>${p.user}</td>
-        <td>₦${p.amount.toLocaleString()}</td>
-        <td>${p.date}</td>
-        <td><code>${p.reference}</code></td>
-        <td><span class="badge badge-warning">${p.status}</span></td>
-        <td><button class="btn-sm btn-outline">Approve</button></td>
-      </tr>
-    `).join('');
-  }
+function renderProjects() {
+  const data = mockData.Partner;
+  return `<div class="table-container"><table><thead><tr><th>Project</th><th>Budget</th><th>Deadline</th><th>Status</th></tr></thead><tbody>${data.projects.map(p => `<tr><td>${p.name}</td><td>₦${p.budget.toLocaleString()}</td><td>${p.deadline}</td><td><span class="badge ${p.status === 'in-progress' ? 'badge-warning' : 'badge-success'}">${p.status}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-// ============================================
-// UTILITIES
-// ============================================
-
-function setCurrentDate() {
-  const now = new Date();
-  const dateEl = document.getElementById('currentDateDisplay');
-  if (dateEl) {
-    dateEl.innerHTML = `${now.getDate()} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}`;
-  }
+function renderSubmitProject() {
+  return `<div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);"><h3 style="margin-bottom:20px;">Submit New Project</h3><div style="margin-bottom:16px;"><label>Project Title</label><input type="text" class="input-field" placeholder="Project name"></div><div style="margin-bottom:16px;"><label>Budget Range</label><select class="input-field"><option>₦50k - ₦100k</option><option>₦100k - ₦250k</option><option>₦250k - ₦500k</option><option>₦500k+</option></select></div><div style="margin-bottom:16px;"><label>Description</label><textarea class="input-field" rows="4" placeholder="Describe your project requirements..."></textarea></div><button class="btn-sm" onclick="alert('Project submitted (demo)')">Submit for Review</button></div>`;
 }
 
-function setupEventListeners() {
-  // Mobile menu toggle
-  const menuToggle = document.getElementById('mobileMenuToggle');
-  const sidebar = document.getElementById('sidebar');
-  if (menuToggle && sidebar) {
-    menuToggle.addEventListener('click', () => {
-      sidebar.classList.toggle('open');
-    });
-  }
-  
-  // Close sidebar when clicking outside on mobile
-  document.addEventListener('click', (e) => {
-    if (window.innerWidth <= 992 && sidebar && sidebar.classList.contains('open')) {
-      if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
-        sidebar.classList.remove('open');
-      }
-    }
-  });
-  
-  // Logout
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-      localStorage.removeItem('gliimu_user');
-      window.location.href = 'index.html';
-    });
-  }
+function renderInvoices() {
+  return `<div class="table-container"><table><thead><tr><th>Invoice #</th><th>Project</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody><tr><td>INV-001</td><td>Website Development</td><td>₦250,000</td><td>2025-04-15</td><td><span class="badge badge-warning">Pending</span></td></tr><tr><td>INV-002</td><td>Brand Identity</td><td>₦150,000</td><td>2025-03-01</td><td><span class="badge badge-success">Paid</span></td></tr></tbody></table></div>`;
 }
 
-// ============================================
-// EXPOSE FUNCTIONS GLOBALLY
-// ============================================
+function renderAnnouncements() {
+  const data = mockData.Other;
+  return `<div class="cards-grid">${data.announcements.map(a => `<div class="action-card"><div class="action-icon"><i class="fas fa-bullhorn"></i></div><div class="action-info"><h3>${a.title}</h3><p>${a.date} - ${a.content}</p></div></div>`).join('')}</div>`;
+}
 
+function renderContact() {
+  return `<div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);"><h3 style="margin-bottom:20px;">Contact Support</h3><div style="margin-bottom:16px;"><label>Subject</label><input type="text" class="input-field" placeholder="What's this about?"></div><div style="margin-bottom:16px;"><label>Message</label><textarea class="input-field" rows="4" placeholder="Describe your issue..."></textarea></div><button class="btn-sm" onclick="alert('Message sent (demo)')">Send Message</button><p style="margin-top:16px; font-size:0.75rem; color:var(--text-muted);"><i class="fas fa-envelope"></i> Or email: support@gliimu.com</p></div>`;
+}
+
+// Make functions globally available
 window.switchTab = switchTab;
-window.initDashboard = initDashboard;
 
-// Start when DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-  initDashboard();
-});
+// Initialize on DOM ready
+document.addEventListener('DOMContentLoaded', initDashboard);
