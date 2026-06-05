@@ -1,4 +1,4 @@
-// library.js - Redesigned library with masonry grid
+// library.js - Complete library functionality
 
 let currentUser = null;
 let currentTab = 'browse';
@@ -110,7 +110,10 @@ const mockMaterials = [
 // ============================================
 
 function initLibrary() {
+  console.log('initLibrary called');
+  
   const storedUser = localStorage.getItem('gliimu_user');
+  console.log('storedUser:', storedUser);
   
   if (!storedUser) {
     window.location.href = 'index.html';
@@ -118,6 +121,7 @@ function initLibrary() {
   }
   
   currentUser = JSON.parse(storedUser);
+  console.log('currentUser:', currentUser);
   
   // Load materials
   const storedMaterials = localStorage.getItem('gliimu_materials');
@@ -135,6 +139,8 @@ function initLibrary() {
   } else {
     purchases = [];
   }
+  
+  console.log('materials loaded:', materials.length);
   
   setupEventListeners();
   renderMaterials();
@@ -162,6 +168,7 @@ function setupEventListeners() {
 // ============================================
 
 function switchTab(tabId) {
+  console.log('switchTab called:', tabId);
   currentTab = tabId;
   
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -176,28 +183,36 @@ function switchTab(tabId) {
   const adminContent = document.getElementById('adminContent');
   
   if (tabId === 'browse') {
-    browseContent.style.display = 'block';
-    purchasesContent.style.display = 'none';
-    adminContent.style.display = 'none';
+    if (browseContent) browseContent.style.display = 'block';
+    if (purchasesContent) purchasesContent.style.display = 'none';
+    if (adminContent) adminContent.style.display = 'none';
     renderMaterials();
   } else if (tabId === 'purchases') {
-    browseContent.style.display = 'none';
-    purchasesContent.style.display = 'block';
-    adminContent.style.display = 'none';
+    if (browseContent) browseContent.style.display = 'none';
+    if (purchasesContent) purchasesContent.style.display = 'block';
+    if (adminContent) adminContent.style.display = 'none';
     renderPurchases();
   } else if (tabId === 'admin') {
-    browseContent.style.display = 'none';
-    purchasesContent.style.display = 'none';
-    adminContent.style.display = 'block';
+    if (browseContent) browseContent.style.display = 'none';
+    if (purchasesContent) purchasesContent.style.display = 'none';
+    if (adminContent) adminContent.style.display = 'block';
     renderAdminPanel();
   }
 }
 
 // ============================================
-// RENDER MATERIALS (MASONRY GRID)
+// RENDER MATERIALS
 // ============================================
 
 function renderMaterials() {
+  console.log('renderMaterials called');
+  
+  const container = document.getElementById('materialsGrid');
+  if (!container) {
+    console.error('materialsGrid element not found!');
+    return;
+  }
+  
   const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
   const categoryFilter = document.getElementById('categoryFilter')?.value || 'all';
   const typeFilter = document.getElementById('typeFilter')?.value || 'all';
@@ -219,7 +234,7 @@ function renderMaterials() {
     filtered = filtered.filter(m => m.type === typeFilter);
   }
   
-  const container = document.getElementById('materialsGrid');
+  console.log('Filtered materials:', filtered.length);
   
   if (filtered.length === 0) {
     container.innerHTML = `
@@ -232,10 +247,11 @@ function renderMaterials() {
     return;
   }
   
-  // Masonry grid accepts any HTML - items will flow naturally by column-count
-  container.innerHTML = filtered.map(material => {
+  let html = '';
+  for (let i = 0; i < filtered.length; i++) {
+    const material = filtered[i];
     if (material.type === 'book') {
-      return `
+      html += `
         <div class="book-card" onclick="showDetailModal('${material.id}')">
           <div class="book-cover">
             <img src="${material.image}" alt="${material.title}" loading="lazy">
@@ -244,7 +260,7 @@ function renderMaterials() {
         </div>
       `;
     } else {
-      return `
+      html += `
         <div class="bundle-card" onclick="showDetailModal('${material.id}')">
           <div class="bundle-cover">
             <img src="${material.image}" alt="${material.title}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-layer-group\\'></i>'">
@@ -256,7 +272,10 @@ function renderMaterials() {
         </div>
       `;
     }
-  }).join('');
+  }
+  
+  container.innerHTML = html;
+  console.log('Rendered', filtered.length, 'items');
 }
 
 // ============================================
@@ -264,6 +283,7 @@ function renderMaterials() {
 // ============================================
 
 function showDetailModal(materialId) {
+  console.log('showDetailModal called:', materialId);
   selectedMaterial = materials.find(m => m.id === materialId);
   if (!selectedMaterial) return;
   
@@ -295,6 +315,7 @@ function purchaseFromModal() {
 let purchaseMaterial = null;
 
 function showPurchaseModal(materialId) {
+  console.log('showPurchaseModal called:', materialId);
   purchaseMaterial = materials.find(m => m.id === materialId);
   if (!purchaseMaterial) return;
   
@@ -358,7 +379,9 @@ function closeSuccessModal() {
 // ============================================
 
 function renderPurchases() {
+  console.log('renderPurchases called');
   const container = document.getElementById('purchasesList');
+  if (!container) return;
   
   if (purchases.length === 0) {
     container.innerHTML = `
@@ -406,6 +429,8 @@ function downloadMaterial(purchaseId) {
 // ============================================
 
 function renderAdminPanel() {
+  console.log('renderAdminPanel called');
+  
   if (currentUser.role !== 'Admin') {
     document.getElementById('adminContent').innerHTML = `
       <div class="empty-state">
@@ -568,7 +593,7 @@ function editMaterial(materialId) {
 }
 
 function updateMaterial(materialId) {
-  const index = materials.find(m => m.id === materialId);
+  const index = materials.findIndex(m => m.id === materialId);
   if (index === -1) return;
   
   materials[index] = {
@@ -613,7 +638,8 @@ window.editMaterial = editMaterial;
 window.updateMaterial = updateMaterial;
 window.deleteMaterial = deleteMaterial;
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM ready, initializing library...');
   initLibrary();
 });
