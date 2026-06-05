@@ -1,4 +1,4 @@
-// dashboard.js - Role-based dashboard
+// dashboard.js - Role-based dashboard with proper form styles
 
 let currentUser = null;
 let currentTab = 'dashboard';
@@ -55,6 +55,14 @@ const mockData = {
     transactions: [
       { id: 1, description: 'Tuition Payment', amount: 25000, type: 'debit', date: '2025-03-01', status: 'approved' },
       { id: 2, description: 'Book Purchase', amount: 3500, type: 'debit', date: '2025-03-05', status: 'approved' }
+    ],
+    library: [
+      { title: 'Complete Guide to Video Production', type: 'Book', date: '2025-03-01' },
+      { title: 'UI/UX Design Mastery', type: 'Book', date: '2025-02-15' }
+    ],
+    portfolio: [
+      { title: 'Short Film Project', date: '2025-03-10', icon: 'fa-image' },
+      { title: 'Brand Identity Design', date: '2025-02-28', icon: 'fa-palette' }
     ]
   },
   Instructor: {
@@ -62,6 +70,10 @@ const mockData = {
     submissions: [
       { student: 'John Doe', assignment: 'Short Film', submitted: '2025-03-10', status: 'pending' },
       { student: 'Jane Smith', assignment: 'UI Design', submitted: '2025-03-12', status: 'pending' }
+    ],
+    students: [
+      { name: 'John Doe', track: 'Media', progress: 45 },
+      { name: 'Jane Smith', track: 'Tech', progress: 60 }
     ]
   },
   Partner: {
@@ -69,6 +81,10 @@ const mockData = {
     projects: [
       { name: 'Website Development', status: 'in-progress', budget: 250000, deadline: '2025-04-15' },
       { name: 'Brand Identity', status: 'completed', budget: 150000, deadline: '2025-02-28' }
+    ],
+    invoices: [
+      { id: 'INV-001', project: 'Website Development', amount: 250000, dueDate: '2025-04-15', status: 'pending' },
+      { id: 'INV-002', project: 'Brand Identity', amount: 150000, dueDate: '2025-03-01', status: 'paid' }
     ]
   },
   Other: {
@@ -291,15 +307,48 @@ function renderDashboard() {
 }
 
 function renderCourses() {
-  return `<div class="table-container"><table><thead><tr><th>Course</th><th>Progress</th><th>Instructor</th><th>Next Session</th></tr></thead><tbody><tr><td>Full-Stack Media Production</td><td><div style="background:#e0e0e0; border-radius:10px; height:6px; width:100%;"><div style="background:var(--accent); width:45%; height:6px; border-radius:10px;"></div></div>45%</td><td>Jeremiah Iyo</td><td>Mar 20, 2025</td></tr><tr><td>Video Production</td><td><div style="background:#e0e0e0; border-radius:10px; height:6px; width:100%;"><div style="background:var(--accent); width:60%; height:6px; border-radius:10px;"></div></div>60%</td><td>Finiks Kshel</td><td>Mar 18, 2025</td></tr></tbody></table></div>`;
+  return `
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr><th>Course</th><th>Progress</th><th>Instructor</th><th>Next Session</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Full-Stack Media Production</strong></td>
+            <td><div class="progress-bar"><div class="progress-fill" style="width:45%"></div></div><span style="margin-left:8px;">45%</span></td>
+            <td>Jeremiah Iyo</td>
+            <td>Mar 20, 2025</td>
+           </tr>
+           <tr>
+            <td><strong>Video Production</strong></td>
+            <td><div class="progress-bar"><div class="progress-fill" style="width:60%"></div></div><span style="margin-left:8px;">60%</span></td>
+            <td>Finiks Kshel</td>
+            <td>Mar 18, 2025</td>
+           </tr>
+           <tr>
+            <td><strong>UI/UX Design</strong></td>
+            <td><div class="progress-bar"><div class="progress-fill" style="width:30%"></div></div><span style="margin-left:8px;">30%</span></td>
+            <td>Edi Edidiong</td>
+            <td>Mar 22, 2025</td>
+           </tr>
+        </tbody>
+       </table>
+    </div>
+  `;
 }
 
 function renderAssignments() {
   const data = mockData.Student;
+  if (!data.assignments || data.assignments.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-tasks"></i><h4>No assignments yet</h4><p>Check back later for new tasks.</p></div>`;
+  }
   return `
     <div class="table-container">
       <table>
-        <thead><tr><th>Assignment</th><th>Due Date</th><th>Status</th><th>Grade</th><th>Action</th></tr></thead>
+        <thead>
+          <tr><th>Assignment</th><th>Due Date</th><th>Status</th><th>Grade</th><th>Action</th></tr>
+        </thead>
         <tbody>
           ${data.assignments.map(a => `
             <tr>
@@ -341,38 +390,119 @@ function renderWallet() {
 }
 
 function renderLibrary() {
-  return `<div class="table-container"><table><thead><tr><th>Title</th><th>Type</th><th>Date Purchased</th><th>Action</th></tr></thead><tbody><tr><td>Complete Guide to Video Production</td><td>Book</td><td>2025-03-01</td><td><button class="btn-sm">Download</button></td></tr><tr><td>UI/UX Design Mastery</td><td>Book</td><td>2025-02-15</td><td><button class="btn-sm">Download</button></td></tr></tbody></table></div>`;
+  const data = mockData.Student;
+  if (!data.library || data.library.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-book"></i><h4>No purchased items</h4><p>Visit the library to buy learning materials.</p><button class="btn-primary" style="margin-top:16px;" onclick="window.location.href='library.html'">Go to Library →</button></div>`;
+  }
+  return `
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Title</th><th>Type</th><th>Date Purchased</th><th>Action</th></tr></thead>
+        <tbody>
+          ${data.library.map(item => `
+            <tr>
+              <td><strong>${item.title}</strong></td>
+              <td>${item.type}</td>
+              <td>${item.date}</td>
+              <td><button class="btn-sm" onclick="alert('Download started')">Download</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderPortfolio() {
-  return `<div class="cards-grid"><div class="action-card"><div class="action-icon"><i class="fas fa-image"></i></div><div class="action-info"><h3>Short Film Project</h3><p>Submitted Mar 10, 2025</p></div></div><div class="action-card"><div class="action-icon"><i class="fas fa-palette"></i></div><div class="action-info"><h3>Brand Identity Design</h3><p>Submitted Feb 28, 2025</p></div></div></div>`;
+  const data = mockData.Student;
+  if (!data.portfolio || data.portfolio.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-id-card"></i><h4>No portfolio items</h4><p>Your projects will appear here after submission.</p></div>`;
+  }
+  return `
+    <div class="cards-grid">
+      ${data.portfolio.map(item => `
+        <div class="action-card" onclick="alert('View project: ${item.title}')">
+          <div class="action-icon"><i class="fas ${item.icon}"></i></div>
+          <div class="action-info">
+            <h3>${item.title}</h3>
+            <p>Submitted ${item.date}</p>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 function renderSettings() {
   return `
-    <div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);">
-      <h3 style="margin-bottom:20px;">Account Settings</h3>
-      <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px;">Display Name</label><input type="text" class="input-field" value="${currentUser.name || ''}" placeholder="Your name"></div>
-      <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px;">Email</label><input type="email" class="input-field" value="${currentUser.email || ''}" placeholder="Email (optional)"></div>
-      <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px;">Phone</label><input type="tel" class="input-field" placeholder="Phone (optional)"></div>
-      <button class="btn-sm" onclick="alert('Settings saved (demo)')">Save Changes</button>
+    <div class="form-container">
+      <h3>Account Settings</h3>
+      <div class="form-group">
+        <label>Display Name</label>
+        <input type="text" class="input-field" value="${currentUser.name || ''}" placeholder="Your name">
+      </div>
+      <div class="form-group">
+        <label>Email (Optional)</label>
+        <input type="email" class="input-field" value="${currentUser.email || ''}" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label>Phone (Optional)</label>
+        <input type="tel" class="input-field" placeholder="+234 800 000 0000">
+      </div>
+      <div class="form-group">
+        <label>Bio (Optional)</label>
+        <textarea class="input-field" rows="3" placeholder="Tell us a bit about yourself..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="alert('Settings saved (demo)')">Save Changes</button>
+        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
+      </div>
     </div>
   `;
 }
 
 function renderStudents() {
-  return `<div class="table-container"><table><thead><tr><th>Student</th><th>Track</th><th>Progress</th><th>Actions</th></tr></thead><tbody><tr><td>John Doe</td><td>Media</td><td>45%</td><td><button class="btn-sm">View</button></td></tr><tr><td>Jane Smith</td><td>Tech</td><td>60%</td><td><button class="btn-sm">View</button></td></tr></tbody></table></div>`;
+  const data = mockData.Instructor;
+  if (!data.students || data.students.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-users"></i><h4>No students assigned</h4><p>Students will appear here once enrolled.</p></div>`;
+  }
+  return `
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Student</th><th>Track</th><th>Progress</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${data.students.map(s => `
+            <tr>
+              <td><strong>${s.name}</strong></td>
+              <td><span class="badge badge-info">${s.track}</span></td>
+              <td><div class="progress-bar" style="width:100px;"><div class="progress-fill" style="width:${s.progress}%"></div></div> ${s.progress}%</td>
+              <td><button class="btn-sm" onclick="alert('View student: ${s.name}')">View</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderSubmissions() {
   const data = mockData.Instructor;
+  if (!data.submissions || data.submissions.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-file-import"></i><h4>No pending submissions</h4><p>All caught up!</p></div>`;
+  }
   return `
     <div class="table-container">
       <table>
         <thead><tr><th>Student</th><th>Assignment</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
           ${data.submissions.map(s => `
-            <tr><td>${s.student}</td><td>${s.assignment}</td><td>${s.submitted}</td><td><span class="badge badge-warning">${s.status}</span></td><td><button class="btn-sm">Grade</button></td></tr>
+            <tr>
+              <td><strong>${s.student}</strong></td>
+              <td>${s.assignment}</td>
+              <td>${s.submitted}</td>
+              <td><span class="badge badge-warning">${s.status}</span></td>
+              <td><button class="btn-sm" onclick="alert('Grade ${s.student}')">Grade</button></td>
+            </tr>
           `).join('')}
         </tbody>
       </table>
@@ -381,29 +511,179 @@ function renderSubmissions() {
 }
 
 function renderCreateAssignment() {
-  return `<div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);"><h3 style="margin-bottom:20px;">Create New Assignment</h3><div style="margin-bottom:16px;"><label>Title</label><input type="text" class="input-field" placeholder="Assignment title"></div><div style="margin-bottom:16px;"><label>Due Date</label><input type="date" class="input-field"></div><div style="margin-bottom:16px;"><label>Instructions</label><textarea class="input-field" rows="4" placeholder="Describe the assignment..."></textarea></div><button class="btn-sm" onclick="alert('Assignment created (demo)')">Publish Assignment</button></div>`;
+  return `
+    <div class="form-container">
+      <h3>Create New Assignment</h3>
+      <div class="form-group">
+        <label>Assignment Title</label>
+        <input type="text" class="input-field" placeholder="e.g., Final Project Submission">
+      </div>
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="date" class="input-field">
+      </div>
+      <div class="form-group">
+        <label>Instructions</label>
+        <textarea class="input-field" rows="5" placeholder="Describe the assignment requirements, format, and submission guidelines..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Max Points</label>
+        <input type="number" class="input-field" placeholder="100">
+      </div>
+      <div class="form-group">
+        <label>Attach File (Optional)</label>
+        <input type="file" class="input-field">
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="alert('Assignment created (demo)')">Publish Assignment</button>
+        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderProjects() {
   const data = mockData.Partner;
-  return `<div class="table-container"><table><thead><tr><th>Project</th><th>Budget</th><th>Deadline</th><th>Status</th></tr></thead><tbody>${data.projects.map(p => `<tr><td>${p.name}</td><td>₦${p.budget.toLocaleString()}</td><td>${p.deadline}</td><td><span class="badge ${p.status === 'in-progress' ? 'badge-warning' : 'badge-success'}">${p.status}</span></td></tr>`).join('')}</tbody></table></div>`;
+  if (!data.projects || data.projects.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-briefcase"></i><h4>No projects yet</h4><p>Submit your first project to get started.</p><button class="btn-primary" style="margin-top:16px;" onclick="switchTab('submit-project')">Submit Project →</button></div>`;
+  }
+  return `
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Project</th><th>Budget</th><th>Deadline</th><th>Status</th></tr></thead>
+        <tbody>
+          ${data.projects.map(p => `
+            <tr>
+              <td><strong>${p.name}</strong></td>
+              <td>₦${p.budget.toLocaleString()}</td>
+              <td>${p.deadline}</td>
+              <td><span class="badge ${p.status === 'in-progress' ? 'badge-warning' : 'badge-success'}">${p.status}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderSubmitProject() {
-  return `<div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);"><h3 style="margin-bottom:20px;">Submit New Project</h3><div style="margin-bottom:16px;"><label>Project Title</label><input type="text" class="input-field" placeholder="Project name"></div><div style="margin-bottom:16px;"><label>Budget Range</label><select class="input-field"><option>₦50k - ₦100k</option><option>₦100k - ₦250k</option><option>₦250k - ₦500k</option><option>₦500k+</option></select></div><div style="margin-bottom:16px;"><label>Description</label><textarea class="input-field" rows="4" placeholder="Describe your project requirements..."></textarea></div><button class="btn-sm" onclick="alert('Project submitted (demo)')">Submit for Review</button></div>`;
+  return `
+    <div class="form-container">
+      <h3>Submit New Project</h3>
+      <div class="form-group">
+        <label>Project Title</label>
+        <input type="text" class="input-field" placeholder="e.g., Website Development for ABC Corp">
+      </div>
+      <div class="form-group">
+        <label>Budget Range</label>
+        <select class="input-field">
+          <option>₦50k - ₦100k</option>
+          <option>₦100k - ₦250k</option>
+          <option>₦250k - ₦500k</option>
+          <option>₦500k - ₦1M</option>
+          <option>₦1M+</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Timeline</label>
+        <select class="input-field">
+          <option>Less than 1 month</option>
+          <option>1-3 months</option>
+          <option>3-6 months</option>
+          <option>6+ months</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Project Description</label>
+        <textarea class="input-field" rows="5" placeholder="Describe your project requirements, deliverables, and expectations..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Attach Files (Optional)</label>
+        <input type="file" class="input-field">
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="alert('Project submitted (demo)')">Submit for Review</button>
+        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderInvoices() {
-  return `<div class="table-container"><table><thead><tr><th>Invoice #</th><th>Project</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody><tr><td>INV-001</td><td>Website Development</td><td>₦250,000</td><td>2025-04-15</td><td><span class="badge badge-warning">Pending</span></td></tr><tr><td>INV-002</td><td>Brand Identity</td><td>₦150,000</td><td>2025-03-01</td><td><span class="badge badge-success">Paid</span></td></tr></tbody></table></div>`;
+  const data = mockData.Partner;
+  if (!data.invoices || data.invoices.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-file-invoice"></i><h4>No invoices</h4><p>Invoices will appear here after project approval.</p></div>`;
+  }
+  return `
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Invoice #</th><th>Project</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead>
+        <tbody>
+          ${data.invoices.map(inv => `
+            <tr>
+              <td>${inv.id}</td>
+              <td>${inv.project}</td>
+              <td>₦${inv.amount.toLocaleString()}</td>
+              <td>${inv.dueDate}</td>
+              <td><span class="badge ${inv.status === 'pending' ? 'badge-warning' : 'badge-success'}">${inv.status}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderAnnouncements() {
   const data = mockData.Other;
-  return `<div class="cards-grid">${data.announcements.map(a => `<div class="action-card"><div class="action-icon"><i class="fas fa-bullhorn"></i></div><div class="action-info"><h3>${a.title}</h3><p>${a.date} - ${a.content}</p></div></div>`).join('')}</div>`;
+  if (!data.announcements || data.announcements.length === 0) {
+    return `<div class="empty-state"><i class="fas fa-bullhorn"></i><h4>No announcements</h4><p>Check back later for updates.</p></div>`;
+  }
+  return `
+    <div class="cards-grid">
+      ${data.announcements.map(a => `
+        <div class="action-card">
+          <div class="action-icon"><i class="fas fa-bullhorn"></i></div>
+          <div class="action-info">
+            <h3>${a.title}</h3>
+            <p>${a.date} - ${a.content}</p>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 function renderContact() {
-  return `<div style="max-width:500px; background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color);"><h3 style="margin-bottom:20px;">Contact Support</h3><div style="margin-bottom:16px;"><label>Subject</label><input type="text" class="input-field" placeholder="What's this about?"></div><div style="margin-bottom:16px;"><label>Message</label><textarea class="input-field" rows="4" placeholder="Describe your issue..."></textarea></div><button class="btn-sm" onclick="alert('Message sent (demo)')">Send Message</button><p style="margin-top:16px; font-size:0.75rem; color:var(--text-muted);"><i class="fas fa-envelope"></i> Or email: support@gliimu.com</p></div>`;
+  return `
+    <div class="form-container">
+      <h3>Contact Support</h3>
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" class="input-field" placeholder="What's this about?">
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select class="input-field">
+          <option>Low - General question</option>
+          <option>Medium - Need help</option>
+          <option>High - Urgent issue</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea class="input-field" rows="5" placeholder="Describe your issue or question in detail..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="alert('Message sent (demo)')">Send Message</button>
+        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
+      </div>
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+        <p style="font-size: 0.75rem; color: var(--text-muted);"><i class="fas fa-envelope"></i> Or email us directly: <a href="mailto:support@gliimu.com" style="color: var(--accent);">support@gliimu.com</a></p>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;"><i class="fas fa-phone"></i> Or call: +234 (0) 705 8929 080</p>
+      </div>
+    </div>
+  `;
 }
 
 // Make functions globally available
