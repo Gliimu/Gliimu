@@ -1,106 +1,81 @@
-// dashboard.js - Role-based dashboard with proper form styles
+// library.js - Complete library functionality
 
 let currentUser = null;
-let currentTab = 'dashboard';
+let currentTab = 'browse';
+let materials = [];
+let purchases = [];
 
-// ============================================
-// ROLE-BASED TAB CONFIGURATION
-// ============================================
-
-const roleTabs = {
-  Student: [
-    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
-    { id: 'courses', icon: 'fas fa-book-open', label: 'My Courses' },
-    { id: 'assignments', icon: 'fas fa-tasks', label: 'Assignments' },
-    { id: 'wallet', icon: 'fas fa-wallet', label: 'Wallet' },
-    { id: 'library', icon: 'fas fa-book', label: 'Library' },
-    { id: 'portfolio', icon: 'fas fa-id-card', label: 'Portfolio' },
-    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
-  ],
-  Partner: [
-    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
-    { id: 'projects', icon: 'fas fa-briefcase', label: 'My Projects' },
-    { id: 'submit-project', icon: 'fas fa-plus-circle', label: 'Submit Project' },
-    { id: 'invoices', icon: 'fas fa-file-invoice', label: 'Invoices' },
-    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
-  ],
-  Instructor: [
-    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
-    { id: 'students', icon: 'fas fa-users', label: 'My Students' },
-    { id: 'submissions', icon: 'fas fa-file-import', label: 'Submissions' },
-    { id: 'create-assignment', icon: 'fas fa-plus-circle', label: 'Create' },
-    { id: 'wallet', icon: 'fas fa-wallet', label: 'Wallet' },
-    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
-  ],
-  Other: [
-    { id: 'dashboard', icon: 'fas fa-th-large', label: 'Dashboard' },
-    { id: 'announcements', icon: 'fas fa-bullhorn', label: 'Announcements' },
-    { id: 'contact', icon: 'fas fa-envelope', label: 'Contact Support' },
-    { id: 'settings', icon: 'fas fa-cog', label: 'Settings' }
-  ]
-};
-
-// ============================================
-// MOCK DATA
-// ============================================
-
-const mockData = {
-  Student: {
-    stats: { enrolledCourses: 4, completedAssignments: 8, pendingAssignments: 3, walletBalance: 25000 },
-    assignments: [
-      { title: 'Short Film Project', dueDate: '2025-03-20', status: 'pending', grade: null },
-      { title: 'Color Grading Exercise', dueDate: '2025-03-15', status: 'submitted', grade: 85 },
-      { title: 'UI/UX Design Challenge', dueDate: '2025-03-25', status: 'pending', grade: null }
-    ],
-    transactions: [
-      { id: 1, description: 'Tuition Payment', amount: 25000, type: 'debit', date: '2025-03-01', status: 'approved' },
-      { id: 2, description: 'Book Purchase', amount: 3500, type: 'debit', date: '2025-03-05', status: 'approved' }
-    ],
-    library: [
-      { title: 'Complete Guide to Video Production', type: 'Book', date: '2025-03-01' },
-      { title: 'UI/UX Design Mastery', type: 'Book', date: '2025-02-15' }
-    ],
-    portfolio: [
-      { title: 'Short Film Project', date: '2025-03-10', icon: 'fa-image' },
-      { title: 'Brand Identity Design', date: '2025-02-28', icon: 'fa-palette' }
-    ]
+// Mock materials data
+const mockMaterials = [
+  {
+    id: 'mat_001',
+    type: 'book',
+    title: 'Complete Guide to Video Production',
+    description: 'Master professional video production from pre-production to final delivery. Learn camera techniques, lighting, sound design, and post-production editing.',
+    price: 3500,
+    image: 'https://placehold.co/400x500/2c2f78/white?text=Video+Production',
+    category: 'video',
+    stock: 50
   },
-  Instructor: {
-    stats: { totalStudents: 12, pendingGrading: 5, coursesTaught: 2, earnings: 150000 },
-    submissions: [
-      { student: 'John Doe', assignment: 'Short Film', submitted: '2025-03-10', status: 'pending' },
-      { student: 'Jane Smith', assignment: 'UI Design', submitted: '2025-03-12', status: 'pending' }
-    ],
-    students: [
-      { name: 'John Doe', track: 'Media', progress: 45 },
-      { name: 'Jane Smith', track: 'Tech', progress: 60 }
-    ]
+  {
+    id: 'mat_002',
+    type: 'book',
+    title: 'UI/UX Design Mastery',
+    description: 'Learn the fundamentals of user interface and experience design. Master Figma, prototyping, user research, and accessibility.',
+    price: 2800,
+    image: 'https://placehold.co/400x500/8b5cf6/white?text=UI+UX+Design',
+    category: 'design',
+    stock: 45
   },
-  Partner: {
-    stats: { activeProjects: 2, completedProjects: 5, pendingInvoices: 1 },
-    projects: [
-      { name: 'Website Development', status: 'in-progress', budget: 250000, deadline: '2025-04-15' },
-      { name: 'Brand Identity', status: 'completed', budget: 150000, deadline: '2025-02-28' }
-    ],
-    invoices: [
-      { id: 'INV-001', project: 'Website Development', amount: 250000, dueDate: '2025-04-15', status: 'pending' },
-      { id: 'INV-002', project: 'Brand Identity', amount: 150000, dueDate: '2025-03-01', status: 'paid' }
-    ]
+  {
+    id: 'mat_003',
+    type: 'book',
+    title: 'JavaScript: The Complete Guide',
+    description: 'From beginner to advanced. Master JavaScript, ES6+, async programming, and modern frameworks.',
+    price: 4200,
+    image: 'https://placehold.co/400x500/10b981/white?text=JavaScript',
+    category: 'code',
+    stock: 30
   },
-  Other: {
-    stats: { announcements: 3, supportTickets: 1 },
-    announcements: [
-      { title: 'New Campus Opening', date: '2025-03-01', content: 'We are expanding to Lagos!' },
-      { title: 'Scholarship Available', date: '2025-02-15', content: 'Apply for early bird discount' }
-    ]
+  {
+    id: 'mat_004',
+    type: 'bundle',
+    title: 'Full-Stack Web Development Bundle',
+    description: 'Complete web development resources including HTML, CSS, JavaScript, React, Node.js, and MongoDB.',
+    price: 15000,
+    image: 'https://placehold.co/400x500/f59e0b/white?text=Web+Bundle',
+    category: 'code',
+    stock: 20,
+    bundleItems: 5
+  },
+  {
+    id: 'mat_005',
+    type: 'book',
+    title: 'Motion Graphics with After Effects',
+    description: 'Create stunning animations and motion graphics. Learn keyframing, expressions, and visual effects.',
+    price: 3200,
+    image: 'https://placehold.co/400x500/ef4444/white?text=Motion+Graphics',
+    category: 'video',
+    stock: 35
+  },
+  {
+    id: 'mat_006',
+    type: 'bundle',
+    title: 'Creative Media Production Pack',
+    description: 'Everything you need for video and audio production. Includes templates, presets, and project files.',
+    price: 12000,
+    image: 'https://placehold.co/400x500/06b6d4/white?text=Media+Pack',
+    category: 'video',
+    stock: 15,
+    bundleItems: 10
   }
-};
+];
 
 // ============================================
 // INITIALIZATION
 // ============================================
 
-function initDashboard() {
+function initLibrary() {
   // Get logged-in user
   const storedUser = localStorage.getItem('gliimu_user');
   
@@ -111,252 +86,259 @@ function initDashboard() {
   
   currentUser = JSON.parse(storedUser);
   
-  // Ensure user has a role (default to Student if missing)
-  if (!currentUser.role) {
-    currentUser.role = 'Student';
+  // Load materials (from localStorage or mock)
+  const storedMaterials = localStorage.getItem('gliimu_materials');
+  if (storedMaterials) {
+    materials = JSON.parse(storedMaterials);
+  } else {
+    materials = mockMaterials;
+    localStorage.setItem('gliimu_materials', JSON.stringify(materials));
+  }
+  
+  // Load purchases
+  const storedPurchases = localStorage.getItem(`gliimu_purchases_${currentUser.id}`);
+  if (storedPurchases) {
+    purchases = JSON.parse(storedPurchases);
+  } else {
+    purchases = [];
   }
   
   // Update UI with user info
   document.getElementById('userName').textContent = currentUser.name || currentUser.username;
   document.getElementById('userAvatar').src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || currentUser.username)}&background=random&color=fff`;
   
-  // Render sidebar tabs based on role
-  renderSidebar();
+  // Set up event listeners
+  setupEventListeners();
   
-  // Load dashboard content
-  loadDashboardContent();
+  // Load initial view
+  renderMaterials();
+  updateCartCount();
 }
 
-function renderSidebar() {
-  const tabs = roleTabs[currentUser.role] || roleTabs.Other;
-  const sidebarNav = document.getElementById('sidebarNav');
+function setupEventListeners() {
+  // Search input
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => renderMaterials());
+  }
   
-  sidebarNav.innerHTML = tabs.map(tab => `
-    <div class="nav-item ${tab.id === currentTab ? 'active' : ''}" data-tab="${tab.id}">
-      <i class="${tab.icon}"></i>
-      <span>${tab.label}</span>
-    </div>
-  `).join('');
+  // Category filter
+  const categoryFilter = document.getElementById('categoryFilter');
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', () => renderMaterials());
+  }
   
-  // Add event listeners to nav items
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const tabId = item.getAttribute('data-tab');
-      switchTab(tabId);
-    });
-  });
+  // Type filter
+  const typeFilter = document.getElementById('typeFilter');
+  if (typeFilter) {
+    typeFilter.addEventListener('change', () => renderMaterials());
+  }
 }
+
+// ============================================
+// TAB SWITCHING
+// ============================================
 
 function switchTab(tabId) {
   currentTab = tabId;
   
-  // Update active state in sidebar
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.remove('active');
-    if (item.getAttribute('data-tab') === tabId) {
-      item.classList.add('active');
+  // Update active tab
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.getAttribute('data-tab') === tabId) {
+      btn.classList.add('active');
     }
   });
   
-  // Load content for the selected tab
-  loadTabContent(tabId);
-}
-
-function loadTabContent(tabId) {
-  const mainContent = document.getElementById('dashboardContent');
+  // Show appropriate content
+  const browseContent = document.getElementById('browseContent');
+  const purchasesContent = document.getElementById('purchasesContent');
+  const adminContent = document.getElementById('adminContent');
   
-  switch (tabId) {
-    case 'dashboard':
-      mainContent.innerHTML = renderDashboard();
-      break;
-    case 'courses':
-      mainContent.innerHTML = renderCourses();
-      break;
-    case 'assignments':
-      mainContent.innerHTML = renderAssignments();
-      break;
-    case 'wallet':
-      mainContent.innerHTML = renderWallet();
-      break;
-    case 'library':
-      mainContent.innerHTML = renderLibrary();
-      break;
-    case 'portfolio':
-      mainContent.innerHTML = renderPortfolio();
-      break;
-    case 'settings':
-      mainContent.innerHTML = renderSettings();
-      break;
-    case 'students':
-      mainContent.innerHTML = renderStudents();
-      break;
-    case 'submissions':
-      mainContent.innerHTML = renderSubmissions();
-      break;
-    case 'create-assignment':
-      mainContent.innerHTML = renderCreateAssignment();
-      break;
-    case 'projects':
-      mainContent.innerHTML = renderProjects();
-      break;
-    case 'submit-project':
-      mainContent.innerHTML = renderSubmitProject();
-      break;
-    case 'invoices':
-      mainContent.innerHTML = renderInvoices();
-      break;
-    case 'announcements':
-      mainContent.innerHTML = renderAnnouncements();
-      break;
-    case 'contact':
-      mainContent.innerHTML = renderContact();
-      break;
-    default:
-      mainContent.innerHTML = renderDashboard();
+  if (tabId === 'browse') {
+    browseContent.style.display = 'block';
+    purchasesContent.style.display = 'none';
+    adminContent.style.display = 'none';
+    renderMaterials();
+  } else if (tabId === 'purchases') {
+    browseContent.style.display = 'none';
+    purchasesContent.style.display = 'block';
+    adminContent.style.display = 'none';
+    renderPurchases();
+  } else if (tabId === 'admin') {
+    browseContent.style.display = 'none';
+    purchasesContent.style.display = 'none';
+    adminContent.style.display = 'block';
+    renderAdminPanel();
   }
 }
 
 // ============================================
-// DASHBOARD CONTENT RENDERERS
+// RENDER MATERIALS (BROWSE TAB)
 // ============================================
 
-function loadDashboardContent() {
-  const mainContent = document.getElementById('dashboardContent');
-  mainContent.innerHTML = renderDashboard();
-}
-
-function renderDashboard() {
-  const data = mockData[currentUser.role] || mockData.Other;
-  const isStudent = currentUser.role === 'Student';
-  const isInstructor = currentUser.role === 'Instructor';
-  const isPartner = currentUser.role === 'Partner';
+function renderMaterials() {
+  const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+  const categoryFilter = document.getElementById('categoryFilter')?.value || 'all';
+  const typeFilter = document.getElementById('typeFilter')?.value || 'all';
   
-  let statsHtml = '';
-  let actionCardsHtml = '';
+  let filtered = [...materials];
   
-  if (isStudent) {
-    statsHtml = `
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-info"><h4>Enrolled Courses</h4><div class="stat-number">${data.stats.enrolledCourses}</div><div class="stat-label">Active this semester</div></div><div class="stat-icon"><i class="fas fa-book-open"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Completed</h4><div class="stat-number">${data.stats.completedAssignments}</div><div class="stat-label">Assignments done</div></div><div class="stat-icon"><i class="fas fa-check-circle"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Pending</h4><div class="stat-number">${data.stats.pendingAssignments}</div><div class="stat-label">Awaiting submission</div></div><div class="stat-icon"><i class="fas fa-clock"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Wallet</h4><div class="stat-number">₦${data.stats.walletBalance.toLocaleString()}</div><div class="stat-label">Available balance</div></div><div class="stat-icon"><i class="fas fa-wallet"></i></div></div>
-      </div>
-      <div class="cards-grid">
-        <div class="action-card" onclick="switchTab('courses')"><div class="action-icon"><i class="fas fa-book-open"></i></div><div class="action-info"><h3>My Courses</h3><p>Continue your learning journey</p></div></div>
-        <div class="action-card" onclick="switchTab('assignments')"><div class="action-icon"><i class="fas fa-tasks"></i></div><div class="action-info"><h3>Assignments</h3><p>${data.stats.pendingAssignments} pending submissions</p></div></div>
-        <div class="action-card" onclick="switchTab('wallet')"><div class="action-icon"><i class="fas fa-wallet"></i></div><div class="action-info"><h3>Wallet</h3><p>₦${data.stats.walletBalance.toLocaleString()} balance</p></div></div>
-      </div>
-    `;
-  } else if (isInstructor) {
-    statsHtml = `
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-info"><h4>Total Students</h4><div class="stat-number">${data.stats.totalStudents}</div><div class="stat-label">Enrolled</div></div><div class="stat-icon"><i class="fas fa-users"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Pending Grading</h4><div class="stat-number">${data.stats.pendingGrading}</div><div class="stat-label">Submissions to review</div></div><div class="stat-icon"><i class="fas fa-file-alt"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Courses</h4><div class="stat-number">${data.stats.coursesTaught}</div><div class="stat-label">Active</div></div><div class="stat-icon"><i class="fas fa-chalkboard"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Earnings</h4><div class="stat-number">₦${data.stats.earnings.toLocaleString()}</div><div class="stat-label">This month</div></div><div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div></div>
-      </div>
-      <div class="cards-grid">
-        <div class="action-card" onclick="switchTab('students')"><div class="action-icon"><i class="fas fa-users"></i></div><div class="action-info"><h3>My Students</h3><p>Manage your class</p></div></div>
-        <div class="action-card" onclick="switchTab('submissions')"><div class="action-icon"><i class="fas fa-file-import"></i></div><div class="action-info"><h3>Grade Submissions</h3><p>${data.stats.pendingGrading} pending</p></div></div>
-        <div class="action-card" onclick="switchTab('create-assignment')"><div class="action-icon"><i class="fas fa-plus-circle"></i></div><div class="action-info"><h3>Create Assignment</h3><p>Post new tasks</p></div></div>
-      </div>
-    `;
-  } else if (isPartner) {
-    statsHtml = `
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-info"><h4>Active Projects</h4><div class="stat-number">${data.stats.activeProjects}</div><div class="stat-label">In progress</div></div><div class="stat-icon"><i class="fas fa-spinner"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Completed</h4><div class="stat-number">${data.stats.completedProjects}</div><div class="stat-label">Delivered</div></div><div class="stat-icon"><i class="fas fa-check-circle"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Pending Invoices</h4><div class="stat-number">${data.stats.pendingInvoices}</div><div class="stat-label">Awaiting payment</div></div><div class="stat-icon"><i class="fas fa-file-invoice"></i></div></div>
-      </div>
-      <div class="cards-grid">
-        <div class="action-card" onclick="switchTab('projects')"><div class="action-icon"><i class="fas fa-briefcase"></i></div><div class="action-info"><h3>My Projects</h3><p>Track your work</p></div></div>
-        <div class="action-card" onclick="switchTab('submit-project')"><div class="action-icon"><i class="fas fa-plus-circle"></i></div><div class="action-info"><h3>Submit Project</h3><p>Send new project brief</p></div></div>
-      </div>
-    `;
-  } else {
-    statsHtml = `
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-info"><h4>Announcements</h4><div class="stat-number">${data.stats.announcements}</div><div class="stat-label">New updates</div></div><div class="stat-icon"><i class="fas fa-bullhorn"></i></div></div>
-        <div class="stat-card"><div class="stat-info"><h4>Support Tickets</h4><div class="stat-number">${data.stats.supportTickets}</div><div class="stat-label">Open requests</div></div><div class="stat-icon"><i class="fas fa-headset"></i></div></div>
-      </div>
-      <div class="cards-grid">
-        <div class="action-card" onclick="switchTab('announcements')"><div class="action-icon"><i class="fas fa-bullhorn"></i></div><div class="action-info"><h3>Announcements</h3><p>Latest updates</p></div></div>
-        <div class="action-card" onclick="switchTab('contact')"><div class="action-icon"><i class="fas fa-envelope"></i></div><div class="action-info"><h3>Contact Support</h3><p>Get help</p></div></div>
-      </div>
-    `;
+  // Apply search
+  if (searchTerm) {
+    filtered = filtered.filter(m => 
+      m.title.toLowerCase().includes(searchTerm) || 
+      m.description.toLowerCase().includes(searchTerm)
+    );
   }
   
-  const now = new Date();
-  const day = now.getDate();
-  const month = now.toLocaleString('default', { month: 'long' });
+  // Apply category filter
+  if (categoryFilter !== 'all') {
+    filtered = filtered.filter(m => m.category === categoryFilter);
+  }
   
-  return `
-    <div class="welcome-card">
-      <div class="welcome-text">
-        <h2>Welcome back, ${currentUser.name || currentUser.username}!</h2>
-        <p>Here's what's happening with your ${currentUser.role === 'Student' ? 'learning' : currentUser.role === 'Instructor' ? 'teaching' : 'account'} today.</p>
+  // Apply type filter
+  if (typeFilter !== 'all') {
+    filtered = filtered.filter(m => m.type === typeFilter);
+  }
+  
+  const container = document.getElementById('materialsGrid');
+  
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-search"></i>
+        <h4>No materials found</h4>
+        <p>Try adjusting your search or filters.</p>
       </div>
-      <div class="welcome-date">
-        <div class="day">${day}</div>
-        <div class="month">${month}</div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = filtered.map(material => `
+    <div class="material-card ${material.type === 'bundle' ? 'bundle' : ''}" onclick="showPurchaseModal('${material.id}')">
+      <div class="card-image">
+        <img src="${material.image}" alt="${material.title}">
+        <div class="price-badge">₦${material.price.toLocaleString()}</div>
+        <div class="type-badge">${material.type === 'book' ? '📖 Book' : '📦 Bundle'}</div>
+        ${material.type === 'bundle' ? '<div class="bundle-icon"><i class="fas fa-layer-group"></i></div>' : ''}
+      </div>
+      <div class="card-info">
+        <h3 class="card-title">${material.title}</h3>
+        <p class="card-description">${material.description.substring(0, 80)}${material.description.length > 80 ? '...' : ''}</p>
+        <div class="card-meta">
+          <span class="card-category">${material.category.toUpperCase()}</span>
+          <button class="purchase-btn" onclick="event.stopPropagation(); showPurchaseModal('${material.id}')">Purchase</button>
+        </div>
       </div>
     </div>
-    ${statsHtml}
-  `;
+  `).join('');
 }
 
-function renderCourses() {
-  return `
-    <div class="table-container">
+// ============================================
+// PURCHASE MODAL
+// ============================================
+
+let selectedMaterial = null;
+
+function showPurchaseModal(materialId) {
+  selectedMaterial = materials.find(m => m.id === materialId);
+  if (!selectedMaterial) return;
+  
+  const modal = document.getElementById('purchaseModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalPrice = document.getElementById('modalPrice');
+  const modalDescription = document.getElementById('modalDescription');
+  
+  modalTitle.textContent = selectedMaterial.title;
+  modalPrice.textContent = `₦${selectedMaterial.price.toLocaleString()}`;
+  modalDescription.textContent = selectedMaterial.description;
+  
+  modal.classList.add('active');
+}
+
+function closePurchaseModal() {
+  document.getElementById('purchaseModal').classList.remove('active');
+  selectedMaterial = null;
+}
+
+function confirmPurchase() {
+  if (!selectedMaterial) return;
+  
+  // Check if already purchased
+  const alreadyPurchased = purchases.some(p => p.materialId === selectedMaterial.id);
+  if (alreadyPurchased) {
+    alert('You have already purchased this item.');
+    closePurchaseModal();
+    return;
+  }
+  
+  // Get user wallet (mock)
+  const walletBalance = 25000; // Mock balance
+  
+  if (walletBalance < selectedMaterial.price) {
+    alert(`Insufficient funds!\n\nYour balance: ₦25,000\nItem price: ₦${selectedMaterial.price.toLocaleString()}\n\nPlease top up your wallet.`);
+    closePurchaseModal();
+    return;
+  }
+  
+  // Process purchase
+  const newPurchase = {
+    id: 'pur_' + Date.now(),
+    materialId: selectedMaterial.id,
+    title: selectedMaterial.title,
+    price: selectedMaterial.price,
+    type: selectedMaterial.type,
+    date: new Date().toISOString(),
+    downloadUrl: '#'
+  };
+  
+  purchases.push(newPurchase);
+  localStorage.setItem(`gliimu_purchases_${currentUser.id}`, JSON.stringify(purchases));
+  
+  // Show success
+  alert(`Purchase successful!\n\n${selectedMaterial.title} has been added to your library.`);
+  closePurchaseModal();
+  
+  // If on purchases tab, refresh
+  if (currentTab === 'purchases') {
+    renderPurchases();
+  }
+}
+
+// ============================================
+// RENDER PURCHASES
+// ============================================
+
+function renderPurchases() {
+  const container = document.getElementById('purchasesList');
+  
+  if (purchases.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-shopping-bag"></i>
+        <h4>No purchases yet</h4>
+        <p>Browse the library and buy your first learning material.</p>
+        <button class="btn-primary" style="margin-top: 16px;" onclick="switchTab('browse')">Browse Library →</button>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = `
+    <div class="purchase-table">
       <table>
         <thead>
-          <tr><th>Course</th><th>Progress</th><th>Instructor</th><th>Next Session</th></tr>
+          <tr><th>Item</th><th>Type</th><th>Price</th><th>Purchase Date</th><th>Action</th></tr>
         </thead>
         <tbody>
-          <tr>
-            <td><strong>Full-Stack Media Production</strong></td>
-            <td><div class="progress-bar"><div class="progress-fill" style="width:45%"></div></div><span style="margin-left:8px;">45%</span></td>
-            <td>Jeremiah Iyo</td>
-            <td>Mar 20, 2025</td>
-           </tr>
-           <tr>
-            <td><strong>Video Production</strong></td>
-            <td><div class="progress-bar"><div class="progress-fill" style="width:60%"></div></div><span style="margin-left:8px;">60%</span></td>
-            <td>Finiks Kshel</td>
-            <td>Mar 18, 2025</td>
-           </tr>
-           <tr>
-            <td><strong>UI/UX Design</strong></td>
-            <td><div class="progress-bar"><div class="progress-fill" style="width:30%"></div></div><span style="margin-left:8px;">30%</span></td>
-            <td>Edi Edidiong</td>
-            <td>Mar 22, 2025</td>
-           </tr>
-        </tbody>
-       </table>
-    </div>
-  `;
-}
-
-function renderAssignments() {
-  const data = mockData.Student;
-  if (!data.assignments || data.assignments.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-tasks"></i><h4>No assignments yet</h4><p>Check back later for new tasks.</p></div>`;
-  }
-  return `
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr><th>Assignment</th><th>Due Date</th><th>Status</th><th>Grade</th><th>Action</th></tr>
-        </thead>
-        <tbody>
-          ${data.assignments.map(a => `
+          ${purchases.map(p => `
             <tr>
-              <td><strong>${a.title}</strong></td>
-              <td>${a.dueDate}</td>
-              <td><span class="badge ${a.status === 'submitted' ? 'badge-success' : 'badge-warning'}">${a.status}</span></td>
-              <td>${a.grade ? a.grade + '%' : '-'}</td>
-              <td><button class="btn-sm" onclick="alert('Submit assignment')">Submit</button></td>
+              <td><strong>${p.title}</strong></td>
+              <td>${p.type === 'book' ? '📖 Book' : '📦 Bundle'}</td>
+              <td>₦${p.price.toLocaleString()}</td>
+              <td>${new Date(p.date).toLocaleDateString()}</td>
+              <td><button class="download-btn" onclick="downloadMaterial('${p.id}')">Download</button></td>
             </tr>
           `).join('')}
         </tbody>
@@ -365,329 +347,258 @@ function renderAssignments() {
   `;
 }
 
-function renderWallet() {
-  const data = mockData.Student;
-  return `
-    <div class="stats-grid" style="margin-bottom:24px;">
-      <div class="stat-card"><div class="stat-info"><h4>Current Balance</h4><div class="stat-number" style="font-size:2rem;">₦${data.stats.walletBalance.toLocaleString()}</div></div><div class="stat-icon"><i class="fas fa-wallet"></i></div></div>
-    </div>
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Description</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
-        <tbody>
-          ${data.transactions.map(t => `
-            <tr>
-              <td>${t.description}</td>
-              <td>${t.date}</td>
-              <td style="color:${t.type === 'credit' ? 'var(--success)' : 'var(--danger)'}">${t.type === 'credit' ? '+' : '-'}₦${t.amount.toLocaleString()}</td>
-              <td><span class="badge badge-success">${t.status}</span></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function renderLibrary() {
-  const data = mockData.Student;
-  if (!data.library || data.library.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-book"></i><h4>No purchased items</h4><p>Visit the library to buy learning materials.</p><button class="btn-primary" style="margin-top:16px;" onclick="window.location.href='library.html'">Go to Library →</button></div>`;
+function downloadMaterial(purchaseId) {
+  const purchase = purchases.find(p => p.id === purchaseId);
+  if (purchase) {
+    alert(`Downloading: ${purchase.title}\n\nIn production, this would download the file.`);
   }
-  return `
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Title</th><th>Type</th><th>Date Purchased</th><th>Action</th></tr></thead>
-        <tbody>
-          ${data.library.map(item => `
-            <tr>
-              <td><strong>${item.title}</strong></td>
-              <td>${item.type}</td>
-              <td>${item.date}</td>
-              <td><button class="btn-sm" onclick="alert('Download started')">Download</button></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
 }
 
-function renderPortfolio() {
-  const data = mockData.Student;
-  if (!data.portfolio || data.portfolio.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-id-card"></i><h4>No portfolio items</h4><p>Your projects will appear here after submission.</p></div>`;
+// ============================================
+// ADMIN PANEL
+// ============================================
+
+function renderAdminPanel() {
+  if (currentUser.role !== 'Admin') {
+    document.getElementById('adminContent').innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-lock"></i>
+        <h4>Admin Access Only</h4>
+        <p>You don't have permission to access this section.</p>
+      </div>
+    `;
+    return;
   }
-  return `
-    <div class="cards-grid">
-      ${data.portfolio.map(item => `
-        <div class="action-card" onclick="alert('View project: ${item.title}')">
-          <div class="action-icon"><i class="fas ${item.icon}"></i></div>
-          <div class="action-info">
-            <h3>${item.title}</h3>
-            <p>Submitted ${item.date}</p>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-function renderSettings() {
-  return `
-    <div class="form-container">
-      <h3>Account Settings</h3>
-      <div class="form-group">
-        <label>Display Name</label>
-        <input type="text" class="input-field" value="${currentUser.name || ''}" placeholder="Your name">
+  
+  const container = document.getElementById('adminContent');
+  
+  container.innerHTML = `
+    <div class="admin-panel">
+      <div class="admin-header">
+        <h3><i class="fas fa-boxes"></i> Manage Materials</h3>
+        <button class="add-material-btn" onclick="showAddMaterialForm()"><i class="fas fa-plus"></i> Add Material</button>
       </div>
-      <div class="form-group">
-        <label>Email (Optional)</label>
-        <input type="email" class="input-field" value="${currentUser.email || ''}" placeholder="your@email.com">
-      </div>
-      <div class="form-group">
-        <label>Phone (Optional)</label>
-        <input type="tel" class="input-field" placeholder="+234 800 000 0000">
-      </div>
-      <div class="form-group">
-        <label>Bio (Optional)</label>
-        <textarea class="input-field" rows="3" placeholder="Tell us a bit about yourself..."></textarea>
-      </div>
-      <div class="form-actions">
-        <button class="btn-primary" onclick="alert('Settings saved (demo)')">Save Changes</button>
-        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
+      <div class="purchase-table">
+        <table>
+          <thead>
+            <tr><th>Title</th><th>Type</th><th>Price</th><th>Stock</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${materials.map(m => `
+              <tr>
+                <td><strong>${m.title}</strong></td>
+                <td>${m.type}</td>
+                <td>₦${m.price.toLocaleString()}</td>
+                <td>${m.stock || '∞'}</td>
+                <td>
+                  <button class="download-btn" onclick="editMaterial('${m.id}')">Edit</button>
+                  <button class="download-btn" onclick="deleteMaterial('${m.id}')" style="border-color: var(--danger); color: var(--danger);">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     </div>
   `;
 }
 
-function renderStudents() {
-  const data = mockData.Instructor;
-  if (!data.students || data.students.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-users"></i><h4>No students assigned</h4><p>Students will appear here once enrolled.</p></div>`;
-  }
-  return `
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Student</th><th>Track</th><th>Progress</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${data.students.map(s => `
-            <tr>
-              <td><strong>${s.name}</strong></td>
-              <td><span class="badge badge-info">${s.track}</span></td>
-              <td><div class="progress-bar" style="width:100px;"><div class="progress-fill" style="width:${s.progress}%"></div></div> ${s.progress}%</td>
-              <td><button class="btn-sm" onclick="alert('View student: ${s.name}')">View</button></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function renderSubmissions() {
-  const data = mockData.Instructor;
-  if (!data.submissions || data.submissions.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-file-import"></i><h4>No pending submissions</h4><p>All caught up!</p></div>`;
-  }
-  return `
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Student</th><th>Assignment</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody>
-          ${data.submissions.map(s => `
-            <tr>
-              <td><strong>${s.student}</strong></td>
-              <td>${s.assignment}</td>
-              <td>${s.submitted}</td>
-              <td><span class="badge badge-warning">${s.status}</span></td>
-              <td><button class="btn-sm" onclick="alert('Grade ${s.student}')">Grade</button></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function renderCreateAssignment() {
-  return `
-    <div class="form-container">
-      <h3>Create New Assignment</h3>
+function showAddMaterialForm() {
+  const html = `
+    <div class="form-container" id="materialForm">
+      <h3 style="margin-bottom: 20px;">Add New Material</h3>
       <div class="form-group">
-        <label>Assignment Title</label>
-        <input type="text" class="input-field" placeholder="e.g., Final Project Submission">
+        <label>Title</label>
+        <input type="text" id="matTitle" placeholder="Material title">
       </div>
       <div class="form-group">
-        <label>Due Date</label>
-        <input type="date" class="input-field">
-      </div>
-      <div class="form-group">
-        <label>Instructions</label>
-        <textarea class="input-field" rows="5" placeholder="Describe the assignment requirements, format, and submission guidelines..."></textarea>
-      </div>
-      <div class="form-group">
-        <label>Max Points</label>
-        <input type="number" class="input-field" placeholder="100">
-      </div>
-      <div class="form-group">
-        <label>Attach File (Optional)</label>
-        <input type="file" class="input-field">
-      </div>
-      <div class="form-actions">
-        <button class="btn-primary" onclick="alert('Assignment created (demo)')">Publish Assignment</button>
-        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderProjects() {
-  const data = mockData.Partner;
-  if (!data.projects || data.projects.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-briefcase"></i><h4>No projects yet</h4><p>Submit your first project to get started.</p><button class="btn-primary" style="margin-top:16px;" onclick="switchTab('submit-project')">Submit Project →</button></div>`;
-  }
-  return `
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Project</th><th>Budget</th><th>Deadline</th><th>Status</th></tr></thead>
-        <tbody>
-          ${data.projects.map(p => `
-            <tr>
-              <td><strong>${p.name}</strong></td>
-              <td>₦${p.budget.toLocaleString()}</td>
-              <td>${p.deadline}</td>
-              <td><span class="badge ${p.status === 'in-progress' ? 'badge-warning' : 'badge-success'}">${p.status}</span></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function renderSubmitProject() {
-  return `
-    <div class="form-container">
-      <h3>Submit New Project</h3>
-      <div class="form-group">
-        <label>Project Title</label>
-        <input type="text" class="input-field" placeholder="e.g., Website Development for ABC Corp">
-      </div>
-      <div class="form-group">
-        <label>Budget Range</label>
-        <select class="input-field">
-          <option>₦50k - ₦100k</option>
-          <option>₦100k - ₦250k</option>
-          <option>₦250k - ₦500k</option>
-          <option>₦500k - ₦1M</option>
-          <option>₦1M+</option>
+        <label>Type</label>
+        <select id="matType">
+          <option value="book">Book</option>
+          <option value="bundle">Bundle</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Timeline</label>
-        <select class="input-field">
-          <option>Less than 1 month</option>
-          <option>1-3 months</option>
-          <option>3-6 months</option>
-          <option>6+ months</option>
+        <label>Category</label>
+        <select id="matCategory">
+          <option value="video">Video Production</option>
+          <option value="design">Design</option>
+          <option value="code">Code/Programming</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Project Description</label>
-        <textarea class="input-field" rows="5" placeholder="Describe your project requirements, deliverables, and expectations..."></textarea>
+        <label>Price (₦)</label>
+        <input type="number" id="matPrice" placeholder="Price">
       </div>
       <div class="form-group">
-        <label>Attach Files (Optional)</label>
-        <input type="file" class="input-field">
+        <label>Description</label>
+        <textarea id="matDesc" rows="3" placeholder="Describe the material..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Image URL</label>
+        <input type="text" id="matImage" placeholder="https://...">
       </div>
       <div class="form-actions">
-        <button class="btn-primary" onclick="alert('Project submitted (demo)')">Submit for Review</button>
-        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
+        <button class="btn-primary" onclick="saveNewMaterial()">Save</button>
+        <button class="btn-secondary" onclick="cancelMaterialForm()">Cancel</button>
       </div>
     </div>
   `;
+  
+  const adminContent = document.getElementById('adminContent');
+  adminContent.innerHTML = html;
 }
 
-function renderInvoices() {
-  const data = mockData.Partner;
-  if (!data.invoices || data.invoices.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-file-invoice"></i><h4>No invoices</h4><p>Invoices will appear here after project approval.</p></div>`;
-  }
-  return `
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Invoice #</th><th>Project</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead>
-        <tbody>
-          ${data.invoices.map(inv => `
-            <tr>
-              <td>${inv.id}</td>
-              <td>${inv.project}</td>
-              <td>₦${inv.amount.toLocaleString()}</td>
-              <td>${inv.dueDate}</td>
-              <td><span class="badge ${inv.status === 'pending' ? 'badge-warning' : 'badge-success'}">${inv.status}</span></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+function cancelMaterialForm() {
+  renderAdminPanel();
 }
 
-function renderAnnouncements() {
-  const data = mockData.Other;
-  if (!data.announcements || data.announcements.length === 0) {
-    return `<div class="empty-state"><i class="fas fa-bullhorn"></i><h4>No announcements</h4><p>Check back later for updates.</p></div>`;
-  }
-  return `
-    <div class="cards-grid">
-      ${data.announcements.map(a => `
-        <div class="action-card">
-          <div class="action-icon"><i class="fas fa-bullhorn"></i></div>
-          <div class="action-info">
-            <h3>${a.title}</h3>
-            <p>${a.date} - ${a.content}</p>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
+function saveNewMaterial() {
+  const newMaterial = {
+    id: 'mat_' + Date.now(),
+    type: document.getElementById('matType').value,
+    title: document.getElementById('matTitle').value,
+    description: document.getElementById('matDesc').value,
+    price: parseInt(document.getElementById('matPrice').value),
+    image: document.getElementById('matImage').value || 'https://placehold.co/400x500/2c2f78/white?text=New+Material',
+    category: document.getElementById('matCategory').value,
+    stock: 100
+  };
+  
+  materials.push(newMaterial);
+  localStorage.setItem('gliimu_materials', JSON.stringify(materials));
+  
+  renderAdminPanel();
+  renderMaterials(); // Refresh browse view
+  alert('Material added successfully!');
 }
 
-function renderContact() {
-  return `
-    <div class="form-container">
-      <h3>Contact Support</h3>
+function editMaterial(materialId) {
+  const material = materials.find(m => m.id === materialId);
+  if (!material) return;
+  
+  const html = `
+    <div class="form-container" id="materialForm">
+      <h3 style="margin-bottom: 20px;">Edit Material</h3>
       <div class="form-group">
-        <label>Subject</label>
-        <input type="text" class="input-field" placeholder="What's this about?">
+        <label>Title</label>
+        <input type="text" id="matTitle" value="${material.title}">
       </div>
       <div class="form-group">
-        <label>Priority</label>
-        <select class="input-field">
-          <option>Low - General question</option>
-          <option>Medium - Need help</option>
-          <option>High - Urgent issue</option>
+        <label>Type</label>
+        <select id="matType">
+          <option value="book" ${material.type === 'book' ? 'selected' : ''}>Book</option>
+          <option value="bundle" ${material.type === 'bundle' ? 'selected' : ''}>Bundle</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Message</label>
-        <textarea class="input-field" rows="5" placeholder="Describe your issue or question in detail..."></textarea>
+        <label>Category</label>
+        <select id="matCategory">
+          <option value="video" ${material.category === 'video' ? 'selected' : ''}>Video Production</option>
+          <option value="design" ${material.category === 'design' ? 'selected' : ''}>Design</option>
+          <option value="code" ${material.category === 'code' ? 'selected' : ''}>Code/Programming</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Price (₦)</label>
+        <input type="number" id="matPrice" value="${material.price}">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="matDesc" rows="3">${material.description}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Image URL</label>
+        <input type="text" id="matImage" value="${material.image}">
       </div>
       <div class="form-actions">
-        <button class="btn-primary" onclick="alert('Message sent (demo)')">Send Message</button>
-        <button class="btn-secondary" onclick="alert('Cancelled')">Cancel</button>
-      </div>
-      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
-        <p style="font-size: 0.75rem; color: var(--text-muted);"><i class="fas fa-envelope"></i> Or email us directly: <a href="mailto:support@gliimu.com" style="color: var(--accent);">support@gliimu.com</a></p>
-        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;"><i class="fas fa-phone"></i> Or call: +234 (0) 705 8929 080</p>
+        <button class="btn-primary" onclick="updateMaterial('${material.id}')">Update</button>
+        <button class="btn-secondary" onclick="cancelMaterialForm()">Cancel</button>
       </div>
     </div>
   `;
+  
+  const adminContent = document.getElementById('adminContent');
+  adminContent.innerHTML = html;
+}
+
+function updateMaterial(materialId) {
+  const index = materials.findIndex(m => m.id === materialId);
+  if (index === -1) return;
+  
+  materials[index] = {
+    ...materials[index],
+    type: document.getElementById('matType').value,
+    title: document.getElementById('matTitle').value,
+    description: document.getElementById('matDesc').value,
+    price: parseInt(document.getElementById('matPrice').value),
+    image: document.getElementById('matImage').value,
+    category: document.getElementById('matCategory').value
+  };
+  
+  localStorage.setItem('gliimu_materials', JSON.stringify(materials));
+  
+  renderAdminPanel();
+  renderMaterials();
+  alert('Material updated successfully!');
+}
+
+function deleteMaterial(materialId) {
+  if (confirm('Are you sure you want to delete this material?')) {
+    materials = materials.filter(m => m.id !== materialId);
+    localStorage.setItem('gliimu_materials', JSON.stringify(materials));
+    renderAdminPanel();
+    renderMaterials();
+    alert('Material deleted successfully!');
+  }
+}
+
+function updateCartCount() {
+  // For future cart functionality
+}
+
+// ============================================
+// THEME TOGGLE
+// ============================================
+
+function initThemeToggle() {
+  const themeToggle = document.getElementById('themeToggle');
+  const body = document.body;
+  
+  function updateIcons() {
+    const isDark = body.classList.contains('dark-mode');
+    const sunIcon = themeToggle?.querySelector('.icon-sun');
+    const moonIcon = themeToggle?.querySelector('.icon-moon');
+    if (sunIcon && moonIcon) {
+      sunIcon.style.display = isDark ? 'block' : 'none';
+      moonIcon.style.display = isDark ? 'none' : 'block';
+    }
+  }
+  
+  updateIcons();
+  
+  themeToggle?.addEventListener('click', () => {
+    body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+    updateIcons();
+  });
 }
 
 // Make functions globally available
 window.switchTab = switchTab;
+window.showPurchaseModal = showPurchaseModal;
+window.closePurchaseModal = closePurchaseModal;
+window.confirmPurchase = confirmPurchase;
+window.downloadMaterial = downloadMaterial;
+window.showAddMaterialForm = showAddMaterialForm;
+window.saveNewMaterial = saveNewMaterial;
+window.cancelMaterialForm = cancelMaterialForm;
+window.editMaterial = editMaterial;
+window.updateMaterial = updateMaterial;
+window.deleteMaterial = deleteMaterial;
 
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', initDashboard);
+document.addEventListener('DOMContentLoaded', () => {
+  initLibrary();
+  initThemeToggle();
+});
