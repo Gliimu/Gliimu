@@ -1,4 +1,4 @@
-// library.js - Redesigned library functionality
+// library.js - Redesigned library with masonry grid
 
 let currentUser = null;
 let currentTab = 'browse';
@@ -136,10 +136,6 @@ function initLibrary() {
     purchases = [];
   }
   
-  // Update UI
-  document.getElementById('userName').textContent = currentUser.name || currentUser.username;
-  document.getElementById('userAvatar').src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || currentUser.username)}&background=random&color=fff`;
-  
   setupEventListeners();
   renderMaterials();
 }
@@ -198,7 +194,7 @@ function switchTab(tabId) {
 }
 
 // ============================================
-// RENDER MATERIALS
+// RENDER MATERIALS (MASONRY GRID)
 // ============================================
 
 function renderMaterials() {
@@ -236,6 +232,7 @@ function renderMaterials() {
     return;
   }
   
+  // Masonry grid accepts any HTML - items will flow naturally by column-count
   container.innerHTML = filtered.map(material => {
     if (material.type === 'book') {
       return `
@@ -250,7 +247,7 @@ function renderMaterials() {
       return `
         <div class="bundle-card" onclick="showDetailModal('${material.id}')">
           <div class="bundle-cover">
-            <img src="${material.image}" alt="${material.title}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\'fas fa-layer-group\'></i>'">
+            <img src="${material.image}" alt="${material.title}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-layer-group\\'></i>'">
           </div>
           <div class="bundle-info">
             <div class="bundle-title">${material.title}</div>
@@ -571,7 +568,7 @@ function editMaterial(materialId) {
 }
 
 function updateMaterial(materialId) {
-  const index = materials.findIndex(m => m.id === materialId);
+  const index = materials.find(m => m.id === materialId);
   if (index === -1) return;
   
   materials[index] = {
@@ -600,33 +597,6 @@ function deleteMaterial(materialId) {
   }
 }
 
-// ============================================
-// THEME TOGGLE
-// ============================================
-
-function initThemeToggle() {
-  const themeToggle = document.getElementById('themeToggle');
-  const body = document.body;
-  
-  function updateIcons() {
-    const isDark = body.classList.contains('dark-mode');
-    const sunIcon = themeToggle?.querySelector('.icon-sun');
-    const moonIcon = themeToggle?.querySelector('.icon-moon');
-    if (sunIcon && moonIcon) {
-      sunIcon.style.display = isDark ? 'block' : 'none';
-      moonIcon.style.display = isDark ? 'none' : 'block';
-    }
-  }
-  
-  updateIcons();
-  
-  themeToggle?.addEventListener('click', () => {
-    body.classList.toggle('dark-mode');
-    localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
-    updateIcons();
-  });
-}
-
 // Make functions globally available
 window.switchTab = switchTab;
 window.showDetailModal = showDetailModal;
@@ -646,5 +616,4 @@ window.deleteMaterial = deleteMaterial;
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   initLibrary();
-  initThemeToggle();
 });
