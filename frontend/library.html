@@ -38,30 +38,36 @@
   <!-- Global Header -->
   <div id="header-placeholder"></div>
 
-  <!-- Main Content -->
-  <div class="library-wrapper">
+  <!-- Library Main Content -->
+  <main class="library-main">
     <div class="library-container">
       
-      <!-- Page Header -->
-      <div class="library-page-header">
+      <!-- Page Title -->
+      <div class="library-title">
         <h1>Digital Library</h1>
-        <p>Access premium learning materials, books, and resource bundles</p>
+        <p>Premium learning materials for Media Architects</p>
       </div>
       
       <!-- Tabs -->
       <div class="library-tabs">
-        <button class="tab-btn active" data-tab="browse" onclick="switchTab('browse')"><i class="fas fa-book-open"></i> Browse</button>
-        <button class="tab-btn" data-tab="purchases" onclick="switchTab('purchases')"><i class="fas fa-shopping-bag"></i> My Purchases</button>
-        <button class="tab-btn admin-only" data-tab="admin" onclick="switchTab('admin')" style="display: none;"><i class="fas fa-cog"></i> Admin</button>
+        <button class="tab-btn active" data-tab="browse" onclick="switchTab('browse')">
+          <i class="fas fa-book-open"></i> Browse
+        </button>
+        <button class="tab-btn" data-tab="purchases" onclick="switchTab('purchases')">
+          <i class="fas fa-shopping-bag"></i> My Purchases
+        </button>
+        <button class="tab-btn admin-only" data-tab="admin" onclick="switchTab('admin')" style="display: none;">
+          <i class="fas fa-cog"></i> Admin
+        </button>
       </div>
       
-      <!-- Search and Filter Bar -->
-      <div class="search-filter-bar">
-        <div class="search-box">
+      <!-- Search Bar - Compact, aligned with logo -->
+      <div class="library-search-bar">
+        <div class="search-wrapper">
           <i class="fas fa-search"></i>
           <input type="text" id="searchInput" placeholder="Search materials...">
         </div>
-        <div class="filter-group">
+        <div class="filter-wrapper">
           <select id="categoryFilter" class="filter-select">
             <option value="all">All Categories</option>
             <option value="video">Video Production</option>
@@ -76,22 +82,39 @@
         </div>
       </div>
       
-      <!-- Materials Grid -->
-      <div class="masonry-grid" id="materialsGrid">
-        <div class="empty-state">
-          <i class="fas fa-spinner fa-spin"></i>
-          <h4>Loading materials...</h4>
+      <!-- Browse Content -->
+      <div id="browseContent" class="tab-content active">
+        <div class="masonry-grid" id="materialsGrid">
+          <div class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading materials...</p>
+          </div>
         </div>
       </div>
       
+      <!-- Purchases Content -->
+      <div id="purchasesContent" class="tab-content">
+        <div id="purchasesList" class="purchases-list">
+          <div class="empty-state">
+            <i class="fas fa-shopping-bag"></i>
+            <h4>No purchases yet</h4>
+            <p>Browse the library and buy your first learning material.</p>
+            <button class="btn-primary" onclick="switchTab('browse')">Browse Library →</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Admin Content -->
+      <div id="adminContent" class="tab-content"></div>
+      
     </div>
-  </div>
+  </main>
 
-  <!-- Login Modal Placeholder -->
+  <!-- Modals -->
   <div id="login-modal-placeholder"></div>
 
   <!-- Detail Modal -->
-  <div class="modal-overlay" id="detailModal" onclick="if(event.target === this) closeDetailModal()">
+  <div class="modal-overlay" id="detailModal">
     <div class="detail-modal">
       <button class="detail-close" onclick="closeDetailModal()">&times;</button>
       <div class="detail-modal-content">
@@ -113,21 +136,21 @@
   </div>
 
   <!-- Purchase Modal -->
-  <div class="modal-overlay" id="purchaseModal" onclick="if(event.target === this) closePurchaseModal()">
+  <div class="modal-overlay" id="purchaseModal">
     <div class="purchase-modal">
       <div class="modal-icon"><i class="fas fa-shopping-cart"></i></div>
-      <h3 class="modal-title" id="modalTitle">Confirm Purchase</h3>
-      <p class="modal-text" id="modalDescription"></p>
-      <p class="modal-text"><strong id="modalPrice">₦0</strong></p>
+      <h3 class="modal-title" id="purchaseModalTitle">Confirm Purchase</h3>
+      <p class="modal-text" id="purchaseModalDesc"></p>
+      <p class="modal-text"><strong id="purchaseModalPrice">₦0</strong></p>
       <div class="modal-actions">
-        <button class="modal-btn confirm" onclick="confirmPurchase()">Confirm Purchase</button>
+        <button class="modal-btn confirm" onclick="confirmPurchase()">Confirm</button>
         <button class="modal-btn cancel" onclick="closePurchaseModal()">Cancel</button>
       </div>
     </div>
   </div>
 
   <!-- Success Modal -->
-  <div class="modal-overlay" id="successModal" onclick="if(event.target === this) closeSuccessModal()">
+  <div class="modal-overlay" id="successModal">
     <div class="purchase-modal">
       <div class="modal-icon"><i class="fas fa-check-circle"></i></div>
       <h3 class="modal-title">Purchase Successful!</h3>
@@ -140,161 +163,32 @@
 
   <!-- JS Files -->
   <script src="js/pages/header.js"></script>
-  
-  <!-- INLINE SCRIPT FOR IMMEDIATE TESTING -->
+  <script src="js/pages/library.js"></script>
+
+  <!-- Load Partials -->
   <script>
-    // Mock data directly in HTML for testing
-    const testMaterials = [
-      { id: '1', type: 'book', title: 'Video Production Guide', price: 3500, image: 'https://images.unsplash.com/photo-1536240474400-3f5c8c6ee9d1?w=300&h=400&fit=crop', category: 'video' },
-      { id: '2', type: 'book', title: 'UI/UX Design Mastery', price: 2800, image: 'https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?w=300&h=400&fit=crop', category: 'design' },
-      { id: '3', type: 'bundle', title: 'Web Dev Bundle', price: 15000, image: 'https://images.unsplash.com/photo-1461749280699-6d844bd4a1c5?w=100&h=100&fit=crop', category: 'code' }
-    ];
-    
-    let currentUser = null;
-    
-    function initTestLibrary() {
-      console.log('initTestLibrary started');
-      
-      // Check if user is logged in
-      const storedUser = localStorage.getItem('gliimu_user');
-      console.log('Stored user:', storedUser);
-      
-      if (!storedUser) {
-        // Create a test user for demo
-        const testUser = { id: 'test_001', name: 'Test User', username: 'testuser', role: 'Student' };
-        localStorage.setItem('gliimu_user', JSON.stringify(testUser));
-        currentUser = testUser;
-        console.log('Created test user:', currentUser);
-      } else {
-        currentUser = JSON.parse(storedUser);
-      }
-      
-      // Render the grid
-      renderTestGrid();
-    }
-    
-    function renderTestGrid() {
-      const container = document.getElementById('materialsGrid');
-      console.log('Container found:', container);
-      
-      if (!container) {
-        console.error('materialsGrid NOT found!');
-        return;
-      }
-      
-      let html = '';
-      for (let i = 0; i < testMaterials.length; i++) {
-        const m = testMaterials[i];
-        if (m.type === 'book') {
-          html += `
-            <div class="book-card" onclick="alert('Book: ${m.title}')">
-              <div class="book-cover">
-                <img src="${m.image}" alt="${m.title}">
-                <div class="price-tag">₦${m.price.toLocaleString()}</div>
-              </div>
-            </div>
-          `;
-        } else {
-          html += `
-            <div class="bundle-card" onclick="alert('Bundle: ${m.title}')">
-              <div class="bundle-cover">
-                <img src="${m.image}" alt="${m.title}">
-              </div>
-              <div class="bundle-info">
-                <div class="bundle-title">${m.title}</div>
-                <div class="bundle-price">₦${m.price.toLocaleString()}</div>
-              </div>
-            </div>
-          `;
-        }
-      }
-      
-      container.innerHTML = html;
-      console.log('Grid rendered with', testMaterials.length, 'items');
-    }
-    
-    // Load header
-    fetch('partials/header.html')
-      .then(r => r.text())
-      .then(html => {
-        document.getElementById('header-placeholder').innerHTML = html;
-        console.log('Header loaded');
-      })
-      .catch(err => console.error('Header error:', err));
-    
-    // Load login modal
-    fetch('partials/login-modal.html')
-      .then(r => r.text())
-      .then(html => {
-        document.getElementById('login-modal-placeholder').innerHTML = html;
-        console.log('Login modal loaded');
-      })
-      .catch(err => console.error('Modal error:', err));
-    
-    // Simple tab switching
-    window.switchTab = function(tabId) {
-      console.log('Switch tab:', tabId);
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      if (tabId === 'browse') {
-        document.getElementById('browseContent').style.display = 'block';
-        document.getElementById('purchasesContent').style.display = 'none';
-        document.getElementById('adminContent').style.display = 'none';
-      } else if (tabId === 'purchases') {
-        document.getElementById('browseContent').style.display = 'none';
-        document.getElementById('purchasesContent').style.display = 'block';
-        document.getElementById('adminContent').style.display = 'none';
-        document.getElementById('purchasesList').innerHTML = '<div class="empty-state">No purchases yet</div>';
-      } else if (tabId === 'admin') {
-        document.getElementById('browseContent').style.display = 'none';
-        document.getElementById('purchasesContent').style.display = 'none';
-        document.getElementById('adminContent').style.display = 'block';
-        document.getElementById('adminContent').innerHTML = '<div class="empty-state">Admin panel (coming soon)</div>';
-      }
-    };
-    
-    window.closeDetailModal = function() { document.getElementById('detailModal').classList.remove('active'); };
-    window.closePurchaseModal = function() { document.getElementById('purchaseModal').classList.remove('active'); };
-    window.closeSuccessModal = function() { document.getElementById('successModal').classList.remove('active'); };
-    window.purchaseFromModal = function() { closeDetailModal(); alert('Purchase flow would start here'); };
-    window.confirmPurchase = function() { closePurchaseModal(); document.getElementById('successModal').classList.add('active'); };
-    
-    // Make sure browseContent, purchasesContent, adminContent exist
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOM ready');
+      // Load header
+      fetch('partials/header.html')
+        .then(r => r.text())
+        .then(html => {
+          document.getElementById('header-placeholder').innerHTML = html;
+        })
+        .catch(err => console.error('Header error:', err));
       
-      // Create missing containers if needed
-      if (!document.getElementById('browseContent')) {
-        const browseDiv = document.createElement('div');
-        browseDiv.id = 'browseContent';
-        browseDiv.style.display = 'block';
-        document.querySelector('.library-container').appendChild(browseDiv);
-      }
-      if (!document.getElementById('purchasesContent')) {
-        const purchasesDiv = document.createElement('div');
-        purchasesDiv.id = 'purchasesContent';
-        purchasesDiv.style.display = 'none';
-        document.querySelector('.library-container').appendChild(purchasesDiv);
-        const purchasesList = document.createElement('div');
-        purchasesList.id = 'purchasesList';
-        purchasesDiv.appendChild(purchasesList);
-      }
-      if (!document.getElementById('adminContent')) {
-        const adminDiv = document.createElement('div');
-        adminDiv.id = 'adminContent';
-        adminDiv.style.display = 'none';
-        document.querySelector('.library-container').appendChild(adminDiv);
-      }
+      // Load login modal
+      fetch('partials/login-modal.html')
+        .then(r => r.text())
+        .then(html => {
+          document.getElementById('login-modal-placeholder').innerHTML = html;
+        })
+        .catch(err => console.error('Modal error:', err));
       
-      // Move the grid into browseContent
-      const grid = document.getElementById('materialsGrid');
-      const browseContent = document.getElementById('browseContent');
-      if (grid && browseContent && grid.parentNode !== browseContent) {
-        browseContent.appendChild(grid);
+      // Show admin tab if user is admin
+      const user = JSON.parse(localStorage.getItem('gliimu_user') || '{}');
+      if (user.role === 'Admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'inline-flex');
       }
-      
-      initTestLibrary();
     });
   </script>
 </body>
