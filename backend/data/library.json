@@ -6,7 +6,7 @@
 
 // IMPORTANT: Replace this URL with your actual raw GitHub URL
 // Go to your library.json file on GitHub, click "Raw", copy the URL
-const LIBRARY_JSON_URL = 'https://raw.githubusercontent.com/Gliimu/Gliimu/main/backend/data/library.json';
+const LIBRARY_JSON_URL = 'https://raw.githubusercontent.com/Gliimu/Gliimu/refs/heads/main/backend/data/library.json';
 
 let materialsData = [];
 let currentUser = null;
