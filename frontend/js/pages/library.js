@@ -1,8 +1,6 @@
 // Global state
 let allMaterials = [];
-let currentView = 'browse';
 let currentCategory = 'all';
-let currentType = 'all';
 let searchQuery = '';
 
 // DOM elements
@@ -10,7 +8,6 @@ const booksContainer = document.getElementById('booksContainer');
 const heroSearchInput = document.getElementById('heroSearchInput');
 const heroSearchBtn = document.getElementById('heroSearchBtn');
 const filterChips = document.getElementById('filterChips');
-const modal = document.getElementById('subscriptionModal');
 
 // Wait for header to load before initializing library
 document.addEventListener('DOMContentLoaded', () => {
@@ -20,45 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
-// Modal functions
-function openModal() {
-    if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function closeModal() {
-    if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-}
-
-window.closeModal = closeModal;
-
 // Initialize event listeners
 function initializeEventListeners() {
-    const upgradeBtn = document.getElementById('upgradeBtn');
-    if (upgradeBtn) {
-        upgradeBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openModal();
-        });
-    }
-    
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
-    }
-    
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
-            closeModal();
-        }
-    });
-    
     // Search functionality for hero search
     if (heroSearchBtn) {
         heroSearchBtn.addEventListener('click', () => {
@@ -83,7 +43,7 @@ async function fetchMaterials() {
         const response = await fetch('../../../backend/data/library.json');
         
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const data = await response.json();
@@ -92,7 +52,7 @@ async function fetchMaterials() {
             allMaterials = data.materials;
             console.log('Loaded materials:', allMaterials.length);
         } else {
-            throw new Error('Invalid JSON structure: missing materials array');
+            throw new Error('Invalid JSON structure');
         }
         
         buildFilters();
@@ -104,14 +64,14 @@ async function fetchMaterials() {
                 <div class="empty-state">
                     <i>❌</i>
                     <h3>Failed to load library data</h3>
-                    <p>${error.message}</p>
+                    <p>Please refresh the page or try again later</p>
                 </div>
             `;
         }
     }
 }
 
-// Build category and type filters
+// Build category filters
 function buildFilters() {
     const categories = ['all', ...new Set(allMaterials.map(item => item.category).filter(Boolean))];
     
@@ -144,8 +104,7 @@ function getFilteredMaterials() {
     if (searchQuery && searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(item => 
-            (item.title && item.title.toLowerCase().includes(query)) || 
-            (item.description && item.description.toLowerCase().includes(query))
+            (item.title && item.title.toLowerCase().includes(query))
         );
     }
     
@@ -165,7 +124,7 @@ function renderMaterials() {
     if (!booksContainer) return;
     
     if (!allMaterials.length) {
-        booksContainer.innerHTML = '<div class="loading" style="text-align: center; padding: 60px;">Loading materials...</div>';
+        booksContainer.innerHTML = '<div class="loading">Loading materials...</div>';
         return;
     }
     
@@ -189,11 +148,10 @@ function renderMaterials() {
                 <div class="grid-item item-bundle" data-id="${item.id}" data-type="${item.type}">
                     <div class="bundle-content">
                         <div class="bundle-title">${escapeHtml(item.title)}</div>
-                        <div class="bundle-meta">📦 ${item.bundleItems || 4}+ items • ${escapeHtml(item.category)}</div>
-                        <div class="bundle-description" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">${escapeHtml(item.description.substring(0, 80))}${item.description.length > 80 ? '...' : ''}</div>
+                        <div class="bundle-meta">📦 ${item.bundleItems || 4} items • ${escapeHtml(item.category)}</div>
                     </div>
-                    <button class="price-btn" data-id="${item.id}" data-type="${item.type}">
-                        Premium ⭐
+                    <button class="bundle-download-btn" data-id="${item.id}" data-type="${item.type}">
+                        Download ⬇️
                     </button>
                 </div>
             `;
@@ -201,30 +159,43 @@ function renderMaterials() {
             // Render book as Pinterest-style card
             return `
                 <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
-                    <div class="card-cover" style="background-image: url('${item.image}'); background-size: cover; background-position: center;">
-                        <div class="price-tag">Free</div>
-                    </div>
+                    <div class="card-cover" style="background-image: url('${item.image}'); background-size: cover; background-position: center;"></div>
                     <div class="card-info">
                         <div class="card-title">${escapeHtml(item.title)}</div>
-                        <div class="card-meta">📖 ${escapeHtml(item.category)} • ${new Date(item.createdAt).toLocaleDateString()}</div>
+                        <div class="card-meta">📖 ${escapeHtml(item.category)}</div>
                     </div>
                 </div>
             `;
         }
     }).join('');
     
-    // Add click handlers
-    document.querySelectorAll('.grid-item, .price-btn').forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
+    // Add click handlers for books (read)
+    document.querySelectorAll('.item-book').forEach(el => {
+        el.addEventListener('click', () => {
             const itemId = el.getAttribute('data-id');
-            const itemType = el.getAttribute('data-type');
             const item = allMaterials.find(m => m.id === itemId);
             
-            if (item && itemType === 'bundle') {
-                openModal();
-            } else if (item) {
-                alert(`📚 Opening: ${item.title}\n\n${item.description.substring(0, 200)}...\n\nThis is a free resource.`);
+            if (item && item.type === 'book') {
+                // Simple alert to simulate reading
+                alert(`📚 Opening: ${item.title}\n\nStart reading now!`);
+                // In production, this would open the actual book content
+                // window.location.href = `/read/${item.id}`;
+            }
+        });
+    });
+    
+    // Add click handlers for bundle downloads
+    document.querySelectorAll('.bundle-download-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const itemId = btn.getAttribute('data-id');
+            const item = allMaterials.find(m => m.id === itemId);
+            
+            if (item && item.type === 'bundle') {
+                // Simple alert to simulate download
+                alert(`📦 Downloading: ${item.title}\n\nYour download will start shortly.`);
+                // In production, this would trigger the actual download
+                // window.location.href = `/download/${item.id}`;
             }
         });
     });
