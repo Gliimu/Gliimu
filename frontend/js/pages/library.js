@@ -7,16 +7,13 @@ let searchQuery = '';
 
 // DOM elements
 const booksContainer = document.getElementById('booksContainer');
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const categoryList = document.getElementById('categoryList');
-const typeList = document.getElementById('typeList');
+const heroSearchInput = document.getElementById('heroSearchInput');
+const heroSearchBtn = document.getElementById('heroSearchBtn');
 const filterChips = document.getElementById('filterChips');
 const modal = document.getElementById('subscriptionModal');
 
 // Wait for header to load before initializing library
 document.addEventListener('DOMContentLoaded', () => {
-    // Small delay to ensure header is fully loaded
     setTimeout(() => {
         initializeEventListeners();
         fetchMaterials();
@@ -38,7 +35,6 @@ function closeModal() {
     }
 }
 
-// Make closeModal available globally for onclick
 window.closeModal = closeModal;
 
 // Initialize event listeners
@@ -57,43 +53,24 @@ function initializeEventListeners() {
         });
     }
     
-    // Escape key to close modal
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
             closeModal();
         }
     });
     
-    // Event listeners for sidebar navigation
-    document.querySelectorAll('[data-view]').forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.preventDefault();
-            currentView = el.getAttribute('data-view');
-            currentCategory = 'all';
-            currentType = 'all';
-            searchQuery = '';
-            if (searchInput) searchInput.value = '';
-            updateActiveStates();
-            renderMaterials();
-        });
-    });
-    
-    // Search functionality
-    if (searchBtn) {
-        searchBtn.addEventListener('click', () => {
-            searchQuery = searchInput ? searchInput.value : '';
-            currentView = 'browse';
-            updateActiveStates();
+    // Search functionality for hero search
+    if (heroSearchBtn) {
+        heroSearchBtn.addEventListener('click', () => {
+            searchQuery = heroSearchInput ? heroSearchInput.value : '';
             renderMaterials();
         });
     }
     
-    if (searchInput) {
-        searchInput.addEventListener('keypress', (e) => {
+    if (heroSearchInput) {
+        heroSearchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                searchQuery = searchInput.value;
-                currentView = 'browse';
-                updateActiveStates();
+                searchQuery = heroSearchInput.value;
                 renderMaterials();
             }
         });
@@ -103,7 +80,6 @@ function initializeEventListeners() {
 // Fetch materials from JSON file
 async function fetchMaterials() {
     try {
-        // Correct path from frontend/js/pages/library.js to backend/data/library.json
         const response = await fetch('../../../backend/data/library.json');
         
         if (!response.ok) {
@@ -111,7 +87,6 @@ async function fetchMaterials() {
         }
         
         const data = await response.json();
-        console.log('Fetched data:', data);
         
         if (data && data.materials && Array.isArray(data.materials)) {
             allMaterials = data.materials;
@@ -127,91 +102,34 @@ async function fetchMaterials() {
         if (booksContainer) {
             booksContainer.innerHTML = `
                 <div class="empty-state">
-                    ❌ Failed to load library data.<br><br>
-                    <strong>Error:</strong> ${error.message}<br><br>
-                    Please ensure the file exists at: <code>backend/data/library.json</code>
+                    <i>❌</i>
+                    <h3>Failed to load library data</h3>
+                    <p>${error.message}</p>
                 </div>
             `;
         }
     }
 }
 
-// Build category and type filters from data
+// Build category and type filters
 function buildFilters() {
     const categories = ['all', ...new Set(allMaterials.map(item => item.category).filter(Boolean))];
-    const types = ['all', ...new Set(allMaterials.map(item => item.type).filter(Boolean))];
     
-    // Build category list
-    if (categoryList) {
-        categoryList.innerHTML = categories.map(cat => `
-            <li><a data-category="${cat}" class="${currentCategory === cat ? 'active' : ''}">${cat === 'all' ? 'All Categories' : cat.charAt(0).toUpperCase() + cat.slice(1)}</a></li>
-        `).join('');
-    }
-    
-    // Build type list
-    if (typeList) {
-        typeList.innerHTML = types.map(type => `
-            <li><a data-type="${type}" class="${currentType === type ? 'active' : ''}">${type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}</a></li>
-        `).join('');
-    }
-    
-    // Build filter chips (show categories)
     if (filterChips) {
-        filterChips.innerHTML = categories.slice(0, 6).map(cat => `
-            <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">${cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
+        filterChips.innerHTML = categories.map(cat => `
+            <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">
+                ${cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </div>
         `).join('');
     }
     
-    // Add event listeners for categories
     document.querySelectorAll('[data-category]').forEach(el => {
         el.addEventListener('click', (e) => {
-            e.preventDefault();
             currentCategory = el.getAttribute('data-category');
-            currentView = 'browse';
-            updateActiveStates();
+            document.querySelectorAll('[data-category]').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
             renderMaterials();
         });
-    });
-    
-    // Add event listeners for types
-    document.querySelectorAll('[data-type]').forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.preventDefault();
-            currentType = el.getAttribute('data-type');
-            currentView = 'browse';
-            updateActiveStates();
-            renderMaterials();
-        });
-    });
-}
-
-// Update active states in UI
-function updateActiveStates() {
-    // Update sidebar navigation
-    document.querySelectorAll('[data-view]').forEach(el => {
-        if (el.getAttribute('data-view') === currentView) {
-            el.classList.add('active');
-        } else {
-            el.classList.remove('active');
-        }
-    });
-    
-    // Update category filters
-    document.querySelectorAll('[data-category]').forEach(el => {
-        if (el.getAttribute('data-category') === currentCategory) {
-            el.classList.add('active');
-        } else {
-            el.classList.remove('active');
-        }
-    });
-    
-    // Update type filters
-    document.querySelectorAll('[data-type]').forEach(el => {
-        if (el.getAttribute('data-type') === currentType) {
-            el.classList.add('active');
-        } else {
-            el.classList.remove('active');
-        }
     });
 }
 
@@ -219,22 +137,10 @@ function updateActiveStates() {
 function getFilteredMaterials() {
     let filtered = [...allMaterials];
     
-    // Apply view filter (Subscription view shows bundles as premium content)
-    if (currentView === 'subscription') {
-        filtered = filtered.filter(item => item.type === 'bundle');
-    }
-    
-    // Apply category filter
     if (currentCategory !== 'all') {
         filtered = filtered.filter(item => item.category === currentCategory);
     }
     
-    // Apply type filter
-    if (currentType !== 'all') {
-        filtered = filtered.filter(item => item.type === currentType);
-    }
-    
-    // Apply search filter
     if (searchQuery && searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(item => 
@@ -246,15 +152,6 @@ function getFilteredMaterials() {
     return filtered;
 }
 
-// Get emoji/icon for different types
-function getTypeIcon(type) {
-    const icons = {
-        'book': '📖',
-        'bundle': '📦'
-    };
-    return icons[type] || '📚';
-}
-
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
     if (!text) return '';
@@ -263,59 +160,71 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Render materials to the grid
+// Render materials with Pinterest-style masonry grid
 function renderMaterials() {
     if (!booksContainer) return;
     
     if (!allMaterials.length) {
-        booksContainer.innerHTML = '<div class="loading">Loading materials...</div>';
+        booksContainer.innerHTML = '<div class="loading" style="text-align: center; padding: 60px;">Loading materials...</div>';
         return;
     }
     
     const filteredMaterials = getFilteredMaterials();
     
     if (filteredMaterials.length === 0) {
-        booksContainer.innerHTML = '<div class="empty-state">📭 No materials found. Try adjusting your filters.</div>';
+        booksContainer.innerHTML = `
+            <div class="empty-state">
+                <i>📭</i>
+                <h3>No materials found</h3>
+                <p>Try adjusting your search or filters</p>
+            </div>
+        `;
         return;
     }
     
-    booksContainer.innerHTML = `
-        <div class="books-grid">
-            ${filteredMaterials.map(item => `
-                <div class="book-card" data-id="${item.id}" data-type="${item.type}">
-                    <div class="book-cover">
-                        ${item.image ? `<img src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem;\\'>${getTypeIcon(item.type)}</div>'">` : `<div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem;">${getTypeIcon(item.type)}</div>`}
-                        <div class="type-badge">${item.type}</div>
-                        ${item.type === 'bundle' && item.bundleItems ? `<div class="bundle-badge">${item.bundleItems} items</div>` : ''}
+    booksContainer.innerHTML = filteredMaterials.map(item => {
+        if (item.type === 'bundle') {
+            // Render bundle as horizontal card
+            return `
+                <div class="grid-item item-bundle" data-id="${item.id}" data-type="${item.type}">
+                    <div class="bundle-content">
+                        <div class="bundle-title">${escapeHtml(item.title)}</div>
+                        <div class="bundle-meta">📦 ${item.bundleItems || 4}+ items • ${escapeHtml(item.category)}</div>
+                        <div class="bundle-description" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">${escapeHtml(item.description.substring(0, 80))}${item.description.length > 80 ? '...' : ''}</div>
                     </div>
-                    <div class="book-info">
-                        <div class="book-title">${escapeHtml(item.title)}</div>
-                        <div class="book-description">${escapeHtml(item.description ? item.description.substring(0, 100) : 'No description available')}${item.description && item.description.length > 100 ? '...' : ''}</div>
-                        <div class="book-meta">
-                            <span>📁 ${escapeHtml(item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'General')}</span>
-                            <span>•</span>
-                            <span>📅 ${item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Unknown date'}</span>
-                        </div>
+                    <button class="price-btn" data-id="${item.id}" data-type="${item.type}">
+                        Premium ⭐
+                    </button>
+                </div>
+            `;
+        } else {
+            // Render book as Pinterest-style card
+            return `
+                <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
+                    <div class="card-cover" style="background-image: url('${item.image}'); background-size: cover; background-position: center;">
+                        <div class="price-tag">Free</div>
+                    </div>
+                    <div class="card-info">
+                        <div class="card-title">${escapeHtml(item.title)}</div>
+                        <div class="card-meta">📖 ${escapeHtml(item.category)} • ${new Date(item.createdAt).toLocaleDateString()}</div>
                     </div>
                 </div>
-            `).join('')}
-        </div>
-    `;
+            `;
+        }
+    }).join('');
     
-    // Add click handlers to cards
-    document.querySelectorAll('.book-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const itemType = card.getAttribute('data-type');
-            const itemId = card.getAttribute('data-id');
+    // Add click handlers
+    document.querySelectorAll('.grid-item, .price-btn').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const itemId = el.getAttribute('data-id');
+            const itemType = el.getAttribute('data-type');
             const item = allMaterials.find(m => m.id === itemId);
             
-            if (item) {
-                // Show subscription modal for bundles (premium content)
-                if (itemType === 'bundle' && currentView !== 'subscription') {
-                    openModal();
-                } else {
-                    alert(`📚 Opening: ${item.title}\n\n${item.description ? item.description.substring(0, 200) : 'No description available'}...\n\nThis is a ${item.type === 'bundle' ? 'premium bundle' : 'free book'} resource.`);
-                }
+            if (item && itemType === 'bundle') {
+                openModal();
+            } else if (item) {
+                alert(`📚 Opening: ${item.title}\n\n${item.description.substring(0, 200)}...\n\nThis is a free resource.`);
             }
         });
     });
