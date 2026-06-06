@@ -1,451 +1,266 @@
-// library.js - Library page functionality
+// Global state
+let allMaterials = [];
+let currentView = 'browse';
+let currentCategory = 'all';
+let currentType = 'all';
+let searchQuery = '';
 
-// ============================================
-// CONFIGURATION
-// ============================================
+// DOM elements
+const booksContainer = document.getElementById('booksContainer');
+const searchInput = document.getElementById('searchInput');
+const categoryList = document.getElementById('categoryList');
+const typeList = document.getElementById('typeList');
+const filterChips = document.getElementById('filterChips');
+const modal = document.getElementById('subscriptionModal');
 
-// IMPORTANT: Use the RAW GitHub URL, not the edit URL
-const LIBRARY_JSON_URL = 'https://raw.githubusercontent.com/Gliimu/Gliimu/main/backend/data/library.json';
+// Modal functions
+function openModal() {
+    modal.classList.add('active');
+}
 
-let materialsData = [];
-let currentUser = null;
-let userShelf = [];
-let currentTab = 'browse';
+function closeModal() {
+    modal.classList.remove('active');
+}
 
-// Subscription limits
-const SUBSCRIPTION_LIMITS = {
-  basic: { booksPerMonth: 1, bundlesPerMonth: 1, canDownload: false },
-  pro: { booksPerMonth: 5, bundlesPerMonth: 6, canDownload: true },
-  premium: { booksPerMonth: 999, bundlesPerMonth: 999, canDownload: true }
-};
+window.closeModal = closeModal;
 
-// ============================================
-// INITIALIZATION
-// ============================================
+// Event listeners
+document.getElementById('upgradeBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    openModal();
+});
 
-async function initLibrary() {
-  console.log('Library initializing...');
-  console.log('Fetching from:', LIBRARY_JSON_URL);
-  
-  // Get current user (or create demo)
-  const storedUser = localStorage.getItem('gliimu_user');
-  if (!storedUser) {
-    currentUser = { 
-      id: 'demo_' + Date.now(), 
-      name: 'Demo User', 
-      email: 'demo@example.com', 
-      subscription: 'pro',
-      subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+});
+
+// Fetch materials from JSON file
+async function fetchMaterials() {
+    try {
+        const response = await fetch('backend/data/library.json');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} - File not found`);
+        }
+        const data = await response.json();
+        
+        if (data && data.materials && Array.isArray(data.materials)) {
+            allMaterials = data.materials;
+            console.log('Loaded materials:', allMaterials.length);
+        } else {
+            throw new Error('Invalid JSON structure: missing materials array');
+        }
+        
+        buildFilters();
+        renderMaterials();
+    } catch (error) {
+        console.error('Error loading materials:', error);
+        booksContainer.innerHTML = `<div class="empty-state">❌ Failed to load library data. Please make sure the file exists at backend/data/library.json<br><br>Error: ${error.message}</div>`;
+    }
+}
+
+// Build category and type filters from data
+function buildFilters() {
+    const categories = ['all', ...new Set(allMaterials.map(item => item.category).filter(Boolean))];
+    const types = ['all', ...new Set(allMaterials.map(item => item.type).filter(Boolean))];
+    
+    // Build category list
+    categoryList.innerHTML = categories.map(cat => `
+        <li><a data-category="${cat}" class="${currentCategory === cat ? 'active' : ''}">${cat === 'all' ? 'All Categories' : cat.charAt(0).toUpperCase() + cat.slice(1)}</a></li>
+    `).join('');
+    
+    // Build type list
+    typeList.innerHTML = types.map(type => `
+        <li><a data-type="${type}" class="${currentType === type ? 'active' : ''}">${type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}</a></li>
+    `).join('');
+    
+    // Build filter chips
+    filterChips.innerHTML = categories.slice(0, 6).map(cat => `
+        <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">${cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
+    `).join('');
+    
+    // Add event listeners
+    document.querySelectorAll('[data-category]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentCategory = el.getAttribute('data-category');
+            currentView = 'browse';
+            updateActiveStates();
+            renderMaterials();
+        });
+    });
+    
+    document.querySelectorAll('[data-type]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentType = el.getAttribute('data-type');
+            currentView = 'browse';
+            updateActiveStates();
+            renderMaterials();
+        });
+    });
+}
+
+// Update active states in UI
+function updateActiveStates() {
+    // Update sidebar navigation
+    document.querySelectorAll('[data-view]').forEach(el => {
+        if (el.getAttribute('data-view') === currentView) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+    
+    // Update category filters
+    document.querySelectorAll('[data-category]').forEach(el => {
+        if (el.getAttribute('data-category') === currentCategory) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+    
+    // Update type filters
+    document.querySelectorAll('[data-type]').forEach(el => {
+        if (el.getAttribute('data-type') === currentType) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+}
+
+// Filter materials based on current filters
+function getFilteredMaterials() {
+    let filtered = [...allMaterials];
+    
+    // Apply view filter (Subscription view shows bundles as premium content)
+    if (currentView === 'subscription') {
+        filtered = filtered.filter(item => item.type === 'bundle');
+    }
+    
+    // Apply category filter
+    if (currentCategory !== 'all') {
+        filtered = filtered.filter(item => item.category === currentCategory);
+    }
+    
+    // Apply type filter
+    if (currentType !== 'all') {
+        filtered = filtered.filter(item => item.type === currentType);
+    }
+    
+    // Apply search filter
+    if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(item => 
+            item.title.toLowerCase().includes(query) || 
+            (item.description && item.description.toLowerCase().includes(query))
+        );
+    }
+    
+    return filtered;
+}
+
+// Get emoji/icon for different types
+function getTypeIcon(type) {
+    const icons = {
+        'book': '📖',
+        'bundle': '📦'
     };
-    localStorage.setItem('gliimu_user', JSON.stringify(currentUser));
-  } else {
-    currentUser = JSON.parse(storedUser);
-    if (!currentUser.subscription) {
-      currentUser.subscription = 'basic';
-      localStorage.setItem('gliimu_user', JSON.stringify(currentUser));
-    }
-  }
-  
-  // Load user shelf
-  loadUserShelf();
-  
-  // Load materials
-  await loadMaterials();
-  
-  // Setup event listeners
-  setupEventListeners();
-  
-  // Update subscription UI
-  updateSubscriptionUI();
+    return icons[type] || '📚';
 }
 
-function loadUserShelf() {
-  const storedShelf = localStorage.getItem(`gliimu_shelf_${currentUser.id}`);
-  userShelf = storedShelf ? JSON.parse(storedShelf) : [];
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-function saveUserShelf() {
-  localStorage.setItem(`gliimu_shelf_${currentUser.id}`, JSON.stringify(userShelf));
-  renderShelf();
-  updateSubscriptionUI();
-}
-
-// ============================================
-// LOAD MATERIALS FROM GITHUB
-// ============================================
-
-async function loadMaterials() {
-  const grid = document.getElementById('materialsGrid');
-  if (!grid) return;
-  
-  grid.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i><p>Loading materials...</p></div>';
-  
-  try {
-    const response = await fetch(LIBRARY_JSON_URL);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('Loaded materials:', data);
-    
-    if (data && data.materials) {
-      materialsData = data.materials.filter(m => m.status === 'approved');
-      renderMaterials();
-    } else {
-      grid.innerHTML = '<div class="empty-state"><i class="fas fa-book-open"></i><h4>No materials found</h4><p>Check back later for new resources.</p></div>';
-    }
-  } catch (error) {
-    console.error('Error loading materials:', error);
-    grid.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h4>Error loading materials</h4><p>${error.message}<br>Check that your GitHub repo is public and the file exists at the correct path.</p></div>`;
-  }
-}
-
-// ============================================
-// RENDER MATERIALS (MASONRY GRID)
-// ============================================
-
+// Render materials to the grid
 function renderMaterials() {
-  const grid = document.getElementById('materialsGrid');
-  if (!grid) return;
-  
-  const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
-  const categoryFilter = document.getElementById('categoryFilter')?.value || 'all';
-  const typeFilter = document.getElementById('typeFilter')?.value || 'all';
-  
-  let filtered = [...materialsData];
-  
-  if (searchTerm) {
-    filtered = filtered.filter(m => m.title.toLowerCase().includes(searchTerm) || m.description.toLowerCase().includes(searchTerm));
-  }
-  if (categoryFilter !== 'all') {
-    filtered = filtered.filter(m => m.category === categoryFilter);
-  }
-  if (typeFilter !== 'all') {
-    filtered = filtered.filter(m => m.type === typeFilter);
-  }
-  
-  if (filtered.length === 0) {
-    grid.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i><h4>No materials found</h4><p>Try adjusting your search.</p></div>';
-    return;
-  }
-  
-  let html = '';
-  for (let m of filtered) {
-    const isOnShelf = userShelf.some(item => item.id === m.id);
-    const addBtnText = isOnShelf ? 'On Shelf' : 'Add to Shelf';
-    const addBtnDisabled = isOnShelf ? 'disabled style="opacity:0.5;"' : '';
+    if (!allMaterials.length) {
+        booksContainer.innerHTML = '<div class="loading">Loading materials...</div>';
+        return;
+    }
     
-    if (m.type === 'book') {
-      html += `
-        <div class="book-card">
-          <div class="book-cover" onclick="viewMaterial('${m.id}')">
-            <img src="${m.image}" alt="${m.title}" loading="lazy">
-            <div class="card-overlay">
-              <button class="add-to-shelf-btn" onclick="event.stopPropagation(); addToShelf('${m.id}')" ${addBtnDisabled}>
-                <i class="fas ${isOnShelf ? 'fa-check' : 'fa-plus'}"></i> ${addBtnText}
-              </button>
-              <button class="read-btn" onclick="event.stopPropagation(); viewMaterial('${m.id}')">
-                <i class="fas fa-book-open"></i> Read
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      html += `
-        <div class="bundle-card">
-          <div class="bundle-cover" onclick="viewMaterial('${m.id}')">
-            <img src="${m.image}" alt="${m.title}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-layer-group\\'></i>'">
-          </div>
-          <div class="bundle-info">
-            <div class="bundle-title" onclick="viewMaterial('${m.id}')">${m.title}</div>
-            <div class="bundle-meta">${m.bundleItems || 3}+ items</div>
-            <div class="bundle-actions">
-              <button class="bundle-add-btn" onclick="event.stopPropagation(); addToShelf('${m.id}')" ${addBtnDisabled}>
-                <i class="fas ${isOnShelf ? 'fa-check' : 'fa-plus'}"></i> ${addBtnText}
-              </button>
-              <button class="bundle-read-btn" onclick="event.stopPropagation(); viewMaterial('${m.id}')">
-                <i class="fas fa-eye"></i> View
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-  }
-  
-  grid.innerHTML = html;
-}
-
-// ============================================
-// SHELF MANAGEMENT
-// ============================================
-
-function addToShelf(materialId) {
-  const material = materialsData.find(m => m.id === materialId);
-  if (!material) return;
-  
-  // Check if already on shelf
-  if (userShelf.some(item => item.id === materialId)) {
-    alert('This item is already on your shelf.');
-    return;
-  }
-  
-  // Check subscription limits
-  const limits = SUBSCRIPTION_LIMITS[currentUser.subscription];
-  const booksOnShelf = userShelf.filter(item => item.type === 'book').length;
-  const bundlesOnShelf = userShelf.filter(item => item.type === 'bundle').length;
-  
-  if (material.type === 'book' && booksOnShelf >= limits.booksPerMonth) {
-    alert(`You've reached your monthly limit of ${limits.booksPerMonth} book(s). Upgrade your subscription to add more.`);
-    document.querySelector('.tab-btn[data-tab="subscription"]').click();
-    return;
-  }
-  
-  if (material.type === 'bundle' && bundlesOnShelf >= limits.bundlesPerMonth) {
-    alert(`You've reached your monthly limit of ${limits.bundlesPerMonth} bundle(s). Upgrade your subscription to add more.`);
-    document.querySelector('.tab-btn[data-tab="subscription"]').click();
-    return;
-  }
-  
-  // Add to shelf
-  userShelf.push({
-    id: material.id,
-    title: material.title,
-    type: material.type,
-    image: material.image,
-    description: material.description,
-    category: material.category,
-    addedAt: new Date().toISOString()
-  });
-  
-  saveUserShelf();
-  renderMaterials();
-  renderShelf();
-  updateSubscriptionUI();
-  
-  alert(`"${material.title}" added to your shelf!`);
-}
-
-function removeFromShelf(materialId) {
-  const material = userShelf.find(item => item.id === materialId);
-  if (!material) return;
-  
-  if (confirm(`Remove "${material.title}" from your shelf?`)) {
-    userShelf = userShelf.filter(item => item.id !== materialId);
-    saveUserShelf();
-    renderMaterials();
-    renderShelf();
-    updateSubscriptionUI();
-  }
-}
-
-function renderShelf() {
-  const container = document.getElementById('shelfGrid');
-  if (!container) return;
-  
-  if (userShelf.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-bookshelf"></i>
-        <h4>Your shelf is empty</h4>
-        <p>Browse the library and add books to your shelf.</p>
-        <button class="btn-primary" onclick="switchTab('browse')">Browse Library →</button>
-      </div>
-    `;
-    return;
-  }
-  
-  container.innerHTML = userShelf.map(item => `
-    <div class="shelf-item" onclick="viewMaterial('${item.id}')">
-      <div class="shelf-item-cover">
-        <img src="${item.image}" alt="${item.title}" loading="lazy">
-      </div>
-      <div class="shelf-item-info">
-        <div class="shelf-item-title">${item.title}</div>
-        <div class="shelf-item-type">${item.type === 'book' ? '📖 Book' : '📦 Bundle'}</div>
-        <button class="remove-from-shelf" onclick="event.stopPropagation(); removeFromShelf('${item.id}')">
-          <i class="fas fa-trash"></i> Remove
-        </button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function updateShelfStats() {
-  const statsEl = document.getElementById('shelfStats');
-  if (!statsEl) return;
-  
-  const limits = SUBSCRIPTION_LIMITS[currentUser.subscription];
-  const booksOnShelf = userShelf.filter(item => item.type === 'book').length;
-  const bundlesOnShelf = userShelf.filter(item => item.type === 'bundle').length;
-  
-  statsEl.innerHTML = `${booksOnShelf}/${limits.booksPerMonth} books • ${bundlesOnShelf}/${limits.bundlesPerMonth} bundles • ${currentUser.subscription.toUpperCase()} plan`;
-}
-
-// ============================================
-// VIEW MATERIAL (READ)
-// ============================================
-
-function viewMaterial(materialId) {
-  const material = materialsData.find(m => m.id === materialId);
-  if (!material) return;
-  
-  // Check if on shelf
-  if (!userShelf.some(item => item.id === materialId)) {
-    if (confirm(`"${material.title}" is not on your shelf. Add it now to read?`)) {
-      addToShelf(materialId);
-    }
-    return;
-  }
-  
-  // Open reader modal
-  document.getElementById('readerTitle').textContent = material.title;
-  document.getElementById('readerMeta').innerHTML = `${material.type === 'book' ? '📖 Book' : '📦 Bundle'} • ${material.category.toUpperCase()}`;
-  document.getElementById('readerContent').innerHTML = `
-    <div style="text-align: center; padding: 40px;">
-      <h3>${material.title}</h3>
-      <p style="margin: 20px 0; color: var(--text-muted);">${material.description}</p>
-      <p style="margin: 20px 0;">This is a preview. In production, the full content would be displayed here.</p>
-      <button class="btn-primary" onclick="closeReaderModal()">Close</button>
-    </div>
-  `;
-  
-  document.getElementById('readerModal').classList.add('active');
-}
-
-function closeReaderModal() {
-  document.getElementById('readerModal').classList.remove('active');
-}
-
-// ============================================
-// SUBSCRIPTION MANAGEMENT
-// ============================================
-
-function updateSubscriptionUI() {
-  // Update banner
-  const banner = document.getElementById('subscriptionBanner');
-  if (banner) {
-    const limits = SUBSCRIPTION_LIMITS[currentUser.subscription];
-    const booksUsed = userShelf.filter(item => item.type === 'book').length;
-    const bundlesUsed = userShelf.filter(item => item.type === 'bundle').length;
+    const filteredMaterials = getFilteredMaterials();
     
-    banner.innerHTML = `
-      <div class="subscription-info">
-        <h3><i class="fas fa-crown"></i> ${currentUser.subscription.toUpperCase()} Plan</h3>
-        <p>${booksUsed}/${limits.booksPerMonth} books used • ${bundlesUsed}/${limits.bundlesPerMonth} bundles used</p>
-      </div>
-      <button class="subscription-upgrade" onclick="switchTab('subscription')">
-        ${currentUser.subscription === 'premium' ? 'Manage Subscription' : 'Upgrade Plan'} →
-      </button>
-    `;
-  }
-  
-  // Update subscription plans page
-  renderSubscriptionPlans();
-  updateShelfStats();
-}
-
-function renderSubscriptionPlans() {
-  const container = document.getElementById('subscriptionPlans');
-  if (!container) return;
-  
-  const plans = [
-    { name: 'Basic', price: 2500, books: 1, bundles: 1, download: false, popular: false },
-    { name: 'Pro', price: 5000, books: 5, bundles: 6, download: true, popular: true },
-    { name: 'Premium', price: 10000, books: 'Unlimited', bundles: 'Unlimited', download: true, popular: false }
-  ];
-  
-  container.innerHTML = plans.map(plan => `
-    <div class="plan-card ${plan.popular ? 'featured' : ''} ${currentUser.subscription === plan.name.toLowerCase() ? 'current-plan' : ''}">
-      <div class="plan-name">${plan.name}</div>
-      <div class="plan-price">₦${typeof plan.price === 'number' ? plan.price.toLocaleString() : plan.price}<span>/month</span></div>
-      <ul class="plan-features">
-        <li><i class="fas fa-check"></i> ${plan.books} ${plan.books === 1 ? 'book' : 'books'} per month</li>
-        <li><i class="fas fa-check"></i> ${plan.bundles} ${plan.bundles === 1 ? 'bundle' : 'bundles'} per month</li>
-        <li><i class="fas ${plan.download ? 'fa-check' : 'fa-times'}"></i> Download to device</li>
-        ${plan.name === 'Premium' ? '<li><i class="fas fa-check"></i> Live workshops access</li>' : ''}
-      </ul>
-      ${currentUser.subscription === plan.name.toLowerCase() ? 
-        '<button class="plan-btn current-plan" disabled>Current Plan</button>' :
-        `<button class="plan-btn" onclick="upgradeSubscription('${plan.name.toLowerCase()}')">Upgrade to ${plan.name}</button>`
-      }
-    </div>
-  `).join('');
-}
-
-function upgradeSubscription(plan) {
-  if (confirm(`Upgrade to ${plan.toUpperCase()} plan for ${plan === 'basic' ? '₦2,500' : plan === 'pro' ? '₦5,000' : '₦10,000'}/month?`)) {
-    currentUser.subscription = plan;
-    currentUser.subscriptionExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    localStorage.setItem('gliimu_user', JSON.stringify(currentUser));
-    updateSubscriptionUI();
-    renderMaterials();
-    alert(`Upgraded to ${plan.toUpperCase()} plan!`);
-  }
-}
-
-// ============================================
-// TAB SWITCHING
-// ============================================
-
-function switchTab(tabId) {
-  currentTab = tabId;
-  
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.getAttribute('data-tab') === tabId) {
-      btn.classList.add('active');
+    if (filteredMaterials.length === 0) {
+        booksContainer.innerHTML = '<div class="empty-state">📭 No materials found. Try adjusting your filters.</div>';
+        return;
     }
-  });
-  
-  document.getElementById('browseContent').style.display = tabId === 'browse' ? 'block' : 'none';
-  document.getElementById('shelfContent').style.display = tabId === 'shelf' ? 'block' : 'none';
-  document.getElementById('subscriptionContent').style.display = tabId === 'subscription' ? 'block' : 'none';
-  document.getElementById('searchSection').style.display = tabId === 'browse' ? 'flex' : 'none';
-  
-  if (tabId === 'shelf') {
-    renderShelf();
-    updateShelfStats();
-  }
-  if (tabId === 'subscription') {
-    renderSubscriptionPlans();
-  }
+    
+    booksContainer.innerHTML = `
+        <div class="books-grid">
+            ${filteredMaterials.map(item => `
+                <div class="book-card" data-id="${item.id}" data-type="${item.type}">
+                    <div class="book-cover">
+                        ${item.image ? `<img src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy">` : `<div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem;">${getTypeIcon(item.type)}</div>`}
+                        <div class="type-badge">${item.type}</div>
+                        ${item.type === 'bundle' && item.bundleItems ? `<div class="bundle-badge">${item.bundleItems} items</div>` : ''}
+                    </div>
+                    <div class="book-info">
+                        <div class="book-title">${escapeHtml(item.title)}</div>
+                        <div class="book-description">${escapeHtml(item.description.substring(0, 100))}${item.description.length > 100 ? '...' : ''}</div>
+                        <div class="book-meta">
+                            <span>📁 ${escapeHtml(item.category.charAt(0).toUpperCase() + item.category.slice(1))}</span>
+                            <span>•</span>
+                            <span>📅 ${new Date(item.createdAt).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    // Add click handlers to cards
+    document.querySelectorAll('.book-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const itemType = card.getAttribute('data-type');
+            const itemId = card.getAttribute('data-id');
+            const item = allMaterials.find(m => m.id === itemId);
+            
+            // Show subscription modal for bundles (premium content)
+            if (itemType === 'bundle' && currentView !== 'subscription') {
+                openModal();
+            } else {
+                alert(`📚 Opening: ${item.title}\n\n${item.description.substring(0, 200)}...\n\nThis is a ${item.type === 'bundle' ? 'premium bundle' : 'free book'} resource.`);
+            }
+        });
+    });
 }
 
-// ============================================
-// EVENT LISTENERS
-// ============================================
+// Event listeners for sidebar navigation
+document.querySelectorAll('[data-view]').forEach(el => {
+    el.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentView = el.getAttribute('data-view');
+        currentCategory = 'all';
+        currentType = 'all';
+        searchQuery = '';
+        searchInput.value = '';
+        updateActiveStates();
+        renderMaterials();
+    });
+});
 
-function setupEventListeners() {
-  const searchInput = document.getElementById('searchInput');
-  if (searchInput) {
-    searchInput.addEventListener('input', renderMaterials);
-  }
-  
-  const categoryFilter = document.getElementById('categoryFilter');
-  if (categoryFilter) {
-    categoryFilter.addEventListener('change', renderMaterials);
-  }
-  
-  const typeFilter = document.getElementById('typeFilter');
-  if (typeFilter) {
-    typeFilter.addEventListener('change', renderMaterials);
-  }
-}
+// Search functionality
+document.getElementById('searchBtn').addEventListener('click', () => {
+    searchQuery = searchInput.value;
+    currentView = 'browse';
+    updateActiveStates();
+    renderMaterials();
+});
 
-// ============================================
-// MAKE FUNCTIONS GLOBAL
-// ============================================
+searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        searchQuery = searchInput.value;
+        currentView = 'browse';
+        updateActiveStates();
+        renderMaterials();
+    }
+});
 
-window.viewMaterial = viewMaterial;
-window.addToShelf = addToShelf;
-window.removeFromShelf = removeFromShelf;
-window.switchTab = switchTab;
-window.closeReaderModal = closeReaderModal;
-window.upgradeSubscription = upgradeSubscription;
-
-// Initialize
-document.addEventListener('DOMContentLoaded', initLibrary);
+// Initialize - fetch from JSON
+fetchMaterials();
