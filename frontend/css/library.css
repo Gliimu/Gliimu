@@ -1,8 +1,6 @@
 /* =========================================
-   GLIIMU LIBRARY - BRAND IDENTITY
-   Primary: #2c2f78 (Deep Purple)
-   Secondary: #fbb040 (Gold)
-   Font: Space Grotesk
+   GLIIMU LIBRARY - PAGE-SPECIFIC STYLES ONLY
+   Header styles come from global header.css
    ========================================= */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
@@ -13,15 +11,12 @@
     box-sizing: border-box;
 }
 
-/* CSS Variables - Brand Colors */
+/* CSS Variables - Using brand colors */
 :root {
     --brand-purple: #2c2f78;
     --brand-purple-dark: #1a1c4a;
-    --brand-purple-light: #4a4d9e;
     --brand-gold: #fbb040;
     --brand-gold-dark: #cc8a2a;
-    --brand-gold-light: #ffcd7a;
-    
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
     --text-primary: #0f172a;
@@ -29,7 +24,6 @@
     --border-color: #e2e8f0;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
 body.dark-mode {
@@ -48,131 +42,17 @@ body {
 }
 
 /* =========================================
-   HEADER STYLES - Brand Purple
+   HERO SECTION - Brand Purple Gradient
    ========================================= */
 
-.library-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: var(--brand-purple);
-    border-bottom: 2px solid var(--brand-gold);
-    z-index: 100;
-}
-
-.header-container {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 0.75rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
-}
-
-.logo-img {
-    height: 32px;
-    width: auto;
-}
-
-body.dark-mode .logo-img {
-    filter: brightness(0) invert(1);
-}
-
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.back-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    transition: all 0.2s;
-    cursor: pointer;
-    text-decoration: none;
-    color: white;
-}
-
-.back-arrow:hover {
-    background: var(--brand-gold);
-    color: var(--brand-purple);
-}
-
-.back-arrow svg {
-    width: 20px;
-    height: 20px;
-}
-
-/* Theme Toggle - Gold accent */
-.theme-toggle {
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    color: white;
-}
-
-.theme-toggle:hover {
-    background: var(--brand-gold);
-    color: var(--brand-purple);
-}
-
-/* Download App Button - Gold */
-.download-app-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--brand-gold);
-    border: none;
-    padding: 8px 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-    border-radius: 8px;
-    gap: 6px;
-    font-weight: 500;
-    font-size: 0.8rem;
-    color: var(--brand-purple);
-}
-
-.download-app-btn svg {
-    width: 16px;
-    height: 16px;
-    stroke: var(--brand-purple);
-}
-
-.download-app-btn:hover {
-    background: var(--brand-gold-dark);
-    transform: scale(1.02);
-}
-
-/* =========================================
-   HERO SECTION - Brand Messaging
-   ========================================= */
-
-.hero-section {
+.library-hero {
     padding-top: 100px;
     padding-bottom: 40px;
-    text-align: left;
     background: linear-gradient(135deg, var(--brand-purple) 0%, var(--brand-purple-dark) 100%);
 }
 
 .hero-container {
-    max-width: 1600px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 0 20px;
 }
@@ -192,7 +72,6 @@ body.dark-mode .logo-img {
 .hero-subtitle {
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.8);
-    font-weight: 400;
 }
 
 /* =========================================
@@ -205,7 +84,7 @@ body.dark-mode .logo-img {
 }
 
 .search-bar-large {
-    max-width: 1600px;
+    max-width: 1400px;
     margin: 0 auto;
     display: flex;
     gap: 12px;
@@ -255,7 +134,6 @@ body.dark-mode .logo-img {
 .filters-wrapper {
     width: 100%;
     overflow-x: auto;
-    overflow-y: hidden;
     margin-bottom: 2rem;
     -webkit-overflow-scrolling: touch;
 }
@@ -278,8 +156,6 @@ body.dark-mode .logo-img {
     display: flex;
     gap: 8px;
     flex-wrap: nowrap;
-    justify-content: flex-start;
-    min-width: min-content;
 }
 
 .filter-chip {
@@ -296,12 +172,7 @@ body.dark-mode .logo-img {
     white-space: nowrap;
 }
 
-.filter-chip:hover {
-    background: var(--brand-gold);
-    color: var(--brand-purple);
-    border-color: var(--brand-gold);
-}
-
+.filter-chip:hover,
 .filter-chip.active {
     background: var(--brand-gold);
     color: var(--brand-purple);
@@ -320,8 +191,6 @@ body.dark-mode .logo-img {
 .grid-item {
     break-inside: avoid;
     margin-bottom: 12px;
-    background: transparent;
-    overflow: hidden;
     transition: transform 0.2s ease;
     cursor: pointer;
 }
@@ -330,7 +199,7 @@ body.dark-mode .logo-img {
     transform: translateY(-3px);
 }
 
-/* Book Card - Purple glow on hover */
+/* Book Card */
 .item-book .card-cover {
     position: relative;
     width: 100%;
@@ -345,7 +214,7 @@ body.dark-mode .logo-img {
 
 .item-book:hover .card-cover {
     transform: scale(1.02);
-    box-shadow: 0 0 0 2px var(--brand-gold), var(--shadow-lg);
+    box-shadow: 0 0 0 2px var(--brand-gold), var(--shadow-md);
 }
 
 .saved-badge {
@@ -360,7 +229,7 @@ body.dark-mode .logo-img {
     font-weight: 600;
 }
 
-/* Bundle Card - Gold accent */
+/* Bundle Card */
 .item-bundle {
     display: flex;
     align-items: center;
@@ -368,7 +237,6 @@ body.dark-mode .logo-img {
     padding: 12px 14px;
     background: var(--bg-primary);
     border-radius: 12px;
-    box-shadow: var(--shadow-sm);
     border: 1px solid var(--border-color);
     transition: all 0.2s;
 }
@@ -382,7 +250,6 @@ body.dark-mode .logo-img {
     font-weight: 600;
     font-size: 0.8rem;
     color: var(--text-primary);
-    line-height: 1.4;
 }
 
 .bundle-download-btn {
@@ -392,13 +259,9 @@ body.dark-mode .logo-img {
     cursor: pointer;
     transition: all 0.2s;
     color: var(--brand-gold);
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .bundle-download-btn:hover {
-    opacity: 0.7;
     transform: scale(1.05);
 }
 
@@ -411,7 +274,7 @@ body.dark-mode .logo-img {
 }
 
 /* =========================================
-   MODAL - Brand Colors
+   MODAL
    ========================================= */
 
 .modal {
@@ -474,7 +337,6 @@ body.dark-mode .logo-img {
     font-size: 1.75rem;
     cursor: pointer;
     color: var(--text-secondary);
-    transition: color 0.2s;
 }
 
 .modal-close:hover {
@@ -487,7 +349,6 @@ body.dark-mode .logo-img {
 
 .modal-body img {
     width: 100%;
-    height: auto;
     border-radius: 8px;
     margin-bottom: 1rem;
 }
@@ -512,7 +373,6 @@ body.dark-mode .logo-img {
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
     font-family: 'Space Grotesk', sans-serif;
 }
 
@@ -524,7 +384,6 @@ body.dark-mode .logo-img {
 
 .modal-btn-primary:hover {
     background: var(--brand-gold-dark);
-    transform: translateY(-1px);
 }
 
 .modal-btn-secondary {
@@ -539,7 +398,7 @@ body.dark-mode .logo-img {
 }
 
 /* =========================================
-   EMPTY STATES - Brand Messaging
+   EMPTY STATES
    ========================================= */
 
 .loading, .empty-state {
@@ -549,12 +408,6 @@ body.dark-mode .logo-img {
     grid-column: 1 / -1;
 }
 
-.empty-state i {
-    font-size: 3rem;
-    margin-bottom: 16px;
-    opacity: 0.5;
-}
-
 .empty-state h3 {
     font-size: 1.2rem;
     margin-bottom: 8px;
@@ -562,28 +415,23 @@ body.dark-mode .logo-img {
     font-weight: 600;
 }
 
-.empty-state p {
-    font-size: 0.85rem;
-}
-
 /* =========================================
    RESPONSIVE
    ========================================= */
 
-@media (max-width: 1600px) { .pinterest-grid { column-count: 7; } }
 @media (max-width: 1400px) { .pinterest-grid { column-count: 6; } }
 @media (max-width: 1200px) { .pinterest-grid { column-count: 5; } }
 @media (max-width: 1000px) { .pinterest-grid { column-count: 4; } }
 @media (max-width: 800px) {
     .pinterest-grid { column-count: 3; }
-    .header-container { padding: 0.75rem 1rem; }
     .hero-title { font-size: 1.4rem; }
 }
 @media (max-width: 600px) {
     .pinterest-grid { column-count: 2; }
     .hero-title { font-size: 1.2rem; }
-    .download-app-btn span { display: none; }
-    .download-app-btn { padding: 8px 10px; }
+    .search-bar-large { flex-direction: column; }
+    .search-bar-large input { max-width: 100%; }
+    .search-bar-large button { width: 100%; }
 }
 @media (max-width: 450px) { .pinterest-grid { column-count: 2; } }
 @media (max-width: 350px) { .pinterest-grid { column-count: 1; } }
