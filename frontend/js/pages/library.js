@@ -2,7 +2,6 @@
 let allMaterials = [];
 let currentCategory = 'all';
 let searchQuery = '';
-let currentTab = 'all';
 let savedItems = JSON.parse(localStorage.getItem('savedLibraryItems') || '[]');
 
 // DOM elements
@@ -15,6 +14,7 @@ const modalTitle = document.getElementById('modalTitle');
 const modalImage = document.getElementById('modalImage');
 const modalDescription = document.getElementById('modalDescription');
 const modalFooter = document.getElementById('modalFooter');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
 
 // Theme handling
 function initTheme() {
@@ -30,19 +30,6 @@ function initTheme() {
             localStorage.setItem('libraryTheme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
         });
     }
-}
-
-// Tab handling
-function initTabs() {
-    const tabs = document.querySelectorAll('.tab-btn');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            currentTab = tab.getAttribute('data-tab');
-            renderMaterials();
-        });
-    });
 }
 
 // Save/unsave item
@@ -72,7 +59,7 @@ function showModal(item) {
     
     if (item.type === 'book') {
         modalFooter.innerHTML = `
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+            <button class="modal-btn modal-btn-secondary" id="modalCloseFooterBtn">Close</button>
             <button class="modal-btn modal-btn-primary" id="saveBtn">${isItemSaved ? 'Unsave Book' : 'Save Book'}</button>
         `;
         const saveBtn = document.getElementById('saveBtn');
@@ -86,9 +73,11 @@ function showModal(item) {
             }
             renderMaterials();
         };
+        const closeFooterBtn = document.getElementById('modalCloseFooterBtn');
+        if (closeFooterBtn) closeFooterBtn.onclick = closeModal;
     } else if (item.type === 'bundle') {
         modalFooter.innerHTML = `
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+            <button class="modal-btn modal-btn-secondary" id="modalCloseFooterBtn">Close</button>
             <button class="modal-btn modal-btn-secondary" id="updateBtn">Update</button>
             <button class="modal-btn modal-btn-primary" id="downloadBtn">Download</button>
         `;
@@ -98,6 +87,8 @@ function showModal(item) {
         document.getElementById('downloadBtn').onclick = () => {
             alert(`Downloading: ${item.title}`);
         };
+        const closeFooterBtn = document.getElementById('modalCloseFooterBtn');
+        if (closeFooterBtn) closeFooterBtn.onclick = closeModal;
     }
     
     modal.classList.add('active');
@@ -107,7 +98,15 @@ function closeModal() {
     modal.classList.remove('active');
 }
 
-window.closeModal = closeModal;
+// Close modal with X button
+if (modalCloseBtn) {
+    modalCloseBtn.onclick = closeModal;
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    if (event.target === modal) closeModal();
+};
 
 // Fetch materials
 async function fetchMaterials() {
@@ -131,12 +130,20 @@ async function fetchMaterials() {
     }
 }
 
-// Build filters
+// Build filters - Now includes 'All' and 'Shelf'
 function buildFilters() {
-    const categories = ['all', ...new Set(allMaterials.map(item => item.category).filter(Boolean))];
+    const categories = ['all', 'shelf', ...new Set(allMaterials.map(item => item.category).filter(Boolean))];
+    
+    // Display names for special filters
+    const getDisplayName = (cat) => {
+        if (cat === 'all') return 'All';
+        if (cat === 'shelf') return 'Shelf';
+        return cat.charAt(0).toUpperCase() + cat.slice(1);
+    };
+    
     filterChips.innerHTML = categories.map(cat => `
         <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">
-            ${cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+            ${getDisplayName(cat)}
         </div>
     `).join('');
     
@@ -154,14 +161,16 @@ function buildFilters() {
 function getFilteredMaterials() {
     let filtered = [...allMaterials];
     
-    if (currentTab === 'saved') {
+    // Handle Shelf filter - shows saved items
+    if (currentCategory === 'shelf') {
         filtered = filtered.filter(item => isSaved(item.id));
     }
-    
-    if (currentCategory !== 'all') {
+    // Handle category filters
+    else if (currentCategory !== 'all') {
         filtered = filtered.filter(item => item.category === currentCategory);
     }
     
+    // Apply search filter
     if (searchQuery && searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(item => item.title.toLowerCase().includes(query));
@@ -208,7 +217,7 @@ function renderMaterials() {
                 </div>
             `;
         } else {
-            const savedBadge = isSaved(item.id) ? '<div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px;">★ Saved</div>' : '';
+            const savedBadge = isSaved(item.id) ? '<div class="saved-badge">★ Saved</div>' : '';
             return `
                 <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
                     <div class="card-cover" style="background-image: url('${item.image}'); position: relative;">
@@ -228,7 +237,7 @@ function renderMaterials() {
         });
     });
     
-    // Bundle download handlers
+    // Bundle click handlers
     document.querySelectorAll('.bundle-download-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -257,15 +266,9 @@ function initializeSearch() {
     }
 }
 
-// Close modal on outside click
-window.onclick = function(event) {
-    if (event.target === modal) closeModal();
-};
-
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
-    initTabs();
     initializeSearch();
     fetchMaterials();
 });
