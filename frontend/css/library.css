@@ -1,6 +1,11 @@
 /* =========================================
-   LIBRARY PAGE STYLES - COMPLETE
+   GLIIMU LIBRARY - BRAND IDENTITY
+   Primary: #2c2f78 (Deep Purple)
+   Secondary: #fbb040 (Gold)
+   Font: Space Grotesk
    ========================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
 * {
     margin: 0;
@@ -8,53 +13,52 @@
     box-sizing: border-box;
 }
 
-/* CSS Variables - Using your accent color (#fbb040) */
+/* CSS Variables - Brand Colors */
 :root {
+    --brand-purple: #2c2f78;
+    --brand-purple-dark: #1a1c4a;
+    --brand-purple-light: #4a4d9e;
+    --brand-gold: #fbb040;
+    --brand-gold-dark: #cc8a2a;
+    --brand-gold-light: #ffcd7a;
+    
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
     --text-primary: #0f172a;
     --text-secondary: #64748b;
     --border-color: #e2e8f0;
-    --accent: #fbb040;
-    --accent-dark: #cc8a2a;
-    --accent-hover: #e6a030;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --hero-bg: transparent;
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
 body.dark-mode {
-    --bg-primary: #000000;
-    --bg-secondary: #0a0a0a;
+    --bg-primary: #0f172a;
+    --bg-secondary: #080c14;
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
-    --border-color: #1a1a1a;
-    --accent: #fbb040;
-    --accent-dark: #cc8a2a;
-    --hero-bg: transparent;
+    --border-color: #1e293b;
 }
 
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     background: var(--bg-secondary);
     color: var(--text-primary);
     transition: background 0.3s, color 0.3s;
 }
 
-/* Header Styles */
+/* =========================================
+   HEADER STYLES - Brand Purple
+   ========================================= */
+
 .library-header {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    background: var(--bg-primary);
-    border-bottom: 1px solid var(--border-color);
+    background: var(--brand-purple);
+    border-bottom: 2px solid var(--brand-gold);
     z-index: 100;
-    backdrop-filter: blur(10px);
-}
-
-body.dark-mode .library-header {
-    background: #000000;
 }
 
 .header-container {
@@ -64,7 +68,6 @@ body.dark-mode .library-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 2rem;
 }
 
 .header-left {
@@ -72,19 +75,11 @@ body.dark-mode .library-header {
     align-items: center;
 }
 
-.logo {
-    display: flex;
-    align-items: center;
-}
-
 .logo-img {
     height: 32px;
     width: auto;
-    display: block;
-    transition: filter 0.3s ease;
 }
 
-/* Dark mode logo - turns white */
 body.dark-mode .logo-img {
     filter: brightness(0) invert(1);
 }
@@ -102,15 +97,16 @@ body.dark-mode .logo-img {
     width: 36px;
     height: 36px;
     border-radius: 8px;
-    background: transparent;
+    background: rgba(255, 255, 255, 0.1);
     transition: all 0.2s;
     cursor: pointer;
     text-decoration: none;
-    color: var(--text-primary);
+    color: white;
 }
 
 .back-arrow:hover {
-    background: var(--border-color);
+    background: var(--brand-gold);
+    color: var(--brand-purple);
 }
 
 .back-arrow svg {
@@ -118,75 +114,61 @@ body.dark-mode .logo-img {
     height: 20px;
 }
 
-/* Theme Toggle - No border */
+/* Theme Toggle - Gold accent */
 .theme-toggle {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.1);
     border: none;
     padding: 8px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
-    color: var(--text-primary);
-    border-radius: 4px;
+    border-radius: 8px;
+    color: white;
 }
 
 .theme-toggle:hover {
-    background: var(--border-color);
+    background: var(--brand-gold);
+    color: var(--brand-purple);
 }
 
-.theme-toggle svg {
-    width: 18px;
-    height: 18px;
-}
-
-.icon-sun {
-    display: none;
-}
-
-.icon-moon {
-    display: block;
-}
-
-body.dark-mode .icon-sun {
-    display: block;
-}
-
-body.dark-mode .icon-moon {
-    display: none;
-}
-
-/* Download App Button - Icon only */
+/* Download App Button - Gold */
 .download-app-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: var(--brand-gold);
     border: none;
-    padding: 8px;
+    padding: 8px 12px;
     cursor: pointer;
     transition: all 0.2s;
-    color: var(--text-primary);
-    border-radius: 4px;
-}
-
-.download-app-btn:hover {
-    background: var(--border-color);
+    border-radius: 8px;
+    gap: 6px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    color: var(--brand-purple);
 }
 
 .download-app-btn svg {
-    width: 18px;
-    height: 18px;
-    stroke: currentColor;
+    width: 16px;
+    height: 16px;
+    stroke: var(--brand-purple);
 }
 
-/* Hero Section - Transparent, Left Aligned, Double Padding */
+.download-app-btn:hover {
+    background: var(--brand-gold-dark);
+    transform: scale(1.02);
+}
+
+/* =========================================
+   HERO SECTION - Brand Messaging
+   ========================================= */
+
 .hero-section {
-    padding-top: 120px;
-    padding-bottom: 60px;
+    padding-top: 100px;
+    padding-bottom: 40px;
     text-align: left;
-    background: var(--hero-bg);
+    background: linear-gradient(135deg, var(--brand-purple) 0%, var(--brand-purple-dark) 100%);
 }
 
 .hero-container {
@@ -196,23 +178,30 @@ body.dark-mode .icon-moon {
 }
 
 .hero-title {
-    font-size: 1.8rem;
+    font-size: 2rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: white;
     margin-bottom: 8px;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.02em;
+}
+
+.hero-title span {
+    color: var(--brand-gold);
 }
 
 .hero-subtitle {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
     font-weight: 400;
 }
 
-/* Search Wrapper - Under header, left aligned */
+/* =========================================
+   SEARCH BAR
+   ========================================= */
+
 .search-wrapper {
     background: var(--bg-secondary);
-    padding: 0 0 30px;
+    padding: 20px 0;
 }
 
 .search-bar-large {
@@ -227,10 +216,10 @@ body.dark-mode .icon-moon {
     flex: 1;
     max-width: 400px;
     padding: 12px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
     font-size: 0.9rem;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     outline: none;
@@ -238,39 +227,31 @@ body.dark-mode .icon-moon {
 }
 
 .search-bar-large input:focus {
-    border-color: var(--accent);
+    border-color: var(--brand-gold);
 }
 
 .search-bar-large button {
     padding: 12px 24px;
-    background: var(--accent);
+    background: var(--brand-gold);
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
-    transition: background 0.2s;
-    color: #111;
-    font-family: 'Inter', sans-serif;
+    transition: all 0.2s;
+    color: var(--brand-purple);
+    font-family: 'Space Grotesk', sans-serif;
 }
 
 .search-bar-large button:hover {
-    background: var(--accent-dark);
+    background: var(--brand-gold-dark);
+    transform: translateY(-1px);
 }
 
-/* Main Content */
-.library-main {
-    min-height: 100vh;
-    padding-bottom: 40px;
-}
+/* =========================================
+   FILTER CHIPS - Scrollable
+   ========================================= */
 
-.container {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-/* Filters Wrapper - Scrollable on smaller screens */
 .filters-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -289,11 +270,10 @@ body.dark-mode .icon-moon {
 }
 
 .filters-wrapper::-webkit-scrollbar-thumb {
-    background: var(--accent);
+    background: var(--brand-gold);
     border-radius: 4px;
 }
 
-/* Filter Chips - Left aligned, scrollable */
 .filters {
     display: flex;
     gap: 8px;
@@ -306,29 +286,32 @@ body.dark-mode .icon-moon {
     padding: 6px 18px;
     background: transparent;
     border: 1px solid var(--border-color);
-    border-radius: 20px;
+    border-radius: 40px;
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
     color: var(--text-secondary);
     font-weight: 500;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     white-space: nowrap;
 }
 
 .filter-chip:hover {
-    background: var(--accent);
-    color: #111;
-    border-color: var(--accent);
+    background: var(--brand-gold);
+    color: var(--brand-purple);
+    border-color: var(--brand-gold);
 }
 
 .filter-chip.active {
-    background: var(--accent);
-    color: #111;
-    border-color: var(--accent);
+    background: var(--brand-gold);
+    color: var(--brand-purple);
+    border-color: var(--brand-gold);
 }
 
-/* Masonry Grid */
+/* =========================================
+   MASONRY GRID
+   ========================================= */
+
 .pinterest-grid {
     column-count: 8;
     column-gap: 12px;
@@ -344,11 +327,10 @@ body.dark-mode .icon-moon {
 }
 
 .grid-item:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
 }
 
-/* Book Card - 20% smaller total (10% height + 10% width reduction) */
-/* Original aspect ratio was 2/3.35, reduced by 10% each dimension */
+/* Book Card - Purple glow on hover */
 .item-book .card-cover {
     position: relative;
     width: 100%;
@@ -356,47 +338,48 @@ body.dark-mode .icon-moon {
     background-size: cover;
     background-position: center;
     background-color: var(--border-color);
-    border-radius: 8px;
-    transition: transform 0.3s ease;
+    border-radius: 12px;
+    transition: all 0.3s ease;
     box-shadow: var(--shadow-sm);
 }
 
 .item-book:hover .card-cover {
     transform: scale(1.02);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 0 0 2px var(--brand-gold), var(--shadow-lg);
 }
 
 .saved-badge {
     position: absolute;
     top: 8px;
     right: 8px;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    color: var(--accent);
+    background: var(--brand-gold);
+    color: var(--brand-purple);
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: 20px;
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 600;
 }
 
-/* Bundle Card */
+/* Bundle Card - Gold accent */
 .item-bundle {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 12px 14px;
     background: var(--bg-primary);
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border-color);
+    transition: all 0.2s;
 }
 
-.item-bundle .bundle-content {
-    flex: 1;
+.item-bundle:hover {
+    border-color: var(--brand-gold);
+    transform: translateX(2px);
 }
 
 .item-bundle .bundle-title {
-    font-weight: 500;
+    font-weight: 600;
     font-size: 0.8rem;
     color: var(--text-primary);
     line-height: 1.4;
@@ -407,16 +390,16 @@ body.dark-mode .icon-moon {
     border: none;
     padding: 6px;
     cursor: pointer;
-    transition: opacity 0.2s ease;
-    color: var(--text-primary);
+    transition: all 0.2s;
+    color: var(--brand-gold);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .bundle-download-btn:hover {
-    opacity: 0.6;
-    color: var(--accent);
+    opacity: 0.7;
+    transform: scale(1.05);
 }
 
 .bundle-download-btn svg {
@@ -427,7 +410,10 @@ body.dark-mode .icon-moon {
     fill: none;
 }
 
-/* Modal */
+/* =========================================
+   MODAL - Brand Colors
+   ========================================= */
+
 .modal {
     display: none;
     position: fixed;
@@ -435,7 +421,7 @@ body.dark-mode .icon-moon {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(44, 47, 120, 0.9);
     backdrop-filter: blur(8px);
     z-index: 1000;
     justify-content: center;
@@ -448,12 +434,13 @@ body.dark-mode .icon-moon {
 
 .modal-content {
     background: var(--bg-primary);
-    border-radius: 12px;
+    border-radius: 16px;
     max-width: 500px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
     animation: modalSlideIn 0.3s ease;
+    border-top: 4px solid var(--brand-gold);
 }
 
 @keyframes modalSlideIn {
@@ -478,7 +465,7 @@ body.dark-mode .icon-moon {
 .modal-header h2 {
     font-size: 1.2rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--brand-purple);
 }
 
 .modal-close {
@@ -488,12 +475,10 @@ body.dark-mode .icon-moon {
     cursor: pointer;
     color: var(--text-secondary);
     transition: color 0.2s;
-    line-height: 1;
-    padding: 0 4px;
 }
 
 .modal-close:hover {
-    color: var(--accent);
+    color: var(--brand-gold);
 }
 
 .modal-body {
@@ -523,22 +508,23 @@ body.dark-mode .icon-moon {
 
 .modal-btn {
     padding: 8px 20px;
-    border-radius: 6px;
+    border-radius: 40px;
     font-size: 0.85rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
 }
 
 .modal-btn-primary {
-    background: var(--accent);
-    color: #111;
+    background: var(--brand-gold);
+    color: var(--brand-purple);
     border: none;
 }
 
 .modal-btn-primary:hover {
-    background: var(--accent-dark);
+    background: var(--brand-gold-dark);
+    transform: translateY(-1px);
 }
 
 .modal-btn-secondary {
@@ -549,11 +535,13 @@ body.dark-mode .icon-moon {
 
 .modal-btn-secondary:hover {
     background: var(--border-color);
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--brand-gold);
 }
 
-/* Loading & Empty States */
+/* =========================================
+   EMPTY STATES - Brand Messaging
+   ========================================= */
+
 .loading, .empty-state {
     text-align: center;
     padding: 60px;
@@ -562,63 +550,40 @@ body.dark-mode .icon-moon {
 }
 
 .empty-state i {
-    font-size: 2.5rem;
-    margin-bottom: 12px;
+    font-size: 3rem;
+    margin-bottom: 16px;
     opacity: 0.5;
 }
 
 .empty-state h3 {
-    font-size: 1rem;
-    margin-bottom: 6px;
-    color: var(--text-primary);
-    font-weight: 500;
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+    color: var(--brand-purple);
+    font-weight: 600;
 }
 
-/* Responsive - Ensure at least 2 columns on smaller screens */
-@media (max-width: 1600px) {
-    .pinterest-grid { column-count: 7; }
+.empty-state p {
+    font-size: 0.85rem;
 }
-@media (max-width: 1400px) {
-    .pinterest-grid { column-count: 6; }
-}
-@media (max-width: 1200px) {
-    .pinterest-grid { column-count: 5; }
-}
-@media (max-width: 1000px) {
-    .pinterest-grid { column-count: 4; }
-}
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+@media (max-width: 1600px) { .pinterest-grid { column-count: 7; } }
+@media (max-width: 1400px) { .pinterest-grid { column-count: 6; } }
+@media (max-width: 1200px) { .pinterest-grid { column-count: 5; } }
+@media (max-width: 1000px) { .pinterest-grid { column-count: 4; } }
 @media (max-width: 800px) {
     .pinterest-grid { column-count: 3; }
-    .header-container { 
-        padding: 0.75rem 1rem;
-    }
-    .hero-title {
-        font-size: 1.4rem;
-    }
-    .hero-subtitle {
-        font-size: 0.75rem;
-    }
-    .hero-section {
-        padding-top: 100px;
-        padding-bottom: 40px;
-    }
+    .header-container { padding: 0.75rem 1rem; }
+    .hero-title { font-size: 1.4rem; }
 }
 @media (max-width: 600px) {
     .pinterest-grid { column-count: 2; }
-    .search-bar-large input {
-        max-width: 100%;
-    }
-    .hero-title {
-        font-size: 1.2rem;
-    }
-    .hero-section {
-        padding-top: 90px;
-        padding-bottom: 30px;
-    }
+    .hero-title { font-size: 1.2rem; }
+    .download-app-btn span { display: none; }
+    .download-app-btn { padding: 8px 10px; }
 }
-@media (max-width: 450px) {
-    .pinterest-grid { column-count: 2; }
-}
-@media (max-width: 350px) {
-    .pinterest-grid { column-count: 1; }
-}
+@media (max-width: 450px) { .pinterest-grid { column-count: 2; } }
+@media (max-width: 350px) { .pinterest-grid { column-count: 1; } }
