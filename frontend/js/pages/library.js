@@ -32,7 +32,11 @@ function initializeEventListeners() {
 async function fetchMaterials() {
     try {
         // Try multiple possible paths
-        let response = await fetch('../../../backend/data/library.json');
+        let response = await fetch('../../backend/data/library.json');
+        
+        if (!response.ok) {
+            response = await fetch('../backend/data/library.json');
+        }
         
         if (!response.ok) {
             response = await fetch('/backend/data/library.json');
@@ -61,7 +65,6 @@ async function fetchMaterials() {
                     <i>❌</i>
                     <h3>Failed to load library data</h3>
                     <p>Please check that backend/data/library.json exists</p>
-                    <p style="font-size: 0.7rem; margin-top: 10px;">Error: ${error.message}</p>
                 </div>
             `;
         }
@@ -116,7 +119,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Render materials
+// Render materials - MINIMAL VERSION (no card info, just image or title+button)
 function renderMaterials() {
     if (!booksContainer) return;
     
@@ -140,6 +143,7 @@ function renderMaterials() {
     
     booksContainer.innerHTML = filteredMaterials.map(item => {
         if (item.type === 'bundle') {
+            // Bundle card - just title and download button, no extra info
             return `
                 <div class="grid-item item-bundle" data-id="${item.id}" data-type="${item.type}">
                     <div class="bundle-content">
@@ -151,12 +155,10 @@ function renderMaterials() {
                 </div>
             `;
         } else {
+            // Book card - JUST image, no text below at all
             return `
                 <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
                     <div class="card-cover" style="background-image: url('${item.image}'); background-size: cover; background-position: center;"></div>
-                    <div class="card-info">
-                        <div class="card-title">${escapeHtml(item.title)}</div>
-                    </div>
                 </div>
             `;
         }
@@ -186,8 +188,13 @@ function renderMaterials() {
     });
 }
 
-// Start the app
-document.addEventListener('DOMContentLoaded', () => {
+// Start the app when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeEventListeners();
+        fetchMaterials();
+    });
+} else {
     initializeEventListeners();
     fetchMaterials();
-});
+}
