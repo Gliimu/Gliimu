@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Library | Glimu</title>
+    <link rel="stylesheet" href="../css/header.css">
+    <link rel="stylesheet" href="../css/library.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/header.css">
-    <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
-    <!-- Global Header will be injected here -->
-    <div id="global-header"></div>
+    <!-- Header will be loaded via partials/header.js -->
+    <div id="header-placeholder"></div>
 
     <!-- Hero Section -->
     <section class="library-hero">
@@ -38,7 +38,8 @@
         </div>
     </section>
 
-    <script src="js/pages/header.js"></script>
-    <script src="js/pages/library.js"></script>
+    <!-- Scripts -->
+    <script src="../js/partials/header.js"></script>
+    <script src="../js/pages/library.js"></script>
 </body>
 </html>
