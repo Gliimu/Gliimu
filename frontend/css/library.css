@@ -157,32 +157,28 @@ body.dark-mode .icon-moon {
     display: none;
 }
 
-/* Download App Button */
+/* Download App Button - Icon only */
 .download-app-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: var(--accent);
+    justify-content: center;
+    background: transparent;
     border: none;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-weight: 500;
-    font-size: 0.8rem;
+    padding: 8px;
     cursor: pointer;
     transition: all 0.2s;
-    color: #111;
-    font-family: 'Inter', sans-serif;
-}
-
-.download-app-btn svg {
-    width: 16px;
-    height: 16px;
-    stroke: #111;
+    color: var(--text-primary);
+    border-radius: 4px;
 }
 
 .download-app-btn:hover {
-    background: var(--accent-dark);
-    transform: scale(1.02);
+    background: var(--border-color);
+}
+
+.download-app-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
 }
 
 /* Hero Section - Transparent, Left Aligned, Double Padding */
@@ -351,11 +347,12 @@ body.dark-mode .icon-moon {
     transform: translateY(-2px);
 }
 
-/* Book Card - 10% smaller (adjusted aspect ratio from 2/3.05 to 2/3.35) */
+/* Book Card - 20% smaller total (10% height + 10% width reduction) */
+/* Original aspect ratio was 2/3.35, reduced by 10% each dimension */
 .item-book .card-cover {
     position: relative;
     width: 100%;
-    aspect-ratio: 2 / 3.35;
+    aspect-ratio: 1.8 / 3.0;
     background-size: cover;
     background-position: center;
     background-color: var(--border-color);
@@ -617,12 +614,6 @@ body.dark-mode .icon-moon {
     .hero-section {
         padding-top: 90px;
         padding-bottom: 30px;
-    }
-    .download-app-btn span {
-        display: none;
-    }
-    .download-app-btn {
-        padding: 6px 10px;
     }
 }
 @media (max-width: 450px) {
