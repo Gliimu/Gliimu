@@ -130,11 +130,10 @@ async function fetchMaterials() {
     }
 }
 
-// Build filters - Now includes 'All' and 'Shelf'
+// Build filters - Includes 'All' and 'Shelf'
 function buildFilters() {
     const categories = ['all', 'shelf', ...new Set(allMaterials.map(item => item.category).filter(Boolean))];
     
-    // Display names for special filters
     const getDisplayName = (cat) => {
         if (cat === 'all') return 'All';
         if (cat === 'shelf') return 'Shelf';
@@ -161,16 +160,12 @@ function buildFilters() {
 function getFilteredMaterials() {
     let filtered = [...allMaterials];
     
-    // Handle Shelf filter - shows saved items
     if (currentCategory === 'shelf') {
         filtered = filtered.filter(item => isSaved(item.id));
-    }
-    // Handle category filters
-    else if (currentCategory !== 'all') {
+    } else if (currentCategory !== 'all') {
         filtered = filtered.filter(item => item.category === currentCategory);
     }
     
-    // Apply search filter
     if (searchQuery && searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(item => item.title.toLowerCase().includes(query));
@@ -228,7 +223,6 @@ function renderMaterials() {
         }
     }).join('');
     
-    // Book click handlers
     document.querySelectorAll('.item-book').forEach(el => {
         el.addEventListener('click', () => {
             const itemId = el.getAttribute('data-id');
@@ -237,7 +231,6 @@ function renderMaterials() {
         });
     });
     
-    // Bundle click handlers
     document.querySelectorAll('.bundle-download-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
