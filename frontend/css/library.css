@@ -57,6 +57,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 2rem;
 }
 
 .header-left {
@@ -90,26 +91,21 @@ body {
 
 .logo {
     display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
+    align-items: center;
 }
 
-.logo-text {
-    font-size: 1.3rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #3b82f6, #06b6d4);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+.logo-img {
+    height: 28px;
+    width: auto;
+    display: block;
 }
 
-.logo-tag {
-    font-size: 0.7rem;
-    font-weight: 500;
-    background: var(--border-color);
-    padding: 0.2rem 0.6rem;
-    border-radius: 20px;
-    color: var(--text-secondary);
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 .header-right {
@@ -118,10 +114,52 @@ body {
     gap: 1rem;
 }
 
+/* Search Bar - Centered in header */
+.search-bar-simple {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+}
+
+.search-bar-simple input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-bar-simple input:focus {
+    border-color: var(--text-secondary);
+}
+
+.search-bar-simple button {
+    padding: 8px 16px;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: var(--bg-primary);
+    font-family: 'Inter', sans-serif;
+}
+
+.search-bar-simple button:hover {
+    background: var(--accent-hover);
+}
+
+/* Theme Toggle - No border radius */
 .theme-toggle {
     background: transparent;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: 0;
     padding: 6px;
     cursor: pointer;
     display: flex;
@@ -168,86 +206,7 @@ body.dark-mode .icon-moon {
     padding: 0 20px 40px;
 }
 
-/* Tabs */
-.library-tabs {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-bottom: 2rem;
-}
-
-.tab-btn {
-    padding: 8px 24px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--text-secondary);
-    font-family: 'Inter', sans-serif;
-}
-
-.tab-btn:hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
-}
-
-.tab-btn.active {
-    background: var(--accent);
-    color: var(--bg-primary);
-    border-color: var(--accent);
-}
-
-body.dark-mode .tab-btn.active {
-    background: var(--accent);
-    color: var(--bg-primary);
-}
-
-/* Search Bar */
-.search-bar-simple {
-    max-width: 300px;
-    margin: 0 auto 2rem;
-    display: flex;
-    gap: 8px;
-}
-
-.search-bar-simple input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-family: 'Inter', sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.search-bar-simple input:focus {
-    border-color: var(--text-secondary);
-}
-
-.search-bar-simple button {
-    padding: 8px 16px;
-    background: var(--accent);
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: background 0.2s;
-    color: var(--bg-primary);
-    font-family: 'Inter', sans-serif;
-}
-
-.search-bar-simple button:hover {
-    background: var(--accent-hover);
-}
-
-/* Filter Chips */
+/* Filter Chips - Now includes Shelf */
 .filters {
     display: flex;
     gap: 8px;
@@ -257,11 +216,11 @@ body.dark-mode .tab-btn.active {
 }
 
 .filter-chip {
-    padding: 4px 14px;
+    padding: 6px 18px;
     background: transparent;
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
     color: var(--text-secondary);
@@ -316,6 +275,19 @@ body.dark-mode .tab-btn.active {
 .item-book:hover .card-cover {
     transform: scale(1.02);
     box-shadow: var(--shadow-md);
+}
+
+.saved-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 500;
 }
 
 /* Bundle Card */
@@ -386,7 +358,7 @@ body.dark-mode .tab-btn.active {
 
 .modal-content {
     background: var(--bg-primary);
-    border-radius: 16px;
+    border-radius: 12px;
     max-width: 500px;
     width: 90%;
     max-height: 80vh;
@@ -422,10 +394,12 @@ body.dark-mode .tab-btn.active {
 .modal-close {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     cursor: pointer;
     color: var(--text-secondary);
     transition: color 0.2s;
+    line-height: 1;
+    padding: 0 4px;
 }
 
 .modal-close:hover {
@@ -523,8 +497,26 @@ body.dark-mode .tab-btn.active {
 }
 @media (max-width: 800px) {
     .pinterest-grid { column-count: 3; }
-    .header-container { padding: 0.75rem 1rem; }
-    .logo-tag { display: none; }
+    .header-container { 
+        padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .header-left {
+        flex: 1;
+    }
+    .header-center {
+        order: 3;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+    }
+    .search-bar-simple {
+        width: 100%;
+    }
+    .header-right {
+        flex-shrink: 0;
+    }
 }
 @media (max-width: 600px) {
     .pinterest-grid { column-count: 2; }
