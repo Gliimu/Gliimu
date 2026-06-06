@@ -1,163 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Dashboard – Gliimu Institute</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Your dashboard at Gliimu Institute of Media Technologies.">
-  
-  <link rel="icon" type="image/png" href="icons/logo2.png">
-  
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- External CSS Files -->
-  <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/dashboard.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Glimu</title>
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-
-  <!-- Theme initialization -->
-  <script>
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      document.body.classList.add('dark-mode');
-    } else if (savedTheme === 'light') {
-      document.body.classList.remove('dark-mode');
-    } else {
-      document.body.classList.add('dark-mode');
-      localStorage.setItem('theme', 'dark');
-    }
-  </script>
-
-  <div class="dashboard-container">
-    
-    <!-- Top Bar (Minimal - No Header) -->
-    <div class="dashboard-top-bar">
-      <div class="top-bar-left">
-        <a href="index.html" class="mini-logo">
-          <img src="icons/logo.png" alt="Gliimu">
-        </a>
-        <span class="dashboard-badge">Dashboard</span>
-      </div>
-      <div class="top-bar-right">
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18">
-            <circle cx="12" cy="12" r="5" stroke="currentColor" fill="none"></circle>
-            <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor"></line>
-            <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor"></line>
-            <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor"></line>
-            <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor"></line>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" fill="none"></path>
-          </svg>
-        </button>
-        <div class="user-mini" id="userMini">
-          <img src="" alt="User" id="userAvatar" class="user-avatar-mini">
-          <span id="userName">User</span>
-          <i class="fas fa-chevron-down"></i>
-          <div class="user-dropdown" id="userDropdown">
-            <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
-          </div>
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="logo">
+                    <img src="../icons/logo.png" alt="Glimu" class="logo-img">
+                </div>
+            </div>
+            <div class="header-right">
+                <a href="/library.html" class="nav-link">Library</a>
+                <a href="/hub.html" class="nav-link">Hub</a>
+                <a href="/community.html" class="nav-link">Community</a>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18">
+                        <circle cx="12" cy="12" r="5" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2"/>
+                        <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2"/>
+                        <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </button>
+                <div class="profile-wrapper">
+                    <img src="https://ui-avatars.com/api/?name=User&background=fbb040&color=fff" alt="Profile" class="profile-img">
+                    <div class="profile-dropdown">
+                        <a href="/dashboard.html" class="dropdown-item">Dashboard</a>
+                        <a href="/wallet.html" class="dropdown-item">Wallet</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" onclick="logout()" class="dropdown-item">Sign Out</a>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+        <div class="container">
+            <!-- Welcome Section -->
+            <div class="welcome-section">
+                <h1>Welcome back, <span id="userName">Creator</span>!</h1>
+                <p>Track your learning journey and manage your subscription</p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📚</div>
+                    <div class="stat-info">
+                        <h3>Books Read</h3>
+                        <div class="stat-value" id="booksRead">0</div>
+                        <div class="stat-limit" id="booksLimit">Limit: 1/month</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-info">
+                        <h3>Bundles Downloaded</h3>
+                        <div class="stat-value" id="bundlesDownloaded">0</div>
+                        <div class="stat-limit" id="bundlesLimit">Limit: 1/month</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⭐</div>
+                    <div class="stat-info">
+                        <h3>Current Plan</h3>
+                        <div class="stat-value" id="currentPlan">Basic</div>
+                        <div class="stat-limit" id="planExpiry">Expires in 25 days</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-info">
+                        <h3>Wallet Balance</h3>
+                        <div class="stat-value" id="walletBalance">$0.00</div>
+                        <button class="add-funds-btn" id="addFundsBtn">Add Funds</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subscription Banner -->
+            <div class="subscription-banner" id="subscriptionBanner">
+                <div class="banner-content">
+                    <h3>Upgrade your learning experience</h3>
+                    <p>Get unlimited access to books, bundles, and community features</p>
+                </div>
+                <button class="upgrade-btn" id="upgradeBtn">Upgrade Plan</button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="dashboard-tabs">
+                <button class="tab-btn active" data-tab="recent">Recently Viewed</button>
+                <button class="tab-btn" data-tab="saved">Saved Items</button>
+                <button class="tab-btn" data-tab="recommended">Recommended for You</button>
+            </div>
+
+            <!-- Recent Items Grid -->
+            <div id="recentGrid" class="items-grid">
+                <div class="loading">Loading...</div>
+            </div>
+
+            <!-- Saved Items Grid (Hidden by default) -->
+            <div id="savedGrid" class="items-grid" style="display: none;">
+                <div class="loading">Loading saved items...</div>
+            </div>
+
+            <!-- Recommended Grid (Hidden by default) -->
+            <div id="recommendedGrid" class="items-grid" style="display: none;">
+                <div class="loading">Finding recommendations...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Upgrade Modal -->
+    <div id="upgradeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Choose Your Plan</h2>
+                <button class="modal-close" id="closeUpgradeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="plan-cards">
+                    <div class="plan-card" data-plan="basic">
+                        <h3>Basic</h3>
+                        <div class="plan-price">$9.99<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>✓ 1 Book per month</li>
+                            <li>✓ 1 Bundle download</li>
+                            <li>✓ Basic support</li>
+                        </ul>
+                        <button class="select-plan-btn">Select</button>
+                    </div>
+                    <div class="plan-card recommended" data-plan="standard">
+                        <div class="recommended-badge">Most Popular</div>
+                        <h3>Standard</h3>
+                        <div class="plan-price">$19.99<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>✓ 3 Books per month</li>
+                            <li>✓ 3 Bundle downloads</li>
+                            <li>✓ Priority support</li>
+                            <li>✓ Download resources</li>
+                        </ul>
+                        <button class="select-plan-btn">Select</button>
+                    </div>
+                    <div class="plan-card" data-plan="premium">
+                        <h3>Premium</h3>
+                        <div class="plan-price">$29.99<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>✓ Unlimited books</li>
+                            <li>✓ Unlimited bundles</li>
+                            <li>✓ 24/7 priority support</li>
+                            <li>✓ Certificate of completion</li>
+                        </ul>
+                        <button class="select-plan-btn">Select</button>
+                    </div>
+                </div>
+                <div class="combo-offer">
+                    <h4>🎯 Combo Deals</h4>
+                    <p>Get 10% off when you subscribe to any 2 services</p>
+                    <p>Get 20% off when you subscribe to all 3 services (Library + Hub + Community)</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Main Dashboard Layout -->
-    <div class="dashboard-layout">
-      
-      <!-- Sidebar (Tabs - Role Based) -->
-      <aside class="dashboard-sidebar" id="dashboardSidebar">
-        <nav class="sidebar-nav" id="sidebarNav">
-          <!-- Tabs will be dynamically inserted based on role -->
-        </nav>
-      </aside>
-
-      <!-- Main Content Area -->
-      <main class="dashboard-main" id="dashboardMain">
-        <div id="dashboardContent">
-          <!-- Dynamic content loads here -->
-          <div class="loading-screen">
-            <div class="loading-spinner"></div>
-            <p>Loading your dashboard...</p>
-          </div>
+    <!-- Add Funds Modal -->
+    <div id="addFundsModal" class="modal">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>Add Funds to Wallet</h2>
+                <button class="modal-close" id="closeAddFundsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="amount-buttons">
+                    <button class="amount-btn" data-amount="10">$10</button>
+                    <button class="amount-btn" data-amount="20">$20</button>
+                    <button class="amount-btn" data-amount="50">$50</button>
+                    <button class="amount-btn" data-amount="100">$100</button>
+                </div>
+                <div class="custom-amount">
+                    <input type="number" id="customAmount" placeholder="Custom amount">
+                </div>
+                <button class="confirm-payment-btn" id="confirmPayment">Add Funds</button>
+            </div>
         </div>
-      </main>
-      
     </div>
-  </div>
 
-  <!-- JS Files -->
-  <script src="js/pages/dashboard.js"></script>
-
-  <script>
-    // Theme toggle (matching homepage)
-    const themeToggle = document.getElementById('themeToggle');
-    const body = document.body;
-    
-    function updateThemeIcons() {
-      const isDark = body.classList.contains('dark-mode');
-      const sunIcon = themeToggle?.querySelector('.icon-sun');
-      const moonIcon = themeToggle?.querySelector('.icon-moon');
-      if (sunIcon && moonIcon) {
-        sunIcon.style.display = isDark ? 'block' : 'none';
-        moonIcon.style.display = isDark ? 'none' : 'block';
-      }
-    }
-    
-    updateThemeIcons();
-    
-    themeToggle?.addEventListener('click', () => {
-      body.classList.toggle('dark-mode');
-      const isDark = body.classList.contains('dark-mode');
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
-      updateThemeIcons();
-    });
-    
-    // User dropdown
-    const userMini = document.getElementById('userMini');
-    const userDropdown = document.getElementById('userDropdown');
-    
-    if (userMini && userDropdown) {
-      let dropdownTimeout;
-      
-      userMini.addEventListener('mouseenter', () => {
-        clearTimeout(dropdownTimeout);
-        userDropdown.classList.add('active');
-      });
-      
-      userMini.addEventListener('mouseleave', () => {
-        dropdownTimeout = setTimeout(() => {
-          userDropdown.classList.remove('active');
-        }, 200);
-      });
-      
-      userDropdown.addEventListener('mouseenter', () => {
-        clearTimeout(dropdownTimeout);
-      });
-      
-      userDropdown.addEventListener('mouseleave', () => {
-        dropdownTimeout = setTimeout(() => {
-          userDropdown.classList.remove('active');
-        }, 200);
-      });
-    }
-    
-    window.logout = function() {
-      if (confirm('Are you sure you want to sign out?')) {
-        localStorage.removeItem('gliimu_user');
-        localStorage.removeItem('token');
-        window.location.href = 'index.html';
-      }
-    };
-  </script>
+    <script src="../js/pages/dashboard.js"></script>
 </body>
 </html>
