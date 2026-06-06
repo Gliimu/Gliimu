@@ -5,10 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Library | Glimu</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/header.css">
     <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
-    <!-- Main container (no header - uses global header from partials) -->
+    <!-- Global Header -->
+    <div id="global-header"></div>
+
+    <!-- Main Library Content -->
     <div class="library-container">
         <!-- Upgrade Banner -->
         <div class="upgrade-banner">
@@ -69,6 +73,7 @@
         </div>
     </div>
 
+    <script src="js/pages/header.js"></script>
     <script src="js/pages/library.js"></script>
 </body>
 </html>
