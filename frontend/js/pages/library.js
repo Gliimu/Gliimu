@@ -1,3 +1,8 @@
+// ============================================
+// GLIIMU LIBRARY PAGE - COMPLETE
+// Unified theme key: 'theme' (matches header.js)
+// ============================================
+
 // Global state
 let allMaterials = [];
 let currentCategory = 'all';
@@ -17,32 +22,74 @@ const modalFooter = document.getElementById('modalFooter');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 const downloadAppBtn = document.getElementById('downloadAppBtn');
 
-// Theme handling
+// ============================================
+// UNIFIED THEME HANDLING - Uses 'theme' key (matches header.js)
+// ============================================
+
 function initTheme() {
-    const savedTheme = localStorage.getItem('libraryTheme');
+    // Use the SAME key as header.js
+    let savedTheme = localStorage.getItem('theme');
+    
+    // Apply theme
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
+    } else if (savedTheme === 'light') {
+        document.body.classList.remove('dark-mode');
+    } else {
+        // Default to dark mode (matches header.js default)
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
     }
     
+    updateThemeToggleIcon();
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    // Use the SAME key as header.js
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeToggleIcon();
+}
+
+function updateThemeToggleIcon() {
     const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            localStorage.setItem('libraryTheme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
-        });
+    if (!themeToggle) return;
+    
+    const isDark = document.body.classList.contains('dark-mode');
+    const sunIcon = themeToggle.querySelector('.icon-sun');
+    const moonIcon = themeToggle.querySelector('.icon-moon');
+    
+    if (sunIcon && moonIcon) {
+        sunIcon.style.display = isDark ? 'block' : 'none';
+        moonIcon.style.display = isDark ? 'none' : 'block';
     }
 }
 
-// Download App Button Handler
+function setupThemeToggle() {
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        // Remove existing listener to avoid duplicates
+        const newToggle = themeToggle.cloneNode(true);
+        themeToggle.parentNode.replaceChild(newToggle, themeToggle);
+        newToggle.addEventListener('click', toggleTheme);
+    }
+}
+
+// ============================================
+// DOWNLOAD APP BUTTON
+// ============================================
+
 if (downloadAppBtn) {
     downloadAppBtn.addEventListener('click', () => {
-        // Replace with your actual download link
         alert('App download will start soon. Check your downloads folder.');
         // window.location.href = '/download/app';
     });
 }
 
-// Save/unsave item
+// ============================================
+// SAVE / UNSAVE ITEMS (Shelf functionality)
+// ============================================
+
 function saveItem(item) {
     if (!savedItems.find(i => i.id === item.id)) {
         savedItems.push(item);
@@ -59,7 +106,10 @@ function isSaved(itemId) {
     return savedItems.some(i => i.id === itemId);
 }
 
-// Show modal
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
+
 function showModal(item) {
     modalTitle.textContent = item.title;
     modalImage.src = item.image;
@@ -73,16 +123,18 @@ function showModal(item) {
             <button class="modal-btn modal-btn-primary" id="saveBtn">${isItemSaved ? 'Unsave Book' : 'Save Book'}</button>
         `;
         const saveBtn = document.getElementById('saveBtn');
-        saveBtn.onclick = () => {
-            if (isSaved(item.id)) {
-                unsaveItem(item.id);
-                saveBtn.textContent = 'Save Book';
-            } else {
-                saveItem(item);
-                saveBtn.textContent = 'Unsave Book';
-            }
-            renderMaterials();
-        };
+        if (saveBtn) {
+            saveBtn.onclick = () => {
+                if (isSaved(item.id)) {
+                    unsaveItem(item.id);
+                    saveBtn.textContent = 'Save Book';
+                } else {
+                    saveItem(item);
+                    saveBtn.textContent = 'Unsave Book';
+                }
+                renderMaterials();
+            };
+        }
         const closeFooterBtn = document.getElementById('modalCloseFooterBtn');
         if (closeFooterBtn) closeFooterBtn.onclick = closeModal;
     } else if (item.type === 'bundle') {
@@ -91,12 +143,18 @@ function showModal(item) {
             <button class="modal-btn modal-btn-secondary" id="updateBtn">Update</button>
             <button class="modal-btn modal-btn-primary" id="downloadBtn">Download</button>
         `;
-        document.getElementById('updateBtn').onclick = () => {
-            alert(`Checking for updates: ${item.title}`);
-        };
-        document.getElementById('downloadBtn').onclick = () => {
-            alert(`Downloading: ${item.title}`);
-        };
+        const updateBtn = document.getElementById('updateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        if (updateBtn) {
+            updateBtn.onclick = () => {
+                alert(`Checking for updates: ${item.title}`);
+            };
+        }
+        if (downloadBtn) {
+            downloadBtn.onclick = () => {
+                alert(`Downloading: ${item.title}`);
+            };
+        }
         const closeFooterBtn = document.getElementById('modalCloseFooterBtn');
         if (closeFooterBtn) closeFooterBtn.onclick = closeModal;
     }
@@ -118,17 +176,23 @@ window.onclick = function(event) {
     if (event.target === modal) closeModal();
 };
 
-// Fetch materials
+// ============================================
+// FETCH MATERIALS FROM JSON
+// ============================================
+
 async function fetchMaterials() {
     try {
+        // Try multiple possible paths
         let response = await fetch('../../backend/data/library.json');
         if (!response.ok) response = await fetch('../backend/data/library.json');
         if (!response.ok) response = await fetch('/backend/data/library.json');
+        if (!response.ok) response = await fetch('https://raw.githubusercontent.com/Gliimu/Gliimu/main/backend/data/library.json');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
         if (data && data.materials && Array.isArray(data.materials)) {
             allMaterials = data.materials;
+            console.log('Loaded materials:', allMaterials.length);
             buildFilters();
             renderMaterials();
         } else {
@@ -136,11 +200,16 @@ async function fetchMaterials() {
         }
     } catch (error) {
         console.error('Error loading materials:', error);
-        booksContainer.innerHTML = `<div class="empty-state"><i>❌</i><h3>Failed to load library data</h3></div>`;
+        if (booksContainer) {
+            booksContainer.innerHTML = `<div class="empty-state"><i>❌</i><h3>Failed to load library data</h3><p>Please refresh or try again later</p></div>`;
+        }
     }
 }
 
-// Build filters - Includes 'All' and 'Shelf'
+// ============================================
+// BUILD FILTERS (All, Shelf, Categories)
+// ============================================
+
 function buildFilters() {
     const categories = ['all', 'shelf', ...new Set(allMaterials.map(item => item.category).filter(Boolean))];
     
@@ -150,11 +219,13 @@ function buildFilters() {
         return cat.charAt(0).toUpperCase() + cat.slice(1);
     };
     
-    filterChips.innerHTML = categories.map(cat => `
-        <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">
-            ${getDisplayName(cat)}
-        </div>
-    `).join('');
+    if (filterChips) {
+        filterChips.innerHTML = categories.map(cat => `
+            <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">
+                ${getDisplayName(cat)}
+            </div>
+        `).join('');
+    }
     
     document.querySelectorAll('[data-category]').forEach(el => {
         el.addEventListener('click', () => {
@@ -166,25 +237,35 @@ function buildFilters() {
     });
 }
 
-// Get filtered materials
+// ============================================
+// FILTER MATERIALS
+// ============================================
+
 function getFilteredMaterials() {
     let filtered = [...allMaterials];
     
+    // Handle Shelf filter - shows saved items
     if (currentCategory === 'shelf') {
         filtered = filtered.filter(item => isSaved(item.id));
-    } else if (currentCategory !== 'all') {
+    }
+    // Handle category filters
+    else if (currentCategory !== 'all') {
         filtered = filtered.filter(item => item.category === currentCategory);
     }
     
+    // Apply search filter
     if (searchQuery && searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
-        filtered = filtered.filter(item => item.title.toLowerCase().includes(query));
+        filtered = filtered.filter(item => item.title && item.title.toLowerCase().includes(query));
     }
     
     return filtered;
 }
 
-// Escape HTML
+// ============================================
+// ESCAPE HTML (XSS Prevention)
+// ============================================
+
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -192,9 +273,13 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Render materials
+// ============================================
+// RENDER MATERIALS (Masonry Grid)
+// ============================================
+
 function renderMaterials() {
     if (!booksContainer) return;
+    
     if (!allMaterials.length) {
         booksContainer.innerHTML = '<div class="loading">Loading materials...</div>';
         return;
@@ -203,12 +288,13 @@ function renderMaterials() {
     const filteredMaterials = getFilteredMaterials();
     
     if (filteredMaterials.length === 0) {
-        booksContainer.innerHTML = `<div class="empty-state"><i>📭</i><h3>No materials found</h3></div>`;
+        booksContainer.innerHTML = `<div class="empty-state"><i>📭</i><h3>No materials found</h3><p>Try adjusting your search or filters</p></div>`;
         return;
     }
     
     booksContainer.innerHTML = filteredMaterials.map(item => {
         if (item.type === 'bundle') {
+            // Bundle card - title + download icon
             return `
                 <div class="grid-item item-bundle" data-id="${item.id}" data-type="${item.type}">
                     <div class="bundle-content">
@@ -222,6 +308,7 @@ function renderMaterials() {
                 </div>
             `;
         } else {
+            // Book card - image only with saved badge
             const savedBadge = isSaved(item.id) ? '<div class="saved-badge">★ Saved</div>' : '';
             return `
                 <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
@@ -233,6 +320,7 @@ function renderMaterials() {
         }
     }).join('');
     
+    // Book click handlers
     document.querySelectorAll('.item-book').forEach(el => {
         el.addEventListener('click', () => {
             const itemId = el.getAttribute('data-id');
@@ -241,6 +329,7 @@ function renderMaterials() {
         });
     });
     
+    // Bundle download handlers
     document.querySelectorAll('.bundle-download-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -251,7 +340,10 @@ function renderMaterials() {
     });
 }
 
-// Search handlers
+// ============================================
+// SEARCH HANDLERS
+// ============================================
+
 function initializeSearch() {
     if (searchBtn) {
         searchBtn.addEventListener('click', () => {
@@ -269,9 +361,13 @@ function initializeSearch() {
     }
 }
 
-// Initialize
+// ============================================
+// INITIALIZE EVERYTHING
+// ============================================
+
 document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    initializeSearch();
-    fetchMaterials();
+    initTheme();           // Loads from 'theme' key (matches header.js)
+    setupThemeToggle();    // Sets up toggle that saves to 'theme' key
+    initializeSearch();    // Setup search functionality
+    fetchMaterials();      // Load content from JSON
 });
