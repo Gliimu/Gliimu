@@ -1,808 +1,734 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Digital Library | Media Architects</title>
-  <!-- Google Fonts + simple reset -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Library | Glimu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #f6f9fc;
-      color: #1a2c3e;
-      line-height: 1.4;
-    }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+        }
 
-    /* global container */
-    .app-container {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 1.5rem 2rem 2rem 2rem;
-    }
+        /* Header/Nav */
+        .header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
 
-    /* top navigation bar */
-    .top-nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #e2edf2;
-    }
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
 
-    .logo-area {
-      display: flex;
-      align-items: baseline;
-      gap: 0.25rem;
-    }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
 
-    .logo {
-      font-size: 1.8rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #1E4A6B, #2C7A4D);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      letter-spacing: -0.3px;
-    }
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
 
-    .tag {
-      font-size: 0.75rem;
-      font-weight: 500;
-      background: #eef2f5;
-      padding: 0.2rem 0.6rem;
-      border-radius: 40px;
-      color: #2c5a6e;
-      margin-left: 8px;
-    }
+        .nav-links a {
+            text-decoration: none;
+            color: #475569;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
 
-    .nav-links {
-      display: flex;
-      gap: 1.8rem;
-      align-items: center;
-    }
+        .nav-links a:hover {
+            color: #3b82f6;
+        }
 
-    .nav-links a {
-      text-decoration: none;
-      color: #2c5a6e;
-      font-weight: 500;
-      font-size: 0.95rem;
-      transition: 0.2s;
-    }
+        .sign-btn {
+            padding: 0.5rem 1.25rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 50px;
+            background: white;
+            font-weight: 600;
+        }
 
-    .nav-links a:hover {
-      color: #1e7b4b;
-    }
+        /* Upgrade Banner */
+        .upgrade-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 1rem auto 0;
+            border-radius: 12px;
+        }
 
-    .sign-btn {
-      background: white;
-      border: 1.5px solid #cbdde6;
-      padding: 0.4rem 1.2rem;
-      border-radius: 40px;
-      font-weight: 600;
-      color: #1e4a6b;
-    }
+        .upgrade-banner span {
+            font-weight: 500;
+        }
 
-    /* upgrade banner */
-    .upgrade-ribbon {
-      background: linear-gradient(98deg, #eef3f7, #ffffff);
-      border-radius: 60px;
-      padding: 0.6rem 1.5rem;
-      margin-bottom: 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 1rem;
-      border: 1px solid #dee9ef;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-    }
+        .upgrade-link {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1.25rem;
+            border-radius: 50px;
+            text-decoration: none;
+            color: white;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
 
-    .upgrade-text {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 0.9rem;
-    }
+        .upgrade-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
 
-    .badge {
-      background: #2c7a4d20;
-      padding: 0.25rem 0.9rem;
-      border-radius: 50px;
-      font-weight: 600;
-      font-size: 0.75rem;
-      color: #1f6e43;
-    }
+        /* Main Layout */
+        .main-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            gap: 2rem;
+        }
 
-    .upgrade-link {
-      background: #1e4a6b;
-      color: white;
-      text-decoration: none;
-      padding: 0.4rem 1.4rem;
-      border-radius: 40px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      transition: 0.2s;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
+        /* Sidebar */
+        .sidebar {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            height: fit-content;
+            position: sticky;
+            top: 90px;
+        }
 
-    .upgrade-link:hover {
-      background: #0f3c57;
-    }
+        .sidebar-section {
+            margin-bottom: 2rem;
+        }
 
-    /* main grid: sidebar + content */
-    .library-layout {
-      display: grid;
-      grid-template-columns: 260px 1fr;
-      gap: 2rem;
-      margin-top: 0.5rem;
-    }
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
 
-    /* sidebar */
-    .sidebar {
-      background: white;
-      border-radius: 28px;
-      padding: 1.5rem 1rem;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.02), 0 2px 6px rgba(0,0,0,0.05);
-      border: 1px solid #e7f0f4;
-      height: fit-content;
-      position: sticky;
-      top: 1rem;
-    }
+        .sidebar-menu {
+            list-style: none;
+        }
 
-    .sidebar-section {
-      margin-bottom: 2rem;
-    }
+        .sidebar-menu li {
+            margin-bottom: 0.5rem;
+        }
 
-    .sidebar-title {
-      font-weight: 600;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #6f8f9f;
-      margin-bottom: 1rem;
-    }
+        .sidebar-menu a {
+            text-decoration: none;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
 
-    .sidebar-menu {
-      list-style: none;
-    }
+        .sidebar-menu a:hover {
+            background: #f1f5f9;
+            color: #3b82f6;
+        }
 
-    .sidebar-menu li {
-      margin-bottom: 0.7rem;
-    }
+        .sidebar-menu a.active {
+            background: #eff6ff;
+            color: #3b82f6;
+        }
 
-    .sidebar-menu a {
-      text-decoration: none;
-      color: #2c5a6e;
-      font-weight: 500;
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: 0.2s;
-      padding: 0.3rem 0;
-    }
+        /* Content Area */
+        .content-header {
+            margin-bottom: 1.5rem;
+        }
 
-    .sidebar-menu a.active {
-      color: #1f8a4c;
-      font-weight: 700;
-    }
+        .search-bar {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
 
-    .sidebar-menu a:hover {
-      color: #1f8a4c;
-      padding-left: 4px;
-    }
+        .search-bar input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
 
-    /* search & filter row */
-    .content-header {
-      margin-bottom: 1.8rem;
-    }
+        .search-bar input:focus {
+            border-color: #3b82f6;
+        }
 
-    .search-bar {
-      display: flex;
-      align-items: center;
-      background: white;
-      border-radius: 60px;
-      padding: 0.4rem 0.4rem 0.4rem 1.2rem;
-      border: 1px solid #dce7ed;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-      max-width: 450px;
-    }
+        .search-bar button {
+            padding: 0.75rem 1.5rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
 
-    .search-bar input {
-      flex: 1;
-      border: none;
-      padding: 0.7rem 0;
-      font-size: 0.9rem;
-      background: transparent;
-      outline: none;
-      font-family: inherit;
-    }
+        .search-bar button:hover {
+            background: #2563eb;
+        }
 
-    .search-bar button {
-      background: #eef3f7;
-      border: none;
-      padding: 0.5rem 1.2rem;
-      border-radius: 50px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-    }
+        /* Filter Chips */
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
 
-    /* filter chips */
-    .filter-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin: 1rem 0 1.5rem 0;
-    }
+        .filter-chip {
+            padding: 0.4rem 1rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
 
-    .chip {
-      background: #f0f4f7;
-      padding: 0.3rem 1rem;
-      border-radius: 40px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: 0.1s;
-      color: #2c5a6e;
-    }
+        .filter-chip:hover {
+            background: #f1f5f9;
+        }
 
-    .chip.active {
-      background: #1e4a6b;
-      color: white;
-    }
+        .filter-chip.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
 
-    /* book grid */
-    .books-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      gap: 1.8rem;
-    }
+        /* Books Grid */
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
 
-    .book-card {
-      background: white;
-      border-radius: 24px;
-      overflow: hidden;
-      transition: transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 5px 12px rgba(0, 0, 0, 0.03);
-      border: 1px solid #e9f0f4;
-      cursor: pointer;
-    }
+        .book-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
 
-    .book-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 20px 28px -12px rgba(0, 32, 32, 0.15);
-      border-color: #cde0e8;
-    }
+        .book-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.15);
+        }
 
-    .book-cover {
-      aspect-ratio: 2 / 2.8;
-      background: #eef3f7;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 3rem;
-      font-weight: 600;
-      color: #2a6e4b;
-      background: linear-gradient(145deg, #f4fafd, #e2edf2);
-    }
+        .book-cover {
+            aspect-ratio: 2/2.5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            position: relative;
+        }
 
-    .book-info {
-      padding: 1rem 0.9rem 1.1rem;
-    }
+        .premium-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #fbbf24;
+            color: #78350f;
+            padding: 0.25rem 0.5rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
 
-    .book-title {
-      font-weight: 700;
-      font-size: 0.95rem;
-      margin-bottom: 0.25rem;
-      color: #1e3b4a;
-      line-height: 1.3;
-    }
+        .book-info {
+            padding: 1rem;
+        }
 
-    .book-author {
-      font-size: 0.75rem;
-      color: #6d8e9c;
-      margin: 0.3rem 0;
-    }
+        .book-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+            color: #0f172a;
+        }
 
-    .book-type {
-      font-size: 0.7rem;
-      background: #eef2f5;
-      display: inline-block;
-      padding: 0.2rem 0.6rem;
-      border-radius: 20px;
-      margin-top: 0.4rem;
-      font-weight: 500;
-    }
+        .book-author {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
 
-    .empty-state {
-      text-align: center;
-      padding: 3rem;
-      background: white;
-      border-radius: 32px;
-      color: #6f8f9f;
-    }
+        .book-meta {
+            display: flex;
+            gap: 0.5rem;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
 
-    /* subscription modal (no footer) */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 20, 20, 0.7);
-      backdrop-filter: blur(5px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      visibility: hidden;
-      opacity: 0;
-      transition: 0.2s;
-    }
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
 
-    .modal-overlay.active {
-      visibility: visible;
-      opacity: 1;
-    }
+        .modal.active {
+            display: flex;
+        }
 
-    .modal-container {
-      background: white;
-      max-width: 480px;
-      width: 90%;
-      border-radius: 42px;
-      padding: 2rem 2rem 2rem 2rem;
-      box-shadow: 0 30px 40px rgba(0,0,0,0.2);
-      text-align: center;
-      position: relative;
-    }
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+            animation: modalSlideIn 0.3s ease;
+        }
 
-    .modal-icon {
-      font-size: 3rem;
-      margin-bottom: 0.7rem;
-    }
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
 
-    .modal-container h3 {
-      font-size: 1.7rem;
-      margin-bottom: 0.75rem;
-      font-weight: 700;
-    }
+        .modal-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
 
-    .modal-container p {
-      color: #3a5e6e;
-      margin-bottom: 1.8rem;
-      line-height: 1.4;
-    }
+        .modal-content h2 {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
 
-    .modal-buttons {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-    }
+        .modal-content p {
+            color: #475569;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
 
-    .modal-btn {
-      padding: 0.7rem 1.5rem;
-      border-radius: 60px;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-    }
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
 
-    .modal-btn-primary {
-      background: #1e4a6b;
-      color: white;
-    }
+        .modal-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
 
-    .modal-btn-secondary {
-      background: #eef2f5;
-      color: #1e4a6b;
-    }
+        .modal-btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
 
-    /* loader */
-    .loader-placeholder {
-      text-align: center;
-      padding: 3rem;
-      color: #618a9b;
-      font-weight: 500;
-    }
+        .modal-btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
 
-    @media (max-width: 720px) {
-      .app-container {
-        padding: 1rem;
-      }
-      .library-layout {
-        grid-template-columns: 1fr;
-      }
-      .sidebar {
-        position: static;
-      }
-    }
-  </style>
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #64748b;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                padding: 0 1rem;
+            }
+            
+            .sidebar {
+                position: static;
+            }
+            
+            .header {
+                padding: 0 1rem;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="app-container">
-  <!-- Top navigation -->
-  <div class="top-nav">
-    <div class="logo-area">
-      <span class="logo">Glimu</span>
-      <span class="tag">Media Architects</span>
-    </div>
-    <div class="nav-links">
-      <a href="#">Hub</a>
-      <a href="#" class="active-nav">Library</a>
-      <a href="#">Faq</a>
-      <a href="#" class="sign-btn">Sign in</a>
-    </div>
-  </div>
-
-  <!-- Upgrade plan banner (free tier info) -->
-  <div class="upgrade-ribbon">
-    <div class="upgrade-text">
-      <span class="badge">✨ Premium learning</span>
-      <span>Unlock unlimited resources & interactive cases</span>
-    </div>
-    <a href="#" class="upgrade-link" id="openUpgradeModalBtn">Upgrade Plan →</a>
-  </div>
-
-  <div class="library-layout">
-    <!-- left sidebar (Browse, My Shelf, Subscription) -->
-    <aside class="sidebar">
-      <div class="sidebar-section">
-        <div class="sidebar-title">DISCOVER</div>
-        <ul class="sidebar-menu">
-          <li><a href="#" data-filter="all" class="filter-nav active">📚 Browse</a></li>
-          <li><a href="#" data-filter="shelf">📖 My Shelf</a></li>
-          <li><a href="#" data-filter="subscription">⭐ Subscription</a></li>
-        </ul>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-title">CATEGORIES</div>
-        <ul class="sidebar-menu" id="categoryList">
-          <!-- dynamic categories will be inserted here -->
-          <li><a href="#" data-cat="all" class="cat-filter active-cat">All Categories</a></li>
-        </ul>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-title">TYPES</div>
-        <ul class="sidebar-menu" id="typeList">
-          <li><a href="#" data-type="all" class="type-filter active-type">All Types</a></li>
-        </ul>
-      </div>
-    </aside>
-
-    <!-- main content -->
-    <main>
-      <div class="content-header">
-        <div class="search-bar">
-          <input type="text" id="searchInput" placeholder="Search materials.." autocomplete="off">
-          <button id="searchBtn">🔍 Search</button>
+    <div class="header">
+        <div class="nav-container">
+            <div class="logo">Glimu</div>
+            <div class="nav-links">
+                <a href="#">Hub</a>
+                <a href="#" style="color: #3b82f6;">Library</a>
+                <a href="#">Faq</a>
+                <a href="#" class="sign-btn">Sign in</a>
+            </div>
         </div>
-        <div class="filter-chips" id="mobileChips">
-          <!-- optional chip row for categories (quick filters) -->
-        </div>
-      </div>
-
-      <div id="booksContainer" class="books-grid">
-        <div class="loader-placeholder">Loading materials... 📚</div>
-      </div>
-    </main>
-  </div>
-</div>
-
-<!-- subscription / upgrade modal (no footer) -->
-<div id="subscriptionModal" class="modal-overlay">
-  <div class="modal-container">
-    <div class="modal-icon">📘✨</div>
-    <h3>Unlock full library</h3>
-    <p>Premium learning materials, case studies, and media toolkits. Upgrade to subscription and get unlimited access to every resource.</p>
-    <div class="modal-buttons">
-      <button class="modal-btn modal-btn-secondary" id="closeModalBtn">Maybe later</button>
-      <button class="modal-btn modal-btn-primary" id="confirmUpgradeBtn">View plans</button>
     </div>
-  </div>
-</div>
 
-<script>
-  // ---------------------- GLOBAL STATE -------------------------
-  let allMaterials = [];           // raw from JSON
-  let activeView = "all";          // "all", "shelf", "subscription"
-  let activeCategory = "all";
-  let activeType = "all";
-  let searchQuery = "";
+    <div class="upgrade-banner">
+        <span>✨ Premium learning materials for Media Architects</span>
+        <a href="#" class="upgrade-link" id="upgradeBtn">Upgrade Plan →</a>
+    </div>
 
-  // DOM elements
-  const booksContainer = document.getElementById("booksContainer");
-  const searchInput = document.getElementById("searchInput");
-  const searchBtn = document.getElementById("searchBtn");
-  const modalOverlay = document.getElementById("subscriptionModal");
-  const openModalBtn = document.getElementById("openUpgradeModalBtn");
-  const closeModalBtn = document.getElementById("closeModalBtn");
-  const confirmUpgrade = document.getElementById("confirmUpgradeBtn");
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Menu</h3>
+                <ul class="sidebar-menu">
+                    <li><a href="#" data-view="browse" class="active">📚 Browse</a></li>
+                    <li><a href="#" data-view="shelf">📖 My Shelf</a></li>
+                    <li><a href="#" data-view="subscription">⭐ Subscription</a></li>
+                </ul>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Categories</h3>
+                <ul class="sidebar-menu" id="categoryList"></ul>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Types</h3>
+                <ul class="sidebar-menu" id="typeList"></ul>
+            </div>
+        </aside>
 
-  // helper: close modal
-  function closeModal() {
-    modalOverlay.classList.remove("active");
-  }
-  function openModal() {
-    modalOverlay.classList.add("active");
-  }
+        <main>
+            <div class="content-header">
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Search materials...">
+                    <button id="searchBtn">Search</button>
+                </div>
+                <div class="filters" id="filterChips"></div>
+            </div>
 
-  // event listeners for modal
-  if(openModalBtn) openModalBtn.addEventListener("click", (e) => { e.preventDefault(); openModal(); });
-  if(closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
-  if(confirmUpgrade) confirmUpgrade.addEventListener("click", () => {
-    alert("✨ Redirect to subscription plans (demo) — enjoy unlimited access soon!");
-    closeModal();
-  });
-  // close on overlay click
-  modalOverlay.addEventListener("click", (e) => {
-    if(e.target === modalOverlay) closeModal();
-  });
+            <div id="booksContainer">
+                <div class="loading">Loading materials...</div>
+            </div>
+        </main>
+    </div>
 
-  // ---------------------- FETCH JSON -------------------------
-  // We'll fetch from a local "library.json" file (or we can embed test data if file missing, but problem states json file)
-  // Using fetch to /library.json? actually we will also add inline fallback for demo if file doesn't exist, but the requirement is that library.html must fetch from json.
-  // In a real scenario, we create a sample "library.json" in same directory, but to be robust we will fetch and also provide mock.
-  // BUT user says "fetch files from json file to display books". So we ensure fetch is used.
-  const jsonUrl = "library.json";   // relative path - must be same folder
-
-  async function loadMaterials() {
-    try {
-      const response = await fetch(jsonUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
-      // Expecting an array of book objects: { id, title, author, category, type, coverEmoji?, isPremium, coverColor? }
-      if (Array.isArray(data)) {
-        allMaterials = data;
-      } else {
-        console.warn("JSON not array, using fallback");
-        useFallbackData();
-      }
-    } catch (err) {
-      console.warn("Could not fetch library.json, using fallback data", err);
-      useFallbackData();
-    }
-    // after data ready -> render categories/types dynamic and refresh books
-    buildFiltersFromData();
-    renderBooks();
-  }
-
-  function useFallbackData() {
-    // rich dataset to simulate premium library
-    allMaterials = [
-      { id: 1, title: "Visual Storytelling", author: "Elena Ross", category: "Design", type: "Ebook", isPremium: true, coverIcon: "📘" },
-      { id: 2, title: "Media Architecture 101", author: "Julian Hart", category: "Architecture", type: "Course", isPremium: false, coverIcon: "🏛️" },
-      { id: 3, title: "Cinematic Color Grading", author: "Mia Chen", category: "Film", type: "Video", isPremium: true, coverIcon: "🎬" },
-      { id: 4, title: "Brand Strategy Toolkit", author: "Olivia Grant", category: "Marketing", type: "PDF", isPremium: false, coverIcon: "🎯" },
-      { id: 5, title: "Sound Design for Media", author: "David K.", category: "Audio", type: "Audio", isPremium: true, coverIcon: "🎧" },
-      { id: 6, title: "UX Research Methods", author: "Sophia Lin", category: "Design", type: "Ebook", isPremium: false, coverIcon: "🔍" },
-      { id: 7, title: "Smart Cities & Screens", author: "Robert M.", category: "Architecture", type: "Case Study", isPremium: true, coverIcon: "🏙️" },
-      { id: 8, title: "Documentary Filmmaking", author: "Nadia K.", category: "Film", type: "Video", isPremium: true, coverIcon: "🎥" },
-      { id: 9, title: "Motion Graphics Masterclass", author: "Leo Zhang", category: "Design", type: "Course", isPremium: false, coverIcon: "✨" },
-      { id: 10, title: "Immersive Experiences", author: "Samira Jones", category: "Technology", type: "Ebook", isPremium: true, coverIcon: "🥽" },
-      { id: 11, title: "Creative Coding", author: "Anders N.", category: "Technology", type: "Workshop", isPremium: false, coverIcon: "💻" },
-      { id: 12, title: "Advertising Psychology", author: "Claire W.", category: "Marketing", type: "PDF", isPremium: true, coverIcon: "🧠" }
-    ];
-  }
-
-  // build dynamic categories & type filters from data
-  function buildFiltersFromData() {
-    const categoriesSet = new Set();
-    const typesSet = new Set();
-    allMaterials.forEach(mat => {
-      if(mat.category) categoriesSet.add(mat.category);
-      if(mat.type) typesSet.add(mat.type);
-    });
-    const categories = Array.from(categoriesSet).sort();
-    const types = Array.from(typesSet).sort();
-
-    // update category sidebar
-    const categoryContainer = document.getElementById("categoryList");
-    if(categoryContainer) {
-      categoryContainer.innerHTML = `<li><a href="#" data-cat="all" class="cat-filter ${activeCategory === 'all' ? 'active-cat' : ''}">All Categories</a></li>`;
-      categories.forEach(cat => {
-        const isActive = activeCategory === cat;
-        categoryContainer.innerHTML += `<li><a href="#" data-cat="${cat}" class="cat-filter ${isActive ? 'active-cat' : ''}">${cat}</a></li>`;
-      });
-      // attach event listeners
-      document.querySelectorAll(".cat-filter").forEach(el => {
-        el.addEventListener("click", (e) => {
-          e.preventDefault();
-          const cat = el.getAttribute("data-cat");
-          activeCategory = cat;
-          activeView = "all";   // switch to browse view when filtering category
-          document.querySelectorAll(".filter-nav").forEach(nav => nav.classList.remove("active"));
-          document.querySelector(".filter-nav[data-filter='all']")?.classList.add("active");
-          activeView = "all";
-          updateActiveStyles();
-          renderBooks();
-        });
-      });
-    }
-
-    const typeContainer = document.getElementById("typeList");
-    if(typeContainer) {
-      typeContainer.innerHTML = `<li><a href="#" data-type="all" class="type-filter ${activeType === 'all' ? 'active-type' : ''}">All Types</a></li>`;
-      types.forEach(t => {
-        typeContainer.innerHTML += `<li><a href="#" data-type="${t}" class="type-filter ${activeType === t ? 'active-type' : ''}">${t}</a></li>`;
-      });
-      document.querySelectorAll(".type-filter").forEach(el => {
-        el.addEventListener("click", (e) => {
-          e.preventDefault();
-          const typeVal = el.getAttribute("data-type");
-          activeType = typeVal;
-          activeView = "all";
-          document.querySelectorAll(".filter-nav").forEach(nav => nav.classList.remove("active"));
-          document.querySelector(".filter-nav[data-filter='all']")?.classList.add("active");
-          activeView = "all";
-          updateActiveStyles();
-          renderBooks();
-        });
-      });
-    }
-
-    // also set chips row from categories just for quick UI
-    const chipsDiv = document.getElementById("mobileChips");
-    if(chipsDiv) {
-      chipsDiv.innerHTML = `<div class="chip ${activeCategory === 'all' ? 'active' : ''}" data-quickcat="all">All</div>`;
-      categories.forEach(cat => {
-        chipsDiv.innerHTML += `<div class="chip ${activeCategory === cat ? 'active' : ''}" data-quickcat="${cat}">${cat}</div>`;
-      });
-      document.querySelectorAll("[data-quickcat]").forEach(chip => {
-        chip.addEventListener("click", () => {
-          const cat = chip.getAttribute("data-quickcat");
-          activeCategory = cat;
-          activeView = "all";
-          updateActiveStyles();
-          renderBooks();
-        });
-      });
-    }
-  }
-
-  function updateActiveStyles() {
-    // update sidebar active states for navigation
-    document.querySelectorAll(".filter-nav").forEach(nav => nav.classList.remove("active"));
-    if(activeView === "all") document.querySelector(".filter-nav[data-filter='all']")?.classList.add("active");
-    if(activeView === "shelf") document.querySelector(".filter-nav[data-filter='shelf']")?.classList.add("active");
-    if(activeView === "subscription") document.querySelector(".filter-nav[data-filter='subscription']")?.classList.add("active");
-
-    // category active style
-    document.querySelectorAll(".cat-filter").forEach(el => {
-      const catVal = el.getAttribute("data-cat");
-      if((catVal === "all" && activeCategory === "all") || (catVal !== "all" && catVal === activeCategory)) {
-        el.classList.add("active-cat");
-      } else {
-        el.classList.remove("active-cat");
-      }
-    });
-    document.querySelectorAll(".type-filter").forEach(el => {
-      const typeVal = el.getAttribute("data-type");
-      if((typeVal === "all" && activeType === "all") || (typeVal !== "all" && typeVal === activeType)) {
-        el.classList.add("active-type");
-      } else {
-        el.classList.remove("active-type");
-      }
-    });
-    // chips update
-    document.querySelectorAll("[data-quickcat]").forEach(chip => {
-      const cat = chip.getAttribute("data-quickcat");
-      if((cat === "all" && activeCategory === "all") || (cat !== "all" && cat === activeCategory)) {
-        chip.classList.add("active");
-      } else {
-        chip.classList.remove("active");
-      }
-    });
-  }
-
-  // filter logic
-  function getFilteredMaterials() {
-    let filtered = [...allMaterials];
-    // view filter: shelf & subscription (demo behavior: shelf = non-premium? but better: shelf shows all, subscription shows only premium)
-    if(activeView === "subscription") {
-      filtered = filtered.filter(m => m.isPremium === true);
-    } else if(activeView === "shelf") {
-      // "My Shelf" shows all items (or personal but we just show all in demo)
-      // keep all (or could show favorited but fine)
-    }
-    // category filter
-    if(activeCategory !== "all") {
-      filtered = filtered.filter(m => m.category === activeCategory);
-    }
-    // type filter
-    if(activeType !== "all") {
-      filtered = filtered.filter(m => m.type === activeType);
-    }
-    // search query (title or author)
-    if(searchQuery.trim() !== "") {
-      const q = searchQuery.trim().toLowerCase();
-      filtered = filtered.filter(m => m.title.toLowerCase().includes(q) || (m.author && m.author.toLowerCase().includes(q)));
-    }
-    return filtered;
-  }
-
-  function renderBooks() {
-    if(!booksContainer) return;
-    const filtered = getFilteredMaterials();
-    if(filtered.length === 0) {
-      booksContainer.innerHTML = `<div class="empty-state">📭 No materials found. Try adjusting filters or search.</div>`;
-      return;
-    }
-    booksContainer.innerHTML = filtered.map(book => {
-      const coverIcon = book.coverIcon || (book.type === "Ebook" ? "📖" : book.type === "Video" ? "🎬" : "📘");
-      const premiumBadge = book.isPremium ? '<span style="background:#f9eec1; color:#a1662f; font-size:0.65rem; margin-left:6px; padding:2px 8px; border-radius:16px;">⭐ premium</span>' : '';
-      return `
-        <div class="book-card" data-id="${book.id}">
-          <div class="book-cover" style="background: linear-gradient(135deg, #EFF7FA, #E2EDF2); font-size: 2.8rem;">
-            ${coverIcon}
-          </div>
-          <div class="book-info">
-            <div class="book-title">${escapeHtml(book.title)} ${premiumBadge}</div>
-            <div class="book-author">${book.author || "Media Architect"}</div>
-            <div class="book-type">${book.type || "Resource"} · ${book.category || "General"}</div>
-          </div>
+    <div id="subscriptionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-icon">📚✨</div>
+            <h2>Subscription Required</h2>
+            <p>This premium content is only available for subscribers. Upgrade your plan to access all learning materials.</p>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Maybe Later</button>
+                <button class="modal-btn modal-btn-primary" onclick="alert('Redirecting to subscription plans...')">View Plans</button>
+            </div>
         </div>
-      `;
-    }).join("");
+    </div>
 
-    // attach click on each book to show subscription modal for premium content (simulate lock)
-    document.querySelectorAll(".book-card").forEach(card => {
-      card.addEventListener("click", (e) => {
-        const id = parseInt(card.getAttribute("data-id"));
-        const material = allMaterials.find(m => m.id === id);
-        if(material && material.isPremium === true) {
-          openModal();   // subscription required modal
-        } else {
-          alert(`📖 Opening "${material?.title || 'material'}" — free access for you!`);
+    <script>
+        // Global state
+        let allBooks = [];
+        let currentView = 'browse';
+        let currentCategory = 'all';
+        let currentType = 'all';
+        let searchQuery = '';
+
+        // DOM elements
+        const booksContainer = document.getElementById('booksContainer');
+        const searchInput = document.getElementById('searchInput');
+        const categoryList = document.getElementById('categoryList');
+        const typeList = document.getElementById('typeList');
+        const filterChips = document.getElementById('filterChips');
+        const modal = document.getElementById('subscriptionModal');
+
+        // Modal functions
+        function openModal() {
+            modal.classList.add('active');
         }
-      });
-    });
-  }
 
-  function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;});}
+        function closeModal() {
+            modal.classList.remove('active');
+        }
 
-  // event listeners for navigation: Browse, My Shelf, Subscription
-  document.querySelectorAll(".filter-nav").forEach(link => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      const filterVal = link.getAttribute("data-filter");
-      if(filterVal === "all") activeView = "all";
-      else if(filterVal === "shelf") activeView = "shelf";
-      else if(filterVal === "subscription") activeView = "subscription";
-      // reset category/type to all when changing main navigation (optional but clean)
-      if(activeView !== "all") {
-        activeCategory = "all";
-        activeType = "all";
-      }
-      updateActiveStyles();
-      renderBooks();
-      if(typeof buildFiltersFromData === "function") buildFiltersFromData();
-    });
-  });
+        window.closeModal = closeModal;
 
-  function searchHandler() {
-    searchQuery = searchInput.value;
-    renderBooks();
-  }
-  searchBtn.addEventListener("click", searchHandler);
-  searchInput.addEventListener("keyup", (e) => { if(e.key === "Enter") searchHandler(); });
+        document.getElementById('upgradeBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal();
+        });
 
-  // initial load
-  loadMaterials();
-  // attach later re-render on type changes
-</script>
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Fetch books from JSON
+        async function fetchBooks() {
+            try {
+                const response = await fetch('library.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load library.json');
+                }
+                const data = await response.json();
+                allBooks = data;
+                console.log('Loaded books:', allBooks.length);
+                buildFilters();
+                renderBooks();
+            } catch (error) {
+                console.error('Error loading books:', error);
+                booksContainer.innerHTML = '<div class="empty-state">❌ Failed to load library data. Please make sure library.json exists.</div>';
+            }
+        }
+
+        // Build category and type filters from data
+        function buildFilters() {
+            const categories = ['all', ...new Set(allBooks.map(book => book.category).filter(Boolean))];
+            const types = ['all', ...new Set(allBooks.map(book => book.type).filter(Boolean))];
+            
+            // Build category list
+            categoryList.innerHTML = categories.map(cat => `
+                <li><a href="#" data-category="${cat}" class="${currentCategory === cat ? 'active' : ''}">${cat === 'all' ? 'All Categories' : cat}</a></li>
+            `).join('');
+            
+            // Build type list
+            typeList.innerHTML = types.map(type => `
+                <li><a href="#" data-type="${type}" class="${currentType === type ? 'active' : ''}">${type === 'all' ? 'All Types' : type}</a></li>
+            `).join('');
+            
+            // Build filter chips
+            filterChips.innerHTML = categories.slice(0, 6).map(cat => `
+                <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">${cat === 'all' ? 'All' : cat}</div>
+            `).join('');
+            
+            // Add event listeners
+            document.querySelectorAll('[data-category]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    currentCategory = el.getAttribute('data-category');
+                    currentView = 'browse';
+                    updateActiveStates();
+                    renderBooks();
+                });
+            });
+            
+            document.querySelectorAll('[data-type]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    currentType = el.getAttribute('data-type');
+                    currentView = 'browse';
+                    updateActiveStates();
+                    renderBooks();
+                });
+            });
+        }
+
+        // Update active states in UI
+        function updateActiveStates() {
+            // Update sidebar navigation
+            document.querySelectorAll('[data-view]').forEach(el => {
+                if (el.getAttribute('data-view') === currentView) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+            
+            // Update category filters
+            document.querySelectorAll('[data-category]').forEach(el => {
+                if (el.getAttribute('data-category') === currentCategory) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+            
+            // Update type filters
+            document.querySelectorAll('[data-type]').forEach(el => {
+                if (el.getAttribute('data-type') === currentType) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+        }
+
+        // Filter books based on current filters
+        function getFilteredBooks() {
+            let filtered = [...allBooks];
+            
+            // Apply view filter
+            if (currentView === 'subscription') {
+                filtered = filtered.filter(book => book.isPremium === true);
+            }
+            
+            // Apply category filter
+            if (currentCategory !== 'all') {
+                filtered = filtered.filter(book => book.category === currentCategory);
+            }
+            
+            // Apply type filter
+            if (currentType !== 'all') {
+                filtered = filtered.filter(book => book.type === currentType);
+            }
+            
+            // Apply search filter
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(book => 
+                    book.title.toLowerCase().includes(query) || 
+                    (book.author && book.author.toLowerCase().includes(query))
+                );
+            }
+            
+            return filtered;
+        }
+
+        // Render books to the grid
+        function renderBooks() {
+            if (!allBooks.length) {
+                booksContainer.innerHTML = '<div class="loading">Loading materials...</div>';
+                return;
+            }
+            
+            const filteredBooks = getFilteredBooks();
+            
+            if (filteredBooks.length === 0) {
+                booksContainer.innerHTML = '<div class="empty-state">📭 No materials found. Try adjusting your filters.</div>';
+                return;
+            }
+            
+            booksContainer.innerHTML = `
+                <div class="books-grid">
+                    ${filteredBooks.map(book => `
+                        <div class="book-card" data-id="${book.id}" data-premium="${book.isPremium}">
+                            <div class="book-cover">
+                                ${book.coverEmoji || '📚'}
+                                ${book.isPremium ? '<div class="premium-badge">⭐ Premium</div>' : ''}
+                            </div>
+                            <div class="book-info">
+                                <div class="book-title">${escapeHtml(book.title)}</div>
+                                <div class="book-author">${book.author || 'Unknown Author'}</div>
+                                <div class="book-meta">
+                                    <span>${book.type || 'Resource'}</span>
+                                    <span>•</span>
+                                    <span>${book.category || 'General'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Add click handlers to book cards
+            document.querySelectorAll('.book-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const isPremium = card.getAttribute('data-premium') === 'true';
+                    if (isPremium && currentView !== 'subscription') {
+                        openModal();
+                    } else {
+                        const bookId = card.getAttribute('data-id');
+                        const book = allBooks.find(b => b.id == bookId);
+                        alert(`Opening: ${book.title}\nThis is a ${book.isPremium ? 'premium' : 'free'} resource.`);
+                    }
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners for sidebar navigation
+        document.querySelectorAll('[data-view]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentView = el.getAttribute('data-view');
+                currentCategory = 'all';
+                currentType = 'all';
+                searchQuery = '';
+                searchInput.value = '';
+                updateActiveStates();
+                renderBooks();
+            });
+        });
+        
+        // Search functionality
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            searchQuery = searchInput.value;
+            currentView = 'browse';
+            updateActiveStates();
+            renderBooks();
+        });
+        
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchQuery = searchInput.value;
+                currentView = 'browse';
+                updateActiveStates();
+                renderBooks();
+            }
+        });
+
+        // Initialize
+        fetchBooks();
+    </script>
 </body>
 </html>
