@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Library – Gliimu Institute</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Digital library with learning materials, books, and bundles for Media Architects.">
+  <meta name="description" content="Digital library with learning materials for Media Architects. Subscribe to access books and bundles.">
   
   <link rel="icon" type="image/png" href="icons/logo2.png">
   
@@ -37,18 +37,36 @@
   <!-- Global Header -->
   <div id="header-placeholder"></div>
 
-  <!-- Library Main Content -->
+  <!-- Library Main Content (No Footer) -->
   <main class="library-main">
     <div class="library-container">
       
       <!-- Page Header -->
       <div class="library-header-section">
         <h1>Digital Library</h1>
-        <p>Premium learning materials for Media Architects</p>
+        <p>Subscribe to access premium learning materials</p>
       </div>
       
-      <!-- Search and Filter Bar -->
-      <div class="library-search-section">
+      <!-- Subscription Banner -->
+      <div class="subscription-banner" id="subscriptionBanner">
+        <!-- Dynamic content based on user subscription -->
+      </div>
+      
+      <!-- Tabs -->
+      <div class="library-tabs">
+        <button class="tab-btn active" data-tab="browse" onclick="switchTab('browse')">
+          <i class="fas fa-book-open"></i> Browse
+        </button>
+        <button class="tab-btn" data-tab="shelf" onclick="switchTab('shelf')">
+          <i class="fas fa-bookshelf"></i> My Shelf
+        </button>
+        <button class="tab-btn" data-tab="subscription" onclick="switchTab('subscription')">
+          <i class="fas fa-crown"></i> Subscription
+        </button>
+      </div>
+      
+      <!-- Search and Filter Bar (Browse Tab) -->
+      <div class="library-search-section" id="searchSection">
         <div class="search-wrapper">
           <i class="fas fa-search"></i>
           <input type="text" id="searchInput" placeholder="Search materials...">
@@ -68,40 +86,55 @@
         </div>
       </div>
       
-      <!-- Materials Grid (Masonry) -->
-      <div class="masonry-grid" id="materialsGrid">
-        <div class="loading-state">
-          <i class="fas fa-spinner fa-spin"></i>
-          <p>Loading materials...</p>
+      <!-- Browse Tab Content -->
+      <div id="browseContent" class="tab-content active">
+        <div class="masonry-grid" id="materialsGrid">
+          <div class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading materials...</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- My Shelf Tab Content -->
+      <div id="shelfContent" class="tab-content">
+        <div class="shelf-header">
+          <h3>My Reading List</h3>
+          <p id="shelfStats"></p>
+        </div>
+        <div class="shelf-grid" id="shelfGrid">
+          <div class="empty-state">
+            <i class="fas fa-bookshelf"></i>
+            <h4>Your shelf is empty</h4>
+            <p>Browse the library and add books to your shelf.</p>
+            <button class="btn-primary" onclick="switchTab('browse')">Browse Library →</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Subscription Tab Content -->
+      <div id="subscriptionContent" class="tab-content">
+        <div class="subscription-plans" id="subscriptionPlans">
+          <!-- Dynamic subscription plans -->
         </div>
       </div>
       
     </div>
   </main>
 
-  <!-- Footer -->
-  <div id="footer-placeholder"></div>
-
   <!-- Login Modal Placeholder -->
   <div id="login-modal-placeholder"></div>
 
-  <!-- Detail Modal -->
-  <div class="modal-overlay" id="detailModal">
-    <div class="detail-modal">
-      <button class="detail-close" onclick="closeDetailModal()">&times;</button>
-      <div class="detail-modal-content">
-        <div class="detail-image">
-          <img id="detailImage" src="" alt="">
-        </div>
-        <div class="detail-info">
-          <h2 id="detailTitle"></h2>
-          <div class="detail-price" id="detailPrice"></div>
-          <p class="detail-description" id="detailDescription"></p>
-          <div class="detail-meta">
-            <span id="detailCategory"></span>
-            <span id="detailType"></span>
-          </div>
-        </div>
+  <!-- Reader Modal (For reading books) -->
+  <div class="modal-overlay" id="readerModal">
+    <div class="reader-modal">
+      <button class="reader-close" onclick="closeReaderModal()">&times;</button>
+      <div class="reader-header">
+        <h2 id="readerTitle"></h2>
+        <div class="reader-meta" id="readerMeta"></div>
+      </div>
+      <div class="reader-content" id="readerContent">
+        <div class="reader-loading">Loading content...</div>
       </div>
     </div>
   </div>
@@ -110,7 +143,7 @@
   <script src="js/pages/header.js"></script>
   <script src="js/pages/library.js"></script>
 
-  <!-- Load Partials -->
+  <!-- Load Partials (Header and Modal only - NO FOOTER) -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       // Load header
@@ -120,14 +153,6 @@
           document.getElementById('header-placeholder').innerHTML = html;
         })
         .catch(err => console.error('Header error:', err));
-      
-      // Load footer
-      fetch('partials/footer.html')
-        .then(r => r.text())
-        .then(html => {
-          document.getElementById('footer-placeholder').innerHTML = html;
-        })
-        .catch(err => console.error('Footer error:', err));
       
       // Load login modal
       fetch('partials/login-modal.html')
