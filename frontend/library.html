@@ -7,58 +7,75 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/header.css">
     <link rel="stylesheet" href="css/library.css">
+    <style>
+        /* CSS Variables for the library theme */
+        :root {
+            --white: #ffffff;
+            --accent: #fbb040;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-section-alt: #f1f5f9;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        body.dark-mode {
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --bg-section-alt: #334155;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            transition: background 0.3s, color 0.3s;
+        }
+    </style>
 </head>
 <body>
     <!-- Global Header -->
     <div id="global-header"></div>
 
-    <!-- Main Library Content -->
-    <div class="library-container">
-        <!-- Upgrade Banner -->
-        <div class="upgrade-banner">
-            <span>✨ Premium learning materials for Media Architects</span>
-            <a href="#" class="upgrade-link" id="upgradeBtn">Upgrade Plan →</a>
+    <!-- Hero Section -->
+    <section class="library-hero">
+        <div class="ripple-bg"></div>
+        <div class="library-hero-inner">
+            <h1>Digital Library</h1>
+            <p>Premium learning materials for Media Architects</p>
+            <div class="search-box-large">
+                <input type="text" id="heroSearchInput" placeholder="Search materials by title or description...">
+                <button id="heroSearchBtn">🔍 Search</button>
+            </div>
         </div>
+    </section>
 
-        <div class="main-container">
-            <!-- Sidebar -->
-            <aside class="sidebar">
-                <div class="sidebar-section">
-                    <h3>Menu</h3>
-                    <ul class="sidebar-menu">
-                        <li><a data-view="browse" class="active">📚 Browse</a></li>
-                        <li><a data-view="shelf">📖 My Shelf</a></li>
-                        <li><a data-view="subscription">⭐ Subscription</a></li>
-                    </ul>
-                </div>
-                
-                <div class="sidebar-section">
-                    <h3>Categories</h3>
-                    <ul class="sidebar-menu" id="categoryList"></ul>
-                </div>
-                
-                <div class="sidebar-section">
-                    <h3>Types</h3>
-                    <ul class="sidebar-menu" id="typeList"></ul>
-                </div>
-            </aside>
-
-            <!-- Main Content -->
-            <main>
-                <div class="content-header">
-                    <div class="search-bar">
-                        <input type="text" id="searchInput" placeholder="Search materials by title or description...">
-                        <button id="searchBtn">🔍 Search</button>
-                    </div>
-                    <div class="filters" id="filterChips"></div>
-                </div>
-
-                <div id="booksContainer">
-                    <div class="loading">Loading materials...</div>
-                </div>
-            </main>
+    <!-- Materials Section -->
+    <section class="materials-section">
+        <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
+            <div class="section-header">
+                <h2>All Materials</h2>
+                <p>Browse our collection of books and bundles</p>
+            </div>
+            
+            <!-- Filter Bar -->
+            <div class="filters" id="filterChips" style="margin-bottom: 32px; display: flex; gap: 12px; flex-wrap: wrap;"></div>
+            
+            <!-- Masonry Grid -->
+            <div id="booksContainer" class="pinterest-grid">
+                <div class="loading" style="text-align: center; padding: 60px;">Loading materials...</div>
+            </div>
         </div>
-    </div>
+    </section>
 
     <!-- Subscription Modal -->
     <div id="subscriptionModal" class="modal">
