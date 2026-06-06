@@ -7,126 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/header.css">
     <link rel="stylesheet" href="css/library.css">
-    <style>
-        /* CSS Variables for the library theme */
-        :root {
-            --white: #ffffff;
-            --accent: #fbb040;
-            --bg-body: #f8fafc;
-            --bg-card: #ffffff;
-            --bg-section-alt: #f1f5f9;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        
-        body.dark-mode {
-            --bg-body: #0f172a;
-            --bg-card: #1e293b;
-            --bg-section-alt: #334155;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-body);
-            color: var(--text-main);
-            transition: background 0.3s, color 0.3s;
-        }
-        
-        .access-badge {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            z-index: 2;
-        }
-        
-        .free-badge {
-            background: #10b981;
-            color: white;
-        }
-        
-        .premium-badge {
-            background: #fbb040;
-            color: #111;
-        }
-        
-        .usage-stats {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin-top: 20px;
-            padding: 12px;
-            background: rgba(0,0,0,0.05);
-            border-radius: 12px;
-            font-size: 0.85rem;
-        }
-        
-        /* Plan Cards */
-        .plan-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        
-        .plan-card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: 2px solid transparent;
-        }
-        
-        .plan-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--accent);
-        }
-        
-        .plan-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 12px;
-        }
-        
-        .plan-price {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--accent);
-            margin: 12px 0;
-        }
-        
-        .plan-features {
-            list-style: none;
-            margin: 16px 0;
-        }
-        
-        .plan-features li {
-            padding: 6px 0;
-            font-size: 0.85rem;
-        }
-        
-        .demo-note {
-            background: #fef3c7;
-            color: #92400e;
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            margin-top: 12px;
-        }
-    </style>
 </head>
 <body>
     <!-- Global Header -->
@@ -139,121 +19,7 @@
             <h1>Digital Library</h1>
             <p>Premium learning materials for Media Architects</p>
             <div class="search-box-large">
-                <input type="text" id="heroSearchInput" placeholder="Search materials by title or description...">
-                <button id="heroSearchBtn">🔍 Search</button>
-            </div>
-            <div id="usageStats"></div>
-        </div>
-    </section>
-
-    <!-- Materials Section -->
-    <section class="materials-section">
-        <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
-            <div class="section-header">
-                <h2>All Materials</h2>
-                <p>Browse our collection of books and bundles</p>
-            </div>
-            
-            <!-- Filter Bar -->
-            <div class="filters" id="filterChips" style="margin-bottom: 32px; display: flex; gap: 12px; flex-wrap: wrap;"></div>
-            
-            <!-- Masonry Grid -->
-            <div id="booksContainer" class="pinterest-grid">
-                <div class="loading" style="text-align: center; padding: 60px;">Loading materials...</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Subscription Modal -->
-    <div id="subscriptionModal" class="modal">
-        <div class="modal-content">
-            <div id="subscriptionModalContent">
-                <div class="modal-icon">📚✨</div>
-                <h2>Subscription Required</h2>
-                <p>This premium content is only available for subscribers. Upgrade your plan to access all learning materials.</p>
-                <div class="modal-buttons">
-                    <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button class="modal-btn modal-btn-primary" onclick="closeModal(); openPlanModal();">View Plans</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Plan Selection Modal -->
-    <div id="planSelectionModal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-icon">💎</div>
-            <h2>Choose Your Plan</h2>
-            <p>Select a plan that fits your learning needs</p>
-            
-            <div class="plan-cards">
-                <div class="plan-card" onclick="selectPlan('basic')">
-                    <h3>Basic</h3>
-                    <div class="plan-price">$9.99/month</div>
-                    <ul class="plan-features">
-                        <li>✓ 1 Book per month</li>
-                        <li>✓ 1 Bundle download</li>
-                        <li>✓ Basic support</li>
-                    </ul>
-                </div>
-                
-                <div class="plan-card" onclick="selectPlan('standard')">
-                    <h3>Standard</h3>
-                    <div class="plan-price">$19.99/month</div>
-                    <ul class="plan-features">
-                        <li>✓ 3 Books per month</li>
-                        <li>✓ 3 Bundle downloads</li>
-                        <li>✓ Priority support</li>
-                        <li>✓ Download resources</li>
-                    </ul>
-                </div>
-                
-                <div class="plan-card" onclick="selectPlan('premium')">
-                    <h3>Premium</h3>
-                    <div class="plan-price">$29.99/month</div>
-                    <ul class="plan-features">
-                        <li>✓ Unlimited books</li>
-                        <li>✓ Unlimited bundles</li>
-                        <li>✓ 24/7 priority support</li>
-                        <li>✓ All resources included</li>
-                        <li>✓ Certificate of completion</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="demo-note">
-                ℹ️ Demo mode: Plan selection simulates subscription. In production, this would integrate with your wallet/dashboard for payment processing.
-            </div>
-            
-            <div class="modal-buttons" style="margin-top: 24px;">
-                <button class="modal-btn modal-btn-secondary" onclick="closePlanModal()">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="js/pages/header.js"></script>
-    <script src="js/pages/library.js"></script>
-</body>
-</html>        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-body);
-            color: var(--text-main);
-            transition: background 0.3s, color 0.3s;
-        }
-    </style>
-</head>
-<body>
-    <!-- Global Header -->
-    <div id="global-header"></div>
-
-    <!-- Hero Section -->
-    <section class="library-hero">
-        <div class="ripple-bg"></div>
-        <div class="library-hero-inner">
-            <h1>Digital Library</h1>
-            <p>Premium learning materials for Media Architects</p>
-            <div class="search-box-large">
-                <input type="text" id="heroSearchInput" placeholder="Search materials by title or description...">
+                <input type="text" id="heroSearchInput" placeholder="Search materials...">
                 <button id="heroSearchBtn">🔍 Search</button>
             </div>
         </div>
@@ -261,34 +27,16 @@
 
     <!-- Materials Section -->
     <section class="materials-section">
-        <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
-            <div class="section-header">
-                <h2>All Materials</h2>
-                <p>Browse our collection of books and bundles</p>
-            </div>
-            
+        <div class="container">
             <!-- Filter Bar -->
-            <div class="filters" id="filterChips" style="margin-bottom: 32px; display: flex; gap: 12px; flex-wrap: wrap;"></div>
+            <div class="filters" id="filterChips"></div>
             
             <!-- Masonry Grid -->
             <div id="booksContainer" class="pinterest-grid">
-                <div class="loading" style="text-align: center; padding: 60px;">Loading materials...</div>
+                <div class="loading">Loading materials...</div>
             </div>
         </div>
     </section>
-
-    <!-- Subscription Modal -->
-    <div id="subscriptionModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-icon">📚✨</div>
-            <h2>Subscription Required</h2>
-            <p>This premium content is only available for subscribers. Upgrade your plan to access all learning materials.</p>
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Maybe Later</button>
-                <button class="modal-btn modal-btn-primary" onclick="alert('Redirecting to subscription plans...')">View Plans</button>
-            </div>
-        </div>
-    </div>
 
     <script src="js/pages/header.js"></script>
     <script src="js/pages/library.js"></script>
