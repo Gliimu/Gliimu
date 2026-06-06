@@ -14,22 +14,35 @@ const typeList = document.getElementById('typeList');
 const filterChips = document.getElementById('filterChips');
 const modal = document.getElementById('subscriptionModal');
 
+// Wait for header to load before initializing library
+document.addEventListener('DOMContentLoaded', () => {
+    // Small delay to ensure header is fully loaded
+    setTimeout(() => {
+        initializeEventListeners();
+        fetchMaterials();
+    }, 100);
+});
+
 // Modal functions
 function openModal() {
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 function closeModal() {
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
 // Make closeModal available globally for onclick
 window.closeModal = closeModal;
 
-// Event listeners for modal and upgrade button
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize event listeners
+function initializeEventListeners() {
     const upgradeBtn = document.getElementById('upgradeBtn');
     if (upgradeBtn) {
         upgradeBtn.addEventListener('click', (e) => {
@@ -46,17 +59,51 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Escape key to close modal
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('active')) {
+        if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
             closeModal();
         }
     });
-});
+    
+    // Event listeners for sidebar navigation
+    document.querySelectorAll('[data-view]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentView = el.getAttribute('data-view');
+            currentCategory = 'all';
+            currentType = 'all';
+            searchQuery = '';
+            if (searchInput) searchInput.value = '';
+            updateActiveStates();
+            renderMaterials();
+        });
+    });
+    
+    // Search functionality
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            searchQuery = searchInput ? searchInput.value : '';
+            currentView = 'browse';
+            updateActiveStates();
+            renderMaterials();
+        });
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchQuery = searchInput.value;
+                currentView = 'browse';
+                updateActiveStates();
+                renderMaterials();
+            }
+        });
+    }
+}
 
 // Fetch materials from JSON file
 async function fetchMaterials() {
     try {
         // Correct path from frontend/js/pages/library.js to backend/data/library.json
-        // Going up from frontend/js/pages/ to frontend/, then to ../backend/data/library.json
         const response = await fetch('../../../backend/data/library.json');
         
         if (!response.ok) {
@@ -273,41 +320,3 @@ function renderMaterials() {
         });
     });
 }
-
-// Event listeners for sidebar navigation
-document.querySelectorAll('[data-view]').forEach(el => {
-    el.addEventListener('click', (e) => {
-        e.preventDefault();
-        currentView = el.getAttribute('data-view');
-        currentCategory = 'all';
-        currentType = 'all';
-        searchQuery = '';
-        if (searchInput) searchInput.value = '';
-        updateActiveStates();
-        renderMaterials();
-    });
-});
-
-// Search functionality
-if (searchBtn) {
-    searchBtn.addEventListener('click', () => {
-        searchQuery = searchInput ? searchInput.value : '';
-        currentView = 'browse';
-        updateActiveStates();
-        renderMaterials();
-    });
-}
-
-if (searchInput) {
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            searchQuery = searchInput.value;
-            currentView = 'browse';
-            updateActiveStates();
-            renderMaterials();
-        }
-    });
-}
-
-// Initialize - fetch from JSON
-fetchMaterials();
