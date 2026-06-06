@@ -21,10 +21,8 @@
     --text-secondary: #64748b;
     --border-color: #e2e8f0;
     --sidebar-width: 280px;
-    --header-height: 60px;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
 body.dark-mode {
@@ -141,7 +139,7 @@ body {
 /* Top Bar */
 .dashboard-topbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     padding: 0.75rem 1rem;
     background: var(--bg-primary);
@@ -165,33 +163,13 @@ body {
     gap: 1rem;
 }
 
-.notification-bell {
-    position: relative;
-    cursor: pointer;
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-}
-
-.notification-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: var(--brand-gold);
-    color: var(--brand-purple);
-    font-size: 0.6rem;
-    font-weight: 700;
-    padding: 2px 5px;
-    border-radius: 10px;
-}
-
 .theme-toggle {
-    background: none;
-    border: none;
-    font-size: 1.1rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--text-primary);
     transition: all 0.2s;
 }
 
@@ -226,6 +204,8 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .section-header h2 {
@@ -236,6 +216,7 @@ body {
 .section-header p {
     color: var(--text-secondary);
     font-size: 0.85rem;
+    margin-top: 0.25rem;
 }
 
 /* Stats Cards */
@@ -296,6 +277,20 @@ body {
     margin-top: 0.25rem;
 }
 
+/* Progress Bar */
+.progress-bar {
+    background: var(--border-color);
+    border-radius: 4px;
+    height: 4px;
+    margin: 8px 0;
+}
+
+.progress-fill {
+    background: var(--brand-gold);
+    border-radius: 4px;
+    height: 100%;
+}
+
 /* Action Cards */
 .action-cards {
     display: grid;
@@ -339,6 +334,13 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     overflow: hidden;
+    margin-top: 1rem;
+}
+
+.data-table h3 {
+    padding: 1rem;
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .data-table table {
@@ -381,15 +383,42 @@ body {
     color: var(--brand-purple);
 }
 
-.status-graded {
-    background: var(--brand-purple);
-    color: white;
+/* Buttons */
+.btn-primary {
+    background: var(--brand-gold);
+    color: var(--brand-purple);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Space Grotesk', sans-serif;
 }
 
-/* Library Grid (for dashboard library tab) */
+.btn-primary:hover {
+    background: var(--brand-gold-dark);
+}
+
+.add-funds-small,
+.upgrade-plan-btn,
+.submit-btn,
+.grade-btn {
+    background: var(--brand-gold);
+    color: var(--brand-purple);
+    border: none;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
+
+/* Library Grid */
 .library-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 1rem;
     margin-top: 1rem;
 }
@@ -429,50 +458,37 @@ body {
     color: var(--text-secondary);
 }
 
-/* Forms */
-.form-group {
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.empty-state i {
+    font-size: 2.5rem;
+    color: var(--brand-gold);
     margin-bottom: 1rem;
 }
 
-.form-group label {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 500;
+.empty-state h3 {
+    font-size: 1rem;
     margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    font-size: 0.8rem;
     color: var(--text-secondary);
+    margin-bottom: 1rem;
 }
 
-.form-group input,
-.form-group textarea,
-.form-group select {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.85rem;
-}
-
-.form-group textarea {
-    resize: vertical;
-    min-height: 100px;
-}
-
-.btn-primary {
-    background: var(--brand-gold);
-    color: var(--brand-purple);
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-primary:hover {
-    background: var(--brand-gold-dark);
+/* Loading Spinner */
+.loading-spinner {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
 }
 
 /* Modal */
@@ -751,5 +767,10 @@ body {
     
     .plan-cards {
         grid-template-columns: 1fr;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
