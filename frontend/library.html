@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Library – Gliimu Institute</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Digital library with learning materials for Media Architects. Subscribe to access books and bundles.">
+  <meta name="description" content="Digital library with learning materials for Media Architects.">
   
   <link rel="icon" type="image/png" href="icons/logo2.png">
   
@@ -14,9 +14,10 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- External CSS Files -->
+  <!-- External CSS Files - CORRECT ORDER -->
   <link rel="stylesheet" href="css/global.css">
   <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/modal.css">
   <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
@@ -37,19 +38,14 @@
   <!-- Global Header -->
   <div id="header-placeholder"></div>
 
-  <!-- Library Main Content (No Footer) -->
+  <!-- Library Main Content -->
   <main class="library-main">
     <div class="library-container">
       
       <!-- Page Header -->
       <div class="library-header-section">
         <h1>Digital Library</h1>
-        <p>Subscribe to access premium learning materials</p>
-      </div>
-      
-      <!-- Subscription Banner -->
-      <div class="subscription-banner" id="subscriptionBanner">
-        <!-- Dynamic content based on user subscription -->
+        <p>Premium learning materials for Media Architects</p>
       </div>
       
       <!-- Tabs -->
@@ -114,9 +110,7 @@
       
       <!-- Subscription Tab Content -->
       <div id="subscriptionContent" class="tab-content">
-        <div class="subscription-plans" id="subscriptionPlans">
-          <!-- Dynamic subscription plans -->
-        </div>
+        <div class="subscription-plans" id="subscriptionPlans"></div>
       </div>
       
     </div>
@@ -125,7 +119,7 @@
   <!-- Login Modal Placeholder -->
   <div id="login-modal-placeholder"></div>
 
-  <!-- Reader Modal (For reading books) -->
+  <!-- Reader Modal -->
   <div class="modal-overlay" id="readerModal">
     <div class="reader-modal">
       <button class="reader-close" onclick="closeReaderModal()">&times;</button>
@@ -133,9 +127,7 @@
         <h2 id="readerTitle"></h2>
         <div class="reader-meta" id="readerMeta"></div>
       </div>
-      <div class="reader-content" id="readerContent">
-        <div class="reader-loading">Loading content...</div>
-      </div>
+      <div class="reader-content" id="readerContent"></div>
     </div>
   </div>
 
@@ -143,7 +135,7 @@
   <script src="js/pages/header.js"></script>
   <script src="js/pages/library.js"></script>
 
-  <!-- Load Partials (Header and Modal only - NO FOOTER) -->
+  <!-- Load Partials -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       // Load header
