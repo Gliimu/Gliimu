@@ -5,23 +5,23 @@ let searchQuery = '';
 
 // DOM elements
 const booksContainer = document.getElementById('booksContainer');
-const heroSearchInput = document.getElementById('heroSearchInput');
-const heroSearchBtn = document.getElementById('heroSearchBtn');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
 const filterChips = document.getElementById('filterChips');
 
 // Initialize event listeners
 function initializeEventListeners() {
-    if (heroSearchBtn) {
-        heroSearchBtn.addEventListener('click', () => {
-            searchQuery = heroSearchInput ? heroSearchInput.value : '';
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            searchQuery = searchInput ? searchInput.value : '';
             renderMaterials();
         });
     }
     
-    if (heroSearchInput) {
-        heroSearchInput.addEventListener('keypress', (e) => {
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                searchQuery = heroSearchInput.value;
+                searchQuery = searchInput.value;
                 renderMaterials();
             }
         });
@@ -31,7 +31,6 @@ function initializeEventListeners() {
 // Fetch materials from JSON file
 async function fetchMaterials() {
     try {
-        // Try multiple possible paths
         let response = await fetch('../../backend/data/library.json');
         
         if (!response.ok) {
@@ -119,7 +118,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Render materials - MINIMAL VERSION (no card info, just image or title+button)
+// Render materials
 function renderMaterials() {
     if (!booksContainer) return;
     
@@ -143,19 +142,21 @@ function renderMaterials() {
     
     booksContainer.innerHTML = filteredMaterials.map(item => {
         if (item.type === 'bundle') {
-            // Bundle card - just title and download button, no extra info
+            // Bundle card - title + black download icon only
             return `
                 <div class="grid-item item-bundle" data-id="${item.id}" data-type="${item.type}">
                     <div class="bundle-content">
                         <div class="bundle-title">${escapeHtml(item.title)}</div>
                     </div>
                     <button class="bundle-download-btn" data-id="${item.id}" data-type="${item.type}">
-                        ⬇️ Download
+                        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">
+                            <path d="M12 3v12m0 0-3-3m3 3 3-3M5 21h14"/>
+                        </svg>
                     </button>
                 </div>
             `;
         } else {
-            // Book card - JUST image, no text below at all
+            // Book card - just image (25% smaller)
             return `
                 <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
                     <div class="card-cover" style="background-image: url('${item.image}'); background-size: cover; background-position: center;"></div>
@@ -188,7 +189,7 @@ function renderMaterials() {
     });
 }
 
-// Start the app when DOM is ready
+// Start the app
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initializeEventListeners();
