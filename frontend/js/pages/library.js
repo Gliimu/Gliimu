@@ -8,6 +8,7 @@ let searchQuery = '';
 // DOM elements
 const booksContainer = document.getElementById('booksContainer');
 const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
 const categoryList = document.getElementById('categoryList');
 const typeList = document.getElementById('typeList');
 const filterChips = document.getElementById('filterChips');
@@ -16,32 +17,54 @@ const modal = document.getElementById('subscriptionModal');
 // Modal functions
 function openModal() {
     modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 function closeModal() {
     modal.classList.remove('active');
+    document.body.style.overflow = '';
 }
 
+// Make closeModal available globally for onclick
 window.closeModal = closeModal;
 
-// Event listeners
-document.getElementById('upgradeBtn').addEventListener('click', (e) => {
-    e.preventDefault();
-    openModal();
-});
-
-modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
+// Event listeners for modal and upgrade button
+document.addEventListener('DOMContentLoaded', () => {
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    if (upgradeBtn) {
+        upgradeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal();
+        });
+    }
+    
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+    }
+    
+    // Escape key to close modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
 });
 
 // Fetch materials from JSON file
 async function fetchMaterials() {
     try {
-        const response = await fetch('backend/data/library.json');
+        // Correct path from frontend/js/pages/library.js to backend/data/library.json
+        // Going up from frontend/js/pages/ to frontend/, then to ../backend/data/library.json
+        const response = await fetch('../../../backend/data/library.json');
+        
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status} - File not found`);
+            throw new Error(`HTTP ${response.status} - ${response.statusText}`);
         }
+        
         const data = await response.json();
+        console.log('Fetched data:', data);
         
         if (data && data.materials && Array.isArray(data.materials)) {
             allMaterials = data.materials;
@@ -54,7 +77,15 @@ async function fetchMaterials() {
         renderMaterials();
     } catch (error) {
         console.error('Error loading materials:', error);
-        booksContainer.innerHTML = `<div class="empty-state">❌ Failed to load library data. Please make sure the file exists at backend/data/library.json<br><br>Error: ${error.message}</div>`;
+        if (booksContainer) {
+            booksContainer.innerHTML = `
+                <div class="empty-state">
+                    ❌ Failed to load library data.<br><br>
+                    <strong>Error:</strong> ${error.message}<br><br>
+                    Please ensure the file exists at: <code>backend/data/library.json</code>
+                </div>
+            `;
+        }
     }
 }
 
@@ -64,21 +95,27 @@ function buildFilters() {
     const types = ['all', ...new Set(allMaterials.map(item => item.type).filter(Boolean))];
     
     // Build category list
-    categoryList.innerHTML = categories.map(cat => `
-        <li><a data-category="${cat}" class="${currentCategory === cat ? 'active' : ''}">${cat === 'all' ? 'All Categories' : cat.charAt(0).toUpperCase() + cat.slice(1)}</a></li>
-    `).join('');
+    if (categoryList) {
+        categoryList.innerHTML = categories.map(cat => `
+            <li><a data-category="${cat}" class="${currentCategory === cat ? 'active' : ''}">${cat === 'all' ? 'All Categories' : cat.charAt(0).toUpperCase() + cat.slice(1)}</a></li>
+        `).join('');
+    }
     
     // Build type list
-    typeList.innerHTML = types.map(type => `
-        <li><a data-type="${type}" class="${currentType === type ? 'active' : ''}">${type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}</a></li>
-    `).join('');
+    if (typeList) {
+        typeList.innerHTML = types.map(type => `
+            <li><a data-type="${type}" class="${currentType === type ? 'active' : ''}">${type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}</a></li>
+        `).join('');
+    }
     
-    // Build filter chips
-    filterChips.innerHTML = categories.slice(0, 6).map(cat => `
-        <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">${cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
-    `).join('');
+    // Build filter chips (show categories)
+    if (filterChips) {
+        filterChips.innerHTML = categories.slice(0, 6).map(cat => `
+            <div class="filter-chip ${currentCategory === cat ? 'active' : ''}" data-category="${cat}">${cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
+        `).join('');
+    }
     
-    // Add event listeners
+    // Add event listeners for categories
     document.querySelectorAll('[data-category]').forEach(el => {
         el.addEventListener('click', (e) => {
             e.preventDefault();
@@ -89,6 +126,7 @@ function buildFilters() {
         });
     });
     
+    // Add event listeners for types
     document.querySelectorAll('[data-type]').forEach(el => {
         el.addEventListener('click', (e) => {
             e.preventDefault();
@@ -150,10 +188,10 @@ function getFilteredMaterials() {
     }
     
     // Apply search filter
-    if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+    if (searchQuery && searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(item => 
-            item.title.toLowerCase().includes(query) || 
+            (item.title && item.title.toLowerCase().includes(query)) || 
             (item.description && item.description.toLowerCase().includes(query))
         );
     }
@@ -172,6 +210,7 @@ function getTypeIcon(type) {
 
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -179,6 +218,8 @@ function escapeHtml(text) {
 
 // Render materials to the grid
 function renderMaterials() {
+    if (!booksContainer) return;
+    
     if (!allMaterials.length) {
         booksContainer.innerHTML = '<div class="loading">Loading materials...</div>';
         return;
@@ -196,17 +237,17 @@ function renderMaterials() {
             ${filteredMaterials.map(item => `
                 <div class="book-card" data-id="${item.id}" data-type="${item.type}">
                     <div class="book-cover">
-                        ${item.image ? `<img src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy">` : `<div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem;">${getTypeIcon(item.type)}</div>`}
+                        ${item.image ? `<img src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem;\\'>${getTypeIcon(item.type)}</div>'">` : `<div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem;">${getTypeIcon(item.type)}</div>`}
                         <div class="type-badge">${item.type}</div>
                         ${item.type === 'bundle' && item.bundleItems ? `<div class="bundle-badge">${item.bundleItems} items</div>` : ''}
                     </div>
                     <div class="book-info">
                         <div class="book-title">${escapeHtml(item.title)}</div>
-                        <div class="book-description">${escapeHtml(item.description.substring(0, 100))}${item.description.length > 100 ? '...' : ''}</div>
+                        <div class="book-description">${escapeHtml(item.description ? item.description.substring(0, 100) : 'No description available')}${item.description && item.description.length > 100 ? '...' : ''}</div>
                         <div class="book-meta">
-                            <span>📁 ${escapeHtml(item.category.charAt(0).toUpperCase() + item.category.slice(1))}</span>
+                            <span>📁 ${escapeHtml(item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'General')}</span>
                             <span>•</span>
-                            <span>📅 ${new Date(item.createdAt).toLocaleDateString()}</span>
+                            <span>📅 ${item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Unknown date'}</span>
                         </div>
                     </div>
                 </div>
@@ -221,11 +262,13 @@ function renderMaterials() {
             const itemId = card.getAttribute('data-id');
             const item = allMaterials.find(m => m.id === itemId);
             
-            // Show subscription modal for bundles (premium content)
-            if (itemType === 'bundle' && currentView !== 'subscription') {
-                openModal();
-            } else {
-                alert(`📚 Opening: ${item.title}\n\n${item.description.substring(0, 200)}...\n\nThis is a ${item.type === 'bundle' ? 'premium bundle' : 'free book'} resource.`);
+            if (item) {
+                // Show subscription modal for bundles (premium content)
+                if (itemType === 'bundle' && currentView !== 'subscription') {
+                    openModal();
+                } else {
+                    alert(`📚 Opening: ${item.title}\n\n${item.description ? item.description.substring(0, 200) : 'No description available'}...\n\nThis is a ${item.type === 'bundle' ? 'premium bundle' : 'free book'} resource.`);
+                }
             }
         });
     });
@@ -239,28 +282,32 @@ document.querySelectorAll('[data-view]').forEach(el => {
         currentCategory = 'all';
         currentType = 'all';
         searchQuery = '';
-        searchInput.value = '';
+        if (searchInput) searchInput.value = '';
         updateActiveStates();
         renderMaterials();
     });
 });
 
 // Search functionality
-document.getElementById('searchBtn').addEventListener('click', () => {
-    searchQuery = searchInput.value;
-    currentView = 'browse';
-    updateActiveStates();
-    renderMaterials();
-});
-
-searchInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        searchQuery = searchInput.value;
+if (searchBtn) {
+    searchBtn.addEventListener('click', () => {
+        searchQuery = searchInput ? searchInput.value : '';
         currentView = 'browse';
         updateActiveStates();
         renderMaterials();
-    }
-});
+    });
+}
+
+if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            searchQuery = searchInput.value;
+            currentView = 'browse';
+            updateActiveStates();
+            renderMaterials();
+        }
+    });
+}
 
 // Initialize - fetch from JSON
 fetchMaterials();
