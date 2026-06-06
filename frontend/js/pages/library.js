@@ -9,14 +9,6 @@ const heroSearchInput = document.getElementById('heroSearchInput');
 const heroSearchBtn = document.getElementById('heroSearchBtn');
 const filterChips = document.getElementById('filterChips');
 
-// Wait for header to load before initializing library
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        initializeEventListeners();
-        fetchMaterials();
-    }, 100);
-});
-
 // Initialize event listeners
 function initializeEventListeners() {
     if (heroSearchBtn) {
@@ -39,7 +31,12 @@ function initializeEventListeners() {
 // Fetch materials from JSON file
 async function fetchMaterials() {
     try {
-        const response = await fetch('../../../backend/data/library.json');
+        // Try multiple possible paths
+        let response = await fetch('../../../backend/data/library.json');
+        
+        if (!response.ok) {
+            response = await fetch('/backend/data/library.json');
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -63,7 +60,8 @@ async function fetchMaterials() {
                 <div class="empty-state">
                     <i>❌</i>
                     <h3>Failed to load library data</h3>
-                    <p>Please refresh the page or try again later</p>
+                    <p>Please check that backend/data/library.json exists</p>
+                    <p style="font-size: 0.7rem; margin-top: 10px;">Error: ${error.message}</p>
                 </div>
             `;
         }
@@ -118,7 +116,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Render materials - CLEAN VERSION (no badges, no meta text)
+// Render materials
 function renderMaterials() {
     if (!booksContainer) return;
     
@@ -142,19 +140,17 @@ function renderMaterials() {
     
     booksContainer.innerHTML = filteredMaterials.map(item => {
         if (item.type === 'bundle') {
-            // Bundle card - compact, no extra text
             return `
                 <div class="grid-item item-bundle" data-id="${item.id}" data-type="${item.type}">
                     <div class="bundle-content">
                         <div class="bundle-title">${escapeHtml(item.title)}</div>
                     </div>
                     <button class="bundle-download-btn" data-id="${item.id}" data-type="${item.type}">
-                        ⬇️
+                        ⬇️ Download
                     </button>
                 </div>
             `;
         } else {
-            // Book card - just image and title, no meta text
             return `
                 <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
                     <div class="card-cover" style="background-image: url('${item.image}'); background-size: cover; background-position: center;"></div>
@@ -189,3 +185,9 @@ function renderMaterials() {
         });
     });
 }
+
+// Start the app
+document.addEventListener('DOMContentLoaded', () => {
+    initializeEventListeners();
+    fetchMaterials();
+});
