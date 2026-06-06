@@ -8,28 +8,29 @@
     box-sizing: border-box;
 }
 
-/* CSS Variables */
+/* CSS Variables - Using your accent color (#fbb040) */
 :root {
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
     --text-primary: #0f172a;
     --text-secondary: #64748b;
     --border-color: #e2e8f0;
-    --accent: #0f172a;
-    --accent-hover: #1e293b;
+    --accent: #fbb040;
+    --accent-dark: #cc8a2a;
+    --accent-hover: #e6a030;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --hero-bg: transparent;
 }
 
 body.dark-mode {
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
-    --border-color: #334155;
-    --accent: #f1f5f9;
-    --accent-hover: #e2e8f0;
+    --border-color: #1a1a1a;
+    --accent: #fbb040;
+    --accent-dark: #cc8a2a;
     --hero-bg: transparent;
 }
 
@@ -50,6 +51,10 @@ body {
     border-bottom: 1px solid var(--border-color);
     z-index: 100;
     backdrop-filter: blur(10px);
+}
+
+body.dark-mode .library-header {
+    background: #000000;
 }
 
 .header-container {
@@ -152,6 +157,34 @@ body.dark-mode .icon-moon {
     display: none;
 }
 
+/* Download App Button */
+.download-app-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #111;
+    font-family: 'Inter', sans-serif;
+}
+
+.download-app-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: #111;
+}
+
+.download-app-btn:hover {
+    background: var(--accent-dark);
+    transform: scale(1.02);
+}
+
 /* Hero Section - Transparent, Left Aligned, Double Padding */
 .hero-section {
     padding-top: 120px;
@@ -209,7 +242,7 @@ body.dark-mode .icon-moon {
 }
 
 .search-bar-large input:focus {
-    border-color: var(--text-secondary);
+    border-color: var(--accent);
 }
 
 .search-bar-large button {
@@ -221,12 +254,12 @@ body.dark-mode .icon-moon {
     font-size: 0.85rem;
     cursor: pointer;
     transition: background 0.2s;
-    color: var(--bg-primary);
+    color: #111;
     font-family: 'Inter', sans-serif;
 }
 
 .search-bar-large button:hover {
-    background: var(--accent-hover);
+    background: var(--accent-dark);
 }
 
 /* Main Content */
@@ -260,7 +293,7 @@ body.dark-mode .icon-moon {
 }
 
 .filters-wrapper::-webkit-scrollbar-thumb {
-    background: var(--text-secondary);
+    background: var(--accent);
     border-radius: 4px;
 }
 
@@ -289,13 +322,13 @@ body.dark-mode .icon-moon {
 
 .filter-chip:hover {
     background: var(--accent);
-    color: var(--bg-primary);
+    color: #111;
     border-color: var(--accent);
 }
 
 .filter-chip.active {
     background: var(--accent);
-    color: var(--bg-primary);
+    color: #111;
     border-color: var(--accent);
 }
 
@@ -318,11 +351,11 @@ body.dark-mode .icon-moon {
     transform: translateY(-2px);
 }
 
-/* Book Card - 5% smaller (adjusted aspect ratio) */
+/* Book Card - 10% smaller (adjusted aspect ratio from 2/3.05 to 2/3.35) */
 .item-book .card-cover {
     position: relative;
     width: 100%;
-    aspect-ratio: 2 / 3.05;
+    aspect-ratio: 2 / 3.35;
     background-size: cover;
     background-position: center;
     background-color: var(--border-color);
@@ -342,7 +375,7 @@ body.dark-mode .icon-moon {
     right: 8px;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
-    color: white;
+    color: var(--accent);
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 10px;
@@ -386,6 +419,7 @@ body.dark-mode .icon-moon {
 
 .bundle-download-btn:hover {
     opacity: 0.6;
+    color: var(--accent);
 }
 
 .bundle-download-btn svg {
@@ -462,7 +496,7 @@ body.dark-mode .icon-moon {
 }
 
 .modal-close:hover {
-    color: var(--text-primary);
+    color: var(--accent);
 }
 
 .modal-body {
@@ -502,12 +536,12 @@ body.dark-mode .icon-moon {
 
 .modal-btn-primary {
     background: var(--accent);
-    color: var(--bg-primary);
+    color: #111;
     border: none;
 }
 
 .modal-btn-primary:hover {
-    background: var(--accent-hover);
+    background: var(--accent-dark);
 }
 
 .modal-btn-secondary {
@@ -518,6 +552,8 @@ body.dark-mode .icon-moon {
 
 .modal-btn-secondary:hover {
     background: var(--border-color);
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 /* Loading & Empty States */
@@ -541,7 +577,7 @@ body.dark-mode .icon-moon {
     font-weight: 500;
 }
 
-/* Responsive */
+/* Responsive - Ensure at least 2 columns on smaller screens */
 @media (max-width: 1600px) {
     .pinterest-grid { column-count: 7; }
 }
@@ -582,7 +618,16 @@ body.dark-mode .icon-moon {
         padding-top: 90px;
         padding-bottom: 30px;
     }
+    .download-app-btn span {
+        display: none;
+    }
+    .download-app-btn {
+        padding: 6px 10px;
+    }
 }
 @media (max-width: 450px) {
+    .pinterest-grid { column-count: 2; }
+}
+@media (max-width: 350px) {
     .pinterest-grid { column-count: 1; }
 }
