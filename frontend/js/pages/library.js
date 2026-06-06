@@ -15,6 +15,7 @@ const modalImage = document.getElementById('modalImage');
 const modalDescription = document.getElementById('modalDescription');
 const modalFooter = document.getElementById('modalFooter');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
+const downloadAppBtn = document.getElementById('downloadAppBtn');
 
 // Theme handling
 function initTheme() {
@@ -30,6 +31,15 @@ function initTheme() {
             localStorage.setItem('libraryTheme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
         });
     }
+}
+
+// Download App Button Handler
+if (downloadAppBtn) {
+    downloadAppBtn.addEventListener('click', () => {
+        // Replace with your actual download link
+        alert('App download will start soon. Check your downloads folder.');
+        // window.location.href = '/download/app';
+    });
 }
 
 // Save/unsave item
