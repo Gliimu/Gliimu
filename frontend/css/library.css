@@ -19,7 +19,7 @@
     --accent-hover: #1e293b;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --hero-bg: #f8fafc;
+    --hero-bg: transparent;
 }
 
 body.dark-mode {
@@ -30,7 +30,7 @@ body.dark-mode {
     --border-color: #334155;
     --accent: #f1f5f9;
     --accent-hover: #e2e8f0;
-    --hero-bg: #0f172a;
+    --hero-bg: transparent;
 }
 
 body {
@@ -65,7 +65,29 @@ body {
 .header-left {
     display: flex;
     align-items: center;
-    flex: 1;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+}
+
+.logo-img {
+    height: 32px;
+    width: auto;
+    display: block;
+    transition: filter 0.3s ease;
+}
+
+/* Dark mode logo - turns white */
+body.dark-mode .logo-img {
+    filter: brightness(0) invert(1);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .back-arrow {
@@ -89,36 +111,6 @@ body {
 .back-arrow svg {
     width: 20px;
     height: 20px;
-}
-
-.header-center {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-}
-
-.logo-img {
-    height: 32px;
-    width: auto;
-    display: block;
-    transition: filter 0.3s ease;
-}
-
-/* Dark mode logo - turns white */
-body.dark-mode .logo-img {
-    filter: brightness(0) invert(1);
-}
-
-.header-right {
-    flex: 1;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
 }
 
 /* Theme Toggle - No border */
@@ -160,16 +152,16 @@ body.dark-mode .icon-moon {
     display: none;
 }
 
-/* Hero Section */
+/* Hero Section - Transparent, Left Aligned, Double Padding */
 .hero-section {
-    padding-top: 85px;
-    padding-bottom: 30px;
-    text-align: center;
+    padding-top: 120px;
+    padding-bottom: 60px;
+    text-align: left;
     background: var(--hero-bg);
 }
 
 .hero-container {
-    max-width: 800px;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 0 20px;
 }
@@ -188,14 +180,14 @@ body.dark-mode .icon-moon {
     font-weight: 400;
 }
 
-/* Search Wrapper - Under header, double size */
+/* Search Wrapper - Under header, left aligned */
 .search-wrapper {
     background: var(--bg-secondary);
-    padding: 20px 0 30px;
+    padding: 0 0 30px;
 }
 
 .search-bar-large {
-    max-width: 600px;
+    max-width: 1600px;
     margin: 0 auto;
     display: flex;
     gap: 12px;
@@ -204,6 +196,7 @@ body.dark-mode .icon-moon {
 
 .search-bar-large input {
     flex: 1;
+    max-width: 400px;
     padding: 12px 16px;
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -248,13 +241,36 @@ body.dark-mode .icon-moon {
     padding: 0 20px;
 }
 
-/* Filter Chips */
+/* Filters Wrapper - Scrollable on smaller screens */
+.filters-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 2rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.filters-wrapper::-webkit-scrollbar {
+    height: 4px;
+}
+
+.filters-wrapper::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.filters-wrapper::-webkit-scrollbar-thumb {
+    background: var(--text-secondary);
+    border-radius: 4px;
+}
+
+/* Filter Chips - Left aligned, scrollable */
 .filters {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 2rem;
-    justify-content: center;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    min-width: min-content;
 }
 
 .filter-chip {
@@ -268,6 +284,7 @@ body.dark-mode .icon-moon {
     color: var(--text-secondary);
     font-weight: 500;
     font-family: 'Inter', sans-serif;
+    white-space: nowrap;
 }
 
 .filter-chip:hover {
@@ -301,11 +318,11 @@ body.dark-mode .icon-moon {
     transform: translateY(-2px);
 }
 
-/* Book Card */
+/* Book Card - 5% smaller (adjusted aspect ratio) */
 .item-book .card-cover {
     position: relative;
     width: 100%;
-    aspect-ratio: 2 / 2.9;
+    aspect-ratio: 2 / 3.05;
     background-size: cover;
     background-position: center;
     background-color: var(--border-color);
@@ -548,15 +565,22 @@ body.dark-mode .icon-moon {
     .hero-subtitle {
         font-size: 0.75rem;
     }
+    .hero-section {
+        padding-top: 100px;
+        padding-bottom: 40px;
+    }
 }
 @media (max-width: 600px) {
     .pinterest-grid { column-count: 2; }
-    .search-bar-large {
+    .search-bar-large input {
         max-width: 100%;
-        padding: 0 16px;
     }
     .hero-title {
         font-size: 1.2rem;
+    }
+    .hero-section {
+        padding-top: 90px;
+        padding-bottom: 30px;
     }
 }
 @media (max-width: 450px) {
