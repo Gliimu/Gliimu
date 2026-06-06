@@ -1,5 +1,6 @@
 // ============================================
 // GLIIMU DASHBOARD - COMPLETE WORKING VERSION
+// FIXED: Infinite loading issue
 // ============================================
 
 // Global state
@@ -48,6 +49,10 @@ function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
+    } else {
+        // Default to dark mode
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
     }
 }
 
@@ -79,9 +84,12 @@ function loadUserData() {
         localStorage.setItem('glimu_user', JSON.stringify(currentUser));
     }
     
-    document.getElementById('userName').textContent = currentUser.name;
-    document.getElementById('userRole').textContent = currentUser.role || 'Student';
+    const userNameEl = document.getElementById('userName');
+    const userRoleEl = document.getElementById('userRole');
     const avatarImg = document.querySelector('.user-avatar img');
+    
+    if (userNameEl) userNameEl.textContent = currentUser.name;
+    if (userRoleEl) userRoleEl.textContent = currentUser.role || 'Student';
     if (avatarImg) {
         avatarImg.src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=fbb040&color=fff`;
     }
@@ -94,6 +102,8 @@ function loadUserData() {
 function buildSidebar() {
     const tabs = roleTabs[currentRole] || roleTabs.other;
     const sidebarNav = document.getElementById('sidebarNav');
+    
+    if (!sidebarNav) return;
     
     sidebarNav.innerHTML = tabs.map(tab => `
         <div class="nav-item ${currentTab === tab.id ? 'active' : ''}" data-tab="${tab.id}">
@@ -113,6 +123,7 @@ function buildSidebar() {
 function switchTab(tabId) {
     currentTab = tabId;
     
+    // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(item => {
         const itemTab = item.getAttribute('data-tab');
         if (itemTab === tabId) {
@@ -122,15 +133,18 @@ function switchTab(tabId) {
         }
     });
     
+    // Hide all sections
     document.querySelectorAll('.dashboard-section').forEach(section => {
         section.classList.remove('active');
     });
     
+    // Show selected section
     const activeSection = document.getElementById(`${tabId}-section`);
     if (activeSection) {
         activeSection.classList.add('active');
     }
     
+    // Load tab data
     loadTabData(tabId);
 }
 
@@ -244,41 +258,60 @@ function renderDashboard() {
         
         <div class="data-table">
             <h3>Quick Links</h3>
-            <table>
+            <table style="width: 100%;">
                 <tbody>
-                    <tr><td>📚 <a href="/library.html" style="color: var(--text-primary); text-decoration: none;">Browse Library</a></td></tr>
-                    <tr><td>⭐ <a href="#" id="myShelfLink" style="color: var(--text-primary); text-decoration: none;">My Saved Items (${savedItems.length})</a></td></tr>
-                    <tr><td>💰 <a href="#" id="walletLink" style="color: var(--text-primary); text-decoration: none;">Wallet & Subscription</a></td></tr>
+                    <tr><td style="padding: 12px;">📚 <a href="/library.html" style="color: var(--text-primary); text-decoration: none;">Browse Library</a></td></tr>
+                    <tr><td style="padding: 12px;">⭐ <a href="#" id="myShelfLink" style="color: var(--text-primary); text-decoration: none;">My Saved Items (${savedItems.length})</a></td></tr>
+                    <tr><td style="padding: 12px;">💰 <a href="#" id="walletLink" style="color: var(--text-primary); text-decoration: none;">Wallet & Subscription</a></td></tr>
                 </tbody>
             </table>
         </div>
     `;
     
-    document.getElementById('goToLibraryBtn')?.addEventListener('click', () => {
-        window.location.href = '/library.html';
-    });
+    // Add event listeners
+    const goToLibraryBtn = document.getElementById('goToLibraryBtn');
+    if (goToLibraryBtn) {
+        goToLibraryBtn.addEventListener('click', () => {
+            window.location.href = '/library.html';
+        });
+    }
     
-    document.getElementById('viewSavedBtn')?.addEventListener('click', () => {
-        switchTab('library');
-    });
+    const viewSavedBtn = document.getElementById('viewSavedBtn');
+    if (viewSavedBtn) {
+        viewSavedBtn.addEventListener('click', () => {
+            switchTab('library');
+        });
+    }
     
-    document.getElementById('upgradePlanCard')?.addEventListener('click', () => {
-        openModal('upgradeModal');
-    });
+    const upgradePlanCard = document.getElementById('upgradePlanCard');
+    if (upgradePlanCard) {
+        upgradePlanCard.addEventListener('click', () => {
+            openModal('upgradeModal');
+        });
+    }
     
-    document.getElementById('myShelfLink')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchTab('library');
-    });
+    const myShelfLink = document.getElementById('myShelfLink');
+    if (myShelfLink) {
+        myShelfLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchTab('library');
+        });
+    }
     
-    document.getElementById('walletLink')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchTab('wallet');
-    });
+    const walletLink = document.getElementById('walletLink');
+    if (walletLink) {
+        walletLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchTab('wallet');
+        });
+    }
     
-    document.getElementById('quickAddFunds')?.addEventListener('click', () => {
-        openModal('addFundsModal');
-    });
+    const quickAddFunds = document.getElementById('quickAddFunds');
+    if (quickAddFunds) {
+        quickAddFunds.addEventListener('click', () => {
+            openModal('addFundsModal');
+        });
+    }
 }
 
 // ============================================
@@ -289,13 +322,16 @@ async function renderLibraryTab() {
     const container = document.getElementById('library-section');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner">Loading your library...</div>';
+    container.innerHTML = '<div class="loading-spinner" style="text-align: center; padding: 40px;">Loading your library...</div>';
     
     try {
+        // Try multiple paths
         let response = await fetch('../../backend/data/library.json');
         if (!response.ok) response = await fetch('../backend/data/library.json');
         if (!response.ok) response = await fetch('/backend/data/library.json');
         if (!response.ok) response = await fetch('https://raw.githubusercontent.com/Gliimu/Gliimu/main/backend/data/library.json');
+        
+        if (!response.ok) throw new Error('Failed to load');
         
         const data = await response.json();
         allMaterials = data.materials || [];
@@ -353,6 +389,7 @@ async function renderLibraryTab() {
             ` : ''}
         `;
         
+        // Add click handlers to library items
         document.querySelectorAll('.library-item').forEach(item => {
             item.addEventListener('click', () => {
                 const id = item.getAttribute('data-id');
@@ -428,7 +465,7 @@ function renderWallet() {
         
         <div class="data-table">
             <h3>Transaction History</h3>
-            <table>
+            <table style="width: 100%;">
                 <thead>
                     <tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th></tr>
                 </thead>
@@ -440,8 +477,15 @@ function renderWallet() {
         </div>
     `;
     
-    document.getElementById('addFundsBtn')?.addEventListener('click', () => openModal('addFundsModal'));
-    document.getElementById('upgradePlanWalletBtn')?.addEventListener('click', () => openModal('upgradeModal'));
+    const addFundsBtn = document.getElementById('addFundsBtn');
+    if (addFundsBtn) {
+        addFundsBtn.addEventListener('click', () => openModal('addFundsModal'));
+    }
+    
+    const upgradePlanWalletBtn = document.getElementById('upgradePlanWalletBtn');
+    if (upgradePlanWalletBtn) {
+        upgradePlanWalletBtn.addEventListener('click', () => openModal('upgradeModal'));
+    }
 }
 
 // ============================================
@@ -451,6 +495,8 @@ function renderWallet() {
 function renderSettings() {
     const container = document.getElementById('settings-section');
     if (!container) return;
+    
+    const isDark = document.body.classList.contains('dark-mode');
     
     container.innerHTML = `
         <div class="section-header">
@@ -463,17 +509,17 @@ function renderSettings() {
             <form id="settingsForm">
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem;">Full Name</label>
-                    <input type="text" value="${currentUser.name}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
+                    <input type="text" id="fullNameInput" value="${currentUser.name}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
                 </div>
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem;">Email</label>
-                    <input type="email" value="${currentUser.email}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
+                    <input type="email" id="emailInput" value="${currentUser.email}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
                 </div>
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem;">Theme Preference</label>
                     <select id="themeSelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
-                        <option value="dark">Dark</option>
-                        <option value="light">Light</option>
+                        <option value="dark" ${isDark ? 'selected' : ''}>Dark</option>
+                        <option value="light" ${!isDark ? 'selected' : ''}>Light</option>
                     </select>
                 </div>
                 <button type="submit" class="btn-primary">Save Changes</button>
@@ -482,18 +528,31 @@ function renderSettings() {
     `;
     
     const themeSelect = document.getElementById('themeSelect');
-    const isDark = document.body.classList.contains('dark-mode');
-    themeSelect.value = isDark ? 'dark' : 'light';
+    if (themeSelect) {
+        themeSelect.addEventListener('change', () => {
+            const newTheme = themeSelect.value;
+            if (newTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+            localStorage.setItem('theme', newTheme);
+        });
+    }
     
-    themeSelect.addEventListener('change', () => {
-        const newTheme = themeSelect.value;
-        if (newTheme === 'dark') {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
-        localStorage.setItem('theme', newTheme);
-    });
+    const settingsForm = document.getElementById('settingsForm');
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newName = document.getElementById('fullNameInput').value;
+            const newEmail = document.getElementById('emailInput').value;
+            currentUser.name = newName;
+            currentUser.email = newEmail;
+            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+            document.getElementById('userName').textContent = newName;
+            alert('Settings saved successfully!');
+        });
+    }
 }
 
 // ============================================
@@ -505,7 +564,15 @@ function renderStudents() {
     if (!container) return;
     container.innerHTML = `
         <div class="section-header"><div><h2>My Students</h2><p>Track your student progress</p></div></div>
-        <div class="data-table"><table><thead><tr><th>Name</th><th>Course</th><th>Progress</th></tr></thead><tbody><tr><td>Alice Johnson</td><td>Video Production</td><td>75%</td></tr><tr><td>Bob Williams</td><td>UI/UX Design</td><td>45%</td></tr></tbody></table></div>
+        <div class="data-table">
+            <table style="width: 100%;">
+                <thead><tr><th>Name</th><th>Course</th><th>Progress</th></tr></thead>
+                <tbody>
+                    <tr><td>Alice Johnson</td><td>Video Production</td><td>75%</td></tr>
+                    <tr><td>Bob Williams</td><td>UI/UX Design</td><td>45%</td></tr>
+                </tbody>
+            </table>
+        </div>
     `;
 }
 
@@ -555,14 +622,18 @@ function closeModal() {
 
 function openViewModal(item) {
     const modal = document.getElementById('viewBookModal');
+    if (!modal) return;
+    
     document.getElementById('viewBookTitle').textContent = item.title;
     document.getElementById('viewBookImage').src = item.image;
     document.getElementById('viewBookDescription').textContent = item.description || 'No description available.';
     
     const readBtn = document.getElementById('readBookBtn');
-    readBtn.onclick = () => {
-        window.location.href = `/library.html?id=${item.id}`;
-    };
+    if (readBtn) {
+        readBtn.onclick = () => {
+            window.location.href = `/library.html?id=${item.id}`;
+        };
+    }
     
     modal.classList.add('active');
 }
@@ -572,13 +643,31 @@ function openViewModal(item) {
 // ============================================
 
 function setupModals() {
+    // Close buttons for modals
+    const closeUpgradeModal = document.getElementById('closeUpgradeModal');
+    if (closeUpgradeModal) {
+        closeUpgradeModal.onclick = closeModal;
+    }
+    
+    const closeAddFundsModal = document.getElementById('closeAddFundsModal');
+    if (closeAddFundsModal) {
+        closeAddFundsModal.onclick = closeModal;
+    }
+    
+    const closeViewBookModal = document.getElementById('closeViewBookModal');
+    if (closeViewBookModal) {
+        closeViewBookModal.onclick = closeModal;
+    }
+    
+    const closeViewBookFooterBtn = document.getElementById('closeViewBookFooterBtn');
+    if (closeViewBookFooterBtn) {
+        closeViewBookFooterBtn.onclick = closeModal;
+    }
+    
+    // Close modals when clicking outside
     const modals = ['upgradeModal', 'addFundsModal', 'viewBookModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
-        const closeBtn = document.getElementById(`close${modalId.charAt(0).toUpperCase() + modalId.slice(1)}`);
-        if (closeBtn) {
-            closeBtn.onclick = closeModal;
-        }
         if (modal) {
             modal.onclick = (e) => {
                 if (e.target === modal) closeModal();
@@ -586,6 +675,7 @@ function setupModals() {
         }
     });
     
+    // Plan selection buttons
     document.querySelectorAll('.select-plan-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const planCard = btn.closest('.plan-card');
@@ -595,6 +685,7 @@ function setupModals() {
         });
     });
     
+    // Amount buttons for add funds
     document.querySelectorAll('.amount-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
@@ -604,9 +695,10 @@ function setupModals() {
         });
     });
     
-    const confirmBtn = document.getElementById('confirmPayment');
-    if (confirmBtn) {
-        confirmBtn.onclick = () => {
+    // Confirm payment button
+    const confirmPayment = document.getElementById('confirmPayment');
+    if (confirmPayment) {
+        confirmPayment.onclick = () => {
             const activeBtn = document.querySelector('.amount-btn.active');
             const customAmount = document.getElementById('customAmount')?.value;
             let amount = 0;
@@ -630,11 +722,6 @@ function setupModals() {
             }
         };
     }
-    
-    const closeViewBookFooter = document.getElementById('closeViewBookFooterBtn');
-    if (closeViewBookFooter) {
-        closeViewBookFooter.onclick = closeModal;
-    }
 }
 
 // ============================================
@@ -643,6 +730,8 @@ function setupModals() {
 
 function createContentSections() {
     const dashboardContent = document.getElementById('dashboardContent');
+    if (!dashboardContent) return;
+    
     const tabs = roleTabs[currentRole] || roleTabs.other;
     
     dashboardContent.innerHTML = tabs.map(tab => `
@@ -661,14 +750,12 @@ function setupMobileSidebar() {
     const sidebar = document.getElementById('dashboardSidebar');
     const overlay = document.getElementById('sidebarOverlay');
     
-    if (toggleBtn) {
+    if (toggleBtn && sidebar && overlay) {
         toggleBtn.addEventListener('click', () => {
             sidebar.classList.toggle('mobile-open');
             overlay.classList.toggle('active');
         });
-    }
-    
-    if (overlay) {
+        
         overlay.addEventListener('click', () => {
             sidebar.classList.remove('mobile-open');
             overlay.classList.remove('active');
@@ -680,22 +767,42 @@ function setupMobileSidebar() {
 // INITIALIZE
 // ============================================
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initDashboard() {
+    console.log('Initializing dashboard...');
+    
+    // Load user data first
     loadUserData();
+    
+    // Initialize theme
     initTheme();
+    
+    // Create content sections
     createContentSections();
+    
+    // Build sidebar navigation
     buildSidebar();
+    
+    // Setup modal functionality
     setupModals();
+    
+    // Setup mobile sidebar
     setupMobileSidebar();
     
-    await renderDashboard();
-    
+    // Setup theme toggle button
     const themeToggleBtn = document.getElementById('themeToggle');
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener('click', toggleTheme);
     }
-});
+    
+    // Load initial dashboard content
+    await renderDashboard();
+    
+    console.log('Dashboard initialized');
+}
 
-// Make functions global
+// Start the dashboard
+document.addEventListener('DOMContentLoaded', initDashboard);
+
+// Make functions global for onclick handlers
 window.openModal = openModal;
 window.closeModal = closeModal;
