@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Initialize event listeners
 function initializeEventListeners() {
-    // Search functionality for hero search
     if (heroSearchBtn) {
         heroSearchBtn.addEventListener('click', () => {
             searchQuery = heroSearchInput ? heroSearchInput.value : '';
@@ -93,7 +92,7 @@ function buildFilters() {
     });
 }
 
-// Filter materials based on current filters
+// Filter materials
 function getFilteredMaterials() {
     let filtered = [...allMaterials];
     
@@ -104,14 +103,14 @@ function getFilteredMaterials() {
     if (searchQuery && searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(item => 
-            (item.title && item.title.toLowerCase().includes(query))
+            item.title && item.title.toLowerCase().includes(query)
         );
     }
     
     return filtered;
 }
 
-// Escape HTML to prevent XSS
+// Escape HTML
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -119,7 +118,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Render materials with Pinterest-style masonry grid
+// Render materials - CLEAN VERSION (no badges, no meta text)
 function renderMaterials() {
     if (!booksContainer) return;
     
@@ -135,7 +134,7 @@ function renderMaterials() {
             <div class="empty-state">
                 <i>📭</i>
                 <h3>No materials found</h3>
-                <p>Try adjusting your search or filters</p>
+                <p>Try adjusting your search</p>
             </div>
         `;
         return;
@@ -143,59 +142,49 @@ function renderMaterials() {
     
     booksContainer.innerHTML = filteredMaterials.map(item => {
         if (item.type === 'bundle') {
-            // Render bundle as horizontal card
+            // Bundle card - compact, no extra text
             return `
                 <div class="grid-item item-bundle" data-id="${item.id}" data-type="${item.type}">
                     <div class="bundle-content">
                         <div class="bundle-title">${escapeHtml(item.title)}</div>
-                        <div class="bundle-meta">📦 ${item.bundleItems || 4} items • ${escapeHtml(item.category)}</div>
                     </div>
                     <button class="bundle-download-btn" data-id="${item.id}" data-type="${item.type}">
-                        Download ⬇️
+                        ⬇️
                     </button>
                 </div>
             `;
         } else {
-            // Render book as Pinterest-style card
+            // Book card - just image and title, no meta text
             return `
                 <div class="grid-item item-book" data-id="${item.id}" data-type="${item.type}">
                     <div class="card-cover" style="background-image: url('${item.image}'); background-size: cover; background-position: center;"></div>
                     <div class="card-info">
                         <div class="card-title">${escapeHtml(item.title)}</div>
-                        <div class="card-meta">📖 ${escapeHtml(item.category)}</div>
                     </div>
                 </div>
             `;
         }
     }).join('');
     
-    // Add click handlers for books (read)
+    // Book click handlers
     document.querySelectorAll('.item-book').forEach(el => {
         el.addEventListener('click', () => {
             const itemId = el.getAttribute('data-id');
             const item = allMaterials.find(m => m.id === itemId);
-            
-            if (item && item.type === 'book') {
-                // Simple alert to simulate reading
-                alert(`📚 Opening: ${item.title}\n\nStart reading now!`);
-                // In production, this would open the actual book content
-                // window.location.href = `/read/${item.id}`;
+            if (item) {
+                alert(`📚 Opening: ${item.title}`);
             }
         });
     });
     
-    // Add click handlers for bundle downloads
+    // Bundle download handlers
     document.querySelectorAll('.bundle-download-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const itemId = btn.getAttribute('data-id');
             const item = allMaterials.find(m => m.id === itemId);
-            
-            if (item && item.type === 'bundle') {
-                // Simple alert to simulate download
-                alert(`📦 Downloading: ${item.title}\n\nYour download will start shortly.`);
-                // In production, this would trigger the actual download
-                // window.location.href = `/download/${item.id}`;
+            if (item) {
+                alert(`📦 Downloading: ${item.title}`);
             }
         });
     });
