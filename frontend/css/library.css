@@ -1,5 +1,5 @@
 /* =========================================
-   LIBRARY PAGE STYLES - COMPACT VERSION
+   LIBRARY PAGE STYLES - NO CARD INFO
    ========================================= */
 
 * {
@@ -8,13 +8,14 @@
     box-sizing: border-box;
 }
 
-/* Hero Section - Smaller */
+/* Hero Section */
 .library-hero {
-    padding: 60px 0 40px;
+    padding: 80px 0 50px;
     background: radial-gradient(circle at top left, #1d1f5a, #050515);
     color: #ffffff;
     position: relative;
     overflow: hidden;
+    margin-top: 0;
 }
 
 .ripple-bg {
@@ -73,26 +74,26 @@
 }
 
 .library-hero h1 {
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 .library-hero p {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     opacity: 0.9;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 }
 
-/* Search Box - Smaller */
+/* Search Box */
 .search-box-large {
     background: #ffffff;
     border-radius: 50px;
-    padding: 4px 4px 4px 16px;
+    padding: 5px 5px 5px 20px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    max-width: 400px;
+    gap: 10px;
+    max-width: 420px;
     margin: 0 auto;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     border: 1px solid transparent;
@@ -110,18 +111,20 @@
     font-size: 0.85rem;
     background: transparent;
     color: #000;
+    font-family: 'Inter', sans-serif;
 }
 
 .search-box-large button {
     background: #fbb040;
     border: none;
-    padding: 8px 18px;
+    padding: 8px 20px;
     border-radius: 50px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
     color: #111;
     font-size: 0.8rem;
+    font-family: 'Inter', sans-serif;
 }
 
 .search-box-large button:hover {
@@ -130,7 +133,7 @@
 
 /* Materials Section */
 .materials-section {
-    padding: 30px 0 50px;
+    padding: 40px 0 60px;
     position: relative;
     background: #f8fafc;
 }
@@ -141,24 +144,26 @@
     padding: 0 20px;
 }
 
-/* Filter Chips - Smaller */
+/* Filter Chips */
 .filters {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 24px;
+    margin-bottom: 30px;
     justify-content: center;
 }
 
 .filter-chip {
-    padding: 4px 14px;
+    padding: 6px 18px;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 50px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
     color: #0f172a;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
 }
 
 .filter-chip:hover {
@@ -173,30 +178,30 @@
     border-color: #fbb040;
 }
 
-/* Masonry Grid - More Columns, Smaller Gap */
+/* Masonry Grid - More columns for compact display */
 .pinterest-grid {
     column-count: 6;
-    column-gap: 12px;
+    column-gap: 14px;
 }
 
-/* Grid Items - Much Smaller */
+/* Grid Items - Compact, no extra info */
 .grid-item {
     break-inside: avoid;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     background: #ffffff;
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     cursor: pointer;
 }
 
 .grid-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
-/* Book Card - Smaller */
+/* Book Card - Just image, no text below */
 .item-book .card-cover {
     position: relative;
     width: 100%;
@@ -211,13 +216,13 @@
     transform: scale(1.02);
 }
 
-/* Bundle Card - Smaller */
+/* Bundle Card - Minimal, just title and button */
 .item-bundle {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
     border-left: 3px solid #fbb040;
 }
 
@@ -227,8 +232,7 @@
 
 .item-bundle .bundle-title {
     font-weight: 600;
-    font-size: 0.75rem;
-    margin-bottom: 3px;
+    font-size: 0.8rem;
     color: #0f172a;
     line-height: 1.3;
 }
@@ -236,7 +240,7 @@
 .bundle-download-btn {
     background: #fbb040;
     border: none;
-    padding: 4px 10px;
+    padding: 6px 14px;
     border-radius: 20px;
     font-weight: 600;
     font-size: 0.7rem;
@@ -244,59 +248,84 @@
     transition: all 0.2s ease;
     color: #111;
     white-space: nowrap;
+    font-family: 'Inter', sans-serif;
 }
 
 .bundle-download-btn:hover {
     background: #cc8a2a;
+    transform: scale(1.02);
 }
 
-/* Card Info - Smaller */
+/* NO card-info section - removed completely */
 .card-info {
-    padding: 6px 8px;
-}
-
-.card-title {
-    font-weight: 600;
-    font-size: 0.7rem;
-    margin-bottom: 3px;
-    color: #0f172a;
-    line-height: 1.3;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    display: none;
 }
 
 /* Loading State */
 .loading {
     text-align: center;
-    padding: 40px;
+    padding: 50px;
     color: #64748b;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
+    font-family: 'Inter', sans-serif;
 }
 
 /* Empty State */
 .empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: 50px 20px;
     color: #64748b;
     grid-column: 1 / -1;
 }
 
 .empty-state i {
-    font-size: 2.5rem;
-    margin-bottom: 12px;
+    font-size: 3rem;
+    margin-bottom: 15px;
     opacity: 0.5;
 }
 
 .empty-state h3 {
-    font-size: 1rem;
-    margin-bottom: 6px;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
     color: #0f172a;
 }
 
 .empty-state p {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+}
+
+/* Dark mode support for body (works with your header) */
+body.dark-mode .materials-section {
+    background: #0f172a;
+}
+
+body.dark-mode .grid-item {
+    background: #1e293b;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .item-bundle {
+    background: linear-gradient(135deg, #1e293b 0%, #162230 100%);
+}
+
+body.dark-mode .item-bundle .bundle-title {
+    color: #f1f5f9;
+}
+
+body.dark-mode .filter-chip {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+body.dark-mode .filter-chip:hover,
+body.dark-mode .filter-chip.active {
+    background: #fbb040;
+    color: #111;
+}
+
+body.dark-mode .empty-state h3 {
+    color: #f1f5f9;
 }
 
 /* Responsive Design */
@@ -313,22 +342,30 @@
 }
 
 @media (max-width: 900px) {
+    .library-hero h1 {
+        font-size: 1.8rem;
+    }
+    
+    .library-hero {
+        padding: 60px 0 40px;
+    }
+    
     .pinterest-grid {
         column-count: 3;
     }
 }
 
 @media (max-width: 700px) {
-    .library-hero h1 {
-        font-size: 1.6rem;
-    }
-    
-    .library-hero {
-        padding: 50px 0 30px;
-    }
-    
     .pinterest-grid {
         column-count: 2;
+    }
+    
+    .library-hero h1 {
+        font-size: 1.5rem;
+    }
+    
+    .library-hero p {
+        font-size: 0.85rem;
     }
 }
 
@@ -339,8 +376,8 @@
     
     .search-box-large {
         flex-direction: column;
-        padding: 8px;
-        border-radius: 24px;
+        padding: 10px;
+        border-radius: 30px;
     }
     
     .search-box-large button {
@@ -350,10 +387,19 @@
     .item-bundle {
         flex-direction: column;
         text-align: center;
-        gap: 8px;
+        gap: 10px;
     }
     
     .bundle-download-btn {
         width: 100%;
+    }
+    
+    .filters {
+        gap: 8px;
+    }
+    
+    .filter-chip {
+        padding: 4px 14px;
+        font-size: 0.7rem;
     }
 }
