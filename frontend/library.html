@@ -18,8 +18,13 @@
                     </svg>
                 </a>
                 <div class="logo">
-                    <span class="logo-text">Glimu</span>
-                    <span class="logo-tag">Media Architects</span>
+                    <img src="../icons/logo.png" alt="Glimu" class="logo-img">
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="search-bar-simple">
+                    <input type="text" id="searchInput" placeholder="Search">
+                    <button id="searchBtn">Search</button>
                 </div>
             </div>
             <div class="header-right">
@@ -46,18 +51,6 @@
     <!-- Main Content -->
     <main class="library-main">
         <div class="container">
-            <!-- Tabs -->
-            <div class="library-tabs">
-                <button class="tab-btn active" data-tab="all">All Materials</button>
-                <button class="tab-btn" data-tab="saved">Saved Items</button>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="search-bar-simple">
-                <input type="text" id="searchInput" placeholder="Search">
-                <button id="searchBtn">Search</button>
-            </div>
-            
             <!-- Filter Chips -->
             <div class="filters" id="filterChips"></div>
             
@@ -73,7 +66,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modalTitle"></h2>
-                <button class="modal-close">&times;</button>
+                <button class="modal-close" id="modalCloseBtn">&times;</button>
             </div>
             <div class="modal-body">
                 <img id="modalImage" src="" alt="">
