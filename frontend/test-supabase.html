@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Supabase</title>
+    <script type="module">
+        import { supabase, signUp, signIn, getCurrentUser } from './js/modules/supabase.js';
+        
+        async function test() {
+            console.log('Testing Supabase connection...');
+            
+            // Test sign up
+            const result = await signUp('test@example.com', 'password123', { name: 'Test User' });
+            console.log('Sign up result:', result);
+            
+            // Get current user
+            const user = await getCurrentUser();
+            console.log('Current user:', user);
+        }
+        
+        test();
+    </script>
+</head>
+<body>
+    <h1>Supabase Test</h1>
+    <p>Open console (F12) to see results</p>
+</body>
+</html>
