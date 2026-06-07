@@ -50,7 +50,10 @@
 
             <!-- Dynamic Content Sections -->
             <div id="dashboardContent">
-                <div class="loading-spinner">Loading dashboard...</div>
+                <div class="loading-spinner" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--brand-gold);"></i>
+                    <p style="margin-top: 1rem;">Loading dashboard...</p>
+                </div>
             </div>
         </main>
     </div>
@@ -150,7 +153,10 @@
         </div>
     </div>
 
+    <!-- Load header first (non-module) -->
     <script src="/js/pages/header.js"></script>
-    <script src="/js/pages/dashboard.js"></script>
+    
+    <!-- Load dashboard as module to support imports -->
+    <script type="module" src="/js/pages/dashboard.js"></script>
 </body>
 </html>
