@@ -19,7 +19,7 @@ function generateUsername(fullName) {
     username = username.replace(/[^a-z0-9.]/g, '');
     
     // Add random suffix for uniqueness
-    const randomSuffix = Math.floor(Math.random() * 1000);
+    const randomSuffix = Math.floor(Math.random() * 10000);
     return `${username}${randomSuffix}`;
 }
 
@@ -28,7 +28,8 @@ function generateRecoveryPhrase() {
     const words = [
         'blue', 'ocean', 'golden', 'sunset', 'brave', 'tiger', 'swift', 'eagle',
         'calm', 'river', 'mountain', 'forest', 'storm', 'thunder', 'peace', 'light',
-        'shadow', 'dream', 'wonder', 'magic', 'silent', 'wisdom', 'courage', 'honor'
+        'shadow', 'dream', 'wonder', 'magic', 'silent', 'wisdom', 'courage', 'honor',
+        'bright', 'dawn', 'eclipse', 'phoenix', 'raven', 'storm', 'thunder', 'lightning'
     ];
     
     const phrase = [];
@@ -41,8 +42,6 @@ function generateRecoveryPhrase() {
 
 // Hash password (simple - in production use bcrypt on backend)
 async function hashPassword(password) {
-    // This is a simple hash for demo
-    // In production, you should hash on the backend
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -64,13 +63,15 @@ async function saveApplication(applicationData) {
         password_hash: applicationData.passwordHash,
         username: applicationData.username,
         recovery_phrase: applicationData.recoveryPhrase,
-        email: applicationData.email || null,
-        phone: applicationData.phone || null,
         status: 'pending',
         submitted_at: new Date().toISOString()
     };
     
-    console.log('Saving application:', { ...application, password_hash: '[HIDDEN]' });
+    console.log('Saving application:', { 
+        ...application, 
+        password_hash: '[HIDDEN]',
+        recovery_phrase: '[HIDDEN]'
+    });
     
     try {
         const { data, error } = await supabase
@@ -83,14 +84,14 @@ async function saveApplication(applicationData) {
             throw error;
         }
         
-        console.log('Application saved:', data);
+        console.log('Application saved successfully:', data);
         
         // Also store in localStorage as backup
         const pendingApps = JSON.parse(localStorage.getItem('pending_applications') || '[]');
         pendingApps.push({
             ...application,
             submittedAt: new Date().toISOString(),
-            password_hash: applicationData.password // Store plain for display only
+            plain_password: applicationData.password
         });
         localStorage.setItem('pending_applications', JSON.stringify(pendingApps));
         
@@ -137,7 +138,7 @@ function generatePDF(userData) {
     doc.text(`Username: ${userData.username}`, 20, 120);
     doc.text(`Password: ${userData.password}`, 20, 130);
     doc.text(`Recovery Phrase: ${userData.recoveryPhrase}`, 20, 140);
-    doc.text(`Role: ${userData.role}`, 20, 150);
+    doc.text(`Role: ${userData.role === 'student' ? 'Student' : userData.role === 'instructor' ? 'Instructor' : userData.role === 'partner' ? 'Partner' : 'Other'}`, 20, 150);
     
     // Warning
     doc.setTextColor(200, 0, 0);
