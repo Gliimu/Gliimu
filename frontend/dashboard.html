@@ -8,14 +8,6 @@
     <link rel="stylesheet" href="/css/dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script type="module">
-    import { getCurrentUser, requireAuth } from './js/modules/auth.js';
-    
-    // Check if user is authenticated
-    if (!requireAuth()) {
-        window.location.href = '/index.html';
-    }
-</script>
 </head>
 <body>
 
@@ -27,8 +19,8 @@
         <!-- Sidebar -->
         <aside class="dashboard-sidebar" id="dashboardSidebar">
             <div class="sidebar-header">
-                <div class="user-avatar" id="userAvatar">
-                    <img src="https://ui-avatars.com/api/?name=User&background=fbb040&color=fff" alt="User Avatar">
+                <div class="user-avatar">
+                    <img id="userAvatarImg" src="https://ui-avatars.com/api/?name=User&background=fbb040&color=fff" alt="User Avatar">
                 </div>
                 <div class="user-info">
                     <h4 id="userName">Loading...</h4>
@@ -42,12 +34,11 @@
 
         <!-- Main Content -->
         <main class="dashboard-main">
-           
             <!-- Dynamic Content Sections -->
             <div id="dashboardContent">
                 <div class="loading-spinner" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--brand-gold);"></i>
-                    <p style="margin-top: 1rem;">Loading dashboard...</p>
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading dashboard...</p>
                 </div>
             </div>
         </main>
@@ -61,7 +52,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Choose Your Plan</h2>
-                <button class="modal-close" id="closeUpgradeModal">&times;</button>
+                <button class="modal-close closeUpgradeModal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="plan-cards">
@@ -102,31 +93,8 @@
                 <div class="combo-offer">
                     <h4>🎯 Combo Deals</h4>
                     <p>Get 10% off when you subscribe to any 2 services</p>
-                    <p>Get 20% off when you subscribe to all 3 services (Library + Hub + Community)</p>
+                    <p>Get 20% off when you subscribe to all 3 services</p>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="addFundsModal" class="modal">
-        <div class="modal-content small">
-            <div class="modal-header">
-                <h2>Add Funds to Wallet</h2>
-                <button class="modal-close" id="closeAddFundsModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="amount-buttons">
-                    <button class="amount-btn" data-amount="2500">₦2,500</button>
-                    <button class="amount-btn" data-amount="5000">₦5,000</button>
-                    <button class="amount-btn" data-amount="10000">₦10,000</button>
-                    <button class="amount-btn" data-amount="25000">₦25,000</button>
-                    <button class="amount-btn" data-amount="50000">₦50,000</button>
-                    <button class="amount-btn" data-amount="100000">₦100,000</button>
-                </div>
-                <div class="custom-amount">
-                    <input type="number" id="customAmount" placeholder="Custom amount (₦)">
-                </div>
-                <button class="confirm-payment-btn" id="confirmPayment">Add Funds</button>
             </div>
         </div>
     </div>
@@ -135,21 +103,38 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="viewBookTitle"></h2>
-                <button class="modal-close" id="closeViewBookModal">&times;</button>
+                <button class="modal-close closeViewBookModal">&times;</button>
             </div>
             <div class="modal-body">
                 <img id="viewBookImage" src="" alt="">
                 <p id="viewBookDescription"></p>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn modal-btn-secondary" id="closeViewBookFooterBtn">Close</button>
+                <button class="modal-btn modal-btn-secondary closeViewBookFooterBtn">Close</button>
                 <button class="modal-btn modal-btn-primary" id="readBookBtn">Read Now</button>
             </div>
         </div>
     </div>
 
-    <!-- Scripts - header.js loads as regular script, dashboard.js as module -->
-    <script src="/js/pages/header.js"></script>
-    <script type="module" src="/js/pages/dashboard.js"></script>
+    <script src="js/pages/header.js" type="module"></script>
+    <script src="js/pages/dashboard.js" type="module"></script>
+    
+    <!-- Load Partials -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('header-placeholder')) {
+                Promise.all([
+                    fetch('partials/header.html').then(r => r.text()),
+                    fetch('partials/footer.html').then(r => r.text()),
+                    fetch('partials/login-modal.html').then(r => r.text())
+                ]).then(results => {
+                    document.getElementById('header-placeholder').innerHTML = results[0];
+                    document.getElementById('footer-placeholder').innerHTML = results[1];
+                    document.getElementById('login-modal-placeholder').innerHTML = results[2];
+                    console.log('Partials loaded');
+                }).catch(err => console.error('Failed to load partials:', err));
+            }
+        });
+    </script>
 </body>
 </html>
