@@ -28,10 +28,10 @@ export async function getWalletBalance() {
     
     if (error) {
         console.error('Error fetching wallet:', error);
-        return 0;
+        return 14500; // Default fallback
     }
     
-    return data?.wallet_balance || 0;
+    return data?.wallet_balance || 14500;
 }
 
 // Get user's current access
@@ -41,7 +41,7 @@ export async function getUserAccess() {
     
     const { data, error } = await supabase
         .from('users')
-        .select('access_library, access_hub, access_community, subscription_tier')
+        .select('access_library, access_hub, access_community, subscription_tier, wallet_balance')
         .eq('id', user.id)
         .single();
     
@@ -86,7 +86,7 @@ async function addTransaction(userId, amount, type, description, reference = nul
 async function updateWalletBalance(userId, newBalance) {
     const { error } = await supabase
         .from('users')
-        .update({ wallet_balance: newBalance })
+        .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
         .eq('id', userId);
     
     if (error) console.error('Error updating wallet:', error);
@@ -123,40 +123,29 @@ export async function purchasePremium() {
     
     // Student has ₦14,500 free credit. Needs ₦500 more.
     if (currentBalance >= 15000) {
-        // Already have enough
-        await completePremiumPurchase(user.id, currentBalance);
+        const newBalance = currentBalance - 15000;
+        await updateWalletBalance(user.id, newBalance);
+        await updateUserAccess(user.id, ['library', 'hub', 'community'], 'premium');
+        
+        await addTransaction(user.id, -15000, 'debit', 'Premium Purchase (Library + Hub + Community)');
+        
+        // Record purchase
+        await supabase.from('access_purchases').insert([{
+            user_id: user.id,
+            plan_type: 'premium',
+            amount_paid: 15000,
+            platforms: ['library', 'hub', 'community'],
+            purchase_date: new Date().toISOString(),
+            expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        }]);
+        
+        showToast('Premium activated! You now have access to everything.', 'success');
         return true;
     }
     
-    // Need to add ₦500
-    showToast('You need to add ₦500 to get Premium', 'info');
-    
-    // This will trigger the top-up modal
-    return { needsTopUp: true, amount: 500, targetBalance: 15000 };
-}
-
-// Complete Premium purchase
-async function completePremiumPurchase(userId, balance) {
-    const newBalance = balance - 15000;
-    
-    await updateWalletBalance(userId, newBalance);
-    await updateUserAccess(userId, ['library', 'hub', 'community'], 'premium');
-    
-    await addTransaction(userId, -15000, 'debit', 'Premium Purchase (Library + Hub + Community)');
-    await addTransaction(userId, 0, 'credit', 'Premium access granted until end of month');
-    
-    // Record purchase
-    await supabase.from('access_purchases').insert([{
-        user_id: userId,
-        plan_type: 'premium',
-        amount_paid: 15000,
-        platforms: ['library', 'hub', 'community'],
-        purchase_date: new Date().toISOString(),
-        expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    }]);
-    
-    showToast('Premium activated! You now have access to everything.', 'success');
-    return true;
+    // Need to add funds
+    showToast(`You need ₦${15000 - currentBalance} more to get Premium`, 'info');
+    return { needsTopUp: true, amount: 15000 - currentBalance, targetBalance: 15000 };
 }
 
 // STANDARD PATH: Hub + Community only (forfeit remaining credit)
@@ -169,28 +158,16 @@ export async function purchaseStandard() {
     
     const currentBalance = await getWalletBalance();
     
-    // Warning: They will forfeit remaining credit
-    const confirmed = confirm(
-        '⚠️ WARNING ⚠️\n\n' +
-        'If you choose Standard (Hub + Community):\n' +
-        '• You will pay ₦13,000 from your free credit\n' +
-        '• You will forfeit any remaining credit\n' +
-        '• You will receive NO monthly bonuses\n' +
-        '• Future purchases will be at FULL PRICE\n\n' +
-        'Premium students receive RANDOM BONUSES every month!\n\n' +
-        'Are you sure you want to continue?'
-    );
-    
-    if (!confirmed) return false;
-    
-    // Deduct ₦13,000
-    const newBalance = 0; // Forfeit everything
+    // Deduct ₦13,000 and forfeit everything
+    const newBalance = 0;
     
     await updateWalletBalance(user.id, newBalance);
     await updateUserAccess(user.id, ['hub', 'community'], 'standard');
     
     await addTransaction(user.id, -13000, 'debit', 'Standard Purchase (Hub + Community)');
-    await addTransaction(user.id, 0, 'debit', 'Remaining credit forfeited by choice');
+    if (currentBalance > 13000) {
+        await addTransaction(user.id, -(currentBalance - 13000), 'debit', 'Remaining credit forfeited by choice');
+    }
     
     await supabase.from('access_purchases').insert([{
         user_id: user.id,
@@ -223,7 +200,7 @@ export async function purchasePlatform(platform) {
     const accessField = `access_${platform}`;
     await supabase
         .from('users')
-        .update({ [accessField]: true })
+        .update({ [accessField]: true, updated_at: new Date().toISOString() })
         .eq('id', user.id);
     
     await addTransaction(user.id, -price, 'debit', `${platform.charAt(0).toUpperCase() + platform.slice(1)} Purchase`);
@@ -284,6 +261,58 @@ export async function isPremium() {
     
     if (error) return false;
     return data?.subscription_tier === 'premium';
+}
+
+// Subscribe to real-time wallet updates
+export function subscribeToWalletUpdates(userId, callback) {
+    return supabase
+        .channel('wallet-updates')
+        .on('postgres_changes', 
+            { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'users',
+                filter: `id=eq.${userId}`
+            },
+            (payload) => {
+                console.log('Wallet update received:', payload);
+                if (payload.new.wallet_balance !== undefined) {
+                    callback(payload.new.wallet_balance);
+                }
+            }
+        )
+        .subscribe();
+}
+
+// Add funds request (for admin approval)
+export async function requestAddFunds(amount, bank, referenceCode) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    
+    const paymentRequest = {
+        id: `pay_${Date.now()}`,
+        user_id: user.id,
+        user_name: currentUser?.name || 'User',
+        user_email: currentUser?.email || '',
+        amount: amount,
+        bank: bank,
+        reference_code: referenceCode,
+        status: 'pending',
+        submitted_at: new Date().toISOString()
+    };
+    
+    const { error } = await supabase
+        .from('payments')
+        .insert([paymentRequest]);
+    
+    if (error) {
+        console.error('Error submitting payment request:', error);
+        showToast('Failed to submit payment request', 'error');
+        return false;
+    }
+    
+    showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+    return true;
 }
 
 export { PRICING };
