@@ -869,4 +869,115 @@ function openViewModal(item) {
     const modal = document.getElementById('viewBookModal');
     if (!modal) return;
     
-    document.getElementById('viewBookTitle').textContent = item
+    document.getElementById('viewBookTitle').textContent = item.title;
+    document.getElementById('viewBookImage').src = item.image;
+    document.getElementById('viewBookDescription').textContent = item.description || 'No description available.';
+    
+    document.getElementById('readBookBtn').onclick = () => {
+        window.location.href = `/library.html?id=${item.id}`;
+    };
+    
+    modal.classList.add('active');
+}
+
+// ============================================
+// CREATE CONTENT SECTIONS
+// ============================================
+
+function createContentSections() {
+    const dashboardContent = document.getElementById('dashboardContent');
+    if (!dashboardContent) return;
+    
+    const tabs = roleTabs[currentRole] || roleTabs.other;
+    
+    dashboardContent.innerHTML = tabs.map(tab => `
+        <div id="${tab.id}-section" class="dashboard-section ${tab.id === 'dashboard' ? 'active' : ''}">
+            <!-- Content will be loaded dynamically -->
+        </div>
+    `).join('');
+}
+
+// ============================================
+// MODAL SETUP
+// ============================================
+
+function setupModals() {
+    const closeButtons = ['closeUpgradeModal', 'closeAddFundsModal', 'closeViewBookModal', 'closeViewBookFooterBtn'];
+    closeButtons.forEach(btnId => {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.onclick = closeModal;
+    });
+    
+    ['upgradeModal', 'addFundsModal', 'viewBookModal'].forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal();
+            };
+        }
+    });
+    
+    document.querySelectorAll('.select-plan-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const planCard = btn.closest('.plan-card');
+            const plan = planCard.getAttribute('data-plan');
+            showToast(`Upgrading to ${plan.toUpperCase()} plan. Payment will be processed.`, 'info');
+            closeModal();
+        });
+    });
+}
+
+// ============================================
+// MOBILE SIDEBAR
+// ============================================
+
+function setupMobileSidebar() {
+    const toggleBtn = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('dashboardSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (toggleBtn && sidebar && overlay) {
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+        });
+        
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+        });
+    }
+}
+
+// ============================================
+// INITIALIZE DASHBOARD
+// ============================================
+
+async function initDashboard() {
+    console.log('Initializing dashboard...');
+    
+    loadUserData();
+    initTheme();
+    createContentSections();
+    buildSidebar();
+    setupModals();
+    setupMobileSidebar();
+    
+    const themeToggleBtn = document.getElementById('themeToggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+    
+    // Load initial dashboard
+    await renderDashboard();
+    
+    console.log('Dashboard initialized');
+}
+
+// Start the dashboard
+document.addEventListener('DOMContentLoaded', initDashboard);
+
+// Make functions global for onclick handlers
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.showToast = showToast;
