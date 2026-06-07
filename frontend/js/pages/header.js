@@ -1,6 +1,6 @@
 // ============================================
 // HEADER.JS - COMPLETE HEADER FUNCTIONALITY
-// With Fixed Logout and Updated Navigation
+// Fixed Avatar Dropdown Logout
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -160,43 +160,19 @@ function initMobileMenu() {
 }
 
 // ============================================
-// USER DROPDOWN
-// ============================================
-function initUserDropdown() {
-    const profileWrapper = document.querySelector('.profile-wrapper');
-    const profileDropdown = document.querySelector('.profile-dropdown');
-    
-    if (profileWrapper && profileDropdown) {
-        const newWrapper = profileWrapper.cloneNode(true);
-        profileWrapper.parentNode.replaceChild(newWrapper, profileWrapper);
-        
-        const newDropdown = newWrapper.querySelector('.profile-dropdown');
-        
-        newWrapper.addEventListener('click', (e) => {
-            e.stopPropagation();
-            newDropdown.classList.toggle('active');
-        });
-        
-        document.addEventListener('click', () => {
-            newDropdown.classList.remove('active');
-        });
-    }
-}
-
-// ============================================
-// HANDLE LOGOUT - FIXED
+// HANDLE LOGOUT - FIXED FOR AVATAR DROPDOWN
 // ============================================
 async function handleLogout() {
     console.log('Logout function called');
-    showToast('Signing out...', 'info');
     
     try {
+        // Show loading state
+        showToast('Signing out...', 'info');
+        
         // Sign out from Supabase
         const { error } = await supabase.auth.signOut();
         if (error) {
             console.error('Supabase sign out error:', error);
-            showToast(error.message || 'Failed to sign out', 'error');
-            return;
         }
         
         // Clear all localStorage items
@@ -207,11 +183,12 @@ async function handleLogout() {
         // Redirect to sign in page
         setTimeout(() => {
             window.location.href = '/signin.html';
-        }, 1000);
+        }, 500);
         
     } catch (error) {
         console.error('Logout error:', error);
-        showToast('Failed to sign out', 'error');
+        // Force redirect anyway
+        window.location.href = '/signin.html';
     }
 }
 
@@ -327,7 +304,6 @@ async function updateAuthUI() {
         if (mobileSignOutBtn) {
             mobileSignOutBtn.style.display = 'block';
             mobileSignOutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Sign Out';
-            // Remove old listener and add new one
             const newMobileSignOut = mobileSignOutBtn.cloneNode(true);
             mobileSignOutBtn.parentNode.replaceChild(newMobileSignOut, mobileSignOutBtn);
             newMobileSignOut.addEventListener('click', async (e) => {
@@ -336,17 +312,20 @@ async function updateAuthUI() {
             });
         }
         
-        // Add desktop logout handler
+        // Add desktop logout handler - CRITICAL FIX
         const desktopLogoutBtn = document.getElementById('desktopLogoutBtn');
         if (desktopLogoutBtn) {
+            // Remove any existing listeners
             const newLogoutBtn = desktopLogoutBtn.cloneNode(true);
             desktopLogoutBtn.parentNode.replaceChild(newLogoutBtn, desktopLogoutBtn);
-            newLogoutBtn.addEventListener('click', async (e) => {
+            
+            // Add the event listener directly
+            newLogoutBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Desktop logout clicked');
                 await handleLogout();
-            });
+            };
         }
         
         initUserDropdown();
@@ -381,6 +360,40 @@ async function updateAuthUI() {
         if (mobileSignOutBtn) mobileSignOutBtn.style.display = 'none';
         
         initThemeToggle();
+    }
+}
+
+// ============================================
+// USER DROPDOWN - Fixed to prevent premature closing
+// ============================================
+function initUserDropdown() {
+    const profileWrapper = document.querySelector('.profile-wrapper');
+    const profileDropdown = document.querySelector('.profile-dropdown');
+    
+    if (profileWrapper && profileDropdown) {
+        // Remove existing listeners
+        const newWrapper = profileWrapper.cloneNode(true);
+        profileWrapper.parentNode.replaceChild(newWrapper, profileWrapper);
+        
+        const newDropdown = newWrapper.querySelector('.profile-dropdown');
+        
+        // Toggle dropdown on click
+        newWrapper.addEventListener('click', (e) => {
+            e.stopPropagation();
+            newDropdown.classList.toggle('active');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!newWrapper.contains(e.target)) {
+                newDropdown.classList.remove('active');
+            }
+        });
+        
+        // Prevent dropdown from closing when clicking inside the dropdown
+        newDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
     }
 }
 
