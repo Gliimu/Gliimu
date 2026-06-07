@@ -1,6 +1,6 @@
 // ============================================
 // HEADER.JS - COMPLETE HEADER FUNCTIONALITY
-// With Fixed Logout
+// With Fixed Logout and Updated Navigation
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -53,6 +53,12 @@ function initActivePageDetection() {
         } else if (currentPage === 'admin-dashboard.html' && linkHref === 'admin-dashboard.html') {
             link.classList.add('active');
         } else if (currentPage === 'signin.html' && linkHref === 'signin.html') {
+            link.classList.add('active');
+        } else if (currentPage === 'hub.html' && linkHref === 'hub.html') {
+            link.classList.add('active');
+        } else if (currentPage === 'faq.html' && linkHref === 'faq.html') {
+            link.classList.add('active');
+        } else if (currentPage === 'contact.html' && linkHref === 'contact.html') {
             link.classList.add('active');
         }
     });
@@ -161,7 +167,6 @@ function initUserDropdown() {
     const profileDropdown = document.querySelector('.profile-dropdown');
     
     if (profileWrapper && profileDropdown) {
-        // Remove existing listeners
         const newWrapper = profileWrapper.cloneNode(true);
         profileWrapper.parentNode.replaceChild(newWrapper, profileWrapper);
         
@@ -181,7 +186,7 @@ function initUserDropdown() {
 // ============================================
 // HANDLE LOGOUT - FIXED
 // ============================================
-window.handleLogout = async function() {
+async function handleLogout() {
     console.log('Logout function called');
     showToast('Signing out...', 'info');
     
@@ -199,16 +204,16 @@ window.handleLogout = async function() {
         
         showToast('Signed out successfully', 'success');
         
-        // Redirect to home page
+        // Redirect to sign in page
         setTimeout(() => {
-            window.location.href = '/index.html';
+            window.location.href = '/signin.html';
         }, 1000);
         
     } catch (error) {
         console.error('Logout error:', error);
         showToast('Failed to sign out', 'error');
     }
-};
+}
 
 // ============================================
 // GET USER FROM SUPABASE
@@ -253,6 +258,9 @@ async function getUserProfile(userId) {
 // ============================================
 async function updateAuthUI() {
     const navRight = document.querySelector('.nav-right');
+    const mobileSignInBtn = document.getElementById('mobileSignInBtn');
+    const mobileSignOutBtn = document.getElementById('mobileSignOutBtn');
+    
     if (!navRight) return;
     
     const supabaseUser = await getSupabaseUser();
@@ -281,6 +289,7 @@ async function updateAuthUI() {
         const avatarUrl = userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=fbb040&color=fff`;
         let dashboardUrl = userData.role === 'admin' ? '/admin-dashboard.html' : '/dashboard.html';
         
+        // Update desktop navigation
         navRight.innerHTML = `
             <div class="profile-wrapper">
                 <img src="${avatarUrl}" alt="Profile" class="header-profile-img">
@@ -290,7 +299,7 @@ async function updateAuthUI() {
                         <i class="fas fa-tachometer-alt"></i> Dashboard
                     </a>
                     <div class="dropdown-divider"></div>
-                    <a href="#" class="dropdown-item logout-item">
+                    <a href="#" id="desktopLogoutBtn" class="dropdown-item">
                         <i class="fas fa-sign-out-alt"></i> Sign Out
                     </a>
                 </div>
@@ -313,20 +322,37 @@ async function updateAuthUI() {
             </button>
         `;
         
-        // Add logout handler using event delegation
-        const logoutItem = document.querySelector('.logout-item');
-        if (logoutItem) {
-            logoutItem.addEventListener('click', async (e) => {
+        // Update mobile navigation
+        if (mobileSignInBtn) mobileSignInBtn.style.display = 'none';
+        if (mobileSignOutBtn) {
+            mobileSignOutBtn.style.display = 'block';
+            mobileSignOutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Sign Out';
+            // Remove old listener and add new one
+            const newMobileSignOut = mobileSignOutBtn.cloneNode(true);
+            mobileSignOutBtn.parentNode.replaceChild(newMobileSignOut, mobileSignOutBtn);
+            newMobileSignOut.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await handleLogout();
+            });
+        }
+        
+        // Add desktop logout handler
+        const desktopLogoutBtn = document.getElementById('desktopLogoutBtn');
+        if (desktopLogoutBtn) {
+            const newLogoutBtn = desktopLogoutBtn.cloneNode(true);
+            desktopLogoutBtn.parentNode.replaceChild(newLogoutBtn, desktopLogoutBtn);
+            newLogoutBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Logout clicked');
-                await window.handleLogout();
+                console.log('Desktop logout clicked');
+                await handleLogout();
             });
         }
         
         initUserDropdown();
         initThemeToggle();
     } else {
+        // Update desktop navigation for logged out users
         navRight.innerHTML = `
             <a href="/signin.html" class="nav-btn primary">Sign in</a>
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
@@ -346,6 +372,13 @@ async function updateAuthUI() {
                 </svg>
             </button>
         `;
+        
+        // Update mobile navigation for logged out users
+        if (mobileSignInBtn) {
+            mobileSignInBtn.style.display = 'block';
+            mobileSignInBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign in';
+        }
+        if (mobileSignOutBtn) mobileSignOutBtn.style.display = 'none';
         
         initThemeToggle();
     }
@@ -404,4 +437,5 @@ if (document.readyState === 'loading') {
 }
 
 // Make logout available globally
+window.handleLogout = handleLogout;
 window.supabase = supabase;
