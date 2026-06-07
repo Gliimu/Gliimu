@@ -746,7 +746,6 @@ async function renderWallet() {
     }
 }
 
-// Helper function to submit payment request with specific code
 async function submitPaymentRequestWithCode(amount, bank, referenceCode) {
     const user = getCurrentUser();
     if (!user) {
@@ -772,6 +771,7 @@ async function submitPaymentRequestWithCode(amount, bank, referenceCode) {
         let pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
         pendingRequests.push(paymentRequest);
         localStorage.setItem('glimu_pending_payments', JSON.stringify(pendingRequests));
+        showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
         return true;
     } catch (error) {
         console.error('Submit payment error:', error);
