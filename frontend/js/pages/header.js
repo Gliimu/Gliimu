@@ -1,6 +1,6 @@
 // ============================================
 // HEADER.JS - COMPLETE HEADER FUNCTIONALITY
-// Fixed Avatar Dropdown Logout
+// Using Event Delegation for Reliable Logout
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -41,24 +41,6 @@ function initActivePageDetection() {
     navLinks.forEach(link => {
         const linkHref = link.getAttribute('href');
         if (linkHref === currentPage) {
-            link.classList.add('active');
-        } else if (currentPage === 'index.html' && linkHref === 'index.html') {
-            link.classList.add('active');
-        } else if (currentPage === '' && linkHref === 'index.html') {
-            link.classList.add('active');
-        } else if (currentPage === 'dashboard.html' && linkHref === 'dashboard.html') {
-            link.classList.add('active');
-        } else if (currentPage === 'library.html' && linkHref === 'library.html') {
-            link.classList.add('active');
-        } else if (currentPage === 'admin-dashboard.html' && linkHref === 'admin-dashboard.html') {
-            link.classList.add('active');
-        } else if (currentPage === 'signin.html' && linkHref === 'signin.html') {
-            link.classList.add('active');
-        } else if (currentPage === 'hub.html' && linkHref === 'hub.html') {
-            link.classList.add('active');
-        } else if (currentPage === 'faq.html' && linkHref === 'faq.html') {
-            link.classList.add('active');
-        } else if (currentPage === 'contact.html' && linkHref === 'contact.html') {
             link.classList.add('active');
         }
     });
@@ -114,10 +96,7 @@ function initMobileMenu() {
     const mobileNav = document.getElementById('mobileNavMenu');
     const navOverlay = document.getElementById('navOverlay');
     
-    if (!menuToggle || !mobileNav || !navOverlay) {
-        console.log('Mobile menu elements not found');
-        return;
-    }
+    if (!menuToggle || !mobileNav || !navOverlay) return;
     
     const toggleMenu = () => {
         const isOpen = mobileNav.classList.contains('is-open');
@@ -144,46 +123,35 @@ function initMobileMenu() {
     
     navOverlay.addEventListener('click', toggleMenu);
     
-    document.addEventListener('click', (e) => {
-        if (mobileNav.classList.contains('is-open') && 
-            !mobileNav.contains(e.target) && 
-            !newToggle.contains(e.target)) {
-            toggleMenu();
-        }
-    });
-    
     mobileNav.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', toggleMenu);
     });
-    
-    console.log('Mobile menu initialized');
 }
 
 // ============================================
-// HANDLE LOGOUT - FIXED FOR AVATAR DROPDOWN
+// HANDLE LOGOUT - RELIABLE VERSION
 // ============================================
 async function handleLogout() {
-    console.log('Logout function called');
+    console.log('Logout function called - starting logout process');
     
     try {
-        // Show loading state
+        // Show toast
         showToast('Signing out...', 'info');
         
         // Sign out from Supabase
         const { error } = await supabase.auth.signOut();
         if (error) {
-            console.error('Supabase sign out error:', error);
+            console.warn('Supabase sign out warning:', error);
         }
         
-        // Clear all localStorage items
+        // Clear all storage
         localStorage.clear();
+        sessionStorage.clear();
         
         showToast('Signed out successfully', 'success');
         
-        // Redirect to sign in page
-        setTimeout(() => {
-            window.location.href = '/signin.html';
-        }, 500);
+        // Force redirect to signin page
+        window.location.href = '/signin.html';
         
     } catch (error) {
         console.error('Logout error:', error);
@@ -198,12 +166,9 @@ async function handleLogout() {
 async function getSupabaseUser() {
     try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-            return null;
-        }
+        if (error || !user) return null;
         return user;
     } catch (error) {
-        console.error('Error getting user:', error);
         return null;
     }
 }
@@ -219,13 +184,9 @@ async function getUserProfile(userId) {
             .eq('id', userId)
             .single();
         
-        if (error) {
-            console.error('Error fetching profile:', error);
-            return null;
-        }
+        if (error) return null;
         return data;
     } catch (error) {
-        console.error('Profile fetch error:', error);
         return null;
     }
 }
@@ -257,16 +218,13 @@ async function updateAuthUI() {
         localStorage.setItem('glimu_user', JSON.stringify(userData));
     } else {
         const storedUser = localStorage.getItem('glimu_user');
-        if (storedUser) {
-            userData = JSON.parse(storedUser);
-        }
+        if (storedUser) userData = JSON.parse(storedUser);
     }
     
     if (userData) {
-        const avatarUrl = userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=fbb040&color=fff`;
+        const avatarUrl = userData.avatar;
         let dashboardUrl = userData.role === 'admin' ? '/admin-dashboard.html' : '/dashboard.html';
         
-        // Update desktop navigation
         navRight.innerHTML = `
             <div class="profile-wrapper">
                 <img src="${avatarUrl}" alt="Profile" class="header-profile-img">
@@ -299,39 +257,14 @@ async function updateAuthUI() {
             </button>
         `;
         
-        // Update mobile navigation
         if (mobileSignInBtn) mobileSignInBtn.style.display = 'none';
         if (mobileSignOutBtn) {
             mobileSignOutBtn.style.display = 'block';
             mobileSignOutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Sign Out';
-            const newMobileSignOut = mobileSignOutBtn.cloneNode(true);
-            mobileSignOutBtn.parentNode.replaceChild(newMobileSignOut, mobileSignOutBtn);
-            newMobileSignOut.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await handleLogout();
-            });
         }
         
-        // Add desktop logout handler - CRITICAL FIX
-        const desktopLogoutBtn = document.getElementById('desktopLogoutBtn');
-        if (desktopLogoutBtn) {
-            // Remove any existing listeners
-            const newLogoutBtn = desktopLogoutBtn.cloneNode(true);
-            desktopLogoutBtn.parentNode.replaceChild(newLogoutBtn, desktopLogoutBtn);
-            
-            // Add the event listener directly
-            newLogoutBtn.onclick = async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Desktop logout clicked');
-                await handleLogout();
-            };
-        }
-        
-        initUserDropdown();
         initThemeToggle();
     } else {
-        // Update desktop navigation for logged out users
         navRight.innerHTML = `
             <a href="/signin.html" class="nav-btn primary">Sign in</a>
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
@@ -352,7 +285,6 @@ async function updateAuthUI() {
             </button>
         `;
         
-        // Update mobile navigation for logged out users
         if (mobileSignInBtn) {
             mobileSignInBtn.style.display = 'block';
             mobileSignInBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign in';
@@ -364,37 +296,20 @@ async function updateAuthUI() {
 }
 
 // ============================================
-// USER DROPDOWN - Fixed to prevent premature closing
+// SETUP EVENT DELEGATION FOR LOGOUT - THIS IS THE KEY FIX
 // ============================================
-function initUserDropdown() {
-    const profileWrapper = document.querySelector('.profile-wrapper');
-    const profileDropdown = document.querySelector('.profile-dropdown');
-    
-    if (profileWrapper && profileDropdown) {
-        // Remove existing listeners
-        const newWrapper = profileWrapper.cloneNode(true);
-        profileWrapper.parentNode.replaceChild(newWrapper, profileWrapper);
-        
-        const newDropdown = newWrapper.querySelector('.profile-dropdown');
-        
-        // Toggle dropdown on click
-        newWrapper.addEventListener('click', (e) => {
+function setupLogoutEventDelegation() {
+    // Use event delegation on the entire document
+    document.body.addEventListener('click', async (e) => {
+        // Check if the clicked element is the logout button or inside it
+        const logoutBtn = e.target.closest('#desktopLogoutBtn');
+        if (logoutBtn) {
+            e.preventDefault();
             e.stopPropagation();
-            newDropdown.classList.toggle('active');
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!newWrapper.contains(e.target)) {
-                newDropdown.classList.remove('active');
-            }
-        });
-        
-        // Prevent dropdown from closing when clicking inside the dropdown
-        newDropdown.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-    }
+            console.log('Logout clicked via event delegation');
+            await handleLogout();
+        }
+    });
 }
 
 // ============================================
@@ -409,6 +324,7 @@ async function initHeaderFeatures() {
     initMobileMenu();
     initHeaderScroll();
     initActivePageDetection();
+    setupLogoutEventDelegation();  // This ensures logout always works
 }
 
 // ============================================
@@ -416,14 +332,12 @@ async function initHeaderFeatures() {
 // ============================================
 function waitForHeader() {
     if (document.querySelector('header')) {
-        console.log('Header found, initializing...');
         initHeaderFeatures();
         return;
     }
     
     const observer = new MutationObserver(function(mutations, obs) {
         if (document.querySelector('header')) {
-            console.log('Header detected, initializing...');
             obs.disconnect();
             initHeaderFeatures();
         }
@@ -433,7 +347,6 @@ function waitForHeader() {
     
     setTimeout(function() {
         if (!headerLoaded && document.querySelector('header')) {
-            console.log('Header found via timeout');
             initHeaderFeatures();
         }
         observer.disconnect();
@@ -449,6 +362,6 @@ if (document.readyState === 'loading') {
     waitForHeader();
 }
 
-// Make logout available globally
+// Make logout available globally for testing
 window.handleLogout = handleLogout;
 window.supabase = supabase;
