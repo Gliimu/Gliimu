@@ -1,119 +1,182 @@
-// Auth Module - Handles login, logout, session management
+// ============================================
+// AUTHENTICATION MODULE - Supabase Integration
+// ============================================
 
-// Mock login for development (no backend needed)
-export const mockLogin = (username, password) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let role = 'Student';
-      let name = 'Demo Student';
-      let redirectUrl = 'user.html';
-      
-      if (username.toLowerCase().includes('instructor')) {
-        role = 'Instructor';
-        name = 'Demo Instructor';
-        redirectUrl = 'instructor.html';
-      } else if (username.toLowerCase().includes('admin')) {
-        role = 'Admin';
-        name = 'Super Admin';
-        redirectUrl = 'dashtypex.html';
-      }
-      
-      const user = {
-        id: 'demo_' + Date.now(),
-        username: username,
-        name: name,
-        email: `${username}@gliimu.com`,
-        role: role,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-        token: 'mock_token_' + Date.now()
-      };
-      
-      localStorage.setItem('gliimu_user', JSON.stringify(user));
-      resolve({ success: true, user, redirectUrl });
-    }, 500);
-  });
-};
+import { supabase } from './supabase.js';
+import { showToast } from './toast.js';
 
-// Real login (when backend is ready)
-export const login = async (username, password) => {
-  try {
-    const response = await fetch('http://127.0.0.1:3000/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      localStorage.setItem('gliimu_user', JSON.stringify(data.userData));
-      if (data.token) {
-        data.userData.token = data.token;
-        localStorage.setItem('gliimu_user', JSON.stringify(data.userData));
-      }
+// Sign in user
+export async function signIn(email, password) {
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) throw error;
+        
+        // Get user profile from database
+        const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+        
+        if (profileError) {
+            console.error('Profile fetch error:', profileError);
+        }
+        
+        // Store user data in localStorage
+        const userData = {
+            id: data.user.id,
+            email: data.user.email,
+            name: profile?.name || data.user.user_metadata?.name || 'User',
+            role: profile?.role || 'student',
+            plan: profile?.plan || 'basic',
+            walletBalance: profile?.wallet_balance || 25000
+        };
+        
+        localStorage.setItem('glimu_user', JSON.stringify(userData));
+        localStorage.setItem('supabase_token', data.session.access_token);
+        
+        showToast(`Welcome back, ${userData.name}!`, 'success');
+        
+        // Redirect based on role
+        setTimeout(() => {
+            if (userData.role === 'admin') {
+                window.location.href = '/admin-dashboard.html';
+            } else {
+                window.location.href = '/dashboard.html';
+            }
+        }, 1000);
+        
+        return { success: true, user: userData };
+        
+    } catch (error) {
+        console.error('Sign in error:', error);
+        showToast(error.message || 'Invalid email or password', 'error');
+        return { success: false, error: error.message };
+    }
+}
+
+// Sign up user
+export async function signUp(name, email, password, confirmPassword) {
+    // Validation
+    if (!name || !email || !password) {
+        showToast('Please fill in all fields', 'error');
+        return { success: false };
     }
     
-    return data;
-  } catch (error) {
-    console.error('Login error:', error);
-    // Fallback to mock login if server is down
-    return mockLogin(username, password);
-  }
-};
+    if (password !== confirmPassword) {
+        showToast('Passwords do not match', 'error');
+        return { success: false };
+    }
+    
+    if (password.length < 6) {
+        showToast('Password must be at least 6 characters', 'error');
+        return { success: false };
+    }
+    
+    try {
+        const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    name: name,
+                    role: 'student'
+                }
+            }
+        });
+        
+        if (error) throw error;
+        
+        if (data.user) {
+            showToast('Account created successfully! Please sign in.', 'success');
+            
+            // Switch to login form
+            setTimeout(() => {
+                document.getElementById('signupFormContainer').style.display = 'none';
+                document.getElementById('loginFormContainer').style.display = 'block';
+            }, 1500);
+        }
+        
+        return { success: true, user: data.user };
+        
+    } catch (error) {
+        console.error('Sign up error:', error);
+        showToast(error.message || 'Failed to create account', 'error');
+        return { success: false, error: error.message };
+    }
+}
 
-// Logout
-export const logout = () => {
-  localStorage.removeItem('gliimu_user');
-  localStorage.removeItem('gliimu_avatar');
-  window.location.href = 'index.html';
-};
+// Sign out user
+export async function signOut() {
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        
+        localStorage.removeItem('glimu_user');
+        localStorage.removeItem('supabase_token');
+        
+        showToast('Signed out successfully', 'success');
+        
+        setTimeout(() => {
+            window.location.href = '/index.html';
+        }, 1000);
+        
+        return { success: true };
+        
+    } catch (error) {
+        console.error('Sign out error:', error);
+        showToast('Failed to sign out', 'error');
+        return { success: false };
+    }
+}
 
 // Get current user from localStorage
-export const getCurrentUser = () => {
-  const user = localStorage.getItem('gliimu_user');
-  return user ? JSON.parse(user) : null;
-};
+export function getCurrentUser() {
+    const user = localStorage.getItem('glimu_user');
+    return user ? JSON.parse(user) : null;
+}
 
-// Check if user is logged in
-export const isLoggedIn = () => {
-  return getCurrentUser() !== null;
-};
+// Check if user is authenticated
+export function isAuthenticated() {
+    return !!getCurrentUser();
+}
+
+// Check if user is admin
+export function isAdmin() {
+    const user = getCurrentUser();
+    return user?.role === 'admin';
+}
 
 // Get user role
-export const getUserRole = () => {
-  const user = getCurrentUser();
-  return user ? user.role : null;
-};
+export function getUserRole() {
+    const user = getCurrentUser();
+    return user?.role || 'student';
+}
 
-// Get auth token
-export const getAuthToken = () => {
-  const user = getCurrentUser();
-  return user ? user.token : null;
-};
-
-// Update user avatar
-export const updateAvatar = (avatarUrl) => {
-  const user = getCurrentUser();
-  if (user) {
-    user.avatar = avatarUrl;
-    localStorage.setItem('gliimu_user', JSON.stringify(user));
-    localStorage.setItem('gliimu_avatar', avatarUrl);
-  }
-};
+// Redirect based on authentication status
+export function requireAuth() {
+    if (!isAuthenticated()) {
+        showToast('Please login to continue', 'info');
+        setTimeout(() => {
+            window.location.href = '/index.html';
+        }, 1500);
+        return false;
+    }
+    return true;
+}
 
 // Redirect based on role
-export const redirectToDashboard = () => {
-  const user = getCurrentUser();
-  if (!user) {
-    window.location.href = 'index.html';
-    return;
-  }
-  
-  const roleMap = {
-    'Student': 'user.html',
-    'Instructor': 'instructor.html',
-    'Admin': 'dashtypex.html'
-  };
-  
-  window.location.href = roleMap[user.role] || 'index.html';
-};
+export function redirectBasedOnRole() {
+    const user = getCurrentUser();
+    if (!user) return;
+    
+    if (user.role === 'admin') {
+        window.location.href = '/admin-dashboard.html';
+    } else {
+        window.location.href = '/dashboard.html';
+    }
+}
