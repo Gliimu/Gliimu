@@ -1,4 +1,4 @@
-<!-- Login Modal -->
+<!-- Login Modal - Fully Functional with Supabase Auth -->
 <div id="loginModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -10,18 +10,20 @@
             <div id="loginFormContainer">
                 <form id="loginForm">
                     <div class="form-group">
-                        <label for="loginEmail">Email</label>
+                        <label for="loginEmail">Email Address</label>
                         <input type="email" id="loginEmail" required placeholder="you@example.com">
                     </div>
                     <div class="form-group">
                         <label for="loginPassword">Password</label>
-                        <input type="password" id="loginPassword" required placeholder="••••••••">
+                        <input type="password" id="loginPassword" required placeholder="Enter your password">
                     </div>
-                    <button type="submit" class="btn-primary" style="width: 100%;">Sign In</button>
+                    <button type="submit" class="btn-primary" style="width: 100%;">
+                        <i class="fas fa-sign-in-alt"></i> Sign In
+                    </button>
                 </form>
                 <p class="text-center" style="margin-top: 1rem;">
                     Don't have an account? 
-                    <a href="#" id="showSignupBtn" style="color: var(--accent);">Sign Up</a>
+                    <a href="#" id="showSignupBtn" style="color: var(--accent);">Create Account</a>
                 </p>
             </div>
             
@@ -33,18 +35,20 @@
                         <input type="text" id="signupName" required placeholder="John Doe">
                     </div>
                     <div class="form-group">
-                        <label for="signupEmail">Email</label>
+                        <label for="signupEmail">Email Address</label>
                         <input type="email" id="signupEmail" required placeholder="you@example.com">
                     </div>
                     <div class="form-group">
                         <label for="signupPassword">Password</label>
-                        <input type="password" id="signupPassword" required placeholder="••••••••">
+                        <input type="password" id="signupPassword" required placeholder="At least 6 characters">
                     </div>
                     <div class="form-group">
                         <label for="signupConfirmPassword">Confirm Password</label>
-                        <input type="password" id="signupConfirmPassword" required placeholder="••••••••">
+                        <input type="password" id="signupConfirmPassword" required placeholder="Re-enter your password">
                     </div>
-                    <button type="submit" class="btn-primary" style="width: 100%;">Create Account</button>
+                    <button type="submit" class="btn-primary" style="width: 100%;">
+                        <i class="fas fa-user-plus"></i> Create Account
+                    </button>
                 </form>
                 <p class="text-center" style="margin-top: 1rem;">
                     Already have an account? 
@@ -56,10 +60,79 @@
 </div>
 
 <style>
-    .text-center {
-        text-align: center;
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
     }
     
+    .modal.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: var(--bg-primary, #ffffff);
+        border-radius: 16px;
+        max-width: 450px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease;
+        border-top: 4px solid var(--accent, #fbb040);
+    }
+    
+    @keyframes modalSlideIn {
+        from {
+            transform: translateY(-30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color, #e2e8f0);
+    }
+    
+    .modal-header h2 {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-primary, #0f172a);
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--text-secondary, #64748b);
+        transition: color 0.2s;
+    }
+    
+    .modal-close:hover {
+        color: var(--accent, #fbb040);
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    /* Form Styles */
     .form-group {
         margin-bottom: 1rem;
     }
@@ -69,67 +142,276 @@
         margin-bottom: 0.5rem;
         font-size: 0.85rem;
         font-weight: 500;
-        color: var(--text-secondary);
+        color: var(--text-secondary, #64748b);
     }
     
     .form-group input {
         width: 100%;
         padding: 10px 12px;
-        border: 1px solid var(--border-color);
+        border: 1px solid var(--border-color, #e2e8f0);
         border-radius: 8px;
-        background: var(--bg-primary);
-        color: var(--text-primary);
-        font-family: inherit;
+        background: var(--bg-primary, #ffffff);
+        color: var(--text-primary, #0f172a);
+        font-family: 'Space Grotesk', sans-serif;
         font-size: 0.9rem;
+        transition: border-color 0.2s;
     }
     
     .form-group input:focus {
         outline: none;
-        border-color: var(--accent);
-    }
-    
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .modal-header h2 {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: var(--text-primary);
-    }
-    
-    .modal-close {
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-        color: var(--text-secondary);
-    }
-    
-    .modal-close:hover {
-        color: var(--accent);
-    }
-    
-    .modal-body {
-        padding: 1.5rem;
+        border-color: var(--accent, #fbb040);
     }
     
     .btn-primary {
-        background: var(--accent);
-        color: var(--primary-dark);
+        background: var(--accent, #fbb040);
+        color: var(--primary-dark, #1a1c4a);
         border: none;
         padding: 12px;
         border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
-        font-family: inherit;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.9rem;
+        transition: all 0.2s;
     }
     
     .btn-primary:hover {
-        background: var(--accent-dark);
+        background: var(--accent-dark, #cc8a2a);
+        transform: translateY(-1px);
+    }
+    
+    .text-center {
+        text-align: center;
+    }
+    
+    /* Dark Mode Support */
+    body.dark-mode .modal-content {
+        background: var(--bg-primary, #1e293b);
+    }
+    
+    body.dark-mode .form-group input {
+        background: var(--bg-secondary, #0f172a);
+        border-color: var(--border-color, #334155);
+        color: var(--text-primary, #f1f5f9);
+    }
+    
+    body.dark-mode .modal-header {
+        border-bottom-color: var(--border-color, #334155);
     }
 </style>
+
+<script type="module">
+    // Import Supabase functions
+    import { supabase } from '/js/modules/supabase.js';
+    import { showToast } from '/js/modules/toast.js';
+    
+    // Make supabase available globally
+    window.supabase = supabase;
+    
+    // Handle Login
+    async function handleLogin(email, password) {
+        if (!email || !password) {
+            showToast('Please enter email and password', 'error');
+            return false;
+        }
+        
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+            
+            if (error) throw error;
+            
+            // Get user profile
+            const { data: profile, error: profileError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+            
+            if (profileError) {
+                console.error('Profile fetch error:', profileError);
+            }
+            
+            // Store user data
+            const userData = {
+                id: data.user.id,
+                email: data.user.email,
+                name: profile?.name || data.user.user_metadata?.name || 'User',
+                role: profile?.role || 'student',
+                plan: profile?.plan || 'basic',
+                walletBalance: profile?.wallet_balance || 25000,
+                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff`
+            };
+            
+            localStorage.setItem('glimu_user', JSON.stringify(userData));
+            localStorage.setItem('supabase_token', data.session.access_token);
+            
+            showToast(`Welcome back, ${userData.name}!`, 'success');
+            
+            // Close modal
+            window.closeLoginModal();
+            
+            // Redirect after delay
+            setTimeout(() => {
+                if (userData.role === 'admin') {
+                    window.location.href = '/admin-dashboard.html';
+                } else {
+                    window.location.href = '/dashboard.html';
+                }
+            }, 1000);
+            
+            return true;
+            
+        } catch (error) {
+            console.error('Login error:', error);
+            showToast(error.message || 'Invalid email or password', 'error');
+            return false;
+        }
+    }
+    
+    // Handle Signup
+    async function handleSignup(name, email, password, confirmPassword) {
+        if (!name || !email || !password) {
+            showToast('Please fill in all fields', 'error');
+            return false;
+        }
+        
+        if (password !== confirmPassword) {
+            showToast('Passwords do not match', 'error');
+            return false;
+        }
+        
+        if (password.length < 6) {
+            showToast('Password must be at least 6 characters', 'error');
+            return false;
+        }
+        
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: {
+                        name: name,
+                        role: 'student'
+                    }
+                }
+            });
+            
+            if (error) throw error;
+            
+            if (data.user) {
+                showToast('Account created successfully! Please sign in.', 'success');
+                
+                // Switch to login form
+                const signupContainer = document.getElementById('signupFormContainer');
+                const loginContainer = document.getElementById('loginFormContainer');
+                if (signupContainer && loginContainer) {
+                    signupContainer.style.display = 'none';
+                    loginContainer.style.display = 'block';
+                }
+                
+                // Clear signup form
+                document.getElementById('signupForm')?.reset();
+            }
+            
+            return true;
+            
+        } catch (error) {
+            console.error('Signup error:', error);
+            showToast(error.message || 'Failed to create account', 'error');
+            return false;
+        }
+    }
+    
+    // Setup modal functionality
+    function setupModal() {
+        // Close modal
+        const closeBtn = document.getElementById('closeLoginModalBtn');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                const modal = document.getElementById('loginModal');
+                if (modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            };
+        }
+        
+        // Close on outside click
+        const modal = document.getElementById('loginModal');
+        if (modal) {
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            };
+        }
+        
+        // Switch to signup
+        const showSignupBtn = document.getElementById('showSignupBtn');
+        if (showSignupBtn) {
+            showSignupBtn.onclick = (e) => {
+                e.preventDefault();
+                const loginContainer = document.getElementById('loginFormContainer');
+                const signupContainer = document.getElementById('signupFormContainer');
+                if (loginContainer) loginContainer.style.display = 'none';
+                if (signupContainer) signupContainer.style.display = 'block';
+            };
+        }
+        
+        // Switch to login
+        const showLoginBtn = document.getElementById('showLoginBtn');
+        if (showLoginBtn) {
+            showLoginBtn.onclick = (e) => {
+                e.preventDefault();
+                const loginContainer = document.getElementById('loginFormContainer');
+                const signupContainer = document.getElementById('signupFormContainer');
+                if (loginContainer) loginContainer.style.display = 'block';
+                if (signupContainer) signupContainer.style.display = 'none';
+            };
+        }
+        
+        // Login form submit
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail')?.value;
+                const password = document.getElementById('loginPassword')?.value;
+                if (email && password) {
+                    await handleLogin(email, password);
+                }
+            };
+        }
+        
+        // Signup form submit
+        const signupForm = document.getElementById('signupForm');
+        if (signupForm) {
+            signupForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('signupName')?.value;
+                const email = document.getElementById('signupEmail')?.value;
+                const password = document.getElementById('signupPassword')?.value;
+                const confirmPassword = document.getElementById('signupConfirmPassword')?.value;
+                if (name && email && password) {
+                    await handleSignup(name, email, password, confirmPassword);
+                }
+            };
+        }
+    }
+    
+    // Run setup when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupModal);
+    } else {
+        setupModal();
+    }
+    
+    // Make functions global for console access
+    window.handleLogin = handleLogin;
+    window.handleSignup = handleSignup;
+</script>
