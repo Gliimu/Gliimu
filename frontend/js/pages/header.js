@@ -1,6 +1,6 @@
 // ============================================
 // HEADER.JS - COMPLETE FUNCTIONAL VERSION
-// With Supabase Auth Integration
+// With Supabase Auth Integration - FIXED
 // ============================================
 
 // Import required modules
@@ -181,38 +181,121 @@ function initUserDropdown() {
 }
 
 // ============================================
-// HANDLE LOGOUT
+// HANDLE LOGOUT - FIXED
 // ============================================
 async function handleLogout() {
+    console.log('Logging out...');
+    
     try {
+        // Sign out from Supabase
         const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase sign out error:', error);
+            showToast(error.message || 'Failed to sign out', 'error');
+            return;
+        }
         
+        // Clear localStorage
         localStorage.removeItem('glimu_user');
         localStorage.removeItem('supabase_token');
         
         showToast('Signed out successfully', 'success');
         
+        // Update UI immediately
+        updateAuthUI();
+        
+        // Redirect to home page after short delay
         setTimeout(() => {
             window.location.href = '/index.html';
-        }, 1000);
+        }, 1500);
+        
     } catch (error) {
-        console.error('Sign out error:', error);
+        console.error('Logout error:', error);
         showToast('Failed to sign out', 'error');
     }
 }
 
 // ============================================
-// UPDATE UI BASED ON LOGIN STATE
+// GET USER FROM SUPABASE - FIXED
 // ============================================
-function updateAuthUI() {
-    const user = localStorage.getItem('glimu_user');
-    const userData = user ? JSON.parse(user) : null;
+async function getSupabaseUser() {
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+            console.log('No user found in Supabase');
+            return null;
+        }
+        return user;
+    } catch (error) {
+        console.error('Error getting user:', error);
+        return null;
+    }
+}
+
+// ============================================
+// GET USER PROFILE FROM DATABASE
+// ============================================
+async function getUserProfile(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        
+        if (error) {
+            console.error('Error fetching profile:', error);
+            return null;
+        }
+        return data;
+    } catch (error) {
+        console.error('Profile fetch error:', error);
+        return null;
+    }
+}
+
+// ============================================
+// UPDATE UI BASED ON LOGIN STATE - FIXED
+// ============================================
+async function updateAuthUI() {
     const navRight = document.querySelector('.nav-right');
-    
     if (!navRight) return;
     
+    // Try to get user from Supabase
+    const supabaseUser = await getSupabaseUser();
+    let userData = null;
+    
+    if (supabaseUser) {
+        const profile = await getUserProfile(supabaseUser.id);
+        userData = {
+            id: supabaseUser.id,
+            email: supabaseUser.email,
+            name: profile?.name || supabaseUser.user_metadata?.name || 'User',
+            role: profile?.role || 'student',
+            plan: profile?.plan || 'basic',
+            walletBalance: profile?.wallet_balance || 25000,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff`
+        };
+        // Store in localStorage for quick access
+        localStorage.setItem('glimu_user', JSON.stringify(userData));
+    } else {
+        // Check localStorage fallback
+        const storedUser = localStorage.getItem('glimu_user');
+        if (storedUser) {
+            userData = JSON.parse(storedUser);
+            // Verify with Supabase silently
+            const { data } = await supabase.auth.getUser();
+            if (!data.user) {
+                // Session expired, clear localStorage
+                localStorage.removeItem('glimu_user');
+                localStorage.removeItem('supabase_token');
+                userData = null;
+            }
+        }
+    }
+    
     if (userData) {
+        // User is logged in - show profile dropdown
         const avatarUrl = userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=fbb040&color=fff`;
         let dashboardUrl = userData.role === 'admin' ? '/admin-dashboard.html' : '/dashboard.html';
         
@@ -262,6 +345,7 @@ function updateAuthUI() {
         initUserDropdown();
         initThemeToggle();
     } else {
+        // User not logged in - show sign in button
         navRight.innerHTML = `
             <a href="#" id="signInBtn" class="nav-btn primary">Sign in</a>
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
@@ -289,11 +373,11 @@ function updateAuthUI() {
             signInBtn.parentNode.replaceChild(newSignInBtn, signInBtn);
             newSignInBtn.addEventListener('click', (e) => {
                 e.preventDefault();
+                console.log('Sign in clicked');
                 if (typeof window.openLoginModal === 'function') {
                     window.openLoginModal();
                 } else {
                     console.error('openLoginModal not defined');
-                    // Fallback: try to find modal directly
                     const modal = document.getElementById('loginModal');
                     if (modal) {
                         modal.classList.add('active');
@@ -336,6 +420,7 @@ window.openLoginModal = function() {
 };
 
 window.closeLoginModal = function() {
+    console.log('Closing login modal...');
     const modal = document.getElementById('loginModal');
     if (modal) {
         modal.classList.remove('active');
@@ -349,12 +434,12 @@ window.logout = handleLogout;
 // ============================================
 // INITIALIZE ALL HEADER FEATURES
 // ============================================
-function initHeaderFeatures() {
+async function initHeaderFeatures() {
     if (headerLoaded) return;
     headerLoaded = true;
     
     console.log('Initializing header features...');
-    updateAuthUI();
+    await updateAuthUI();
     initMobileMenu();
     initHeaderScroll();
     initActivePageDetection();
