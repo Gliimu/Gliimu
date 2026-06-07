@@ -5,8 +5,8 @@
 // ============================================
 let currentUser = null;
 
-// Import Supabase auth functions (will be loaded as module)
-import { supabase, signIn, signUp, signOut, getCurrentUser, isAuthenticated } from '../modules/supabase.js';
+// Import Supabase auth functions
+import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ============================================
@@ -124,7 +124,6 @@ async function handleLogin(email, password) {
 
 // Handle signup with Supabase
 async function handleSignup(name, email, password, confirmPassword) {
-  // Validation
   if (!name || !email || !password) {
     showToast('Please fill in all fields', 'error');
     return { success: false };
@@ -175,38 +174,8 @@ async function handleSignup(name, email, password, confirmPassword) {
   }
 }
 
-// Handle logout
-async function handleLogout() {
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    
-    localStorage.removeItem('glimu_user');
-    localStorage.removeItem('supabase_token');
-    
-    showToast('Signed out successfully', 'success');
-    
-    setTimeout(() => {
-      window.location.href = '/index.html';
-    }, 1000);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Sign out error:', error);
-    showToast('Failed to sign out', 'error');
-    return { success: false };
-  }
-}
-
-// Get current user from localStorage
-function getLocalUser() {
-  const user = localStorage.getItem('glimu_user');
-  return user ? JSON.parse(user) : null;
-}
-
 // ============================================
-// THEME TOGGLE (Dark/Light Mode)
+// THEME TOGGLE
 // ============================================
 function initThemeToggle() {
   const themeToggle = document.getElementById('themeToggle');
@@ -214,12 +183,9 @@ function initThemeToggle() {
   
   const body = document.body;
   
-  // Apply saved theme
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme === 'dark') {
     body.classList.add('dark-mode');
-  } else if (savedTheme === 'light') {
-    body.classList.remove('dark-mode');
   } else {
     body.classList.add('dark-mode');
   }
@@ -245,7 +211,7 @@ function initThemeToggle() {
 }
 
 // ============================================
-// MOBILE MENU (Hamburger)
+// MOBILE MENU
 // ============================================
 function initMobileMenu() {
   const menuToggle = document.getElementById('menuToggle');
@@ -272,7 +238,6 @@ function initMobileMenu() {
     }
   };
   
-  // Remove any existing listeners to avoid duplicates
   const newToggle = menuToggle.cloneNode(true);
   menuToggle.parentNode.replaceChild(newToggle, menuToggle);
   
@@ -299,172 +264,98 @@ function initMobileMenu() {
 }
 
 // ============================================
-// LOGIN MODAL (Updated with Supabase)
+// LOGIN MODAL SETUP
 // ============================================
-function initLoginModal() {
+function setupLoginModal() {
   const modal = document.getElementById('loginModal');
-  if (!modal) return;
+  if (!modal) {
+    console.log('Login modal not found yet');
+    return;
+  }
   
-  // Open modal function (global for onclick)
-  window.openLoginModal = function() {
-    // Reset forms
-    const loginContainer = document.getElementById('loginFormContainer');
-    const signupContainer = document.getElementById('signupFormContainer');
-    if (loginContainer) loginContainer.style.display = 'block';
-    if (signupContainer) signupContainer.style.display = 'none';
-    
-    const loginForm = document.getElementById('loginForm');
-    const signupForm = document.getElementById('signupForm');
-    if (loginForm) loginForm.reset();
-    if (signupForm) signupForm.reset();
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  };
+  console.log('Setting up login modal');
   
-  // Close modal function
-  const closeModal = () => {
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
-  };
-  
-  // Close on X button
-  const closeBtn = document.getElementById('closeLoginModal');
+  // Close button
+  const closeBtn = document.getElementById('closeLoginModalBtn');
   if (closeBtn) {
-    const newCloseBtn = closeBtn.cloneNode(true);
-    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-    newCloseBtn.addEventListener('click', closeModal);
+    closeBtn.onclick = () => {
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+    };
   }
   
   // Close on outside click
-  modal.addEventListener('click', (e) => {
+  modal.onclick = (e) => {
     if (e.target === modal) {
-      closeModal();
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
     }
-  });
+  };
   
-  // Switch to signup form
+  // Switch between forms
   const showSignupBtn = document.getElementById('showSignupBtn');
+  const showLoginBtn = document.getElementById('showLoginBtn');
+  const loginContainer = document.getElementById('loginFormContainer');
+  const signupContainer = document.getElementById('signupFormContainer');
+  
   if (showSignupBtn) {
-    const newSignupBtn = showSignupBtn.cloneNode(true);
-    showSignupBtn.parentNode.replaceChild(newSignupBtn, showSignupBtn);
-    newSignupBtn.addEventListener('click', (e) => {
+    showSignupBtn.onclick = (e) => {
       e.preventDefault();
-      const loginContainer = document.getElementById('loginFormContainer');
-      const signupContainer = document.getElementById('signupFormContainer');
       if (loginContainer) loginContainer.style.display = 'none';
       if (signupContainer) signupContainer.style.display = 'block';
-    });
+    };
   }
   
-  // Switch to login form
-  const showLoginBtn = document.getElementById('showLoginBtn');
   if (showLoginBtn) {
-    const newLoginBtn = showLoginBtn.cloneNode(true);
-    showLoginBtn.parentNode.replaceChild(newLoginBtn, showLoginBtn);
-    newLoginBtn.addEventListener('click', (e) => {
+    showLoginBtn.onclick = (e) => {
       e.preventDefault();
-      const loginContainer = document.getElementById('loginFormContainer');
-      const signupContainer = document.getElementById('signupFormContainer');
       if (loginContainer) loginContainer.style.display = 'block';
       if (signupContainer) signupContainer.style.display = 'none';
-    });
+    };
   }
   
-  // Handle login form submission
+  // Login form submission
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
-    const newForm = loginForm.cloneNode(true);
-    loginForm.parentNode.replaceChild(newForm, loginForm);
-    
-    newForm.addEventListener('submit', async (e) => {
+    loginForm.onsubmit = async (e) => {
       e.preventDefault();
-      const email = document.getElementById('loginEmail')?.value || '';
-      const password = document.getElementById('loginPassword')?.value || '';
-      
-      const submitBtn = newForm.querySelector('button[type="submit"]');
-      const originalText = submitBtn?.textContent || 'Sign In';
-      if (submitBtn) {
-        submitBtn.textContent = 'Verifying...';
-        submitBtn.disabled = true;
+      const email = document.getElementById('loginEmail')?.value;
+      const password = document.getElementById('loginPassword')?.value;
+      if (email && password) {
+        await handleLogin(email, password);
       }
-      
-      await handleLogin(email, password);
-      
-      if (submitBtn) {
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-      }
-    });
+    };
   }
   
-  // Handle signup form submission
+  // Signup form submission
   const signupForm = document.getElementById('signupForm');
   if (signupForm) {
-    const newForm = signupForm.cloneNode(true);
-    signupForm.parentNode.replaceChild(newForm, signupForm);
-    
-    newForm.addEventListener('submit', async (e) => {
+    signupForm.onsubmit = async (e) => {
       e.preventDefault();
-      const name = document.getElementById('signupName')?.value || '';
-      const email = document.getElementById('signupEmail')?.value || '';
-      const password = document.getElementById('signupPassword')?.value || '';
-      const confirmPassword = document.getElementById('signupConfirmPassword')?.value || '';
-      
-      const submitBtn = newForm.querySelector('button[type="submit"]');
-      const originalText = submitBtn?.textContent || 'Create Account';
-      if (submitBtn) {
-        submitBtn.textContent = 'Creating...';
-        submitBtn.disabled = true;
+      const name = document.getElementById('signupName')?.value;
+      const email = document.getElementById('signupEmail')?.value;
+      const password = document.getElementById('signupPassword')?.value;
+      const confirmPassword = document.getElementById('signupConfirmPassword')?.value;
+      if (name && email && password) {
+        await handleSignup(name, email, password, confirmPassword);
       }
-      
-      await handleSignup(name, email, password, confirmPassword);
-      
-      if (submitBtn) {
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-      }
-    });
+    };
   }
 }
 
 // ============================================
-// USER DROPDOWN (Profile)
-// ============================================
-function initUserDropdown() {
-  const profileWrapper = document.querySelector('.profile-wrapper');
-  const profileDropdown = document.querySelector('.profile-dropdown');
-  
-  if (profileWrapper && profileDropdown) {
-    const newWrapper = profileWrapper.cloneNode(true);
-    profileWrapper.parentNode.replaceChild(newWrapper, profileWrapper);
-    
-    const newDropdown = newWrapper.querySelector('.profile-dropdown');
-    
-    newWrapper.addEventListener('click', (e) => {
-      e.stopPropagation();
-      newDropdown.classList.toggle('active');
-    });
-    
-    document.addEventListener('click', () => {
-      newDropdown.classList.remove('active');
-    });
-  }
-}
-
-// ============================================
-// UPDATE UI BASED ON LOGIN STATE (Supabase)
+// UPDATE UI BASED ON LOGIN STATE
 // ============================================
 function updateAuthUI() {
-  const user = getLocalUser();
+  const user = localStorage.getItem('glimu_user');
+  const userData = user ? JSON.parse(user) : null;
   const navRight = document.querySelector('.nav-right');
   
   if (!navRight) return;
   
-  if (user) {
-    const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=fbb040&color=fff`;
-    
-    let dashboardUrl = user.role === 'admin' ? '/admin-dashboard.html' : '/dashboard.html';
+  if (userData) {
+    const avatarUrl = userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=fbb040&color=fff`;
+    let dashboardUrl = userData.role === 'admin' ? '/admin-dashboard.html' : '/dashboard.html';
     
     navRight.innerHTML = `
       <div class="profile-wrapper">
@@ -498,21 +389,18 @@ function updateAuthUI() {
       </button>
     `;
     
-    // Add logout handler
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', async (e) => {
+      logoutBtn.onclick = async (e) => {
         e.preventDefault();
         await handleLogout();
-      });
+      };
     }
     
-    initUserDropdown();
     initThemeToggle();
   } else {
-    // User not logged in
     navRight.innerHTML = `
-      <a href="#" onclick="openLoginModal(); return false;" class="nav-btn primary">Sign in</a>
+      <a href="#" onclick="window.openLoginModal(); return false;" class="nav-btn primary">Sign in</a>
       <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
         <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18">
           <circle cx="12" cy="12" r="5" stroke="currentColor" fill="none"></circle>
@@ -534,75 +422,34 @@ function updateAuthUI() {
   }
 }
 
-// ============================================
-// WAIT FOR PARTIALS TO LOAD
-// ============================================
-function waitForHeader() {
-  // If header is already in DOM
-  if (document.querySelector('header')) {
-    console.log('Header found immediately');
-    initHeaderFeatures();
-    return;
-  }
-  
-  // If using partials, wait for them
-  if (document.getElementById('header-placeholder')) {
-    console.log('Waiting for partials to load...');
-    const observer = new MutationObserver(function(mutations, obs) {
-      if (document.querySelector('header')) {
-        console.log('Header detected by observer');
-        obs.disconnect();
-        initHeaderFeatures();
-      }
-    });
+// Handle logout
+async function handleLogout() {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     
-    observer.observe(document.body, { childList: true, subtree: true });
+    localStorage.removeItem('glimu_user');
+    localStorage.removeItem('supabase_token');
     
-    // Fallback timeout
-    setTimeout(function() {
-      if (document.querySelector('header')) {
-        console.log('Header found via timeout');
-        initHeaderFeatures();
-      } else {
-        console.log('Header not found after timeout');
-      }
-      observer.disconnect();
-    }, 3000);
-  } else {
-    console.log('No header placeholder found');
+    showToast('Signed out successfully', 'success');
+    
+    setTimeout(() => {
+      window.location.href = '/index.html';
+    }, 1000);
+  } catch (error) {
+    console.error('Sign out error:', error);
+    showToast('Failed to sign out', 'error');
   }
 }
 
 // ============================================
-// INITIALIZE ALL HEADER FEATURES
-// ============================================
-function initHeaderFeatures() {
-  console.log('Initializing header features...');
-  updateAuthUI();
-  initMobileMenu();
-  initLoginModal();
-  initHeaderScroll();
-  initActivePageDetection();
-}
-
-// ============================================
-// START EVERYTHING
-// ============================================
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM ready, waiting for header...');
-  waitForHeader();
-});
-
-// ============================================
-// EXPOSE GLOBAL FUNCTIONS FOR INLINE ONCLICK
+// EXPOSE GLOBAL FUNCTIONS
 // ============================================
 
-// Make sure these are available globally
 window.openLoginModal = function() {
   console.log('openLoginModal called');
   const modal = document.getElementById('loginModal');
   if (modal) {
-    // Reset forms
     const loginContainer = document.getElementById('loginFormContainer');
     const signupContainer = document.getElementById('signupFormContainer');
     if (loginContainer) loginContainer.style.display = 'block';
@@ -628,25 +475,51 @@ window.closeLoginModal = function() {
   }
 };
 
-// Also expose logout globally
-window.logout = async function() {
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    
-    localStorage.removeItem('glimu_user');
-    localStorage.removeItem('supabase_token');
-    
-    showToast('Signed out successfully', 'success');
-    
-    setTimeout(() => {
-      window.location.href = '/index.html';
-    }, 1000);
-  } catch (error) {
-    console.error('Sign out error:', error);
-    showToast('Failed to sign out', 'error');
-  }
-};
+// ============================================
+// INITIALIZE ALL HEADER FEATURES
+// ============================================
+function initHeaderFeatures() {
+  console.log('Initializing header features...');
+  updateAuthUI();
+  initMobileMenu();
+  setupLoginModal();
+  initHeaderScroll();
+  initActivePageDetection();
+}
 
-// Make logout available globally (fallback)
-window.handleLogout = handleLogout;
+// ============================================
+// WAIT FOR HEADER TO LOAD
+// ============================================
+function waitForHeader() {
+  if (document.querySelector('header')) {
+    console.log('Header found, initializing...');
+    initHeaderFeatures();
+    return;
+  }
+  
+  const observer = new MutationObserver(function(mutations, obs) {
+    if (document.querySelector('header')) {
+      console.log('Header detected, initializing...');
+      obs.disconnect();
+      initHeaderFeatures();
+    }
+  });
+  
+  observer.observe(document.body, { childList: true, subtree: true });
+  
+  setTimeout(function() {
+    if (document.querySelector('header')) {
+      initHeaderFeatures();
+    }
+    observer.disconnect();
+  }, 3000);
+}
+
+// ============================================
+// START EVERYTHING
+// ============================================
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', waitForHeader);
+} else {
+  waitForHeader();
+}
