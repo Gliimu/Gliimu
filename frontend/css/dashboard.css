@@ -973,3 +973,179 @@ body.dark-mode #customAmount {
     font-size: 0.7rem;
     color: var(--text-secondary);
 }
+
+/* Purchase Cards */
+.purchase-section {
+    margin: 1.5rem 0;
+}
+
+.purchase-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.purchase-card.premium {
+    border-left: 4px solid #fbb040;
+}
+
+.purchase-card.standard {
+    border-left: 4px solid #64748b;
+    opacity: 0.9;
+}
+
+.purchase-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.purchase-info h4 {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.purchase-info .price {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fbb040;
+    margin: 0.5rem 0;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-warning {
+    background: #fbb040;
+    color: #1a1c4a;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.platform-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.platform-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.btn-small {
+    background: #fbb040;
+    color: #1a1c4a;
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-family: inherit;
+}
+
+.current-access {
+    margin: 1.5rem 0;
+}
+
+.access-badges {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.access-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.access-badge.active {
+    background: #10b981;
+    color: white;
+}
+
+.access-badge.inactive {
+    background: #ef4444;
+    color: white;
+}
+
+.transactions-section {
+    margin-top: 1.5rem;
+}
+
+.transactions-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transaction-desc {
+    font-size: 0.85rem;
+    flex: 2;
+}
+
+.transaction-amount {
+    font-weight: 600;
+    flex: 1;
+    text-align: right;
+}
+
+.transaction-amount.positive {
+    color: #10b981;
+}
+
+.transaction-amount.negative {
+    color: #ef4444;
+}
+
+.transaction-date {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    flex: 1;
+    text-align: right;
+}
+
+.warning-banner {
+    background: #ef4444;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    text-align: center;
+}
