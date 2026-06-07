@@ -69,6 +69,40 @@ async function checkAuth() {
 }
 
 // ============================================
+// REAL-TIME WALLET UPDATES
+// ============================================
+let walletSubscription = null;
+
+function setupRealtimeWallet() {
+    if (!currentUser?.id) return;
+    
+    // Clean up existing subscription
+    if (walletSubscription) {
+        walletSubscription.unsubscribe();
+    }
+    
+    walletSubscription = subscribeToWalletUpdates(currentUser.id, (newBalance) => {
+        console.log('Wallet balance updated:', newBalance);
+        currentUser.walletBalance = newBalance;
+        currentWalletBalance = newBalance;
+        
+        // Update UI if wallet tab is active
+        if (currentTab === 'wallet') {
+            renderWallet();
+        }
+        if (currentTab === 'dashboard') {
+            // Update balance display on dashboard
+            const balanceElement = document.querySelector('.stat-card .stat-value');
+            if (balanceElement && balanceElement.closest('.stat-card')?.querySelector('h3')?.textContent === 'Wallet Balance') {
+                balanceElement.textContent = `₦${newBalance.toLocaleString()}`;
+            }
+        }
+        
+        showToast(`Wallet updated: ₦${newBalance.toLocaleString()}`, 'info');
+    });
+}
+
+// ============================================
 // LOAD USER FROM SUPABASE
 // ============================================
 async function loadUserFromSupabase(userId) {
