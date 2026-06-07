@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Secretary Dashboard | Glimu</title>
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/admin-dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- Header Placeholder -->
+    <div id="header-placeholder"></div>
+
+    <!-- Admin Dashboard Container -->
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="sidebar-header">
+                <div class="admin-avatar">
+                    <img src="https://ui-avatars.com/api/?name=Admin+Secretary&background=fbb040&color=fff" alt="Admin">
+                </div>
+                <div class="admin-info">
+                    <h4>Admin Secretary</h4>
+                    <span class="admin-role">Payment Approvals</span>
+                </div>
+            </div>
+            <nav class="admin-nav">
+                <div class="nav-item active" data-tab="pending">
+                    <i class="fas fa-clock"></i>
+                    <span>Pending Approvals</span>
+                    <span class="badge" id="pendingCount">0</span>
+                </div>
+                <div class="nav-item" data-tab="approved">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Approved</span>
+                </div>
+                <div class="nav-item" data-tab="search">
+                    <i class="fas fa-search"></i>
+                    <span>Search by Code</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <div class="admin-topbar">
+                <h2>Payment Verification Dashboard</h2>
+                <div class="admin-stats">
+                    <div class="stat">Total Pending: <strong id="totalPending">0</strong></div>
+                    <div class="stat">Total Approved: <strong id="totalApproved">0</strong></div>
+                </div>
+            </div>
+
+            <!-- Pending Approvals Tab -->
+            <div id="pendingTab" class="admin-tab active">
+                <div class="search-bar">
+                    <input type="text" id="searchPending" placeholder="Filter by code, name, or email...">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div class="payments-list" id="pendingList">
+                    <div class="loading">Loading pending payments...</div>
+                </div>
+            </div>
+
+            <!-- Approved Tab -->
+            <div id="approvedTab" class="admin-tab">
+                <div class="payments-list" id="approvedList">
+                    <div class="loading">Loading approved payments...</div>
+                </div>
+            </div>
+
+            <!-- Search Tab -->
+            <div id="searchTab" class="admin-tab">
+                <div class="search-bar">
+                    <input type="text" id="searchCodeInput" placeholder="Enter reference code (e.g., GLM-xxx-xxx)">
+                    <button id="searchCodeBtn" class="btn-primary">Search</button>
+                </div>
+                <div id="searchResult" class="payment-card" style="display: none;"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Approval Modal -->
+    <div id="approvalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Verify Payment</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalPaymentInfo"></div>
+                <div class="form-group">
+                    <label>Enter Narration Code from Bank Alert</label>
+                    <input type="text" id="narrationCode" placeholder="e.g., GLM-user123-1234567890-1234">
+                </div>
+                <div class="form-group">
+                    <label>Amount Received (₦)</label>
+                    <input type="number" id="receivedAmount" placeholder="Enter amount from bank alert">
+                </div>
+                <div class="form-group">
+                    <label>Admin Notes (Optional)</label>
+                    <textarea id="adminNotes" rows="2" placeholder="Add any notes about this approval"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" id="rejectBtn">Reject</button>
+                <button class="modal-btn modal-btn-primary" id="approveBtn">Approve Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="/js/pages/header.js"></script>
+    <script src="/js/pages/admin-dashboard.js"></script>
+</body>
+</html>
