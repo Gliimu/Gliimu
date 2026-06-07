@@ -2,7 +2,47 @@
    ADMIN SECRETARY DASHBOARD STYLES
    ========================================= */
 
-/* Container */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* CSS Variables */
+:root {
+    --brand-purple: #2c2f78;
+    --brand-purple-dark: #1a1c4a;
+    --brand-gold: #fbb040;
+    --brand-gold-dark: #cc8a2a;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+body.dark-mode {
+    --bg-primary: #0f172a;
+    --bg-secondary: #080c14;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: #1e293b;
+}
+
+body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+}
+
+/* Dashboard Container */
 .admin-container {
     display: flex;
     min-height: 100vh;
@@ -10,7 +50,7 @@
 }
 
 /* =========================================
-   SIDEBAR STYLES
+   SIDEBAR
    ========================================= */
 
 .admin-sidebar {
@@ -26,7 +66,6 @@
     transition: transform 0.3s ease;
 }
 
-/* Sidebar Header */
 .sidebar-header {
     padding: 1.5rem;
     text-align: center;
@@ -39,7 +78,7 @@
     margin: 0 auto 1rem;
     border-radius: 50%;
     overflow: hidden;
-    border: 3px solid var(--accent);
+    border: 3px solid var(--brand-gold);
 }
 
 .admin-avatar img {
@@ -56,7 +95,7 @@
 
 .admin-role {
     font-size: 0.75rem;
-    color: var(--accent);
+    color: var(--brand-gold);
     font-weight: 600;
 }
 
@@ -78,13 +117,13 @@
 
 .nav-item:hover {
     background: var(--border-color);
-    color: var(--accent);
+    color: var(--brand-gold);
 }
 
 .nav-item.active {
-    background: linear-gradient(90deg, var(--primary) 0%, transparent 100%);
+    background: linear-gradient(90deg, var(--brand-purple) 0%, transparent 100%);
     color: white;
-    border-right: 3px solid var(--accent);
+    border-right: 3px solid var(--brand-gold);
 }
 
 .nav-item i {
@@ -99,15 +138,16 @@
 
 .nav-item .badge {
     margin-left: auto;
-    background: var(--accent);
-    color: var(--primary-dark);
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
     font-size: 0.7rem;
     padding: 2px 8px;
     border-radius: 20px;
+    font-weight: 600;
 }
 
 /* =========================================
-   MAIN CONTENT STYLES
+   MAIN CONTENT
    ========================================= */
 
 .admin-main {
@@ -147,7 +187,7 @@
 }
 
 .admin-stats .stat strong {
-    color: var(--accent);
+    color: var(--brand-gold);
     font-size: 1rem;
 }
 
@@ -199,7 +239,7 @@
 
 .search-bar input:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--brand-gold);
 }
 
 .search-bar i {
@@ -212,17 +252,17 @@
 
 .search-bar button {
     padding: 12px 24px;
-    background: var(--accent);
+    background: var(--brand-gold);
     border: none;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
-    color: var(--primary-dark);
+    color: var(--brand-purple-dark);
     font-family: 'Space Grotesk', sans-serif;
 }
 
 .search-bar button:hover {
-    background: var(--accent-dark);
+    background: var(--brand-gold-dark);
 }
 
 /* =========================================
@@ -245,8 +285,8 @@
 }
 
 .payment-card:hover {
-    border-color: var(--accent);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: var(--brand-gold);
+    box-shadow: var(--shadow-md);
 }
 
 /* Payment Header */
@@ -263,7 +303,7 @@
     font-family: monospace;
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--brand-gold);
     background: rgba(251, 176, 64, 0.1);
     padding: 4px 8px;
     border-radius: 4px;
@@ -368,17 +408,8 @@ body.dark-mode .payment-status.rejected {
     transform: translateY(-1px);
 }
 
-.btn-view {
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 6px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-}
-
 /* =========================================
-   MODAL STYLES
+   MODAL
    ========================================= */
 
 .modal {
@@ -406,7 +437,7 @@ body.dark-mode .payment-status.rejected {
     width: 90%;
     max-height: 85vh;
     overflow-y: auto;
-    border-top: 4px solid var(--accent);
+    border-top: 4px solid var(--brand-gold);
     animation: modalSlideIn 0.3s ease;
 }
 
@@ -445,7 +476,7 @@ body.dark-mode .payment-status.rejected {
 }
 
 .modal-close:hover {
-    color: var(--accent);
+    color: var(--brand-gold);
 }
 
 .modal-body {
@@ -461,8 +492,8 @@ body.dark-mode .payment-status.rejected {
 }
 
 .modal-btn {
-    padding: 8px 20px;
-    border-radius: 40px;
+    padding: 10px 24px;
+    border-radius: 8px;
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -500,7 +531,7 @@ body.dark-mode .payment-status.rejected {
     background: var(--border-color);
 }
 
-/* Form Elements in Modal */
+/* Form Elements */
 .form-group {
     margin-bottom: 1rem;
 }
@@ -516,7 +547,7 @@ body.dark-mode .payment-status.rejected {
 .form-group input,
 .form-group textarea {
     width: 100%;
-    padding: 10px;
+    padding: 10px 12px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     background: var(--bg-primary);
@@ -528,7 +559,7 @@ body.dark-mode .payment-status.rejected {
 .form-group input:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--brand-gold);
 }
 
 .form-group textarea {
@@ -556,7 +587,7 @@ body.dark-mode .payment-status.rejected {
 
 .empty-state i {
     font-size: 2rem;
-    color: var(--accent);
+    color: var(--brand-gold);
     margin-bottom: 1rem;
 }
 
@@ -571,60 +602,20 @@ body.dark-mode .payment-status.rejected {
     color: var(--text-secondary);
 }
 
-/* =========================================
-   TOAST NOTIFICATIONS
-   ========================================= */
-
-#toast-container {
+/* Sidebar Overlay */
+.sidebar-overlay {
+    display: none;
     position: fixed;
-    top: 80px;
-    right: 20px;
-    z-index: 10000;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.toast {
-    background: var(--bg-glass, rgba(0, 0, 0, 0.8));
-    backdrop-filter: blur(12px);
-    padding: 12px 20px;
-    border-radius: 8px;
-    border-left: 4px solid;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    color: white;
-    animation: slideInRight 0.3s ease;
-}
-
-.toast.success {
-    border-left-color: #10b981;
-}
-
-.toast.error {
-    border-left-color: #ef4444;
-}
-
-.toast.info {
-    border-left-color: var(--accent);
-}
-
-@keyframes slideInRight {
-    from {
-        opacity: 0;
-        transform: translateX(100%);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 85;
 }
 
 /* =========================================
-   RESPONSIVE DESIGN
+   RESPONSIVE
    ========================================= */
 
 @media (max-width: 768px) {
@@ -676,9 +667,8 @@ body.dark-mode .payment-status.rejected {
         width: 100%;
     }
     
-    .modal-content {
-        width: 95%;
-        margin: 1rem;
+    .sidebar-overlay.active {
+        display: block;
     }
 }
 
@@ -705,45 +695,4 @@ body.dark-mode .payment-status.rejected {
         width: 100%;
         text-align: center;
     }
-}
-
-/* =========================================
-   SCROLLBAR STYLING
-   ========================================= */
-
-.admin-sidebar::-webkit-scrollbar {
-    width: 4px;
-}
-
-.admin-sidebar::-webkit-scrollbar-track {
-    background: var(--border-color);
-}
-
-.admin-sidebar::-webkit-scrollbar-thumb {
-    background: var(--accent);
-    border-radius: 4px;
-}
-
-/* =========================================
-   UTILITY CLASSES
-   ========================================= */
-
-.text-center {
-    text-align: center;
-}
-
-.text-muted {
-    color: var(--text-secondary);
-}
-
-.mt-2 {
-    margin-top: 0.5rem;
-}
-
-.mb-2 {
-    margin-bottom: 0.5rem;
-}
-
-.w-100 {
-    width: 100%;
 }
