@@ -18,11 +18,13 @@ function getCurrentUser() {
     return user ? JSON.parse(user) : null;
 }
 
+// Generate unique reference code (short version)
 function generateReferenceCode() {
     const user = getCurrentUser();
     const userId = user?.id || 'guest';
-    const random = Math.floor(Math.random() * 10000);
-    return `GLM-${userId}-${random}`;
+    const cleanUserId = userId.replace(/[^a-zA-Z0-9]/g, '');
+    const random = Math.floor(Math.random() * 9000) + 1000; // 4-digit random
+    return `GLM-${cleanUserId}-${random}`;
 }
 
 async function fetchWallet() {
