@@ -566,7 +566,20 @@
   <div id="login-modal-placeholder"></div>
 
   <!-- JS Files -->
-  <script src="js/pages/header.js"></script>
+  <!-- Load Supabase modules first -->
+  <script type="module">
+    import { supabase } from './js/modules/supabase.js';
+    import { showToast } from './js/modules/toast.js';
+    
+    // Make supabase available globally for debugging
+    window.supabase = supabase;
+    window.showToast = showToast;
+    
+    console.log('Supabase initialized');
+  </script>
+  
+  <!-- Then load header and index scripts -->
+  <script type="module" src="js/pages/header.js"></script>
   <script src="js/pages/index.js"></script>
 
   <!-- Load Partials -->
