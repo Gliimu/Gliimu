@@ -1,0 +1,17 @@
+{
+  "payments": [
+    {
+      "id": "pay_1700000000000",
+      "userId": "demo_001",
+      "userName": "Alex Creator",
+      "userEmail": "alex@example.com",
+      "amount": 25000,
+      "bank": "MoniePoint",
+      "referenceCode": "GLM-demo_001-1700000000000-4829",
+      "status": "pending",
+      "submittedAt": "2025-06-07T10:30:00.000Z",
+      "approvedAt": null,
+      "adminNotes": null
+    }
+  ]
+}
