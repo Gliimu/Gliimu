@@ -1,9 +1,8 @@
 // ============================================
-// HEADER.JS - COMPLETE FUNCTIONAL VERSION
-// With Supabase Auth Integration - FIXED
+// HEADER.JS - COMPLETE HEADER FUNCTIONALITY
+// With Supabase Auth Integration
 // ============================================
 
-// Import required modules
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
@@ -52,6 +51,8 @@ function initActivePageDetection() {
         } else if (currentPage === 'library.html' && linkHref === 'library.html') {
             link.classList.add('active');
         } else if (currentPage === 'admin-dashboard.html' && linkHref === 'admin-dashboard.html') {
+            link.classList.add('active');
+        } else if (currentPage === 'signin.html' && linkHref === 'signin.html') {
             link.classList.add('active');
         }
     });
@@ -102,7 +103,7 @@ function initThemeToggle() {
 }
 
 // ============================================
-// MOBILE MENU (Hamburger)
+// MOBILE MENU
 // ============================================
 function initMobileMenu() {
     const menuToggle = document.getElementById('menuToggle');
@@ -163,7 +164,6 @@ function initUserDropdown() {
     const profileDropdown = document.querySelector('.profile-dropdown');
     
     if (profileWrapper && profileDropdown) {
-        // Remove existing listeners
         const newWrapper = profileWrapper.cloneNode(true);
         profileWrapper.parentNode.replaceChild(newWrapper, profileWrapper);
         
@@ -181,13 +181,12 @@ function initUserDropdown() {
 }
 
 // ============================================
-// HANDLE LOGOUT - FIXED
+// HANDLE LOGOUT
 // ============================================
 async function handleLogout() {
     console.log('Logging out...');
     
     try {
-        // Sign out from Supabase
         const { error } = await supabase.auth.signOut();
         if (error) {
             console.error('Supabase sign out error:', error);
@@ -195,19 +194,14 @@ async function handleLogout() {
             return;
         }
         
-        // Clear localStorage
         localStorage.removeItem('glimu_user');
         localStorage.removeItem('supabase_token');
         
         showToast('Signed out successfully', 'success');
         
-        // Update UI immediately
-        updateAuthUI();
-        
-        // Redirect to home page after short delay
         setTimeout(() => {
             window.location.href = '/index.html';
-        }, 1500);
+        }, 1000);
         
     } catch (error) {
         console.error('Logout error:', error);
@@ -216,13 +210,12 @@ async function handleLogout() {
 }
 
 // ============================================
-// GET USER FROM SUPABASE - FIXED
+// GET USER FROM SUPABASE
 // ============================================
 async function getSupabaseUser() {
     try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error || !user) {
-            console.log('No user found in Supabase');
             return null;
         }
         return user;
@@ -255,7 +248,7 @@ async function getUserProfile(userId) {
 }
 
 // ============================================
-// UPDATE UI BASED ON LOGIN STATE - FIXED
+// UPDATE UI BASED ON LOGIN STATE
 // ============================================
 async function updateAuthUI() {
     const navRight = document.querySelector('.nav-right');
@@ -276,17 +269,13 @@ async function updateAuthUI() {
             walletBalance: profile?.wallet_balance || 25000,
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff`
         };
-        // Store in localStorage for quick access
         localStorage.setItem('glimu_user', JSON.stringify(userData));
     } else {
-        // Check localStorage fallback
         const storedUser = localStorage.getItem('glimu_user');
         if (storedUser) {
             userData = JSON.parse(storedUser);
-            // Verify with Supabase silently
             const { data } = await supabase.auth.getUser();
             if (!data.user) {
-                // Session expired, clear localStorage
                 localStorage.removeItem('glimu_user');
                 localStorage.removeItem('supabase_token');
                 userData = null;
@@ -347,7 +336,7 @@ async function updateAuthUI() {
     } else {
         // User not logged in - show sign in button
         navRight.innerHTML = `
-            <a href="#" id="signInBtn" class="nav-btn primary">Sign in</a>
+            <a href="/signin.html" class="nav-btn primary">Sign in</a>
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
                 <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18">
                     <circle cx="12" cy="12" r="5" stroke="currentColor" fill="none"></circle>
@@ -366,70 +355,9 @@ async function updateAuthUI() {
             </button>
         `;
         
-        // Add sign in button handler
-        const signInBtn = document.getElementById('signInBtn');
-        if (signInBtn) {
-            const newSignInBtn = signInBtn.cloneNode(true);
-            signInBtn.parentNode.replaceChild(newSignInBtn, signInBtn);
-            newSignInBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('Sign in clicked');
-                if (typeof window.openLoginModal === 'function') {
-                    window.openLoginModal();
-                } else {
-                    console.error('openLoginModal not defined');
-                    const modal = document.getElementById('loginModal');
-                    if (modal) {
-                        modal.classList.add('active');
-                        document.body.style.overflow = 'hidden';
-                    }
-                }
-            });
-        }
-        
         initThemeToggle();
     }
 }
-
-// ============================================
-// EXPOSE GLOBAL FUNCTIONS
-// ============================================
-
-// Make openLoginModal available globally
-window.openLoginModal = function() {
-    console.log('Opening login modal...');
-    const modal = document.getElementById('loginModal');
-    if (modal) {
-        // Reset forms to login view
-        const loginContainer = document.getElementById('loginFormContainer');
-        const signupContainer = document.getElementById('signupFormContainer');
-        if (loginContainer) loginContainer.style.display = 'block';
-        if (signupContainer) signupContainer.style.display = 'none';
-        
-        // Clear form inputs
-        const loginForm = document.getElementById('loginForm');
-        const signupForm = document.getElementById('signupForm');
-        if (loginForm) loginForm.reset();
-        if (signupForm) signupForm.reset();
-        
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    } else {
-        console.error('Login modal not found! Make sure partials are loaded.');
-    }
-};
-
-window.closeLoginModal = function() {
-    console.log('Closing login modal...');
-    const modal = document.getElementById('loginModal');
-    if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-};
-
-// Expose logout for debugging
-window.logout = handleLogout;
 
 // ============================================
 // INITIALIZE ALL HEADER FEATURES
@@ -449,14 +377,12 @@ async function initHeaderFeatures() {
 // WAIT FOR HEADER TO LOAD
 // ============================================
 function waitForHeader() {
-    // Check if header is already in DOM
     if (document.querySelector('header')) {
         console.log('Header found, initializing...');
         initHeaderFeatures();
         return;
     }
     
-    // Wait for header to be injected
     const observer = new MutationObserver(function(mutations, obs) {
         if (document.querySelector('header')) {
             console.log('Header detected, initializing...');
@@ -467,7 +393,6 @@ function waitForHeader() {
     
     observer.observe(document.body, { childList: true, subtree: true });
     
-    // Fallback timeout
     setTimeout(function() {
         if (!headerLoaded && document.querySelector('header')) {
             console.log('Header found via timeout');
@@ -486,10 +411,5 @@ if (document.readyState === 'loading') {
     waitForHeader();
 }
 
-// Also listen for partials load event
-window.addEventListener('partialsLoaded', function() {
-    console.log('Partials loaded event received');
-    if (!headerLoaded) {
-        initHeaderFeatures();
-    }
-});
+// Export for debugging
+window.supabase = supabase;
