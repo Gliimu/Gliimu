@@ -1,7 +1,11 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE WORKING VERSION
-// FIXED: Infinite loading issue
+// GLIIMU DASHBOARD - MODULAR VERSION
+// Works with your existing wallet.js, toast.js
 // ============================================
+
+// Import modules
+import { fetchWallet, displayWalletBalance, displayTransactions, requestTopUp } from '../modules/wallet.js';
+import { showToast } from '../modules/toast.js';
 
 // Global state
 let currentUser = null;
@@ -50,7 +54,6 @@ function initTheme() {
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
     } else {
-        // Default to dark mode
         document.body.classList.add('dark-mode');
         localStorage.setItem('theme', 'dark');
     }
@@ -123,7 +126,6 @@ function buildSidebar() {
 function switchTab(tabId) {
     currentTab = tabId;
     
-    // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(item => {
         const itemTab = item.getAttribute('data-tab');
         if (itemTab === tabId) {
@@ -133,18 +135,15 @@ function switchTab(tabId) {
         }
     });
     
-    // Hide all sections
     document.querySelectorAll('.dashboard-section').forEach(section => {
         section.classList.remove('active');
     });
     
-    // Show selected section
     const activeSection = document.getElementById(`${tabId}-section`);
     if (activeSection) {
         activeSection.classList.add('active');
     }
     
-    // Load tab data
     loadTabData(tabId);
 }
 
@@ -187,13 +186,16 @@ function loadTabData(tabId) {
 // DASHBOARD RENDER
 // ============================================
 
-function renderDashboard() {
+async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
     const usage = JSON.parse(localStorage.getItem('glimu_usage_guest') || '{"booksRead":0,"bundlesDownloaded":0}');
     const savedItems = JSON.parse(localStorage.getItem('savedLibraryItems') || '[]');
-    const walletBalance = JSON.parse(localStorage.getItem('glimu_wallet') || '25000');
+    
+    // Fetch wallet balance from wallet module
+    const wallet = await fetchWallet();
+    const walletBalance = wallet ? wallet.balance : 25000;
     
     container.innerHTML = `
         <div class="section-header">
@@ -232,7 +234,7 @@ function renderDashboard() {
                 <div class="stat-icon"><i class="fas fa-wallet"></i></div>
                 <div class="stat-info">
                     <h3>Wallet Balance</h3>
-                    <div class="stat-value">₦${Number(walletBalance).toLocaleString()}</div>
+                    <div class="stat-value">₦${walletBalance.toLocaleString()}</div>
                     <button class="add-funds-small" id="quickAddFunds">Add Funds</button>
                 </div>
             </div>
@@ -268,64 +270,45 @@ function renderDashboard() {
         </div>
     `;
     
-    // Add event listeners
-    const goToLibraryBtn = document.getElementById('goToLibraryBtn');
-    if (goToLibraryBtn) {
-        goToLibraryBtn.addEventListener('click', () => {
-            window.location.href = '/library.html';
-        });
-    }
+    // Event listeners
+    document.getElementById('goToLibraryBtn')?.addEventListener('click', () => {
+        window.location.href = '/library.html';
+    });
     
-    const viewSavedBtn = document.getElementById('viewSavedBtn');
-    if (viewSavedBtn) {
-        viewSavedBtn.addEventListener('click', () => {
-            switchTab('library');
-        });
-    }
+    document.getElementById('viewSavedBtn')?.addEventListener('click', () => {
+        switchTab('library');
+    });
     
-    const upgradePlanCard = document.getElementById('upgradePlanCard');
-    if (upgradePlanCard) {
-        upgradePlanCard.addEventListener('click', () => {
-            openModal('upgradeModal');
-        });
-    }
+    document.getElementById('upgradePlanCard')?.addEventListener('click', () => {
+        openModal('upgradeModal');
+    });
     
-    const myShelfLink = document.getElementById('myShelfLink');
-    if (myShelfLink) {
-        myShelfLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchTab('library');
-        });
-    }
+    document.getElementById('myShelfLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchTab('library');
+    });
     
-    const walletLink = document.getElementById('walletLink');
-    if (walletLink) {
-        walletLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchTab('wallet');
-        });
-    }
+    document.getElementById('walletLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchTab('wallet');
+    });
     
-    const quickAddFunds = document.getElementById('quickAddFunds');
-    if (quickAddFunds) {
-        quickAddFunds.addEventListener('click', () => {
-            openModal('addFundsModal');
-        });
-    }
+    document.getElementById('quickAddFunds')?.addEventListener('click', () => {
+        openModal('addFundsModal');
+    });
 }
 
 // ============================================
-// LIBRARY TAB - Connected to actual library
+// LIBRARY TAB
 // ============================================
 
 async function renderLibraryTab() {
     const container = document.getElementById('library-section');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner" style="text-align: center; padding: 40px;">Loading your library...</div>';
+    container.innerHTML = '<div class="loading-spinner" style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Loading your library...</div>';
     
     try {
-        // Try multiple paths
         let response = await fetch('../../backend/data/library.json');
         if (!response.ok) response = await fetch('../backend/data/library.json');
         if (!response.ok) response = await fetch('/backend/data/library.json');
@@ -389,7 +372,6 @@ async function renderLibraryTab() {
             ` : ''}
         `;
         
-        // Add click handlers to library items
         document.querySelectorAll('.library-item').forEach(item => {
             item.addEventListener('click', () => {
                 const id = item.getAttribute('data-id');
@@ -398,19 +380,13 @@ async function renderLibraryTab() {
             });
         });
         
-        const browseBtn = document.getElementById('browseLibraryBtn');
-        if (browseBtn) {
-            browseBtn.addEventListener('click', () => {
-                window.location.href = '/library.html';
-            });
-        }
+        document.getElementById('browseLibraryBtn')?.addEventListener('click', () => {
+            window.location.href = '/library.html';
+        });
         
-        const goToLibraryEmptyBtn = document.getElementById('goToLibraryEmptyBtn');
-        if (goToLibraryEmptyBtn) {
-            goToLibraryEmptyBtn.addEventListener('click', () => {
-                window.location.href = '/library.html';
-            });
-        }
+        document.getElementById('goToLibraryEmptyBtn')?.addEventListener('click', () => {
+            window.location.href = '/library.html';
+        });
         
     } catch (error) {
         console.error('Error loading library:', error);
@@ -418,7 +394,6 @@ async function renderLibraryTab() {
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
                 <h3>Unable to load library</h3>
-                <p>Please check your connection and try again</p>
                 <button class="btn-primary" onclick="location.reload()">Retry</button>
             </div>
         `;
@@ -426,14 +401,15 @@ async function renderLibraryTab() {
 }
 
 // ============================================
-// WALLET RENDER
+// WALLET RENDER (Using wallet module)
 // ============================================
 
-function renderWallet() {
+async function renderWallet() {
     const container = document.getElementById('wallet-section');
     if (!container) return;
     
-    const walletBalance = JSON.parse(localStorage.getItem('glimu_wallet') || '25000');
+    const wallet = await fetchWallet();
+    const walletBalance = wallet ? wallet.balance : 25000;
     const userPlan = currentUser.plan || 'basic';
     
     container.innerHTML = `
@@ -450,7 +426,7 @@ function renderWallet() {
                 <div class="stat-icon"><i class="fas fa-wallet"></i></div>
                 <div class="stat-info">
                     <h3>Current Balance</h3>
-                    <div class="stat-value">₦${Number(walletBalance).toLocaleString()}</div>
+                    <div class="stat-value" id="walletBalanceDisplay">₦${walletBalance.toLocaleString()}</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -465,27 +441,15 @@ function renderWallet() {
         
         <div class="data-table">
             <h3>Transaction History</h3>
-            <table style="width: 100%;">
-                <thead>
-                    <tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td>2025-06-01</td><td>Subscription - ${userPlan} Plan</td><td>-₦${userPlan === 'basic' ? '2,500' : userPlan === 'pro' ? '5,000' : '10,000'}</td><td><span class="status-badge status-completed">Completed</span></td></tr>
-                    <tr><td>2025-05-15</td><td>Wallet Funding</td><td>+₦25,000</td><td><span class="status-badge status-completed">Completed</span></td></tr>
-                </tbody>
-            </table>
+            <div id="transactionList"></div>
         </div>
     `;
     
-    const addFundsBtn = document.getElementById('addFundsBtn');
-    if (addFundsBtn) {
-        addFundsBtn.addEventListener('click', () => openModal('addFundsModal'));
-    }
+    // Display transactions using wallet module
+    await displayTransactions('transactionList');
     
-    const upgradePlanWalletBtn = document.getElementById('upgradePlanWalletBtn');
-    if (upgradePlanWalletBtn) {
-        upgradePlanWalletBtn.addEventListener('click', () => openModal('upgradeModal'));
-    }
+    document.getElementById('addFundsBtn')?.addEventListener('click', () => openModal('addFundsModal'));
+    document.getElementById('upgradePlanWalletBtn')?.addEventListener('click', () => openModal('upgradeModal'));
 }
 
 // ============================================
@@ -527,32 +491,26 @@ function renderSettings() {
         </div>
     `;
     
-    const themeSelect = document.getElementById('themeSelect');
-    if (themeSelect) {
-        themeSelect.addEventListener('change', () => {
-            const newTheme = themeSelect.value;
-            if (newTheme === 'dark') {
-                document.body.classList.add('dark-mode');
-            } else {
-                document.body.classList.remove('dark-mode');
-            }
-            localStorage.setItem('theme', newTheme);
-        });
-    }
+    document.getElementById('themeSelect')?.addEventListener('change', () => {
+        const newTheme = document.getElementById('themeSelect').value;
+        if (newTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+        localStorage.setItem('theme', newTheme);
+    });
     
-    const settingsForm = document.getElementById('settingsForm');
-    if (settingsForm) {
-        settingsForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const newName = document.getElementById('fullNameInput').value;
-            const newEmail = document.getElementById('emailInput').value;
-            currentUser.name = newName;
-            currentUser.email = newEmail;
-            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-            document.getElementById('userName').textContent = newName;
-            alert('Settings saved successfully!');
-        });
-    }
+    document.getElementById('settingsForm')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const newName = document.getElementById('fullNameInput').value;
+        const newEmail = document.getElementById('emailInput').value;
+        currentUser.name = newName;
+        currentUser.email = newEmail;
+        localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+        document.getElementById('userName').textContent = newName;
+        showToast('Settings saved successfully!', 'success');
+    });
 }
 
 // ============================================
@@ -628,12 +586,9 @@ function openViewModal(item) {
     document.getElementById('viewBookImage').src = item.image;
     document.getElementById('viewBookDescription').textContent = item.description || 'No description available.';
     
-    const readBtn = document.getElementById('readBookBtn');
-    if (readBtn) {
-        readBtn.onclick = () => {
-            window.location.href = `/library.html?id=${item.id}`;
-        };
-    }
+    document.getElementById('readBookBtn').onclick = () => {
+        window.location.href = `/library.html?id=${item.id}`;
+    };
     
     modal.classList.add('active');
 }
@@ -643,30 +598,13 @@ function openViewModal(item) {
 // ============================================
 
 function setupModals() {
-    // Close buttons for modals
-    const closeUpgradeModal = document.getElementById('closeUpgradeModal');
-    if (closeUpgradeModal) {
-        closeUpgradeModal.onclick = closeModal;
-    }
+    const closeButtons = ['closeUpgradeModal', 'closeAddFundsModal', 'closeViewBookModal', 'closeViewBookFooterBtn'];
+    closeButtons.forEach(btnId => {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.onclick = closeModal;
+    });
     
-    const closeAddFundsModal = document.getElementById('closeAddFundsModal');
-    if (closeAddFundsModal) {
-        closeAddFundsModal.onclick = closeModal;
-    }
-    
-    const closeViewBookModal = document.getElementById('closeViewBookModal');
-    if (closeViewBookModal) {
-        closeViewBookModal.onclick = closeModal;
-    }
-    
-    const closeViewBookFooterBtn = document.getElementById('closeViewBookFooterBtn');
-    if (closeViewBookFooterBtn) {
-        closeViewBookFooterBtn.onclick = closeModal;
-    }
-    
-    // Close modals when clicking outside
-    const modals = ['upgradeModal', 'addFundsModal', 'viewBookModal'];
-    modals.forEach(modalId => {
+    ['upgradeModal', 'addFundsModal', 'viewBookModal'].forEach(modalId => {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.onclick = (e) => {
@@ -675,17 +613,15 @@ function setupModals() {
         }
     });
     
-    // Plan selection buttons
     document.querySelectorAll('.select-plan-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const planCard = btn.closest('.plan-card');
             const plan = planCard.getAttribute('data-plan');
-            alert(`Upgrading to ${plan.toUpperCase()} plan. Payment will be processed.`);
+            showToast(`Upgrading to ${plan.toUpperCase()} plan. Payment will be processed.`, 'info');
             closeModal();
         });
     });
     
-    // Amount buttons for add funds
     document.querySelectorAll('.amount-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
@@ -695,33 +631,28 @@ function setupModals() {
         });
     });
     
-    // Confirm payment button
-    const confirmPayment = document.getElementById('confirmPayment');
-    if (confirmPayment) {
-        confirmPayment.onclick = () => {
-            const activeBtn = document.querySelector('.amount-btn.active');
-            const customAmount = document.getElementById('customAmount')?.value;
-            let amount = 0;
-            
-            if (activeBtn) {
-                amount = parseInt(activeBtn.getAttribute('data-amount'));
-            } else if (customAmount) {
-                amount = parseInt(customAmount);
-            }
-            
-            if (amount > 0) {
-                let currentBalance = JSON.parse(localStorage.getItem('glimu_wallet') || '0');
-                currentBalance += amount;
-                localStorage.setItem('glimu_wallet', currentBalance);
-                alert(`₦${amount.toLocaleString()} added to your wallet! New balance: ₦${currentBalance.toLocaleString()}`);
+    document.getElementById('confirmPayment')?.addEventListener('click', async () => {
+        const activeBtn = document.querySelector('.amount-btn.active');
+        const customAmount = document.getElementById('customAmount')?.value;
+        let amount = 0;
+        
+        if (activeBtn) {
+            amount = parseInt(activeBtn.getAttribute('data-amount'));
+        } else if (customAmount) {
+            amount = parseInt(customAmount);
+        }
+        
+        if (amount > 0 && amount >= 100) {
+            // Use the wallet module's requestTopUp function
+            const success = await requestTopUp(amount, null);
+            if (success) {
                 closeModal();
-                if (currentTab === 'wallet') renderWallet();
-                if (currentTab === 'dashboard') renderDashboard();
-            } else {
-                alert('Please select or enter an amount');
+                setTimeout(() => renderWallet(), 500);
             }
-        };
-    }
+        } else {
+            showToast('Please select or enter a valid amount (minimum ₦100)', 'error');
+        }
+    });
 }
 
 // ============================================
@@ -764,37 +695,24 @@ function setupMobileSidebar() {
 }
 
 // ============================================
-// INITIALIZE
+// INITIALIZE DASHBOARD
 // ============================================
 
 async function initDashboard() {
     console.log('Initializing dashboard...');
     
-    // Load user data first
     loadUserData();
-    
-    // Initialize theme
     initTheme();
-    
-    // Create content sections
     createContentSections();
-    
-    // Build sidebar navigation
     buildSidebar();
-    
-    // Setup modal functionality
     setupModals();
-    
-    // Setup mobile sidebar
     setupMobileSidebar();
     
-    // Setup theme toggle button
     const themeToggleBtn = document.getElementById('themeToggle');
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener('click', toggleTheme);
     }
     
-    // Load initial dashboard content
     await renderDashboard();
     
     console.log('Dashboard initialized');
@@ -803,6 +721,6 @@ async function initDashboard() {
 // Start the dashboard
 document.addEventListener('DOMContentLoaded', initDashboard);
 
-// Make functions global for onclick handlers
+// Export for global access
 window.openModal = openModal;
 window.closeModal = closeModal;
