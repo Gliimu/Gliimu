@@ -496,9 +496,9 @@ async function renderWallet() {
             </div>
         </div>
         
-        <!-- Payment Request Form -->
-        <div class="data-table" style="margin-bottom: 1.5rem;">
-            <h3>Add Funds to Wallet</h3>
+        <!-- Step 1: Enter Amount -->
+        <div class="data-table" style="margin-bottom: 1.5rem;" id="step1Container">
+            <h3>Step 1: Enter Amount</h3>
             <div style="padding: 1.5rem;">
                 <div class="form-group">
                     <label>Amount (₦)</label>
@@ -520,21 +520,56 @@ async function renderWallet() {
                     </select>
                 </div>
                 
-                <button id="generatePaymentBtn" class="btn-primary" style="width: 100%;">Generate Payment Code</button>
+                <button id="generatePaymentBtn" class="btn-primary" style="width: 100%;">Continue to Payment Details</button>
             </div>
         </div>
         
-        <!-- Bank Details (shown after code generation) -->
-        <div id="bankDetailsSection" style="display: none;" class="data-table" style="margin-bottom: 1.5rem;">
-            <h3>Bank Transfer Details</h3>
+        <!-- Step 2: Bank Details & Reference Code (Hidden initially) -->
+        <div id="step2Container" class="data-table" style="margin-bottom: 1.5rem; display: none;">
+            <h3>Step 2: Send Money</h3>
             <div style="padding: 1.5rem;">
-                <div id="bankDetailsContent"></div>
-                <div class="reference-code-box" style="margin-top: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                    <p style="font-size: 0.8rem; margin-bottom: 5px;">Your Reference Code</p>
-                    <p id="referenceCode" style="font-size: 1.2rem; font-weight: 700; color: var(--accent); letter-spacing: 1px;"></p>
-                    <p style="font-size: 0.7rem; margin-top: 8px;">Use this code as narration when sending money</p>
+                <div id="bankDetailsContent" style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <!-- Bank details will be inserted here -->
                 </div>
-                <button id="copyCodeBtn" class="btn-outline" style="margin-top: 10px; width: 100%;">Copy Code</button>
+                
+                <div class="reference-code-box" style="margin-bottom: 20px; padding: 15px; background: rgba(251, 176, 64, 0.1); border-radius: 8px; text-align: center; border: 1px solid var(--accent);">
+                    <p style="font-size: 0.8rem; margin-bottom: 5px; color: var(--text-secondary);">Your Reference Code (Use as narration)</p>
+                    <p id="referenceCode" style="font-size: 1.3rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; word-break: break-all;"></p>
+                    <button id="copyCodeBtn" class="btn-outline" style="margin-top: 10px; padding: 6px 12px; font-size: 0.8rem;">📋 Copy Code</button>
+                </div>
+                
+                <div class="payment-instructions" style="margin-bottom: 20px; padding: 15px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent);">
+                    <p style="font-size: 0.85rem; margin-bottom: 8px;"><strong>📝 Instructions:</strong></p>
+                    <ol style="margin-left: 20px; font-size: 0.8rem; color: var(--text-secondary);">
+                        <li>Send the exact amount to the account above</li>
+                        <li>Use the <strong>Reference Code</strong> as your transaction narration</li>
+                        <li>After sending, click "I Have Made Payment" below</li>
+                        <li>Your wallet will be credited once admin verifies</li>
+                    </ol>
+                </div>
+                
+                <button id="confirmPaymentBtn" class="btn-success" style="width: 100%; padding: 14px; font-size: 1rem;">
+                    ✅ I Have Made Payment
+                </button>
+                <button id="backToStep1Btn" class="btn-outline" style="width: 100%; margin-top: 10px; padding: 10px;">
+                    ← Back to Edit Amount
+                </button>
+            </div>
+        </div>
+        
+        <!-- Step 3: Success Message (Hidden initially) -->
+        <div id="step3Container" class="data-table" style="margin-bottom: 1.5rem; display: none;">
+            <h3>Step 3: Payment Submitted</h3>
+            <div style="padding: 1.5rem; text-align: center;">
+                <i class="fas fa-clock" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 10px;">Payment Request Sent!</h3>
+                <p style="margin-bottom: 10px;">Your payment of <strong id="submittedAmount"></strong> has been submitted.</p>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">Reference Code: <strong id="submittedCode"></strong></p>
+                <div style="margin-top: 20px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+                    <p style="font-size: 0.85rem;">⏱️ Your wallet will be credited within <strong>1 hour</strong> after bank confirmation.</p>
+                    <p style="font-size: 0.75rem; margin-top: 5px;">You'll receive a notification when your payment is approved.</p>
+                </div>
+                <button id="newPaymentBtn" class="btn-primary" style="margin-top: 20px;">Make Another Payment</button>
             </div>
         </div>
         
@@ -552,7 +587,7 @@ async function renderWallet() {
                                 <tr>
                                     <td>${new Date(req.submittedAt).toLocaleDateString()}</td>
                                     <td>₦${req.amount.toLocaleString()}</td>
-                                    <td><code>${req.referenceCode}</code></td>
+                                    <td><code style="font-size: 0.7rem;">${req.referenceCode}</code></td>
                                     <td><span class="badge ${req.status === 'pending' ? 'pending' : 'active'}">${req.status}</span></td>
                                     <td>${req.bank}</td>
                                 </tr>
@@ -572,6 +607,11 @@ async function renderWallet() {
     // Display transactions
     await displayTransactions('transactionList');
     
+    // Store current payment data
+    let currentPaymentAmount = null;
+    let currentPaymentBank = null;
+    let currentReferenceCode = null;
+    
     // Setup amount preset buttons
     document.querySelectorAll('.amount-preset').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -582,7 +622,7 @@ async function renderWallet() {
         });
     });
     
-    // Generate payment button
+    // Generate payment button - Show bank details
     const generateBtn = document.getElementById('generatePaymentBtn');
     if (generateBtn) {
         generateBtn.addEventListener('click', async () => {
@@ -595,28 +635,35 @@ async function renderWallet() {
                 return;
             }
             
-            const referenceCode = await submitPaymentRequest(amount, bank);
+            currentPaymentAmount = amount;
+            currentPaymentBank = bank;
             
-            if (referenceCode) {
-                const bankDetails = bank === 'MoniePoint' 
-                    ? { bankName: 'MoniePoint Microfinance Bank', accountNumber: '6315085115', accountName: 'Gliimu LTD' }
-                    : { bankName: 'Opay', accountNumber: '6142049426', accountName: 'Gliimu LTD' };
-                
-                document.getElementById('bankDetailsContent').innerHTML = `
-                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
-                        <p><strong>Bank:</strong> ${bankDetails.bankName}</p>
-                        <p><strong>Account Number:</strong> ${bankDetails.accountNumber}</p>
-                        <p><strong>Account Name:</strong> ${bankDetails.accountName}</p>
-                        <p style="margin-top: 10px; font-size: 0.8rem; color: var(--accent);">⚠️ IMPORTANT: Use the reference code below as narration</p>
-                    </div>
-                `;
-                document.getElementById('referenceCode').textContent = referenceCode;
-                document.getElementById('bankDetailsSection').style.display = 'block';
-                document.getElementById('bankDetailsSection').scrollIntoView({ behavior: 'smooth' });
-                
-                // Refresh pending requests
-                setTimeout(() => renderWallet(), 1000);
-            }
+            // Generate unique reference code
+            currentReferenceCode = generateReferenceCode();
+            
+            // Get bank details
+            const bankDetails = bank === 'MoniePoint' 
+                ? { bankName: 'MoniePoint Microfinance Bank', accountNumber: '6315085115', accountName: 'Gliimu LTD' }
+                : { bankName: 'Opay', accountNumber: '6142049426', accountName: 'Gliimu LTD' };
+            
+            // Display bank details
+            document.getElementById('bankDetailsContent').innerHTML = `
+                <div style="text-align: center;">
+                    <p style="margin-bottom: 8px;"><strong>🏦 Bank:</strong> ${bankDetails.bankName}</p>
+                    <p style="margin-bottom: 8px; font-size: 1.1rem;"><strong>Account Number:</strong> <span style="font-size: 1.3rem; font-weight: 700;">${bankDetails.accountNumber}</span></p>
+                    <p style="margin-bottom: 8px;"><strong>Account Name:</strong> ${bankDetails.accountName}</p>
+                    <p style="margin-top: 8px;"><strong>Amount to Send:</strong> ₦${amount.toLocaleString()}</p>
+                </div>
+            `;
+            document.getElementById('referenceCode').textContent = currentReferenceCode;
+            
+            // Hide step 1, show step 2
+            document.getElementById('step1Container').style.display = 'none';
+            document.getElementById('step2Container').style.display = 'block';
+            document.getElementById('step3Container').style.display = 'none';
+            
+            // Scroll to step 2
+            document.getElementById('step2Container').scrollIntoView({ behavior: 'smooth' });
         });
     }
     
@@ -630,10 +677,105 @@ async function renderWallet() {
         });
     }
     
+    // Back to step 1 button
+    const backBtn = document.getElementById('backToStep1Btn');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            document.getElementById('step1Container').style.display = 'block';
+            document.getElementById('step2Container').style.display = 'none';
+            document.getElementById('step3Container').style.display = 'none';
+            document.getElementById('step1Container').scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+    
+    // Confirm payment button - Submit request
+    const confirmBtn = document.getElementById('confirmPaymentBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+            if (!currentPaymentAmount || !currentReferenceCode) {
+                showToast('Something went wrong. Please try again.', 'error');
+                return;
+            }
+            
+            // Submit payment request
+            const success = await submitPaymentRequestWithCode(currentPaymentAmount, currentPaymentBank, currentReferenceCode);
+            
+            if (success) {
+                // Show step 3 (success message)
+                document.getElementById('step1Container').style.display = 'none';
+                document.getElementById('step2Container').style.display = 'none';
+                document.getElementById('step3Container').style.display = 'block';
+                document.getElementById('submittedAmount').textContent = `₦${currentPaymentAmount.toLocaleString()}`;
+                document.getElementById('submittedCode').textContent = currentReferenceCode;
+                
+                // Refresh pending requests
+                setTimeout(() => renderWallet(), 2000);
+                
+                showToast(`Payment request submitted! We'll notify you once confirmed.`, 'success');
+            }
+        });
+    }
+    
+    // New payment button - Reset form
+    const newPaymentBtn = document.getElementById('newPaymentBtn');
+    if (newPaymentBtn) {
+        newPaymentBtn.addEventListener('click', () => {
+            // Reset form
+            document.getElementById('customAmount').value = '';
+            document.querySelectorAll('.amount-preset').forEach(b => b.classList.remove('active'));
+            document.getElementById('bankSelect').value = 'MoniePoint';
+            
+            // Reset to step 1
+            document.getElementById('step1Container').style.display = 'block';
+            document.getElementById('step2Container').style.display = 'none';
+            document.getElementById('step3Container').style.display = 'none';
+            
+            currentPaymentAmount = null;
+            currentPaymentBank = null;
+            currentReferenceCode = null;
+            
+            document.getElementById('step1Container').scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+    
     // Upgrade plan button
     const upgradeBtn = document.getElementById('upgradePlanWalletBtn');
     if (upgradeBtn) {
         upgradeBtn.addEventListener('click', () => openModal('upgradeModal'));
+    }
+}
+
+// Helper function to submit payment request with specific code
+async function submitPaymentRequestWithCode(amount, bank, referenceCode) {
+    const user = getCurrentUser();
+    if (!user) {
+        showToast('Please login first', 'error');
+        return false;
+    }
+    
+    const paymentRequest = {
+        id: `pay_${Date.now()}`,
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        amount: amount,
+        bank: bank,
+        referenceCode: referenceCode,
+        status: 'pending',
+        submittedAt: new Date().toISOString(),
+        approvedAt: null,
+        adminNotes: null
+    };
+    
+    try {
+        let pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
+        pendingRequests.push(paymentRequest);
+        localStorage.setItem('glimu_pending_payments', JSON.stringify(pendingRequests));
+        return true;
+    } catch (error) {
+        console.error('Submit payment error:', error);
+        showToast('Failed to submit payment request', 'error');
+        return false;
     }
 }
 
