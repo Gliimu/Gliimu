@@ -63,4 +63,9 @@ UserSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// Add to existing User schema
+walletBalance: { type: Number, default: 25000 },
+savedItems: [{ type: String }], // Store book/bundle IDs
+recentlyViewed: [{ type: String }]
+
 module.exports = mongoose.model('User', UserSchema);
