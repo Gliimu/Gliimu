@@ -21,9 +21,8 @@ function getCurrentUser() {
 function generateReferenceCode() {
     const user = getCurrentUser();
     const userId = user?.id || 'guest';
-    const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
-    return `GLM-${userId}-${timestamp}-${random}`;
+    return `GLM-${userId}-${random}`;
 }
 
 async function fetchWallet() {
