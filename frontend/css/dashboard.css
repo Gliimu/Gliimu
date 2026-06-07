@@ -773,3 +773,28 @@ body {
         align-items: flex-start;
     }
 }
+
+/* Add to dashboard.css */
+.amount-preset.active {
+    background: var(--accent);
+    color: var(--primary-dark);
+    border-color: var(--accent);
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    border: none;
+}
+
+.btn-success:hover {
+    background: #059669;
+}
+
+.payment-instructions ol {
+    padding-left: 1.2rem;
+}
+
+.payment-instructions li {
+    margin-bottom: 5px;
+}
