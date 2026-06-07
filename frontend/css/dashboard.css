@@ -807,3 +807,35 @@ body.dark-mode #customAmount {
 .payment-instructions li {
     margin-bottom: 5px;
 }
+
+/* Recent Items Grid */
+.recent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.recent-item {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.recent-item:hover {
+    transform: translateY(-3px);
+}
+
+.recent-item-cover {
+    width: 100%;
+    aspect-ratio: 2 / 2.5;
+    background-size: cover;
+    background-position: center;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.recent-item-title {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-align: center;
+}
