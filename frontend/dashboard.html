@@ -11,8 +11,8 @@
 </head>
 <body>
 
-    <!-- Header Placeholder -->
-    <div id="header-placeholder"></div>
+    <!-- NO HEADER PLACEHOLDER - Dashboard has its own layout -->
+    <!-- <div id="header-placeholder"></div> -->
 
     <!-- Dashboard Container -->
     <div class="dashboard-container">
@@ -116,25 +116,10 @@
         </div>
     </div>
 
-    <script src="js/pages/header.js" type="module"></script>
+    <!-- No header.js script - dashboard doesn't need the global header -->
+    <!-- <script src="js/pages/header.js" type="module"></script> -->
     <script src="js/pages/dashboard.js" type="module"></script>
     
-    <!-- Load Partials -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if (document.getElementById('header-placeholder')) {
-                Promise.all([
-                    fetch('partials/header.html').then(r => r.text()),
-                    fetch('partials/footer.html').then(r => r.text()),
-                    fetch('partials/login-modal.html').then(r => r.text())
-                ]).then(results => {
-                    document.getElementById('header-placeholder').innerHTML = results[0];
-                    document.getElementById('footer-placeholder').innerHTML = results[1];
-                    document.getElementById('login-modal-placeholder').innerHTML = results[2];
-                    console.log('Partials loaded');
-                }).catch(err => console.error('Failed to load partials:', err));
-            }
-        });
-    </script>
+    <!-- No partials loader for dashboard -->
 </body>
 </html>
