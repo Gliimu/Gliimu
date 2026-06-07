@@ -1,358 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Apply – Gliimu Institute</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Apply to Gliimu Institute. No email required. Your privacy matters.">
-  
-  <link rel="icon" type="image/png" href="icons/logo2.png">
-  
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- External CSS Files -->
-  <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/application.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply Now | Gliimu Institute</title>
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/header.css">
+    <link rel="stylesheet" href="/css/footer.css">
+    <link rel="stylesheet" href="/css/application.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
-  <!-- Theme initialization -->
-  <script>
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      document.body.classList.add('dark-mode');
-    } else if (savedTheme === 'light') {
-      document.body.classList.remove('dark-mode');
-    } else {
-      document.body.classList.add('dark-mode');
-      localStorage.setItem('theme', 'dark');
-    }
-  </script>
+    <!-- Header Placeholder -->
+    <div id="header-placeholder"></div>
 
-  <!-- Simple Top Bar -->
-  <div class="top-bar">
-    <div class="container">
-      <a href="index.html" class="logo-small">
-        <img src="icons/logo.png" alt="Gliimu logo">
-      </a>
-      <div class="top-bar-right">
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18">
-            <circle cx="12" cy="12" r="5" stroke="currentColor" fill="none"></circle>
-            <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor"></line>
-            <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor"></line>
-            <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor"></line>
-            <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor"></line>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" fill="none"></path>
-          </svg>
-        </button>
-        <a href="#" onclick="openLoginModal(); return false;" class="signin-link">Sign in <i class="fas fa-arrow-right"></i></a>
-      </div>
-    </div>
-  </div>
+    <!-- Application Hero -->
+    <section class="application-hero">
+        <div class="container">
+            <h1>Start Your Journey</h1>
+            <p>Apply now to become a Media Architect. No upfront payment required.</p>
+        </div>
+    </section>
 
-  <!-- Application Main Content -->
-  <div class="application-wrapper">
-    <div class="container">
-      
-      <!-- Progress Steps -->
-      <div class="progress-steps">
-        <div class="step active" data-step="1">
-          <div class="step-number">1</div>
-          <div class="step-label">Identity</div>
-        </div>
-        <div class="step-line"></div>
-        <div class="step" data-step="2">
-          <div class="step-number">2</div>
-          <div class="step-label">Credentials</div>
-        </div>
-        <div class="step-line"></div>
-        <div class="step" data-step="3">
-          <div class="step-number">3</div>
-          <div class="step-label">Confirm</div>
-        </div>
-      </div>
-      
-      <!-- Form Card - Smaller -->
-      <div class="application-card">
-        
-        <!-- Step 1: Identity -->
-        <div class="form-step active" id="step-1">
-          <div class="step-header">
-            <h2>Tell us about yourself</h2>
-            <p>No email required. Your privacy matters.</p>
-          </div>
-          
-          <div class="form-group">
-            <label>Full name *</label>
-            <div class="form-row">
-              <input type="text" id="firstName" class="input-field" placeholder="First name" required>
-              <input type="text" id="lastName" class="input-field" placeholder="Last name" required>
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label>Username *</label>
-            <input type="text" id="username" class="input-field" placeholder="Choose a username" required>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label>Birth month *</label>
-              <select id="birthMonth" class="input-field" required>
-                <option value="" disabled selected>Month</option>
-                <option value="1">January</option><option value="2">February</option>
-                <option value="3">March</option><option value="4">April</option>
-                <option value="5">May</option><option value="6">June</option>
-                <option value="7">July</option><option value="8">August</option>
-                <option value="9">September</option><option value="10">October</option>
-                <option value="11">November</option><option value="12">December</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Birth day *</label>
-              <select id="birthDay" class="input-field" required>
-                <option value="" disabled selected>Day</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label>Age range *</label>
-            <select id="ageRange" class="input-field" required>
-              <option value="" disabled selected>Select age range</option>
-              <option value="under-18">Under 18</option>
-              <option value="18-24">18 - 24 years</option>
-              <option value="25-34">25 - 34 years</option>
-              <option value="35-44">35 - 44 years</option>
-              <option value="45-plus">45 years and above</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label>I'm applying as *</label>
-            <select id="applicationType" class="input-field" required>
-              <option value="" disabled selected>Select your role</option>
-              <option value="student">🎓 Student — I want to learn</option>
-              <option value="partner">🤝 Partner — I have a project/job</option>
-              <option value="instructor">👨‍🏫 Instructor — I want to teach</option>
-              <option value="other">💼 Other — Parent, Guardian, Admin</option>
-            </select>
-          </div>
-          
-          <div class="privacy-note">
-            <i class="fas fa-shield-alt"></i>
-            <span>No email or phone required. Your privacy matters.</span>
-          </div>
-          
-          <div class="form-actions">
-            <button class="btn-next" onclick="nextStep()">Continue <i class="fas fa-arrow-right"></i></button>
-          </div>
-        </div>
-        
-        <!-- Step 2: Credentials -->
-        <div class="form-step" id="step-2">
-          <div class="step-header">
-            <h2>Secure your account</h2>
-            <p>Create a password. We'll generate a recovery passkey.</p>
-          </div>
-          
-          <div class="form-group">
-            <label>Create a password *</label>
-            <input type="password" id="password" class="input-field" placeholder="••••••••" required>
-          </div>
-          
-          <div class="form-group">
-            <label>Confirm password *</label>
-            <input type="password" id="confirmPassword" class="input-field" placeholder="••••••••" required>
-          </div>
-          
-          <div class="passkey-section" id="passkeySection" style="display: none;">
-            <div class="passkey-header">
-              <i class="fas fa-key"></i>
-              <span>Your Recovery Passkey</span>
-            </div>
-            <div class="passkey-phrase" id="passkeyPhrase"></div>
-            <div class="passkey-warning">
-              <i class="fas fa-exclamation-triangle"></i>
-              <strong>Important:</strong> If you lose or forget your password and do NOT have this passkey, you will lose access to your account permanently.
-            </div>
-            <button type="button" class="btn-download-passkey" id="downloadPasskeyBtn" onclick="downloadPasskey()">
-              <i class="fas fa-download"></i> Download Passkey (PDF)
-            </button>
-          </div>
-          
-          <div class="form-actions">
-            <button class="btn-back" onclick="prevStep()"><i class="fas fa-arrow-left"></i> Back</button>
-            <button class="btn-next" onclick="nextStep()">Continue <i class="fas fa-arrow-right"></i></button>
-          </div>
-        </div>
-        
-        <!-- Step 3: Confirm -->
-        <div class="form-step" id="step-3">
-          <div class="step-header">
-            <h2>Review & Submit</h2>
-            <p>Verify your information before creating your account.</p>
-          </div>
-          
-          <div class="review-card">
-            <div class="review-section">
-              <h4>Your Information</h4>
-              <div class="review-row"><span class="review-label">Name:</span><span class="review-value" id="reviewName">—</span></div>
-              <div class="review-row"><span class="review-label">Username:</span><span class="review-value" id="reviewUsername">—</span></div>
-              <div class="review-row"><span class="review-label">Birthday:</span><span class="review-value" id="reviewBirthday">—</span></div>
-              <div class="review-row"><span class="review-label">Age range:</span><span class="review-value" id="reviewAgeRange">—</span></div>
-              <div class="review-row"><span class="review-label">Applying as:</span><span class="review-value" id="reviewAppType">—</span></div>
-            </div>
-          </div>
-          
-          <div class="passkey-warning" style="margin-bottom: 16px;">
-            <i class="fas fa-exclamation-triangle"></i>
-            <strong>Warning:</strong> Without your passkey, you cannot recover your account if you forget your password. Download and save it securely.
-          </div>
-          
-          <div class="terms-agreement">
-            <label class="checkbox-container">
-              <input type="checkbox" id="termsCheckbox" required>
-              <span>I confirm my information is accurate. I agree to the <a href="policy.html" target="_blank">Terms & Conditions</a>.</span>
-            </label>
-          </div>
-          
-          <div class="form-actions">
-            <button class="btn-back" onclick="prevStep()"><i class="fas fa-arrow-left"></i> Back</button>
-            <button class="btn-submit" id="submitBtn" onclick="submitApplication()">Create Account <i class="fas fa-check"></i></button>
-          </div>
-        </div>
-        
-      </div>
-      
-      <!-- Sidebar Info - Compact -->
-      <div class="application-sidebar">
-        <div class="info-box"><i class="fas fa-lock"></i><h4>Privacy First</h4><p>No email required</p></div>
-        <div class="info-box"><i class="fas fa-key"></i><h4>Passkey Recovery</h4><p>Download to secure</p></div>
-        <div class="info-box"><i class="fas fa-graduation-cap"></i><h4>One Program</h4><p>Full-Stack Media</p></div>
-      </div>
-      
-    </div>
-  </div>
+    <!-- Application Form -->
+    <section class="application-section">
+        <div class="container">
+            <div class="application-card">
+                <div class="application-progress">
+                    <div class="progress-step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-label">Personal Info</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-label">Contact & Education</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-label">Course & Submit</div>
+                    </div>
+                </div>
 
-  <!-- Success Modal -->
-  <div class="modal-overlay" id="successModal">
-    <div class="modal-content">
-      <div class="modal-icon"><i class="fa-solid fa-check"></i></div>
-      <h3 class="modal-title">Account Created!</h3>
-      <div class="modal-text" id="successMessage">
-        <p><strong>Username:</strong> <span id="successUsername"></span></p>
-        <p><strong>Passkey:</strong> <span id="successPasskey"></span></p>
-        <div class="passkey-warning" style="margin: 12px 0;">
-          <i class="fas fa-exclamation-triangle"></i> Without this passkey, you cannot recover your account if you forget your password.
+                <form id="applicationForm">
+                    <!-- Step 1: Personal Information -->
+                    <div class="form-step active" data-step="1">
+                        <h2>Personal Information</h2>
+                        
+                        <div class="form-group">
+                            <label for="fullName">Full Name *</label>
+                            <input type="text" id="fullName" name="fullName" required placeholder="Enter your full name">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="dateOfBirth">Date of Birth *</label>
+                                <input type="date" id="dateOfBirth" name="dateOfBirth" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="gender">Gender *</label>
+                                <select id="gender" name="gender" required>
+                                    <option value="">Select gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="address">Address *</label>
+                            <input type="text" id="address" name="address" required placeholder="Street address">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="city">City *</label>
+                                <input type="text" id="city" name="city" required placeholder="City">
+                            </div>
+                            <div class="form-group">
+                                <label for="state">State *</label>
+                                <input type="text" id="state" name="state" required placeholder="State">
+                            </div>
+                        </div>
+
+                        <div class="form-buttons">
+                            <button type="button" class="btn-next">Continue <i class="fas fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Contact & Education -->
+                    <div class="form-step" data-step="2">
+                        <h2>Contact & Education</h2>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="phone">Phone Number *</label>
+                                <input type="tel" id="phone" name="phone" required placeholder="e.g., 08012345678">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email Address *</label>
+                                <input type="email" id="email" name="email" required placeholder="you@example.com">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="educationLevel">Highest Education Level *</label>
+                            <select id="educationLevel" name="educationLevel" required>
+                                <option value="">Select education level</option>
+                                <option value="ssce">SSCE / WAEC / NECO</option>
+                                <option value="ond">OND / NCE</option>
+                                <option value="bsc">BSc / HND</option>
+                                <option value="masters">Master's Degree</option>
+                                <option value="phd">PhD</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="institutionGroup" style="display: none;">
+                            <label for="institution">Institution Name</label>
+                            <input type="text" id="institution" name="institution" placeholder="School/University name">
+                        </div>
+
+                        <div class="form-buttons">
+                            <button type="button" class="btn-prev"><i class="fas fa-arrow-left"></i> Back</button>
+                            <button type="button" class="btn-next">Continue <i class="fas fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Course Selection & Submit -->
+                    <div class="form-step" data-step="3">
+                        <h2>Course & Submit</h2>
+
+                        <div class="form-group">
+                            <label for="courseOfInterest">Course of Interest *</label>
+                            <select id="courseOfInterest" name="courseOfInterest" required>
+                                <option value="">Select a course</option>
+                                <option value="Full-Stack Media Production (Video + Design + Code)">Full-Stack Media Production (Video + Design + Code)</option>
+                                <option value="Video Production & Motion Graphics">Video Production & Motion Graphics</option>
+                                <option value="UI/UX Design & Branding">UI/UX Design & Branding</option>
+                                <option value="Web Development & Programming">Web Development & Programming</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="heardFrom">How did you hear about us?</label>
+                            <select id="heardFrom" name="heardFrom">
+                                <option value="">Select an option</option>
+                                <option value="social_media">Social Media</option>
+                                <option value="friend">Friend/Family</option>
+                                <option value="advertisement">Advertisement</option>
+                                <option value="search_engine">Search Engine</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-note">
+                            <i class="fas fa-info-circle"></i>
+                            <p>By submitting this application, you agree to our terms and conditions. No upfront payment required. You'll receive a passkey after submission.</p>
+                        </div>
+
+                        <div class="form-buttons">
+                            <button type="button" class="btn-prev"><i class="fas fa-arrow-left"></i> Back</button>
+                            <button type="submit" class="btn-submit">Submit Application <i class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Success Modal -->
+            <div id="successModal" class="modal">
+                <div class="modal-content success-modal">
+                    <div class="modal-header">
+                        <h2>Application Submitted!</h2>
+                        <button class="modal-close" id="closeSuccessModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="success-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h3>Your Passkey</h3>
+                        <div class="passkey-display" id="passkeyDisplay"></div>
+                        <p class="passkey-note">Save this passkey. You'll need it to access your application status and dashboard.</p>
+                        <button class="btn-copy" id="copyPasskeyBtn">
+                            <i class="fas fa-copy"></i> Copy Passkey
+                        </button>
+                        <div class="next-steps">
+                            <h4>What's Next?</h4>
+                            <ol>
+                                <li>Check your email for confirmation</li>
+                                <li>Our team will review your application</li>
+                                <li>You'll receive login credentials within 24-48 hours</li>
+                                <li>Use your passkey to track application status</li>
+                            </ol>
+                        </div>
+                        <a href="index.html" class="btn-primary">Return to Home</a>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      <div class="modal-buttons">
-        <button class="modal-btn secondary" onclick="printSuccessInfo()"><i class="fas fa-print"></i> Print Info</button>
-        <button class="modal-btn primary" onclick="goToDashboard()">Go to Dashboard</button>
-      </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- Login Modal -->
-  <div class="modal-overlay" id="loginModal">
-    <div class="login-card">
-      <button class="close-btn" id="closeLoginBtn"><i class="fas fa-times"></i></button>
-      <div class="login-header"><h2>Sign In</h2><p>Access your dashboard</p></div>
-      <form id="loginForm">
-        <div class="form-group"><label>Username</label><input type="text" id="loginUsername" class="input-field" placeholder="Your username" required></div>
-        <div class="form-group"><label>Password</label><input type="password" id="loginPassword" class="input-field" placeholder="••••••••" required></div>
-        <div class="login-links"><a href="#" onclick="showForgotPasskey()">Forgot password? Use passkey</a></div>
-        <div id="loginError"></div>
-        <button type="submit" class="submit-btn">Sign In</button>
-        <div class="login-links"><a href="application.html">Don't have an account? Apply now</a></div>
-      </form>
-    </div>
-  </div>
+    <!-- Footer Placeholder -->
+    <div id="footer-placeholder"></div>
 
-  <script src="js/pages/application.js"></script>
-  <script>
-    // Populate days
-    const daySelect = document.getElementById('birthDay');
-    for (let i = 1; i <= 31; i++) {
-      const option = document.createElement('option');
-      option.value = i;
-      option.textContent = i;
-      daySelect.appendChild(option);
-    }
+    <!-- Login Modal Placeholder -->
+    <div id="login-modal-placeholder"></div>
+
+    <script src="js/pages/header.js" type="module"></script>
+    <script src="js/pages/application.js" type="module"></script>
     
-    // Theme toggle (matching homepage)
-    const themeToggle = document.getElementById('themeToggle');
-    const body = document.body;
-    function updateIcons() {
-      const isDark = body.classList.contains('dark-mode');
-      const sunIcon = themeToggle?.querySelector('.icon-sun');
-      const moonIcon = themeToggle?.querySelector('.icon-moon');
-      if (sunIcon && moonIcon) {
-        sunIcon.style.display = isDark ? 'block' : 'none';
-        moonIcon.style.display = isDark ? 'none' : 'block';
-      }
-    }
-    updateIcons();
-    themeToggle?.addEventListener('click', () => {
-      body.classList.toggle('dark-mode');
-      localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
-      updateIcons();
-    });
-    
-    // Login modal
-    const loginModal = document.getElementById('loginModal');
-    const closeLoginBtn = document.getElementById('closeLoginBtn');
-    window.openLoginModal = () => loginModal.classList.add('active');
-    closeLoginBtn?.addEventListener('click', () => loginModal.classList.remove('active'));
-    loginModal?.addEventListener('click', (e) => { if (e.target === loginModal) loginModal.classList.remove('active'); });
-    
-    window.printSuccessInfo = function() {
-      const username = document.getElementById('successUsername').textContent;
-      const passkey = document.getElementById('successPasskey').textContent;
-      const printContent = `
-        GLIIMU ACCOUNT INFORMATION
-        =========================
-        Username: ${username}
-        Passkey: ${passkey}
-        Created: ${new Date().toLocaleString()}
-        =========================
-        IMPORTANT: Keep this passkey safe.
-        Without it, you cannot recover your account if you forget your password.
-      `;
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write('<pre>' + printContent + '</pre>');
-      printWindow.document.close();
-      printWindow.print();
-    };
-    
-    window.goToDashboard = () => window.location.href = 'dashboard.html';
-    window.showForgotPasskey = () => alert('Passkey recovery: Enter your passkey to reset password. Contact support if needed.');
-    
-    document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('loginUsername').value;
-      const password = document.getElementById('loginPassword').value;
-      const users = JSON.parse(localStorage.getItem('gliimu_users') || '[]');
-      const user = users.find(u => u.username === username && u.password === password);
-      if (user) {
-        localStorage.setItem('gliimu_user', JSON.stringify({ id: user.id, username: user.username, name: `${user.firstName} ${user.lastName}`, role: user.role }));
-        window.location.href = 'dashboard.html';
-      } else {
-        document.getElementById('loginError').textContent = 'Invalid username or password';
-      }
-    });
-  </script>
+    <!-- Load Partials -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('header-placeholder')) {
+                Promise.all([
+                    fetch('partials/header.html').then(r => r.text()),
+                    fetch('partials/footer.html').then(r => r.text()),
+                    fetch('partials/login-modal.html').then(r => r.text())
+                ]).then(results => {
+                    document.getElementById('header-placeholder').innerHTML = results[0];
+                    document.getElementById('footer-placeholder').innerHTML = results[1];
+                    document.getElementById('login-modal-placeholder').innerHTML = results[2];
+                    console.log('Partials loaded');
+                }).catch(err => console.error('Failed to load partials:', err));
+            }
+        });
+    </script>
 </body>
 </html>
