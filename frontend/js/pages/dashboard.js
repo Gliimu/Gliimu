@@ -1,25 +1,30 @@
 // ============================================
-// GLIIMU DASHBOARD - FIXED AUTHENTICATION
+// GLIIMU DASHBOARD - ENHANCED VERSION
+// Connected to Supabase with real data
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
-// Global state
+// ============================================
+// GLOBAL STATE
+// ============================================
 let currentUser = null;
 let currentUserProfile = null;
 let currentRole = 'student';
 let currentTab = 'dashboard';
 let allMaterials = [];
+let userStats = null;
+let savedItems = [];
+let recentlyViewed = [];
 
 // ============================================
-// CHECK AUTHENTICATION - FIXED
+// CHECK AUTHENTICATION
 // ============================================
-
 async function checkAuth() {
     console.log('Checking authentication...');
     
-    // First check localStorage
+    // Check localStorage first
     const localUser = localStorage.getItem('glimu_user');
     if (localUser) {
         currentUser = JSON.parse(localUser);
@@ -37,98 +42,120 @@ async function checkAuth() {
     }
     
     if (session) {
-        console.log('Supabase session found');
-        
-        // Get user profile from database
-        const { data: profile, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-        
-        if (profileError) {
-            console.error('Profile fetch error:', profileError);
-        }
-        
-        currentUser = {
-            id: session.user.id,
-            email: session.user.email,
-            name: profile?.name || session.user.user_metadata?.name || 'User',
-            role: profile?.role || 'student',
-            plan: profile?.plan || 'basic',
-            walletBalance: profile?.wallet_balance || 25000,
-            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff`
-        };
-        
-        localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-        currentRole = currentUser.role;
-        
-        console.log('User loaded from Supabase:', currentUser);
+        await loadUserFromSupabase(session.user.id);
         return true;
     }
     
-    console.log('No user found, redirecting to home');
+    console.log('No user found, redirecting to signin');
     showToast('Please login to access your dashboard', 'info');
     
     setTimeout(() => {
-        window.location.href = '/index.html';
+        window.location.href = '/signin.html';
     }, 1500);
     
     return false;
 }
 
 // ============================================
-// LOAD USER PROFILE FROM APPLICATION
+// LOAD USER FROM SUPABASE
 // ============================================
-
-async function loadUserProfile() {
-    // If we have a user but no profile in users table, try to get from applications
-    if (currentUser && !currentUser.walletBalance) {
-        try {
-            // Try to find the user in applications table by email or username
-            const { data, error } = await supabase
-                .from('applications')
-                .select('*')
-                .eq('username', currentUser.name.toLowerCase().replace(/\s/g, '.'))
-                .single();
-            
-            if (!error && data) {
-                console.log('Found application data:', data);
-                
-                // Create user profile from application
-                const { error: insertError } = await supabase
-                    .from('users')
-                    .insert([{
-                        id: currentUser.id,
-                        name: data.full_name,
-                        email: currentUser.email,
-                        role: data.role,
-                        plan: 'basic',
-                        wallet_balance: 25000
-                    }]);
-                
-                if (insertError) {
-                    console.error('Error creating user profile:', insertError);
-                } else {
-                    currentUser.role = data.role;
-                    currentUser.name = data.full_name;
-                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                }
-            }
-        } catch (error) {
-            console.error('Error loading application data:', error);
+async function loadUserFromSupabase(userId) {
+    try {
+        // Get user profile
+        const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        
+        if (profileError) throw profileError;
+        
+        // Get user stats for current month
+        const currentMonth = new Date().getMonth() + 1;
+        const currentYear = new Date().getFullYear();
+        
+        const { data: stats, error: statsError } = await supabase
+            .from('user_stats')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('month', currentMonth)
+            .eq('year', currentYear)
+            .maybeSingle();
+        
+        if (statsError && statsError.code !== 'PGRST116') {
+            console.error('Stats fetch error:', statsError);
         }
+        
+        userStats = stats || { books_read: 0, bundles_downloaded: 0 };
+        
+        // Get saved items
+        const { data: saved, error: savedError } = await supabase
+            .from('user_saved_items')
+            .select('*')
+            .eq('user_id', userId)
+            .order('saved_at', { ascending: false });
+        
+        if (!savedError) savedItems = saved || [];
+        
+        // Get recently viewed
+        const { data: recent, error: recentError } = await supabase
+            .from('user_recently_viewed')
+            .select('*')
+            .eq('user_id', userId)
+            .order('viewed_at', { ascending: false })
+            .limit(10);
+        
+        if (!recentError) recentlyViewed = recent || [];
+        
+        currentUserProfile = profile;
+        currentUser = {
+            id: userId,
+            name: profile.name || profile.full_name || 'User',
+            email: profile.email,
+            role: profile.role || 'student',
+            plan: profile.plan || 'basic',
+            walletBalance: profile.wallet_balance || 25000,
+            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
+        };
+        currentRole = currentUser.role;
+        
+        localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+        
+        console.log('User loaded from Supabase:', currentUser);
+        
+    } catch (error) {
+        console.error('Error loading user from Supabase:', error);
+    }
+}
+
+// ============================================
+// FETCH LIBRARY MATERIALS
+// ============================================
+async function fetchLibraryMaterials() {
+    try {
+        let response = await fetch('../../backend/data/library.json');
+        if (!response.ok) response = await fetch('../backend/data/library.json');
+        if (!response.ok) response = await fetch('/backend/data/library.json');
+        if (!response.ok) response = await fetch('https://raw.githubusercontent.com/Gliimu/Gliimu/main/backend/data/library.json');
+        
+        if (!response.ok) throw new Error('Failed to load library');
+        
+        const data = await response.json();
+        allMaterials = data.materials || [];
+        console.log('Loaded materials:', allMaterials.length);
+        
+    } catch (error) {
+        console.error('Error loading library:', error);
     }
 }
 
 // ============================================
 // ROLE-BASED TAB CONFIGURATION
 // ============================================
-
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'library', name: 'Library', icon: 'fas fa-book' },
+        { id: 'library', name: 'My Library', icon: 'fas fa-book' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
@@ -159,7 +186,6 @@ const roleTabs = {
 // ============================================
 // THEME HANDLING
 // ============================================
-
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -173,7 +199,6 @@ function initTheme() {
 // ============================================
 // UPDATE UI WITH USER DATA
 // ============================================
-
 function updateUI() {
     if (!currentUser) return;
     
@@ -191,7 +216,6 @@ function updateUI() {
 // ============================================
 // SIDEBAR NAVIGATION
 // ============================================
-
 function buildSidebar() {
     const tabs = roleTabs[currentRole] || roleTabs.other;
     const sidebarNav = document.getElementById('sidebarNav');
@@ -240,7 +264,6 @@ function switchTab(tabId) {
 // ============================================
 // CREATE CONTENT SECTIONS
 // ============================================
-
 function createContentSections() {
     const dashboardContent = document.getElementById('dashboardContent');
     if (!dashboardContent) return;
@@ -249,21 +272,55 @@ function createContentSections() {
     
     dashboardContent.innerHTML = tabs.map(tab => `
         <div id="${tab.id}-section" class="dashboard-section ${tab.id === 'dashboard' ? 'active' : ''}">
-            <!-- Content will be loaded dynamically -->
+            <div class="loading-spinner">Loading...</div>
         </div>
     `).join('');
 }
 
 // ============================================
-// DASHBOARD RENDER (Simple for now)
+// LOAD TAB DATA
 // ============================================
+function loadTabData(tabId) {
+    switch(tabId) {
+        case 'dashboard':
+            renderDashboard();
+            break;
+        case 'library':
+            renderLibraryTab();
+            break;
+        case 'wallet':
+            renderWallet();
+            break;
+        case 'settings':
+            renderSettings();
+            break;
+        case 'students':
+            renderStudents();
+            break;
+        case 'users':
+            renderUsers();
+            break;
+        case 'finance':
+            renderFinance();
+            break;
+        case 'projects':
+            renderProjects();
+            break;
+        default:
+            renderDashboard();
+    }
+}
 
+// ============================================
+// DASHBOARD RENDER - ENHANCED
+// ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
-    const usage = JSON.parse(localStorage.getItem('glimu_usage_guest') || '{"booksRead":0,"bundlesDownloaded":0}');
-    const savedItems = JSON.parse(localStorage.getItem('savedLibraryItems') || '[]');
+    const savedCount = savedItems.length;
+    const recentCount = recentlyViewed.length;
+    const walletBalance = currentUser?.walletBalance || 25000;
     
     container.innerHTML = `
         <div class="section-header">
@@ -278,7 +335,7 @@ async function renderDashboard() {
                 <div class="stat-icon"><i class="fas fa-book"></i></div>
                 <div class="stat-info">
                     <h3>Books Read</h3>
-                    <div class="stat-value">${usage.booksRead || 0}</div>
+                    <div class="stat-value">${userStats?.books_read || 0}</div>
                     <div class="stat-sub">This month</div>
                 </div>
             </div>
@@ -286,7 +343,7 @@ async function renderDashboard() {
                 <div class="stat-icon"><i class="fas fa-box"></i></div>
                 <div class="stat-info">
                     <h3>Bundles Downloaded</h3>
-                    <div class="stat-value">${usage.bundlesDownloaded || 0}</div>
+                    <div class="stat-value">${userStats?.bundles_downloaded || 0}</div>
                     <div class="stat-sub">This month</div>
                 </div>
             </div>
@@ -294,7 +351,7 @@ async function renderDashboard() {
                 <div class="stat-icon"><i class="fas fa-bookmark"></i></div>
                 <div class="stat-info">
                     <h3>Saved Items</h3>
-                    <div class="stat-value">${savedItems.length}</div>
+                    <div class="stat-value">${savedCount}</div>
                     <div class="stat-sub">In your shelf</div>
                 </div>
             </div>
@@ -302,7 +359,7 @@ async function renderDashboard() {
                 <div class="stat-icon"><i class="fas fa-wallet"></i></div>
                 <div class="stat-info">
                     <h3>Wallet Balance</h3>
-                    <div class="stat-value">₦${currentUser?.walletBalance?.toLocaleString() || '25,000'}</div>
+                    <div class="stat-value">₦${walletBalance.toLocaleString()}</div>
                     <button class="add-funds-small" id="quickAddFunds">Add Funds</button>
                 </div>
             </div>
@@ -317,7 +374,7 @@ async function renderDashboard() {
             <div class="action-card" id="viewSavedBtn">
                 <i class="fas fa-bookmark"></i>
                 <h4>My Shelf</h4>
-                <p>${savedItems.length} saved items</p>
+                <p>${savedCount} saved items</p>
             </div>
             <div class="action-card" id="upgradePlanCard">
                 <i class="fas fa-crown"></i>
@@ -325,8 +382,23 @@ async function renderDashboard() {
                 <p>Get more access</p>
             </div>
         </div>
+        
+        ${recentlyViewed.length > 0 ? `
+            <div class="data-table">
+                <h3>Recently Viewed</h3>
+                <div class="recent-grid">
+                    ${recentlyViewed.slice(0, 4).map(item => `
+                        <div class="recent-item" data-item-id="${item.item_id}">
+                            <div class="recent-item-cover" style="background-image: url('${item.item_data?.image || ''}');"></div>
+                            <div class="recent-item-title">${item.item_data?.title || 'Unknown'}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : ''}
     `;
     
+    // Event listeners
     document.getElementById('goToLibraryBtn')?.addEventListener('click', () => {
         window.location.href = '/library.html';
     });
@@ -342,91 +414,267 @@ async function renderDashboard() {
     document.getElementById('quickAddFunds')?.addEventListener('click', () => {
         switchTab('wallet');
     });
+    
+    document.querySelectorAll('.recent-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const itemId = item.getAttribute('data-item-id');
+            window.location.href = `/library.html?id=${itemId}`;
+        });
+    });
 }
 
 // ============================================
-// PLACEHOLDER RENDER FUNCTIONS
+// LIBRARY TAB - ENHANCED WITH SUPABASE DATA
 // ============================================
-
-function renderLibraryTab() {
+async function renderLibraryTab() {
     const container = document.getElementById('library-section');
     if (!container) return;
-    container.innerHTML = `
-        <div class="section-header">
-            <div><h2>My Library</h2><p>Coming soon - Your saved books and bundles</p></div>
-            <button class="btn-primary" onclick="window.location.href='/library.html'">Browse Library</button>
-        </div>
-        <div class="empty-state">
-            <i class="fas fa-book"></i>
-            <h3>Library coming soon</h3>
-            <p>Your saved items will appear here</p>
-        </div>
-    `;
+    
+    container.innerHTML = '<div class="loading-spinner">Loading your library...</div>';
+    
+    try {
+        // Fetch materials if not already loaded
+        if (allMaterials.length === 0) {
+            await fetchLibraryMaterials();
+        }
+        
+        const savedItemIds = savedItems.map(s => s.item_id);
+        const savedMaterials = allMaterials.filter(m => savedItemIds.includes(m.id));
+        
+        const recentItemIds = recentlyViewed.map(r => r.item_id);
+        const recentMaterials = allMaterials.filter(m => recentItemIds.includes(m.id)).slice(0, 6);
+        
+        container.innerHTML = `
+            <div class="section-header">
+                <div>
+                    <h2>My Library</h2>
+                    <p>Your saved books and recently viewed items</p>
+                </div>
+                <button class="btn-primary" id="browseLibraryBtn">Browse All Books</button>
+            </div>
+            
+            ${savedMaterials.length > 0 ? `
+                <h3 style="margin: 1rem 0 0.5rem;">📚 Saved Items (${savedMaterials.length})</h3>
+                <div class="library-grid">
+                    ${savedMaterials.map(item => `
+                        <div class="library-item" data-id="${item.id}">
+                            <div class="library-item-cover" style="background-image: url('${item.image}'); background-size: cover;"></div>
+                            <div class="library-item-info">
+                                <div class="library-item-title">${escapeHtml(item.title)}</div>
+                                <div class="library-item-type">${item.type === 'book' ? '📖 Book' : '📦 Bundle'}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : `
+                <div class="empty-state">
+                    <i class="fas fa-bookmark"></i>
+                    <h3>Your shelf is empty</h3>
+                    <p>Save books and bundles to see them here</p>
+                    <button class="btn-primary" id="goToLibraryEmptyBtn">Explore Library</button>
+                </div>
+            `}
+            
+            ${recentMaterials.length > 0 ? `
+                <h3 style="margin: 2rem 0 0.5rem;">🕐 Recently Viewed</h3>
+                <div class="library-grid">
+                    ${recentMaterials.map(item => `
+                        <div class="library-item" data-id="${item.id}">
+                            <div class="library-item-cover" style="background-image: url('${item.image}'); background-size: cover;"></div>
+                            <div class="library-item-info">
+                                <div class="library-item-title">${escapeHtml(item.title)}</div>
+                                <div class="library-item-type">${item.type === 'book' ? '📖 Book' : '📦 Bundle'}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        `;
+        
+        document.querySelectorAll('.library-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.getAttribute('data-id');
+                window.location.href = `/library.html?id=${id}`;
+            });
+        });
+        
+        document.getElementById('browseLibraryBtn')?.addEventListener('click', () => {
+            window.location.href = '/library.html';
+        });
+        
+        document.getElementById('goToLibraryEmptyBtn')?.addEventListener('click', () => {
+            window.location.href = '/library.html';
+        });
+        
+    } catch (error) {
+        console.error('Error rendering library tab:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Unable to load library</h3>
+                <button class="btn-primary" onclick="location.reload()">Retry</button>
+            </div>
+        `;
+    }
 }
 
-function renderWallet() {
+// ============================================
+// WALLET RENDER
+// ============================================
+async function renderWallet() {
     const container = document.getElementById('wallet-section');
     if (!container) return;
+    
+    const walletBalance = currentUser?.walletBalance || 25000;
+    const userPlan = currentUser?.plan || 'basic';
+    
     container.innerHTML = `
         <div class="section-header">
-            <div><h2>Wallet</h2><p>Manage your funds and subscription</p></div>
+            <div>
+                <h2>Wallet</h2>
+                <p>Manage your funds and subscription</p>
+            </div>
+            <button class="btn-primary" id="addFundsBtn">Add Funds</button>
         </div>
+        
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-wallet"></i></div>
                 <div class="stat-info">
                     <h3>Current Balance</h3>
-                    <div class="stat-value">₦${currentUser?.walletBalance?.toLocaleString() || '25,000'}</div>
+                    <div class="stat-value">₦${walletBalance.toLocaleString()}</div>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-crown"></i></div>
                 <div class="stat-info">
                     <h3>Current Plan</h3>
-                    <div class="stat-value">${currentUser?.plan?.toUpperCase() || 'BASIC'}</div>
+                    <div class="stat-value">${userPlan.toUpperCase()}</div>
                     <button class="upgrade-plan-btn" id="upgradePlanBtn">Upgrade</button>
                 </div>
             </div>
         </div>
+        
         <div class="data-table">
             <h3>Transaction History</h3>
-            <div style="padding: 1rem; text-align: center;">No transactions yet</div>
+            <div id="transactionList">
+                <div style="padding: 1rem; text-align: center;">No transactions yet</div>
+            </div>
         </div>
     `;
     
-    document.getElementById('upgradePlanBtn')?.addEventListener('click', () => openModal('upgradeModal'));
+    document.getElementById('addFundsBtn')?.addEventListener('click', () => {
+        openModal('addFundsModal');
+    });
+    
+    document.getElementById('upgradePlanBtn')?.addEventListener('click', () => {
+        openModal('upgradeModal');
+    });
 }
 
-function renderSettings() {
+// ============================================
+// SETTINGS RENDER
+// ============================================
+async function renderSettings() {
     const container = document.getElementById('settings-section');
     if (!container) return;
+    
     container.innerHTML = `
         <div class="section-header">
-            <div><h2>Settings</h2><p>Manage your account preferences</p></div>
+            <div>
+                <h2>Settings</h2>
+                <p>Manage your account preferences</p>
+            </div>
         </div>
         <div class="data-table" style="padding: 1.5rem;">
-            <p>Settings coming soon...</p>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="fullNameInput" value="${currentUser?.name || ''}">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="emailInput" value="${currentUser?.email || ''}" disabled>
+                    <small>Email cannot be changed</small>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <input type="text" value="${currentRole.toUpperCase()}" disabled>
+                </div>
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
         </div>
+    `;
+    
+    document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newName = document.getElementById('fullNameInput').value;
+        
+        if (newName !== currentUser.name) {
+            const { error } = await supabase
+                .from('users')
+                .update({ name: newName, full_name: newName, updated_at: new Date() })
+                .eq('id', currentUser.id);
+            
+            if (error) {
+                showToast('Failed to update name', 'error');
+            } else {
+                currentUser.name = newName;
+                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                document.getElementById('userName').textContent = newName;
+                showToast('Settings saved successfully!', 'success');
+            }
+        }
+    });
+}
+
+// ============================================
+// OTHER ROLE RENDERS
+// ============================================
+function renderStudents() {
+    const container = document.getElementById('students-section');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="section-header"><h2>My Students</h2></div>
+        <div class="data-table"><p style="padding: 2rem;">Student management coming soon</p></div>
     `;
 }
 
-function renderStudents() { document.getElementById('students-section').innerHTML = '<div class="section-header"><h2>My Students</h2></div><div class="data-table"><p>Coming soon</p></div>'; }
-function renderUsers() { document.getElementById('users-section').innerHTML = '<div class="section-header"><h2>User Management</h2></div><div class="data-table"><p>Coming soon</p></div>'; }
-function renderFinance() { document.getElementById('finance-section').innerHTML = '<div class="section-header"><h2>Finance</h2></div><div class="data-table"><p>Coming soon</p></div>'; }
-function renderProjects() { document.getElementById('projects-section').innerHTML = '<div class="section-header"><h2>Projects</h2></div><div class="data-table"><p>Coming soon</p></div>'; }
+function renderUsers() {
+    const container = document.getElementById('users-section');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="section-header"><h2>User Management</h2></div>
+        <div class="data-table"><p style="padding: 2rem;">User management coming soon</p></div>
+    `;
+}
 
-function loadTabData(tabId) {
-    switch(tabId) {
-        case 'dashboard': renderDashboard(); break;
-        case 'library': renderLibraryTab(); break;
-        case 'wallet': renderWallet(); break;
-        case 'settings': renderSettings(); break;
-        case 'students': renderStudents(); break;
-        case 'users': renderUsers(); break;
-        case 'finance': renderFinance(); break;
-        case 'projects': renderProjects(); break;
-        default: renderDashboard();
-    }
+function renderFinance() {
+    const container = document.getElementById('finance-section');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="section-header"><h2>Finance</h2></div>
+        <div class="data-table"><p style="padding: 2rem;">Finance dashboard coming soon</p></div>
+    `;
+}
+
+function renderProjects() {
+    const container = document.getElementById('projects-section');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="section-header"><h2>My Projects</h2></div>
+        <div class="data-table"><p style="padding: 2rem;">No active projects</p></div>
+    `;
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function openModal(modalId) {
@@ -447,22 +695,21 @@ function closeModal() {
 // ============================================
 // INITIALIZE DASHBOARD
 // ============================================
-
 async function initDashboard() {
     console.log('Initializing dashboard...');
     
-    // Check authentication first
+    // Check authentication
     const isAuth = await checkAuth();
     if (!isAuth) return;
     
-    // Load user profile
-    await loadUserProfile();
-    
-    // Update UI with user data
-    updateUI();
+    // Fetch library materials
+    await fetchLibraryMaterials();
     
     // Initialize theme
     initTheme();
+    
+    // Update UI with user data
+    updateUI();
     
     // Create content sections
     createContentSections();
@@ -476,7 +723,9 @@ async function initDashboard() {
     console.log('Dashboard initialized successfully');
 }
 
-// Start the dashboard
+// ============================================
+// START DASHBOARD
+// ============================================
 initDashboard();
 
 // Make functions global
