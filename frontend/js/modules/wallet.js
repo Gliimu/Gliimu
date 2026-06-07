@@ -1,5 +1,15 @@
-// Wallet Module - Supabase Version
-import { supabase, getCurrentUser, getUserProfile, subscribeToPayments } from './supabase.js';
+// Wallet Module - Supabase Integration
+import { 
+    supabase, 
+    getCurrentUser, 
+    getUserProfile, 
+    updateWalletBalance,
+    createPaymentRequest,
+    getUserPayments,
+    getUserTransactions,
+    addTransaction,
+    subscribeToUserPayments
+} from './supabase.js';
 import { showToast } from './toast.js';
 
 // Generate unique reference code
@@ -11,31 +21,18 @@ export function generateReferenceCode() {
 
 // Fetch wallet balance from Supabase
 export async function fetchWallet() {
-    const user = await getCurrentUser();
-    if (!user) return null;
-    
     const profile = await getUserProfile();
     if (!profile) return null;
     
-    // Fetch transactions
-    const { data: transactions, error: txError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-    
-    if (txError) {
-        console.error('Error fetching transactions:', txError);
-    }
+    const transactions = await getUserTransactions();
     
     return {
         balance: profile.wallet_balance || 25000,
-        transactions: transactions || []
+        transactions: transactions
     };
 }
 
-// Submit payment request to Supabase
+// Submit payment request
 export async function submitPaymentRequest(amount, bank) {
     const user = await getCurrentUser();
     if (!user) {
@@ -43,194 +40,74 @@ export async function submitPaymentRequest(amount, bank) {
         return false;
     }
     
-    const profile = await getUserProfile();
-    if (!profile) return false;
-    
-    const referenceCode = generateReferenceCode();
-    const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const payment = {
-        id: paymentId,
-        user_id: user.id,
-        user_name: profile.name,
-        user_email: user.email,
-        amount: amount,
-        bank: bank,
-        reference_code: referenceCode,
-        status: 'pending',
-        submitted_at: new Date().toISOString()
-    };
-    
-    const { data, error } = await supabase
-        .from('payments')
-        .insert([payment])
-        .select();
-    
-    if (error) {
-        console.error('Submit payment error:', error);
-        showToast('Failed to submit payment request', 'error');
+    if (!amount || amount < 100) {
+        showToast('Amount must be at least ₦100', 'error');
         return false;
     }
     
-    showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
-    return referenceCode;
+    const referenceCode = generateReferenceCode();
+    
+    const result = await createPaymentRequest(amount, bank, referenceCode);
+    
+    if (result.success) {
+        showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+        return referenceCode;
+    } else {
+        showToast(result.error || 'Failed to submit payment request', 'error');
+        return false;
+    }
 }
 
 // Fetch user's pending requests
 export async function fetchPendingRequests() {
-    const user = await getCurrentUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('submitted_at', { ascending: false });
-    
-    if (error) {
-        console.error('Fetch pending error:', error);
-        return [];
-    }
-    
-    // Transform to match expected format
-    return data.map(p => ({
-        id: p.id,
-        userId: p.user_id,
-        userName: p.user_name,
-        userEmail: p.user_email,
-        amount: p.amount,
-        bank: p.bank,
-        referenceCode: p.reference_code,
-        status: p.status,
-        submittedAt: p.submitted_at,
-        approvedAt: p.approved_at,
-        adminNotes: p.admin_notes
-    }));
+    const payments = await getUserPayments();
+    return payments;
 }
 
-// Check payment status with real-time updates
-export function subscribeToPaymentStatus(userId, callback) {
-    return subscribeToPayments(userId, (payload) => {
-        const payment = payload.new;
-        if (payment && payment.status === 'approved') {
-            callback(payment);
-            // Refresh wallet after approval
-            fetchWallet().then(wallet => {
-                if (wallet) {
-                    updateWalletDisplay(wallet.balance);
-                }
-            });
+// Display wallet balance
+export async function displayWalletBalance(elementId = 'walletBalance') {
+    const wallet = await fetchWallet();
+    const element = document.getElementById(elementId);
+    
+    if (element && wallet) {
+        element.textContent = `₦${wallet.balance.toLocaleString()}`;
+    }
+}
+
+// Display transactions
+export async function displayTransactions(containerId = 'transactionList') {
+    const transactions = await getUserTransactions();
+    const container = document.getElementById(containerId);
+    
+    if (container) {
+        if (!transactions || transactions.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px;">No transactions yet</div>';
+            return;
+        }
+        
+        container.innerHTML = transactions.map(t => `
+            <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color);">
+                <div>
+                    <div style="font-weight:600;">${t.description}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(t.created_at).toLocaleString()}</div>
+                </div>
+                <div style="color:${t.type === 'credit' ? '#10b981' : '#ef4444'}">
+                    ${t.type === 'credit' ? '+' : '-'}₦${t.amount.toLocaleString()}
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// Setup real-time payment status listener
+export function setupPaymentListener(callback) {
+    return subscribeToUserPayments((payload) => {
+        if (payload.new && payload.new.status === 'approved') {
+            showToast(`Your payment of ₦${payload.new.amount.toLocaleString()} has been approved!`, 'success');
+            if (callback) callback(payload.new);
+        }
+        if (payload.new && payload.new.status === 'rejected') {
+            showToast(`Your payment request was rejected: ${payload.new.admin_notes || 'No reason provided'}`, 'error');
         }
     });
-}
-
-// Update wallet display
-function updateWalletDisplay(balance) {
-    const walletElement = document.getElementById('walletBalanceDisplay');
-    if (walletElement) {
-        walletElement.textContent = `₦${balance.toLocaleString()}`;
-    }
-}
-
-// Save item to shelf
-export async function saveToShelf(itemId, itemType, itemData) {
-    const user = await getCurrentUser();
-    if (!user) return false;
-    
-    const savedId = `saved_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const { error } = await supabase
-        .from('saved_items')
-        .insert([{
-            id: savedId,
-            user_id: user.id,
-            item_id: itemId,
-            item_type: itemType,
-            item_data: itemData,
-            saved_at: new Date().toISOString()
-        }]);
-    
-    if (error) {
-        console.error('Save to shelf error:', error);
-        return false;
-    }
-    return true;
-}
-
-// Get saved items
-export async function getSavedItems() {
-    const user = await getCurrentUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-        .from('saved_items')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('saved_at', { ascending: false });
-    
-    if (error) {
-        console.error('Get saved items error:', error);
-        return [];
-    }
-    return data;
-}
-
-// Record recently viewed
-export async function recordRecentlyViewed(itemId, itemType, itemData) {
-    const user = await getCurrentUser();
-    if (!user) return;
-    
-    // Delete old entry if exists
-    await supabase
-        .from('recently_viewed')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('item_id', itemId);
-    
-    // Insert new
-    const viewedId = `view_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    await supabase
-        .from('recently_viewed')
-        .insert([{
-            id: viewedId,
-            user_id: user.id,
-            item_id: itemId,
-            item_type: itemType,
-            item_data: itemData,
-            viewed_at: new Date().toISOString()
-        }]);
-    
-    // Keep only last 20
-    const { data } = await supabase
-        .from('recently_viewed')
-        .select('id')
-        .eq('user_id', user.id)
-        .order('viewed_at', { ascending: false });
-    
-    if (data && data.length > 20) {
-        const toDelete = data.slice(20);
-        for (const item of toDelete) {
-            await supabase.from('recently_viewed').delete().eq('id', item.id);
-        }
-    }
-}
-
-// Get recently viewed
-export async function getRecentlyViewed() {
-    const user = await getCurrentUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-        .from('recently_viewed')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('viewed_at', { ascending: false })
-        .limit(10);
-    
-    if (error) {
-        console.error('Get recently viewed error:', error);
-        return [];
-    }
-    return data;
 }
