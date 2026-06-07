@@ -1,226 +1,236 @@
-// Wallet Module - Handles wallet balance, transactions, payment requests
-
-// Get current user from localStorage
-function getCurrentUser() {
-  const user = localStorage.getItem('glimu_user');
-  return user ? JSON.parse(user) : null;
-}
+// Wallet Module - Supabase Version
+import { supabase, getCurrentUser, getUserProfile, subscribeToPayments } from './supabase.js';
+import { showToast } from './toast.js';
 
 // Generate unique reference code
 export function generateReferenceCode() {
-  const user = getCurrentUser();
-  const userId = user?.id || 'guest';
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10000);
-  return `GLM-${userId}-${timestamp}-${random}`;
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    return `GLM-${timestamp}-${random}`;
 }
 
-// Fetch wallet balance
+// Fetch wallet balance from Supabase
 export async function fetchWallet() {
-  const user = getCurrentUser();
-  if (!user) return null;
-  
-  try {
-    // Get from localStorage first
-    let balance = localStorage.getItem('glimu_wallet');
-    if (!balance) {
-      balance = '25000';
-      localStorage.setItem('glimu_wallet', balance);
-    }
+    const user = await getCurrentUser();
+    if (!user) return null;
     
-    // Get transactions
-    let transactions = localStorage.getItem('glimu_transactions');
-    if (!transactions) {
-      transactions = JSON.stringify([
-        { id: 1, amount: 25000, type: 'credit', date: new Date().toISOString(), status: 'approved', description: 'Initial wallet funding' }
-      ]);
-      localStorage.setItem('glimu_transactions', transactions);
+    const profile = await getUserProfile();
+    if (!profile) return null;
+    
+    // Fetch transactions
+    const { data: transactions, error: txError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+    
+    if (txError) {
+        console.error('Error fetching transactions:', txError);
     }
     
     return {
-      balance: parseInt(balance),
-      transactions: JSON.parse(transactions)
+        balance: profile.wallet_balance || 25000,
+        transactions: transactions || []
     };
-  } catch (error) {
-    console.error('Fetch wallet error:', error);
-    return null;
-  }
 }
 
-// Save transaction
-export async function saveTransaction(transaction) {
-  const wallet = await fetchWallet();
-  if (wallet) {
-    const transactions = wallet.transactions || [];
-    transactions.unshift({
-      id: Date.now(),
-      ...transaction,
-      date: new Date().toISOString()
-    });
-    localStorage.setItem('glimu_transactions', JSON.stringify(transactions));
-  }
-}
-
-// Update wallet balance
-export async function updateWalletBalance(newBalance) {
-  localStorage.setItem('glimu_wallet', newBalance.toString());
-  return true;
-}
-
-// Submit payment request
+// Submit payment request to Supabase
 export async function submitPaymentRequest(amount, bank) {
-  const user = getCurrentUser();
-  if (!user) {
-    showToast('Please login first', 'error');
-    return false;
-  }
-  
-  if (!amount || amount < 100) {
-    showToast('Amount must be at least ₦100', 'error');
-    return false;
-  }
-  
-  // Generate unique reference code
-  const referenceCode = generateReferenceCode();
-  
-  // Create payment request
-  const paymentRequest = {
-    id: `pay_${Date.now()}`,
-    userId: user.id,
-    userName: user.name,
-    userEmail: user.email,
-    amount: amount,
-    bank: bank,
-    referenceCode: referenceCode,
-    status: 'pending',
-    submittedAt: new Date().toISOString(),
-    approvedAt: null,
-    adminNotes: null
-  };
-  
-  try {
-    // Store in localStorage (will sync with backend later)
-    let pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
-    pendingRequests.push(paymentRequest);
-    localStorage.setItem('glimu_pending_payments', JSON.stringify(pendingRequests));
+    const user = await getCurrentUser();
+    if (!user) {
+        showToast('Please login first', 'error');
+        return false;
+    }
     
-    // Also try to save to backend JSON if server is running
-    try {
-      const response = await fetch('/api/payments/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(paymentRequest)
-      });
-      if (!response.ok) console.log('Backend not available, saved locally');
-    } catch (e) {
-      console.log('Backend not available, saved locally');
+    const profile = await getUserProfile();
+    if (!profile) return false;
+    
+    const referenceCode = generateReferenceCode();
+    const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const payment = {
+        id: paymentId,
+        user_id: user.id,
+        user_name: profile.name,
+        user_email: user.email,
+        amount: amount,
+        bank: bank,
+        reference_code: referenceCode,
+        status: 'pending',
+        submitted_at: new Date().toISOString()
+    };
+    
+    const { data, error } = await supabase
+        .from('payments')
+        .insert([payment])
+        .select();
+    
+    if (error) {
+        console.error('Submit payment error:', error);
+        showToast('Failed to submit payment request', 'error');
+        return false;
     }
     
     showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
-    return true;
-  } catch (error) {
-    console.error('Submit payment error:', error);
-    showToast('Failed to submit payment request', 'error');
-    return false;
-  }
+    return referenceCode;
 }
 
-// Fetch user's pending payment requests
+// Fetch user's pending requests
 export async function fetchPendingRequests() {
-  const user = getCurrentUser();
-  if (!user) return [];
-  
-  try {
-    let pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
-    const userRequests = pendingRequests.filter(r => r.userId === user.id);
+    const user = await getCurrentUser();
+    if (!user) return [];
     
-    // Try to fetch from backend
-    try {
-      const response = await fetch(`/api/payments/user/${user.id}`);
-      if (response.ok) {
-        const backendRequests = await response.json();
-        return backendRequests;
-      }
-    } catch (e) {
-      // Use localStorage data
+    const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('submitted_at', { ascending: false });
+    
+    if (error) {
+        console.error('Fetch pending error:', error);
+        return [];
     }
     
-    return userRequests;
-  } catch (error) {
-    console.error('Fetch pending requests error:', error);
-    return [];
-  }
+    // Transform to match expected format
+    return data.map(p => ({
+        id: p.id,
+        userId: p.user_id,
+        userName: p.user_name,
+        userEmail: p.user_email,
+        amount: p.amount,
+        bank: p.bank,
+        referenceCode: p.reference_code,
+        status: p.status,
+        submittedAt: p.submitted_at,
+        approvedAt: p.approved_at,
+        adminNotes: p.admin_notes
+    }));
 }
 
-// Check if payment was approved (called periodically)
-export async function checkPaymentStatus(referenceCode) {
-  try {
-    const pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
-    const request = pendingRequests.find(r => r.referenceCode === referenceCode);
-    
-    if (request && request.status === 'approved') {
-      // Update wallet
-      const wallet = await fetchWallet();
-      if (wallet) {
-        const newBalance = wallet.balance + request.amount;
-        await updateWalletBalance(newBalance);
-        await saveTransaction({
-          amount: request.amount,
-          type: 'credit',
-          status: 'approved',
-          description: `Wallet funding - ${request.referenceCode}`
-        });
-      }
-      return { approved: true, amount: request.amount };
+// Check payment status with real-time updates
+export function subscribeToPaymentStatus(userId, callback) {
+    return subscribeToPayments(userId, (payload) => {
+        const payment = payload.new;
+        if (payment && payment.status === 'approved') {
+            callback(payment);
+            // Refresh wallet after approval
+            fetchWallet().then(wallet => {
+                if (wallet) {
+                    updateWalletDisplay(wallet.balance);
+                }
+            });
+        }
+    });
+}
+
+// Update wallet display
+function updateWalletDisplay(balance) {
+    const walletElement = document.getElementById('walletBalanceDisplay');
+    if (walletElement) {
+        walletElement.textContent = `₦${balance.toLocaleString()}`;
     }
+}
+
+// Save item to shelf
+export async function saveToShelf(itemId, itemType, itemData) {
+    const user = await getCurrentUser();
+    if (!user) return false;
     
-    return { approved: false };
-  } catch (error) {
-    console.error('Check payment status error:', error);
-    return { approved: false };
-  }
-}
-
-// Display wallet balance on page
-export async function displayWalletBalance(elementId = 'walletBalance') {
-  const wallet = await fetchWallet();
-  const element = document.getElementById(elementId);
-  
-  if (element && wallet) {
-    element.textContent = `₦${wallet.balance.toLocaleString()}`;
-  }
-}
-
-// Display transactions on page
-export async function displayTransactions(containerId = 'transactionList') {
-  const wallet = await fetchWallet();
-  const container = document.getElementById(containerId);
-  
-  if (container && wallet && wallet.transactions) {
-    if (wallet.transactions.length === 0) {
-      container.innerHTML = '<div style="text-align:center; padding:20px;">No transactions yet</div>';
-      return;
+    const savedId = `saved_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const { error } = await supabase
+        .from('saved_items')
+        .insert([{
+            id: savedId,
+            user_id: user.id,
+            item_id: itemId,
+            item_type: itemType,
+            item_data: itemData,
+            saved_at: new Date().toISOString()
+        }]);
+    
+    if (error) {
+        console.error('Save to shelf error:', error);
+        return false;
     }
-    
-    container.innerHTML = wallet.transactions.map(t => `
-      <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color);">
-        <div>
-          <div style="font-weight:600;">${t.description}</div>
-          <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(t.date).toLocaleString()}</div>
-        </div>
-        <div style="color:${t.type === 'credit' ? '#10b981' : '#ef4444'}">
-          ${t.type === 'credit' ? '+' : '-'}₦${t.amount.toLocaleString()}
-        </div>
-      </div>
-    `).join('');
-  }
+    return true;
 }
 
-// Toast helper (will be replaced by actual import when available)
-function showToast(message, type) {
-  if (typeof window.showToast === 'function') {
-    window.showToast(message, type);
-  } else {
-    alert(message);
-  }
+// Get saved items
+export async function getSavedItems() {
+    const user = await getCurrentUser();
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+        .from('saved_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('saved_at', { ascending: false });
+    
+    if (error) {
+        console.error('Get saved items error:', error);
+        return [];
+    }
+    return data;
+}
+
+// Record recently viewed
+export async function recordRecentlyViewed(itemId, itemType, itemData) {
+    const user = await getCurrentUser();
+    if (!user) return;
+    
+    // Delete old entry if exists
+    await supabase
+        .from('recently_viewed')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('item_id', itemId);
+    
+    // Insert new
+    const viewedId = `view_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    await supabase
+        .from('recently_viewed')
+        .insert([{
+            id: viewedId,
+            user_id: user.id,
+            item_id: itemId,
+            item_type: itemType,
+            item_data: itemData,
+            viewed_at: new Date().toISOString()
+        }]);
+    
+    // Keep only last 20
+    const { data } = await supabase
+        .from('recently_viewed')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('viewed_at', { ascending: false });
+    
+    if (data && data.length > 20) {
+        const toDelete = data.slice(20);
+        for (const item of toDelete) {
+            await supabase.from('recently_viewed').delete().eq('id', item.id);
+        }
+    }
+}
+
+// Get recently viewed
+export async function getRecentlyViewed() {
+    const user = await getCurrentUser();
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+        .from('recently_viewed')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('viewed_at', { ascending: false })
+        .limit(10);
+    
+    if (error) {
+        console.error('Get recently viewed error:', error);
+        return [];
+    }
+    return data;
 }
