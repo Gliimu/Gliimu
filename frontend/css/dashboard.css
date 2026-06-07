@@ -695,17 +695,39 @@ body {
     color: var(--brand-purple);
 }
 
-.custom-amount {
-    margin-bottom: 1rem;
-}
-
-.custom-amount input {
+/* Amount input contrast fix */
+#customAmount {
     width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
+    padding: 12px;
+    border: 2px solid var(--border-color);
     border-radius: 8px;
     background: var(--bg-primary);
     color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+#customAmount:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+/* Make the amount value more visible */
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* Dark mode specific contrast */
+body.dark-mode .stat-value {
+    color: var(--accent);
+}
+
+body.dark-mode #customAmount {
+    background: var(--bg-secondary);
+    color: #ffffff;
+    border-color: #444;
 }
 
 .confirm-payment-btn {
