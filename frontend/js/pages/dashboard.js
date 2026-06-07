@@ -1,6 +1,6 @@
 // ============================================
-// GLIIMU DASHBOARD - STUDENT COMPLETE VERSION
-// With Assignments, Portfolio, Progress, Submissions
+// GLIIMU DASHBOARD - COMPLETE STUDENT VERSION
+// With Question Bar, Assignments, Portfolio, Debates, MVP
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -17,6 +17,22 @@ import {
     PRICING
 } from '../modules/wallet.js';
 
+import {
+    getStudentScore,
+    getCurrentBadge,
+    getNextBadge,
+    getProgressToNextBadge,
+    getNextQuestion,
+    getPendingSubmissions,
+    getStudentPortfolio,
+    getLeaderboard,
+    sharePortfolio,
+    submitMVPProposal,
+    submitDebateArgument
+} from '../modules/progression.js';
+
+import { QuestionRenderer, renderProgressBar, renderLeaderboard, renderPortfolioItem } from '../modules/questions.js';
+
 // ============================================
 // GLOBAL STATE
 // ============================================
@@ -30,16 +46,8 @@ let savedItems = [];
 let recentlyViewed = [];
 let currentWalletBalance = 0;
 let walletSubscription = null;
-let assignments = [];
-let portfolioItems = [];
-let submissions = [];
-let courseProgress = {
-    videoProduction: 0,
-    uiuxDesign: 0,
-    webDevelopment: 0,
-    motionGraphics: 0,
-    brandStrategy: 0
-};
+let currentQuestion = null;
+let questionRenderer = null;
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -90,44 +98,11 @@ async function loadUserFromSupabase(userId) {
         
         if (profileError) throw profileError;
         
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
-        
-        const { data: stats, error: statsError } = await supabase
-            .from('user_stats')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('month', currentMonth)
-            .eq('year', currentYear)
-            .maybeSingle();
-        
-        if (statsError && statsError.code !== 'PGRST116') {
-            console.error('Stats fetch error:', statsError);
-        }
-        
-        userStats = stats || { books_read: 0, bundles_downloaded: 0 };
-        
-        const { data: saved, error: savedError } = await supabase
-            .from('user_saved_items')
-            .select('*')
-            .eq('user_id', userId)
-            .order('saved_at', { ascending: false });
-        
-        if (!savedError) savedItems = saved || [];
-        
-        const { data: recent, error: recentError } = await supabase
-            .from('user_recently_viewed')
-            .select('*')
-            .eq('user_id', userId)
-            .order('viewed_at', { ascending: false })
-            .limit(10);
-        
-        if (!recentError) recentlyViewed = recent || [];
-        
-        // Load mock assignments
+        // Load mock data for demo
         loadMockAssignments();
         loadMockPortfolio();
         loadMockSubmissions();
+        loadMockDebates();
         
         currentUserProfile = profile;
         currentWalletBalance = profile.wallet_balance || 14500;
@@ -155,6 +130,11 @@ async function loadUserFromSupabase(userId) {
 // ============================================
 // MOCK DATA FOR DEMO
 // ============================================
+let assignments = [];
+let portfolioItems = [];
+let submissions = [];
+let debates = [];
+
 function loadMockAssignments() {
     assignments = [
         { id: 1, title: 'Video Production: 30-Second Commercial', dueDate: '2025-06-20', status: 'pending', points: 100, type: 'video' },
@@ -167,10 +147,10 @@ function loadMockAssignments() {
 
 function loadMockPortfolio() {
     portfolioItems = [
-        { id: 1, title: 'Nike Commercial', type: 'video', thumbnail: '/photos/portfolio1.jpg', date: '2025-05-01', views: 245, likes: 34 },
-        { id: 2, title: 'Food App UI Design', type: 'design', thumbnail: '/photos/portfolio2.jpg', date: '2025-05-10', views: 189, likes: 27 },
-        { id: 3, title: 'E-commerce Website', type: 'code', thumbnail: '/photos/portfolio3.jpg', date: '2025-05-15', views: 312, likes: 45 },
-        { id: 4, title: 'Title Sequence Animation', type: 'motion', thumbnail: '/photos/portfolio4.jpg', date: '2025-05-20', views: 178, likes: 23 }
+        { id: 1, title: 'Nike Commercial', type: 'video', thumbnail: '/photos/portfolio1.jpg', date: '2025-05-01', views: 245, likes: 34, is_public: true },
+        { id: 2, title: 'Food App UI Design', type: 'design', thumbnail: '/photos/portfolio2.jpg', date: '2025-05-10', views: 189, likes: 27, is_public: true },
+        { id: 3, title: 'E-commerce Website', type: 'code', thumbnail: '/photos/portfolio3.jpg', date: '2025-05-15', views: 312, likes: 45, is_public: false },
+        { id: 4, title: 'Title Sequence Animation', type: 'motion', thumbnail: '/photos/portfolio4.jpg', date: '2025-05-20', views: 178, likes: 23, is_public: true }
     ];
 }
 
@@ -179,6 +159,13 @@ function loadMockSubmissions() {
         { id: 1, title: 'Video Production Assignment', submittedAt: '2025-06-01', status: 'graded', grade: 88, feedback: 'Great work on the pacing!' },
         { id: 2, title: 'UI Design Project', submittedAt: '2025-05-25', status: 'graded', grade: 92, feedback: 'Excellent use of color theory' },
         { id: 3, title: 'JavaScript Challenge', submittedAt: '2025-05-20', status: 'pending', grade: null, feedback: null }
+    ];
+}
+
+function loadMockDebates() {
+    debates = [
+        { id: 1, motion: 'AI will replace most creative jobs by 2030', opponent: 'Jane Smith', status: 'pending', myStance: 'YES' },
+        { id: 2, motion: 'Traditional education is obsolete', opponent: 'Mike Johnson', status: 'active', myStance: 'NO', submitted: false }
     ];
 }
 
@@ -212,43 +199,25 @@ function setupRealtimeWallet() {
 }
 
 // ============================================
-// FETCH LIBRARY MATERIALS
-// ============================================
-async function fetchLibraryMaterials() {
-    try {
-        let response = await fetch('../../backend/data/library.json');
-        if (!response.ok) response = await fetch('../backend/data/library.json');
-        if (!response.ok) response = await fetch('/backend/data/library.json');
-        if (!response.ok) response = await fetch('https://raw.githubusercontent.com/Gliimu/Gliimu/main/backend/data/library.json');
-        
-        if (!response.ok) throw new Error('Failed to load library');
-        
-        const data = await response.json();
-        allMaterials = data.materials || [];
-        console.log('Loaded materials:', allMaterials.length);
-        
-    } catch (error) {
-        console.error('Error loading library:', error);
-    }
-}
-
-// ============================================
 // ROLE-BASED TAB CONFIGURATION - STUDENT FOCUSED
 // ============================================
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+        { id: 'question', name: 'Question Bar', icon: 'fas fa-question-circle' },
         { id: 'assignments', name: 'Assignments', icon: 'fas fa-tasks' },
         { id: 'submissions', name: 'Submissions', icon: 'fas fa-upload' },
         { id: 'portfolio', name: 'Portfolio', icon: 'fas fa-briefcase' },
-        { id: 'progress', name: 'Progress', icon: 'fas fa-chart-line' },
+        { id: 'debates', name: 'Debates', icon: 'fas fa-gavel' },
+        { id: 'mvp', name: 'MVP Zone', icon: 'fas fa-rocket' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
+        { id: 'leaderboard', name: 'Leaderboard', icon: 'fas fa-trophy' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     instructor: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'students', name: 'My Students', icon: 'fas fa-users' },
-        { id: 'submissions', name: 'Grade Submissions', icon: 'fas fa-clipboard-list' },
+        { id: 'grade', name: 'Grade Submissions', icon: 'fas fa-clipboard-list' },
+        { id: 'debates', name: 'Manage Debates', icon: 'fas fa-gavel' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
@@ -256,6 +225,7 @@ const roleTabs = {
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'users', name: 'Users', icon: 'fas fa-users-cog' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
+        { id: 'questions', name: 'Question Pool', icon: 'fas fa-database' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     partner: [
@@ -379,6 +349,9 @@ function loadTabData(tabId) {
         case 'dashboard':
             renderDashboard();
             break;
+        case 'question':
+            renderQuestionBar();
+            break;
         case 'assignments':
             renderAssignments();
             break;
@@ -388,26 +361,23 @@ function loadTabData(tabId) {
         case 'portfolio':
             renderPortfolio();
             break;
-        case 'progress':
-            renderProgress();
+        case 'debates':
+            renderDebates();
+            break;
+        case 'mvp':
+            renderMVPZone();
             break;
         case 'wallet':
             renderWallet();
             break;
+        case 'leaderboard':
+            renderLeaderboardTab();
+            break;
+        case 'grade':
+            renderGradeSubmissions();
+            break;
         case 'settings':
             renderSettings();
-            break;
-        case 'students':
-            renderStudents();
-            break;
-        case 'users':
-            renderUsers();
-            break;
-        case 'finance':
-            renderFinance();
-            break;
-        case 'projects':
-            renderProjects();
             break;
         default:
             renderDashboard();
@@ -415,17 +385,18 @@ function loadTabData(tabId) {
 }
 
 // ============================================
-// DASHBOARD RENDER - UPDATED (No stat-sub)
+// DASHBOARD RENDER
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
-    const savedCount = savedItems.length;
-    const walletBalance = currentUser?.walletBalance || 14500;
-    const isPremiumUser = currentUser?.subscriptionTier === 'premium';
-    const pendingAssignments = assignments.filter(a => a.status === 'pending').length;
-    const completedCourses = Object.values(courseProgress).filter(p => p >= 100).length;
+    const scoreData = await getStudentScore(currentUser.id);
+    const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+    const nextBadge = getNextBadge(scoreData?.current_score || 0);
+    const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+    const pendingCount = assignments.filter(a => a.status === 'pending').length;
+    const portfolioCount = portfolioItems.length;
     
     container.innerHTML = `
         <div class="section-header">
@@ -435,33 +406,37 @@ async function renderDashboard() {
             </div>
         </div>
         
+        <div class="progress-section">
+            ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
+        </div>
+        
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-tasks"></i></div>
                 <div class="stat-info">
                     <h3>Pending Assignments</h3>
-                    <div class="stat-value">${pendingAssignments}</div>
+                    <div class="stat-value">${pendingCount}</div>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-icon"><i class="fas fa-briefcase"></i></div>
                 <div class="stat-info">
-                    <h3>Completed Courses</h3>
-                    <div class="stat-value">${completedCourses}/5</div>
+                    <h3>Portfolio Items</h3>
+                    <div class="stat-value">${portfolioCount}</div>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-bookmark"></i></div>
+                <div class="stat-icon"><i class="fas fa-gavel"></i></div>
                 <div class="stat-info">
-                    <h3>Saved Items</h3>
-                    <div class="stat-value">${savedCount}</div>
+                    <h3>Active Debates</h3>
+                    <div class="stat-value">${debates.filter(d => d.status === 'active').length}</div>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-wallet"></i></div>
                 <div class="stat-info">
                     <h3>Wallet Balance</h3>
-                    <div class="stat-value">₦${walletBalance.toLocaleString()}</div>
+                    <div class="stat-value">₦${(currentUser?.walletBalance || 14500).toLocaleString()}</div>
                     <button class="add-funds-small" id="quickAddFunds">Add Funds</button>
                 </div>
             </div>
@@ -470,69 +445,108 @@ async function renderDashboard() {
         <div class="quick-links">
             <h3>Quick Access</h3>
             <div class="quick-links-grid">
+                <div class="quick-link-card" onclick="document.querySelector('[data-tab=\'question\']').click()">
+                    <i class="fas fa-question-circle"></i>
+                    <span>Answer Questions</span>
+                </div>
+                <div class="quick-link-card" onclick="document.querySelector('[data-tab=\'assignments\']').click()">
+                    <i class="fas fa-tasks"></i>
+                    <span>Assignments</span>
+                </div>
                 <div class="quick-link-card" onclick="window.location.href='/library.html'">
                     <i class="fas fa-book"></i>
                     <span>Library</span>
-                </div>
-                <div class="quick-link-card" onclick="window.location.href='/hub.html'">
-                    <i class="fas fa-newspaper"></i>
-                    <span>Hub</span>
                 </div>
                 <div class="quick-link-card" onclick="window.location.href='/chat.html'">
                     <i class="fas fa-comments"></i>
                     <span>Community</span>
                 </div>
-                <div class="quick-link-card" onclick="window.location.href='/virtualroom.html'">
-                    <i class="fas fa-video"></i>
-                    <span>Virtual Classroom</span>
-                </div>
             </div>
         </div>
         
         <div class="action-cards">
-            <div class="action-card" id="goToAssignmentsBtn">
-                <i class="fas fa-tasks"></i>
-                <h4>View Assignments</h4>
-                <p>${pendingAssignments} pending tasks</p>
+            <div class="action-card" id="continueLearningBtn">
+                <i class="fas fa-play-circle"></i>
+                <h4>Continue Learning</h4>
+                <p>Answer your next question</p>
             </div>
-            <div class="action-card" id="goToPortfolioBtn">
+            <div class="action-card" id="viewPortfolioBtn">
                 <i class="fas fa-briefcase"></i>
-                <h4>My Portfolio</h4>
-                <p>${portfolioItems.length} projects</p>
+                <h4>View Portfolio</h4>
+                <p>${portfolioCount} projects</p>
             </div>
-            <div class="action-card" id="goToProgressBtn">
-                <i class="fas fa-chart-line"></i>
-                <h4>Track Progress</h4>
-                <p>${Math.round((completedCourses / 5) * 100)}% complete</p>
+            <div class="action-card" id="sharePortfolioBtn">
+                <i class="fas fa-share-alt"></i>
+                <h4>Share Portfolio</h4>
+                <p>Showcase your work</p>
             </div>
         </div>
-        
-        ${recentlyViewed.length > 0 ? `
-            <div class="data-table">
-                <h3>Recently Viewed</h3>
-                <div class="recent-grid">
-                    ${recentlyViewed.slice(0, 4).map(item => `
-                        <div class="recent-item" data-item-id="${item.item_id}">
-                            <div class="recent-item-cover" style="background-image: url('${item.item_data?.image || ''}');"></div>
-                            <div class="recent-item-title">${item.item_data?.title || 'Unknown'}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        ` : ''}
     `;
     
-    document.getElementById('goToAssignmentsBtn')?.addEventListener('click', () => switchTab('assignments'));
-    document.getElementById('goToPortfolioBtn')?.addEventListener('click', () => switchTab('portfolio'));
-    document.getElementById('goToProgressBtn')?.addEventListener('click', () => switchTab('progress'));
+    document.getElementById('continueLearningBtn')?.addEventListener('click', () => switchTab('question'));
+    document.getElementById('viewPortfolioBtn')?.addEventListener('click', () => switchTab('portfolio'));
+    document.getElementById('sharePortfolioBtn')?.addEventListener('click', () => sharePortfolio(currentUser.id));
     document.getElementById('quickAddFunds')?.addEventListener('click', () => switchTab('wallet'));
+}
+
+// ============================================
+// QUESTION BAR TAB
+// ============================================
+async function renderQuestionBar() {
+    const container = document.getElementById('question-section');
+    if (!container) return;
     
-    document.querySelectorAll('.recent-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const itemId = item.getAttribute('data-item-id');
-            window.location.href = `/library.html?id=${itemId}`;
-        });
-    });
+    container.innerHTML = '<div class="loading-spinner">Loading next question...</div>';
+    
+    try {
+        const nextQuestion = await getNextQuestion(currentUser.id);
+        
+        if (!nextQuestion) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>All Questions Complete!</h3>
+                    <p>You've answered all available questions. Check back later for more.</p>
+                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Initialize question renderer
+        questionRenderer = new QuestionRenderer(
+            'question-section',
+            currentUser.id,
+            async (result) => {
+                // Refresh score after answer
+                const scoreData = await getStudentScore(currentUser.id);
+                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+                const nextBadge = getNextBadge(scoreData?.current_score || 0);
+                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+                
+                // Update progress bar in dashboard
+                const progressSection = document.querySelector('.progress-section');
+                if (progressSection) {
+                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
+                }
+                
+                // Load next question after 2 seconds
+                setTimeout(() => renderQuestionBar(), 2000);
+            }
+        );
+        
+        await questionRenderer.renderQuestion(nextQuestion);
+        
+    } catch (error) {
+        console.error('Error loading question:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Unable to load question</h3>
+                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
+            </div>
+        `;
+    }
 }
 
 // ============================================
@@ -600,7 +614,6 @@ async function renderSubmissions() {
                 <h2>My Submissions</h2>
                 <p>Track your submitted work and feedback</p>
             </div>
-            <button class="btn-primary" id="newSubmissionBtn">+ New Submission</button>
         </div>
         
         <div class="submissions-list">
@@ -621,10 +634,6 @@ async function renderSubmissions() {
             `).join('')}
         </div>
     `;
-    
-    document.getElementById('newSubmissionBtn')?.addEventListener('click', () => {
-        showToast('New submission form coming soon!', 'info');
-    });
 }
 
 // ============================================
@@ -634,122 +643,285 @@ async function renderPortfolio() {
     const container = document.getElementById('portfolio-section');
     if (!container) return;
     
+    const portfolioData = await getStudentPortfolio(currentUser.id, false);
+    const items = portfolioData.length > 0 ? portfolioData : portfolioItems;
+    
     container.innerHTML = `
         <div class="section-header">
             <div>
                 <h2>My Portfolio</h2>
                 <p>Showcase your best work</p>
             </div>
-            <button class="btn-primary" id="addPortfolioBtn">+ Add Project</button>
+            <button class="btn-primary" id="sharePortfolioBtn">
+                <i class="fas fa-share-alt"></i> Share Portfolio
+            </button>
         </div>
         
         <div class="portfolio-grid">
-            ${portfolioItems.map(item => `
-                <div class="portfolio-card">
-                    <div class="portfolio-thumbnail" style="background-image: url('${item.thumbnail}'); background-size: cover;">
-                        <div class="portfolio-overlay">
-                            <button class="view-project" data-id="${item.id}">View Project</button>
-                        </div>
-                    </div>
-                    <div class="portfolio-info">
-                        <h4>${item.title}</h4>
-                        <div class="portfolio-stats">
-                            <span><i class="fas fa-eye"></i> ${item.views}</span>
-                            <span><i class="fas fa-heart"></i> ${item.likes}</span>
-                            <span class="portfolio-type">${item.type}</span>
-                        </div>
-                    </div>
-                </div>
-            `).join('')}
+            ${items.map(item => renderPortfolioItem(item, true)).join('')}
+        </div>
+        
+        <div class="portfolio-url-section">
+            <h3>Your Public Portfolio URL</h3>
+            <div class="url-display">
+                <input type="text" id="portfolioUrl" readonly value="${window.location.origin}/u/${currentUser.name.toLowerCase().replace(/\s+/g, '-')}">
+                <button id="copyUrlBtn" class="btn-outline">Copy URL</button>
+            </div>
         </div>
     `;
     
-    document.getElementById('addPortfolioBtn')?.addEventListener('click', () => {
-        showToast('Add portfolio feature coming soon!', 'info');
+    document.getElementById('sharePortfolioBtn')?.addEventListener('click', () => sharePortfolio(currentUser.id));
+    document.getElementById('copyUrlBtn')?.addEventListener('click', () => {
+        const urlInput = document.getElementById('portfolioUrl');
+        urlInput.select();
+        document.execCommand('copy');
+        showToast('Portfolio URL copied!', 'success');
     });
 }
 
 // ============================================
-// PROGRESS TAB - GAMIFIED
+// DEBATES TAB
 // ============================================
-async function renderProgress() {
-    const container = document.getElementById('progress-section');
+async function renderDebates() {
+    const container = document.getElementById('debates-section');
     if (!container) return;
-    
-    const totalProgress = Object.values(courseProgress).reduce((a, b) => a + b, 0) / 5;
-    const completedModules = Object.values(courseProgress).filter(p => p >= 100).length;
     
     container.innerHTML = `
         <div class="section-header">
             <div>
-                <h2>Course Progress</h2>
-                <p>Track your journey to becoming a Media Architect</p>
+                <h2>Debates</h2>
+                <p>Engage in scholarly discussions</p>
             </div>
         </div>
         
-        <div class="overall-progress">
-            <div class="progress-circle">
-                <svg viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border-color)" stroke-width="8"/>
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="#fbb040" stroke-width="8" 
-                            stroke-dasharray="${2 * Math.PI * 45}" 
-                            stroke-dashoffset="${2 * Math.PI * 45 * (1 - totalProgress / 100)}"
-                            transform="rotate(-90 50 50)"/>
-                </svg>
-                <div class="progress-percent">${Math.round(totalProgress)}%</div>
-            </div>
-            <div class="progress-stats">
-                <div class="stat">📚 Courses Completed: <strong>${completedModules}/5</strong></div>
-                <div class="stat">⭐ Overall Progress: <strong>${Math.round(totalProgress)}%</strong></div>
-                <div class="stat">🏆 Next Milestone: <strong>${completedModules + 1}/5 courses</strong></div>
-            </div>
-        </div>
-        
-        <div class="courses-progress">
-            <h3>Course Breakdown</h3>
-            ${Object.entries(courseProgress).map(([course, progress]) => `
-                <div class="course-progress-item">
-                    <div class="course-name">
-                        ${course === 'videoProduction' ? '🎬 Video Production' : 
-                          course === 'uiuxDesign' ? '🎨 UI/UX Design' : 
-                          course === 'webDevelopment' ? '💻 Web Development' : 
-                          course === 'motionGraphics' ? '✨ Motion Graphics' : '📈 Brand Strategy'}
+        <div class="debates-list">
+            ${debates.map(debate => `
+                <div class="debate-card status-${debate.status}">
+                    <div class="debate-header">
+                        <div class="debate-motion">🎯 ${debate.motion}</div>
+                        <div class="debate-status">${debate.status.toUpperCase()}</div>
                     </div>
-                    <div class="course-progress-bar">
-                        <div class="progress-fill" style="width: ${progress}%; background: ${progress >= 100 ? '#10b981' : progress >= 70 ? '#fbb040' : '#ef4444'}"></div>
+                    <div class="debate-details">
+                        <div class="debate-stance">Your Stance: ${debate.myStance}</div>
+                        <div class="debate-opponent">Opponent: ${debate.opponent || 'Waiting for pairing...'}</div>
                     </div>
-                    <div class="course-percent">${progress}%</div>
-                    ${progress >= 100 ? '<span class="completed-badge">✅ Completed</span>' : ''}
+                    <div class="debate-actions">
+                        ${debate.status === 'active' && !debate.submitted ? 
+                            `<button class="btn-primary submit-argument" data-id="${debate.id}">Submit Argument</button>` : 
+                            debate.status === 'active' && debate.submitted ? 
+                            `<button class="btn-outline disabled" disabled>Argument Submitted</button>` :
+                            debate.status === 'pending' ?
+                            `<button class="btn-outline disabled" disabled>Awaiting Opponent</button>` :
+                            `<button class="btn-outline view-results" data-id="${debate.id}">View Results</button>`
+                        }
+                    </div>
                 </div>
             `).join('')}
         </div>
-        
-        <div class="achievements-section">
-            <h3>Achievements</h3>
-            <div class="achievements-grid">
-                <div class="achievement-card ${totalProgress >= 20 ? 'unlocked' : 'locked'}">
-                    <i class="fas fa-rocket"></i>
-                    <span>Getting Started</span>
-                    <small>Complete 20% of course</small>
-                </div>
-                <div class="achievement-card ${totalProgress >= 50 ? 'unlocked' : 'locked'}">
-                    <i class="fas fa-fire"></i>
-                    <span>On Fire</span>
-                    <small>Complete 50% of course</small>
-                </div>
-                <div class="achievement-card ${completedModules >= 3 ? 'unlocked' : 'locked'}">
-                    <i class="fas fa-trophy"></i>
-                    <span>Almost There</span>
-                    <small>Complete 3 courses</small>
-                </div>
-                <div class="achievement-card ${totalProgress >= 100 ? 'unlocked' : 'locked'}">
-                    <i class="fas fa-crown"></i>
-                    <span>Media Architect</span>
-                    <small>Complete all courses</small>
-                </div>
+    `;
+    
+    document.querySelectorAll('.submit-argument').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const debateId = btn.getAttribute('data-id');
+            const argument = prompt('Enter your argument with supporting research:');
+            if (argument) {
+                await submitDebateArgument(debateId, currentUser.id, argument, null);
+                renderDebates();
+            }
+        });
+    });
+}
+
+// ============================================
+// MVP ZONE TAB
+// ============================================
+async function renderMVPZone() {
+    const container = document.getElementById('mvp-section');
+    if (!container) return;
+    
+    const scoreData = await getStudentScore(currentUser.id);
+    const isAmbassador = (scoreData?.current_score || 0) >= 100;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>MVP Zone</h2>
+                <p>Real-world project proposal and incubation</p>
             </div>
         </div>
+        
+        ${isAmbassador ? `
+            <div class="mvp-eligible">
+                <div class="mvp-badge">
+                    <i class="fas fa-crown"></i>
+                    <h3>You've unlocked the Ambassador Zone!</h3>
+                    <p>Submit your real-world project proposal to become a Gliimu Ambassador.</p>
+                </div>
+                
+                <div class="mvp-form">
+                    <h3>Submit MVP Proposal</h3>
+                    <form id="mvpForm">
+                        <div class="form-group">
+                            <label>Project Title</label>
+                            <input type="text" id="mvpTitle" required placeholder="e.g., The Documentary Project">
+                        </div>
+                        <div class="form-group">
+                            <label>Project Type</label>
+                            <select id="mvpType" required>
+                                <option value="">Select type</option>
+                                <option value="book">Book</option>
+                                <option value="documentary">Documentary</option>
+                                <option value="movie">Movie</option>
+                                <option value="business">Business</option>
+                                <option value="movement">Movement</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Project Description</label>
+                            <textarea id="mvpDescription" rows="4" required placeholder="Describe your project in detail..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Proposal / Execution Plan</label>
+                            <textarea id="mvpProposal" rows="6" required placeholder="How do you plan to execute this project? What resources do you need?"></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary">Submit MVP Proposal</button>
+                    </form>
+                </div>
+            </div>
+        ` : `
+            <div class="mvp-locked">
+                <div class="mvp-locked-badge">
+                    <i class="fas fa-lock"></i>
+                    <h3>Ambassador Zone Locked</h3>
+                    <p>Reach 100% score to unlock the MVP Zone and submit real-world project proposals.</p>
+                    <div class="progress-to-unlock">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
+                        </div>
+                        <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
+                    </div>
+                </div>
+            </div>
+        `}
     `;
+    
+    if (isAmbassador) {
+        const mvpForm = document.getElementById('mvpForm');
+        if (mvpForm) {
+            mvpForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const title = document.getElementById('mvpTitle').value;
+                const type = document.getElementById('mvpType').value;
+                const description = document.getElementById('mvpDescription').value;
+                const proposal = document.getElementById('mvpProposal').value;
+                
+                const result = await submitMVPProposal(currentUser.id, title, description, type, proposal);
+                
+                if (result) {
+                    mvpForm.reset();
+                    showToast('MVP Proposal submitted! The school will review and reach out.', 'success');
+                }
+            });
+        }
+    }
+}
+
+// ============================================
+// LEADERBOARD TAB
+// ============================================
+async function renderLeaderboardTab() {
+    const container = document.getElementById('leaderboard-section');
+    if (!container) return;
+    
+    const leaderboardData = await getLeaderboard(20);
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>Leaderboard</h2>
+                <p>Top performers in the community</p>
+            </div>
+        </div>
+        
+        ${renderLeaderboard(leaderboardData)}
+    `;
+}
+
+// ============================================
+// GRADE SUBMISSIONS TAB (Instructor)
+// ============================================
+async function renderGradeSubmissions() {
+    const container = document.getElementById('grade-section');
+    if (!container) return;
+    
+    const pendingSubmissions = await getPendingSubmissions(currentUser.id);
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>Grade Submissions</h2>
+                <p>Review and grade student work</p>
+            </div>
+        </div>
+        
+        <div class="submissions-list">
+            ${pendingSubmissions.length === 0 ? `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>No pending submissions</h3>
+                    <p>All caught up!</p>
+                </div>
+            ` : pendingSubmissions.map(sub => `
+                <div class="submission-card pending">
+                    <div class="submission-info">
+                        <h4>${sub.questions?.text || 'Unknown Question'}</h4>
+                        <div class="submission-meta">
+                            <span>Student: ${sub.users?.name || 'Unknown'}</span>
+                            <span>Submitted: ${new Date(sub.submitted_at).toLocaleString()}</span>
+                        </div>
+                        <div class="submission-answer">
+                            <strong>Answer:</strong>
+                            <p>${sub.answer}</p>
+                            ${sub.file_url ? `<a href="${sub.file_url}" target="_blank" class="file-link">View Attachment <i class="fas fa-external-link-alt"></i></a>` : ''}
+                        </div>
+                        <div class="grading-form">
+                            <div class="form-group">
+                                <label>Grade (%)</label>
+                                <input type="number" id="grade_${sub.id}" min="0" max="100" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Feedback</label>
+                                <textarea id="feedback_${sub.id}" rows="3" placeholder="Provide feedback to the student..."></textarea>
+                            </div>
+                            <button class="btn-primary submit-grade" data-id="${sub.id}">Submit Grade</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    document.querySelectorAll('.submit-grade').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const submissionId = btn.getAttribute('data-id');
+            const grade = document.getElementById(`grade_${submissionId}`).value;
+            const feedback = document.getElementById(`feedback_${submissionId}`).value;
+            
+            if (!grade) {
+                showToast('Please enter a grade', 'error');
+                return;
+            }
+            
+            const isCorrect = parseInt(grade) >= 70;
+            
+            const result = await gradeSubmission(submissionId, parseInt(grade), feedback, isCorrect);
+            
+            if (result) {
+                renderGradeSubmissions();
+            }
+        });
+    });
 }
 
 // ============================================
@@ -856,7 +1028,7 @@ async function renderWallet() {
         </div>
     `;
     
-    // Event listeners
+    // Event listeners for wallet
     document.getElementById('addFundsBtn')?.addEventListener('click', () => openModal('addFundsModal'));
     document.getElementById('buyPremiumBtn')?.addEventListener('click', async () => {
         const result = await purchasePremium();
@@ -893,7 +1065,7 @@ async function renderWallet() {
 }
 
 // ============================================
-// SETTINGS RENDER - With Profile Picture Upload
+// SETTINGS RENDER
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
@@ -919,7 +1091,6 @@ async function renderSettings() {
                     <div class="avatar-upload">
                         <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
                         <button class="btn-outline" id="uploadAvatarBtn">Upload Photo</button>
-                        <button class="btn-outline" id="removeAvatarBtn" style="display: none;">Remove</button>
                     </div>
                 </div>
             </div>
@@ -940,10 +1111,6 @@ async function renderSettings() {
                         <label>Role</label>
                         <input type="text" value="${currentRole.toUpperCase()}" disabled>
                     </div>
-                    <div class="form-group">
-                        <label>Member Since</label>
-                        <input type="text" value="${new Date().toLocaleDateString()}" disabled>
-                    </div>
                 </form>
             </div>
             
@@ -963,19 +1130,11 @@ async function renderSettings() {
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div class="form-group">
-                    <label>Push Notifications</label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="pushNotifications" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
             </div>
         </div>
         
         <div class="settings-actions">
             <button type="submit" class="btn-primary" id="saveSettingsBtn">Save Changes</button>
-            <button class="btn-danger" id="deleteAccountBtn">Delete Account</button>
         </div>
     `;
     
@@ -1006,9 +1165,7 @@ async function renderSettings() {
             reader.onload = async (event) => {
                 const avatarUrl = event.target.result;
                 document.getElementById('profilePreview').src = avatarUrl;
-                document.getElementById('removeAvatarBtn').style.display = 'inline-block';
                 
-                // Update in database
                 const { error } = await supabase
                     .from('users')
                     .update({ avatar_url: avatarUrl })
@@ -1031,7 +1188,7 @@ async function renderSettings() {
         if (newName !== currentUser.name) {
             const { error } = await supabase
                 .from('users')
-                .update({ name: newName, full_name: newName, updated_at: new Date() })
+                .update({ name: newName, full_name: newName })
                 .eq('id', currentUser.id);
             
             if (error) {
@@ -1044,52 +1201,6 @@ async function renderSettings() {
             }
         }
     });
-    
-    // Delete account
-    document.getElementById('deleteAccountBtn')?.addEventListener('click', () => {
-        if (confirm('⚠️ Are you sure? This action cannot be undone. All your data will be permanently deleted.')) {
-            showToast('Account deletion requires admin approval', 'info');
-        }
-    });
-}
-
-// ============================================
-// OTHER ROLE RENDERS
-// ============================================
-function renderStudents() {
-    const container = document.getElementById('students-section');
-    if (!container) return;
-    container.innerHTML = `
-        <div class="section-header"><h2>My Students</h2></div>
-        <div class="data-table"><p style="padding: 2rem;">Student management coming soon</p></div>
-    `;
-}
-
-function renderUsers() {
-    const container = document.getElementById('users-section');
-    if (!container) return;
-    container.innerHTML = `
-        <div class="section-header"><h2>User Management</h2></div>
-        <div class="data-table"><p style="padding: 2rem;">User management coming soon</p></div>
-    `;
-}
-
-function renderFinance() {
-    const container = document.getElementById('finance-section');
-    if (!container) return;
-    container.innerHTML = `
-        <div class="section-header"><h2>Finance</h2></div>
-        <div class="data-table"><p style="padding: 2rem;">Finance dashboard coming soon</p></div>
-    `;
-}
-
-function renderProjects() {
-    const container = document.getElementById('projects-section');
-    if (!container) return;
-    container.innerHTML = `
-        <div class="section-header"><h2>My Projects</h2></div>
-        <div class="data-table"><p style="padding: 2rem;">No active projects</p></div>
-    `;
 }
 
 // ============================================
@@ -1126,7 +1237,6 @@ async function initDashboard() {
     const isAuth = await checkAuth();
     if (!isAuth) return;
     
-    await fetchLibraryMaterials();
     initTheme();
     updateUI();
     createContentSections();
@@ -1146,4 +1256,6 @@ initDashboard();
 // Make functions global
 window.openModal = openModal;
 window.closeModal = closeModal;
+window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
+window.renderQuestionBar = renderQuestionBar;
