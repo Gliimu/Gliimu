@@ -1,6 +1,6 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE VERSION
-// With Premium/Standard purchase system & Real-time updates
+// GLIIMU DASHBOARD - STUDENT COMPLETE VERSION
+// With Assignments, Portfolio, Progress, Submissions
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -12,7 +12,6 @@ import {
     purchaseStandard, 
     purchasePlatform,
     getTransactionHistory,
-    getPurchaseHistory,
     isPremium,
     subscribeToWalletUpdates,
     PRICING
@@ -31,6 +30,16 @@ let savedItems = [];
 let recentlyViewed = [];
 let currentWalletBalance = 0;
 let walletSubscription = null;
+let assignments = [];
+let portfolioItems = [];
+let submissions = [];
+let courseProgress = {
+    videoProduction: 0,
+    uiuxDesign: 0,
+    webDevelopment: 0,
+    motionGraphics: 0,
+    brandStrategy: 0
+};
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -38,7 +47,6 @@ let walletSubscription = null;
 async function checkAuth() {
     console.log('Checking authentication...');
     
-    // Check localStorage first
     const localUser = localStorage.getItem('glimu_user');
     if (localUser) {
         currentUser = JSON.parse(localUser);
@@ -47,7 +55,6 @@ async function checkAuth() {
         return true;
     }
     
-    // Check Supabase session
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error) {
@@ -75,7 +82,6 @@ async function checkAuth() {
 // ============================================
 async function loadUserFromSupabase(userId) {
     try {
-        // Get user profile
         const { data: profile, error: profileError } = await supabase
             .from('users')
             .select('*')
@@ -84,7 +90,6 @@ async function loadUserFromSupabase(userId) {
         
         if (profileError) throw profileError;
         
-        // Get user stats for current month
         const currentMonth = new Date().getMonth() + 1;
         const currentYear = new Date().getFullYear();
         
@@ -102,7 +107,6 @@ async function loadUserFromSupabase(userId) {
         
         userStats = stats || { books_read: 0, bundles_downloaded: 0 };
         
-        // Get saved items
         const { data: saved, error: savedError } = await supabase
             .from('user_saved_items')
             .select('*')
@@ -111,7 +115,6 @@ async function loadUserFromSupabase(userId) {
         
         if (!savedError) savedItems = saved || [];
         
-        // Get recently viewed
         const { data: recent, error: recentError } = await supabase
             .from('user_recently_viewed')
             .select('*')
@@ -120,6 +123,11 @@ async function loadUserFromSupabase(userId) {
             .limit(10);
         
         if (!recentError) recentlyViewed = recent || [];
+        
+        // Load mock assignments
+        loadMockAssignments();
+        loadMockPortfolio();
+        loadMockSubmissions();
         
         currentUserProfile = profile;
         currentWalletBalance = profile.wallet_balance || 14500;
@@ -145,12 +153,41 @@ async function loadUserFromSupabase(userId) {
 }
 
 // ============================================
+// MOCK DATA FOR DEMO
+// ============================================
+function loadMockAssignments() {
+    assignments = [
+        { id: 1, title: 'Video Production: 30-Second Commercial', dueDate: '2025-06-20', status: 'pending', points: 100, type: 'video' },
+        { id: 2, title: 'UI/UX Design: Mobile App Wireframe', dueDate: '2025-06-15', status: 'submitted', points: 100, type: 'design', grade: 85 },
+        { id: 3, title: 'JavaScript: Interactive Form Validation', dueDate: '2025-06-10', status: 'graded', points: 100, type: 'code', grade: 92 },
+        { id: 4, title: 'Motion Graphics: Logo Animation', dueDate: '2025-06-25', status: 'pending', points: 100, type: 'motion' },
+        { id: 5, title: 'Brand Strategy: Brand Identity Package', dueDate: '2025-06-30', status: 'draft', points: 100, type: 'brand' }
+    ];
+}
+
+function loadMockPortfolio() {
+    portfolioItems = [
+        { id: 1, title: 'Nike Commercial', type: 'video', thumbnail: '/photos/portfolio1.jpg', date: '2025-05-01', views: 245, likes: 34 },
+        { id: 2, title: 'Food App UI Design', type: 'design', thumbnail: '/photos/portfolio2.jpg', date: '2025-05-10', views: 189, likes: 27 },
+        { id: 3, title: 'E-commerce Website', type: 'code', thumbnail: '/photos/portfolio3.jpg', date: '2025-05-15', views: 312, likes: 45 },
+        { id: 4, title: 'Title Sequence Animation', type: 'motion', thumbnail: '/photos/portfolio4.jpg', date: '2025-05-20', views: 178, likes: 23 }
+    ];
+}
+
+function loadMockSubmissions() {
+    submissions = [
+        { id: 1, title: 'Video Production Assignment', submittedAt: '2025-06-01', status: 'graded', grade: 88, feedback: 'Great work on the pacing!' },
+        { id: 2, title: 'UI Design Project', submittedAt: '2025-05-25', status: 'graded', grade: 92, feedback: 'Excellent use of color theory' },
+        { id: 3, title: 'JavaScript Challenge', submittedAt: '2025-05-20', status: 'pending', grade: null, feedback: null }
+    ];
+}
+
+// ============================================
 // REAL-TIME WALLET UPDATES
 // ============================================
 function setupRealtimeWallet() {
     if (!currentUser?.id) return;
     
-    // Clean up existing subscription
     if (walletSubscription) {
         walletSubscription.unsubscribe();
     }
@@ -160,12 +197,10 @@ function setupRealtimeWallet() {
         currentUser.walletBalance = newBalance;
         currentWalletBalance = newBalance;
         
-        // Update UI if wallet tab is active
         if (currentTab === 'wallet') {
             renderWallet();
         }
         if (currentTab === 'dashboard') {
-            // Update balance display on dashboard
             const balanceElement = document.querySelector('.stat-card .stat-value');
             if (balanceElement && balanceElement.closest('.stat-card')?.querySelector('h3')?.textContent === 'Wallet Balance') {
                 balanceElement.textContent = `₦${newBalance.toLocaleString()}`;
@@ -198,18 +233,22 @@ async function fetchLibraryMaterials() {
 }
 
 // ============================================
-// ROLE-BASED TAB CONFIGURATION
+// ROLE-BASED TAB CONFIGURATION - STUDENT FOCUSED
 // ============================================
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'library', name: 'My Library', icon: 'fas fa-book' },
+        { id: 'assignments', name: 'Assignments', icon: 'fas fa-tasks' },
+        { id: 'submissions', name: 'Submissions', icon: 'fas fa-upload' },
+        { id: 'portfolio', name: 'Portfolio', icon: 'fas fa-briefcase' },
+        { id: 'progress', name: 'Progress', icon: 'fas fa-chart-line' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     instructor: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'students', name: 'My Students', icon: 'fas fa-users' },
+        { id: 'submissions', name: 'Grade Submissions', icon: 'fas fa-clipboard-list' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
@@ -242,6 +281,13 @@ function initTheme() {
         document.body.classList.add('dark-mode');
         localStorage.setItem('theme', 'dark');
     }
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    showToast(`Switched to ${isDark ? 'dark' : 'light'} mode`, 'info');
 }
 
 // ============================================
@@ -333,8 +379,17 @@ function loadTabData(tabId) {
         case 'dashboard':
             renderDashboard();
             break;
-        case 'library':
-            renderLibraryTab();
+        case 'assignments':
+            renderAssignments();
+            break;
+        case 'submissions':
+            renderSubmissions();
+            break;
+        case 'portfolio':
+            renderPortfolio();
+            break;
+        case 'progress':
+            renderProgress();
             break;
         case 'wallet':
             renderWallet();
@@ -360,7 +415,7 @@ function loadTabData(tabId) {
 }
 
 // ============================================
-// DASHBOARD RENDER
+// DASHBOARD RENDER - UPDATED (No stat-sub)
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
@@ -369,6 +424,8 @@ async function renderDashboard() {
     const savedCount = savedItems.length;
     const walletBalance = currentUser?.walletBalance || 14500;
     const isPremiumUser = currentUser?.subscriptionTier === 'premium';
+    const pendingAssignments = assignments.filter(a => a.status === 'pending').length;
+    const completedCourses = Object.values(courseProgress).filter(p => p >= 100).length;
     
     container.innerHTML = `
         <div class="section-header">
@@ -380,19 +437,17 @@ async function renderDashboard() {
         
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-book"></i></div>
+                <div class="stat-icon"><i class="fas fa-tasks"></i></div>
                 <div class="stat-info">
-                    <h3>Books Read</h3>
-                    <div class="stat-value">${userStats?.books_read || 0}</div>
-                    <div class="stat-sub">This month</div>
+                    <h3>Pending Assignments</h3>
+                    <div class="stat-value">${pendingAssignments}</div>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-box"></i></div>
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
                 <div class="stat-info">
-                    <h3>Bundles Downloaded</h3>
-                    <div class="stat-value">${userStats?.bundles_downloaded || 0}</div>
-                    <div class="stat-sub">This month</div>
+                    <h3>Completed Courses</h3>
+                    <div class="stat-value">${completedCourses}/5</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -400,7 +455,6 @@ async function renderDashboard() {
                 <div class="stat-info">
                     <h3>Saved Items</h3>
                     <div class="stat-value">${savedCount}</div>
-                    <div class="stat-sub">In your shelf</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -413,27 +467,43 @@ async function renderDashboard() {
             </div>
         </div>
         
-        ${!isPremiumUser && walletBalance === 0 ? `
-            <div class="warning-banner" style="background: #ef4444; color: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                ⚠️ Your wallet is empty. Add funds to continue accessing platforms.
+        <div class="quick-links">
+            <h3>Quick Access</h3>
+            <div class="quick-links-grid">
+                <div class="quick-link-card" onclick="window.location.href='/library.html'">
+                    <i class="fas fa-book"></i>
+                    <span>Library</span>
+                </div>
+                <div class="quick-link-card" onclick="window.location.href='/hub.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>Hub</span>
+                </div>
+                <div class="quick-link-card" onclick="window.location.href='/chat.html'">
+                    <i class="fas fa-comments"></i>
+                    <span>Community</span>
+                </div>
+                <div class="quick-link-card" onclick="window.location.href='/virtualroom.html'">
+                    <i class="fas fa-video"></i>
+                    <span>Virtual Classroom</span>
+                </div>
             </div>
-        ` : ''}
+        </div>
         
         <div class="action-cards">
-            <div class="action-card" id="goToLibraryBtn">
-                <i class="fas fa-book-open"></i>
-                <h4>Go to Library</h4>
-                <p>Browse books and bundles</p>
+            <div class="action-card" id="goToAssignmentsBtn">
+                <i class="fas fa-tasks"></i>
+                <h4>View Assignments</h4>
+                <p>${pendingAssignments} pending tasks</p>
             </div>
-            <div class="action-card" id="viewSavedBtn">
-                <i class="fas fa-bookmark"></i>
-                <h4>My Shelf</h4>
-                <p>${savedCount} saved items</p>
+            <div class="action-card" id="goToPortfolioBtn">
+                <i class="fas fa-briefcase"></i>
+                <h4>My Portfolio</h4>
+                <p>${portfolioItems.length} projects</p>
             </div>
-            <div class="action-card" id="goToWalletBtn">
-                <i class="fas fa-wallet"></i>
-                <h4>Wallet</h4>
-                <p>Manage funds & subscriptions</p>
+            <div class="action-card" id="goToProgressBtn">
+                <i class="fas fa-chart-line"></i>
+                <h4>Track Progress</h4>
+                <p>${Math.round((completedCourses / 5) * 100)}% complete</p>
             </div>
         </div>
         
@@ -452,22 +522,10 @@ async function renderDashboard() {
         ` : ''}
     `;
     
-    // Event listeners
-    document.getElementById('goToLibraryBtn')?.addEventListener('click', () => {
-        window.location.href = '/library.html';
-    });
-    
-    document.getElementById('viewSavedBtn')?.addEventListener('click', () => {
-        switchTab('library');
-    });
-    
-    document.getElementById('goToWalletBtn')?.addEventListener('click', () => {
-        switchTab('wallet');
-    });
-    
-    document.getElementById('quickAddFunds')?.addEventListener('click', () => {
-        switchTab('wallet');
-    });
+    document.getElementById('goToAssignmentsBtn')?.addEventListener('click', () => switchTab('assignments'));
+    document.getElementById('goToPortfolioBtn')?.addEventListener('click', () => switchTab('portfolio'));
+    document.getElementById('goToProgressBtn')?.addEventListener('click', () => switchTab('progress'));
+    document.getElementById('quickAddFunds')?.addEventListener('click', () => switchTab('wallet'));
     
     document.querySelectorAll('.recent-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -478,101 +536,224 @@ async function renderDashboard() {
 }
 
 // ============================================
-// LIBRARY TAB
+// ASSIGNMENTS TAB
 // ============================================
-async function renderLibraryTab() {
-    const container = document.getElementById('library-section');
+async function renderAssignments() {
+    const container = document.getElementById('assignments-section');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner">Loading your library...</div>';
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>Assignments</h2>
+                <p>Complete your tasks on time</p>
+            </div>
+        </div>
+        
+        <div class="assignments-list">
+            ${assignments.map(assignment => `
+                <div class="assignment-card ${assignment.status}">
+                    <div class="assignment-icon">
+                        <i class="fas ${assignment.type === 'video' ? 'fa-video' : assignment.type === 'design' ? 'fa-palette' : assignment.type === 'code' ? 'fa-code' : assignment.type === 'motion' ? 'fa-film' : 'fa-chart-line'}"></i>
+                    </div>
+                    <div class="assignment-info">
+                        <h4>${assignment.title}</h4>
+                        <div class="assignment-meta">
+                            <span>Due: ${new Date(assignment.dueDate).toLocaleDateString()}</span>
+                            <span>Points: ${assignment.points}</span>
+                        </div>
+                    </div>
+                    <div class="assignment-status">
+                        <span class="status-badge ${assignment.status}">${assignment.status}</span>
+                        ${assignment.grade ? `<span class="grade">Grade: ${assignment.grade}%</span>` : ''}
+                    </div>
+                    <div class="assignment-actions">
+                        ${assignment.status === 'pending' ? 
+                            `<button class="btn-small submit-assignment" data-id="${assignment.id}">Submit</button>` : 
+                            assignment.status === 'submitted' ? 
+                            `<button class="btn-small disabled" disabled>Awaiting Grade</button>` :
+                            `<button class="btn-small view-feedback" data-id="${assignment.id}">View Feedback</button>`
+                        }
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
     
-    try {
-        if (allMaterials.length === 0) {
-            await fetchLibraryMaterials();
-        }
-        
-        const savedItemIds = savedItems.map(s => s.item_id);
-        const savedMaterials = allMaterials.filter(m => savedItemIds.includes(m.id));
-        
-        const recentItemIds = recentlyViewed.map(r => r.item_id);
-        const recentMaterials = allMaterials.filter(m => recentItemIds.includes(m.id)).slice(0, 6);
-        
-        container.innerHTML = `
-            <div class="section-header">
-                <div>
-                    <h2>My Library</h2>
-                    <p>Your saved books and recently viewed items</p>
-                </div>
-                <button class="btn-primary" id="browseLibraryBtn">Browse All Books</button>
-            </div>
-            
-            ${savedMaterials.length > 0 ? `
-                <h3 style="margin: 1rem 0 0.5rem;">📚 Saved Items (${savedMaterials.length})</h3>
-                <div class="library-grid">
-                    ${savedMaterials.map(item => `
-                        <div class="library-item" data-id="${item.id}">
-                            <div class="library-item-cover" style="background-image: url('${item.image}'); background-size: cover;"></div>
-                            <div class="library-item-info">
-                                <div class="library-item-title">${escapeHtml(item.title)}</div>
-                                <div class="library-item-type">${item.type === 'book' ? '📖 Book' : '📦 Bundle'}</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : `
-                <div class="empty-state">
-                    <i class="fas fa-bookmark"></i>
-                    <h3>Your shelf is empty</h3>
-                    <p>Save books and bundles to see them here</p>
-                    <button class="btn-primary" id="goToLibraryEmptyBtn">Explore Library</button>
-                </div>
-            `}
-            
-            ${recentMaterials.length > 0 ? `
-                <h3 style="margin: 2rem 0 0.5rem;">🕐 Recently Viewed</h3>
-                <div class="library-grid">
-                    ${recentMaterials.map(item => `
-                        <div class="library-item" data-id="${item.id}">
-                            <div class="library-item-cover" style="background-image: url('${item.image}'); background-size: cover;"></div>
-                            <div class="library-item-info">
-                                <div class="library-item-title">${escapeHtml(item.title)}</div>
-                                <div class="library-item-type">${item.type === 'book' ? '📖 Book' : '📦 Bundle'}</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : ''}
-        `;
-        
-        document.querySelectorAll('.library-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const id = item.getAttribute('data-id');
-                window.location.href = `/library.html?id=${id}`;
-            });
+    document.querySelectorAll('.submit-assignment').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showToast('Assignment submission feature coming soon!', 'info');
         });
-        
-        document.getElementById('browseLibraryBtn')?.addEventListener('click', () => {
-            window.location.href = '/library.html';
-        });
-        
-        document.getElementById('goToLibraryEmptyBtn')?.addEventListener('click', () => {
-            window.location.href = '/library.html';
-        });
-        
-    } catch (error) {
-        console.error('Error rendering library tab:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load library</h3>
-                <button class="btn-primary" onclick="location.reload()">Retry</button>
-            </div>
-        `;
-    }
+    });
 }
 
 // ============================================
-// WALLET TAB - COMPLETE WITH PURCHASE SYSTEM
+// SUBMISSIONS TAB
+// ============================================
+async function renderSubmissions() {
+    const container = document.getElementById('submissions-section');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>My Submissions</h2>
+                <p>Track your submitted work and feedback</p>
+            </div>
+            <button class="btn-primary" id="newSubmissionBtn">+ New Submission</button>
+        </div>
+        
+        <div class="submissions-list">
+            ${submissions.map(sub => `
+                <div class="submission-card">
+                    <div class="submission-info">
+                        <h4>${sub.title}</h4>
+                        <div class="submission-meta">
+                            <span>Submitted: ${new Date(sub.submittedAt).toLocaleDateString()}</span>
+                        </div>
+                        ${sub.feedback ? `<div class="submission-feedback">📝 Feedback: ${sub.feedback}</div>` : ''}
+                    </div>
+                    <div class="submission-status">
+                        <span class="status-badge ${sub.status}">${sub.status}</span>
+                        ${sub.grade ? `<span class="grade">Grade: ${sub.grade}%</span>` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    document.getElementById('newSubmissionBtn')?.addEventListener('click', () => {
+        showToast('New submission form coming soon!', 'info');
+    });
+}
+
+// ============================================
+// PORTFOLIO TAB
+// ============================================
+async function renderPortfolio() {
+    const container = document.getElementById('portfolio-section');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>My Portfolio</h2>
+                <p>Showcase your best work</p>
+            </div>
+            <button class="btn-primary" id="addPortfolioBtn">+ Add Project</button>
+        </div>
+        
+        <div class="portfolio-grid">
+            ${portfolioItems.map(item => `
+                <div class="portfolio-card">
+                    <div class="portfolio-thumbnail" style="background-image: url('${item.thumbnail}'); background-size: cover;">
+                        <div class="portfolio-overlay">
+                            <button class="view-project" data-id="${item.id}">View Project</button>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h4>${item.title}</h4>
+                        <div class="portfolio-stats">
+                            <span><i class="fas fa-eye"></i> ${item.views}</span>
+                            <span><i class="fas fa-heart"></i> ${item.likes}</span>
+                            <span class="portfolio-type">${item.type}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    document.getElementById('addPortfolioBtn')?.addEventListener('click', () => {
+        showToast('Add portfolio feature coming soon!', 'info');
+    });
+}
+
+// ============================================
+// PROGRESS TAB - GAMIFIED
+// ============================================
+async function renderProgress() {
+    const container = document.getElementById('progress-section');
+    if (!container) return;
+    
+    const totalProgress = Object.values(courseProgress).reduce((a, b) => a + b, 0) / 5;
+    const completedModules = Object.values(courseProgress).filter(p => p >= 100).length;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>Course Progress</h2>
+                <p>Track your journey to becoming a Media Architect</p>
+            </div>
+        </div>
+        
+        <div class="overall-progress">
+            <div class="progress-circle">
+                <svg viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border-color)" stroke-width="8"/>
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#fbb040" stroke-width="8" 
+                            stroke-dasharray="${2 * Math.PI * 45}" 
+                            stroke-dashoffset="${2 * Math.PI * 45 * (1 - totalProgress / 100)}"
+                            transform="rotate(-90 50 50)"/>
+                </svg>
+                <div class="progress-percent">${Math.round(totalProgress)}%</div>
+            </div>
+            <div class="progress-stats">
+                <div class="stat">📚 Courses Completed: <strong>${completedModules}/5</strong></div>
+                <div class="stat">⭐ Overall Progress: <strong>${Math.round(totalProgress)}%</strong></div>
+                <div class="stat">🏆 Next Milestone: <strong>${completedModules + 1}/5 courses</strong></div>
+            </div>
+        </div>
+        
+        <div class="courses-progress">
+            <h3>Course Breakdown</h3>
+            ${Object.entries(courseProgress).map(([course, progress]) => `
+                <div class="course-progress-item">
+                    <div class="course-name">
+                        ${course === 'videoProduction' ? '🎬 Video Production' : 
+                          course === 'uiuxDesign' ? '🎨 UI/UX Design' : 
+                          course === 'webDevelopment' ? '💻 Web Development' : 
+                          course === 'motionGraphics' ? '✨ Motion Graphics' : '📈 Brand Strategy'}
+                    </div>
+                    <div class="course-progress-bar">
+                        <div class="progress-fill" style="width: ${progress}%; background: ${progress >= 100 ? '#10b981' : progress >= 70 ? '#fbb040' : '#ef4444'}"></div>
+                    </div>
+                    <div class="course-percent">${progress}%</div>
+                    ${progress >= 100 ? '<span class="completed-badge">✅ Completed</span>' : ''}
+                </div>
+            `).join('')}
+        </div>
+        
+        <div class="achievements-section">
+            <h3>Achievements</h3>
+            <div class="achievements-grid">
+                <div class="achievement-card ${totalProgress >= 20 ? 'unlocked' : 'locked'}">
+                    <i class="fas fa-rocket"></i>
+                    <span>Getting Started</span>
+                    <small>Complete 20% of course</small>
+                </div>
+                <div class="achievement-card ${totalProgress >= 50 ? 'unlocked' : 'locked'}">
+                    <i class="fas fa-fire"></i>
+                    <span>On Fire</span>
+                    <small>Complete 50% of course</small>
+                </div>
+                <div class="achievement-card ${completedModules >= 3 ? 'unlocked' : 'locked'}">
+                    <i class="fas fa-trophy"></i>
+                    <span>Almost There</span>
+                    <small>Complete 3 courses</small>
+                </div>
+                <div class="achievement-card ${totalProgress >= 100 ? 'unlocked' : 'locked'}">
+                    <i class="fas fa-crown"></i>
+                    <span>Media Architect</span>
+                    <small>Complete all courses</small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================
+// WALLET TAB
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
@@ -583,7 +764,6 @@ async function renderWallet() {
     const transactions = await getTransactionHistory();
     const userAccess = await getUserAccess();
     
-    const needsTopUp = balance < PRICING.premium;
     const topUpAmount = PRICING.premium - balance;
     
     container.innerHTML = `
@@ -594,12 +774,6 @@ async function renderWallet() {
             </div>
             <button class="btn-primary" id="addFundsBtn">Add Funds</button>
         </div>
-        
-        ${!isPremiumUser && balance < PRICING.standard ? `
-            <div class="warning-banner" style="background: #ef4444; color: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                ⚠️ Your wallet is low. Add funds to continue accessing platforms.
-            </div>
-        ` : ''}
         
         <div class="purchase-section">
             <h3>Purchase Access</h3>
@@ -621,7 +795,7 @@ async function renderWallet() {
                 <div class="purchase-icon">📦</div>
                 <div class="purchase-info">
                     <h4>Standard (Hub + Community)</h4>
-                    <p>⚠️ You will forfeit remaining credit. No monthly bonuses.</p>
+                    <p>⚠️ Forfeits remaining credit. No monthly bonuses.</p>
                     <div class="price">₦${PRICING.standard.toLocaleString()}</div>
                     <button class="btn-outline" id="buyStandardBtn">Choose Standard</button>
                 </div>
@@ -683,10 +857,7 @@ async function renderWallet() {
     `;
     
     // Event listeners
-    document.getElementById('addFundsBtn')?.addEventListener('click', () => {
-        openModal('addFundsModal');
-    });
-    
+    document.getElementById('addFundsBtn')?.addEventListener('click', () => openModal('addFundsModal'));
     document.getElementById('buyPremiumBtn')?.addEventListener('click', async () => {
         const result = await purchasePremium();
         if (result === true) {
@@ -696,42 +867,24 @@ async function renderWallet() {
             openModal('addFundsModal');
         }
     });
-    
-    document.getElementById('premiumTopUpBtn')?.addEventListener('click', () => {
-        openModal('addFundsModal');
-    });
-    
+    document.getElementById('premiumTopUpBtn')?.addEventListener('click', () => openModal('addFundsModal'));
     document.getElementById('buyStandardBtn')?.addEventListener('click', async () => {
-        const confirmed = confirm(
-            '⚠️ WARNING ⚠️\n\n' +
-            'If you choose Standard (Hub + Community):\n' +
-            '• You will pay ₦13,000 from your free credit\n' +
-            '• You will forfeit any remaining credit\n' +
-            '• You will receive NO monthly bonuses\n' +
-            '• Future purchases will be at FULL PRICE\n\n' +
-            'Premium students receive RANDOM BONUSES every month!\n\n' +
-            'Are you sure you want to continue?'
-        );
-        
-        if (confirmed) {
+        if (confirm('⚠️ WARNING: You will forfeit remaining credit. No monthly bonuses. Continue?')) {
             await purchaseStandard();
             setTimeout(() => renderWallet(), 1000);
             setTimeout(() => renderDashboard(), 1000);
         }
     });
-    
     document.getElementById('buyLibraryBtn')?.addEventListener('click', async () => {
         await purchasePlatform('library');
         setTimeout(() => renderWallet(), 500);
         setTimeout(() => renderDashboard(), 500);
     });
-    
     document.getElementById('buyCommunityBtn')?.addEventListener('click', async () => {
         await purchasePlatform('community');
         setTimeout(() => renderWallet(), 500);
         setTimeout(() => renderDashboard(), 500);
     });
-    
     document.getElementById('buyHubBtn')?.addEventListener('click', async () => {
         await purchasePlatform('hub');
         setTimeout(() => renderWallet(), 500);
@@ -740,11 +893,13 @@ async function renderWallet() {
 }
 
 // ============================================
-// SETTINGS RENDER
+// SETTINGS RENDER - With Profile Picture Upload
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
     if (!container) return;
+    
+    const isDark = document.body.classList.contains('dark-mode');
     
     container.innerHTML = `
         <div class="section-header">
@@ -753,28 +908,124 @@ async function renderSettings() {
                 <p>Manage your account preferences</p>
             </div>
         </div>
-        <div class="data-table" style="padding: 1.5rem;">
-            <form id="settingsForm">
+        
+        <div class="settings-grid">
+            <div class="settings-card">
+                <h3>Profile Picture</h3>
+                <div class="profile-picture-section">
+                    <div class="current-avatar">
+                        <img src="${currentUser?.avatar}" alt="Profile" id="profilePreview">
+                    </div>
+                    <div class="avatar-upload">
+                        <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                        <button class="btn-outline" id="uploadAvatarBtn">Upload Photo</button>
+                        <button class="btn-outline" id="removeAvatarBtn" style="display: none;">Remove</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-card">
+                <h3>Account Information</h3>
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="fullNameInput" value="${currentUser?.name || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="emailInput" value="${currentUser?.email || ''}" disabled>
+                        <small>Email cannot be changed</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <input type="text" value="${currentRole.toUpperCase()}" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>Member Since</label>
+                        <input type="text" value="${new Date().toLocaleDateString()}" disabled>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="settings-card">
+                <h3>Preferences</h3>
                 <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" id="fullNameInput" value="${currentUser?.name || ''}">
+                    <label>Theme</label>
+                    <div class="theme-selector">
+                        <button class="theme-option ${!isDark ? 'active' : ''}" data-theme="light">☀️ Light</button>
+                        <button class="theme-option ${isDark ? 'active' : ''}" data-theme="dark">🌙 Dark</button>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="emailInput" value="${currentUser?.email || ''}" disabled>
-                    <small>Email cannot be changed</small>
+                    <label>Email Notifications</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="emailNotifications" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
                 <div class="form-group">
-                    <label>Role</label>
-                    <input type="text" value="${currentRole.toUpperCase()}" disabled>
+                    <label>Push Notifications</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="pushNotifications" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
-                <button type="submit" class="btn-primary">Save Changes</button>
-            </form>
+            </div>
+        </div>
+        
+        <div class="settings-actions">
+            <button type="submit" class="btn-primary" id="saveSettingsBtn">Save Changes</button>
+            <button class="btn-danger" id="deleteAccountBtn">Delete Account</button>
         </div>
     `;
     
-    document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    // Theme selector
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.getAttribute('data-theme');
+            if (theme === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+            localStorage.setItem('theme', theme);
+            document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+    
+    // Avatar upload
+    document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
+        document.getElementById('avatarUpload').click();
+    });
+    
+    document.getElementById('avatarUpload')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const avatarUrl = event.target.result;
+                document.getElementById('profilePreview').src = avatarUrl;
+                document.getElementById('removeAvatarBtn').style.display = 'inline-block';
+                
+                // Update in database
+                const { error } = await supabase
+                    .from('users')
+                    .update({ avatar_url: avatarUrl })
+                    .eq('id', currentUser.id);
+                
+                if (!error) {
+                    currentUser.avatar = avatarUrl;
+                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                    showToast('Profile picture updated!', 'success');
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // Save settings
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
         const newName = document.getElementById('fullNameInput').value;
         
         if (newName !== currentUser.name) {
@@ -791,6 +1042,13 @@ async function renderSettings() {
                 document.getElementById('userName').textContent = newName;
                 showToast('Settings saved successfully!', 'success');
             }
+        }
+    });
+    
+    // Delete account
+    document.getElementById('deleteAccountBtn')?.addEventListener('click', () => {
+        if (confirm('⚠️ Are you sure? This action cannot be undone. All your data will be permanently deleted.')) {
+            showToast('Account deletion requires admin approval', 'info');
         }
     });
 }
@@ -875,7 +1133,6 @@ async function initDashboard() {
     buildSidebar();
     await renderDashboard();
     
-    // Set up real-time wallet updates
     setupRealtimeWallet();
     
     console.log('Dashboard initialized successfully');
@@ -889,3 +1146,4 @@ initDashboard();
 // Make functions global
 window.openModal = openModal;
 window.closeModal = closeModal;
+window.toggleTheme = toggleTheme;
