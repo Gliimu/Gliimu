@@ -8,51 +8,6 @@
     <link rel="stylesheet" href="/css/admin-dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Additional inline styles for admin dashboard */
-        .modal-btn-danger {
-            background: var(--danger, #ef4444);
-            color: white;
-            border: none;
-        }
-        
-        .modal-btn-danger:hover {
-            background: #dc2626;
-        }
-        
-        .payment-status.rejected {
-            background: rgba(100, 116, 139, 0.15);
-            color: #64748b;
-        }
-        
-        body.dark-mode .payment-status.rejected {
-            background: rgba(100, 116, 139, 0.2);
-            color: #94a3b8;
-        }
-        
-        .payment-status.approved {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10b981;
-        }
-        
-        .payment-status.pending {
-            background: rgba(245, 158, 11, 0.15);
-            color: #f59e0b;
-        }
-        
-        .btn-reject {
-            background: #64748b;
-            color: white;
-            border: none;
-            padding: 6px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        
-        .btn-reject:hover {
-            background: #475569;
-        }
-    </style>
 </head>
 <body>
 
@@ -65,7 +20,7 @@
         <aside class="admin-sidebar">
             <div class="sidebar-header">
                 <div class="admin-avatar">
-                    <img src="https://ui-avatars.com/api/?name=Admin+Secretary&background=fbb040&color=fff" alt="Admin">
+                    <img src="https://ui-avatars.com/api/?name=Admin+Secretary&background=fbb040&color=fff&bold=true" alt="Admin">
                 </div>
                 <div class="admin-info">
                     <h4>Admin Secretary</h4>
@@ -100,34 +55,34 @@
             <div class="admin-topbar">
                 <h2>Payment Verification Dashboard</h2>
                 <div class="admin-stats">
-                    <div class="stat">Pending: <strong id="totalPending">0</strong></div>
-                    <div class="stat">Approved: <strong id="totalApproved">0</strong></div>
-                    <div class="stat">Rejected: <strong id="totalRejected">0</strong></div>
+                    <div class="stat">⏳ Pending: <strong id="totalPending">0</strong></div>
+                    <div class="stat">✅ Approved: <strong id="totalApproved">0</strong></div>
+                    <div class="stat">❌ Rejected: <strong id="totalRejected">0</strong></div>
                 </div>
             </div>
 
             <!-- Pending Approvals Tab -->
             <div id="pendingTab" class="admin-tab active">
                 <div class="search-bar">
-                    <input type="text" id="searchPending" placeholder="Filter by code, name, or email...">
                     <i class="fas fa-search"></i>
+                    <input type="text" id="searchPending" placeholder="Filter by code, name, or email...">
                 </div>
                 <div class="payments-list" id="pendingList">
-                    <div class="loading">Loading pending payments...</div>
+                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading pending payments...</div>
                 </div>
             </div>
 
             <!-- Approved Tab -->
             <div id="approvedTab" class="admin-tab">
                 <div class="payments-list" id="approvedList">
-                    <div class="loading">Loading approved payments...</div>
+                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading approved payments...</div>
                 </div>
             </div>
 
             <!-- Rejected Tab -->
             <div id="rejectedTab" class="admin-tab">
                 <div class="payments-list" id="rejectedList">
-                    <div class="loading">Loading rejected payments...</div>
+                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading rejected payments...</div>
                 </div>
             </div>
 
@@ -137,42 +92,42 @@
                     <input type="text" id="searchCodeInput" placeholder="Enter reference code (e.g., GLM-userId-1234)">
                     <button id="searchCodeBtn" class="btn-primary">Search</button>
                 </div>
-                <div id="searchResult" class="payment-card" style="display: none;"></div>
+                <div id="searchResult" style="display: none;"></div>
             </div>
         </main>
     </div>
 
-    <!-- Unified Approval/Rejection Modal -->
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Approval Modal -->
     <div id="approvalModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="approveRejectModalTitle">Verify Payment</h2>
-                <button class="modal-close" id="closeModal">&times;</button>
+                <h2 id="modalTitle">Verify Payment</h2>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
             </div>
             <div class="modal-body">
                 <div id="modalPaymentInfo"></div>
-                <div class="form-group">
+                <div class="form-group" id="narrationCodeGroup">
                     <label for="narrationCode">Enter Narration Code from Bank Alert</label>
                     <input type="text" id="narrationCode" placeholder="e.g., GLM-user123-4567">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="receivedAmountGroup">
                     <label for="receivedAmount">Amount Received (₦)</label>
                     <input type="number" id="receivedAmount" placeholder="Enter amount from bank alert">
                 </div>
                 <div class="form-group">
                     <label for="adminNotes">Admin Notes</label>
-                    <textarea id="adminNotes" rows="2" placeholder="Add any notes about this approval..."></textarea>
+                    <textarea id="adminNotes" rows="3" placeholder="Add notes about this approval/rejection..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="modal-btn modal-btn-secondary" id="cancelModalBtn">Cancel</button>
-                <button class="modal-btn modal-btn-primary" id="approveRejectAction">Approve Payment</button>
+                <button class="modal-btn modal-btn-primary" id="actionBtn">Approve Payment</button>
             </div>
         </div>
     </div>
-
-    <!-- Toast Container -->
-    <div id="toast-container"></div>
 
     <script src="/js/pages/header.js"></script>
     <script src="/js/pages/admin-dashboard.js"></script>
