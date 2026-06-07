@@ -593,5 +593,60 @@ document.addEventListener('DOMContentLoaded', function() {
   waitForHeader();
 });
 
+// ============================================
+// EXPOSE GLOBAL FUNCTIONS FOR INLINE ONCLICK
+// ============================================
+
+// Make sure these are available globally
+window.openLoginModal = function() {
+  console.log('openLoginModal called');
+  const modal = document.getElementById('loginModal');
+  if (modal) {
+    // Reset forms
+    const loginContainer = document.getElementById('loginFormContainer');
+    const signupContainer = document.getElementById('signupFormContainer');
+    if (loginContainer) loginContainer.style.display = 'block';
+    if (signupContainer) signupContainer.style.display = 'none';
+    
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    if (loginForm) loginForm.reset();
+    if (signupForm) signupForm.reset();
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  } else {
+    console.error('Modal not found!');
+  }
+};
+
+window.closeLoginModal = function() {
+  const modal = document.getElementById('loginModal');
+  if (modal) {
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+};
+
+// Also expose logout globally
+window.logout = async function() {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    
+    localStorage.removeItem('glimu_user');
+    localStorage.removeItem('supabase_token');
+    
+    showToast('Signed out successfully', 'success');
+    
+    setTimeout(() => {
+      window.location.href = '/index.html';
+    }, 1000);
+  } catch (error) {
+    console.error('Sign out error:', error);
+    showToast('Failed to sign out', 'error');
+  }
+};
+
 // Make logout available globally (fallback)
 window.handleLogout = handleLogout;
