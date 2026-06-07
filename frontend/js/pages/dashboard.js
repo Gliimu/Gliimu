@@ -1,203 +1,35 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE WORKING VERSION
-// Includes all wallet functions directly
+// GLIIMU DASHBOARD - SUPABASE INTEGRATED
+// Complete working version with real-time sync
 // ============================================
+
+import { 
+    supabase, 
+    getCurrentUser, 
+    getUserProfile, 
+    updateUserProfile,
+    updateWalletBalance,
+    createPaymentRequest,
+    getUserPayments,
+    getUserTransactions,
+    saveToShelf,
+    getSavedItems,
+    recordRecentlyViewed,
+    getRecentlyViewed,
+    subscribeToUserPayments
+} from '../modules/supabase.js';
+
+import { showToast } from '../modules/toast.js';
 
 // Global state
 let currentUser = null;
+let currentUserProfile = null;
 let currentRole = 'student';
 let currentTab = 'dashboard';
 let allMaterials = [];
+let paymentSubscription = null;
 
-// ============================================
-// WALLET FUNCTIONS (Built-in)
-// ============================================
-
-function getCurrentUser() {
-    const user = localStorage.getItem('glimu_user');
-    return user ? JSON.parse(user) : null;
-}
-
-// Generate unique reference code (short version)
-function generateReferenceCode() {
-    const user = getCurrentUser();
-    const userId = user?.id || 'guest';
-    const cleanUserId = userId.replace(/[^a-zA-Z0-9]/g, '');
-    const random = Math.floor(Math.random() * 9000) + 1000; // 4-digit random
-    return `GLM-${cleanUserId}-${random}`;
-}
-
-async function fetchWallet() {
-    const user = getCurrentUser();
-    if (!user) return null;
-    
-    try {
-        let balance = localStorage.getItem('glimu_wallet');
-        if (!balance) {
-            balance = '25000';
-            localStorage.setItem('glimu_wallet', balance);
-        }
-        
-        let transactions = localStorage.getItem('glimu_transactions');
-        if (!transactions) {
-            transactions = JSON.stringify([
-                { id: 1, amount: 25000, type: 'credit', date: new Date().toISOString(), status: 'approved', description: 'Initial wallet funding' }
-            ]);
-            localStorage.setItem('glimu_transactions', transactions);
-        }
-        
-        return {
-            balance: parseInt(balance),
-            transactions: JSON.parse(transactions)
-        };
-    } catch (error) {
-        console.error('Fetch wallet error:', error);
-        return null;
-    }
-}
-
-async function saveTransaction(transaction) {
-    const wallet = await fetchWallet();
-    if (wallet) {
-        const transactions = wallet.transactions || [];
-        transactions.unshift({
-            id: Date.now(),
-            ...transaction,
-            date: new Date().toISOString()
-        });
-        localStorage.setItem('glimu_transactions', JSON.stringify(transactions));
-    }
-}
-
-async function updateWalletBalance(newBalance) {
-    localStorage.setItem('glimu_wallet', newBalance.toString());
-    return true;
-}
-
-async function submitPaymentRequest(amount, bank) {
-    const user = getCurrentUser();
-    if (!user) {
-        showToast('Please login first', 'error');
-        return false;
-    }
-    
-    if (!amount || amount < 100) {
-        showToast('Amount must be at least ₦100', 'error');
-        return false;
-    }
-    
-    const referenceCode = generateReferenceCode();
-    
-    const paymentRequest = {
-        id: `pay_${Date.now()}`,
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
-        amount: amount,
-        bank: bank,
-        referenceCode: referenceCode,
-        status: 'pending',
-        submittedAt: new Date().toISOString(),
-        approvedAt: null,
-        adminNotes: null
-    };
-    
-    try {
-        let pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
-        pendingRequests.push(paymentRequest);
-        localStorage.setItem('glimu_pending_payments', JSON.stringify(pendingRequests));
-        
-        showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
-        return referenceCode;
-    } catch (error) {
-        console.error('Submit payment error:', error);
-        showToast('Failed to submit payment request', 'error');
-        return false;
-    }
-}
-
-async function fetchPendingRequests() {
-    const user = getCurrentUser();
-    if (!user) return [];
-    
-    try {
-        let pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
-        const userRequests = pendingRequests.filter(r => r.userId === user.id);
-        return userRequests;
-    } catch (error) {
-        console.error('Fetch pending requests error:', error);
-        return [];
-    }
-}
-
-async function displayTransactions(containerId = 'transactionList') {
-    const wallet = await fetchWallet();
-    const container = document.getElementById(containerId);
-    
-    if (container && wallet && wallet.transactions) {
-        if (wallet.transactions.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:20px;">No transactions yet</div>';
-            return;
-        }
-        
-        container.innerHTML = wallet.transactions.map(t => `
-            <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color);">
-                <div>
-                    <div style="font-weight:600;">${t.description}</div>
-                    <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(t.date).toLocaleString()}</div>
-                </div>
-                <div style="color:${t.type === 'credit' ? '#10b981' : '#ef4444'}">
-                    ${t.type === 'credit' ? '+' : '-'}₦${t.amount.toLocaleString()}
-                </div>
-            </div>
-        `).join('');
-    }
-}
-
-function showToast(message, type) {
-    // Create toast container if not exists
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px;';
-        document.body.appendChild(container);
-    }
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.style.cssText = `
-        background: var(--bg-glass, rgba(0,0,0,0.8));
-        backdrop-filter: blur(12px);
-        padding: 12px 20px;
-        border-radius: 8px;
-        border-left: 4px solid ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#4f46e5'};
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 0.9rem;
-        color: white;
-        animation: slideInRight 0.3s ease;
-    `;
-    
-    const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
-    toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// ============================================
-// ROLE-BASED TAB CONFIGURATION
-// ============================================
-
+// Role-based tab configurations
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -250,33 +82,56 @@ function toggleTheme() {
 }
 
 // ============================================
-// USER DATA
+// USER DATA LOADING
 // ============================================
 
-function loadUserData() {
-    const savedUser = localStorage.getItem('glimu_user');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        currentRole = currentUser.role?.toLowerCase() || 'student';
-    } else {
+async function loadUserData() {
+    // Try to get from Supabase first
+    const supabaseUser = await getCurrentUser();
+    const profile = await getUserProfile();
+    
+    if (supabaseUser && profile) {
         currentUser = {
-            id: 'demo_001',
-            name: 'Alex Creator',
-            email: 'alex@example.com',
-            role: 'student',
-            plan: 'basic',
-            avatar: 'https://ui-avatars.com/api/?name=Alex+Creator&background=fbb040&color=fff'
+            id: supabaseUser.id,
+            name: profile.name,
+            email: profile.email,
+            role: profile.role,
+            plan: profile.plan,
+            walletBalance: profile.wallet_balance,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=fbb040&color=fff`
         };
-        currentRole = 'student';
+        currentRole = profile.role || 'student';
+        
+        // Save to localStorage for quick access
         localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+    } else {
+        // Fallback to localStorage
+        const savedUser = localStorage.getItem('glimu_user');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            currentRole = currentUser.role?.toLowerCase() || 'student';
+        } else {
+            // Demo user for testing
+            currentUser = {
+                id: 'demo_001',
+                name: 'Alex Creator',
+                email: 'alex@example.com',
+                role: 'student',
+                plan: 'basic',
+                walletBalance: 25000,
+                avatar: 'https://ui-avatars.com/api/?name=Alex+Creator&background=fbb040&color=fff'
+            };
+            currentRole = 'student';
+        }
     }
     
+    // Update UI
     const userNameEl = document.getElementById('userName');
     const userRoleEl = document.getElementById('userRole');
     const avatarImg = document.querySelector('.user-avatar img');
     
     if (userNameEl) userNameEl.textContent = currentUser.name;
-    if (userRoleEl) userRoleEl.textContent = currentUser.role || 'Student';
+    if (userRoleEl) userRoleEl.textContent = currentRole.charAt(0).toUpperCase() + currentRole.slice(1);
     if (avatarImg) {
         avatarImg.src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=fbb040&color=fff`;
     }
@@ -375,15 +230,14 @@ async function renderDashboard() {
     if (!container) return;
     
     const usage = JSON.parse(localStorage.getItem('glimu_usage_guest') || '{"booksRead":0,"bundlesDownloaded":0}');
-    const savedItems = JSON.parse(localStorage.getItem('savedLibraryItems') || '[]');
-    const wallet = await fetchWallet();
-    const walletBalance = wallet ? wallet.balance : 25000;
+    const savedItems = await getSavedItems();
+    const walletBalance = currentUser?.walletBalance || 25000;
     
     container.innerHTML = `
         <div class="section-header">
             <div>
                 <h2>Dashboard</h2>
-                <p>Welcome back, ${currentUser.name}!</p>
+                <p>Welcome back, ${currentUser?.name || 'Creator'}!</p>
             </div>
         </div>
         
@@ -416,7 +270,7 @@ async function renderDashboard() {
                 <div class="stat-icon"><i class="fas fa-wallet"></i></div>
                 <div class="stat-info">
                     <h3>Wallet Balance</h3>
-                    <div class="stat-value">₦${walletBalance.toLocaleString()}</div>
+                    <div class="stat-value" id="walletBalanceDisplay">₦${walletBalance.toLocaleString()}</div>
                     <button class="add-funds-small" id="quickAddFunds">Add Funds</button>
                 </div>
             </div>
@@ -459,17 +313,18 @@ async function renderDashboard() {
 }
 
 // ============================================
-// WALLET RENDER - COMPLETE FIXED VERSION
+// WALLET RENDER WITH SUPABASE
 // ============================================
 
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
     if (!container) return;
     
-    const wallet = await fetchWallet();
-    const walletBalance = wallet ? wallet.balance : 25000;
-    const userPlan = currentUser.plan || 'basic';
-    const pendingRequests = await fetchPendingRequests();
+    const profile = await getUserProfile();
+    const walletBalance = profile?.wallet_balance || 25000;
+    const userPlan = profile?.plan || 'basic';
+    const payments = await getUserPayments();
+    const transactions = await getUserTransactions();
     
     container.innerHTML = `
         <div class="section-header">
@@ -525,23 +380,21 @@ async function renderWallet() {
             </div>
         </div>
         
-        <!-- Step 2: Bank Details & Reference Code (Hidden initially) -->
+        <!-- Step 2: Bank Details & Reference Code -->
         <div id="step2Container" class="data-table" style="margin-bottom: 1.5rem; display: none;">
             <h3>Step 2: Send Money</h3>
             <div style="padding: 1.5rem;">
-                <div id="bankDetailsContent" style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                    <!-- Bank details will be inserted here -->
-                </div>
+                <div id="bankDetailsContent" style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; margin-bottom: 20px;"></div>
                 
                 <div class="reference-code-box" style="margin-bottom: 20px; padding: 15px; background: rgba(251, 176, 64, 0.1); border-radius: 8px; text-align: center; border: 1px solid var(--accent);">
-                    <p style="font-size: 0.8rem; margin-bottom: 5px; color: var(--text-secondary);">Your Reference Code (Use as narration)</p>
+                    <p style="font-size: 0.8rem; margin-bottom: 5px;">Your Reference Code (Use as narration)</p>
                     <p id="referenceCode" style="font-size: 1.3rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; word-break: break-all;"></p>
                     <button id="copyCodeBtn" class="btn-outline" style="margin-top: 10px; padding: 6px 12px; font-size: 0.8rem;">📋 Copy Code</button>
                 </div>
                 
                 <div class="payment-instructions" style="margin-bottom: 20px; padding: 15px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent);">
                     <p style="font-size: 0.85rem; margin-bottom: 8px;"><strong>📝 Instructions:</strong></p>
-                    <ol style="margin-left: 20px; font-size: 0.8rem; color: var(--text-secondary);">
+                    <ol style="margin-left: 20px; font-size: 0.8rem;">
                         <li>Send the exact amount to the account above</li>
                         <li>Use the <strong>Reference Code</strong> as your transaction narration</li>
                         <li>After sending, click "I Have Made Payment" below</li>
@@ -549,26 +402,21 @@ async function renderWallet() {
                     </ol>
                 </div>
                 
-                <button id="confirmPaymentBtn" class="btn-success" style="width: 100%; padding: 14px; font-size: 1rem;">
-                    ✅ I Have Made Payment
-                </button>
-                <button id="backToStep1Btn" class="btn-outline" style="width: 100%; margin-top: 10px; padding: 10px;">
-                    ← Back to Edit Amount
-                </button>
+                <button id="confirmPaymentBtn" class="btn-success" style="width: 100%; padding: 14px; font-size: 1rem;">✅ I Have Made Payment</button>
+                <button id="backToStep1Btn" class="btn-outline" style="width: 100%; margin-top: 10px; padding: 10px;">← Back to Edit Amount</button>
             </div>
         </div>
         
-        <!-- Step 3: Success Message (Hidden initially) -->
+        <!-- Step 3: Success Message -->
         <div id="step3Container" class="data-table" style="margin-bottom: 1.5rem; display: none;">
             <h3>Step 3: Payment Submitted</h3>
             <div style="padding: 1.5rem; text-align: center;">
                 <i class="fas fa-clock" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i>
                 <h3 style="margin-bottom: 10px;">Payment Request Sent!</h3>
                 <p style="margin-bottom: 10px;">Your payment of <strong id="submittedAmount"></strong> has been submitted.</p>
-                <p style="font-size: 0.85rem; color: var(--text-secondary);">Reference Code: <strong id="submittedCode"></strong></p>
+                <p style="font-size: 0.85rem;">Reference Code: <strong id="submittedCode"></strong></p>
                 <div style="margin-top: 20px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
                     <p style="font-size: 0.85rem;">⏱️ Your wallet will be credited within <strong>1 hour</strong> after bank confirmation.</p>
-                    <p style="font-size: 0.75rem; margin-top: 5px;">You'll receive a notification when your payment is approved.</p>
                 </div>
                 <button id="newPaymentBtn" class="btn-primary" style="margin-top: 20px;">Make Another Payment</button>
             </div>
@@ -578,19 +426,19 @@ async function renderWallet() {
         <div class="data-table">
             <h3>My Payment Requests</h3>
             <div id="pendingRequestsList">
-                ${pendingRequests.length === 0 ? '<p style="padding: 1.5rem; text-align: center;">No pending requests</p>' : `
+                ${payments.length === 0 ? '<p style="padding: 1.5rem; text-align: center;">No payment requests</p>' : `
                     <table style="width: 100%;">
                         <thead>
                             <tr><th>Date</th><th>Amount</th><th>Reference Code</th><th>Status</th><th>Bank</th></tr>
                         </thead>
                         <tbody>
-                            ${pendingRequests.map(req => `
+                            ${payments.map(p => `
                                 <tr>
-                                    <td>${new Date(req.submittedAt).toLocaleDateString()}</td>
-                                    <td>₦${req.amount.toLocaleString()}</td>
-                                    <td><code style="font-size: 0.7rem;">${req.referenceCode}</code></td>
-                                    <td><span class="badge ${req.status === 'pending' ? 'pending' : 'active'}">${req.status}</span></td>
-                                    <td>${req.bank}</td>
+                                    <td>${new Date(p.submitted_at).toLocaleDateString()}</td>
+                                    <td>₦${p.amount.toLocaleString()}</td>
+                                    <td><code style="font-size: 0.7rem;">${p.reference_code}</code></td>
+                                    <td><span class="badge ${p.status === 'pending' ? 'pending' : p.status === 'approved' ? 'active' : 'rejected'}">${p.status}</span></td>
+                                    <td>${p.bank}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -601,19 +449,30 @@ async function renderWallet() {
         
         <div class="data-table" style="margin-top: 1.5rem;">
             <h3>Transaction History</h3>
-            <div id="transactionList"></div>
+            <div id="transactionList">
+                ${transactions.length === 0 ? '<p style="padding: 1.5rem; text-align: center;">No transactions yet</p>' : `
+                    ${transactions.map(t => `
+                        <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color);">
+                            <div>
+                                <div style="font-weight:600;">${t.description}</div>
+                                <div style="font-size:0.75rem;">${new Date(t.created_at).toLocaleString()}</div>
+                            </div>
+                            <div style="color:${t.type === 'credit' ? '#10b981' : '#ef4444'}">
+                                ${t.type === 'credit' ? '+' : '-'}₦${t.amount.toLocaleString()}
+                            </div>
+                        </div>
+                    `).join('')}
+                `}
+            </div>
         </div>
     `;
-    
-    // Display transactions
-    await displayTransactions('transactionList');
     
     // Store current payment data
     let currentPaymentAmount = null;
     let currentPaymentBank = null;
     let currentReferenceCode = null;
     
-    // Setup amount preset buttons
+    // Amount preset buttons
     document.querySelectorAll('.amount-preset').forEach(btn => {
         btn.addEventListener('click', () => {
             const amount = btn.getAttribute('data-amount');
@@ -623,7 +482,7 @@ async function renderWallet() {
         });
     });
     
-    // Generate payment button - Show bank details
+    // Generate payment button
     const generateBtn = document.getElementById('generatePaymentBtn');
     if (generateBtn) {
         generateBtn.addEventListener('click', async () => {
@@ -638,16 +497,12 @@ async function renderWallet() {
             
             currentPaymentAmount = amount;
             currentPaymentBank = bank;
+            currentReferenceCode = `GLM-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
             
-            // Generate unique reference code
-            currentReferenceCode = generateReferenceCode();
-            
-            // Get bank details
             const bankDetails = bank === 'MoniePoint' 
                 ? { bankName: 'MoniePoint Microfinance Bank', accountNumber: '6315085115', accountName: 'Gliimu LTD' }
                 : { bankName: 'Opay', accountNumber: '6142049426', accountName: 'Gliimu LTD' };
             
-            // Display bank details
             document.getElementById('bankDetailsContent').innerHTML = `
                 <div style="text-align: center;">
                     <p style="margin-bottom: 8px;"><strong>🏦 Bank:</strong> ${bankDetails.bankName}</p>
@@ -658,12 +513,9 @@ async function renderWallet() {
             `;
             document.getElementById('referenceCode').textContent = currentReferenceCode;
             
-            // Hide step 1, show step 2
             document.getElementById('step1Container').style.display = 'none';
             document.getElementById('step2Container').style.display = 'block';
             document.getElementById('step3Container').style.display = 'none';
-            
-            // Scroll to step 2
             document.getElementById('step2Container').scrollIntoView({ behavior: 'smooth' });
         });
     }
@@ -678,18 +530,17 @@ async function renderWallet() {
         });
     }
     
-    // Back to step 1 button
+    // Back to step 1
     const backBtn = document.getElementById('backToStep1Btn');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
             document.getElementById('step1Container').style.display = 'block';
             document.getElementById('step2Container').style.display = 'none';
             document.getElementById('step3Container').style.display = 'none';
-            document.getElementById('step1Container').scrollIntoView({ behavior: 'smooth' });
         });
     }
     
-    // Confirm payment button - Submit request
+    // Confirm payment
     const confirmBtn = document.getElementById('confirmPaymentBtn');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', async () => {
@@ -698,44 +549,34 @@ async function renderWallet() {
                 return;
             }
             
-            // Submit payment request
-            const success = await submitPaymentRequestWithCode(currentPaymentAmount, currentPaymentBank, currentReferenceCode);
+            const result = await createPaymentRequest(currentPaymentAmount, currentPaymentBank, currentReferenceCode);
             
-            if (success) {
-                // Show step 3 (success message)
+            if (result.success) {
                 document.getElementById('step1Container').style.display = 'none';
                 document.getElementById('step2Container').style.display = 'none';
                 document.getElementById('step3Container').style.display = 'block';
                 document.getElementById('submittedAmount').textContent = `₦${currentPaymentAmount.toLocaleString()}`;
                 document.getElementById('submittedCode').textContent = currentReferenceCode;
                 
-                // Refresh pending requests
-                setTimeout(() => renderWallet(), 2000);
-                
                 showToast(`Payment request submitted! We'll notify you once confirmed.`, 'success');
+                setTimeout(() => renderWallet(), 2000);
             }
         });
     }
     
-    // New payment button - Reset form
+    // New payment button
     const newPaymentBtn = document.getElementById('newPaymentBtn');
     if (newPaymentBtn) {
         newPaymentBtn.addEventListener('click', () => {
-            // Reset form
             document.getElementById('customAmount').value = '';
             document.querySelectorAll('.amount-preset').forEach(b => b.classList.remove('active'));
             document.getElementById('bankSelect').value = 'MoniePoint';
-            
-            // Reset to step 1
             document.getElementById('step1Container').style.display = 'block';
             document.getElementById('step2Container').style.display = 'none';
             document.getElementById('step3Container').style.display = 'none';
-            
             currentPaymentAmount = null;
             currentPaymentBank = null;
             currentReferenceCode = null;
-            
-            document.getElementById('step1Container').scrollIntoView({ behavior: 'smooth' });
         });
     }
     
@@ -746,42 +587,8 @@ async function renderWallet() {
     }
 }
 
-async function submitPaymentRequestWithCode(amount, bank, referenceCode) {
-    const user = getCurrentUser();
-    if (!user) {
-        showToast('Please login first', 'error');
-        return false;
-    }
-    
-    const paymentRequest = {
-        id: `pay_${Date.now()}`,
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
-        amount: amount,
-        bank: bank,
-        referenceCode: referenceCode,
-        status: 'pending',
-        submittedAt: new Date().toISOString(),
-        approvedAt: null,
-        adminNotes: null
-    };
-    
-    try {
-        let pendingRequests = JSON.parse(localStorage.getItem('glimu_pending_payments') || '[]');
-        pendingRequests.push(paymentRequest);
-        localStorage.setItem('glimu_pending_payments', JSON.stringify(pendingRequests));
-        showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
-        return true;
-    } catch (error) {
-        console.error('Submit payment error:', error);
-        showToast('Failed to submit payment request', 'error');
-        return false;
-    }
-}
-
 // ============================================
-// LIBRARY TAB
+// LIBRARY TAB WITH SUPABASE
 // ============================================
 
 async function renderLibraryTab() {
@@ -801,8 +608,10 @@ async function renderLibraryTab() {
         const data = await response.json();
         allMaterials = data.materials || [];
         
-        const savedItems = JSON.parse(localStorage.getItem('savedLibraryItems') || '[]');
-        const recentlyViewed = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
+        const savedItemsData = await getSavedItems();
+        const savedItems = savedItemsData.map(s => s.item_id);
+        const recentlyViewedData = await getRecentlyViewed();
+        const recentlyViewed = recentlyViewedData.map(r => r.item_id);
         
         const savedMaterials = allMaterials.filter(m => savedItems.includes(m.id));
         const recentMaterials = allMaterials.filter(m => recentlyViewed.includes(m.id)).slice(0, 6);
@@ -903,11 +712,11 @@ function renderSettings() {
             <form id="settingsForm">
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem;">Full Name</label>
-                    <input type="text" id="fullNameInput" value="${currentUser.name}" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
+                    <input type="text" id="fullNameInput" value="${currentUser?.name || ''}" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
                 </div>
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem;">Email</label>
-                    <input type="email" id="emailInput" value="${currentUser.email}" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
+                    <input type="email" id="emailInput" value="${currentUser?.email || ''}" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary);">
                 </div>
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem;">Theme Preference</label>
@@ -931,15 +740,21 @@ function renderSettings() {
         localStorage.setItem('theme', newTheme);
     });
     
-    document.getElementById('settingsForm')?.addEventListener('submit', (e) => {
+    document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newName = document.getElementById('fullNameInput').value;
         const newEmail = document.getElementById('emailInput').value;
-        currentUser.name = newName;
-        currentUser.email = newEmail;
-        localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-        document.getElementById('userName').textContent = newName;
-        showToast('Settings saved successfully!', 'success');
+        
+        const updated = await updateUserProfile({ name: newName, email: newEmail });
+        if (updated) {
+            currentUser.name = newName;
+            currentUser.email = newEmail;
+            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+            document.getElementById('userName').textContent = newName;
+            showToast('Settings saved successfully!', 'success');
+        } else {
+            showToast('Failed to save settings', 'error');
+        }
     });
 }
 
@@ -955,10 +770,7 @@ function renderStudents() {
         <div class="data-table">
             <table style="width: 100%;">
                 <thead><tr><th>Name</th><th>Course</th><th>Progress</th></tr></thead>
-                <tbody>
-                    <tr><td>Alice Johnson</td><td>Video Production</td><td>75%</td></tr>
-                    <tr><td>Bob Williams</td><td>UI/UX Design</td><td>45%</td></tr>
-                </tbody>
+                <tbody><tr><td>No students yet</td><td>-</td><td>-</td></tr></tbody>
             </table>
         </div>
     `;
@@ -996,131 +808,4 @@ function escapeHtml(text) {
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function closeModal() {
-    document.querySelectorAll('.modal.active').forEach(modal => {
-        modal.classList.remove('active');
-    });
-    document.body.style.overflow = '';
-}
-
-function openViewModal(item) {
-    const modal = document.getElementById('viewBookModal');
-    if (!modal) return;
-    
-    document.getElementById('viewBookTitle').textContent = item.title;
-    document.getElementById('viewBookImage').src = item.image;
-    document.getElementById('viewBookDescription').textContent = item.description || 'No description available.';
-    
-    document.getElementById('readBookBtn').onclick = () => {
-        window.location.href = `/library.html?id=${item.id}`;
-    };
-    
-    modal.classList.add('active');
-}
-
-// ============================================
-// CREATE CONTENT SECTIONS
-// ============================================
-
-function createContentSections() {
-    const dashboardContent = document.getElementById('dashboardContent');
-    if (!dashboardContent) return;
-    
-    const tabs = roleTabs[currentRole] || roleTabs.other;
-    
-    dashboardContent.innerHTML = tabs.map(tab => `
-        <div id="${tab.id}-section" class="dashboard-section ${tab.id === 'dashboard' ? 'active' : ''}">
-            <!-- Content will be loaded dynamically -->
-        </div>
-    `).join('');
-}
-
-// ============================================
-// MODAL SETUP
-// ============================================
-
-function setupModals() {
-    const closeButtons = ['closeUpgradeModal', 'closeAddFundsModal', 'closeViewBookModal', 'closeViewBookFooterBtn'];
-    closeButtons.forEach(btnId => {
-        const btn = document.getElementById(btnId);
-        if (btn) btn.onclick = closeModal;
-    });
-    
-    ['upgradeModal', 'addFundsModal', 'viewBookModal'].forEach(modalId => {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.onclick = (e) => {
-                if (e.target === modal) closeModal();
-            };
-        }
-    });
-    
-    document.querySelectorAll('.select-plan-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const planCard = btn.closest('.plan-card');
-            const plan = planCard.getAttribute('data-plan');
-            showToast(`Upgrading to ${plan.toUpperCase()} plan. Payment will be processed.`, 'info');
-            closeModal();
-        });
-    });
-}
-
-// ============================================
-// MOBILE SIDEBAR
-// ============================================
-
-function setupMobileSidebar() {
-    const toggleBtn = document.getElementById('mobileMenuToggle');
-    const sidebar = document.getElementById('dashboardSidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    
-    if (toggleBtn && sidebar && overlay) {
-        toggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('mobile-open');
-            overlay.classList.toggle('active');
-        });
-        
-        overlay.addEventListener('click', () => {
-            sidebar.classList.remove('mobile-open');
-            overlay.classList.remove('active');
-        });
-    }
-}
-
-// ============================================
-// INITIALIZE DASHBOARD
-// ============================================
-
-async function initDashboard() {
-    console.log('Initializing dashboard...');
-    
-    loadUserData();
-    initTheme();
-    createContentSections();
-    buildSidebar();
-    setupModals();
-    setupMobileSidebar();
-    
-    const themeToggleBtn = document.getElementById('themeToggle');
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', toggleTheme);
-    }
-    
-    // Load initial dashboard
-    await renderDashboard();
-    
-    console.log('Dashboard initialized');
-}
-
-// Start the dashboard
-document.addEventListener('DOMContentLoaded', initDashboard);
-
-// Make functions global for onclick handlers
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.showToast = showToast;
+        modal.classList
