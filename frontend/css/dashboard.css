@@ -839,3 +839,137 @@ body.dark-mode #customAmount {
     font-weight: 500;
     text-align: center;
 }
+
+/* Purchase Section Styles */
+.purchase-section {
+    margin-bottom: 2rem;
+}
+
+.purchase-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.purchase-card.premium {
+    border-left: 4px solid #fbb040;
+}
+
+.purchase-card.standard {
+    border-left: 4px solid #64748b;
+}
+
+.purchase-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.purchase-info h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.purchase-info .price {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #fbb040;
+    margin: 0.5rem 0;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-warning {
+    background: #fbb040;
+    color: #1a1c4a;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.platform-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.platform-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.btn-small {
+    background: #fbb040;
+    color: #1a1c4a;
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.current-access {
+    margin-bottom: 2rem;
+}
+
+.access-badges {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.access-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.access-badge.active {
+    background: #10b981;
+    color: white;
+}
+
+.access-badge.inactive {
+    background: #ef4444;
+    color: white;
+}
+
+.transactions-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transaction-amount.positive {
+    color: #10b981;
+}
+
+.transaction-amount.negative {
+    color: #ef4444;
+}
+
+.transaction-date {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
