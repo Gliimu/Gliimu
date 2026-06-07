@@ -19,8 +19,8 @@
     <!-- Application Hero -->
     <section class="application-hero">
         <div class="container">
-            <h1>Start Your Journey</h1>
-            <p>Apply now to become a Media Architect. No upfront payment required.</p>
+            <h1>Join Gliimu Institute</h1>
+            <p>Start your journey to become a Media Architect</p>
         </div>
     </section>
 
@@ -28,143 +28,94 @@
     <section class="application-section">
         <div class="container">
             <div class="application-card">
-                <div class="application-progress">
-                    <div class="progress-step active" data-step="1">
-                        <div class="step-number">1</div>
-                        <div class="step-label">Personal Info</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="2">
-                        <div class="step-number">2</div>
-                        <div class="step-label">Contact & Education</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="3">
-                        <div class="step-number">3</div>
-                        <div class="step-label">Course & Submit</div>
+                <!-- Privacy Notice -->
+                <div class="privacy-notice">
+                    <i class="fas fa-shield-alt"></i>
+                    <div>
+                        <strong>We value your privacy.</strong> We only collect what's necessary to create your account and verify your identity. No unnecessary personal data.
                     </div>
                 </div>
 
                 <form id="applicationForm">
-                    <!-- Step 1: Personal Information -->
+                    <!-- Basic Information -->
                     <div class="form-step active" data-step="1">
-                        <h2>Personal Information</h2>
+                        <h2>Create Your Account</h2>
                         
                         <div class="form-group">
                             <label for="fullName">Full Name *</label>
-                            <input type="text" id="fullName" name="fullName" required placeholder="Enter your full name">
+                            <input type="text" id="fullName" name="fullName" required placeholder="e.g., John Doe">
+                            <small>We'll generate your username from this name</small>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="dateOfBirth">Date of Birth *</label>
-                                <input type="date" id="dateOfBirth" name="dateOfBirth" required>
+                                <label for="birthDay">Birth Day *</label>
+                                <select id="birthDay" required>
+                                    <option value="">Day</option>
+                                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                                    <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                                    <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+                                    <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+                                    <option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                                    <option value="16">16</option><option value="17">17</option><option value="18">18</option>
+                                    <option value="19">19</option><option value="20">20</option><option value="21">21</option>
+                                    <option value="22">22</option><option value="23">23</option><option value="24">24</option>
+                                    <option value="25">25</option><option value="26">26</option><option value="27">27</option>
+                                    <option value="28">28</option><option value="29">29</option><option value="30">30</option>
+                                    <option value="31">31</option>
+                                </select>
                             </div>
                             <div class="form-group">
-                                <label for="gender">Gender *</label>
-                                <select id="gender" name="gender" required>
-                                    <option value="">Select gender</option>
-                                    <option value="male">Male</option>
-                                    <option value="female">Female</option>
-                                    <option value="other">Other</option>
+                                <label for="birthMonth">Birth Month *</label>
+                                <select id="birthMonth" required>
+                                    <option value="">Month</option>
+                                    <option value="1">January</option><option value="2">February</option>
+                                    <option value="3">March</option><option value="4">April</option>
+                                    <option value="5">May</option><option value="6">June</option>
+                                    <option value="7">July</option><option value="8">August</option>
+                                    <option value="9">September</option><option value="10">October</option>
+                                    <option value="11">November</option><option value="12">December</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label for="address">Address *</label>
-                            <input type="text" id="address" name="address" required placeholder="Street address">
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="city">City *</label>
-                                <input type="text" id="city" name="city" required placeholder="City">
-                            </div>
-                            <div class="form-group">
-                                <label for="state">State *</label>
-                                <input type="text" id="state" name="state" required placeholder="State">
-                            </div>
-                        </div>
-
-                        <div class="form-buttons">
-                            <button type="button" class="btn-next">Continue <i class="fas fa-arrow-right"></i></button>
-                        </div>
-                    </div>
-
-                    <!-- Step 2: Contact & Education -->
-                    <div class="form-step" data-step="2">
-                        <h2>Contact & Education</h2>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="phone">Phone Number *</label>
-                                <input type="tel" id="phone" name="phone" required placeholder="e.g., 08012345678">
-                            </div>
-                            <div class="form-group">
-                                <label for="email">Email Address *</label>
-                                <input type="email" id="email" name="email" required placeholder="you@example.com">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="educationLevel">Highest Education Level *</label>
-                            <select id="educationLevel" name="educationLevel" required>
-                                <option value="">Select education level</option>
-                                <option value="ssce">SSCE / WAEC / NECO</option>
-                                <option value="ond">OND / NCE</option>
-                                <option value="bsc">BSc / HND</option>
-                                <option value="masters">Master's Degree</option>
-                                <option value="phd">PhD</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group" id="institutionGroup" style="display: none;">
-                            <label for="institution">Institution Name</label>
-                            <input type="text" id="institution" name="institution" placeholder="School/University name">
-                        </div>
-
-                        <div class="form-buttons">
-                            <button type="button" class="btn-prev"><i class="fas fa-arrow-left"></i> Back</button>
-                            <button type="button" class="btn-next">Continue <i class="fas fa-arrow-right"></i></button>
-                        </div>
-                    </div>
-
-                    <!-- Step 3: Course Selection & Submit -->
-                    <div class="form-step" data-step="3">
-                        <h2>Course & Submit</h2>
-
-                        <div class="form-group">
-                            <label for="courseOfInterest">Course of Interest *</label>
-                            <select id="courseOfInterest" name="courseOfInterest" required>
-                                <option value="">Select a course</option>
-                                <option value="Full-Stack Media Production (Video + Design + Code)">Full-Stack Media Production (Video + Design + Code)</option>
-                                <option value="Video Production & Motion Graphics">Video Production & Motion Graphics</option>
-                                <option value="UI/UX Design & Branding">UI/UX Design & Branding</option>
-                                <option value="Web Development & Programming">Web Development & Programming</option>
+                            <label for="role">I want to join as *</label>
+                            <select id="role" required>
+                                <option value="">Select your role</option>
+                                <option value="student">Student (Learn & Build)</option>
+                                <option value="instructor">Instructor (Teach & Mentor)</option>
+                                <option value="partner">Partner (Collaborate)</option>
+                                <option value="other">Other (Explore)</option>
                             </select>
                         </div>
 
                         <div class="form-group">
-                            <label for="heardFrom">How did you hear about us?</label>
-                            <select id="heardFrom" name="heardFrom">
-                                <option value="">Select an option</option>
-                                <option value="social_media">Social Media</option>
-                                <option value="friend">Friend/Family</option>
-                                <option value="advertisement">Advertisement</option>
-                                <option value="search_engine">Search Engine</option>
-                                <option value="other">Other</option>
-                            </select>
+                            <label for="password">Create Password *</label>
+                            <input type="password" id="password" required placeholder="At least 8 characters">
+                            <small>Use a strong password you'll remember</small>
                         </div>
 
-                        <div class="form-note">
-                            <i class="fas fa-info-circle"></i>
-                            <p>By submitting this application, you agree to our terms and conditions. No upfront payment required. You'll receive a passkey after submission.</p>
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm Password *</label>
+                            <input type="password" id="confirmPassword" required placeholder="Re-enter your password">
+                        </div>
+
+                        <div class="important-notice">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>
+                                <strong>IMPORTANT:</strong> After submission, you'll receive a downloadable PDF with your:
+                                <ul>
+                                    <li>Username</li>
+                                    <li>Recovery Phrase</li>
+                                    <li>Account Information</li>
+                                </ul>
+                                <strong>Save this file!</strong> You'll need it to recover your account if you forget your details.
+                            </div>
                         </div>
 
                         <div class="form-buttons">
-                            <button type="button" class="btn-prev"><i class="fas fa-arrow-left"></i> Back</button>
-                            <button type="submit" class="btn-submit">Submit Application <i class="fas fa-paper-plane"></i></button>
+                            <button type="submit" class="btn-submit">Create Account <i class="fas fa-arrow-right"></i></button>
                         </div>
                     </div>
                 </form>
@@ -174,29 +125,51 @@
             <div id="successModal" class="modal">
                 <div class="modal-content success-modal">
                     <div class="modal-header">
-                        <h2>Application Submitted!</h2>
+                        <h2>Account Created Successfully!</h2>
                         <button class="modal-close" id="closeSuccessModal">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="success-icon">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <h3>Your Passkey</h3>
-                        <div class="passkey-display" id="passkeyDisplay"></div>
-                        <p class="passkey-note">Save this passkey. You'll need it to access your application status and dashboard.</p>
-                        <button class="btn-copy" id="copyPasskeyBtn">
-                            <i class="fas fa-copy"></i> Copy Passkey
-                        </button>
+                        
+                        <div class="credentials-box">
+                            <h3>Your Account Credentials</h3>
+                            <div class="credential-row">
+                                <span class="credential-label">Username:</span>
+                                <span class="credential-value" id="displayUsername"></span>
+                            </div>
+                            <div class="credential-row">
+                                <span class="credential-label">Recovery Phrase:</span>
+                                <span class="credential-value recovery-phrase" id="displayRecoveryPhrase"></span>
+                            </div>
+                            <div class="credential-row">
+                                <span class="credential-label">Password:</span>
+                                <span class="credential-value" id="displayPassword"></span>
+                            </div>
+                        </div>
+
+                        <div class="warning-box">
+                            <i class="fas fa-download"></i>
+                            <p><strong>Download your credentials now!</strong><br>
+                            This information will not be shown again. Save this PDF to recover your account if you forget your details.</p>
+                            <button id="downloadPdfBtn" class="btn-download">
+                                <i class="fas fa-file-pdf"></i> Download Credentials (PDF)
+                            </button>
+                        </div>
+
                         <div class="next-steps">
                             <h4>What's Next?</h4>
                             <ol>
-                                <li>Check your email for confirmation</li>
-                                <li>Our team will review your application</li>
-                                <li>You'll receive login credentials within 24-48 hours</li>
-                                <li>Use your passkey to track application status</li>
+                                <li>Download and save your credentials PDF</li>
+                                <li>Use your username and password to sign in</li>
+                                <li>Keep your recovery phrase safe - it's the only way to reset your password</li>
+                                <li>You'll receive a confirmation email shortly</li>
                             </ol>
                         </div>
-                        <a href="index.html" class="btn-primary">Return to Home</a>
+                        
+                        <a href="index.html" class="btn-primary">Go to Homepage</a>
+                        <a href="dashboard.html" class="btn-outline" style="margin-top: 10px;">Go to Dashboard</a>
                     </div>
                 </div>
             </div>
@@ -208,6 +181,10 @@
 
     <!-- Login Modal Placeholder -->
     <div id="login-modal-placeholder"></div>
+
+    <!-- Libraries for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script src="js/pages/header.js" type="module"></script>
     <script src="js/pages/application.js" type="module"></script>
