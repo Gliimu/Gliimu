@@ -8,6 +8,51 @@
     <link rel="stylesheet" href="/css/admin-dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Additional inline styles for admin dashboard */
+        .modal-btn-danger {
+            background: var(--danger, #ef4444);
+            color: white;
+            border: none;
+        }
+        
+        .modal-btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .payment-status.rejected {
+            background: rgba(100, 116, 139, 0.15);
+            color: #64748b;
+        }
+        
+        body.dark-mode .payment-status.rejected {
+            background: rgba(100, 116, 139, 0.2);
+            color: #94a3b8;
+        }
+        
+        .payment-status.approved {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+        
+        .payment-status.pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+        
+        .btn-reject {
+            background: #64748b;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .btn-reject:hover {
+            background: #475569;
+        }
+    </style>
 </head>
 <body>
 
@@ -36,6 +81,12 @@
                 <div class="nav-item" data-tab="approved">
                     <i class="fas fa-check-circle"></i>
                     <span>Approved</span>
+                    <span class="badge" id="approvedCount">0</span>
+                </div>
+                <div class="nav-item" data-tab="rejected">
+                    <i class="fas fa-times-circle"></i>
+                    <span>Rejected</span>
+                    <span class="badge" id="rejectedCount">0</span>
                 </div>
                 <div class="nav-item" data-tab="search">
                     <i class="fas fa-search"></i>
@@ -49,8 +100,9 @@
             <div class="admin-topbar">
                 <h2>Payment Verification Dashboard</h2>
                 <div class="admin-stats">
-                    <div class="stat">Total Pending: <strong id="totalPending">0</strong></div>
-                    <div class="stat">Total Approved: <strong id="totalApproved">0</strong></div>
+                    <div class="stat">Pending: <strong id="totalPending">0</strong></div>
+                    <div class="stat">Approved: <strong id="totalApproved">0</strong></div>
+                    <div class="stat">Rejected: <strong id="totalRejected">0</strong></div>
                 </div>
             </div>
 
@@ -72,10 +124,17 @@
                 </div>
             </div>
 
+            <!-- Rejected Tab -->
+            <div id="rejectedTab" class="admin-tab">
+                <div class="payments-list" id="rejectedList">
+                    <div class="loading">Loading rejected payments...</div>
+                </div>
+            </div>
+
             <!-- Search Tab -->
             <div id="searchTab" class="admin-tab">
                 <div class="search-bar">
-                    <input type="text" id="searchCodeInput" placeholder="Enter reference code (e.g., GLM-xxx-xxx)">
+                    <input type="text" id="searchCodeInput" placeholder="Enter reference code (e.g., GLM-userId-1234)">
                     <button id="searchCodeBtn" class="btn-primary">Search</button>
                 </div>
                 <div id="searchResult" class="payment-card" style="display: none;"></div>
@@ -83,31 +142,31 @@
         </main>
     </div>
 
-    <!-- Approval Modal -->
+    <!-- Unified Approval/Rejection Modal -->
     <div id="approvalModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Verify Payment</h2>
+                <h2 id="approveRejectModalTitle">Verify Payment</h2>
                 <button class="modal-close" id="closeModal">&times;</button>
             </div>
             <div class="modal-body">
                 <div id="modalPaymentInfo"></div>
                 <div class="form-group">
-                    <label>Enter Narration Code from Bank Alert</label>
-                    <input type="text" id="narrationCode" placeholder="e.g., GLM-user123-1234567890-1234">
+                    <label for="narrationCode">Enter Narration Code from Bank Alert</label>
+                    <input type="text" id="narrationCode" placeholder="e.g., GLM-user123-4567">
                 </div>
                 <div class="form-group">
-                    <label>Amount Received (₦)</label>
+                    <label for="receivedAmount">Amount Received (₦)</label>
                     <input type="number" id="receivedAmount" placeholder="Enter amount from bank alert">
                 </div>
                 <div class="form-group">
-                    <label>Admin Notes (Optional)</label>
-                    <textarea id="adminNotes" rows="2" placeholder="Add any notes about this approval"></textarea>
+                    <label for="adminNotes">Admin Notes</label>
+                    <textarea id="adminNotes" rows="2" placeholder="Add any notes about this approval..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn modal-btn-secondary" id="rejectBtn">Reject</button>
-                <button class="modal-btn modal-btn-primary" id="approveBtn">Approve Payment</button>
+                <button class="modal-btn modal-btn-secondary" id="cancelModalBtn">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="approveRejectAction">Approve Payment</button>
             </div>
         </div>
     </div>
