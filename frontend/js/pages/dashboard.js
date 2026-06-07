@@ -1,6 +1,6 @@
 // ============================================
 // GLIIMU DASHBOARD - COMPLETE VERSION
-// With Premium/Standard purchase system
+// With Premium/Standard purchase system & Real-time updates
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -14,6 +14,7 @@ import {
     getTransactionHistory,
     getPurchaseHistory,
     isPremium,
+    subscribeToWalletUpdates,
     PRICING
 } from '../modules/wallet.js';
 
@@ -29,6 +30,7 @@ let userStats = null;
 let savedItems = [];
 let recentlyViewed = [];
 let currentWalletBalance = 0;
+let walletSubscription = null;
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -66,40 +68,6 @@ async function checkAuth() {
     }, 1500);
     
     return false;
-}
-
-// ============================================
-// REAL-TIME WALLET UPDATES
-// ============================================
-let walletSubscription = null;
-
-function setupRealtimeWallet() {
-    if (!currentUser?.id) return;
-    
-    // Clean up existing subscription
-    if (walletSubscription) {
-        walletSubscription.unsubscribe();
-    }
-    
-    walletSubscription = subscribeToWalletUpdates(currentUser.id, (newBalance) => {
-        console.log('Wallet balance updated:', newBalance);
-        currentUser.walletBalance = newBalance;
-        currentWalletBalance = newBalance;
-        
-        // Update UI if wallet tab is active
-        if (currentTab === 'wallet') {
-            renderWallet();
-        }
-        if (currentTab === 'dashboard') {
-            // Update balance display on dashboard
-            const balanceElement = document.querySelector('.stat-card .stat-value');
-            if (balanceElement && balanceElement.closest('.stat-card')?.querySelector('h3')?.textContent === 'Wallet Balance') {
-                balanceElement.textContent = `₦${newBalance.toLocaleString()}`;
-            }
-        }
-        
-        showToast(`Wallet updated: ₦${newBalance.toLocaleString()}`, 'info');
-    });
 }
 
 // ============================================
@@ -174,6 +142,38 @@ async function loadUserFromSupabase(userId) {
     } catch (error) {
         console.error('Error loading user from Supabase:', error);
     }
+}
+
+// ============================================
+// REAL-TIME WALLET UPDATES
+// ============================================
+function setupRealtimeWallet() {
+    if (!currentUser?.id) return;
+    
+    // Clean up existing subscription
+    if (walletSubscription) {
+        walletSubscription.unsubscribe();
+    }
+    
+    walletSubscription = subscribeToWalletUpdates(currentUser.id, (newBalance) => {
+        console.log('Wallet balance updated:', newBalance);
+        currentUser.walletBalance = newBalance;
+        currentWalletBalance = newBalance;
+        
+        // Update UI if wallet tab is active
+        if (currentTab === 'wallet') {
+            renderWallet();
+        }
+        if (currentTab === 'dashboard') {
+            // Update balance display on dashboard
+            const balanceElement = document.querySelector('.stat-card .stat-value');
+            if (balanceElement && balanceElement.closest('.stat-card')?.querySelector('h3')?.textContent === 'Wallet Balance') {
+                balanceElement.textContent = `₦${newBalance.toLocaleString()}`;
+            }
+        }
+        
+        showToast(`Wallet updated: ₦${newBalance.toLocaleString()}`, 'info');
+    });
 }
 
 // ============================================
@@ -670,7 +670,7 @@ async function renderWallet() {
                 ${transactions.length === 0 ? '<p>No transactions yet</p>' : 
                     transactions.map(t => `
                         <div class="transaction-item">
-                            <div class="transaction-desc">${t.description}</div>
+                            <div class="transaction-desc">${escapeHtml(t.description)}</div>
                             <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
                                 ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
                             </div>
@@ -874,6 +874,9 @@ async function initDashboard() {
     createContentSections();
     buildSidebar();
     await renderDashboard();
+    
+    // Set up real-time wallet updates
+    setupRealtimeWallet();
     
     console.log('Dashboard initialized successfully');
 }
