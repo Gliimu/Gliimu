@@ -1,24 +1,90 @@
-<div class="modal-overlay" id="loginModal">
-  <div class="login-card">
-    <button class="close-btn" id="closeLoginBtn"><i class="fas fa-times"></i></button>
-    <div class="login-header">
-      <h2>Sign In</h2>
-      <p style="font-size:0.9rem; color:var(--text-muted);">Access your Dashboard</p>
+<!-- Login Modal -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Welcome Back</h2>
+            <button class="modal-close" id="closeLoginModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Login Form -->
+            <div id="loginFormContainer">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Sign In</button>
+                </form>
+                <p class="text-center" style="margin-top: 1rem;">
+                    Don't have an account? 
+                    <a href="#" id="showSignupBtn" style="color: var(--accent);">Sign Up</a>
+                </p>
+            </div>
+            
+            <!-- Signup Form (Hidden initially) -->
+            <div id="signupFormContainer" style="display: none;">
+                <form id="signupForm">
+                    <div class="form-group">
+                        <label for="signupName">Full Name</label>
+                        <input type="text" id="signupName" required placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPassword">Password</label>
+                        <input type="password" id="signupPassword" required placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupConfirmPassword">Confirm Password</label>
+                        <input type="password" id="signupConfirmPassword" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Create Account</button>
+                </form>
+                <p class="text-center" style="margin-top: 1rem;">
+                    Already have an account? 
+                    <a href="#" id="showLoginBtn" style="color: var(--accent);">Sign In</a>
+                </p>
+            </div>
+        </div>
     </div>
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="loginUsername">Email or Username</label>
-        <input type="text" id="loginUsername" class="input-field" placeholder="e.g. you@mail.com" required>
-      </div>
-      <div class="form-group">
-        <label for="loginPassword">PassCode</label>
-        <input type="password" id="loginPassword" class="input-field" placeholder="•••••••" required>
-      </div>
-      <button type="submit" class="submit-btn">Sign In</button>
-      <div class="login-links">
-        <p>I need technical <a href="contact.html">Support</a></p>
-        <p style="margin-top:8px;"><a href="application.html">Apply Now</a></p>
-      </div>
-    </form>
-  </div>
 </div>
+
+<style>
+    .text-center {
+        text-align: center;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.9rem;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+</style>
