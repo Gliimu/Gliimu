@@ -118,9 +118,79 @@
         </div>
     </div>
 
+    <!-- PDF Modal -->
+    <div id="pdfModal" class="modal">
+        <div class="modal-content success-modal">
+            <div class="modal-header">
+                <h2>Account Created Successfully!</h2>
+                <button class="modal-close" id="closePdfModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                
+                <div class="credentials-box">
+                    <h3>Your Account Credentials</h3>
+                    <div class="credential-row">
+                        <span class="credential-label">Username:</span>
+                        <span class="credential-value" id="displayUsername"></span>
+                    </div>
+                    <div class="credential-row">
+                        <span class="credential-label">Recovery Phrase:</span>
+                        <span class="credential-value recovery-phrase" id="displayRecoveryPhrase"></span>
+                    </div>
+                    <div class="credential-row">
+                        <span class="credential-label">Password:</span>
+                        <span class="credential-value" id="displayPassword"></span>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    <i class="fas fa-download"></i>
+                    <p><strong>Download your credentials now!</strong><br>
+                    This information will not be shown again. Save this PDF to recover your account.</p>
+                    <button id="downloadPdfBtn" class="btn-download">
+                        <i class="fas fa-file-pdf"></i> Download Credentials (PDF)
+                    </button>
+                </div>
+
+                <div class="next-steps">
+                    <h4>What's Next?</h4>
+                    <ol>
+                        <li>Download and save your credentials PDF</li>
+                        <li>Use your username and password to sign in</li>
+                        <li>Keep your recovery phrase safe</li>
+                        <li>You'll be redirected to your dashboard</li>
+                    </ol>
+                </div>
+                
+                <button id="goToDashboardBtn" class="btn-primary">Go to Dashboard →</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
+    <!-- Libraries for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <script type="module" src="/js/pages/auth.js"></script>
+    
+    <!-- Theme Initialization -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else if (savedTheme === 'light') {
+                document.body.classList.remove('dark-mode');
+            } else {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+            }
+        })();
+    </script>
 </body>
 </html>
