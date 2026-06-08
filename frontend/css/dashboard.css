@@ -999,3 +999,450 @@ body.dark-mode #customAmount {
 .purchase-icon {
     font-size: 1.8rem;
 }
+
+
+/* =========================================
+   SIMPLIFIED DASHBOARD STYLES
+   MVP Section, Leaderboard, Go-To Menu, Wallet
+   ========================================= */
+
+/* MVP Section */
+.mvp-section, .mvp-locked-section {
+    background: linear-gradient(135deg, var(--brand-purple) 0%, #1a1c4a 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: white;
+}
+
+.mvp-header, .mvp-locked-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.mvp-header i, .mvp-locked-header i {
+    font-size: 1.5rem;
+}
+
+.mvp-section p, .mvp-locked-section p {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+}
+
+/* Leaderboard Section */
+.leaderboard-section {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.leaderboard-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.leaderboard-header i {
+    font-size: 1.2rem;
+    color: var(--accent);
+}
+
+.leaderboard-header h3 {
+    flex: 1;
+    margin: 0;
+    font-size: 1rem;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0.25rem;
+}
+
+.btn-icon:hover {
+    color: var(--accent);
+}
+
+/* Go-To Menu Grid */
+.go-to-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.go-to-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.go-to-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.go-to-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: var(--accent);
+}
+
+.go-to-info {
+    flex: 1;
+}
+
+.go-to-info h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.go-to-info p {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.go-to-arrow {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+/* Wallet Balance Card */
+.wallet-balance-card {
+    background: linear-gradient(135deg, #1a1c4a 0%, #2c2f78 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    color: white;
+}
+
+.wallet-balance-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.wallet-balance-info {
+    flex: 1;
+}
+
+.wallet-label {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    display: block;
+}
+
+.wallet-balance-large {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+/* Transactions Section */
+.transactions-section, .payments-section, .plans-section {
+    margin-bottom: 1.5rem;
+}
+
+.transactions-section h3, .payments-section h3, .plans-section h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transactions-list {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.transaction-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transaction-item:last-child {
+    border-bottom: none;
+}
+
+.transaction-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.transaction-icon.credit {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.transaction-icon.debit {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.transaction-info {
+    flex: 1;
+}
+
+.transaction-desc {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.transaction-date {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.transaction-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.transaction-amount.positive {
+    color: #10b981;
+}
+
+.transaction-amount.negative {
+    color: #ef4444;
+}
+
+/* Payment Items */
+.payment-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.payment-item.pending {
+    border-left: 4px solid #f59e0b;
+}
+
+.payment-item.approved {
+    border-left: 4px solid #10b981;
+}
+
+.payment-item.cancelled {
+    border-left: 4px solid #ef4444;
+}
+
+.payment-amount {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.payment-date, .payment-ref {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.payment-status-badge {
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.payment-status-badge.pending {
+    background: #f59e0b20;
+    color: #f59e0b;
+}
+
+.payment-status-badge.approved {
+    background: #10b98120;
+    color: #10b981;
+}
+
+.payment-status-badge.cancelled {
+    background: #ef444420;
+    color: #ef4444;
+}
+
+.empty-transactions, .empty-payments {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text-secondary);
+}
+
+/* Plans Grid */
+.plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.plan-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    position: relative;
+    transition: transform 0.2s;
+}
+
+.plan-card:hover {
+    transform: translateY(-2px);
+}
+
+.plan-card.basic {
+    border-top: 4px solid #10b981;
+}
+
+.plan-card.standard {
+    border-top: 4px solid #3b82f6;
+}
+
+.plan-card.premium {
+    border-top: 4px solid var(--accent);
+}
+
+.plan-badge {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    background: var(--accent);
+    color: var(--brand-purple);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.plan-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.plan-card h4 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.plan-price {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.plan-price span {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.plan-features {
+    list-style: none;
+    margin-bottom: 1rem;
+}
+
+.plan-features li {
+    padding: 0.25rem 0;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+/* Portfolio Settings */
+.portfolio-settings p {
+    font-size: 0.8rem;
+    margin-bottom: 0.75rem;
+}
+
+.portfolio-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.portfolio-url-display {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.portfolio-url-display input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    font-size: 0.7rem;
+}
+
+/* Sign Out Button */
+.btn-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .go-to-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .wallet-balance-card {
+        flex-wrap: wrap;
+        text-align: center;
+        justify-content: center;
+    }
+    
+    .plans-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .payment-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+}
