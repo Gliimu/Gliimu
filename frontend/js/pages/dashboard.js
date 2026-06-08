@@ -182,7 +182,7 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
         allPayments = paymentsCache;
         pendingPayments = allPayments.filter(p => p.status === 'pending');
         approvedPayments = allPayments.filter(p => p.status === 'approved');
-        cancelledPayments = allPayments.filter(p => p.status === 'cancelled');
+        cancelledPayments = allPayments.filter(p => p.status === 'rejected');
         return;
     }
     
@@ -199,7 +199,7 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
             allPayments = data;
             pendingPayments = allPayments.filter(p => p.status === 'pending');
             approvedPayments = allPayments.filter(p => p.status === 'approved');
-            cancelledPayments = allPayments.filter(p => p.status === 'cancelled');
+            cancelledPayments = allPayments.filter(p => p.status === 'rejected');
             return;
         }
     } catch (e) {
@@ -217,7 +217,7 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
     
     pendingPayments = allPayments.filter(p => p.status === 'pending');
     approvedPayments = allPayments.filter(p => p.status === 'approved');
-    cancelledPayments = allPayments.filter(p => p.status === 'cancelled');
+    cancelledPayments = allPayments.filter(p => p.status === 'rejected');
 }
 
 async function savePaymentToStorage(payment) {
@@ -227,7 +227,7 @@ async function savePaymentToStorage(payment) {
     
     pendingPayments = allPayments.filter(p => p.status === 'pending');
     approvedPayments = allPayments.filter(p => p.status === 'approved');
-    cancelledPayments = allPayments.filter(p => p.status === 'cancelled');
+    cancelledPayments = allPayments.filter(p => p.status === 'rejected');
     
     try {
         supabase
@@ -801,7 +801,7 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// WALLET TAB - WITH SCROLLABLE FILTERS
+// WALLET TAB - WITHOUT RECENT TRANSACTIONS
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
@@ -814,9 +814,6 @@ async function renderWallet() {
         
         const balance = await getWalletBalance();
         const transactions = await getTransactionHistory();
-        
-        // Get all unique transaction types for filter
-        const uniqueStatuses = ['all', 'pending', 'approved', 'rejected'];
         
         container.innerHTML = `
             <div class="section-header">
@@ -833,28 +830,6 @@ async function renderWallet() {
                     <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
                 </div>
                 <button id="addFundsBtn" class="btn-primary">Add Funds</button>
-            </div>
-            
-            <div class="transactions-section">
-                <h3>Recent Transactions</h3>
-                <div class="transactions-list">
-                    ${transactions?.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
-                        (transactions || []).slice(0, 5).map(t => `
-                            <div class="transaction-item">
-                                <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
-                                    <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
-                                </div>
-                                <div class="transaction-info">
-                                    <div class="transaction-desc">${escapeHtml(t.description)}</div>
-                                    <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
-                                </div>
-                                <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
-                                    ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
-                                </div>
-                            </div>
-                        `).join('')
-                    }
-                </div>
             </div>
             
             <div class="payment-filters-wrapper">
@@ -1302,34 +1277,35 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
-    // Save settings
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
-        const newName = document.getElementById('fullNameInput').value;
-        const newAddress = document.getElementById('addressInput').value;
+   // Save settings - Fixed version
+document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
+    const newName = document.getElementById('fullNameInput').value;
+    const newAddress = document.getElementById('addressInput').value;
+    
+    const updates = {};
+    if (newName !== currentUser.name) updates.name = newName;
+    if (newAddress !== (currentUser.address || '')) updates.address = newAddress;
+    
+    if (Object.keys(updates).length > 0) {
+        const { error } = await supabase
+            .from('users')
+            .update({ ...updates, full_name: newName, updated_at: new Date() })
+            .eq('id', currentUser.id);
         
-        const updates = {};
-        if (newName !== currentUser.name) updates.name = newName;
-        if (newAddress !== currentUser.address) updates.address = newAddress;
-        
-        if (Object.keys(updates).length > 0) {
-            const { error } = await supabase
-                .from('users')
-                .update({ ...updates, full_name: newName })
-                .eq('id', currentUser.id);
-            
-            if (error) {
-                showToast('Failed to update settings', 'error');
-            } else {
-                currentUser.name = newName;
-                currentUser.address = newAddress;
-                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                document.getElementById('userName').textContent = newName;
-                showToast('Settings saved successfully!', 'success');
-            }
+        if (error) {
+            console.error('Update error:', error);
+            showToast('Failed to update settings', 'error');
         } else {
-            showToast('No changes to save', 'info');
+            currentUser.name = newName;
+            currentUser.address = newAddress;
+            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+            document.getElementById('userName').textContent = newName;
+            showToast('Settings saved successfully!', 'success');
         }
-    });
+    } else {
+        showToast('No changes to save', 'info');
+    }
+});
     
     // Change password
     document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
