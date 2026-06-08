@@ -56,3 +56,47 @@ body.dark-mode .payment-instructions {
     color: var(--brand-purple-dark);
     border-color: var(--brand-gold);
 }
+
+/* Quick Stats */
+.quick-stats {
+    margin-bottom: 1.5rem;
+}
+
+.quick-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.quick-stat-card i {
+    font-size: 1.5rem;
+    color: var(--brand-gold);
+}
+
+.quick-stat-card div {
+    flex: 1;
+}
+
+.quick-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    display: block;
+}
+
+.quick-stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.quick-add-funds {
+    background: var(--brand-gold);
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
