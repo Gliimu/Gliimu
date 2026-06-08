@@ -322,3 +322,30 @@ export async function requestAddFunds(amount, bank, referenceCode) {
 }
 
 export { PRICING };
+
+// Add this function to wallet.js
+export async function addPlanTransaction(userId, plan, duration, amount, discount = 0) {
+    const originalAmount = amount;
+    const discountedAmount = amount * (1 - discount / 100);
+    const savings = originalAmount - discountedAmount;
+    
+    let description = `${plan.toUpperCase()} Plan - ${duration} month${duration > 1 ? 's' : ''}`;
+    if (discount > 0) {
+        description += ` (${discount}% discount - saved ₦${savings.toLocaleString()})`;
+    }
+    
+    const { error } = await supabase
+        .from('transactions')
+        .insert([{
+            id: `tx_${Date.now()}`,
+            user_id: userId,
+            amount: -discountedAmount,
+            type: 'debit',
+            description: description,
+            status: 'completed',
+            created_at: new Date().toISOString(),
+            metadata: { plan, duration, originalAmount, discount }
+        }]);
+    
+    if (error) console.error('Error adding plan transaction:', error);
+}
