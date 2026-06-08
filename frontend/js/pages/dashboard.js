@@ -439,54 +439,116 @@ async function loadTabData(tabId) {
 }
 
 // ============================================
-// DASHBOARD RENDER
+// DASHBOARD RENDER - FIXED
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
-    // In renderDashboard() - Reorder sections
-container.innerHTML = `
-    <div class="progress-section">
-        ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
-    </div>
+    // Show loading
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
     
-    <div class="leaderboard-section">
-        <div class="leaderboard-header">
-            <i class="fas fa-trophy"></i>
-            <h3>Top Performers</h3>
-            <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
-        </div>
-        <div class="leaderboard-list">
-            ${renderLeaderboardList(leaderboardData)}
-        </div>
-    </div>
-    
-    ${isAmbassador ? `
-        <div class="mvp-section">
-            <div class="mvp-header">
-                <i class="fas fa-rocket"></i>
-                <h3>MVP Ambassador Zone</h3>
+    try {
+        const scoreData = await getStudentScore(currentUser.id);
+        const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+        const nextBadge = getNextBadge(scoreData?.current_score || 0);
+        const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+        const leaderboardData = await getLeaderboard(10);
+        const isAmbassador = (scoreData?.current_score || 0) >= 100;
+        
+        container.innerHTML = `
+            <div class="progress-section">
+                ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
             </div>
-            <p>You've reached 100%! Submit your real-world project proposal.</p>
-            <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
-        </div>
-    ` : `
-        <div class="mvp-locked-section">
-            <div class="mvp-locked-header">
-                <i class="fas fa-lock"></i>
-                <h3>Unlock Ambassador Zone</h3>
-            </div>
-            <p>Reach 100% score to submit real-world project proposals.</p>
-            <div class="progress-to-unlock">
-                <div class="progress-bar-container">
-                    <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
+            
+            <div class="leaderboard-section">
+                <div class="leaderboard-header">
+                    <i class="fas fa-trophy"></i>
+                    <h3>Top Performers</h3>
+                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
                 </div>
-                <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
+                <div class="leaderboard-list">
+                    ${renderLeaderboardList(leaderboardData)}
+                </div>
             </div>
+            
+            ${isAmbassador ? `
+                <div class="mvp-section">
+                    <div class="mvp-header">
+                        <i class="fas fa-rocket"></i>
+                        <h3>MVP Ambassador Zone</h3>
+                    </div>
+                    <p>You've reached 100%! Submit your real-world project proposal.</p>
+                    <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
+                </div>
+            ` : `
+                <div class="mvp-locked-section">
+                    <div class="mvp-locked-header">
+                        <i class="fas fa-lock"></i>
+                        <h3>Unlock Ambassador Zone</h3>
+                    </div>
+                    <p>Reach 100% score to submit real-world project proposals.</p>
+                    <div class="progress-to-unlock">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
+                        </div>
+                        <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
+                    </div>
+                </div>
+            `}
+        `;
+        
+        // Event listeners
+        const openMvpBtn = document.getElementById('openMvpFormBtn');
+        if (openMvpBtn) {
+            openMvpBtn.addEventListener('click', () => {
+                openMvpModal();
+            });
+        }
+        
+        const refreshBtn = document.getElementById('refreshLeaderboardBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                const newLeaderboard = await getLeaderboard(10);
+                const leaderboardList = document.querySelector('.leaderboard-list');
+                if (leaderboardList) {
+                    leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
+                }
+                showToast('Leaderboard refreshed!', 'success');
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error rendering dashboard:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error Loading Dashboard</h3>
+                <button class="btn-primary" onclick="location.reload()">Refresh</button>
+            </div>
+        `;
+    }
+}
+
+function renderLeaderboardList(leaderboardData) {
+    if (!leaderboardData || leaderboardData.length === 0) {
+        return '<div class="empty-state"><i class="fas fa-trophy"></i><p>No leaders yet. Be the first!</p></div>';
+    }
+    
+    return leaderboardData.map((entry, index) => `
+        <div class="leaderboard-item ${index < 3 ? 'top-' + (index + 1) : ''}">
+            <div class="leaderboard-rank">#${index + 1}</div>
+            <div class="leaderboard-avatar">
+                <img src="${entry.users?.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(entry.users?.name || 'User') + '&background=fbb040&color=fff'}" alt="">
+            </div>
+            <div class="leaderboard-info">
+                <div class="leaderboard-name">${entry.users?.name || 'Anonymous'}</div>
+                <div class="leaderboard-badge">${entry.current_badge}</div>
+            </div>
+            <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
         </div>
-    `}
-`;
+    `).join('');
+}
 
 function openMvpModal() {
     let modal = document.getElementById('mvpModal');
@@ -1397,6 +1459,7 @@ async function initDashboard() {
     await renderDashboard();
     
     setupRealtimeWallet();
+    initMobileNavigation();  // Add this line
     
     console.log('Dashboard initialized successfully');
 }
