@@ -378,18 +378,6 @@ async function renderDashboard() {
             ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
         </div>
         
-        <!-- Quick Stats Row -->
-        <div class="quick-stats">
-            <div class="quick-stat-card">
-                <i class="fas fa-wallet"></i>
-                <div>
-                    <span class="quick-stat-label">Wallet Balance</span>
-                    <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
-                </div>
-                <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
-            </div>
-        </div>
-        
         <!-- MVP Section (Only for Ambassadors) -->
         ${isAmbassador ? `
             <div class="mvp-section">
