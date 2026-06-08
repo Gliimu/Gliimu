@@ -445,113 +445,48 @@ async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
+    // In renderDashboard() - Reorder sections
+container.innerHTML = `
+    <div class="progress-section">
+        ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
+    </div>
     
-    try {
-        const scoreData = await getStudentScore(currentUser.id);
-        const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-        const nextBadge = getNextBadge(scoreData?.current_score || 0);
-        const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-        const leaderboardData = await getLeaderboard(10);
-        const isAmbassador = (scoreData?.current_score || 0) >= 100;
-        const walletBalance = currentUser?.walletBalance || 14500;  // ✅ CORRECT: ₦14,500
-        
-        container.innerHTML = `
-            <div class="progress-section">
-                ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
-            </div>
-            
-            ${isAmbassador ? `
-                <div class="mvp-section">
-                    <div class="mvp-header">
-                        <i class="fas fa-rocket"></i>
-                        <h3>MVP Ambassador Zone</h3>
-                    </div>
-                    <p>You've reached 100%! Submit your real-world project proposal to become a Gliimu Ambassador.</p>
-                    <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
-                </div>
-            ` : `
-                <div class="mvp-locked-section">
-                    <div class="mvp-locked-header">
-                        <i class="fas fa-lock"></i>
-                        <h3>Unlock Ambassador Zone</h3>
-                    </div>
-                    <p>Reach 100% score to submit real-world project proposals and become a Gliimu Ambassador.</p>
-                    <div class="progress-to-unlock">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
-                        </div>
-                        <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
-                    </div>
-                </div>
-            `}
-            
-            <div class="leaderboard-section">
-                <div class="leaderboard-header">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Top Performers</h3>
-                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
-                </div>
-                <div class="leaderboard-list">
-                    ${renderLeaderboardList(leaderboardData)}
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
-            openFundWalletModal();
-        });
-        
-        const openMvpBtn = document.getElementById('openMvpFormBtn');
-        if (openMvpBtn) {
-            openMvpBtn.addEventListener('click', () => {
-                openMvpModal();
-            });
-        }
-        
-        const refreshBtn = document.getElementById('refreshLeaderboardBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
-                const newLeaderboard = await getLeaderboard(10);
-                const leaderboardList = document.querySelector('.leaderboard-list');
-                if (leaderboardList) {
-                    leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
-                }
-                showToast('Leaderboard refreshed!', 'success');
-            });
-        }
-        
-    } catch (error) {
-        console.error('Error rendering dashboard:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Dashboard</h3>
-                <button class="btn-primary" onclick="location.reload()">Refresh</button>
-            </div>
-        `;
-    }
-}
-
-function renderLeaderboardList(leaderboardData) {
-    if (!leaderboardData || leaderboardData.length === 0) {
-        return '<div class="empty-state"><i class="fas fa-trophy"></i><p>No leaders yet. Be the first!</p></div>';
-    }
-    
-    return leaderboardData.map((entry, index) => `
-        <div class="leaderboard-item ${index < 3 ? 'top-' + (index + 1) : ''}">
-            <div class="leaderboard-rank">#${index + 1}</div>
-            <div class="leaderboard-avatar">
-                <img src="${entry.users?.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(entry.users?.name || 'User') + '&background=fbb040&color=fff'}" alt="">
-            </div>
-            <div class="leaderboard-info">
-                <div class="leaderboard-name">${entry.users?.name || 'Anonymous'}</div>
-                <div class="leaderboard-badge">${entry.current_badge}</div>
-            </div>
-            <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
+    <div class="leaderboard-section">
+        <div class="leaderboard-header">
+            <i class="fas fa-trophy"></i>
+            <h3>Top Performers</h3>
+            <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
         </div>
-    `).join('');
-}
+        <div class="leaderboard-list">
+            ${renderLeaderboardList(leaderboardData)}
+        </div>
+    </div>
+    
+    ${isAmbassador ? `
+        <div class="mvp-section">
+            <div class="mvp-header">
+                <i class="fas fa-rocket"></i>
+                <h3>MVP Ambassador Zone</h3>
+            </div>
+            <p>You've reached 100%! Submit your real-world project proposal.</p>
+            <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
+        </div>
+    ` : `
+        <div class="mvp-locked-section">
+            <div class="mvp-locked-header">
+                <i class="fas fa-lock"></i>
+                <h3>Unlock Ambassador Zone</h3>
+            </div>
+            <p>Reach 100% score to submit real-world project proposals.</p>
+            <div class="progress-to-unlock">
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
+                </div>
+                <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
+            </div>
+        </div>
+    `}
+`;
 
 function openMvpModal() {
     let modal = document.getElementById('mvpModal');
@@ -1149,7 +1084,7 @@ function openFundWalletModal(suggestedAmount = null) {
 }
 
 // ============================================
-// SETTINGS TAB
+// SETTINGS TAB - WITH CHANGE PASSWORD
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
@@ -1190,13 +1125,32 @@ async function renderSettings() {
                     </div>
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="email" id="emailInput" value="${currentUser?.email || ''}" disabled>
+                        <input type="email" value="${currentUser?.email || ''}" disabled>
                         <small>Email cannot be changed</small>
                     </div>
                     <div class="form-group">
-                        <label>Role</label>
-                        <input type="text" value="${currentRole.toUpperCase()}" disabled>
+                        <label>Home/Work Address</label>
+                        <input type="text" id="addressInput" value="${currentUser?.address || ''}" placeholder="Enter your address">
                     </div>
+                </form>
+            </div>
+            
+            <div class="settings-card">
+                <h3>Change Password</h3>
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label>Current Password</label>
+                        <input type="password" id="currentPassword" placeholder="Enter current password">
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" id="newPassword" placeholder="At least 8 characters">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <input type="password" id="confirmPassword" placeholder="Re-enter new password">
+                    </div>
+                    <button type="submit" class="btn-primary">Update Password</button>
                 </form>
             </div>
             
@@ -1208,13 +1162,6 @@ async function renderSettings() {
                         <button class="theme-option ${!isDark ? 'active' : ''}" data-theme="light">☀️ Light</button>
                         <button class="theme-option ${isDark ? 'active' : ''}" data-theme="dark">🌙 Dark</button>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Email Notifications</label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="emailNotifications" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
                 </div>
             </div>
             
@@ -1241,20 +1188,19 @@ async function renderSettings() {
         </div>
     `;
     
+    // Theme selector
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const theme = btn.getAttribute('data-theme');
-            if (theme === 'dark') {
-                document.body.classList.add('dark-mode');
-            } else {
-                document.body.classList.remove('dark-mode');
-            }
+            if (theme === 'dark') document.body.classList.add('dark-mode');
+            else document.body.classList.remove('dark-mode');
             localStorage.setItem('theme', theme);
             document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         });
     });
     
+    // Avatar upload
     document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
         document.getElementById('avatarUpload').click();
     });
@@ -1282,6 +1228,7 @@ async function renderSettings() {
         }
     });
     
+    // Portfolio URL
     document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
         const urlInput = document.getElementById('portfolioUrl');
         urlInput.select();
@@ -1293,29 +1240,73 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
+    // Save settings
     document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
         const newName = document.getElementById('fullNameInput').value;
+        const newAddress = document.getElementById('addressInput').value;
         
-        if (newName !== currentUser.name) {
+        const updates = {};
+        if (newName !== currentUser.name) updates.name = newName;
+        if (newAddress !== currentUser.address) updates.address = newAddress;
+        
+        if (Object.keys(updates).length > 0) {
             const { error } = await supabase
                 .from('users')
-                .update({ name: newName, full_name: newName })
+                .update({ ...updates, full_name: newName })
                 .eq('id', currentUser.id);
             
             if (error) {
-                showToast('Failed to update name', 'error');
+                showToast('Failed to update settings', 'error');
             } else {
                 currentUser.name = newName;
+                currentUser.address = newAddress;
                 localStorage.setItem('glimu_user', JSON.stringify(currentUser));
                 document.getElementById('userName').textContent = newName;
                 showToast('Settings saved successfully!', 'success');
             }
+        } else {
+            showToast('No changes to save', 'info');
         }
     });
     
+    // Change password
+    document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showToast('Please fill in all password fields', 'error');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showToast('New passwords do not match', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            showToast('Password must be at least 8 characters', 'error');
+            return;
+        }
+        
+        // Update password via Supabase
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+        
+        if (error) {
+            showToast(error.message || 'Failed to update password', 'error');
+        } else {
+            showToast('Password updated successfully!', 'success');
+            document.getElementById('passwordForm').reset();
+        }
+    });
+    
+    // Sign Out
     document.getElementById('signOutBtn')?.addEventListener('click', async () => {
-        const confirmed = confirm('Are you sure you want to sign out?');
-        if (confirmed) {
+        if (confirm('Are you sure you want to sign out?')) {
             await supabase.auth.signOut();
             localStorage.clear();
             window.location.href = '/signin.html';
