@@ -125,19 +125,43 @@ async function loadUserFromSupabase(userId) {
 // MOCK PAYMENT DATA
 // ============================================
 function loadMockPayments() {
-    pendingPayments = [
-        { id: 1, amount: 5000, date: '2025-06-01', reference: 'GLM-1234-5678', status: 'pending' },
-        { id: 2, amount: 10000, date: '2025-05-28', reference: 'GLM-8765-4321', status: 'pending' }
-    ];
+    // Try to load from localStorage first
+    const storedPending = localStorage.getItem('pending_payments');
+    const storedApproved = localStorage.getItem('approved_payments');
+    const storedCancelled = localStorage.getItem('cancelled_payments');
     
-    approvedPayments = [
-        { id: 3, amount: 25000, date: '2025-05-15', reference: 'GLM-1111-2222', status: 'approved' },
-        { id: 4, amount: 15000, date: '2025-05-01', reference: 'GLM-3333-4444', status: 'approved' }
-    ];
+    if (storedPending) {
+        pendingPayments = JSON.parse(storedPending);
+    } else {
+        pendingPayments = [
+            { id: 1, amount: 5000, date: '2025-06-01', reference: 'GLM-1234-5678', status: 'pending' },
+            { id: 2, amount: 10000, date: '2025-05-28', reference: 'GLM-8765-4321', status: 'pending' }
+        ];
+    }
     
-    cancelledPayments = [
-        { id: 5, amount: 3000, date: '2025-04-20', reference: 'GLM-5555-6666', status: 'cancelled' }
-    ];
+    if (storedApproved) {
+        approvedPayments = JSON.parse(storedApproved);
+    } else {
+        approvedPayments = [
+            { id: 3, amount: 25000, date: '2025-05-15', reference: 'GLM-1111-2222', status: 'approved' },
+            { id: 4, amount: 15000, date: '2025-05-01', reference: 'GLM-3333-4444', status: 'approved' }
+        ];
+    }
+    
+    if (storedCancelled) {
+        cancelledPayments = JSON.parse(storedCancelled);
+    } else {
+        cancelledPayments = [
+            { id: 5, amount: 3000, date: '2025-04-20', reference: 'GLM-5555-6666', status: 'cancelled' }
+        ];
+    }
+}
+
+// Save payments to localStorage
+function savePayments() {
+    localStorage.setItem('pending_payments', JSON.stringify(pendingPayments));
+    localStorage.setItem('approved_payments', JSON.stringify(approvedPayments));
+    localStorage.setItem('cancelled_payments', JSON.stringify(cancelledPayments));
 }
 
 // ============================================
@@ -159,7 +183,7 @@ function setupRealtimeWallet() {
             renderWallet();
         }
         if (currentTab === 'dashboard') {
-            const balanceElement = document.querySelector('.wallet-balance-large');
+            const balanceElement = document.querySelector('.quick-balance');
             if (balanceElement) {
                 balanceElement.textContent = `₦${newBalance.toLocaleString()}`;
             }
@@ -346,11 +370,24 @@ async function renderDashboard() {
     const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
     const leaderboardData = await getLeaderboard(10);
     const isAmbassador = (scoreData?.current_score || 0) >= 100;
+    const walletBalance = currentUser?.walletBalance || 14500;
     
     container.innerHTML = `
         <!-- Progress Bar Section -->
         <div class="progress-section">
             ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
+        </div>
+        
+        <!-- Quick Stats Row -->
+        <div class="quick-stats">
+            <div class="quick-stat-card">
+                <i class="fas fa-wallet"></i>
+                <div>
+                    <span class="quick-stat-label">Wallet Balance</span>
+                    <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
+                </div>
+                <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
+            </div>
         </div>
         
         <!-- MVP Section (Only for Ambassadors) -->
@@ -429,6 +466,11 @@ async function renderDashboard() {
             </div>
         </div>
     `;
+    
+    // Quick add funds button
+    document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
+        openFundWalletModal();
+    });
     
     // MVP Modal handlers
     const openMvpBtn = document.getElementById('openMvpFormBtn');
@@ -905,7 +947,7 @@ function openFundWalletModal(suggestedAmount = null) {
         };
     }
     
-    // Next button (implicitly goes to bank details when amount is selected)
+    // Next button (goes to bank details when amount is selected)
     const proceedToBank = () => {
         if (!selectedAmount || selectedAmount < 100) {
             showToast('Please select or enter a valid amount (minimum ₦100)', 'error');
@@ -913,7 +955,9 @@ function openFundWalletModal(suggestedAmount = null) {
         }
         
         // Generate unique reference code
-        referenceCode = `GLM-${currentUser.id.substring(0, 8)}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 10000);
+        referenceCode = `GLM-${currentUser.id.substring(0, 8)}-${timestamp}-${random}`;
         modal.querySelector('#referenceCode').textContent = referenceCode;
         
         fundingOptions.style.display = 'none';
@@ -957,7 +1001,7 @@ function openFundWalletModal(suggestedAmount = null) {
         };
     }
     
-    // Confirm payment
+    // Confirm payment - Save payment request
     const confirmBtn = modal.querySelector('#confirmPaymentBtn');
     if (confirmBtn) {
         confirmBtn.onclick = async () => {
@@ -978,7 +1022,7 @@ function openFundWalletModal(suggestedAmount = null) {
                 submittedAt: new Date().toISOString()
             };
             
-            // Save to localStorage (will be replaced with Supabase later)
+            // Save to localStorage
             let allRequests = JSON.parse(localStorage.getItem('payment_requests') || '[]');
             allRequests.push(paymentRequest);
             localStorage.setItem('payment_requests', JSON.stringify(allRequests));
@@ -991,9 +1035,11 @@ function openFundWalletModal(suggestedAmount = null) {
                 reference: referenceCode,
                 status: 'pending'
             });
+            savePayments();
             
             showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
             modal.classList.remove('active');
+            document.body.style.overflow = '';
             
             // Refresh wallet display
             setTimeout(() => renderWallet(), 500);
