@@ -205,10 +205,11 @@ body {
 
 .progress-section {
     background: var(--bg-card);
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
     border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
 }
 
 .progress-header {
@@ -227,33 +228,36 @@ body {
 }
 
 .badge-icon {
-    width: 60px;
-    height: 60px;
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
-    border: 2px solid;
+    font-size: 2.2rem;
+    border: 3px solid;
 }
 
 .badge-info h4 {
-    font-size: 1rem;
+    font-size: 1.1rem;
     margin-bottom: 0.25rem;
 }
 
 .badge-info p {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
 }
 
 .score-display {
     text-align: center;
+    background: var(--bg-secondary);
+    padding: 0.75rem 1.5rem;
+    border-radius: 16px;
 }
 
 .score-value {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: 2.2rem;
+    font-weight: 800;
     color: var(--brand-gold);
     display: block;
     line-height: 1;
@@ -266,27 +270,25 @@ body {
 
 .progress-bar-container {
     background: var(--border-color);
-    border-radius: 10px;
-    height: 8px;
+    border-radius: 20px;
+    height: 12px;
     overflow: hidden;
     margin: 1rem 0;
 }
 
 .progress-bar-fill {
     height: 100%;
-    border-radius: 10px;
-    transition: width 0.3s ease;
+    border-radius: 20px;
+    transition: width 0.5s ease;
+    background: linear-gradient(90deg, var(--brand-gold), var(--brand-gold-dark));
 }
 
 .next-badge-info {
     display: flex;
     justify-content: space-between;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
-}
-
-.next-badge-info.complete {
-    color: var(--success);
+    margin-top: 0.5rem;
 }
 
 /* MVP Section */
@@ -331,6 +333,7 @@ body {
     border-radius: 16px;
     padding: 1.5rem;
     border: 1px solid var(--border-color);
+    margin-bottom: 1.5rem;
 }
 
 .leaderboard-header {
@@ -411,6 +414,12 @@ body {
     font-weight: 700;
     color: var(--brand-gold);
     font-size: 0.9rem;
+}
+
+/* MVP Section below Leaderboard */
+.mvp-section, .mvp-locked-section {
+    margin-top: 1.5rem;
+    margin-bottom: 0;
 }
 
 /* =========================================
@@ -820,6 +829,12 @@ body {
 .payment-status-badge.cancelled {
     background: rgba(239, 68, 68, 0.15);
     color: var(--danger);
+}
+
+.payment-reason {
+    font-size: 0.7rem;
+    color: var(--danger);
+    margin-top: 0.25rem;
 }
 
 .empty-transactions, .empty-payments {
@@ -1232,11 +1247,27 @@ input:checked + .toggle-slider:before {
     
     .dashboard-main {
         margin-left: 0;
+        padding-bottom: 80px;
     }
     
     .progress-header {
         flex-direction: column;
         text-align: center;
+    }
+    
+    /* Responsive badge icon - smaller on mobile */
+    .badge-icon {
+        width: 55px;
+        height: 55px;
+        font-size: 1.8rem;
+    }
+    
+    .badge-info h4 {
+        font-size: 0.9rem;
+    }
+    
+    .score-value {
+        font-size: 1.5rem;
     }
     
     .go-to-grid {
@@ -1289,14 +1320,15 @@ input:checked + .toggle-slider:before {
         padding: 1rem;
     }
     
+    /* Even smaller badge icon on very small screens */
     .badge-icon {
-        width: 50px;
-        height: 50px;
+        width: 45px;
+        height: 45px;
         font-size: 1.5rem;
     }
     
     .score-value {
-        font-size: 1.5rem;
+        font-size: 1.3rem;
     }
     
     .wallet-balance-large {
@@ -1305,6 +1337,10 @@ input:checked + .toggle-slider:before {
     
     .plan-card {
         padding: 1rem;
+    }
+    
+    .amount-buttons {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
@@ -1459,16 +1495,10 @@ input:checked + .toggle-slider:before {
     background: #059669;
 }
 
-@media (max-width: 600px) {
-    .amount-buttons {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .wallet-modal {
-        width: 95%;
-    }
-}
-/* Dark mode fixes for modal amounts */
+/* =========================================
+   DARK MODE FIXES
+   ========================================= */
+
 body.dark-mode .amount-btn {
     background: var(--bg-secondary);
     color: var(--text-primary);
@@ -1499,76 +1529,96 @@ body.dark-mode .payment-instructions {
     background: var(--bg-secondary);
 }
 
-/* Payment Filter Buttons */
+/* =========================================
+   SCROLLABLE PAYMENT FILTERS - MOBILE FIX
+   ========================================= */
+
+.payment-filters-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
 .payment-filters {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
+    min-width: min-content;
+    padding-bottom: 8px;
 }
 
-.filter-btn {
+.payment-filters .filter-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
     padding: 0.5rem 1rem;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: 20px;
     cursor: pointer;
     font-size: 0.8rem;
     transition: all 0.2s;
 }
 
-.filter-btn:hover {
-    border-color: var(--brand-gold);
-}
-
-.filter-btn.active {
+.payment-filters .filter-btn.active {
     background: var(--brand-gold);
     color: var(--brand-purple-dark);
     border-color: var(--brand-gold);
 }
 
-/* Quick Stats */
-.quick-stats {
-    margin-bottom: 1.5rem;
+/* Hide scrollbar for cleaner look on Chrome/Safari */
+.payment-filters-wrapper::-webkit-scrollbar {
+    height: 4px;
 }
 
-.quick-stat-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+.payment-filters-wrapper::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.payment-filters-wrapper::-webkit-scrollbar-thumb {
+    background: var(--brand-gold);
+    border-radius: 4px;
+}
+
+/* =========================================
+   SELECTED AMOUNT DISPLAY
+   ========================================= */
+
+.selected-amount-display {
+    text-align: center;
+    margin-bottom: 1rem;
     padding: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 12px;
 }
 
-.quick-stat-card i {
-    font-size: 1.5rem;
+.selected-amount-display p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.selected-amount-large {
+    font-size: 2rem;
+    font-weight: 800;
     color: var(--brand-gold);
 }
 
-.quick-stat-card div {
-    flex: 1;
+/* =========================================
+   TRANSACTION ITEM FULL
+   ========================================= */
+
+.transaction-item-full {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
-.quick-stat-label {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    display: block;
-}
-
-.quick-stat-value {
-    font-size: 1.2rem;
-    font-weight: 700;
-}
-
-.quick-add-funds {
-    background: var(--brand-gold);
-    border: none;
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
+.transaction-item-full:last-child {
+    border-bottom: none;
 }
 
 /* =========================================
@@ -1643,227 +1693,4 @@ body.dark-mode .payment-instructions {
     .mobile-nav-item:hover {
         background: var(--border-color);
     }
-    
-    /* Hide desktop elements on mobile */
-    .dashboard-topbar {
-        display: none;
-    }
-}
-
-/* Scrollable Payment Filters */
-.payment-filters-wrapper {
-    overflow-x: auto;
-    margin-bottom: 1rem;
-    -webkit-overflow-scrolling: touch;
-}
-
-.payment-filters {
-    display: flex;
-    gap: 0.5rem;
-    min-width: min-content;
-    padding-bottom: 4px;
-}
-
-.payment-filters .filter-btn {
-    white-space: nowrap;
-    padding: 0.5rem 1rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 0.8rem;
-}
-
-.payment-filters .filter-btn.active {
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    border-color: var(--brand-gold);
-}
-
-/* Pronounced Progress Reader */
-.progress-section {
-    background: var(--bg-card);
-    border-radius: 20px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-md);
-}
-
-.progress-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.current-badge {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.badge-icon {
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.2rem;
-    border: 3px solid;
-}
-
-.badge-info h4 {
-    font-size: 1.1rem;
-    margin-bottom: 0.25rem;
-}
-
-.badge-info p {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-.score-display {
-    text-align: center;
-    background: var(--bg-secondary);
-    padding: 0.75rem 1.5rem;
-    border-radius: 16px;
-}
-
-.score-value {
-    font-size: 2.2rem;
-    font-weight: 800;
-    color: var(--brand-gold);
-    display: block;
-    line-height: 1;
-}
-
-.score-label {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
-
-.progress-bar-container {
-    background: var(--border-color);
-    border-radius: 20px;
-    height: 12px;
-    overflow: hidden;
-    margin: 1rem 0;
-}
-
-.progress-bar-fill {
-    height: 100%;
-    border-radius: 20px;
-    transition: width 0.5s ease;
-    background: linear-gradient(90deg, var(--brand-gold), var(--brand-gold-dark));
-}
-
-.next-badge-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-}
-
-/* Ambassador Card below Leaderboard */
-.leaderboard-section {
-    margin-bottom: 1.5rem;
-}
-
-.mvp-section, .mvp-locked-section {
-    margin-top: 1.5rem;
-}
-
-/* Selected Amount Display */
-.selected-amount-display {
-    text-align: center;
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: rgba(251, 176, 64, 0.1);
-    border-radius: 12px;
-}
-
-.selected-amount-display p {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.25rem;
-}
-
-.selected-amount-large {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--brand-gold);
-}
-
-/* Transaction Item Full */
-.transaction-item-full {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.transaction-item-full:last-child {
-    border-bottom: none;
-}
-
-/* Payment Reason for Rejected */
-.payment-reason {
-    font-size: 0.7rem;
-    color: var(--danger);
-    margin-top: 0.25rem;
-}
-
-/* Scrollable Payment Filters - Mobile Fix */
-.payment-filters-wrapper {
-    overflow-x: auto;
-    overflow-y: hidden;
-    margin-bottom: 1rem;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-}
-
-.payment-filters {
-    display: flex;
-    gap: 0.5rem;
-    min-width: min-content;
-    padding-bottom: 8px;
-}
-
-.payment-filters .filter-btn {
-    white-space: nowrap;
-    flex-shrink: 0;
-    padding: 0.5rem 1rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-}
-
-.payment-filters .filter-btn.active {
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    border-color: var(--brand-gold);
-}
-
-/* Hide scrollbar for cleaner look on Chrome/Safari */
-.payment-filters-wrapper::-webkit-scrollbar {
-    height: 4px;
-}
-
-.payment-filters-wrapper::-webkit-scrollbar-track {
-    background: var(--border-color);
-    border-radius: 4px;
-}
-
-.payment-filters-wrapper::-webkit-scrollbar-thumb {
-    background: var(--brand-gold);
-    border-radius: 4px;
 }
