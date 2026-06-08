@@ -1277,7 +1277,7 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
-   // Save settings - Fixed version
+// Save settings - Fixed version
 document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
     const newName = document.getElementById('fullNameInput').value;
     const newAddress = document.getElementById('addressInput').value;
