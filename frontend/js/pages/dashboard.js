@@ -804,18 +804,23 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// OPTIMIZED WALLET TAB
+// OPTIMIZED WALLET TAB - FETCHES PAYMENTS FROM SUPABASE
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
     if (!container) return;
     
-    const now = Date.now();
-    let balance = cachedBalance;
-    let transactions = cachedTransactions;
-    let needsRefresh = !cachedBalance || (now - lastWalletUpdate) > CACHE_DURATION;
+    // Show loading state
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
     
-    const renderUI = (bal, txns) => {
+    try {
+        // Force refresh payments from Supabase
+        await loadPaymentsFromStorage(true);
+        
+        const balance = await getWalletBalance();
+        const transactions = await getTransactionHistory();
+        
+        // Filter payments based on current filter
         let displayPayments = [];
         if (currentPaymentFilter === 'pending') displayPayments = pendingPayments;
         else if (currentPaymentFilter === 'approved') displayPayments = approvedPayments;
@@ -834,7 +839,7 @@ async function renderWallet() {
                 <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
                 <div class="wallet-balance-info">
                     <span class="wallet-label">Available Balance</span>
-                    <span class="wallet-balance-large">₦${bal.toLocaleString()}</span>
+                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
                 </div>
                 <button id="addFundsBtn" class="btn-primary">Add Funds</button>
             </div>
@@ -842,8 +847,8 @@ async function renderWallet() {
             <div class="transactions-section">
                 <h3>Recent Transactions</h3>
                 <div class="transactions-list">
-                    ${txns?.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
-                        (txns || []).slice(0, 5).map(t => `
+                    ${transactions?.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                        (transactions || []).slice(0, 5).map(t => `
                             <div class="transaction-item">
                                 <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
                                     <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
@@ -876,8 +881,8 @@ async function renderWallet() {
                             <div class="payment-item ${p.status}">
                                 <div class="payment-info">
                                     <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
-                                    <div class="payment-date">${new Date(p.submitted_at || p.date).toLocaleDateString()}</div>
-                                    <div class="payment-ref">Ref: ${p.reference_code || p.reference}</div>
+                                    <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+                                    <div class="payment-ref">Ref: ${p.reference_code}</div>
                                 </div>
                                 <div class="payment-status-badge ${p.status}">${p.status}</div>
                             </div>
@@ -887,6 +892,7 @@ async function renderWallet() {
             </div>
         `;
         
+        // Add Funds button
         const addFundsBtn = document.getElementById('addFundsBtn');
         if (addFundsBtn) {
             const newBtn = addFundsBtn.cloneNode(true);
@@ -894,42 +900,26 @@ async function renderWallet() {
             newBtn.addEventListener('click', () => openFundWalletModal());
         }
         
+        // Filter buttons
         document.querySelectorAll('.filter-btn').forEach(btn => {
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
             newBtn.addEventListener('click', (e) => {
                 currentPaymentFilter = e.target.getAttribute('data-filter');
-                renderUI(bal, txns);
+                renderWallet(); // Re-render with new filter
             });
         });
-    };
-    
-    if (cachedBalance !== null) {
-        renderUI(cachedBalance, cachedTransactions || []);
-    } else {
-        container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
-    }
-    
-    if (needsRefresh) {
-        try {
-            const [balanceResult, transactionsResult] = await Promise.all([
-                getWalletBalance(),
-                getTransactionHistory()
-            ]);
-            
-            balance = balanceResult;
-            transactions = transactionsResult;
-            cachedBalance = balance;
-            cachedTransactions = transactions;
-            lastWalletUpdate = now;
-            
-            renderUI(balance, transactions);
-        } catch (error) {
-            console.error('Error loading wallet:', error);
-            if (cachedBalance === null) {
-                container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
-            }
-        }
+        
+    } catch (error) {
+        console.error('Error rendering wallet:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error Loading Wallet</h3>
+                <p>${error.message}</p>
+                <button class="btn-primary" onclick="renderWallet()">Try Again</button>
+            </div>
+        `;
     }
 }
 
