@@ -1,6 +1,6 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE STUDENT VERSION
-// With Question Bar, Assignments, Portfolio, Debates, MVP
+// GLIIMU DASHBOARD - SIMPLIFIED STUDENT VERSION
+// With Progress Bar, MVP, Leaderboard, Go-To Menu, Wallet
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -22,16 +22,13 @@ import {
     getCurrentBadge,
     getNextBadge,
     getProgressToNextBadge,
-    getNextQuestion,
-    getPendingSubmissions,
-    getStudentPortfolio,
     getLeaderboard,
     sharePortfolio,
     submitMVPProposal,
-    submitDebateArgument
+    getStudentPortfolio
 } from '../modules/progression.js';
 
-import { QuestionRenderer, renderProgressBar, renderLeaderboard, renderPortfolioItem } from '../modules/questions.js';
+import { renderProgressBar } from '../modules/questions.js';
 
 // ============================================
 // GLOBAL STATE
@@ -40,14 +37,11 @@ let currentUser = null;
 let currentUserProfile = null;
 let currentRole = 'student';
 let currentTab = 'dashboard';
-let allMaterials = [];
-let userStats = null;
-let savedItems = [];
-let recentlyViewed = [];
 let currentWalletBalance = 0;
 let walletSubscription = null;
-let currentQuestion = null;
-let questionRenderer = null;
+let pendingPayments = [];
+let approvedPayments = [];
+let cancelledPayments = [];
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -98,11 +92,8 @@ async function loadUserFromSupabase(userId) {
         
         if (profileError) throw profileError;
         
-        // Load mock data for demo
-        loadMockAssignments();
-        loadMockPortfolio();
-        loadMockSubmissions();
-        loadMockDebates();
+        // Load mock payment data
+        loadMockPayments();
         
         currentUserProfile = profile;
         currentWalletBalance = profile.wallet_balance || 14500;
@@ -111,7 +102,6 @@ async function loadUserFromSupabase(userId) {
             name: profile.name || profile.full_name || 'User',
             email: profile.email,
             role: profile.role || 'student',
-            plan: profile.plan || 'basic',
             subscriptionTier: profile.subscription_tier || 'premium',
             walletBalance: profile.wallet_balance || 14500,
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
@@ -128,44 +118,21 @@ async function loadUserFromSupabase(userId) {
 }
 
 // ============================================
-// MOCK DATA FOR DEMO
+// MOCK PAYMENT DATA
 // ============================================
-let assignments = [];
-let portfolioItems = [];
-let submissions = [];
-let debates = [];
-
-function loadMockAssignments() {
-    assignments = [
-        { id: 1, title: 'Video Production: 30-Second Commercial', dueDate: '2025-06-20', status: 'pending', points: 100, type: 'video' },
-        { id: 2, title: 'UI/UX Design: Mobile App Wireframe', dueDate: '2025-06-15', status: 'submitted', points: 100, type: 'design', grade: 85 },
-        { id: 3, title: 'JavaScript: Interactive Form Validation', dueDate: '2025-06-10', status: 'graded', points: 100, type: 'code', grade: 92 },
-        { id: 4, title: 'Motion Graphics: Logo Animation', dueDate: '2025-06-25', status: 'pending', points: 100, type: 'motion' },
-        { id: 5, title: 'Brand Strategy: Brand Identity Package', dueDate: '2025-06-30', status: 'draft', points: 100, type: 'brand' }
+function loadMockPayments() {
+    pendingPayments = [
+        { id: 1, amount: 5000, date: '2025-06-01', reference: 'GLM-1234-5678', status: 'pending' },
+        { id: 2, amount: 10000, date: '2025-05-28', reference: 'GLM-8765-4321', status: 'pending' }
     ];
-}
-
-function loadMockPortfolio() {
-    portfolioItems = [
-        { id: 1, title: 'Nike Commercial', type: 'video', thumbnail: '/photos/portfolio1.jpg', date: '2025-05-01', views: 245, likes: 34, is_public: true },
-        { id: 2, title: 'Food App UI Design', type: 'design', thumbnail: '/photos/portfolio2.jpg', date: '2025-05-10', views: 189, likes: 27, is_public: true },
-        { id: 3, title: 'E-commerce Website', type: 'code', thumbnail: '/photos/portfolio3.jpg', date: '2025-05-15', views: 312, likes: 45, is_public: false },
-        { id: 4, title: 'Title Sequence Animation', type: 'motion', thumbnail: '/photos/portfolio4.jpg', date: '2025-05-20', views: 178, likes: 23, is_public: true }
+    
+    approvedPayments = [
+        { id: 3, amount: 25000, date: '2025-05-15', reference: 'GLM-1111-2222', status: 'approved' },
+        { id: 4, amount: 15000, date: '2025-05-01', reference: 'GLM-3333-4444', status: 'approved' }
     ];
-}
-
-function loadMockSubmissions() {
-    submissions = [
-        { id: 1, title: 'Video Production Assignment', submittedAt: '2025-06-01', status: 'graded', grade: 88, feedback: 'Great work on the pacing!' },
-        { id: 2, title: 'UI Design Project', submittedAt: '2025-05-25', status: 'graded', grade: 92, feedback: 'Excellent use of color theory' },
-        { id: 3, title: 'JavaScript Challenge', submittedAt: '2025-05-20', status: 'pending', grade: null, feedback: null }
-    ];
-}
-
-function loadMockDebates() {
-    debates = [
-        { id: 1, motion: 'AI will replace most creative jobs by 2030', opponent: 'Jane Smith', status: 'pending', myStance: 'YES' },
-        { id: 2, motion: 'Traditional education is obsolete', opponent: 'Mike Johnson', status: 'active', myStance: 'NO', submitted: false }
+    
+    cancelledPayments = [
+        { id: 5, amount: 3000, date: '2025-04-20', reference: 'GLM-5555-6666', status: 'cancelled' }
     ];
 }
 
@@ -188,8 +155,8 @@ function setupRealtimeWallet() {
             renderWallet();
         }
         if (currentTab === 'dashboard') {
-            const balanceElement = document.querySelector('.stat-card .stat-value');
-            if (balanceElement && balanceElement.closest('.stat-card')?.querySelector('h3')?.textContent === 'Wallet Balance') {
+            const balanceElement = document.querySelector('.wallet-balance-large');
+            if (balanceElement) {
                 balanceElement.textContent = `₦${newBalance.toLocaleString()}`;
             }
         }
@@ -199,25 +166,18 @@ function setupRealtimeWallet() {
 }
 
 // ============================================
-// ROLE-BASED TAB CONFIGURATION - STUDENT FOCUSED
+// ROLE-BASED TAB CONFIGURATION - SIMPLIFIED
 // ============================================
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'question', name: 'Question Bar', icon: 'fas fa-question-circle' },
-        { id: 'assignments', name: 'Assignments', icon: 'fas fa-tasks' },
-        { id: 'submissions', name: 'Submissions', icon: 'fas fa-upload' },
-        { id: 'portfolio', name: 'Portfolio', icon: 'fas fa-briefcase' },
-        { id: 'debates', name: 'Debates', icon: 'fas fa-gavel' },
-        { id: 'mvp', name: 'MVP Zone', icon: 'fas fa-rocket' },
+        { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
-        { id: 'leaderboard', name: 'Leaderboard', icon: 'fas fa-trophy' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     instructor: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'grade', name: 'Grade Submissions', icon: 'fas fa-clipboard-list' },
-        { id: 'debates', name: 'Manage Debates', icon: 'fas fa-gavel' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
@@ -225,7 +185,6 @@ const roleTabs = {
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'users', name: 'Users', icon: 'fas fa-users-cog' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
-        { id: 'questions', name: 'Question Pool', icon: 'fas fa-database' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     partner: [
@@ -349,35 +308,17 @@ function loadTabData(tabId) {
         case 'dashboard':
             renderDashboard();
             break;
-        case 'question':
-            renderQuestionBar();
-            break;
-        case 'assignments':
-            renderAssignments();
-            break;
-        case 'submissions':
-            renderSubmissions();
-            break;
-        case 'portfolio':
-            renderPortfolio();
-            break;
-        case 'debates':
-            renderDebates();
-            break;
-        case 'mvp':
-            renderMVPZone();
+        case 'gotomenu':
+            renderGoToMenu();
             break;
         case 'wallet':
             renderWallet();
             break;
-        case 'leaderboard':
-            renderLeaderboardTab();
+        case 'settings':
+            renderSettings();
             break;
         case 'grade':
             renderGradeSubmissions();
-            break;
-        case 'settings':
-            renderSettings();
             break;
         default:
             renderDashboard();
@@ -385,7 +326,7 @@ function loadTabData(tabId) {
 }
 
 // ============================================
-// DASHBOARD RENDER
+// DASHBOARD RENDER - Progress Bar, MVP, Leaderboard
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
@@ -395,371 +336,62 @@ async function renderDashboard() {
     const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
     const nextBadge = getNextBadge(scoreData?.current_score || 0);
     const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-    const pendingCount = assignments.filter(a => a.status === 'pending').length;
-    const portfolioCount = portfolioItems.length;
+    const leaderboardData = await getLeaderboard(10);
+    const walletBalance = currentUser?.walletBalance || 14500;
+    const isAmbassador = (scoreData?.current_score || 0) >= 100;
     
     container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>Dashboard</h2>
-                <p>Welcome back, ${currentUser?.name || 'Creator'}!</p>
-            </div>
-        </div>
-        
+        <!-- Progress Bar Section -->
         <div class="progress-section">
             ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
         </div>
         
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-tasks"></i></div>
-                <div class="stat-info">
-                    <h3>Pending Assignments</h3>
-                    <div class="stat-value">${pendingCount}</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-briefcase"></i></div>
-                <div class="stat-info">
-                    <h3>Portfolio Items</h3>
-                    <div class="stat-value">${portfolioCount}</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-gavel"></i></div>
-                <div class="stat-info">
-                    <h3>Active Debates</h3>
-                    <div class="stat-value">${debates.filter(d => d.status === 'active').length}</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-wallet"></i></div>
-                <div class="stat-info">
-                    <h3>Wallet Balance</h3>
-                    <div class="stat-value">₦${(currentUser?.walletBalance || 14500).toLocaleString()}</div>
-                    <button class="add-funds-small" id="quickAddFunds">Add Funds</button>
-                </div>
-            </div>
-        </div>
-        
-        <div class="quick-links">
-            <h3>Quick Access</h3>
-            <div class="quick-links-grid">
-                <div class="quick-link-card" onclick="document.querySelector('[data-tab=\'question\']').click()">
-                    <i class="fas fa-question-circle"></i>
-                    <span>Answer Questions</span>
-                </div>
-                <div class="quick-link-card" onclick="document.querySelector('[data-tab=\'assignments\']').click()">
-                    <i class="fas fa-tasks"></i>
-                    <span>Assignments</span>
-                </div>
-                <div class="quick-link-card" onclick="window.location.href='/library.html'">
-                    <i class="fas fa-book"></i>
-                    <span>Library</span>
-                </div>
-                <div class="quick-link-card" onclick="window.location.href='/chat.html'">
-                    <i class="fas fa-comments"></i>
-                    <span>Community</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="action-cards">
-            <div class="action-card" id="continueLearningBtn">
-                <i class="fas fa-play-circle"></i>
-                <h4>Continue Learning</h4>
-                <p>Answer your next question</p>
-            </div>
-            <div class="action-card" id="viewPortfolioBtn">
-                <i class="fas fa-briefcase"></i>
-                <h4>View Portfolio</h4>
-                <p>${portfolioCount} projects</p>
-            </div>
-            <div class="action-card" id="sharePortfolioBtn">
-                <i class="fas fa-share-alt"></i>
-                <h4>Share Portfolio</h4>
-                <p>Showcase your work</p>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('continueLearningBtn')?.addEventListener('click', () => switchTab('question'));
-    document.getElementById('viewPortfolioBtn')?.addEventListener('click', () => switchTab('portfolio'));
-    document.getElementById('sharePortfolioBtn')?.addEventListener('click', () => sharePortfolio(currentUser.id));
-    document.getElementById('quickAddFunds')?.addEventListener('click', () => switchTab('wallet'));
-}
-
-// ============================================
-// QUESTION BAR TAB
-// ============================================
-async function renderQuestionBar() {
-    const container = document.getElementById('question-section');
-    if (!container) return;
-    
-    container.innerHTML = '<div class="loading-spinner">Loading next question...</div>';
-    
-    try {
-        const nextQuestion = await getNextQuestion(currentUser.id);
-        
-        if (!nextQuestion) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>All Questions Complete!</h3>
-                    <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
-                </div>
-            `;
-            return;
-        }
-        
-        // Initialize question renderer
-        questionRenderer = new QuestionRenderer(
-            'question-section',
-            currentUser.id,
-            async (result) => {
-                // Refresh score after answer
-                const scoreData = await getStudentScore(currentUser.id);
-                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-                const nextBadge = getNextBadge(scoreData?.current_score || 0);
-                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-                
-                // Update progress bar in dashboard
-                const progressSection = document.querySelector('.progress-section');
-                if (progressSection) {
-                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
-                }
-                
-                // Load next question after 2 seconds
-                setTimeout(() => renderQuestionBar(), 2000);
-            }
-        );
-        
-        await questionRenderer.renderQuestion(nextQuestion);
-        
-    } catch (error) {
-        console.error('Error loading question:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load question</h3>
-                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
-            </div>
-        `;
-    }
-}
-
-// ============================================
-// ASSIGNMENTS TAB
-// ============================================
-async function renderAssignments() {
-    const container = document.getElementById('assignments-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>Assignments</h2>
-                <p>Complete your tasks on time</p>
-            </div>
-        </div>
-        
-        <div class="assignments-list">
-            ${assignments.map(assignment => `
-                <div class="assignment-card ${assignment.status}">
-                    <div class="assignment-icon">
-                        <i class="fas ${assignment.type === 'video' ? 'fa-video' : assignment.type === 'design' ? 'fa-palette' : assignment.type === 'code' ? 'fa-code' : assignment.type === 'motion' ? 'fa-film' : 'fa-chart-line'}"></i>
-                    </div>
-                    <div class="assignment-info">
-                        <h4>${assignment.title}</h4>
-                        <div class="assignment-meta">
-                            <span>Due: ${new Date(assignment.dueDate).toLocaleDateString()}</span>
-                            <span>Points: ${assignment.points}</span>
-                        </div>
-                    </div>
-                    <div class="assignment-status">
-                        <span class="status-badge ${assignment.status}">${assignment.status}</span>
-                        ${assignment.grade ? `<span class="grade">Grade: ${assignment.grade}%</span>` : ''}
-                    </div>
-                    <div class="assignment-actions">
-                        ${assignment.status === 'pending' ? 
-                            `<button class="btn-small submit-assignment" data-id="${assignment.id}">Submit</button>` : 
-                            assignment.status === 'submitted' ? 
-                            `<button class="btn-small disabled" disabled>Awaiting Grade</button>` :
-                            `<button class="btn-small view-feedback" data-id="${assignment.id}">View Feedback</button>`
-                        }
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    document.querySelectorAll('.submit-assignment').forEach(btn => {
-        btn.addEventListener('click', () => {
-            showToast('Assignment submission feature coming soon!', 'info');
-        });
-    });
-}
-
-// ============================================
-// SUBMISSIONS TAB
-// ============================================
-async function renderSubmissions() {
-    const container = document.getElementById('submissions-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>My Submissions</h2>
-                <p>Track your submitted work and feedback</p>
-            </div>
-        </div>
-        
-        <div class="submissions-list">
-            ${submissions.map(sub => `
-                <div class="submission-card">
-                    <div class="submission-info">
-                        <h4>${sub.title}</h4>
-                        <div class="submission-meta">
-                            <span>Submitted: ${new Date(sub.submittedAt).toLocaleDateString()}</span>
-                        </div>
-                        ${sub.feedback ? `<div class="submission-feedback">📝 Feedback: ${sub.feedback}</div>` : ''}
-                    </div>
-                    <div class="submission-status">
-                        <span class="status-badge ${sub.status}">${sub.status}</span>
-                        ${sub.grade ? `<span class="grade">Grade: ${sub.grade}%</span>` : ''}
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-// ============================================
-// PORTFOLIO TAB
-// ============================================
-async function renderPortfolio() {
-    const container = document.getElementById('portfolio-section');
-    if (!container) return;
-    
-    const portfolioData = await getStudentPortfolio(currentUser.id, false);
-    const items = portfolioData.length > 0 ? portfolioData : portfolioItems;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>My Portfolio</h2>
-                <p>Showcase your best work</p>
-            </div>
-            <button class="btn-primary" id="sharePortfolioBtn">
-                <i class="fas fa-share-alt"></i> Share Portfolio
-            </button>
-        </div>
-        
-        <div class="portfolio-grid">
-            ${items.map(item => renderPortfolioItem(item, true)).join('')}
-        </div>
-        
-        <div class="portfolio-url-section">
-            <h3>Your Public Portfolio URL</h3>
-            <div class="url-display">
-                <input type="text" id="portfolioUrl" readonly value="${window.location.origin}/u/${currentUser.name.toLowerCase().replace(/\s+/g, '-')}">
-                <button id="copyUrlBtn" class="btn-outline">Copy URL</button>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('sharePortfolioBtn')?.addEventListener('click', () => sharePortfolio(currentUser.id));
-    document.getElementById('copyUrlBtn')?.addEventListener('click', () => {
-        const urlInput = document.getElementById('portfolioUrl');
-        urlInput.select();
-        document.execCommand('copy');
-        showToast('Portfolio URL copied!', 'success');
-    });
-}
-
-// ============================================
-// DEBATES TAB
-// ============================================
-async function renderDebates() {
-    const container = document.getElementById('debates-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>Debates</h2>
-                <p>Engage in scholarly discussions</p>
-            </div>
-        </div>
-        
-        <div class="debates-list">
-            ${debates.map(debate => `
-                <div class="debate-card status-${debate.status}">
-                    <div class="debate-header">
-                        <div class="debate-motion">🎯 ${debate.motion}</div>
-                        <div class="debate-status">${debate.status.toUpperCase()}</div>
-                    </div>
-                    <div class="debate-details">
-                        <div class="debate-stance">Your Stance: ${debate.myStance}</div>
-                        <div class="debate-opponent">Opponent: ${debate.opponent || 'Waiting for pairing...'}</div>
-                    </div>
-                    <div class="debate-actions">
-                        ${debate.status === 'active' && !debate.submitted ? 
-                            `<button class="btn-primary submit-argument" data-id="${debate.id}">Submit Argument</button>` : 
-                            debate.status === 'active' && debate.submitted ? 
-                            `<button class="btn-outline disabled" disabled>Argument Submitted</button>` :
-                            debate.status === 'pending' ?
-                            `<button class="btn-outline disabled" disabled>Awaiting Opponent</button>` :
-                            `<button class="btn-outline view-results" data-id="${debate.id}">View Results</button>`
-                        }
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    document.querySelectorAll('.submit-argument').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const debateId = btn.getAttribute('data-id');
-            const argument = prompt('Enter your argument with supporting research:');
-            if (argument) {
-                await submitDebateArgument(debateId, currentUser.id, argument, null);
-                renderDebates();
-            }
-        });
-    });
-}
-
-// ============================================
-// MVP ZONE TAB
-// ============================================
-async function renderMVPZone() {
-    const container = document.getElementById('mvp-section');
-    if (!container) return;
-    
-    const scoreData = await getStudentScore(currentUser.id);
-    const isAmbassador = (scoreData?.current_score || 0) >= 100;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>MVP Zone</h2>
-                <p>Real-world project proposal and incubation</p>
-            </div>
-        </div>
-        
+        <!-- MVP Section (Only for Ambassadors) -->
         ${isAmbassador ? `
-            <div class="mvp-eligible">
-                <div class="mvp-badge">
-                    <i class="fas fa-crown"></i>
-                    <h3>You've unlocked the Ambassador Zone!</h3>
-                    <p>Submit your real-world project proposal to become a Gliimu Ambassador.</p>
+            <div class="mvp-section">
+                <div class="mvp-header">
+                    <i class="fas fa-rocket"></i>
+                    <h3>MVP Ambassador Zone</h3>
                 </div>
-                
-                <div class="mvp-form">
-                    <h3>Submit MVP Proposal</h3>
+                <p>You've reached 100%! Submit your real-world project proposal to become a Gliimu Ambassador.</p>
+                <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
+            </div>
+        ` : `
+            <div class="mvp-locked-section">
+                <div class="mvp-locked-header">
+                    <i class="fas fa-lock"></i>
+                    <h3>Unlock Ambassador Zone</h3>
+                </div>
+                <p>Reach 100% score to submit real-world project proposals and become a Gliimu Ambassador.</p>
+                <div class="progress-to-unlock">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
+                    </div>
+                    <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
+                </div>
+            </div>
+        `}
+        
+        <!-- Leaderboard Section -->
+        <div class="leaderboard-section">
+            <div class="leaderboard-header">
+                <i class="fas fa-trophy"></i>
+                <h3>Top Performers</h3>
+                <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
+            </div>
+            <div class="leaderboard-list">
+                ${renderLeaderboardList(leaderboardData)}
+            </div>
+        </div>
+        
+        <!-- MVP Proposal Modal (Hidden) -->
+        <div id="mvpModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Submit MVP Proposal</h2>
+                    <button class="modal-close" id="closeMvpModal">&times;</button>
+                </div>
+                <div class="modal-body">
                     <form id="mvpForm">
                         <div class="form-group">
                             <label>Project Title</label>
@@ -788,290 +420,341 @@ async function renderMVPZone() {
                     </form>
                 </div>
             </div>
-        ` : `
-            <div class="mvp-locked">
-                <div class="mvp-locked-badge">
-                    <i class="fas fa-lock"></i>
-                    <h3>Ambassador Zone Locked</h3>
-                    <p>Reach 100% score to unlock the MVP Zone and submit real-world project proposals.</p>
-                    <div class="progress-to-unlock">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
-                        </div>
-                        <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
-                    </div>
-                </div>
-            </div>
-        `}
+        </div>
     `;
     
-    if (isAmbassador) {
-        const mvpForm = document.getElementById('mvpForm');
-        if (mvpForm) {
-            mvpForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const title = document.getElementById('mvpTitle').value;
-                const type = document.getElementById('mvpType').value;
-                const description = document.getElementById('mvpDescription').value;
-                const proposal = document.getElementById('mvpProposal').value;
-                
-                const result = await submitMVPProposal(currentUser.id, title, description, type, proposal);
-                
-                if (result) {
-                    mvpForm.reset();
-                    showToast('MVP Proposal submitted! The school will review and reach out.', 'success');
-                }
-            });
-        }
+    // MVP Modal handlers
+    const openMvpBtn = document.getElementById('openMvpFormBtn');
+    if (openMvpBtn) {
+        openMvpBtn.addEventListener('click', () => {
+            document.getElementById('mvpModal').classList.add('active');
+        });
+    }
+    
+    const closeMvpModal = document.getElementById('closeMvpModal');
+    if (closeMvpModal) {
+        closeMvpModal.onclick = () => {
+            document.getElementById('mvpModal').classList.remove('active');
+        };
+    }
+    
+    // MVP Form submission
+    const mvpForm = document.getElementById('mvpForm');
+    if (mvpForm) {
+        mvpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('mvpTitle').value;
+            const type = document.getElementById('mvpType').value;
+            const description = document.getElementById('mvpDescription').value;
+            const proposal = document.getElementById('mvpProposal').value;
+            
+            const result = await submitMVPProposal(currentUser.id, title, description, type, proposal);
+            
+            if (result) {
+                document.getElementById('mvpModal').classList.remove('active');
+                mvpForm.reset();
+                showToast('MVP Proposal submitted! The school will review and reach out.', 'success');
+            }
+        });
+    }
+    
+    // Refresh leaderboard
+    const refreshBtn = document.getElementById('refreshLeaderboardBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', async () => {
+            const newLeaderboard = await getLeaderboard(10);
+            const leaderboardList = document.querySelector('.leaderboard-list');
+            if (leaderboardList) {
+                leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
+            }
+            showToast('Leaderboard refreshed!', 'success');
+        });
     }
 }
 
-// ============================================
-// LEADERBOARD TAB
-// ============================================
-async function renderLeaderboardTab() {
-    const container = document.getElementById('leaderboard-section');
-    if (!container) return;
+function renderLeaderboardList(leaderboardData) {
+    if (!leaderboardData || leaderboardData.length === 0) {
+        return '<div class="empty-state"><i class="fas fa-trophy"></i><p>No leaders yet. Be the first!</p></div>';
+    }
     
-    const leaderboardData = await getLeaderboard(20);
+    return leaderboardData.map((entry, index) => `
+        <div class="leaderboard-item ${index < 3 ? 'top-' + (index + 1) : ''}">
+            <div class="leaderboard-rank">#${index + 1}</div>
+            <div class="leaderboard-avatar">
+                <img src="${entry.users?.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(entry.users?.name || 'User') + '&background=fbb040&color=fff'}" alt="">
+            </div>
+            <div class="leaderboard-info">
+                <div class="leaderboard-name">${entry.users?.name || 'Anonymous'}</div>
+                <div class="leaderboard-badge">${entry.current_badge}</div>
+            </div>
+            <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
+        </div>
+    `).join('');
+}
+
+// ============================================
+// GO TO MENU TAB
+// ============================================
+function renderGoToMenu() {
+    const container = document.getElementById('gotomenu-section');
+    if (!container) return;
     
     container.innerHTML = `
         <div class="section-header">
             <div>
-                <h2>Leaderboard</h2>
-                <p>Top performers in the community</p>
+                <h2><i class="fas fa-door-open"></i> Go To</h2>
+                <p>Quick access to all platform sections</p>
             </div>
         </div>
         
-        ${renderLeaderboard(leaderboardData)}
+        <div class="go-to-grid">
+            <div class="go-to-card" onclick="window.location.href='/library.html'">
+                <div class="go-to-icon">
+                    <i class="fas fa-book"></i>
+                </div>
+                <div class="go-to-info">
+                    <h3>Library</h3>
+                    <p>Access books, bundles, and learning materials</p>
+                </div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/hub.html'">
+                <div class="go-to-icon">
+                    <i class="fas fa-newspaper"></i>
+                </div>
+                <div class="go-to-info">
+                    <h3>Hub</h3>
+                    <p>Events, insights, and latest updates</p>
+                </div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/chat.html'">
+                <div class="go-to-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <div class="go-to-info">
+                    <h3>Community</h3>
+                    <p>Connect with fellow learners and instructors</p>
+                </div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/virtualroom.html'">
+                <div class="go-to-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <div class="go-to-info">
+                    <h3>Virtual Classroom</h3>
+                    <p>Live classes and interactive sessions</p>
+                </div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+        </div>
     `;
 }
 
 // ============================================
-// GRADE SUBMISSIONS TAB (Instructor)
-// ============================================
-async function renderGradeSubmissions() {
-    const container = document.getElementById('grade-section');
-    if (!container) return;
-    
-    const pendingSubmissions = await getPendingSubmissions(currentUser.id);
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>Grade Submissions</h2>
-                <p>Review and grade student work</p>
-            </div>
-        </div>
-        
-        <div class="submissions-list">
-            ${pendingSubmissions.length === 0 ? `
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>No pending submissions</h3>
-                    <p>All caught up!</p>
-                </div>
-            ` : pendingSubmissions.map(sub => `
-                <div class="submission-card pending">
-                    <div class="submission-info">
-                        <h4>${sub.questions?.text || 'Unknown Question'}</h4>
-                        <div class="submission-meta">
-                            <span>Student: ${sub.users?.name || 'Unknown'}</span>
-                            <span>Submitted: ${new Date(sub.submitted_at).toLocaleString()}</span>
-                        </div>
-                        <div class="submission-answer">
-                            <strong>Answer:</strong>
-                            <p>${sub.answer}</p>
-                            ${sub.file_url ? `<a href="${sub.file_url}" target="_blank" class="file-link">View Attachment <i class="fas fa-external-link-alt"></i></a>` : ''}
-                        </div>
-                        <div class="grading-form">
-                            <div class="form-group">
-                                <label>Grade (%)</label>
-                                <input type="number" id="grade_${sub.id}" min="0" max="100" step="1">
-                            </div>
-                            <div class="form-group">
-                                <label>Feedback</label>
-                                <textarea id="feedback_${sub.id}" rows="3" placeholder="Provide feedback to the student..."></textarea>
-                            </div>
-                            <button class="btn-primary submit-grade" data-id="${sub.id}">Submit Grade</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    document.querySelectorAll('.submit-grade').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const submissionId = btn.getAttribute('data-id');
-            const grade = document.getElementById(`grade_${submissionId}`).value;
-            const feedback = document.getElementById(`feedback_${submissionId}`).value;
-            
-            if (!grade) {
-                showToast('Please enter a grade', 'error');
-                return;
-            }
-            
-            const isCorrect = parseInt(grade) >= 70;
-            
-            const result = await gradeSubmission(submissionId, parseInt(grade), feedback, isCorrect);
-            
-            if (result) {
-                renderGradeSubmissions();
-            }
-        });
-    });
-}
-
-// ============================================
-// WALLET TAB
+// WALLET TAB - Balance, Transactions, Plans
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
     if (!container) return;
     
     const balance = await getWalletBalance();
-    const isPremiumUser = await isPremium();
     const transactions = await getTransactionHistory();
     const userAccess = await getUserAccess();
     
-    const topUpAmount = PRICING.premium - balance;
+    // Separate transactions by status
+    const pending = pendingPayments;
+    const approved = approvedPayments;
+    const cancelled = cancelledPayments;
+    const allTransactions = transactions || [];
     
     container.innerHTML = `
         <div class="section-header">
             <div>
                 <h2>Wallet</h2>
-                <p>Your balance: <strong>₦${balance.toLocaleString()}</strong></p>
-            </div>
-            <button class="btn-primary" id="addFundsBtn">Add Funds</button>
-        </div>
-        
-        <div class="purchase-section">
-            <h3>Purchase Access</h3>
-            
-            <div class="purchase-card premium">
-                <div class="purchase-icon">👑</div>
-                <div class="purchase-info">
-                    <h4>Premium (All Platforms)</h4>
-                    <p>Library + Hub + Community</p>
-                    <div class="price">₦${PRICING.premium.toLocaleString()}</div>
-                    ${balance >= PRICING.premium ? 
-                        `<button class="btn-success" id="buyPremiumBtn">Purchase Now</button>` :
-                        `<button class="btn-warning" id="premiumTopUpBtn">Add ₦${topUpAmount.toLocaleString()} to Get Premium</button>`
-                    }
-                </div>
-            </div>
-            
-            <div class="purchase-card standard">
-                <div class="purchase-icon">📦</div>
-                <div class="purchase-info">
-                    <h4>Standard (Hub + Community)</h4>
-                    <p>⚠️ Forfeits remaining credit. No monthly bonuses.</p>
-                    <div class="price">₦${PRICING.standard.toLocaleString()}</div>
-                    <button class="btn-outline" id="buyStandardBtn">Choose Standard</button>
-                </div>
-            </div>
-            
-            <div class="purchase-card individual">
-                <h4>Individual Platforms</h4>
-                <div class="platform-options">
-                    <div class="platform-option">
-                        <span>📚 Library</span>
-                        <span>₦${PRICING.library.toLocaleString()}</span>
-                        <button class="btn-small" id="buyLibraryBtn">Buy</button>
-                    </div>
-                    <div class="platform-option">
-                        <span>💬 Community</span>
-                        <span>₦${PRICING.community.toLocaleString()}</span>
-                        <button class="btn-small" id="buyCommunityBtn">Buy</button>
-                    </div>
-                    <div class="platform-option">
-                        <span>📰 Hub</span>
-                        <span>₦${PRICING.hub.toLocaleString()}</span>
-                        <button class="btn-small" id="buyHubBtn">Buy</button>
-                    </div>
-                </div>
+                <p>Manage your funds and subscription plans</p>
             </div>
         </div>
         
-        <div class="current-access">
-            <h3>Your Current Access</h3>
-            <div class="access-badges">
-                <div class="access-badge ${userAccess?.access_library ? 'active' : 'inactive'}">
-                    ${userAccess?.access_library ? '✅' : '🔒'} Library
-                </div>
-                <div class="access-badge ${userAccess?.access_hub ? 'active' : 'inactive'}">
-                    ${userAccess?.access_hub ? '✅' : '🔒'} Hub
-                </div>
-                <div class="access-badge ${userAccess?.access_community ? 'active' : 'inactive'}">
-                    ${userAccess?.access_community ? '✅' : '🔒'} Community
-                </div>
+        <!-- Balance Section -->
+        <div class="wallet-balance-card">
+            <div class="wallet-balance-icon">
+                <i class="fas fa-wallet"></i>
             </div>
+            <div class="wallet-balance-info">
+                <span class="wallet-label">Available Balance</span>
+                <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
+            </div>
+            <button id="addFundsBtn" class="btn-primary">Add Funds</button>
         </div>
         
+        <!-- Transactions List -->
         <div class="transactions-section">
-            <h3>Transaction History</h3>
+            <h3>Recent Transactions</h3>
             <div class="transactions-list">
-                ${transactions.length === 0 ? '<p>No transactions yet</p>' : 
-                    transactions.map(t => `
+                ${allTransactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                    allTransactions.slice(0, 5).map(t => `
                         <div class="transaction-item">
-                            <div class="transaction-desc">${escapeHtml(t.description)}</div>
+                            <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
+                                <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                            </div>
+                            <div class="transaction-info">
+                                <div class="transaction-desc">${escapeHtml(t.description)}</div>
+                                <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
+                            </div>
                             <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
                                 ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
                             </div>
-                            <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
                         </div>
                     `).join('')
                 }
             </div>
         </div>
+        
+        <!-- Pending Payments -->
+        <div class="payments-section">
+            <h3>Pending Payments</h3>
+            <div class="payments-list">
+                ${pending.length === 0 ? '<p class="empty-payments">No pending payments</p>' : 
+                    pending.map(p => `
+                        <div class="payment-item pending">
+                            <div class="payment-info">
+                                <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                                <div class="payment-date">${new Date(p.date).toLocaleDateString()}</div>
+                                <div class="payment-ref">Ref: ${p.reference}</div>
+                            </div>
+                            <div class="payment-status-badge pending">Pending</div>
+                        </div>
+                    `).join('')
+                }
+            </div>
+        </div>
+        
+        <!-- Approved Payments -->
+        <div class="payments-section">
+            <h3>Approved Payments</h3>
+            <div class="payments-list">
+                ${approved.length === 0 ? '<p class="empty-payments">No approved payments</p>' : 
+                    approved.map(p => `
+                        <div class="payment-item approved">
+                            <div class="payment-info">
+                                <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                                <div class="payment-date">${new Date(p.date).toLocaleDateString()}</div>
+                                <div class="payment-ref">Ref: ${p.reference}</div>
+                            </div>
+                            <div class="payment-status-badge approved">Approved</div>
+                        </div>
+                    `).join('')
+                }
+            </div>
+        </div>
+        
+        <!-- Cancelled Payments -->
+        <div class="payments-section">
+            <h3>Cancelled Payments</h3>
+            <div class="payments-list">
+                ${cancelled.length === 0 ? '<p class="empty-payments">No cancelled payments</p>' : 
+                    cancelled.map(p => `
+                        <div class="payment-item cancelled">
+                            <div class="payment-info">
+                                <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                                <div class="payment-date">${new Date(p.date).toLocaleDateString()}</div>
+                                <div class="payment-ref">Ref: ${p.reference}</div>
+                            </div>
+                            <div class="payment-status-badge cancelled">Cancelled</div>
+                        </div>
+                    `).join('')
+                }
+            </div>
+        </div>
+        
+        <!-- Plan Cards -->
+        <div class="plans-section">
+            <h3>Subscription Plans</h3>
+            <div class="plans-grid">
+                <div class="plan-card basic">
+                    <div class="plan-icon">🌱</div>
+                    <h4>Basic</h4>
+                    <div class="plan-price">₦7,500<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>✓ Access to 1 platform</li>
+                        <li>✓ Choose Library, Hub, or Community</li>
+                        <li>✓ Basic support</li>
+                    </ul>
+                    <button class="btn-outline plan-select" data-plan="basic">Select Plan</button>
+                </div>
+                
+                <div class="plan-card standard">
+                    <div class="plan-icon">📦</div>
+                    <h4>Standard</h4>
+                    <div class="plan-price">₦13,000<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>✓ Access to any 2 platforms</li>
+                        <li>✓ Hub + Community (default)</li>
+                        <li>✓ Priority support</li>
+                    </ul>
+                    <button class="btn-outline plan-select" data-plan="standard">Select Plan</button>
+                </div>
+                
+                <div class="plan-card premium">
+                    <div class="plan-badge">Most Popular</div>
+                    <div class="plan-icon">👑</div>
+                    <h4>Premium</h4>
+                    <div class="plan-price">₦15,000<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>✓ Full access to all 3 platforms</li>
+                        <li>✓ Library + Hub + Community</li>
+                        <li>✓ 24/7 priority support</li>
+                        <li>✓ Monthly bonus rewards</li>
+                    </ul>
+                    <button class="btn-primary plan-select" data-plan="premium">Select Plan</button>
+                </div>
+            </div>
+        </div>
     `;
     
-    // Event listeners for wallet
-    document.getElementById('addFundsBtn')?.addEventListener('click', () => openModal('addFundsModal'));
-    document.getElementById('buyPremiumBtn')?.addEventListener('click', async () => {
-        const result = await purchasePremium();
-        if (result === true) {
-            setTimeout(() => renderWallet(), 1000);
-            setTimeout(() => renderDashboard(), 1000);
-        } else if (result?.needsTopUp) {
-            openModal('addFundsModal');
-        }
+    // Add Funds button
+    document.getElementById('addFundsBtn')?.addEventListener('click', () => {
+        openModal('addFundsModal');
     });
-    document.getElementById('premiumTopUpBtn')?.addEventListener('click', () => openModal('addFundsModal'));
-    document.getElementById('buyStandardBtn')?.addEventListener('click', async () => {
-        if (confirm('⚠️ WARNING: You will forfeit remaining credit. No monthly bonuses. Continue?')) {
-            await purchaseStandard();
-            setTimeout(() => renderWallet(), 1000);
-            setTimeout(() => renderDashboard(), 1000);
-        }
-    });
-    document.getElementById('buyLibraryBtn')?.addEventListener('click', async () => {
-        await purchasePlatform('library');
-        setTimeout(() => renderWallet(), 500);
-        setTimeout(() => renderDashboard(), 500);
-    });
-    document.getElementById('buyCommunityBtn')?.addEventListener('click', async () => {
-        await purchasePlatform('community');
-        setTimeout(() => renderWallet(), 500);
-        setTimeout(() => renderDashboard(), 500);
-    });
-    document.getElementById('buyHubBtn')?.addEventListener('click', async () => {
-        await purchasePlatform('hub');
-        setTimeout(() => renderWallet(), 500);
-        setTimeout(() => renderDashboard(), 500);
+    
+    // Plan selection
+    document.querySelectorAll('.plan-select').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const plan = btn.getAttribute('data-plan');
+            if (plan === 'premium') {
+                const result = await purchasePremium();
+                if (result === true) {
+                    setTimeout(() => renderWallet(), 1000);
+                } else if (result?.needsTopUp) {
+                    openModal('addFundsModal');
+                }
+            } else if (plan === 'standard') {
+                if (confirm('⚠️ WARNING: Standard plan gives Hub + Community access. You will forfeit remaining credit. Continue?')) {
+                    await purchaseStandard();
+                    setTimeout(() => renderWallet(), 1000);
+                }
+            } else {
+                showToast('Basic plan selection coming soon. Please contact support.', 'info');
+            }
+        });
     });
 }
 
 // ============================================
-// SETTINGS RENDER
+// SETTINGS TAB - With Portfolio Link and Sign Out
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
     if (!container) return;
     
     const isDark = document.body.classList.contains('dark-mode');
+    const portfolioUrl = `${window.location.origin}/u/${currentUser.name.toLowerCase().replace(/\s+/g, '-')}`;
+    const portfolioItems = await getStudentPortfolio(currentUser.id, false);
     
     container.innerHTML = `
         <div class="section-header">
@@ -1131,10 +814,27 @@ async function renderSettings() {
                     </label>
                 </div>
             </div>
+            
+            <div class="settings-card">
+                <h3>Portfolio</h3>
+                <div class="portfolio-settings">
+                    <p>Your public portfolio shows your best work to the world.</p>
+                    <div class="portfolio-stats">
+                        <span><i class="fas fa-briefcase"></i> ${portfolioItems.length} items</span>
+                        <span><i class="fas fa-eye"></i> Total views: ${portfolioItems.reduce((sum, i) => sum + (i.view_count || 0), 0)}</span>
+                    </div>
+                    <div class="portfolio-url-display">
+                        <input type="text" id="portfolioUrl" readonly value="${portfolioUrl}">
+                        <button id="copyPortfolioUrlBtn" class="btn-outline">Copy URL</button>
+                    </div>
+                    <button id="viewPublicPortfolioBtn" class="btn-primary">View Public Portfolio</button>
+                </div>
+            </div>
         </div>
         
         <div class="settings-actions">
             <button type="submit" class="btn-primary" id="saveSettingsBtn">Save Changes</button>
+            <button id="signOutBtn" class="btn-danger">Sign Out</button>
         </div>
     `;
     
@@ -1181,6 +881,19 @@ async function renderSettings() {
         }
     });
     
+    // Copy portfolio URL
+    document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
+        const urlInput = document.getElementById('portfolioUrl');
+        urlInput.select();
+        document.execCommand('copy');
+        showToast('Portfolio URL copied!', 'success');
+    });
+    
+    // View public portfolio
+    document.getElementById('viewPublicPortfolioBtn')?.addEventListener('click', () => {
+        window.open(portfolioUrl, '_blank');
+    });
+    
     // Save settings
     document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
         const newName = document.getElementById('fullNameInput').value;
@@ -1201,6 +914,38 @@ async function renderSettings() {
             }
         }
     });
+    
+    // Sign Out button
+    document.getElementById('signOutBtn')?.addEventListener('click', async () => {
+        const confirmed = confirm('Are you sure you want to sign out?');
+        if (confirmed) {
+            await supabase.auth.signOut();
+            localStorage.clear();
+            window.location.href = '/signin.html';
+        }
+    });
+}
+
+// ============================================
+// GRADE SUBMISSIONS TAB (Instructor)
+// ============================================
+async function renderGradeSubmissions() {
+    const container = document.getElementById('grade-section');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>Grade Submissions</h2>
+                <p>Review and grade student work</p>
+            </div>
+        </div>
+        <div class="empty-state">
+            <i class="fas fa-check-circle"></i>
+            <h3>No pending submissions</h3>
+            <p>All caught up!</p>
+        </div>
+    `;
 }
 
 // ============================================
@@ -1258,4 +1003,3 @@ window.openModal = openModal;
 window.closeModal = closeModal;
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
-window.renderQuestionBar = renderQuestionBar;
