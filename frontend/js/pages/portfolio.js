@@ -1,11 +1,11 @@
 // ============================================
-// PUBLIC PORTFOLIO PAGE - FIXED
+// PUBLIC PORTFOLIO PAGE - WITH BETTER SEARCH
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { getStudentPortfolio } from '../modules/progression.js';
 
-// Get username from URL (supports both /u/username and ?user=username)
+// Get username from URL (supports both /u/username and ?user=name)
 function getUsernameFromUrl() {
     // Check path for /u/username format
     const path = window.location.pathname;
@@ -26,62 +26,84 @@ function getUsernameFromUrl() {
 
 async function loadPortfolio() {
     const container = document.getElementById('portfolioContent');
-    const username = getUsernameFromUrl();
+    const usernameParam = getUsernameFromUrl();
     
-    if (!username) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-user-slash"></i>
-                <h3>No User Specified</h3>
-                <p>Please provide a valid username.</p>
-                <a href="/" class="btn-primary">Go Home</a>
-            </div>
-        `;
+    if (!usernameParam) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><h3>No User Specified</h3><a href="/" class="btn-primary">Go Home</a></div>`;
         return;
     }
     
+    // Convert hyphenated username to searchable name
+    const searchName = usernameParam.replace(/-/g, ' ');
+    
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading portfolio...</div>';
+    
     try {
-        // First, find the user by username (convert hyphenated to regular name)
-        const searchName = username.replace(/-/g, ' ');
+        // Try multiple search methods
+        let user = null;
         
-        const { data: user, error: userError } = await supabase
+        // Method 1: Exact match
+        let { data: exactMatch } = await supabase
             .from('users')
             .select('id, name, avatar_url, role')
             .ilike('name', searchName)
             .maybeSingle();
         
-        // Try partial match if exact fails
-        let finalUser = user;
-        if (!finalUser) {
-            const { data: partialMatch } = await supabase
-                .from('users')
-                .select('id, name, avatar_url, role')
-                .ilike('name', `%${searchName.split(' ')[0]}%`)
-                .limit(1)
-                .maybeSingle();
-            finalUser = partialMatch;
+        if (exactMatch) {
+            user = exactMatch;
         }
         
-        if (userError || !finalUser) {
+        // Method 2: Partial match (if exact fails)
+        if (!user) {
+            const nameParts = searchName.split(' ');
+            const firstName = nameParts[0];
+            
+            let { data: partialMatch } = await supabase
+                .from('users')
+                .select('id, name, avatar_url, role')
+                .ilike('name', `${firstName}%`)
+                .limit(1)
+                .maybeSingle();
+            
+            if (partialMatch) {
+                user = partialMatch;
+            }
+        }
+        
+        // Method 3: Check by username field if it exists
+        if (!user) {
+            let { data: usernameMatch } = await supabase
+                .from('users')
+                .select('id, name, avatar_url, role')
+                .eq('username', usernameParam)
+                .maybeSingle();
+            
+            if (usernameMatch) {
+                user = usernameMatch;
+            }
+        }
+        
+        if (!user) {
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-user-slash"></i>
                     <h3>Student Not Found</h3>
-                    <p>The portfolio for "${username}" doesn't exist.</p>
-                    <a href="/" class="btn-primary" style="display: inline-block; margin-top: 1rem;">Go Home</a>
+                    <p>No portfolio found for "${usernameParam}".</p>
+                    <p><small>Try checking the spelling or contact the student for their correct profile name.</small></p>
+                    <a href="/" class="btn-primary" style="margin-top: 1rem;">Go Home</a>
                 </div>
             `;
             return;
         }
         
         // Get portfolio items
-        const portfolioItems = await getStudentPortfolio(finalUser.id, true);
+        const portfolioItems = await getStudentPortfolio(user.id, true);
         
         // Get student stats
         const { data: scoreData } = await supabase
             .from('student_scores')
             .select('current_score, current_badge')
-            .eq('student_id', finalUser.id)
+            .eq('student_id', user.id)
             .single();
         
         const badgeName = scoreData?.current_badge || 'starter';
@@ -95,14 +117,13 @@ async function loadPortfolio() {
         
         const badge = badgeConfig[badgeName] || badgeConfig.starter;
         
-        // Render portfolio
         container.innerHTML = `
             <div class="student-profile-header">
                 <div class="student-avatar-large">
-                    <img src="${finalUser.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(finalUser.name)}&background=fbb040&color=fff`}" alt="${finalUser.name}">
+                    <img src="${user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=fbb040&color=fff`}" alt="${user.name}">
                 </div>
                 <div class="student-info-large">
-                    <h1>${escapeHtml(finalUser.name)}</h1>
+                    <h1>${escapeHtml(user.name)}</h1>
                     <p>Media Architect in Training</p>
                     <div class="student-badge" style="background: ${badge.color}20; color: ${badge.color}">
                         ${badge.icon} ${badge.name} Level
@@ -139,73 +160,40 @@ async function loadPortfolio() {
                 const tabId = tab.getAttribute('data-tab');
                 document.querySelectorAll('.portfolio-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
-                
-                const grid = document.getElementById('portfolioGrid');
-                grid.innerHTML = renderPortfolioItems(portfolioItems, tabId);
+                document.getElementById('portfolioGrid').innerHTML = renderPortfolioItems(portfolioItems, tabId);
             });
         });
         
     } catch (error) {
         console.error('Error loading portfolio:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Portfolio</h3>
-                <p>Please try again later.</p>
-            </div>
-        `;
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Portfolio</h3><button class="btn-primary" onclick="location.reload()">Try Again</button></div>`;
     }
 }
 
 function renderPortfolioItems(items, filter) {
-    const filtered = items.filter(item => {
-        if (filter === 'all') return true;
-        return item.type === filter;
-    });
+    const filtered = items.filter(item => filter === 'all' ? true : item.type === filter);
     
     if (filtered.length === 0) {
-        return `
-            <div class="empty-state">
-                <i class="fas fa-folder-open"></i>
-                <h3>No items yet</h3>
-                <p>This student hasn't added any ${filter} items to their portfolio.</p>
-            </div>
-        `;
+        return `<div class="empty-state"><i class="fas fa-folder-open"></i><h3>No items yet</h3><p>This student hasn't added any ${filter} items.</p></div>`;
     }
     
-    return filtered.map(item => {
-        const typeIcons = {
-            answer: { icon: 'fa-comment', class: 'answer' },
-            file: { icon: 'fa-file-alt', class: 'file' },
-            debate: { icon: 'fa-gavel', class: 'debate' },
-            mvp: { icon: 'fa-rocket', class: 'mvp' }
-        };
-        
-        const typeInfo = typeIcons[item.type] || { icon: 'fa-star', class: 'answer' };
-        
-        return `
-            <div class="portfolio-card">
-                <div class="portfolio-card-header">
-                    <div class="portfolio-card-icon ${typeInfo.class}">
-                        <i class="fas ${typeInfo.icon}"></i>
-                    </div>
-                    ${item.grade ? `<div class="portfolio-card-grade">${item.grade}%</div>` : ''}
+    return filtered.map(item => `
+        <div class="portfolio-card">
+            <div class="portfolio-card-header">
+                <div class="portfolio-card-icon">
+                    <i class="fas ${item.type === 'answer' ? 'fa-comment' : item.type === 'file' ? 'fa-file-alt' : item.type === 'debate' ? 'fa-gavel' : 'fa-rocket'}"></i>
                 </div>
-                <div class="portfolio-card-body">
-                    <h3 class="portfolio-card-title">${escapeHtml(item.title)}</h3>
-                    <p class="portfolio-card-description">${escapeHtml(item.description || 'No description provided')}</p>
-                    <div class="portfolio-card-meta">
-                        <span><i class="far fa-calendar"></i> ${new Date(item.created_at).toLocaleDateString()}</span>
-                        ${item.view_count ? `<span><i class="far fa-eye"></i> ${item.view_count} views</span>` : ''}
-                        ${item.like_count ? `<span><i class="far fa-heart"></i> ${item.like_count} likes</span>` : ''}
-                    </div>
-                </div>
-                <div class="portfolio-card-footer">
-                    <button class="btn-view" onclick="viewPortfolioItem('${item.id}')">View Details</button>
+                ${item.grade ? `<div class="portfolio-card-grade">${item.grade}%</div>` : ''}
+            </div>
+            <div class="portfolio-card-body">
+                <h3 class="portfolio-card-title">${escapeHtml(item.title)}</h3>
+                <p class="portfolio-card-description">${escapeHtml(item.description || 'No description provided')}</p>
+                <div class="portfolio-card-meta">
+                    <span><i class="far fa-calendar"></i> ${new Date(item.created_at).toLocaleDateString()}</span>
                 </div>
             </div>
-        `;
-    }).join('');
+        </div>
+    `).join('');
 }
 
 function escapeHtml(text) {
@@ -215,9 +203,4 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-window.viewPortfolioItem = function(itemId) {
-    alert('View details feature coming soon!');
-};
-
-// Load portfolio
 loadPortfolio();
