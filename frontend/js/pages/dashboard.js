@@ -617,7 +617,7 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// WALLET TAB
+// WALLET TAB - WITH FUNDING MODAL
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
@@ -771,10 +771,12 @@ async function renderWallet() {
         </div>
     `;
     
+    // Add Funds button - Open funding modal
     document.getElementById('addFundsBtn')?.addEventListener('click', () => {
-        openModal('addFundsModal');
+        openFundWalletModal();
     });
     
+    // Plan selection
     document.querySelectorAll('.plan-select').forEach(btn => {
         btn.addEventListener('click', async () => {
             const plan = btn.getAttribute('data-plan');
@@ -783,7 +785,7 @@ async function renderWallet() {
                 if (result === true) {
                     setTimeout(() => renderWallet(), 1000);
                 } else if (result?.needsTopUp) {
-                    openModal('addFundsModal');
+                    openFundWalletModal(result.amount);
                 }
             } else if (plan === 'standard') {
                 if (confirm('⚠️ WARNING: Standard plan gives Hub + Community access. You will forfeit remaining credit. Continue?')) {
@@ -795,6 +797,227 @@ async function renderWallet() {
             }
         });
     });
+}
+
+// ============================================
+// FUND WALLET MODAL
+// ============================================
+function openFundWalletModal(suggestedAmount = null) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('fundWalletModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'fundWalletModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content wallet-modal">
+                <div class="modal-header">
+                    <h2>Add Funds to Wallet</h2>
+                    <button class="modal-close" id="closeFundWalletModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="funding-options">
+                        <h3>Select Amount</h3>
+                        <div class="amount-buttons">
+                            <button class="amount-btn" data-amount="1000">₦1,000</button>
+                            <button class="amount-btn" data-amount="2500">₦2,500</button>
+                            <button class="amount-btn" data-amount="5000">₦5,000</button>
+                            <button class="amount-btn" data-amount="10000">₦10,000</button>
+                            <button class="amount-btn" data-amount="25000">₦25,000</button>
+                            <button class="amount-btn" data-amount="50000">₦50,000</button>
+                        </div>
+                        <div class="custom-amount">
+                            <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
+                        </div>
+                    </div>
+                    
+                    <div class="bank-details" style="display: none;">
+                        <h3>Bank Transfer Details</h3>
+                        <div class="bank-info-card">
+                            <div class="bank-option" data-bank="moniepoint">
+                                <div class="bank-name">MoniePoint Microfinance Bank</div>
+                                <div class="bank-account">Account Number: <strong>6315085115</strong></div>
+                                <div class="bank-name">Account Name: <strong>Gliimu LTD</strong></div>
+                            </div>
+                            <div class="bank-option" data-bank="opay">
+                                <div class="bank-name">Opay</div>
+                                <div class="bank-account">Account Number: <strong>6142049426</strong></div>
+                                <div class="bank-name">Account Name: <strong>Gliimu LTD</strong></div>
+                            </div>
+                        </div>
+                        <div class="reference-code-box">
+                            <p>Your Reference Code:</p>
+                            <div class="reference-code" id="referenceCode"></div>
+                            <button id="copyRefCodeBtn" class="btn-outline">Copy Code</button>
+                        </div>
+                        <div class="payment-instructions">
+                            <p><i class="fas fa-info-circle"></i> Instructions:</p>
+                            <ol>
+                                <li>Send the exact amount to any of the accounts above</li>
+                                <li>Use the <strong>Reference Code</strong> as your transaction narration</li>
+                                <li>After sending, click "I Have Made Payment" below</li>
+                                <li>Your wallet will be credited after admin verification</li>
+                            </ol>
+                        </div>
+                        <button id="confirmPaymentBtn" class="btn-success">✅ I Have Made Payment</button>
+                        <button id="backToAmountBtn" class="btn-outline">← Back</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    let selectedAmount = suggestedAmount || 0;
+    let referenceCode = '';
+    
+    // Show amount selection first
+    const fundingOptions = modal.querySelector('.funding-options');
+    const bankDetails = modal.querySelector('.bank-details');
+    
+    fundingOptions.style.display = 'block';
+    bankDetails.style.display = 'none';
+    
+    // Pre-fill amount if suggested
+    if (suggestedAmount) {
+        const customInput = modal.querySelector('#customAmount');
+        if (customInput) customInput.value = suggestedAmount;
+        selectedAmount = suggestedAmount;
+    }
+    
+    // Amount button handlers
+    modal.querySelectorAll('.amount-btn').forEach(btn => {
+        btn.onclick = () => {
+            modal.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedAmount = parseInt(btn.getAttribute('data-amount'));
+            const customInput = modal.querySelector('#customAmount');
+            if (customInput) customInput.value = '';
+        };
+    });
+    
+    // Custom amount handler
+    const customInput = modal.querySelector('#customAmount');
+    if (customInput) {
+        customInput.oninput = () => {
+            modal.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            selectedAmount = parseInt(customInput.value) || 0;
+        };
+    }
+    
+    // Next button (implicitly goes to bank details when amount is selected)
+    const proceedToBank = () => {
+        if (!selectedAmount || selectedAmount < 100) {
+            showToast('Please select or enter a valid amount (minimum ₦100)', 'error');
+            return;
+        }
+        
+        // Generate unique reference code
+        referenceCode = `GLM-${currentUser.id.substring(0, 8)}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        modal.querySelector('#referenceCode').textContent = referenceCode;
+        
+        fundingOptions.style.display = 'none';
+        bankDetails.style.display = 'block';
+    };
+    
+    // Add a "Continue" button if not exists
+    let continueBtn = modal.querySelector('#continueToBankBtn');
+    if (!continueBtn) {
+        continueBtn = document.createElement('button');
+        continueBtn.id = 'continueToBankBtn';
+        continueBtn.className = 'btn-primary';
+        continueBtn.textContent = 'Continue to Bank Details';
+        continueBtn.style.marginTop = '1rem';
+        continueBtn.style.width = '100%';
+        fundingOptions.appendChild(continueBtn);
+    }
+    continueBtn.onclick = proceedToBank;
+    
+    // If amount is already selected (from suggested), auto proceed
+    if (suggestedAmount) {
+        proceedToBank();
+    }
+    
+    // Back button
+    const backBtn = modal.querySelector('#backToAmountBtn');
+    if (backBtn) {
+        backBtn.onclick = () => {
+            fundingOptions.style.display = 'block';
+            bankDetails.style.display = 'none';
+        };
+    }
+    
+    // Copy reference code
+    const copyBtn = modal.querySelector('#copyRefCodeBtn');
+    if (copyBtn) {
+        copyBtn.onclick = () => {
+            const code = modal.querySelector('#referenceCode').textContent;
+            navigator.clipboard.writeText(code);
+            showToast('Reference code copied!', 'success');
+        };
+    }
+    
+    // Confirm payment
+    const confirmBtn = modal.querySelector('#confirmPaymentBtn');
+    if (confirmBtn) {
+        confirmBtn.onclick = async () => {
+            if (!selectedAmount) {
+                showToast('Invalid amount', 'error');
+                return;
+            }
+            
+            // Create payment request
+            const paymentRequest = {
+                id: `pay_${Date.now()}`,
+                userId: currentUser.id,
+                userName: currentUser.name,
+                userEmail: currentUser.email,
+                amount: selectedAmount,
+                referenceCode: referenceCode,
+                status: 'pending',
+                submittedAt: new Date().toISOString()
+            };
+            
+            // Save to localStorage (will be replaced with Supabase later)
+            let allRequests = JSON.parse(localStorage.getItem('payment_requests') || '[]');
+            allRequests.push(paymentRequest);
+            localStorage.setItem('payment_requests', JSON.stringify(allRequests));
+            
+            // Also add to pending payments display
+            pendingPayments.unshift({
+                id: paymentRequest.id,
+                amount: selectedAmount,
+                date: new Date().toISOString(),
+                reference: referenceCode,
+                status: 'pending'
+            });
+            
+            showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
+            modal.classList.remove('active');
+            
+            // Refresh wallet display
+            setTimeout(() => renderWallet(), 500);
+        };
+    }
+    
+    // Close modal
+    const closeBtn = modal.querySelector('#closeFundWalletModal');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        };
+    }
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 // ============================================
