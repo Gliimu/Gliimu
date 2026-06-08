@@ -1128,7 +1128,7 @@ async function renderSettings() {
     if (!container) return;
     
     const isDark = document.body.classList.contains('dark-mode');
-    const portfolioUrl = `${window.location.origin}/portfolio.html?user=${encodeURIComponent(currentUser.name)}`;
+    const portfolioUrl = `${window.location.origin}/u/${currentUser.name.toLowerCase().replace(/\s+/g, '-')}`;
     const portfolioItems = await getStudentPortfolio(currentUser.id, false);
     
     container.innerHTML = `
