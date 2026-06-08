@@ -1,31 +1,73 @@
 // ============================================
-// PUBLIC PORTFOLIO PAGE
+// PUBLIC PORTFOLIO PAGE - FIXED
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { getStudentPortfolio } from '../modules/progression.js';
 
-// Get username from URL
-const urlParams = new URLSearchParams(window.location.search);
-const username = urlParams.get('user');
+// Get username from URL (supports both /u/username and ?user=username)
+function getUsernameFromUrl() {
+    // Check path for /u/username format
+    const path = window.location.pathname;
+    const pathMatch = path.match(/\/u\/([^\/]+)/);
+    if (pathMatch) {
+        return decodeURIComponent(pathMatch[1]);
+    }
+    
+    // Check query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryUser = urlParams.get('user');
+    if (queryUser) {
+        return decodeURIComponent(queryUser);
+    }
+    
+    return null;
+}
 
 async function loadPortfolio() {
     const container = document.getElementById('portfolioContent');
+    const username = getUsernameFromUrl();
+    
+    if (!username) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-user-slash"></i>
+                <h3>No User Specified</h3>
+                <p>Please provide a valid username.</p>
+                <a href="/" class="btn-primary">Go Home</a>
+            </div>
+        `;
+        return;
+    }
     
     try {
-        // First, find the user by username
+        // First, find the user by username (convert hyphenated to regular name)
+        const searchName = username.replace(/-/g, ' ');
+        
         const { data: user, error: userError } = await supabase
             .from('users')
-            .select('id, name, avatar_url, role, current_badge')
-            .eq('name', decodeURIComponent(username))
-            .single();
+            .select('id, name, avatar_url, role')
+            .ilike('name', searchName)
+            .maybeSingle();
         
-        if (userError || !user) {
+        // Try partial match if exact fails
+        let finalUser = user;
+        if (!finalUser) {
+            const { data: partialMatch } = await supabase
+                .from('users')
+                .select('id, name, avatar_url, role')
+                .ilike('name', `%${searchName.split(' ')[0]}%`)
+                .limit(1)
+                .maybeSingle();
+            finalUser = partialMatch;
+        }
+        
+        if (userError || !finalUser) {
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-user-slash"></i>
                     <h3>Student Not Found</h3>
-                    <p>The portfolio you're looking for doesn't exist.</p>
+                    <p>The portfolio for "${username}" doesn't exist.</p>
                     <a href="/" class="btn-primary" style="display: inline-block; margin-top: 1rem;">Go Home</a>
                 </div>
             `;
@@ -33,13 +75,13 @@ async function loadPortfolio() {
         }
         
         // Get portfolio items
-        const portfolioItems = await getStudentPortfolio(user.id, true);
+        const portfolioItems = await getStudentPortfolio(finalUser.id, true);
         
         // Get student stats
         const { data: scoreData } = await supabase
             .from('student_scores')
             .select('current_score, current_badge')
-            .eq('student_id', user.id)
+            .eq('student_id', finalUser.id)
             .single();
         
         const badgeName = scoreData?.current_badge || 'starter';
@@ -57,10 +99,10 @@ async function loadPortfolio() {
         container.innerHTML = `
             <div class="student-profile-header">
                 <div class="student-avatar-large">
-                    <img src="${user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=fbb040&color=fff`}" alt="${user.name}">
+                    <img src="${finalUser.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(finalUser.name)}&background=fbb040&color=fff`}" alt="${finalUser.name}">
                 </div>
                 <div class="student-info-large">
-                    <h1>${escapeHtml(user.name)}</h1>
+                    <h1>${escapeHtml(finalUser.name)}</h1>
                     <p>Media Architect in Training</p>
                     <div class="student-badge" style="background: ${badge.color}20; color: ${badge.color}">
                         ${badge.icon} ${badge.name} Level
@@ -174,33 +216,8 @@ function escapeHtml(text) {
 }
 
 window.viewPortfolioItem = function(itemId) {
-    showToast('View details feature coming soon!', 'info');
+    alert('View details feature coming soon!');
 };
-
-function showToast(message, type) {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 10000;';
-        document.body.appendChild(container);
-    }
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.style.cssText = `
-        background: rgba(0,0,0,0.8);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 8px;
-        margin-top: 10px;
-        animation: fadeIn 0.3s ease;
-    `;
-    toast.textContent = message;
-    container.appendChild(toast);
-    
-    setTimeout(() => toast.remove(), 3000);
-}
 
 // Load portfolio
 loadPortfolio();
