@@ -6,8 +6,8 @@ import { supabase } from '../modules/supabase.js';
 import { getStudentPortfolio } from '../modules/progression.js';
 
 // Get username from URL
-const path = window.location.pathname;
-const username = path.split('/u/')[1] || path.split('/portfolio/')[1];
+const urlParams = new URLSearchParams(window.location.search);
+const username = urlParams.get('user');
 
 async function loadPortfolio() {
     const container = document.getElementById('portfolioContent');
