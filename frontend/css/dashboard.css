@@ -1818,3 +1818,52 @@ body.dark-mode .payment-instructions {
     color: var(--danger);
     margin-top: 0.25rem;
 }
+
+/* Scrollable Payment Filters - Mobile Fix */
+.payment-filters-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.payment-filters {
+    display: flex;
+    gap: 0.5rem;
+    min-width: min-content;
+    padding-bottom: 8px;
+}
+
+.payment-filters .filter-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.payment-filters .filter-btn.active {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+    border-color: var(--brand-gold);
+}
+
+/* Hide scrollbar for cleaner look on Chrome/Safari */
+.payment-filters-wrapper::-webkit-scrollbar {
+    height: 4px;
+}
+
+.payment-filters-wrapper::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.payment-filters-wrapper::-webkit-scrollbar-thumb {
+    background: var(--brand-gold);
+    border-radius: 4px;
+}
