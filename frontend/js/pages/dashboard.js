@@ -1,6 +1,7 @@
 // ============================================
 // GLIIMU DASHBOARD - COMPLETE STUDENT VERSION
-// FIXED: No infinite loading
+// Wallet Balance: ₦14,500 (NOT ₦25,000)
+// Tabs: Dashboard, Questions, Go To, Wallet, Settings
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -46,6 +47,15 @@ let cancelledPayments = [];
 let allPayments = [];
 let questionRenderer = null;
 let currentPaymentFilter = 'all';
+
+// Cache for performance
+let paymentsCache = null;
+let lastPaymentsFetch = 0;
+let cachedBalance = null;
+let cachedTransactions = null;
+let lastWalletUpdate = 0;
+const CACHE_DURATION = 30000; // 30 seconds
+const PAYMENTS_CACHE_DURATION = 60000; // 1 minute
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -96,7 +106,6 @@ async function loadUserFromSupabase(userId) {
         
         if (profileError) {
             console.error('Profile error:', profileError);
-            // Create default profile if not exists
             const { data: authUser } = await supabase.auth.getUser();
             if (authUser?.user) {
                 const defaultProfile = {
@@ -104,7 +113,7 @@ async function loadUserFromSupabase(userId) {
                     name: authUser.user.email?.split('@')[0] || 'User',
                     email: authUser.user.email,
                     role: 'student',
-                    wallet_balance: 14500
+                    wallet_balance: 14500  // ✅ CORRECT: ₦14,500
                 };
                 const { error: insertError } = await supabase
                     .from('users')
@@ -124,14 +133,14 @@ async function loadUserFromSupabase(userId) {
         await loadPaymentsFromStorage();
         
         currentUserProfile = profile;
-        currentWalletBalance = profile.wallet_balance || 14500;
+        currentWalletBalance = profile.wallet_balance || 14500;  // ✅ CORRECT: ₦14,500
         currentUser = {
             id: userId,
             name: profile.name || profile.full_name || 'User',
             email: profile.email,
             role: profile.role || 'student',
             subscriptionTier: profile.subscription_tier || 'premium',
-            walletBalance: profile.wallet_balance || 14500,
+            walletBalance: profile.wallet_balance || 14500,  // ✅ CORRECT: ₦14,500
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
         };
         currentRole = currentUser.role;
@@ -142,14 +151,13 @@ async function loadUserFromSupabase(userId) {
         
     } catch (error) {
         console.error('Error loading user from Supabase:', error);
-        // Create fallback user for testing
         currentUser = {
             id: userId,
             name: 'Test User',
             email: 'test@example.com',
             role: 'student',
             subscriptionTier: 'premium',
-            walletBalance: 14500,
+            walletBalance: 14500,  // ✅ CORRECT: ₦14,500
             avatar: 'https://ui-avatars.com/api/?name=Test+User&background=fbb040&color=fff'
         };
         currentRole = 'student';
@@ -158,9 +166,9 @@ async function loadUserFromSupabase(userId) {
 }
 
 // ============================================
-// PAYMENT STORAGE FUNCTIONS
+// OPTIMIZED PAYMENT STORAGE FUNCTIONS
 // ============================================
-async function loadPaymentsFromStorage() {
+async function loadPaymentsFromStorage(forceRefresh = false) {
     if (!currentUser?.id) {
         allPayments = [];
         pendingPayments = [];
@@ -169,7 +177,15 @@ async function loadPaymentsFromStorage() {
         return;
     }
     
-    // Try to load from Supabase first
+    const now = Date.now();
+    if (!forceRefresh && paymentsCache && (now - lastPaymentsFetch) < PAYMENTS_CACHE_DURATION) {
+        allPayments = paymentsCache;
+        pendingPayments = allPayments.filter(p => p.status === 'pending');
+        approvedPayments = allPayments.filter(p => p.status === 'approved');
+        cancelledPayments = allPayments.filter(p => p.status === 'cancelled');
+        return;
+    }
+    
     try {
         const { data, error } = await supabase
             .from('payment_requests')
@@ -178,6 +194,8 @@ async function loadPaymentsFromStorage() {
             .order('submitted_at', { ascending: false });
         
         if (!error && data) {
+            paymentsCache = data;
+            lastPaymentsFetch = now;
             allPayments = data;
             pendingPayments = allPayments.filter(p => p.status === 'pending');
             approvedPayments = allPayments.filter(p => p.status === 'approved');
@@ -188,10 +206,11 @@ async function loadPaymentsFromStorage() {
         console.log('Supabase not available, using localStorage');
     }
     
-    // Fallback to localStorage
     const storedPayments = localStorage.getItem(`glimu_payments_${currentUser.id}`);
     if (storedPayments) {
-        allPayments = JSON.parse(storedPayments);
+        paymentsCache = JSON.parse(storedPayments);
+        lastPaymentsFetch = now;
+        allPayments = paymentsCache;
     } else {
         allPayments = [];
     }
@@ -203,27 +222,25 @@ async function loadPaymentsFromStorage() {
 
 async function savePaymentToStorage(payment) {
     allPayments.unshift(payment);
+    paymentsCache = allPayments;
+    lastPaymentsFetch = Date.now();
     
-    // Try to save to Supabase
+    pendingPayments = allPayments.filter(p => p.status === 'pending');
+    approvedPayments = allPayments.filter(p => p.status === 'approved');
+    cancelledPayments = allPayments.filter(p => p.status === 'cancelled');
+    
     try {
-        const { error } = await supabase
+        supabase
             .from('payment_requests')
-            .insert([payment]);
-        
-        if (!error) {
-            console.log('Payment saved to Supabase');
-        }
+            .insert([payment])
+            .then(({ error }) => {
+                if (error) console.error('Error saving to Supabase:', error);
+            });
     } catch (e) {
         console.log('Supabase not available, saving to localStorage');
     }
     
-    // Always save to localStorage as backup
     localStorage.setItem(`glimu_payments_${currentUser.id}`, JSON.stringify(allPayments));
-    
-    // Update filtered arrays
-    pendingPayments = allPayments.filter(p => p.status === 'pending');
-    approvedPayments = allPayments.filter(p => p.status === 'approved');
-    cancelledPayments = allPayments.filter(p => p.status === 'cancelled');
 }
 
 // ============================================
@@ -240,6 +257,8 @@ function setupRealtimeWallet() {
         console.log('Wallet balance updated:', newBalance);
         currentUser.walletBalance = newBalance;
         currentWalletBalance = newBalance;
+        cachedBalance = newBalance;
+        lastWalletUpdate = Date.now();
         
         if (currentTab === 'wallet') {
             renderWallet();
@@ -426,7 +445,6 @@ async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
-    // Show loading
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
     
     try {
@@ -436,11 +454,22 @@ async function renderDashboard() {
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
         const leaderboardData = await getLeaderboard(10);
         const isAmbassador = (scoreData?.current_score || 0) >= 100;
-        const walletBalance = currentUser?.walletBalance || 14500;
+        const walletBalance = currentUser?.walletBalance || 14500;  // ✅ CORRECT: ₦14,500
         
         container.innerHTML = `
             <div class="progress-section">
                 ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
+            </div>
+            
+            <div class="quick-stats">
+                <div class="quick-stat-card">
+                    <i class="fas fa-wallet"></i>
+                    <div>
+                        <span class="quick-stat-label">Wallet Balance</span>
+                        <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
+                    </div>
+                    <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
+                </div>
             </div>
             
             ${isAmbassador ? `
@@ -480,7 +509,6 @@ async function renderDashboard() {
             </div>
         `;
         
-        // Event listeners
         document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
             openFundWalletModal();
         });
@@ -510,7 +538,6 @@ async function renderDashboard() {
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
                 <h3>Error Loading Dashboard</h3>
-                <p>Please refresh the page</p>
                 <button class="btn-primary" onclick="location.reload()">Refresh</button>
             </div>
         `;
@@ -721,7 +748,6 @@ function renderGoToMenu() {
             </div>
         </div>
         
-        <!-- Subscription Plans Section -->
         <div class="plans-section">
             <h3>Subscription Plans</h3>
             <div class="plans-grid">
@@ -789,43 +815,37 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// WALLET TAB - WITH FILTERABLE PAYMENTS
+// OPTIMIZED WALLET TAB
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
     if (!container) return;
     
-    try {
-        const balance = await getWalletBalance();
-        const transactions = await getTransactionHistory();
-        
-        // Filter payments based on current filter
+    const now = Date.now();
+    let balance = cachedBalance;
+    let transactions = cachedTransactions;
+    let needsRefresh = !cachedBalance || (now - lastWalletUpdate) > CACHE_DURATION;
+    
+    const renderUI = (bal, txns) => {
         let displayPayments = [];
-        if (currentPaymentFilter === 'pending') {
-            displayPayments = pendingPayments;
-        } else if (currentPaymentFilter === 'approved') {
-            displayPayments = approvedPayments;
-        } else if (currentPaymentFilter === 'cancelled') {
-            displayPayments = cancelledPayments;
-        } else {
-            displayPayments = allPayments;
-        }
+        if (currentPaymentFilter === 'pending') displayPayments = pendingPayments;
+        else if (currentPaymentFilter === 'approved') displayPayments = approvedPayments;
+        else if (currentPaymentFilter === 'cancelled') displayPayments = cancelledPayments;
+        else displayPayments = allPayments;
         
         container.innerHTML = `
             <div class="section-header">
                 <div>
                     <h2>Wallet</h2>
-                    <p>Manage your funds and subscription plans</p>
+                    <p>Manage your funds</p>
                 </div>
             </div>
             
             <div class="wallet-balance-card">
-                <div class="wallet-balance-icon">
-                    <i class="fas fa-wallet"></i>
-                </div>
+                <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
                 <div class="wallet-balance-info">
                     <span class="wallet-label">Available Balance</span>
-                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
+                    <span class="wallet-balance-large">₦${bal.toLocaleString()}</span>
                 </div>
                 <button id="addFundsBtn" class="btn-primary">Add Funds</button>
             </div>
@@ -833,8 +853,8 @@ async function renderWallet() {
             <div class="transactions-section">
                 <h3>Recent Transactions</h3>
                 <div class="transactions-list">
-                    ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
-                        transactions.slice(0, 5).map(t => `
+                    ${txns?.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                        (txns || []).slice(0, 5).map(t => `
                             <div class="transaction-item">
                                 <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
                                     <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
@@ -853,7 +873,7 @@ async function renderWallet() {
             </div>
             
             <div class="payment-filters">
-                <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All Payments</button>
+                <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All (${allPayments.length})</button>
                 <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${pendingPayments.length})</button>
                 <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved (${approvedPayments.length})</button>
                 <button class="filter-btn ${currentPaymentFilter === 'cancelled' ? 'active' : ''}" data-filter="cancelled">Cancelled (${cancelledPayments.length})</button>
@@ -878,26 +898,49 @@ async function renderWallet() {
             </div>
         `;
         
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
-            openFundWalletModal();
-        });
+        const addFundsBtn = document.getElementById('addFundsBtn');
+        if (addFundsBtn) {
+            const newBtn = addFundsBtn.cloneNode(true);
+            addFundsBtn.parentNode.replaceChild(newBtn, addFundsBtn);
+            newBtn.addEventListener('click', () => openFundWalletModal());
+        }
         
         document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentPaymentFilter = btn.getAttribute('data-filter');
-                renderWallet();
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener('click', (e) => {
+                currentPaymentFilter = e.target.getAttribute('data-filter');
+                renderUI(bal, txns);
             });
         });
-        
-    } catch (error) {
-        console.error('Error rendering wallet:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Wallet</h3>
-                <button class="btn-primary" onclick="renderWallet()">Try Again</button>
-            </div>
-        `;
+    };
+    
+    if (cachedBalance !== null) {
+        renderUI(cachedBalance, cachedTransactions || []);
+    } else {
+        container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
+    }
+    
+    if (needsRefresh) {
+        try {
+            const [balanceResult, transactionsResult] = await Promise.all([
+                getWalletBalance(),
+                getTransactionHistory()
+            ]);
+            
+            balance = balanceResult;
+            transactions = transactionsResult;
+            cachedBalance = balance;
+            cachedTransactions = transactions;
+            lastWalletUpdate = now;
+            
+            renderUI(balance, transactions);
+        } catch (error) {
+            console.error('Error loading wallet:', error);
+            if (cachedBalance === null) {
+                container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
+            }
+        }
     }
 }
 
@@ -968,7 +1011,6 @@ function openFundWalletModal(suggestedAmount = null) {
         `;
         document.body.appendChild(modal);
         
-        // Close button
         document.getElementById('closeFundWalletModal').onclick = () => {
             modal.classList.remove('active');
             document.body.style.overflow = '';
@@ -1035,17 +1077,13 @@ function openFundWalletModal(suggestedAmount = null) {
     }
     continueBtn.onclick = proceedToBank;
     
-    if (suggestedAmount) {
-        proceedToBank();
-    }
+    if (suggestedAmount) proceedToBank();
     
     const backBtn = modal.querySelector('#backToAmountBtn');
-    if (backBtn) {
-        backBtn.onclick = () => {
-            fundingOptions.style.display = 'block';
-            bankDetails.style.display = 'none';
-        };
-    }
+    if (backBtn) backBtn.onclick = () => {
+        fundingOptions.style.display = 'block';
+        bankDetails.style.display = 'none';
+    };
     
     const copyBtn = modal.querySelector('#copyRefCodeBtn');
     if (copyBtn) {
@@ -1080,7 +1118,6 @@ function openFundWalletModal(suggestedAmount = null) {
             showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
             modal.classList.remove('active');
             document.body.style.overflow = '';
-            
             setTimeout(() => renderWallet(), 500);
         };
     }
@@ -1270,20 +1307,7 @@ async function renderSettings() {
 function renderGradeSubmissions() {
     const container = document.getElementById('grade-section');
     if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>Grade Submissions</h2>
-                <p>Review and grade student work</p>
-            </div>
-        </div>
-        <div class="empty-state">
-            <i class="fas fa-check-circle"></i>
-            <h3>No pending submissions</h3>
-            <p>All caught up!</p>
-        </div>
-    `;
+    container.innerHTML = `<div class="section-header"><h2>Grade Submissions</h2></div><div class="empty-state"><i class="fas fa-check-circle"></i><h3>No pending submissions</h3></div>`;
 }
 
 // ============================================
@@ -1316,12 +1340,8 @@ async function initDashboard() {
     console.log('Dashboard initialized successfully');
 }
 
-// ============================================
-// START DASHBOARD
-// ============================================
 initDashboard();
 
-// Make functions global
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
 window.renderQuestionBar = renderQuestionBar;
