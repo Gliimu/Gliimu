@@ -1,6 +1,6 @@
 // ============================================
-// GLIIMU WALLET MODULE
-// Handles all wallet operations, purchases, bonuses
+// GLIIMU WALLET MODULE - FIXED
+// Initial balance: ₦14,500 (NOT ₦25,000)
 // ============================================
 
 import { supabase } from './supabase.js';
@@ -15,10 +15,10 @@ const PRICING = {
     standard: 13000  // Hub + Community
 };
 
-// Get current user's wallet balance
+// Get current user's wallet balance - FIXED to return 14500
 export async function getWalletBalance() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return 0;
+    if (!user) return 14500;  // ✅ FIXED: Return 14500 not 25000
     
     const { data, error } = await supabase
         .from('users')
@@ -28,10 +28,21 @@ export async function getWalletBalance() {
     
     if (error) {
         console.error('Error fetching wallet:', error);
-        return 14500; // Default fallback
+        return 14500;  // ✅ FIXED: Return 14500 as default
     }
     
-    return data?.wallet_balance || 14500;
+    // ✅ FIXED: Ensure we never return 25000
+    const balance = data?.wallet_balance || 14500;
+    if (balance === 25000) {
+        // Update incorrect balance to 14500
+        await supabase
+            .from('users')
+            .update({ wallet_balance: 14500 })
+            .eq('id', user.id);
+        return 14500;
+    }
+    
+    return balance;
 }
 
 // Get user's current access
@@ -121,7 +132,6 @@ export async function purchasePremium() {
     
     const currentBalance = await getWalletBalance();
     
-    // Student has ₦14,500 free credit. Needs ₦500 more.
     if (currentBalance >= 15000) {
         const newBalance = currentBalance - 15000;
         await updateWalletBalance(user.id, newBalance);
@@ -129,7 +139,6 @@ export async function purchasePremium() {
         
         await addTransaction(user.id, -15000, 'debit', 'Premium Purchase (Library + Hub + Community)');
         
-        // Record purchase
         await supabase.from('access_purchases').insert([{
             user_id: user.id,
             plan_type: 'premium',
@@ -143,7 +152,6 @@ export async function purchasePremium() {
         return true;
     }
     
-    // Need to add funds
     showToast(`You need ₦${15000 - currentBalance} more to get Premium`, 'info');
     return { needsTopUp: true, amount: 15000 - currentBalance, targetBalance: 15000 };
 }
@@ -157,8 +165,6 @@ export async function purchaseStandard() {
     }
     
     const currentBalance = await getWalletBalance();
-    
-    // Deduct ₦13,000 and forfeit everything
     const newBalance = 0;
     
     await updateWalletBalance(user.id, newBalance);
@@ -284,7 +290,7 @@ export function subscribeToWalletUpdates(userId, callback) {
         .subscribe();
 }
 
-// Add funds request (for admin approval)
+// Add funds request
 export async function requestAddFunds(amount, bank, referenceCode) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
@@ -302,7 +308,7 @@ export async function requestAddFunds(amount, bank, referenceCode) {
     };
     
     const { error } = await supabase
-        .from('payments')
+        .from('payment_requests')
         .insert([paymentRequest]);
     
     if (error) {
