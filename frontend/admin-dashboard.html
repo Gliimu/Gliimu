@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Secretary Dashboard | Glimu</title>
+    <title>Secretary Dashboard | Gliimu Institute</title>
     <link rel="stylesheet" href="/css/global.css">
     <link rel="stylesheet" href="/css/admin-dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,125 +11,301 @@
 </head>
 <body>
 
-    <!-- Header Placeholder -->
-    <div id="header-placeholder"></div>
+    <!-- Simple Header for Admin Dashboard -->
+    <div class="admin-header">
+        <div class="header-container">
+            <div class="logo">
+                <img src="/icons/logo.png" alt="Gliimu" class="logo-img">
+                <span>Secretary Dashboard</span>
+            </div>
+            <div class="header-right">
+                <span class="admin-name" id="adminName">Loading...</span>
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Sign Out
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Admin Dashboard Container -->
     <div class="admin-container">
         <!-- Sidebar -->
         <aside class="admin-sidebar">
-            <div class="sidebar-header">
-                <div class="admin-avatar">
-                    <img src="https://ui-avatars.com/api/?name=Admin+Secretary&background=fbb040&color=fff&bold=true" alt="Admin">
-                </div>
-                <div class="admin-info">
-                    <h4>Admin Secretary</h4>
-                    <span class="admin-role">Payment Approvals</span>
-                </div>
-            </div>
             <nav class="admin-nav">
-                <div class="nav-item active" data-tab="pending">
-                    <i class="fas fa-clock"></i>
-                    <span>Pending Approvals</span>
-                    <span class="badge" id="pendingCount">0</span>
+                <div class="nav-item active" data-tab="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
                 </div>
-                <div class="nav-item" data-tab="approved">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Approved</span>
-                    <span class="badge" id="approvedCount">0</span>
+                <div class="nav-item" data-tab="payments">
+                    <i class="fas fa-wallet"></i>
+                    <span>Payments</span>
+                    <span class="badge" id="pendingPaymentsBadge">0</span>
                 </div>
-                <div class="nav-item" data-tab="rejected">
-                    <i class="fas fa-times-circle"></i>
-                    <span>Rejected</span>
-                    <span class="badge" id="rejectedCount">0</span>
+                <div class="nav-item" data-tab="students">
+                    <i class="fas fa-users"></i>
+                    <span>Students</span>
                 </div>
-                <div class="nav-item" data-tab="search">
-                    <i class="fas fa-search"></i>
-                    <span>Search by Code</span>
+                <div class="nav-item" data-tab="inventory">
+                    <i class="fas fa-boxes"></i>
+                    <span>Inventory</span>
+                </div>
+                <div class="nav-item" data-tab="finance">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Finance</span>
                 </div>
             </nav>
         </aside>
 
         <!-- Main Content -->
         <main class="admin-main">
-            <div class="admin-topbar">
-                <h2>Payment Verification Dashboard</h2>
-                <div class="admin-stats">
-                    <div class="stat">⏳ Pending: <strong id="totalPending">0</strong></div>
-                    <div class="stat">✅ Approved: <strong id="totalApproved">0</strong></div>
-                    <div class="stat">❌ Rejected: <strong id="totalRejected">0</strong></div>
+            <!-- Dashboard Tab -->
+            <div id="dashboardTab" class="admin-tab active">
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="stat-info">
+                            <h3>Pending Payments</h3>
+                            <div class="stat-value" id="statPendingPayments">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                        <div class="stat-info">
+                            <h3>Approved Payments</h3>
+                            <div class="stat-value" id="statApprovedPayments">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Students</h3>
+                            <div class="stat-value" id="statTotalStudents">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-certificate"></i></div>
+                        <div class="stat-info">
+                            <h3>Certificates Issued</h3>
+                            <div class="stat-value" id="statCertificatesIssued">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Revenue</h3>
+                            <div class="stat-value" id="statTotalRevenue">₦0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-box"></i></div>
+                        <div class="stat-info">
+                            <h3>Low Stock Items</h3>
+                            <div class="stat-value" id="statLowStock">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-section">
+                    <h3>Recent Payment Requests</h3>
+                    <div class="recent-payments" id="recentPayments">
+                        <div class="loading">Loading...</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Pending Approvals Tab -->
-            <div id="pendingTab" class="admin-tab active">
-                <div class="search-bar">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchPending" placeholder="Filter by code, name, or email...">
+            <!-- Payments Tab -->
+            <div id="paymentsTab" class="admin-tab">
+                <div class="tab-header">
+                    <h2>Payment Management</h2>
+                    <div class="payment-filters">
+                        <button class="filter-btn active" data-payment-filter="pending">Pending</button>
+                        <button class="filter-btn" data-payment-filter="approved">Approved</button>
+                        <button class="filter-btn" data-payment-filter="rejected">Rejected</button>
+                    </div>
                 </div>
-                <div class="payments-list" id="pendingList">
-                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading pending payments...</div>
-                </div>
-            </div>
-
-            <!-- Approved Tab -->
-            <div id="approvedTab" class="admin-tab">
-                <div class="payments-list" id="approvedList">
-                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading approved payments...</div>
+                <div class="payments-list" id="paymentsList">
+                    <div class="loading">Loading payments...</div>
                 </div>
             </div>
 
-            <!-- Rejected Tab -->
-            <div id="rejectedTab" class="admin-tab">
-                <div class="payments-list" id="rejectedList">
-                    <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading rejected payments...</div>
+            <!-- Students Tab -->
+            <div id="studentsTab" class="admin-tab">
+                <div class="tab-header">
+                    <h2>Student Management</h2>
+                    <button id="exportStudentsBtn" class="btn-outline">Export CSV</button>
+                </div>
+                <div class="students-list" id="studentsList">
+                    <div class="loading">Loading students...</div>
                 </div>
             </div>
 
-            <!-- Search Tab -->
-            <div id="searchTab" class="admin-tab">
-                <div class="search-bar">
-                    <input type="text" id="searchCodeInput" placeholder="Enter reference code (e.g., GLM-userId-1234)">
-                    <button id="searchCodeBtn" class="btn-primary">Search</button>
+            <!-- Inventory Tab -->
+            <div id="inventoryTab" class="admin-tab">
+                <div class="tab-header">
+                    <h2>Inventory Management</h2>
+                    <button id="addProductBtn" class="btn-primary">+ Add Product</button>
                 </div>
-                <div id="searchResult" style="display: none;"></div>
+                <div class="inventory-stats">
+                    <div class="inv-stat">
+                        <span>Total Products</span>
+                        <strong id="totalProducts">0</strong>
+                    </div>
+                    <div class="inv-stat">
+                        <span>Low Stock Alerts</span>
+                        <strong id="lowStockCount">0</strong>
+                    </div>
+                    <div class="inv-stat">
+                        <span>Monthly Sales</span>
+                        <strong id="monthlySales">₦0</strong>
+                    </div>
+                </div>
+                <div class="inventory-list" id="inventoryList">
+                    <div class="loading">Loading inventory...</div>
+                </div>
+            </div>
+
+            <!-- Finance Tab -->
+            <div id="financeTab" class="admin-tab">
+                <div class="tab-header">
+                    <h2>Financial Management</h2>
+                    <div class="finance-filters">
+                        <button class="filter-btn active" data-finance-filter="overview">Overview</button>
+                        <button class="filter-btn" data-finance-filter="expenses">Expenses</button>
+                        <button class="filter-btn" data-finance-filter="disbursements">Disbursements</button>
+                    </div>
+                </div>
+                
+                <!-- Overview Section -->
+                <div id="financeOverview" class="finance-section active">
+                    <div class="finance-stats">
+                        <div class="finance-card">
+                            <h4>Total Revenue</h4>
+                            <div class="amount" id="financeTotalRevenue">₦0</div>
+                        </div>
+                        <div class="finance-card">
+                            <h4>Total Expenses</h4>
+                            <div class="amount negative" id="financeTotalExpenses">₦0</div>
+                        </div>
+                        <div class="finance-card">
+                            <h4>Net Profit</h4>
+                            <div class="amount" id="financeNetProfit">₦0</div>
+                        </div>
+                    </div>
+                    <div class="revenue-breakdown">
+                        <h3>Revenue Breakdown</h3>
+                        <div class="breakdown-list" id="revenueBreakdown"></div>
+                    </div>
+                </div>
+
+                <!-- Expenses Section -->
+                <div id="financeExpenses" class="finance-section">
+                    <div class="section-actions">
+                        <button id="addExpenseBtn" class="btn-primary">+ Add Expense</button>
+                    </div>
+                    <div class="expenses-list" id="expensesList">
+                        <div class="loading">Loading expenses...</div>
+                    </div>
+                </div>
+
+                <!-- Disbursements Section -->
+                <div id="financeDisbursements" class="finance-section">
+                    <div class="section-actions">
+                        <button id="addDisbursementBtn" class="btn-primary">+ New Disbursement</button>
+                    </div>
+                    <div class="disbursements-list" id="disbursementsList">
+                        <div class="loading">Loading disbursements...</div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
 
-    <!-- Mobile Sidebar Overlay -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- Approval Modal -->
-    <div id="approvalModal" class="modal">
+    <!-- Add Product Modal -->
+    <div id="productModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modalTitle">Verify Payment</h2>
-                <button class="modal-close" id="closeModalBtn">&times;</button>
+                <h2 id="productModalTitle">Add Product</h2>
+                <button class="modal-close closeProductModal">&times;</button>
             </div>
             <div class="modal-body">
-                <div id="modalPaymentInfo"></div>
-                <div class="form-group" id="narrationCodeGroup">
-                    <label for="narrationCode">Enter Narration Code from Bank Alert</label>
-                    <input type="text" id="narrationCode" placeholder="e.g., GLM-user123-4567">
-                </div>
-                <div class="form-group" id="receivedAmountGroup">
-                    <label for="receivedAmount">Amount Received (₦)</label>
-                    <input type="number" id="receivedAmount" placeholder="Enter amount from bank alert">
-                </div>
-                <div class="form-group">
-                    <label for="adminNotes">Admin Notes</label>
-                    <textarea id="adminNotes" rows="3" placeholder="Add notes about this approval/rejection..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="modal-btn modal-btn-secondary" id="cancelModalBtn">Cancel</button>
-                <button class="modal-btn modal-btn-primary" id="actionBtn">Approve Payment</button>
+                <form id="productForm">
+                    <div class="form-group">
+                        <label>Product Name</label>
+                        <input type="text" id="productName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="productCategory" required>
+                            <option value="uniform">Uniform</option>
+                            <option value="gadget">Gadget</option>
+                            <option value="material">Learning Material</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (₦)</label>
+                        <input type="number" id="productPrice" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stock Quantity</label>
+                        <input type="number" id="productStock" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Product</button>
+                </form>
             </div>
         </div>
     </div>
 
-    <script src="/js/pages/header.js"></script>
-    <script src="/js/pages/admin-dashboard.js"></script>
+    <!-- Add Expense Modal -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Expense</h2>
+                <button class="modal-close closeExpenseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="expenseForm">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="expenseCategory" required>
+                            <option value="rent">Rent</option>
+                            <option value="salary">Salary</option>
+                            <option value="software">Software</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount (₦)</label>
+                        <input type="number" id="expenseAmount" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="expenseDescription" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Add Expense</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div id="receiptModal" class="modal">
+        <div class="modal-content receipt-modal">
+            <div class="modal-header">
+                <h2>Payment Receipt</h2>
+                <button class="modal-close closeReceiptModal">&times;</button>
+            </div>
+            <div class="modal-body" id="receiptContent">
+                <!-- Receipt content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button id="downloadReceiptBtn" class="btn-primary">Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script type="module" src="/js/pages/admin-dashboard.js"></script>
 </body>
 </html>
