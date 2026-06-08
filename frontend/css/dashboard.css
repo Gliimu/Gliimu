@@ -1,6 +1,6 @@
 /* =========================================
    GLIIMU DASHBOARD STYLES - COMPLETE
-   Student Dashboard with Progress Bar, Go-To Menu, Wallet
+   5 Tabs: Dashboard, Questions, Go To, Wallet, Settings
    ========================================= */
 
 /* CSS Variables */
@@ -200,7 +200,7 @@ body {
 }
 
 /* =========================================
-   PROGRESS SECTION
+   PROGRESS SECTION (Dashboard Tab)
    ========================================= */
 
 .progress-section {
@@ -289,10 +289,7 @@ body {
     color: var(--success);
 }
 
-/* =========================================
-   MVP SECTION
-   ========================================= */
-
+/* MVP Section */
 .mvp-section, .mvp-locked-section {
     background: linear-gradient(135deg, var(--brand-purple) 0%, var(--brand-purple-dark) 100%);
     border-radius: 16px;
@@ -328,10 +325,7 @@ body {
     margin: 0.5rem auto;
 }
 
-/* =========================================
-   LEADERBOARD SECTION
-   ========================================= */
-
+/* Leaderboard Section */
 .leaderboard-section {
     background: var(--bg-card);
     border-radius: 16px;
@@ -392,10 +386,6 @@ body {
     color: var(--brand-gold);
 }
 
-.leaderboard-rank.top-1, .leaderboard-rank.top-2, .leaderboard-rank.top-3 {
-    font-size: 1.2rem;
-}
-
 .leaderboard-avatar img {
     width: 40px;
     height: 40px;
@@ -424,7 +414,181 @@ body {
 }
 
 /* =========================================
-   GO-TO MENU GRID
+   QUESTION CARD (Questions Tab)
+   ========================================= */
+
+.question-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.question-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid;
+}
+
+.question-report-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.question-report-btn:hover {
+    color: var(--danger);
+}
+
+.question-text {
+    font-size: 1.1rem;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+}
+
+/* MCQ Options */
+.mcq-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.mcq-option {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mcq-option:hover {
+    background: var(--bg-secondary);
+    border-color: var(--brand-gold);
+}
+
+.mcq-option-letter {
+    width: 30px;
+    height: 30px;
+    background: var(--bg-secondary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+/* Typed Area */
+.typed-area textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+    resize: vertical;
+}
+
+.answer-format-hint {
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* File Area */
+.file-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.file-drop-zone.dragover {
+    border-color: var(--brand-gold);
+    background: var(--bg-secondary);
+}
+
+.file-drop-zone i {
+    font-size: 2rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.selected-file {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--brand-gold);
+    display: none;
+}
+
+.file-requirements {
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Debate Area */
+.debate-motion {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-style: italic;
+}
+
+.debate-stance {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stance-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.stance-option:hover {
+    border-color: var(--brand-gold);
+}
+
+.debate-info {
+    background: rgba(251, 176, 64, 0.1);
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+}
+
+/* =========================================
+   GO-TO MENU GRID (Go To Tab)
    ========================================= */
 
 .go-to-grid {
@@ -483,7 +647,7 @@ body {
 }
 
 /* =========================================
-   WALLET SECTION
+   WALLET SECTION (Wallet Tab)
    ========================================= */
 
 .wallet-balance-card {
@@ -742,7 +906,7 @@ body {
 }
 
 /* =========================================
-   SETTINGS SECTION
+   SETTINGS SECTION (Settings Tab)
    ========================================= */
 
 .settings-grid {
