@@ -1,9 +1,9 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/frontend/$1" },
     {
       "source": "/u/:username",
       "destination": "/portfolio.html?user=:username"
-    }
+    },
+    { "source": "/(.*)", "destination": "/frontend/$1" }
   ]
 }
