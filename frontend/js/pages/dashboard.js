@@ -918,4 +918,141 @@ async function renderSettings() {
                 const avatarUrl = event.target.result;
                 document.getElementById('profilePreview').src = avatarUrl;
                 
-                const {
+                const { error } = await supabase
+                    .from('users')
+                    .update({ avatar_url: avatarUrl })
+                    .eq('id', currentUser.id);
+                
+                if (!error) {
+                    currentUser.avatar = avatarUrl;
+                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                    showToast('Profile picture updated!', 'success');
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // Copy portfolio URL
+    document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
+        const urlInput = document.getElementById('portfolioUrl');
+        urlInput.select();
+        document.execCommand('copy');
+        showToast('Portfolio URL copied!', 'success');
+    });
+    
+    // View public portfolio
+    document.getElementById('viewPublicPortfolioBtn')?.addEventListener('click', () => {
+        window.open(portfolioUrl, '_blank');
+    });
+    
+    // Save settings
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
+        const newName = document.getElementById('fullNameInput').value;
+        
+        if (newName !== currentUser.name) {
+            const { error } = await supabase
+                .from('users')
+                .update({ name: newName, full_name: newName })
+                .eq('id', currentUser.id);
+            
+            if (error) {
+                showToast('Failed to update name', 'error');
+            } else {
+                currentUser.name = newName;
+                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                document.getElementById('userName').textContent = newName;
+                showToast('Settings saved successfully!', 'success');
+            }
+        }
+    });
+    
+    // Sign Out button
+    document.getElementById('signOutBtn')?.addEventListener('click', async () => {
+        const confirmed = confirm('Are you sure you want to sign out?');
+        if (confirmed) {
+            await supabase.auth.signOut();
+            localStorage.clear();
+            window.location.href = '/signin.html';
+        }
+    });
+}
+
+// ============================================
+// GRADE SUBMISSIONS TAB (Instructor)
+// ============================================
+async function renderGradeSubmissions() {
+    const container = document.getElementById('grade-section');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2>Grade Submissions</h2>
+                <p>Review and grade student work</p>
+            </div>
+        </div>
+        <div class="empty-state">
+            <i class="fas fa-check-circle"></i>
+            <h3>No pending submissions</h3>
+            <p>All caught up!</p>
+        </div>
+    `;
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeModal() {
+    document.querySelectorAll('.modal.active').forEach(modal => {
+        modal.classList.remove('active');
+    });
+    document.body.style.overflow = '';
+}
+
+// ============================================
+// INITIALIZE DASHBOARD
+// ============================================
+async function initDashboard() {
+    console.log('Initializing dashboard...');
+    
+    const isAuth = await checkAuth();
+    if (!isAuth) return;
+    
+    initTheme();
+    updateUI();
+    createContentSections();
+    buildSidebar();
+    await renderDashboard();
+    
+    setupRealtimeWallet();
+    
+    console.log('Dashboard initialized successfully');
+}
+
+// ============================================
+// START DASHBOARD
+// ============================================
+initDashboard();
+
+// Make functions global
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.switchTab = switchTab;
+window.toggleTheme = toggleTheme;
+window.renderQuestionBar = renderQuestionBar;
