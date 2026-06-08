@@ -1649,3 +1649,172 @@ body.dark-mode .payment-instructions {
         display: none;
     }
 }
+
+/* Scrollable Payment Filters */
+.payment-filters-wrapper {
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.payment-filters {
+    display: flex;
+    gap: 0.5rem;
+    min-width: min-content;
+    padding-bottom: 4px;
+}
+
+.payment-filters .filter-btn {
+    white-space: nowrap;
+    padding: 0.5rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.payment-filters .filter-btn.active {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+    border-color: var(--brand-gold);
+}
+
+/* Pronounced Progress Reader */
+.progress-section {
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.current-badge {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.badge-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    border: 3px solid;
+}
+
+.badge-info h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.badge-info p {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.score-display {
+    text-align: center;
+    background: var(--bg-secondary);
+    padding: 0.75rem 1.5rem;
+    border-radius: 16px;
+}
+
+.score-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--brand-gold);
+    display: block;
+    line-height: 1;
+}
+
+.score-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.progress-bar-container {
+    background: var(--border-color);
+    border-radius: 20px;
+    height: 12px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 20px;
+    transition: width 0.5s ease;
+    background: linear-gradient(90deg, var(--brand-gold), var(--brand-gold-dark));
+}
+
+.next-badge-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* Ambassador Card below Leaderboard */
+.leaderboard-section {
+    margin-bottom: 1.5rem;
+}
+
+.mvp-section, .mvp-locked-section {
+    margin-top: 1.5rem;
+}
+
+/* Selected Amount Display */
+.selected-amount-display {
+    text-align: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 12px;
+}
+
+.selected-amount-display p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.selected-amount-large {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--brand-gold);
+}
+
+/* Transaction Item Full */
+.transaction-item-full {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transaction-item-full:last-child {
+    border-bottom: none;
+}
+
+/* Payment Reason for Rejected */
+.payment-reason {
+    font-size: 0.7rem;
+    color: var(--danger);
+    margin-top: 0.25rem;
+}
