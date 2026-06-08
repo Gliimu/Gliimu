@@ -804,28 +804,22 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// OPTIMIZED WALLET TAB - FETCHES PAYMENTS FROM SUPABASE
+// WALLET TAB - WITH SCROLLABLE FILTERS
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
     if (!container) return;
     
-    // Show loading state
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
     
     try {
-        // Force refresh payments from Supabase
         await loadPaymentsFromStorage(true);
         
         const balance = await getWalletBalance();
         const transactions = await getTransactionHistory();
         
-        // Filter payments based on current filter
-        let displayPayments = [];
-        if (currentPaymentFilter === 'pending') displayPayments = pendingPayments;
-        else if (currentPaymentFilter === 'approved') displayPayments = approvedPayments;
-        else if (currentPaymentFilter === 'cancelled') displayPayments = cancelledPayments;
-        else displayPayments = allPayments;
+        // Get all unique transaction types for filter
+        const uniqueStatuses = ['all', 'pending', 'approved', 'rejected'];
         
         container.innerHTML = `
             <div class="section-header">
@@ -866,65 +860,82 @@ async function renderWallet() {
                 </div>
             </div>
             
-            <div class="payment-filters">
-                <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All (${allPayments.length})</button>
-                <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${pendingPayments.length})</button>
-                <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved (${approvedPayments.length})</button>
-                <button class="filter-btn ${currentPaymentFilter === 'cancelled' ? 'active' : ''}" data-filter="cancelled">Cancelled (${cancelledPayments.length})</button>
+            <div class="payment-filters-wrapper">
+                <div class="payment-filters">
+                    <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All (${allPayments.length})</button>
+                    <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${pendingPayments.length})</button>
+                    <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved (${approvedPayments.length})</button>
+                    <button class="filter-btn ${currentPaymentFilter === 'rejected' ? 'active' : ''}" data-filter="rejected">Rejected (${cancelledPayments.length})</button>
+                    <button class="filter-btn ${currentPaymentFilter === 'transactions' ? 'active' : ''}" data-filter="transactions">Transactions (${transactions?.length || 0})</button>
+                </div>
             </div>
             
             <div class="payments-section">
-                <h3>Payment Requests</h3>
+                <h3>${currentPaymentFilter === 'transactions' ? 'Transaction History' : 'Payment Requests'}</h3>
                 <div class="payments-list">
-                    ${displayPayments.length === 0 ? `<p class="empty-payments">No ${currentPaymentFilter !== 'all' ? currentPaymentFilter : ''} payments found</p>` : 
-                        displayPayments.map(p => `
-                            <div class="payment-item ${p.status}">
-                                <div class="payment-info">
-                                    <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
-                                    <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
-                                    <div class="payment-ref">Ref: ${p.reference_code}</div>
-                                </div>
-                                <div class="payment-status-badge ${p.status}">${p.status}</div>
-                            </div>
-                        `).join('')
-                    }
+                    ${renderPaymentList()}
                 </div>
             </div>
         `;
         
-        // Add Funds button
-        const addFundsBtn = document.getElementById('addFundsBtn');
-        if (addFundsBtn) {
-            const newBtn = addFundsBtn.cloneNode(true);
-            addFundsBtn.parentNode.replaceChild(newBtn, addFundsBtn);
-            newBtn.addEventListener('click', () => openFundWalletModal());
+        function renderPaymentList() {
+            if (currentPaymentFilter === 'transactions') {
+                if (!transactions || transactions.length === 0) {
+                    return '<p class="empty-payments">No transactions found</p>';
+                }
+                return transactions.map(t => `
+                    <div class="transaction-item-full">
+                        <div class="transaction-info">
+                            <div class="transaction-desc">${escapeHtml(t.description)}</div>
+                            <div class="transaction-date">${new Date(t.created_at).toLocaleString()}</div>
+                        </div>
+                        <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
+                            ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            let displayPayments = [];
+            if (currentPaymentFilter === 'pending') displayPayments = pendingPayments;
+            else if (currentPaymentFilter === 'approved') displayPayments = approvedPayments;
+            else if (currentPaymentFilter === 'rejected') displayPayments = cancelledPayments;
+            else displayPayments = allPayments;
+            
+            if (displayPayments.length === 0) {
+                return `<p class="empty-payments">No ${currentPaymentFilter !== 'all' ? currentPaymentFilter : ''} payments found</p>`;
+            }
+            
+            return displayPayments.map(p => `
+                <div class="payment-item ${p.status}">
+                    <div class="payment-info">
+                        <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                        <div class="payment-date">${new Date(p.submitted_at || p.date).toLocaleDateString()}</div>
+                        <div class="payment-ref">Ref: ${p.reference_code || p.reference}</div>
+                        ${p.status === 'rejected' ? `<div class="payment-reason">Reason: ${p.admin_notes || 'Contact support for details'}</div>` : ''}
+                    </div>
+                    <div class="payment-status-badge ${p.status}">${p.status}</div>
+                </div>
+            `).join('');
         }
         
-        // Filter buttons
+        document.getElementById('addFundsBtn')?.addEventListener('click', () => openFundWalletModal());
+        
         document.querySelectorAll('.filter-btn').forEach(btn => {
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener('click', (e) => {
-                currentPaymentFilter = e.target.getAttribute('data-filter');
-                renderWallet(); // Re-render with new filter
+            btn.addEventListener('click', () => {
+                currentPaymentFilter = btn.getAttribute('data-filter');
+                renderWallet();
             });
         });
         
     } catch (error) {
         console.error('Error rendering wallet:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Wallet</h3>
-                <p>${error.message}</p>
-                <button class="btn-primary" onclick="renderWallet()">Try Again</button>
-            </div>
-        `;
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
     }
 }
 
 // ============================================
-// FUND WALLET MODAL
+// FUND WALLET MODAL - WITH RANDOM BANK
 // ============================================
 function openFundWalletModal(suggestedAmount = null) {
     let modal = document.getElementById('fundWalletModal');
@@ -941,6 +952,10 @@ function openFundWalletModal(suggestedAmount = null) {
                 <div class="modal-body">
                     <div class="funding-options">
                         <h3>Select Amount</h3>
+                        <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
+                            <p>You are about to add:</p>
+                            <div class="selected-amount-large" id="selectedAmountLarge">₦0</div>
+                        </div>
                         <div class="amount-buttons">
                             <button class="amount-btn" data-amount="1000">₦1,000</button>
                             <button class="amount-btn" data-amount="2500">₦2,500</button>
@@ -956,17 +971,8 @@ function openFundWalletModal(suggestedAmount = null) {
                     
                     <div class="bank-details" style="display: none;">
                         <h3>Bank Transfer Details</h3>
-                        <div class="bank-info-card">
-                            <div class="bank-option" data-bank="moniepoint">
-                                <div class="bank-name">MoniePoint Microfinance Bank</div>
-                                <div class="bank-account">Account Number: <strong>6315085115</strong></div>
-                                <div class="bank-name">Account Name: <strong>Gliimu LTD</strong></div>
-                            </div>
-                            <div class="bank-option" data-bank="opay">
-                                <div class="bank-name">Opay</div>
-                                <div class="bank-account">Account Number: <strong>6142049426</strong></div>
-                                <div class="bank-name">Account Name: <strong>Gliimu LTD</strong></div>
-                            </div>
+                        <div class="bank-info-card" id="bankInfoCard">
+                            <!-- Random bank will be inserted here -->
                         </div>
                         <div class="reference-code-box">
                             <p>Your Reference Code:</p>
@@ -976,10 +982,10 @@ function openFundWalletModal(suggestedAmount = null) {
                         <div class="payment-instructions">
                             <p><i class="fas fa-info-circle"></i> Instructions:</p>
                             <ol>
-                                <li>Send the exact amount to any of the accounts above</li>
+                                <li>Send the exact amount to <strong>the account above</strong></li>
                                 <li>Use the <strong>Reference Code</strong> as your transaction narration</li>
                                 <li>After sending, click "I Have Made Payment" below</li>
-                                <li>Your wallet will be credited after admin verification</li>
+                                <li>Your wallet will be credited after admin verification, <strong>within 24 hours</strong></li>
                             </ol>
                         </div>
                         <button id="confirmPaymentBtn" class="btn-success">✅ I Have Made Payment</button>
@@ -998,12 +1004,25 @@ function openFundWalletModal(suggestedAmount = null) {
     
     let selectedAmount = suggestedAmount || 0;
     let referenceCode = '';
+    let selectedBank = null;
+    
+    const banks = [
+        { name: 'MoniePoint Microfinance Bank', accountNumber: '6315085115', accountName: 'Gliimu LTD', code: 'moniepoint' },
+        { name: 'Opay', accountNumber: '6142049426', accountName: 'Gliimu LTD', code: 'opay' }
+    ];
+    
+    // Randomly select a bank
+    const randomBank = banks[Math.floor(Math.random() * banks.length)];
+    selectedBank = randomBank;
     
     const fundingOptions = modal.querySelector('.funding-options');
     const bankDetails = modal.querySelector('.bank-details');
+    const selectedAmountDisplay = modal.querySelector('#selectedAmountDisplay');
+    const selectedAmountLarge = modal.querySelector('#selectedAmountLarge');
     
     fundingOptions.style.display = 'block';
     bankDetails.style.display = 'none';
+    selectedAmountDisplay.style.display = 'none';
     
     if (suggestedAmount) {
         const customInput = modal.querySelector('#customAmount');
@@ -1011,6 +1030,7 @@ function openFundWalletModal(suggestedAmount = null) {
         selectedAmount = suggestedAmount;
     }
     
+    // Amount button handlers
     modal.querySelectorAll('.amount-btn').forEach(btn => {
         btn.onclick = () => {
             modal.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
@@ -1018,6 +1038,9 @@ function openFundWalletModal(suggestedAmount = null) {
             selectedAmount = parseInt(btn.getAttribute('data-amount'));
             const customInput = modal.querySelector('#customAmount');
             if (customInput) customInput.value = '';
+            // Show selected amount
+            selectedAmountDisplay.style.display = 'block';
+            selectedAmountLarge.textContent = `₦${selectedAmount.toLocaleString()}`;
         };
     });
     
@@ -1026,6 +1049,12 @@ function openFundWalletModal(suggestedAmount = null) {
         customInput.oninput = () => {
             modal.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
             selectedAmount = parseInt(customInput.value) || 0;
+            if (selectedAmount > 0) {
+                selectedAmountDisplay.style.display = 'block';
+                selectedAmountLarge.textContent = `₦${selectedAmount.toLocaleString()}`;
+            } else {
+                selectedAmountDisplay.style.display = 'none';
+            }
         };
     }
     
@@ -1035,10 +1064,21 @@ function openFundWalletModal(suggestedAmount = null) {
             return;
         }
         
+        // Generate short reference code
         const shortName = currentUser.name.substring(0, 8).replace(/\s/g, '');
         const randomNum = Math.floor(Math.random() * 9000) + 1000;
         referenceCode = `GLM-${shortName}-${randomNum}`;
         modal.querySelector('#referenceCode').textContent = referenceCode;
+        
+        // Show the randomly selected bank
+        const bankInfoCard = modal.querySelector('#bankInfoCard');
+        bankInfoCard.innerHTML = `
+            <div class="bank-option">
+                <div class="bank-name">🏦 ${selectedBank.name}</div>
+                <div class="bank-account">Account Number: <strong>${selectedBank.accountNumber}</strong></div>
+                <div class="bank-name">Account Name: <strong>${selectedBank.accountName}</strong></div>
+            </div>
+        `;
         
         fundingOptions.style.display = 'none';
         bankDetails.style.display = 'block';
@@ -1049,14 +1089,16 @@ function openFundWalletModal(suggestedAmount = null) {
         continueBtn = document.createElement('button');
         continueBtn.id = 'continueToBankBtn';
         continueBtn.className = 'btn-primary';
-        continueBtn.textContent = 'Continue to Bank Details';
+        continueBtn.textContent = 'Continue to Payment';
         continueBtn.style.marginTop = '1rem';
         continueBtn.style.width = '100%';
         fundingOptions.appendChild(continueBtn);
     }
     continueBtn.onclick = proceedToBank;
     
-    if (suggestedAmount) proceedToBank();
+    if (suggestedAmount) {
+        proceedToBank();
+    }
     
     const backBtn = modal.querySelector('#backToAmountBtn');
     if (backBtn) backBtn.onclick = () => {
@@ -1088,6 +1130,7 @@ function openFundWalletModal(suggestedAmount = null) {
                 user_email: currentUser.email,
                 amount: selectedAmount,
                 reference_code: referenceCode,
+                bank: selectedBank.name,
                 status: 'pending',
                 submitted_at: new Date().toISOString()
             };
