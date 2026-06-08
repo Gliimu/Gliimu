@@ -1,6 +1,6 @@
 // ============================================
-// GLIIMU DASHBOARD - SIMPLIFIED STUDENT VERSION
-// With Progress Bar, MVP, Leaderboard, Go-To Menu, Wallet
+// GLIIMU DASHBOARD - COMPLETE STUDENT VERSION
+// Tabs: Dashboard, Questions, Go To, Wallet, Settings
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -22,13 +22,17 @@ import {
     getCurrentBadge,
     getNextBadge,
     getProgressToNextBadge,
+    getNextQuestion,
     getLeaderboard,
     sharePortfolio,
     submitMVPProposal,
-    getStudentPortfolio
+    getStudentPortfolio,
+    submitAnswer,
+    reportQuestion,
+    requestDebateMatch
 } from '../modules/progression.js';
 
-import { renderProgressBar } from '../modules/questions.js';
+import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
 
 // ============================================
 // GLOBAL STATE
@@ -42,6 +46,7 @@ let walletSubscription = null;
 let pendingPayments = [];
 let approvedPayments = [];
 let cancelledPayments = [];
+let questionRenderer = null;
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -92,7 +97,6 @@ async function loadUserFromSupabase(userId) {
         
         if (profileError) throw profileError;
         
-        // Load mock payment data
         loadMockPayments();
         
         currentUserProfile = profile;
@@ -166,11 +170,12 @@ function setupRealtimeWallet() {
 }
 
 // ============================================
-// ROLE-BASED TAB CONFIGURATION - SIMPLIFIED
+// ROLE-BASED TAB CONFIGURATION - 5 TABS
 // ============================================
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+        { id: 'question', name: 'Questions', icon: 'fas fa-question-circle' },
         { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
@@ -308,6 +313,9 @@ function loadTabData(tabId) {
         case 'dashboard':
             renderDashboard();
             break;
+        case 'question':
+            renderQuestionBar();
+            break;
         case 'gotomenu':
             renderGoToMenu();
             break;
@@ -337,7 +345,6 @@ async function renderDashboard() {
     const nextBadge = getNextBadge(scoreData?.current_score || 0);
     const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
     const leaderboardData = await getLeaderboard(10);
-    const walletBalance = currentUser?.walletBalance || 14500;
     const isAmbassador = (scoreData?.current_score || 0) >= 100;
     
     container.innerHTML = `
@@ -384,7 +391,7 @@ async function renderDashboard() {
             </div>
         </div>
         
-        <!-- MVP Proposal Modal (Hidden) -->
+        <!-- MVP Proposal Modal -->
         <div id="mvpModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -438,7 +445,6 @@ async function renderDashboard() {
         };
     }
     
-    // MVP Form submission
     const mvpForm = document.getElementById('mvpForm');
     if (mvpForm) {
         mvpForm.addEventListener('submit', async (e) => {
@@ -458,7 +464,6 @@ async function renderDashboard() {
         });
     }
     
-    // Refresh leaderboard
     const refreshBtn = document.getElementById('refreshLeaderboardBtn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', async () => {
@@ -490,6 +495,62 @@ function renderLeaderboardList(leaderboardData) {
             <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
         </div>
     `).join('');
+}
+
+// ============================================
+// QUESTIONS TAB
+// ============================================
+async function renderQuestionBar() {
+    const container = document.getElementById('question-section');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
+    
+    try {
+        const nextQuestion = await getNextQuestion(currentUser.id);
+        
+        if (!nextQuestion) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>All Questions Complete!</h3>
+                    <p>You've answered all available questions. Check back later for more.</p>
+                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
+                </div>
+            `;
+            return;
+        }
+        
+        questionRenderer = new QuestionRenderer(
+            'question-section',
+            currentUser.id,
+            async (result) => {
+                const scoreData = await getStudentScore(currentUser.id);
+                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+                const nextBadge = getNextBadge(scoreData?.current_score || 0);
+                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+                
+                const progressSection = document.querySelector('.progress-section');
+                if (progressSection) {
+                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
+                }
+                
+                setTimeout(() => renderQuestionBar(), 2000);
+            }
+        );
+        
+        await questionRenderer.renderQuestion(nextQuestion);
+        
+    } catch (error) {
+        console.error('Error loading question:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Unable to load question</h3>
+                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
+            </div>
+        `;
+    }
 }
 
 // ============================================
@@ -556,7 +617,7 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// WALLET TAB - Balance, Transactions, Plans
+// WALLET TAB
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
@@ -564,13 +625,6 @@ async function renderWallet() {
     
     const balance = await getWalletBalance();
     const transactions = await getTransactionHistory();
-    const userAccess = await getUserAccess();
-    
-    // Separate transactions by status
-    const pending = pendingPayments;
-    const approved = approvedPayments;
-    const cancelled = cancelledPayments;
-    const allTransactions = transactions || [];
     
     container.innerHTML = `
         <div class="section-header">
@@ -596,8 +650,8 @@ async function renderWallet() {
         <div class="transactions-section">
             <h3>Recent Transactions</h3>
             <div class="transactions-list">
-                ${allTransactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
-                    allTransactions.slice(0, 5).map(t => `
+                ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                    transactions.slice(0, 5).map(t => `
                         <div class="transaction-item">
                             <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
                                 <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
@@ -619,8 +673,8 @@ async function renderWallet() {
         <div class="payments-section">
             <h3>Pending Payments</h3>
             <div class="payments-list">
-                ${pending.length === 0 ? '<p class="empty-payments">No pending payments</p>' : 
-                    pending.map(p => `
+                ${pendingPayments.length === 0 ? '<p class="empty-payments">No pending payments</p>' : 
+                    pendingPayments.map(p => `
                         <div class="payment-item pending">
                             <div class="payment-info">
                                 <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
@@ -638,8 +692,8 @@ async function renderWallet() {
         <div class="payments-section">
             <h3>Approved Payments</h3>
             <div class="payments-list">
-                ${approved.length === 0 ? '<p class="empty-payments">No approved payments</p>' : 
-                    approved.map(p => `
+                ${approvedPayments.length === 0 ? '<p class="empty-payments">No approved payments</p>' : 
+                    approvedPayments.map(p => `
                         <div class="payment-item approved">
                             <div class="payment-info">
                                 <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
@@ -657,8 +711,8 @@ async function renderWallet() {
         <div class="payments-section">
             <h3>Cancelled Payments</h3>
             <div class="payments-list">
-                ${cancelled.length === 0 ? '<p class="empty-payments">No cancelled payments</p>' : 
-                    cancelled.map(p => `
+                ${cancelledPayments.length === 0 ? '<p class="empty-payments">No cancelled payments</p>' : 
+                    cancelledPayments.map(p => `
                         <div class="payment-item cancelled">
                             <div class="payment-info">
                                 <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
@@ -717,12 +771,10 @@ async function renderWallet() {
         </div>
     `;
     
-    // Add Funds button
     document.getElementById('addFundsBtn')?.addEventListener('click', () => {
         openModal('addFundsModal');
     });
     
-    // Plan selection
     document.querySelectorAll('.plan-select').forEach(btn => {
         btn.addEventListener('click', async () => {
             const plan = btn.getAttribute('data-plan');
@@ -746,7 +798,7 @@ async function renderWallet() {
 }
 
 // ============================================
-// SETTINGS TAB - With Portfolio Link and Sign Out
+// SETTINGS TAB
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
@@ -866,140 +918,4 @@ async function renderSettings() {
                 const avatarUrl = event.target.result;
                 document.getElementById('profilePreview').src = avatarUrl;
                 
-                const { error } = await supabase
-                    .from('users')
-                    .update({ avatar_url: avatarUrl })
-                    .eq('id', currentUser.id);
-                
-                if (!error) {
-                    currentUser.avatar = avatarUrl;
-                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                    showToast('Profile picture updated!', 'success');
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-    
-    // Copy portfolio URL
-    document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
-        const urlInput = document.getElementById('portfolioUrl');
-        urlInput.select();
-        document.execCommand('copy');
-        showToast('Portfolio URL copied!', 'success');
-    });
-    
-    // View public portfolio
-    document.getElementById('viewPublicPortfolioBtn')?.addEventListener('click', () => {
-        window.open(portfolioUrl, '_blank');
-    });
-    
-    // Save settings
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
-        const newName = document.getElementById('fullNameInput').value;
-        
-        if (newName !== currentUser.name) {
-            const { error } = await supabase
-                .from('users')
-                .update({ name: newName, full_name: newName })
-                .eq('id', currentUser.id);
-            
-            if (error) {
-                showToast('Failed to update name', 'error');
-            } else {
-                currentUser.name = newName;
-                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                document.getElementById('userName').textContent = newName;
-                showToast('Settings saved successfully!', 'success');
-            }
-        }
-    });
-    
-    // Sign Out button
-    document.getElementById('signOutBtn')?.addEventListener('click', async () => {
-        const confirmed = confirm('Are you sure you want to sign out?');
-        if (confirmed) {
-            await supabase.auth.signOut();
-            localStorage.clear();
-            window.location.href = '/signin.html';
-        }
-    });
-}
-
-// ============================================
-// GRADE SUBMISSIONS TAB (Instructor)
-// ============================================
-async function renderGradeSubmissions() {
-    const container = document.getElementById('grade-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2>Grade Submissions</h2>
-                <p>Review and grade student work</p>
-            </div>
-        </div>
-        <div class="empty-state">
-            <i class="fas fa-check-circle"></i>
-            <h3>No pending submissions</h3>
-            <p>All caught up!</p>
-        </div>
-    `;
-}
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function closeModal() {
-    document.querySelectorAll('.modal.active').forEach(modal => {
-        modal.classList.remove('active');
-    });
-    document.body.style.overflow = '';
-}
-
-// ============================================
-// INITIALIZE DASHBOARD
-// ============================================
-async function initDashboard() {
-    console.log('Initializing dashboard...');
-    
-    const isAuth = await checkAuth();
-    if (!isAuth) return;
-    
-    initTheme();
-    updateUI();
-    createContentSections();
-    buildSidebar();
-    await renderDashboard();
-    
-    setupRealtimeWallet();
-    
-    console.log('Dashboard initialized successfully');
-}
-
-// ============================================
-// START DASHBOARD
-// ============================================
-initDashboard();
-
-// Make functions global
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.switchTab = switchTab;
-window.toggleTheme = toggleTheme;
+                const {
