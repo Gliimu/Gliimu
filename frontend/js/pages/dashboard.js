@@ -1300,6 +1300,54 @@ function escapeHtml(text) {
 }
 
 // ============================================
+// MOBILE BOTTOM NAVIGATION
+// ============================================
+function initMobileNavigation() {
+    const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
+    const isMobile = window.innerWidth <= 768;
+    
+    if (!isMobile) return;
+    
+    mobileNavItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const tabId = item.getAttribute('data-tab');
+            
+            // Update mobile nav active state
+            mobileNavItems.forEach(nav => nav.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Switch tab
+            switchTab(tabId);
+        });
+    });
+    
+    // Sync active state with current tab
+    function syncMobileActiveState() {
+        mobileNavItems.forEach(item => {
+            const tabId = item.getAttribute('data-tab');
+            if (tabId === currentTab) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
+    
+    // Call sync when tab changes
+    const originalSwitchTab = window.switchTab;
+    window.switchTab = function(tabId) {
+        originalSwitchTab(tabId);
+        syncMobileActiveState();
+    };
+    
+    syncMobileActiveState();
+}
+
+// Call this in initDashboard() after building sidebar
+await renderDashboard();
+initMobileNavigation();
+
+// ============================================
 // INITIALIZE DASHBOARD
 // ============================================
 async function initDashboard() {
