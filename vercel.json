@@ -3,3 +3,11 @@
     { "source": "/(.*)", "destination": "/frontend/$1" }
   ]
 }
+{
+  "rewrites": [
+    {
+      "source": "/u/:username",
+      "destination": "/portfolio.html?user=:username"
+    }
+  ]
+}
