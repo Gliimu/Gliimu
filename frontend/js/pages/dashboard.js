@@ -814,17 +814,6 @@ function renderGoToMenu() {
     });
 }
 
-// Force reload payments when wallet tab is opened
-async function renderWallet() {
-    const container = document.getElementById('wallet-section');
-    if (!container) return;
-    
-    // Force refresh payments
-    await loadPaymentsFromStorage(true);  // true = force refresh
-    
-    // Rest of the renderWallet function...
-}
-
 // ============================================
 // OPTIMIZED WALLET TAB
 // ============================================
