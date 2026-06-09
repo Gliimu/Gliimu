@@ -1376,17 +1376,21 @@ function escapeHtml(text) {
 // ============================================
 function initMobileNavigation() {
     const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
-    const isMobile = window.innerWidth <= 768;
     
-    if (!isMobile) return;
+    // Only proceed if we're on mobile and items exist
+    if (mobileNavItems.length === 0) return;
     
     mobileNavItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const tabId = item.getAttribute('data-tab');
+        // Remove existing listeners to avoid duplicates
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+        
+        newItem.addEventListener('click', (e) => {
+            const tabId = newItem.getAttribute('data-tab');
             
             // Update mobile nav active state
             mobileNavItems.forEach(nav => nav.classList.remove('active'));
-            item.classList.add('active');
+            newItem.classList.add('active');
             
             // Switch tab
             switchTab(tabId);
@@ -1395,7 +1399,7 @@ function initMobileNavigation() {
     
     // Sync active state with current tab
     function syncMobileActiveState() {
-        mobileNavItems.forEach(item => {
+        document.querySelectorAll('.mobile-nav-item').forEach(item => {
             const tabId = item.getAttribute('data-tab');
             if (tabId === currentTab) {
                 item.classList.add('active');
@@ -1405,7 +1409,7 @@ function initMobileNavigation() {
         });
     }
     
-    // Call sync when tab changes
+    // Override switchTab to also update mobile nav
     const originalSwitchTab = window.switchTab;
     window.switchTab = function(tabId) {
         originalSwitchTab(tabId);
@@ -1414,10 +1418,6 @@ function initMobileNavigation() {
     
     syncMobileActiveState();
 }
-
-// Call this in initDashboard() after building sidebar
-await renderDashboard();
-initMobileNavigation();
 
 // ============================================
 // INITIALIZE DASHBOARD
@@ -1435,13 +1435,15 @@ async function initDashboard() {
     await renderDashboard();
     
     setupRealtimeWallet();
-    initMobileNavigation();  // Add this line
+    initMobileNavigation();  // Call once here
     
     console.log('Dashboard initialized successfully');
 }
 
+// Start the dashboard
 initDashboard();
 
+// Make functions global
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
 window.renderQuestionBar = renderQuestionBar;
