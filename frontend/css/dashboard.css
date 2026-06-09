@@ -1,5 +1,5 @@
 /* =========================================
-   GLIIMU DASHBOARD STYLES - COMPLETE
+   GLIIMU DASHBOARD STYLES - COMPLETE FIXED
    5 Tabs: Dashboard, Questions, Go To, Wallet, Settings
    ========================================= */
 
@@ -45,12 +45,16 @@ body {
     background: var(--bg-secondary);
     color: var(--text-primary);
     transition: background 0.3s, color 0.3s;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* Dashboard Container */
 .dashboard-container {
     display: flex;
     min-height: 100vh;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* =========================================
@@ -147,12 +151,17 @@ body {
     flex: 1;
     margin-left: var(--sidebar-width);
     padding: 1rem;
+    overflow-x: hidden;
+    width: calc(100% - var(--sidebar-width));
+    max-width: 100%;
 }
 
 /* Content Sections */
 .dashboard-section {
     display: none;
     animation: fadeIn 0.3s ease;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 .dashboard-section.active {
@@ -210,6 +219,7 @@ body {
     margin-bottom: 1.5rem;
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-md);
+    overflow-x: hidden;
 }
 
 .progress-header {
@@ -334,6 +344,7 @@ body {
     padding: 1.5rem;
     border: 1px solid var(--border-color);
     margin-bottom: 1.5rem;
+    overflow-x: hidden;
 }
 
 .leaderboard-header {
@@ -423,177 +434,260 @@ body {
 }
 
 /* =========================================
-   QUESTION CARD (Questions Tab)
+   WALLET SECTION (Wallet Tab)
    ========================================= */
 
-.question-card {
-    background: var(--bg-card);
+.wallet-balance-card {
+    background: linear-gradient(135deg, var(--brand-purple-dark) 0%, var(--brand-purple) 100%);
     border-radius: 16px;
     padding: 1.5rem;
-    border: 1px solid var(--border-color);
-}
-
-.question-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.question-badge {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    border: 1px solid;
-}
-
-.question-report-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.question-report-btn:hover {
-    color: var(--danger);
-}
-
-.question-text {
-    font-size: 1.1rem;
-    line-height: 1.5;
-    margin-bottom: 1.5rem;
-}
-
-/* MCQ Options */
-.mcq-options {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-}
-
-.mcq-option {
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
+    margin-bottom: 1.5rem;
+    color: white;
+    flex-wrap: wrap;
 }
 
-.mcq-option:hover {
-    background: var(--bg-secondary);
-    border-color: var(--brand-gold);
-}
-
-.mcq-option-letter {
-    width: 30px;
-    height: 30px;
-    background: var(--bg-secondary);
+.wallet-balance-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 1.5rem;
+}
+
+.wallet-balance-info {
+    flex: 1;
+}
+
+.wallet-label {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    display: block;
+}
+
+.wallet-balance-large {
+    font-size: 1.8rem;
     font-weight: 700;
 }
 
-/* Typed Area */
-.typed-area textarea {
+/* =========================================
+   SCROLLABLE FILTER BUTTONS - FIXED
+   ========================================= */
+
+/* Wrapper - stays at 100% width, enables horizontal scroll */
+.payment-filters-wrapper {
     width: 100%;
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: inherit;
-    resize: vertical;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
 }
 
-.answer-format-hint {
-    margin-top: 0.5rem;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
+/* Flex container - allows scrolling, prevents wrapping */
+.payment-filters {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
+    width: auto;
+    min-width: min-content;
 }
 
-/* File Area */
-.file-drop-zone {
-    border: 2px dashed var(--border-color);
-    border-radius: 8px;
-    padding: 2rem;
-    text-align: center;
+/* Individual buttons - prevent shrinking/wrapping */
+.payment-filters .filter-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0.5rem 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 40px;
     cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
     transition: all 0.2s;
+    font-family: inherit;
 }
 
-.file-drop-zone.dragover {
+.payment-filters .filter-btn.active {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
     border-color: var(--brand-gold);
-    background: var(--bg-secondary);
 }
 
-.file-drop-zone i {
-    font-size: 2rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
+/* Custom scrollbar */
+.payment-filters-wrapper::-webkit-scrollbar {
+    height: 3px;
 }
 
-.selected-file {
-    margin-top: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--brand-gold);
-    display: none;
+.payment-filters-wrapper::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 10px;
 }
 
-.file-requirements {
-    margin-top: 0.5rem;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.payment-filters-wrapper::-webkit-scrollbar-thumb {
+    background: var(--brand-gold);
+    border-radius: 10px;
 }
 
-/* Debate Area */
-.debate-motion {
-    background: var(--bg-secondary);
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    font-style: italic;
+/* =========================================
+   PAYMENTS SECTION
+   ========================================= */
+
+.payments-section h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
-.debate-stance {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.stance-option {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
+.payments-list {
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    cursor: pointer;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
-.stance-option:hover {
-    border-color: var(--brand-gold);
+.payment-item {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
-.debate-info {
-    background: rgba(251, 176, 64, 0.1);
-    padding: 1rem;
-    border-radius: 8px;
+.payment-item:last-child {
+    border-bottom: none;
+}
+
+.payment-item.pending {
+    border-left: 4px solid var(--warning);
+}
+
+.payment-item.approved {
+    border-left: 4px solid var(--success);
+}
+
+.payment-item.rejected {
+    border-left: 4px solid var(--danger);
+}
+
+.payment-amount {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.payment-date, .payment-ref {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.payment-status-badge {
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.payment-status-badge.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+}
+
+.payment-status-badge.approved {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.payment-status-badge.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
+.payment-reason {
+    font-size: 0.7rem;
+    color: var(--danger);
+    margin-top: 0.25rem;
+    width: 100%;
+}
+
+.empty-payments {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text-secondary);
+}
+
+/* Transaction Item Full */
+.transaction-item-full {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transaction-item-full:last-child {
+    border-bottom: none;
+}
+
+.transaction-info {
+    flex: 1;
+}
+
+.transaction-desc {
     font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.transaction-date {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.transaction-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.transaction-amount.positive {
+    color: var(--success);
+}
+
+.transaction-amount.negative {
+    color: var(--danger);
+}
+
+/* =========================================
+   SELECTED AMOUNT DISPLAY
+   ========================================= */
+
+.selected-amount-display {
+    text-align: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 12px;
+}
+
+.selected-amount-display p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.selected-amount-large {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--brand-gold);
 }
 
 /* =========================================
@@ -656,272 +750,7 @@ body {
 }
 
 /* =========================================
-   WALLET SECTION (Wallet Tab)
-   ========================================= */
-
-.wallet-balance-card {
-    background: linear-gradient(135deg, var(--brand-purple-dark) 0%, var(--brand-purple) 100%);
-    border-radius: 16px;
-    padding: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    color: white;
-}
-
-.wallet-balance-icon {
-    width: 60px;
-    height: 60px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-}
-
-.wallet-balance-info {
-    flex: 1;
-}
-
-.wallet-label {
-    font-size: 0.7rem;
-    opacity: 0.8;
-    display: block;
-}
-
-.wallet-balance-large {
-    font-size: 1.8rem;
-    font-weight: 700;
-}
-
-/* Transactions & Payments Sections */
-.transactions-section, .payments-section, .plans-section {
-    margin-bottom: 1.5rem;
-}
-
-.transactions-section h3, .payments-section h3, .plans-section h3 {
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.transactions-list, .payments-list {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.transaction-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.transaction-item:last-child {
-    border-bottom: none;
-}
-
-.transaction-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.transaction-icon.credit {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--success);
-}
-
-.transaction-icon.debit {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--danger);
-}
-
-.transaction-info {
-    flex: 1;
-}
-
-.transaction-desc {
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.transaction-date {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-}
-
-.transaction-amount {
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.transaction-amount.positive {
-    color: var(--success);
-}
-
-.transaction-amount.negative {
-    color: var(--danger);
-}
-
-/* Payment Items */
-.payment-item {
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.75rem 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.payment-item:last-child {
-    border-bottom: none;
-}
-
-.payment-item.pending {
-    border-left: 4px solid var(--warning);
-}
-
-.payment-item.approved {
-    border-left: 4px solid var(--success);
-}
-
-.payment-item.cancelled {
-    border-left: 4px solid var(--danger);
-}
-
-.payment-amount {
-    font-size: 0.9rem;
-    font-weight: 700;
-}
-
-.payment-date, .payment-ref {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-}
-
-.payment-status-badge {
-    padding: 4px 8px;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.payment-status-badge.pending {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--warning);
-}
-
-.payment-status-badge.approved {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--success);
-}
-
-.payment-status-badge.cancelled {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--danger);
-}
-
-.payment-reason {
-    font-size: 0.7rem;
-    color: var(--danger);
-    margin-top: 0.25rem;
-}
-
-.empty-transactions, .empty-payments {
-    text-align: center;
-    padding: 1.5rem;
-    color: var(--text-secondary);
-}
-
-/* Plans Grid */
-.plans-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-}
-
-.plan-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1.25rem;
-    position: relative;
-    transition: transform 0.2s;
-}
-
-.plan-card:hover {
-    transform: translateY(-2px);
-}
-
-.plan-card.basic {
-    border-top: 4px solid var(--success);
-}
-
-.plan-card.standard {
-    border-top: 4px solid var(--info);
-}
-
-.plan-card.premium {
-    border-top: 4px solid var(--brand-gold);
-}
-
-.plan-badge {
-    position: absolute;
-    top: -12px;
-    right: 20px;
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 700;
-}
-
-.plan-icon {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-}
-
-.plan-card h4 {
-    font-size: 1rem;
-    margin-bottom: 0.5rem;
-}
-
-.plan-price {
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-}
-
-.plan-price span {
-    font-size: 0.7rem;
-    font-weight: 400;
-    color: var(--text-secondary);
-}
-
-.plan-features {
-    list-style: none;
-    margin-bottom: 1rem;
-}
-
-.plan-features li {
-    padding: 0.25rem 0;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
-
-/* =========================================
-   SETTINGS SECTION (Settings Tab)
+   SETTINGS SECTION
    ========================================= */
 
 .settings-grid {
@@ -989,11 +818,6 @@ body {
 .form-group input:focus {
     outline: none;
     border-color: var(--brand-gold);
-}
-
-.form-group small {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
 }
 
 /* Theme Selector */
@@ -1083,6 +907,7 @@ input:checked + .toggle-slider:before {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
+    flex-wrap: wrap;
 }
 
 .portfolio-url-display input {
@@ -1093,6 +918,7 @@ input:checked + .toggle-slider:before {
     background: var(--bg-primary);
     font-size: 0.7rem;
     color: var(--text-primary);
+    min-width: 150px;
 }
 
 .settings-actions {
@@ -1100,6 +926,7 @@ input:checked + .toggle-slider:before {
     gap: 1rem;
     justify-content: flex-end;
     margin-top: 1rem;
+    flex-wrap: wrap;
 }
 
 /* Buttons */
@@ -1151,6 +978,23 @@ input:checked + .toggle-slider:before {
 
 .btn-danger:hover {
     background: #dc2626;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    font-family: inherit;
+}
+
+.btn-success:hover {
+    background: #059669;
 }
 
 /* Modal */
@@ -1230,118 +1074,6 @@ input:checked + .toggle-slider:before {
 .empty-state p {
     font-size: 0.8rem;
     color: var(--text-secondary);
-}
-
-/* =========================================
-   RESPONSIVE
-   ========================================= */
-
-@media (max-width: 768px) {
-    .dashboard-sidebar {
-        transform: translateX(-100%);
-    }
-    
-    .dashboard-sidebar.mobile-open {
-        transform: translateX(0);
-    }
-    
-    .dashboard-main {
-        margin-left: 0;
-        padding-bottom: 80px;
-    }
-    
-    .progress-header {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    /* Responsive badge icon - smaller on mobile */
-    .badge-icon {
-        width: 55px;
-        height: 55px;
-        font-size: 1.8rem;
-    }
-    
-    .badge-info h4 {
-        font-size: 0.9rem;
-    }
-    
-    .score-value {
-        font-size: 1.5rem;
-    }
-    
-    .go-to-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .wallet-balance-card {
-        flex-wrap: wrap;
-        text-align: center;
-        justify-content: center;
-    }
-    
-    .plans-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .payment-item {
-        flex-direction: column;
-        text-align: center;
-        gap: 0.5rem;
-    }
-    
-    .settings-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .settings-actions {
-        flex-direction: column;
-    }
-    
-    .settings-actions button {
-        width: 100%;
-    }
-    
-    .leaderboard-item {
-        flex-wrap: wrap;
-    }
-    
-    .portfolio-url-display {
-        flex-direction: column;
-    }
-}
-
-@media (max-width: 480px) {
-    .dashboard-main {
-        padding: 0.5rem;
-    }
-    
-    .progress-section, .mvp-section, .leaderboard-section {
-        padding: 1rem;
-    }
-    
-    /* Even smaller badge icon on very small screens */
-    .badge-icon {
-        width: 45px;
-        height: 45px;
-        font-size: 1.5rem;
-    }
-    
-    .score-value {
-        font-size: 1.3rem;
-    }
-    
-    .wallet-balance-large {
-        font-size: 1.2rem;
-    }
-    
-    .plan-card {
-        padding: 1rem;
-    }
-    
-    .amount-buttons {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 
 /* =========================================
@@ -1478,23 +1210,6 @@ input:checked + .toggle-slider:before {
     color: var(--text-secondary);
 }
 
-.btn-success {
-    background: #10b981;
-    color: white;
-    border: none;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    width: 100%;
-    margin-bottom: 0.5rem;
-    font-family: inherit;
-}
-
-.btn-success:hover {
-    background: #059669;
-}
-
 /* =========================================
    DARK MODE FIXES
    ========================================= */
@@ -1530,122 +1245,89 @@ body.dark-mode .payment-instructions {
 }
 
 /* =========================================
-   SCROLLABLE FILTER BUTTONS - DEFINITE FIX
+   RESPONSIVE - MOBILE
    ========================================= */
 
-/* Wrapper - handles scrolling */
-.payment-filters-wrapper {
-    width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
-    margin-bottom: 1rem;
-    -webkit-overflow-scrolling: touch;
-}
-
-/* Flex container - prevents wrapping */
-.payment-filters {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 0.75rem;
-    /* This is the key - makes container as wide as its content */
-    width: fit-content;
-    min-width: 100%;
-}
-
-/* Individual buttons - prevent shrinking/wrapping */
-.payment-filters .filter-btn {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    padding: 0.5rem 1.25rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 40px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    font-family: inherit;
-}
-
-.payment-filters .filter-btn.active {
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    border-color: var(--brand-gold);
-}
-
-/* Optional - nice scrollbar */
-.payment-filters-wrapper::-webkit-scrollbar {
-    height: 3px;
-}
-
-.payment-filters-wrapper::-webkit-scrollbar-track {
-    background: var(--border-color);
-    border-radius: 10px;
-}
-
-.payment-filters-wrapper::-webkit-scrollbar-thumb {
-    background: var(--brand-gold);
-    border-radius: 10px;
-}
-
-/* =========================================
-   SELECTED AMOUNT DISPLAY
-   ========================================= */
-
-.selected-amount-display {
-    text-align: center;
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: rgba(251, 176, 64, 0.1);
-    border-radius: 12px;
-}
-
-.selected-amount-display p {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.25rem;
-}
-
-.selected-amount-large {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--brand-gold);
-}
-
-/* =========================================
-   TRANSACTION ITEM FULL
-   ========================================= */
-
-.transaction-item-full {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.transaction-item-full:last-child {
-    border-bottom: none;
-}
-
-/* =========================================
-   MOBILE BOTTOM NAVIGATION
-   ========================================= */
-
-.mobile-bottom-nav {
-    display: none;
-}
-
-/* Hide sidebar on mobile, show bottom nav */
-@media (max-width: 768px) {
+@media (max-width: 992px) {
     .dashboard-sidebar {
-        display: none;
+        transform: translateX(-100%);
+    }
+    
+    .dashboard-sidebar.mobile-open {
+        transform: translateX(0);
     }
     
     .dashboard-main {
         margin-left: 0;
-        padding-bottom: 80px;
+        width: 100%;
+        padding: 0.75rem;
+    }
+    
+    .amount-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .wallet-modal {
+        width: 95%;
+    }
+}
+
+@media (max-width: 768px) {
+    .progress-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .badge-icon {
+        width: 55px;
+        height: 55px;
+        font-size: 1.8rem;
+    }
+    
+    .badge-info h4 {
+        font-size: 0.9rem;
+    }
+    
+    .score-value {
+        font-size: 1.5rem;
+    }
+    
+    .go-to-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .wallet-balance-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .payment-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .settings-actions {
+        flex-direction: column;
+    }
+    
+    .settings-actions button {
+        width: 100%;
+    }
+    
+    .leaderboard-item {
+        flex-wrap: wrap;
+    }
+    
+    .portfolio-url-display {
+        flex-direction: column;
+    }
+    
+    .portfolio-url-display button {
+        width: 100%;
     }
     
     .mobile-bottom-nav {
@@ -1657,7 +1339,7 @@ body.dark-mode .payment-instructions {
         background: var(--bg-primary);
         border-top: 1px solid var(--border-color);
         padding: 8px 12px;
-        z-index: 100;
+        z-index: 1000;
         backdrop-filter: blur(10px);
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
     }
@@ -1701,4 +1383,41 @@ body.dark-mode .payment-instructions {
     .mobile-nav-item:hover {
         background: var(--border-color);
     }
+}
+
+@media (max-width: 480px) {
+    .dashboard-main {
+        padding: 0.5rem;
+        padding-bottom: 70px;
+    }
+    
+    .progress-section, .mvp-section, .leaderboard-section {
+        padding: 1rem;
+    }
+    
+    .badge-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.5rem;
+    }
+    
+    .score-value {
+        font-size: 1.3rem;
+    }
+    
+    .wallet-balance-large {
+        font-size: 1.2rem;
+    }
+    
+    .amount-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* =========================================
+   MOBILE BOTTOM NAVIGATION (Hidden by default)
+   ========================================= */
+
+.mobile-bottom-nav {
+    display: none;
 }
