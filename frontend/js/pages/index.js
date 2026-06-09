@@ -1,6 +1,7 @@
 // ============================================
 // GLIIMU HOMEPAGE - COMPLETE INTERACTIVITY
 // Carousels, Accordions, Counters, Filters, Theme Toggle
+// Fixed: All accordions closed initially, proper carousel sizing, scroll animations
 // ============================================
 
 // ============================================
@@ -44,6 +45,26 @@ function toggleTheme() {
     const isDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     updateThemeIcon(isDark);
+}
+
+// ============================================
+// SCROLL REVEAL ANIMATIONS (Premium trigger)
+// ============================================
+function initScrollReveal() {
+    const revealElements = document.querySelectorAll('.pillar-card, .service-card, .payment-card, .accordion-item, .gallery-item, .testimonial-card');
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, index) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => {
+                    entry.target.classList.add('revealed');
+                }, index * 100);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    
+    revealElements.forEach(el => observer.observe(el));
 }
 
 // ============================================
@@ -128,31 +149,34 @@ function initVideoBackground() {
 }
 
 // ============================================
-// ACCORDION FUNCTIONALITY
+// ACCORDION FUNCTIONALITY (All closed initially)
 // ============================================
 function initAccordion() {
     const accordionItems = document.querySelectorAll('.accordion-item');
+    
+    // Ensure all are closed initially
+    accordionItems.forEach(item => {
+        item.classList.remove('active');
+    });
     
     accordionItems.forEach(item => {
         const header = item.querySelector('.accordion-header');
         
         header.addEventListener('click', () => {
+            // Close all other items
             accordionItems.forEach(otherItem => {
                 if (otherItem !== item && otherItem.classList.contains('active')) {
                     otherItem.classList.remove('active');
                 }
             });
+            // Toggle current item
             item.classList.toggle('active');
         });
     });
-    
-    if (accordionItems.length > 0) {
-        accordionItems[0].classList.add('active');
-    }
 }
 
 // ============================================
-// GALLERY CAROUSEL (With auto-slide & touch swipe)
+// GALLERY CAROUSEL (No arrows, touch swipe, hover pause)
 // ============================================
 let currentGalleryIndex = 0;
 let galleryItems = [];
@@ -160,6 +184,7 @@ let galleryFilter = 'all';
 let galleryAutoSlideInterval = null;
 let galleryStartX = 0;
 let galleryEndX = 0;
+let isGalleryHovering = false;
 
 function loadStudentWorkGallery() {
     const carouselTrack = document.getElementById('carouselTrack');
@@ -190,12 +215,6 @@ function loadStudentWorkGallery() {
             </div>
         `).join('');
         
-        // Reset carousel position
-        currentGalleryIndex = 0;
-        updateCarousel();
-        updateDots();
-        startAutoSlide();
-        
         // Add click handlers
         document.querySelectorAll('.gallery-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -203,6 +222,12 @@ function loadStudentWorkGallery() {
                 alert(`Opening: ${title}\n\nFull project details coming soon!`);
             });
         });
+        
+        // Reset position
+        currentGalleryIndex = 0;
+        updateCarousel();
+        updateDots();
+        startAutoSlide();
     }
     
     function updateCarousel() {
@@ -270,7 +295,11 @@ function loadStudentWorkGallery() {
     
     function startAutoSlide() {
         if (galleryAutoSlideInterval) clearInterval(galleryAutoSlideInterval);
-        galleryAutoSlideInterval = setInterval(nextSlide, 7000);
+        galleryAutoSlideInterval = setInterval(() => {
+            if (!isGalleryHovering) {
+                nextSlide();
+            }
+        }, 7000);
     }
     
     function resetAutoSlide() {
@@ -280,32 +309,17 @@ function loadStudentWorkGallery() {
         }
     }
     
-    // Hide arrows on touch screens
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    const prevBtn = document.querySelector('.prev-btn');
-    const nextBtn = document.querySelector('.next-btn');
-    
-    if (isTouchDevice) {
-        if (prevBtn) prevBtn.style.display = 'none';
-        if (nextBtn) nextBtn.style.display = 'none';
-    } else {
-        if (prevBtn) {
-            prevBtn.addEventListener('click', () => {
-                prevSlide();
-                resetAutoSlide();
-            });
-        }
-        if (nextBtn) {
-            nextBtn.addEventListener('click', () => {
-                nextSlide();
-                resetAutoSlide();
-            });
-        }
-    }
-    
-    // Touch swipe for mobile
+    // Hover pause
     const carouselContainer = document.querySelector('.gallery-carousel');
     if (carouselContainer) {
+        carouselContainer.addEventListener('mouseenter', () => {
+            isGalleryHovering = true;
+        });
+        carouselContainer.addEventListener('mouseleave', () => {
+            isGalleryHovering = false;
+        });
+        
+        // Touch swipe for mobile
         carouselContainer.addEventListener('touchstart', (e) => {
             galleryStartX = e.touches[0].clientX;
             resetAutoSlide();
@@ -347,13 +361,14 @@ function loadStudentWorkGallery() {
 }
 
 // ============================================
-// TESTIMONIAL CAROUSEL (With auto-slide & touch swipe)
+// TESTIMONIAL CAROUSEL (No arrows, touch swipe, hover pause)
 // ============================================
 let currentTestimonialIndex = 0;
 let testimonialItems = [];
 let testimonialAutoSlideInterval = null;
 let testimonialStartX = 0;
 let testimonialEndX = 0;
+let isTestimonialHovering = false;
 
 function initTestimonialCarousel() {
     const track = document.getElementById('testimonialTrack');
@@ -378,6 +393,18 @@ function initTestimonialCarousel() {
             name: "Chinedu Okafor",
             role: "Full-Stack Developer",
             image: "photos/stu2.jpg"
+        },
+        {
+            text: "The squad system changed everything. Learning in a small group with real projects accelerated my growth like nothing else.",
+            name: "Precious Adams",
+            role: "Motion Designer",
+            image: "photos/stu3.jpg"
+        },
+        {
+            text: "From zero coding experience to building full-stack applications in 8 months. Gliimu's curriculum is unmatched.",
+            name: "Michael Okonkwo",
+            role: "Software Engineer",
+            image: "photos/stu4.jpg"
         }
     ];
     
@@ -441,7 +468,11 @@ function initTestimonialCarousel() {
     
     function startTestimonialAutoSlide() {
         if (testimonialAutoSlideInterval) clearInterval(testimonialAutoSlideInterval);
-        testimonialAutoSlideInterval = setInterval(nextTestimonial, 7000);
+        testimonialAutoSlideInterval = setInterval(() => {
+            if (!isTestimonialHovering) {
+                nextTestimonial();
+            }
+        }, 7000);
     }
     
     function resetTestimonialAutoSlide() {
@@ -451,32 +482,17 @@ function initTestimonialCarousel() {
         }
     }
     
-    // Hide arrows on touch screens
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    const prevBtn = document.querySelector('.testimonial-prev');
-    const nextBtn = document.querySelector('.testimonial-next');
-    
-    if (isTouchDevice) {
-        if (prevBtn) prevBtn.style.display = 'none';
-        if (nextBtn) nextBtn.style.display = 'none';
-    } else {
-        if (prevBtn) {
-            prevBtn.addEventListener('click', () => {
-                prevTestimonial();
-                resetTestimonialAutoSlide();
-            });
-        }
-        if (nextBtn) {
-            nextBtn.addEventListener('click', () => {
-                nextTestimonial();
-                resetTestimonialAutoSlide();
-            });
-        }
-    }
-    
-    // Touch swipe for mobile
+    // Hover pause
     const testimonialContainer = document.querySelector('.testimonial-carousel');
     if (testimonialContainer) {
+        testimonialContainer.addEventListener('mouseenter', () => {
+            isTestimonialHovering = true;
+        });
+        testimonialContainer.addEventListener('mouseleave', () => {
+            isTestimonialHovering = false;
+        });
+        
+        // Touch swipe for mobile
         testimonialContainer.addEventListener('touchstart', (e) => {
             testimonialStartX = e.touches[0].clientX;
             resetTestimonialAutoSlide();
@@ -501,7 +517,7 @@ function initTestimonialCarousel() {
 }
 
 // ============================================
-// LOAD PARTNERS SLIDER (52 Partners)
+// LOAD PARTNERS SLIDER (52 Partners - Slower speed)
 // ============================================
 function loadPartnersSlider() {
     const partnersTrack = document.getElementById('partnersTrack');
@@ -516,13 +532,13 @@ function loadPartnersSlider() {
         'Tech Alliance', 'Media Network', 'Studio 54', 'Design Studio', 'Code Lab'
     ];
     
-    // Create 52 partners (using duplicates of the above)
+    // Create 52 partners
     let partners = [];
     for (let i = 0; i < 52; i++) {
         const name = partnerNames[i % partnerNames.length];
         partners.push({
-            name: `${name} ${Math.floor(i / partnerNames.length) + 1}`,
-            logo: `https://placehold.co/100x40/2c2f78/white?text=${encodeURIComponent(name.split(' ')[0])}`
+            name: `${name}`,
+            logo: `https://placehold.co/80x40/2c2f78/white?text=${encodeURIComponent(name.split(' ')[0])}`
         });
     }
     
@@ -534,10 +550,36 @@ function loadPartnersSlider() {
             <img src="${partner.logo}" alt="${partner.name}">
         </div>
     `).join('');
+    
+    // Set animation speed slower (3.4x slower = 136s instead of 40s)
+    partnersTrack.style.animation = 'scrollPartners 136s linear infinite';
 }
 
 // ============================================
-// SMOOTH SCROLL
+// SCROLL TO TOP BUTTON
+// ============================================
+function initScrollToTop() {
+    const scrollBtn = document.getElementById('scrollToTopBtn');
+    if (!scrollBtn) return;
+    
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 500) {
+            scrollBtn.classList.add('visible');
+        } else {
+            scrollBtn.classList.remove('visible');
+        }
+    });
+    
+    scrollBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+}
+
+// ============================================
+// SMOOTH SCROLL FOR ANCHOR LINKS
 // ============================================
 function initSmoothScroll() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -548,6 +590,22 @@ function initSmoothScroll() {
                 target.scrollIntoView({ behavior: 'smooth' });
             }
         });
+    });
+}
+
+// ============================================
+// ENSURE CONTENTS DON'T REACH EDGE (Container padding)
+// ============================================
+function ensureContainerPadding() {
+    const containers = document.querySelectorAll('.container');
+    containers.forEach(container => {
+        if (window.innerWidth <= 768) {
+            container.style.paddingLeft = '16px';
+            container.style.paddingRight = '16px';
+        } else {
+            container.style.paddingLeft = '';
+            container.style.paddingRight = '';
+        }
     });
 }
 
@@ -576,13 +634,21 @@ function init() {
     initAccordion();
     initTestimonialCarousel();
     initSmoothScroll();
+    initScrollReveal();
+    initScrollToTop();
     removeImageOverlay();
+    ensureContainerPadding();
     
     // Add theme toggle event listener
     const themeToggle = document.getElementById('themeToggleHero');
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
     }
+    
+    // Handle window resize for container padding
+    window.addEventListener('resize', () => {
+        ensureContainerPadding();
+    });
     
     console.log('Homepage initialized');
 }
