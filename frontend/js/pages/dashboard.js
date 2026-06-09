@@ -832,15 +832,15 @@ async function renderWallet() {
                 <button id="addFundsBtn" class="btn-primary">Add Funds</button>
             </div>
             
-            <div class="payment-filters-wrapper">
-                <div class="payment-filters">
-                    <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All (${allPayments.length})</button>
-                    <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${pendingPayments.length})</button>
-                    <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved (${approvedPayments.length})</button>
-                    <button class="filter-btn ${currentPaymentFilter === 'rejected' ? 'active' : ''}" data-filter="rejected">Rejected (${cancelledPayments.length})</button>
-                    <button class="filter-btn ${currentPaymentFilter === 'transactions' ? 'active' : ''}" data-filter="transactions">Transactions (${transactions?.length || 0})</button>
-                </div>
-            </div>
+    <div class="payment-filters-wrapper">
+        <div class="payment-filters">
+            <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All (${allPayments.length})</button>
+            <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${pendingPayments.length})</button>
+            <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved (${approvedPayments.length})</button>
+            <button class="filter-btn ${currentPaymentFilter === 'rejected' ? 'active' : ''}" data-filter="rejected">Rejected (${cancelledPayments.length})</button>
+            <button class="filter-btn ${currentPaymentFilter === 'transactions' ? 'active' : ''}" data-filter="transactions">Transactions (${transactions?.length || 0})</button>
+        </div>
+    </div>
             
             <div class="payments-section">
                 <h3>${currentPaymentFilter === 'transactions' ? 'Transaction History' : 'Payment Requests'}</h3>
