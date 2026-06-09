@@ -1530,29 +1530,29 @@ body.dark-mode .payment-instructions {
 }
 
 /* =========================================
-   WALLET FILTER BUTTONS - HORIZONTAL SCROLL ONLY
+   WALLET FILTER BUTTONS - HORIZONTAL SCROLL
    ========================================= */
 
-/* This wrapper enables horizontal scroll WITHOUT affecting page scroll */
+/* The wrapper - this stays at 100% width of its parent */
 .payment-filters-wrapper {
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
     margin-bottom: 1rem;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    /* Critical: This prevents the wrapper from expanding the page width */
-    max-width: 100%;
+    /* This prevents the wrapper from expanding beyond its parent */
+    position: relative;
 }
 
-/* This is the key - buttons stay in one line and don't wrap */
+/* The flex container - this can be wider than the wrapper */
 .payment-filters {
     display: flex;
     gap: 0.75rem;
     flex-direction: row;
     flex-wrap: nowrap;
-    /* Critical: This ensures the flex container doesn't wrap */
-    width: fit-content;
+    /* This allows the container to be wider than the wrapper */
+    width: max-content;
     min-width: 100%;
 }
 
@@ -1577,12 +1577,7 @@ body.dark-mode .payment-instructions {
     border-color: var(--brand-gold);
 }
 
-.filter-btn:hover:not(.active) {
-    border-color: var(--brand-gold);
-    background: rgba(251, 176, 64, 0.05);
-}
-
-/* Custom scrollbar styling */
+/* Scrollbar styling - optional */
 .payment-filters-wrapper::-webkit-scrollbar {
     height: 3px;
 }
