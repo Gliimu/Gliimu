@@ -1295,3 +1295,31 @@
     flex-wrap: wrap;
     gap: 0.5rem;
 }
+
+/* Ensure all cards display properly */
+.course-cards-row,
+.services-grid,
+.payment-grid,
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .course-cards-row,
+    .services-grid,
+    .payment-grid,
+    .testimonials-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .course-cards-row,
+    .services-grid,
+    .payment-grid,
+    .testimonials-grid {
+        grid-template-columns: 1fr;
+    }
+}
