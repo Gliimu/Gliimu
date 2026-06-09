@@ -2,6 +2,81 @@
    GLIIMU HOMEPAGE STYLES - COMPLETE
    ========================================= */
 
+/* CSS Variables for Theme */
+:root {
+    --brand-purple: #2c2f78;
+    --brand-purple-dark: #1a1c4a;
+    --brand-gold: #fbb040;
+    --brand-gold-dark: #cc8a2a;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --accent: #fbb040;
+    --accent-dark: #cc8a2a;
+    --success: #10b981;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+body.dark-mode {
+    --bg-primary: #0f172a;
+    --bg-secondary: #080c14;
+    --bg-card: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: #1e293b;
+}
+
+/* Theme Toggle in Hero */
+.theme-toggle-hero {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 20;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 40px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    font-size: 1.2rem;
+    transition: all 0.3s;
+}
+
+.theme-toggle-hero:hover {
+    background: var(--accent);
+    color: var(--brand-purple-dark);
+}
+
+/* Logo Container - Black Rectangle */
+.hero-logo-container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 20;
+    background: #000000;
+    padding: 8px 20px;
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-logo-img {
+    height: 32px;
+    width: auto;
+    filter: brightness(0) invert(1);
+}
+
 /* =========================================
    HERO SECTION WITH VIDEO BACKGROUND
    ========================================= */
@@ -38,19 +113,6 @@
     z-index: 1;
 }
 
-.hero-logo {
-    position: absolute;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-}
-
-.hero-logo-img {
-    height: 50px;
-    width: auto;
-}
-
 .hero-container {
     position: relative;
     z-index: 2;
@@ -83,7 +145,7 @@
 }
 
 .hero-title .highlight {
-    color: var(--accent, #fbb040);
+    color: var(--accent);
 }
 
 .hero-desc {
@@ -138,12 +200,12 @@
 }
 
 /* =========================================
-   URGENCY BANNER - HIDDEN ON MOBILE
+   URGENCY BANNER (Compact)
    ========================================= */
 
 .urgency-banner {
     background: linear-gradient(135deg, #fbb040, #e6a020);
-    padding: 0.75rem 0;
+    padding: 0.4rem 0;
     position: sticky;
     top: 0;
     z-index: 98;
@@ -168,12 +230,6 @@
 
 .urgency-link:hover {
     color: white;
-}
-
-@media (max-width: 768px) {
-    .urgency-banner {
-        display: none;
-    }
 }
 
 /* =========================================
@@ -719,17 +775,24 @@
     align-items: center;
     gap: 1rem;
     margin-bottom: 1rem;
+    touch-action: pan-y pinch-zoom;
 }
 
 .gallery-carousel {
     flex: 1;
     overflow: hidden;
+    touch-action: pan-y pinch-zoom;
 }
 
 .carousel-track {
     display: flex;
     transition: transform 0.4s ease;
     gap: 1.5rem;
+    cursor: grab;
+}
+
+.carousel-track:active {
+    cursor: grabbing;
 }
 
 .gallery-item {
@@ -739,6 +802,7 @@
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.3s;
+    position: relative;
 }
 
 .gallery-item:hover {
@@ -823,20 +887,6 @@
     margin-top: 2rem;
 }
 
-@media (max-width: 1024px) {
-    .gallery-item {
-        flex: 0 0 calc(50% - 0.75rem);
-        min-width: calc(50% - 0.75rem);
-    }
-}
-
-@media (max-width: 768px) {
-    .gallery-item {
-        flex: 0 0 100%;
-        min-width: 100%;
-    }
-}
-
 /* =========================================
    SERVICES SECTION
    ========================================= */
@@ -906,7 +956,7 @@
 }
 
 /* =========================================
-   INVESTMENT SECTION (Simplified)
+   INVESTMENT SECTION
    ========================================= */
 
 .payment-section {
@@ -982,7 +1032,7 @@
 }
 
 /* =========================================
-   TESTIMONIAL CAROUSEL
+   TESTIMONIAL CAROUSEL (55% shorter width)
    ========================================= */
 
 .testimonials-enhanced {
@@ -1000,25 +1050,47 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    touch-action: pan-y pinch-zoom;
 }
 
 .testimonial-carousel {
     flex: 1;
     overflow: hidden;
+    touch-action: pan-y pinch-zoom;
 }
 
 .testimonial-track {
     display: flex;
     transition: transform 0.4s ease;
+    cursor: grab;
+}
+
+.testimonial-track:active {
+    cursor: grabbing;
 }
 
 .testimonial-card {
-    flex: 0 0 100%;
-    min-width: 100%;
+    flex: 0 0 55%;
+    min-width: 55%;
     background: var(--bg-card);
     border-radius: 20px;
     padding: 2rem;
     box-shadow: var(--shadow-md);
+    margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+    .testimonial-card {
+        flex: 0 0 70%;
+        min-width: 70%;
+    }
+}
+
+@media (max-width: 768px) {
+    .testimonial-card {
+        flex: 0 0 85%;
+        min-width: 85%;
+    }
 }
 
 .testimonial-content i {
@@ -1102,7 +1174,7 @@
 }
 
 /* =========================================
-   PARTNERS SECTION
+   PARTNERS SECTION (52 Partners)
    ========================================= */
 
 .partners-section {
@@ -1123,9 +1195,9 @@
 
 .partners-track {
     display: flex;
-    gap: 2rem;
+    gap: 1rem;
     width: fit-content;
-    animation: scrollPartners 30s linear infinite;
+    animation: scrollPartners 40s linear infinite;
 }
 
 @keyframes scrollPartners {
@@ -1135,19 +1207,19 @@
 
 .partner-logo {
     flex: 0 0 auto;
-    padding: 1rem 2rem;
+    padding: 0.75rem 1.5rem;
     background: var(--bg-card);
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid var(--border-color);
-    min-width: 160px;
+    min-width: 120px;
     text-align: center;
 }
 
 .partner-logo img {
-    max-width: 100px;
-    max-height: 50px;
+    max-width: 80px;
+    max-height: 40px;
     filter: grayscale(100%);
-    opacity: 0.6;
+    opacity: 0.5;
     transition: all 0.3s;
 }
 
@@ -1193,6 +1265,17 @@
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
+}
+
+.btn-light-bg {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+}
+
+.btn-light-bg:hover {
+    background: white !important;
+    color: var(--brand-purple-dark) !important;
 }
 
 /* =========================================
@@ -1275,11 +1358,26 @@
     .payment-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    
+    .gallery-item {
+        flex: 0 0 calc(50% - 0.75rem);
+        min-width: calc(50% - 0.75rem);
+    }
 }
 
 @media (max-width: 768px) {
     .hero-logo-img {
-        height: 40px;
+        height: 24px;
+    }
+    
+    .hero-logo-container {
+        padding: 6px 16px;
+    }
+    
+    .theme-toggle-hero {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
     }
     
     .hero-title {
@@ -1401,6 +1499,11 @@
         background: var(--accent);
         border-radius: 10px;
     }
+    
+    .gallery-item {
+        flex: 0 0 100%;
+        min-width: 100%;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1429,6 +1532,8 @@
     }
     
     .testimonial-card {
+        flex: 0 0 95%;
+        min-width: 95%;
         padding: 1.5rem;
     }
     
@@ -1439,5 +1544,15 @@
     
     .earn-graphic i {
         font-size: 3rem;
+    }
+    
+    .partner-logo {
+        min-width: 100px;
+        padding: 0.5rem 1rem;
+    }
+    
+    .partner-logo img {
+        max-width: 60px;
+        max-height: 30px;
     }
 }
