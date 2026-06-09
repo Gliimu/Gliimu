@@ -1530,27 +1530,33 @@ body.dark-mode .payment-instructions {
 }
 
 /* =========================================
-   SCROLLABLE PAYMENT FILTERS - MOBILE FIX
+   WALLET FILTER BUTTONS - HORIZONTAL SCROLL
    ========================================= */
 
+/* The wrapper that enables horizontal scroll without affecting page scroll */
 .payment-filters-wrapper {
+    width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
     margin-bottom: 1rem;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
+    position: relative;
 }
 
+/* The container for the buttons - uses flex with nowrap */
 .payment-filters {
     display: flex;
     gap: 0.5rem;
+    flex-wrap: nowrap;  /* Prevents wrapping to next line */
     min-width: min-content;
-    padding-bottom: 8px;
+    padding-bottom: 8px;  /* Space for scrollbar */
 }
 
+/* Individual filter buttons */
 .payment-filters .filter-btn {
-    white-space: nowrap;
-    flex-shrink: 0;
+    white-space: nowrap;  /* Prevents text wrapping */
+    flex-shrink: 0;      /* Prevents buttons from shrinking */
     padding: 0.5rem 1rem;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -1566,7 +1572,7 @@ body.dark-mode .payment-instructions {
     border-color: var(--brand-gold);
 }
 
-/* Hide scrollbar for cleaner look on Chrome/Safari */
+/* Custom scrollbar styling (optional - looks cleaner) */
 .payment-filters-wrapper::-webkit-scrollbar {
     height: 4px;
 }
