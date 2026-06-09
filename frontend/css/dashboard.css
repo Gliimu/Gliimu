@@ -1530,36 +1530,33 @@ body.dark-mode .payment-instructions {
 }
 
 /* =========================================
-   WALLET FILTER BUTTONS - HORIZONTAL SCROLL
+   SCROLLABLE FILTER BUTTONS - DEFINITE FIX
    ========================================= */
 
-/* The wrapper - this stays at 100% width of its parent */
+/* Wrapper - handles scrolling */
 .payment-filters-wrapper {
     width: 100%;
-    max-width: 100%;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     margin-bottom: 1rem;
     -webkit-overflow-scrolling: touch;
-    /* This prevents the wrapper from expanding beyond its parent */
-    position: relative;
 }
 
-/* The flex container - this can be wider than the wrapper */
+/* Flex container - prevents wrapping */
 .payment-filters {
     display: flex;
-    gap: 0.75rem;
     flex-direction: row;
     flex-wrap: nowrap;
-    /* This allows the container to be wider than the wrapper */
-    width: max-content;
+    gap: 0.75rem;
+    /* This is the key - makes container as wide as its content */
+    width: fit-content;
     min-width: 100%;
 }
 
-/* Individual filter buttons */
-.filter-btn {
+/* Individual buttons - prevent shrinking/wrapping */
+.payment-filters .filter-btn {
+    flex: 0 0 auto;
     white-space: nowrap;
-    flex-shrink: 0;
     padding: 0.5rem 1.25rem;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -1571,13 +1568,13 @@ body.dark-mode .payment-instructions {
     font-family: inherit;
 }
 
-.filter-btn.active {
+.payment-filters .filter-btn.active {
     background: var(--brand-gold);
     color: var(--brand-purple-dark);
     border-color: var(--brand-gold);
 }
 
-/* Scrollbar styling - optional */
+/* Optional - nice scrollbar */
 .payment-filters-wrapper::-webkit-scrollbar {
     height: 3px;
 }
