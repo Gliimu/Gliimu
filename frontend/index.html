@@ -106,7 +106,7 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- THREE PILLARS SECTION (Library, Community, Live Classroom) -->
+    <!-- THREE PILLARS SECTION -->
     <!-- ============================================ -->
     <section class="pillars-section">
         <div class="container">
@@ -142,7 +142,7 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- EARN WHILE YOU LEARN (With Coins Icon) -->
+    <!-- EARN WHILE YOU LEARN -->
     <!-- ============================================ -->
     <section class="earn-section">
         <div class="container">
@@ -213,7 +213,7 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- WHAT YOU'LL MASTER (Accordion Style) -->
+    <!-- WHAT YOU'LL MASTER (Accordion - All Closed Initially) -->
     <!-- ============================================ -->
     <section id="curriculum" class="course-redesign">
         <div class="container">
@@ -289,30 +289,21 @@
                     <div class="course-showcase-cta">
                         <a href="application.html" class="btn btn-primary">Apply Now — No Fee <i class="fas fa-arrow-right"></i></a>
                     </div>
+                    <!-- 7 spots left moved here -->
+                    <div class="spots-left">
+                        <i class="fas fa-fire"></i>
+                        <span>Only <strong>7 spots left</strong> for next cohort</span>
+                    </div>
                 </div>
                 <div class="course-showcase-image">
                     <img src="photos/ads4.jpg" alt="Media Architect" onerror="this.src='https://placehold.co/500x400/2c2f78/white?text=Media+Architect'">
-                    <div class="image-overlay-stats">
-                        <div class="overlay-stat">
-                            <span class="overlay-stat-number">12</span>
-                            <span class="overlay-stat-label">Months</span>
-                        </div>
-                        <div class="overlay-stat">
-                            <span class="overlay-stat-number">3-in-1</span>
-                            <span class="overlay-stat-label">Skills</span>
-                        </div>
-                        <div class="overlay-stat">
-                            <span class="overlay-stat-number">100%</span>
-                            <span class="overlay-stat-label">Project-Based</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- ============================================ -->
-    <!-- STUDENT WORK CAROUSEL (Hub-style) -->
+    <!-- STUDENT WORK CAROUSEL (No arrows, touch swipe only) -->
     <!-- ============================================ -->
     <section class="gallery-section">
         <div class="container">
@@ -332,11 +323,9 @@
             </div>
             
             <div class="gallery-carousel-container" id="galleryCarouselContainer">
-                <button class="carousel-btn prev-btn"><i class="fas fa-chevron-left"></i></button>
-                <div class="gallery-carousel">
+                <div class="gallery-carousel" id="galleryCarousel">
                     <div class="carousel-track" id="carouselTrack"></div>
                 </div>
-                <button class="carousel-btn next-btn"><i class="fas fa-chevron-right"></i></button>
             </div>
             <div class="gallery-dots" id="galleryDots"></div>
             
@@ -436,7 +425,7 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- TESTIMONIAL CAROUSEL -->
+    <!-- TESTIMONIAL CAROUSEL (No arrows, touch swipe only) -->
     <!-- ============================================ -->
     <section class="testimonials-enhanced">
         <div class="container">
@@ -447,18 +436,16 @@
             </div>
             
             <div class="testimonial-carousel-container" id="testimonialCarouselContainer">
-                <button class="testimonial-prev"><i class="fas fa-chevron-left"></i></button>
-                <div class="testimonial-carousel">
+                <div class="testimonial-carousel" id="testimonialCarousel">
                     <div class="testimonial-track" id="testimonialTrack"></div>
                 </div>
-                <button class="testimonial-next"><i class="fas fa-chevron-right"></i></button>
             </div>
             <div class="testimonial-dots" id="testimonialDots"></div>
         </div>
     </section>
 
     <!-- ============================================ -->
-    <!-- PARTNERS SECTION (52 Partners) -->
+    <!-- PARTNERS SECTION -->
     <!-- ============================================ -->
     <section class="partners-section">
         <div class="container">
@@ -500,6 +487,16 @@
             <p>© 2025 Gliimu Ltd. All rights reserved.</p>
         </div>
     </footer>
+
+    <!-- Fixed Action Buttons -->
+    <div class="fixed-action-buttons">
+        <a href="tel:+2347058929080" class="contact-phone-btn" aria-label="Call Us">
+            <i class="fas fa-phone-alt"></i>
+        </a>
+        <button class="scroll-to-top-btn" id="scrollToTopBtn" aria-label="Scroll to top">
+            <i class="fas fa-arrow-up"></i>
+        </button>
+    </div>
 
     <!-- Login Modal Placeholder -->
     <div id="login-modal-placeholder"></div>
