@@ -22,7 +22,7 @@
         <div class="auth-card">
             <div class="auth-tabs">
                 <button class="auth-tab active" data-tab="signin">Sign In</button>
-                <button class="auth-tab" data-tab="signup">Create Account</button>
+                <button class="auth-tab" data-tab="signup">Join Us</button>
             </div>
 
             <!-- Sign In Form -->
@@ -32,7 +32,7 @@
                 
                 <form id="loginForm">
                     <div class="form-group">
-                        <label for="loginUsername">Username or Email</label>
+                        <label for="loginUsername">Username</label>
                         <input type="text" id="loginUsername" required placeholder="e.g., john.doe123 or john@example.com">
                     </div>
                     <div class="form-group">
@@ -94,8 +94,7 @@
                             <option value="">Select your role</option>
                             <option value="student">Student (Learn & Build)</option>
                             <option value="instructor">Instructor (Teach & Mentor)</option>
-                            <option value="partner">Partner (Collaborate)</option>
-                            <option value="other">Other (Explore)</option>
+                            <option value="other">Others (Partner & Explore)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -111,7 +110,7 @@
                 
                 <div class="auth-privacy">
                     <i class="fas fa-shield-alt"></i>
-                    <span>We value your privacy. Only essential information is collected.</span>
+                    <span>We value your privacy. Only the information we need is collected.</span>
                 </div>
             </div>
         </div>
@@ -148,7 +147,7 @@
                 <div class="warning-box">
                     <i class="fas fa-download"></i>
                     <p><strong>Download your credentials now!</strong><br>
-                    This information will not be shown again. Save this PDF to recover your account.</p>
+                    This information will not be shown again. Save this PDF to recover your account if you ever forget your password.</p>
                     <button id="downloadPdfBtn" class="btn-download">
                         <i class="fas fa-file-pdf"></i> Download Credentials (PDF)
                     </button>
