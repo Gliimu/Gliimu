@@ -1,14 +1,12 @@
 // ============================================
-// GLIIMU HOMEPAGE - COMPLETE INTERACTIVITY
-// Carousels, Accordions, Counters, Filters, Theme Toggle
-// Fixed: All accordions closed initially, proper carousel sizing, scroll animations
+// GLIIMU HOMEPAGE - SIMPLIFIED VERSION
+// Horizontal scroll galleries (no carousel logic)
 // ============================================
 
 // ============================================
-// THEME HANDLING (System preference first)
+// THEME HANDLING
 // ============================================
 function initTheme() {
-    // Check localStorage first, then system preference
     const savedTheme = localStorage.getItem('theme');
     
     if (savedTheme === 'dark') {
@@ -18,7 +16,6 @@ function initTheme() {
         document.body.classList.remove('dark-mode');
         updateThemeIcon(false);
     } else {
-        // Use system preference
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (prefersDark) {
             document.body.classList.add('dark-mode');
@@ -33,11 +30,7 @@ function initTheme() {
 function updateThemeIcon(isDark) {
     const themeToggle = document.getElementById('themeToggleHero');
     if (themeToggle) {
-        if (isDark) {
-            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-        } else {
-            themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-        }
+        themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
     }
 }
 
@@ -48,54 +41,25 @@ function toggleTheme() {
 }
 
 // ============================================
-// SCROLL REVEAL ANIMATIONS (Premium trigger)
+// SCROLL REVEAL ANIMATIONS
 // ============================================
 function initScrollReveal() {
-    const revealElements = document.querySelectorAll('.pillar-card, .service-card, .payment-card, .accordion-item, .gallery-item, .testimonial-card');
+    const revealElements = document.querySelectorAll('.pillar-card, .service-card, .payment-card, .accordion-item');
     
     const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry, index) => {
+        entries.forEach(entry => {
             if (entry.isIntersecting) {
-                setTimeout(() => {
-                    entry.target.classList.add('revealed');
-                }, index * 100);
+                entry.target.classList.add('revealed');
                 observer.unobserve(entry.target);
             }
         });
-    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    }, { threshold: 0.1 });
     
     revealElements.forEach(el => observer.observe(el));
 }
 
 // ============================================
-// COUNTDOWN TIMER
-// ============================================
-function initCountdown() {
-    const countdownEl = document.getElementById('countdown');
-    if (!countdownEl) return;
-    
-    const nextCohortDate = new Date();
-    nextCohortDate.setDate(nextCohortDate.getDate() + 14);
-    
-    function updateCountdown() {
-        const now = new Date();
-        const diff = nextCohortDate - now;
-        
-        if (diff <= 0) {
-            countdownEl.textContent = 'Today!';
-            return;
-        }
-        
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        countdownEl.textContent = `${days} days`;
-    }
-    
-    updateCountdown();
-    setInterval(updateCountdown, 86400000);
-}
-
-// ============================================
-// COUNTER ANIMATION (Hero Stats)
+// COUNTER ANIMATION
 // ============================================
 function initCounters() {
     const counters = document.querySelectorAll('.counter');
@@ -149,47 +113,37 @@ function initVideoBackground() {
 }
 
 // ============================================
-// ACCORDION FUNCTIONALITY (All closed initially)
+// ACCORDION (All closed initially)
 // ============================================
 function initAccordion() {
     const accordionItems = document.querySelectorAll('.accordion-item');
     
-    // Ensure all are closed initially
     accordionItems.forEach(item => {
         item.classList.remove('active');
     });
     
     accordionItems.forEach(item => {
         const header = item.querySelector('.accordion-header');
-        
         header.addEventListener('click', () => {
-            // Close all other items
-            accordionItems.forEach(otherItem => {
-                if (otherItem !== item && otherItem.classList.contains('active')) {
-                    otherItem.classList.remove('active');
+            accordionItems.forEach(other => {
+                if (other !== item && other.classList.contains('active')) {
+                    other.classList.remove('active');
                 }
             });
-            // Toggle current item
             item.classList.toggle('active');
         });
     });
 }
 
 // ============================================
-// GALLERY CAROUSEL (No arrows, touch swipe, hover pause)
+// GALLERY - Horizontal Scroll (No Carousel)
 // ============================================
-let currentGalleryIndex = 0;
 let galleryItems = [];
-let galleryFilter = 'all';
-let galleryAutoSlideInterval = null;
-let galleryStartX = 0;
-let galleryEndX = 0;
-let isGalleryHovering = false;
+let currentGalleryFilter = 'all';
 
 function loadStudentWorkGallery() {
-    const carouselTrack = document.getElementById('carouselTrack');
-    const dotsContainer = document.getElementById('galleryDots');
-    if (!carouselTrack) return;
+    const galleryTrack = document.getElementById('galleryTrack');
+    if (!galleryTrack) return;
     
     const studentWorks = [
         { id: 1, title: 'Nike Commercial', type: 'video', thumbnail: 'photos/portfolio1.jpg', student: 'Finiks Kshel' },
@@ -197,15 +151,17 @@ function loadStudentWorkGallery() {
         { id: 3, title: 'E-commerce Website', type: 'code', thumbnail: 'photos/portfolio3.jpg', student: 'Chinedu Okafor' },
         { id: 4, title: 'Title Sequence Animation', type: 'video', thumbnail: 'photos/portfolio4.jpg', student: 'Precious Adams' },
         { id: 5, title: 'Brand Identity Package', type: 'design', thumbnail: 'photos/ads.jpg', student: 'Sarah Johnson' },
-        { id: 6, title: 'Mobile Game Development', type: 'code', thumbnail: 'photos/ads2.jpg', student: 'Michael Okonkwo' }
+        { id: 6, title: 'Mobile Game Development', type: 'code', thumbnail: 'photos/ads2.jpg', student: 'Michael Okonkwo' },
+        { id: 7, title: 'Documentary Trailer', type: 'video', thumbnail: 'photos/ads3.jpg', student: 'David Wilson' },
+        { id: 8, title: 'Restaurant Branding', type: 'design', thumbnail: 'photos/ads4.jpg', student: 'Emma Thompson' }
     ];
     
     galleryItems = studentWorks;
     
-    function renderCarousel() {
-        const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
+    function renderGallery() {
+        const filtered = currentGalleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === currentGalleryFilter);
         
-        carouselTrack.innerHTML = filtered.map(work => `
+        galleryTrack.innerHTML = filtered.map(work => `
             <div class="gallery-item" data-type="${work.type}">
                 <img src="${work.thumbnail}" alt="${work.title}" onerror="this.src='https://placehold.co/400x300/2c2f78/white?text=${encodeURIComponent(work.title)}'">
                 <div class="gallery-overlay">
@@ -222,158 +178,28 @@ function loadStudentWorkGallery() {
                 alert(`Opening: ${title}\n\nFull project details coming soon!`);
             });
         });
-        
-        // Reset position
-        currentGalleryIndex = 0;
-        updateCarousel();
-        updateDots();
-        startAutoSlide();
-    }
-    
-    function updateCarousel() {
-        const track = document.querySelector('.carousel-track');
-        const itemsPerView = getItemsPerView();
-        const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
-        const maxIndex = Math.ceil(filtered.length / itemsPerView) - 1;
-        
-        if (currentGalleryIndex < 0) currentGalleryIndex = 0;
-        if (currentGalleryIndex > maxIndex) currentGalleryIndex = maxIndex;
-        
-        const scrollAmount = currentGalleryIndex * 100;
-        if (track) {
-            track.style.transform = `translateX(-${scrollAmount}%)`;
-        }
-        updateDots();
-    }
-    
-    function getItemsPerView() {
-        if (window.innerWidth <= 768) return 1;
-        if (window.innerWidth <= 1024) return 2;
-        return 3;
-    }
-    
-    function updateDots() {
-        const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
-        const itemsPerView = getItemsPerView();
-        const totalDots = Math.ceil(filtered.length / itemsPerView);
-        
-        if (dotsContainer) {
-            dotsContainer.innerHTML = '';
-            for (let i = 0; i < totalDots; i++) {
-                const dot = document.createElement('div');
-                dot.classList.add('gallery-dot');
-                if (i === currentGalleryIndex) dot.classList.add('active');
-                dot.addEventListener('click', () => {
-                    currentGalleryIndex = i;
-                    updateCarousel();
-                    resetAutoSlide();
-                });
-                dotsContainer.appendChild(dot);
-            }
-        }
-    }
-    
-    function nextSlide() {
-        const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
-        const itemsPerView = getItemsPerView();
-        const maxIndex = Math.ceil(filtered.length / itemsPerView) - 1;
-        if (currentGalleryIndex < maxIndex) {
-            currentGalleryIndex++;
-            updateCarousel();
-        } else {
-            currentGalleryIndex = 0;
-            updateCarousel();
-        }
-    }
-    
-    function prevSlide() {
-        if (currentGalleryIndex > 0) {
-            currentGalleryIndex--;
-            updateCarousel();
-        }
-    }
-    
-    function startAutoSlide() {
-        if (galleryAutoSlideInterval) clearInterval(galleryAutoSlideInterval);
-        galleryAutoSlideInterval = setInterval(() => {
-            if (!isGalleryHovering) {
-                nextSlide();
-            }
-        }, 7000);
-    }
-    
-    function resetAutoSlide() {
-        if (galleryAutoSlideInterval) {
-            clearInterval(galleryAutoSlideInterval);
-            startAutoSlide();
-        }
-    }
-    
-    // Hover pause
-    const carouselContainer = document.querySelector('.gallery-carousel');
-    if (carouselContainer) {
-        carouselContainer.addEventListener('mouseenter', () => {
-            isGalleryHovering = true;
-        });
-        carouselContainer.addEventListener('mouseleave', () => {
-            isGalleryHovering = false;
-        });
-        
-        // Touch swipe for mobile
-        carouselContainer.addEventListener('touchstart', (e) => {
-            galleryStartX = e.touches[0].clientX;
-            resetAutoSlide();
-        });
-        
-        carouselContainer.addEventListener('touchend', (e) => {
-            galleryEndX = e.changedTouches[0].clientX;
-            const diff = galleryStartX - galleryEndX;
-            if (Math.abs(diff) > 50) {
-                if (diff > 0) {
-                    nextSlide();
-                } else {
-                    prevSlide();
-                }
-                resetAutoSlide();
-            }
-        });
     }
     
     // Filter functionality
     const filterBtns = document.querySelectorAll('.gallery-filters .filter-btn');
     filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            galleryFilter = btn.getAttribute('data-filter');
+            currentGalleryFilter = btn.getAttribute('data-filter');
             filterBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            renderCarousel();
-            resetAutoSlide();
+            renderGallery();
         });
     });
     
-    // Handle window resize
-    window.addEventListener('resize', () => {
-        updateCarousel();
-        updateDots();
-    });
-    
-    renderCarousel();
+    renderGallery();
 }
 
 // ============================================
-// TESTIMONIAL CAROUSEL (No arrows, touch swipe, hover pause)
+// TESTIMONIALS - Horizontal Scroll (No Carousel)
 // ============================================
-let currentTestimonialIndex = 0;
-let testimonialItems = [];
-let testimonialAutoSlideInterval = null;
-let testimonialStartX = 0;
-let testimonialEndX = 0;
-let isTestimonialHovering = false;
-
-function initTestimonialCarousel() {
-    const track = document.getElementById('testimonialTrack');
-    const dotsContainer = document.getElementById('testimonialDots');
-    if (!track) return;
+function loadTestimonials() {
+    const testimonialsTrack = document.getElementById('testimonialsTrack');
+    if (!testimonialsTrack) return;
     
     const testimonials = [
         {
@@ -405,10 +231,16 @@ function initTestimonialCarousel() {
             name: "Michael Okonkwo",
             role: "Software Engineer",
             image: "photos/stu4.jpg"
+        },
+        {
+            text: "The instructors actually care about your success. They go above and beyond to make sure you understand.",
+            name: "Sarah Johnson",
+            role: "Product Designer",
+            image: "photos/stu.jpg"
         }
     ];
     
-    track.innerHTML = testimonials.map(t => `
+    testimonialsTrack.innerHTML = testimonials.map(t => `
         <div class="testimonial-card">
             <div class="testimonial-content">
                 <i class="fas fa-quote-left"></i>
@@ -423,101 +255,10 @@ function initTestimonialCarousel() {
             </div>
         </div>
     `).join('');
-    
-    testimonialItems = document.querySelectorAll('.testimonial-card');
-    
-    function updateTestimonialCarousel() {
-        const scrollAmount = currentTestimonialIndex * 100;
-        track.style.transform = `translateX(-${scrollAmount}%)`;
-        updateTestimonialDots();
-    }
-    
-    function updateTestimonialDots() {
-        if (dotsContainer) {
-            dotsContainer.innerHTML = '';
-            for (let i = 0; i < testimonialItems.length; i++) {
-                const dot = document.createElement('div');
-                dot.classList.add('testimonial-dot');
-                if (i === currentTestimonialIndex) dot.classList.add('active');
-                dot.addEventListener('click', () => {
-                    currentTestimonialIndex = i;
-                    updateTestimonialCarousel();
-                    resetTestimonialAutoSlide();
-                });
-                dotsContainer.appendChild(dot);
-            }
-        }
-    }
-    
-    function nextTestimonial() {
-        if (currentTestimonialIndex < testimonialItems.length - 1) {
-            currentTestimonialIndex++;
-            updateTestimonialCarousel();
-        } else {
-            currentTestimonialIndex = 0;
-            updateTestimonialCarousel();
-        }
-    }
-    
-    function prevTestimonial() {
-        if (currentTestimonialIndex > 0) {
-            currentTestimonialIndex--;
-            updateTestimonialCarousel();
-        }
-    }
-    
-    function startTestimonialAutoSlide() {
-        if (testimonialAutoSlideInterval) clearInterval(testimonialAutoSlideInterval);
-        testimonialAutoSlideInterval = setInterval(() => {
-            if (!isTestimonialHovering) {
-                nextTestimonial();
-            }
-        }, 7000);
-    }
-    
-    function resetTestimonialAutoSlide() {
-        if (testimonialAutoSlideInterval) {
-            clearInterval(testimonialAutoSlideInterval);
-            startTestimonialAutoSlide();
-        }
-    }
-    
-    // Hover pause
-    const testimonialContainer = document.querySelector('.testimonial-carousel');
-    if (testimonialContainer) {
-        testimonialContainer.addEventListener('mouseenter', () => {
-            isTestimonialHovering = true;
-        });
-        testimonialContainer.addEventListener('mouseleave', () => {
-            isTestimonialHovering = false;
-        });
-        
-        // Touch swipe for mobile
-        testimonialContainer.addEventListener('touchstart', (e) => {
-            testimonialStartX = e.touches[0].clientX;
-            resetTestimonialAutoSlide();
-        });
-        
-        testimonialContainer.addEventListener('touchend', (e) => {
-            testimonialEndX = e.changedTouches[0].clientX;
-            const diff = testimonialStartX - testimonialEndX;
-            if (Math.abs(diff) > 50) {
-                if (diff > 0) {
-                    nextTestimonial();
-                } else {
-                    prevTestimonial();
-                }
-                resetTestimonialAutoSlide();
-            }
-        });
-    }
-    
-    startTestimonialAutoSlide();
-    updateTestimonialCarousel();
 }
 
 // ============================================
-// LOAD PARTNERS SLIDER (52 Partners - Slower speed)
+// PARTNERS SLIDER
 // ============================================
 function loadPartnersSlider() {
     const partnersTrack = document.getElementById('partnersTrack');
@@ -527,12 +268,9 @@ function loadPartnersSlider() {
         'Tech Corp', 'Media Plus', 'Creative Hub', 'Digital Solutions', 'Innovation Lab',
         'Studio One', 'Design Co', 'Code Masters', 'Film Factory', 'Animation Studio',
         'Web Experts', 'Brand Builders', 'Content Creators', 'Social Impact', 'Future Tech',
-        'Art Department', 'Sound Lab', 'Edit House', 'Render Farm', 'Pixel Perfect',
-        'UX Studio', 'Dev House', 'Media Group', 'Creative Agency', 'Digital First',
-        'Tech Alliance', 'Media Network', 'Studio 54', 'Design Studio', 'Code Lab'
+        'Art Department', 'Sound Lab', 'Edit House', 'Render Farm', 'Pixel Perfect'
     ];
     
-    // Create 52 partners
     let partners = [];
     for (let i = 0; i < 52; i++) {
         const name = partnerNames[i % partnerNames.length];
@@ -542,7 +280,6 @@ function loadPartnersSlider() {
         });
     }
     
-    // Duplicate for seamless scrolling
     const allPartners = [...partners, ...partners];
     
     partnersTrack.innerHTML = allPartners.map(partner => `
@@ -551,7 +288,6 @@ function loadPartnersSlider() {
         </div>
     `).join('');
     
-    // Set animation speed slower (3.4x slower = 136s instead of 40s)
     partnersTrack.style.animation = 'scrollPartners 136s linear infinite';
 }
 
@@ -571,15 +307,12 @@ function initScrollToTop() {
     });
     
     scrollBtn.addEventListener('click', () => {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 }
 
 // ============================================
-// SMOOTH SCROLL FOR ANCHOR LINKS
+// SMOOTH SCROLL
 // ============================================
 function initSmoothScroll() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -594,23 +327,7 @@ function initSmoothScroll() {
 }
 
 // ============================================
-// ENSURE CONTENTS DON'T REACH EDGE (Container padding)
-// ============================================
-function ensureContainerPadding() {
-    const containers = document.querySelectorAll('.container');
-    containers.forEach(container => {
-        if (window.innerWidth <= 768) {
-            container.style.paddingLeft = '16px';
-            container.style.paddingRight = '16px';
-        } else {
-            container.style.paddingLeft = '';
-            container.style.paddingRight = '';
-        }
-    });
-}
-
-// ============================================
-// REMOVE STATS OVERLAY FROM IMAGE
+// REMOVE STATS OVERLAY
 // ============================================
 function removeImageOverlay() {
     const overlayStats = document.querySelector('.image-overlay-stats');
@@ -620,40 +337,31 @@ function removeImageOverlay() {
 }
 
 // ============================================
-// INITIALIZE ALL
+// INITIALIZE
 // ============================================
 function init() {
     console.log('Initializing homepage...');
     
     initTheme();
-    initCountdown();
     initVideoBackground();
     loadStudentWorkGallery();
+    loadTestimonials();
     loadPartnersSlider();
     initCounters();
     initAccordion();
-    initTestimonialCarousel();
     initSmoothScroll();
     initScrollReveal();
     initScrollToTop();
     removeImageOverlay();
-    ensureContainerPadding();
     
-    // Add theme toggle event listener
     const themeToggle = document.getElementById('themeToggleHero');
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
     }
     
-    // Handle window resize for container padding
-    window.addEventListener('resize', () => {
-        ensureContainerPadding();
-    });
-    
     console.log('Homepage initialized');
 }
 
-// Start when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
