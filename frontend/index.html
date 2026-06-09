@@ -1,603 +1,517 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Gliimu – Become a Media Architect | Abuja's Premier Media Tech Institute</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Master video production, design, AND code. Earn up to ₦200k before graduation. Real projects, real portfolio, real career." />
-  <meta name="keywords" content="Media School Abuja, Full Stack Media, Video Production Course, Programming School Nigeria, Graphic Design Diploma, Earn While Learning" />
-  <meta name="author" content="Gliimu Institute" />
-  
-  <link rel="shortcut icon" type="image/png" href="icons/logo2.png">
-  
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://www.gliimu.com/" />
-  <meta property="og:title" content="Gliimu – Become a Media Architect" />
-  <meta property="og:description" content="Master video, design & code. Earn while you learn. 99% employment rate." />
-  <meta property="og:image" content="https://www.gliimu.com/photos/og-image.jpg" />
-  
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Socket.IO Client -->
-  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-  
-  <!-- External CSS Files -->
-  <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/header.css">
-  <link rel="stylesheet" href="css/footer.css">
-  <link rel="stylesheet" href="css/modal.css">
-  <link rel="stylesheet" href="css/home.css">
+    <meta charset="UTF-8" />
+    <title>Gliimu – Become a Media Architect | Abuja's Premier Media Tech Institute</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Master video production, design, AND code. Become a Media Architect. Real projects, real portfolio, real career." />
+    <meta name="keywords" content="Media School Abuja, Full Stack Media, Video Production Course, Programming School Nigeria" />
+    <meta name="author" content="Gliimu Institute" />
+    
+    <link rel="shortcut icon" type="image/png" href="icons/logo2.png">
+    
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.gliimu.com/" />
+    <meta property="og:title" content="Gliimu – Become a Media Architect" />
+    <meta property="og:description" content="Master video, design & code. Become a complete creator." />
+    <meta property="og:image" content="https://www.gliimu.com/photos/og-image.jpg" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- External CSS Files -->
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/header.css">
+    <link rel="stylesheet" href="css/footer.css">
+    <link rel="stylesheet" href="css/modal.css">
+    <link rel="stylesheet" href="css/home.css">
 </head>
 <body>
 
-  <!-- Header Placeholder -->
-  <div id="header-placeholder"></div>
+    <!-- Header Placeholder -->
+    <div id="header-placeholder"></div>
 
-  <!-- ============================================ -->
-  <!-- HERO SECTION -->
-  <!-- ============================================ -->
-  <section class="hero-premium">
-    <div class="container">
-      <div class="hero-grid">
-        <div class="hero-content">
-          <div class="hero-badge-group">
-            <span class="hero-badge">🎓 Institute of Media Technologies</span>
-            <span class="hero-badge-earnings">💸 Earn up to ₦200k before graduation</span>
-          </div>
-          <h1 class="hero-title">
-            Become a <span class="highlight">Media Architect</span>
-          </h1>
-          <p class="hero-desc">
-            Master video production, design, AND code. Work on real projects. 
-            Graduate with a portfolio, not just a certificate.
-          </p>
-          <div class="hero-stats">
-            <div class="hero-stat">
-              <span class="hero-stat-number">99%</span>
-              <span class="hero-stat-label">Employment Rate</span>
+    <!-- ============================================ -->
+    <!-- HERO SECTION WITH VIDEO BACKGROUND -->
+    <!-- ============================================ -->
+    <section class="hero-video-section">
+        <div class="hero-video-overlay"></div>
+        <video class="hero-background-video" autoplay muted loop playsinline>
+            <source src="videos/pnp.mp4" type="video/mp4">
+        </video>
+        <div class="container hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="badge-new">🎓 The Future of Media Education</span>
+                </div>
+                <h1 class="hero-title">
+                    Become a <span class="highlight">Media Architect</span>
+                </h1>
+                <p class="hero-desc">
+                    The only institute where you master video production, design, AND code. 
+                    Graduate with a portfolio, not just a certificate.
+                </p>
+                <div class="hero-stats">
+                    <div class="hero-stat">
+                        <span class="hero-stat-number">99%</span>
+                        <span class="hero-stat-label">Employment Rate</span>
+                    </div>
+                    <div class="hero-stat">
+                        <span class="hero-stat-number">3,500+</span>
+                        <span class="hero-stat-label">Media Architects</span>
+                    </div>
+                    <div class="hero-stat">
+                        <span class="hero-stat-number">₦200k</span>
+                        <span class="hero-stat-label">Earn While Learning</span>
+                    </div>
+                </div>
+                <div class="hero-actions">
+                    <a href="application.html" class="btn btn-primary btn-large">
+                        Apply Now — No Fee <i class="fas fa-arrow-right"></i>
+                    </a>
+                    <a href="#curriculum" class="btn btn-outline btn-large">
+                        Explore Curriculum <i class="fas fa-play-circle"></i>
+                    </a>
+                </div>
+                <div class="hero-trust">
+                    <div class="trust-item"><i class="fas fa-shield-alt"></i> No upfront payment</div>
+                    <div class="trust-item"><i class="fas fa-clock"></i> Pay as you learn</div>
+                    <div class="trust-item"><i class="fas fa-certificate"></i> Industry certificate</div>
+                </div>
             </div>
-            <div class="hero-stat">
-              <span class="hero-stat-number">3,500+</span>
-              <span class="hero-stat-label">Learners</span>
-            </div>
-            <div class="hero-stat">
-              <span class="hero-stat-number">₦200k</span>
-              <span class="hero-stat-label">Earn While Learning</span>
-            </div>
-          </div>
-          <div class="hero-actions">
-            <a href="application.html" class="btn btn-primary btn-large">
-              Apply Now — No Fee <i class="fas fa-arrow-right"></i>
-            </a>
-            <a href="#earn-calculator" class="btn btn-outline btn-large">
-              Calculate Your Earnings <i class="fas fa-calculator"></i>
-            </a>
-          </div>
-          <div class="hero-trust">
-            <div class="trust-item"><i class="fas fa-check-circle"></i> No upfront payment required</div>
-            <div class="trust-item"><i class="fas fa-check-circle"></i> Pay as you learn</div>
-            <div class="trust-item"><i class="fas fa-check-circle"></i> Industry recognized certificate</div>
-          </div>
         </div>
-        <div class="hero-image">
-          <div class="hero-slider" id="heroSlider">
-            <div class="hero-slide active">
-              <img src="photos/students-working.jpg" alt="Students working" onerror="this.src='https://placehold.co/600x400/2c2f78/white?text=Students+Working'">
-            </div>
-            <div class="hero-slide">
-              <img src="photos/studio-session.jpg" alt="Studio session" onerror="this.src='https://placehold.co/600x400/2c2f78/white?text=Studio+Session'">
-            </div>
-            <div class="hero-slide">
-              <img src="photos/coding-session.jpg" alt="Coding session" onerror="this.src='https://placehold.co/600x400/2c2f78/white?text=Coding+Session'">
-            </div>
-          </div>
-          <div class="hero-slider-dots">
-            <span class="dot active"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-          </div>
+        <div class="hero-scroll-indicator">
+            <span>Scroll to explore</span>
+            <i class="fas fa-chevron-down"></i>
         </div>
-      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- LIMITED COHORT BANNER (Urgency) -->
+    <!-- ============================================ -->
+    <div class="urgency-banner">
+        <div class="container">
+            <div class="urgency-content">
+                <i class="fas fa-fire"></i>
+                <span>Next cohort starts in <strong id="countdown">14 days</strong> — Only <strong>24 spots left</strong></span>
+                <a href="application.html" class="urgency-link">Secure Your Spot →</a>
+            </div>
+        </div>
     </div>
-  </section>
 
-  <!-- ============================================ -->
-  <!-- TRUST BAR -->
-  <!-- ============================================ -->
-  <div class="trust-bar-enhanced">
-    <div class="container">
-      <div class="trust-grid">
-        <div class="trust-item">
-          <i class="fas fa-building"></i>
-          <span>Hired by</span>
-          <strong>50+ Companies</strong>
-        </div>
-        <div class="trust-item">
-          <i class="fas fa-chalkboard-user"></i>
-          <span>Taught by</span>
-          <strong>Industry Experts</strong>
-        </div>
-        <div class="trust-item">
-          <i class="fas fa-certificate"></i>
-          <span>Backed by</span>
-          <strong>CAC Nigeria</strong>
-        </div>
-        <div class="trust-item">
-          <i class="fas fa-globe"></i>
-          <span>Students from</span>
-          <strong>12+ Countries</strong>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================ -->
-  <!-- EARNINGS CALCULATOR -->
-  <!-- ============================================ -->
-  <section id="earn-calculator" class="calculator-section">
-    <div class="container">
-      <div class="calculator-header">
-        <span class="section-tag">💰 Earn While You Learn</span>
-        <h2 class="section-title">How Much Can You Make?</h2>
-        <p class="section-sub">Our students earn real money on real projects — before graduation.</p>
-      </div>
-      
-      <div class="calculator-grid">
-        <div class="calculator-card">
-          <h3>Month 1-2: Learning</h3>
-          <div class="earning-display">₦0</div>
-          <p>Master the fundamentals. No earnings yet — building your foundation.</p>
-          <div class="progress-bar"><div class="progress" style="width: 0%"></div></div>
-        </div>
-        
-        <div class="calculator-card">
-          <h3>Month 3-6: Assisting</h3>
-          <div class="earning-display">₦20k - ₦50k <span>/month</span></div>
-          <p>Assist instructors on client projects. Learn by doing.</p>
-          <div class="progress-bar"><div class="progress" style="width: 25%"></div></div>
-        </div>
-        
-        <div class="calculator-card">
-          <h3>Month 7-9: Leading</h3>
-          <div class="earning-display">₦50k - ₦100k <span>/month</span></div>
-          <p>Lead small client projects. Build your portfolio.</p>
-          <div class="progress-bar"><div class="progress" style="width: 60%"></div></div>
-        </div>
-        
-        <div class="calculator-card featured">
-          <h3>Month 10-12: Earning</h3>
-          <div class="earning-display">₦100k - ₦200k <span>/month</span></div>
-          <p>Lead major projects, refer new students, earn commissions.</p>
-          <div class="progress-bar"><div class="progress" style="width: 100%"></div></div>
-          <div class="calculator-cta">
-            <a href="application.html" class="btn btn-primary">Start Your Journey →</a>
-          </div>
-        </div>
-      </div>
-      
-      <div class="calculator-note">
-        <i class="fas fa-chart-line"></i> Based on average student performance. Top students earn more.
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <!-- SQUAD SYSTEM -->
-  <!-- ============================================ -->
-  <section class="squad-section">
-    <div class="container">
-      <div class="squad-grid">
-        <div class="squad-content">
-          <span class="section-tag">👥 The Squad System</span>
-          <h2 class="section-title">Learn in Small Pods. Grow Together.</h2>
-          <p>Each instructor mentors only <strong>4 students</strong> at a time. You're not a number — you're a creator in a tight-knit squad.</p>
-          <ul class="squad-features">
-            <li><i class="fas fa-users"></i> Deep mentorship, not crowded lectures</li>
-            <li><i class="fas fa-project-diagram"></i> Real projects from real clients</li>
-            <li><i class="fas fa-trophy"></i> Squad competitions with prizes</li>
-            <li><i class="fas fa-handshake"></i> Lifelong network of collaborators</li>
-          </ul>
-          <div class="squad-stats">
-            <div class="squad-stat">
-              <span class="stat-number">4:1</span>
-              <span class="stat-label">Student to instructor ratio</span>
+    <!-- ============================================ -->
+    <!-- EARN WHILE YOU LEARN (Subtle) -->
+    <!-- ============================================ -->
+    <section class="earn-section">
+        <div class="container">
+            <div class="earn-grid">
+                <div class="earn-content">
+                    <span class="section-tag-subtle">💰 Real Income, Real Experience</span>
+                    <h2 class="section-title">Earn While You Build</h2>
+                    <p class="section-subtitle">From day one, you're working on real client projects. Our students earn before graduation — building portfolios that speak for themselves.</p>
+                    <div class="earn-stats">
+                        <div class="earn-stat">
+                            <span class="earn-number">₦0 - ₦50k</span>
+                            <span class="earn-label">Months 1-3 (Assisting)</span>
+                        </div>
+                        <div class="earn-stat">
+                            <span class="earn-number">₦50k - ₦150k</span>
+                            <span class="earn-label">Months 4-8 (Leading)</span>
+                        </div>
+                        <div class="earn-stat">
+                            <span class="earn-number">₦150k - ₦300k+</span>
+                            <span class="earn-label">Months 9-12 (Earning)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="earn-image">
+                    <div class="earn-graphic">
+                        <i class="fas fa-chart-line"></i>
+                        <div class="earn-pulse"></div>
+                    </div>
+                </div>
             </div>
-            <div class="squad-stat">
-              <span class="stat-number">100%</span>
-              <span class="stat-label">Project-based learning</span>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SQUAD SYSTEM (Simplified, Brand-Centric) -->
+    <!-- ============================================ -->
+    <section class="squad-section">
+        <div class="container">
+            <div class="squad-grid">
+                <div class="squad-content">
+                    <span class="section-tag">👥 The Squad System</span>
+                    <h2 class="section-title">Learn in Pods. Build Together.</h2>
+                    <p>Each instructor mentors only <strong>4 students</strong>. You're not a number — you're a creator in a tight-knit squad that grows together.</p>
+                    <ul class="squad-features">
+                        <li><i class="fas fa-users"></i> Deep mentorship, not crowded lectures</li>
+                        <li><i class="fas fa-project-diagram"></i> Real projects from real clients</li>
+                        <li><i class="fas fa-trophy"></i> Squad competitions with cash prizes</li>
+                        <li><i class="fas fa-handshake"></i> Alumni network for life</li>
+                    </ul>
+                </div>
+                <div class="squad-visual">
+                    <div class="squad-circles">
+                        <div class="circle circle-1"></div>
+                        <div class="circle circle-2"></div>
+                        <div class="circle circle-3"></div>
+                        <div class="squad-quote">
+                            <i class="fas fa-quote-left"></i> "My squad pushed me to create work I never thought possible."
+                            <span>— Chidinma, Current Student</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
-        <div class="squad-image">
-          <img src="photos/squad-working.jpg" alt="Students working in a squad" onerror="this.src='https://placehold.co/500x400/2c2f78/white?text=Squad+Working'">
-          <div class="squad-quote">
-            <i class="fas fa-quote-left"></i> "My squad pushed me to create work I never thought possible."
-            <span>— Chidinma, Current Student</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ============================================ -->
-  <!-- COURSE SECTION - REDESIGNED -->
-  <!-- ============================================ -->
-  <section class="course-redesign">
-    <div class="container">
-      <div class="course-header">
-        <span class="section-tag">🎯 What You'll Master</span>
-        <h2>Full-Stack Media Production</h2>
-        <p>The only curriculum that builds complete Media Architects — not just one-skill specialists.</p>
-      </div>
-      
-      <div class="course-cards-row">
-        <div class="course-feature-card">
-          <div class="feature-number">01</div>
-          <div class="feature-icon-lg"><i class="fas fa-video"></i></div>
-          <h3>Create</h3>
-          <p>Master video production, cinematography, audio design, and motion graphics. Tell stories that move people.</p>
-        </div>
-        
-        <div class="course-feature-card">
-          <div class="feature-number">02</div>
-          <div class="feature-icon-lg"><i class="fas fa-palette"></i></div>
-          <h3>Design</h3>
-          <p>Learn UI/UX, branding, typography, and visual identity. Make every pixel intentional.</p>
-        </div>
-        
-        <div class="course-feature-card">
-          <div class="feature-number">03</div>
-          <div class="feature-icon-lg"><i class="fas fa-code"></i></div>
-          <h3>Compute</h3>
-          <p>Build websites, web apps, and interactive experiences. Turn ideas into working products.</p>
-        </div>
-      </div>
-      
-      <div class="course-showcase">
-        <div class="course-showcase-content">
-          <span class="course-diploma-badge">🎓 Advanced Diploma</span>
-          <h3>Become a <span class="highlight">Media Architect</span></h3>
-          <p class="course-showcase-desc">
-            Traditional programs teach ONE skill. We teach the ENTIRE pipeline. 
-            You'll graduate able to conceive, design, AND build — making you invaluable to any team.
-          </p>
-          <div class="skills-tags">
-            <span class="skill-tag">Video Production</span>
-            <span class="skill-tag">UI/UX Design</span>
-            <span class="skill-tag">Web Development</span>
-            <span class="skill-tag">Motion Graphics</span>
-            <span class="skill-tag">Brand Strategy</span>
-            <span class="skill-tag">Content Creation</span>
-          </div>
-          <div class="course-showcase-cta">
-            <a href="course.html" class="btn btn-primary">View Full Curriculum <i class="fas fa-arrow-right"></i></a>
-            <a href="application.html" class="btn btn-outline">Apply Now <i class="fas fa-graduation-cap"></i></a>
-          </div>
-        </div>
-        <div class="course-showcase-image">
-          <img src="photos/ads4.jpg" alt="Students working on media production" onerror="this.src='https://placehold.co/500x400/2c2f78/white?text=Media+Architect'">
-          <div class="image-overlay-stats">
-            <div class="overlay-stat">
-              <span class="overlay-stat-number">12</span>
-              <span class="overlay-stat-label">Months</span>
+    <!-- ============================================ -->
+    <!-- WHAT YOU'LL MASTER (Keep as is, add Apply Now) -->
+    <!-- ============================================ -->
+    <section id="curriculum" class="course-redesign">
+        <div class="container">
+            <div class="course-header">
+                <span class="section-tag">🎯 The Media Architecture Trinity</span>
+                <h2>What You'll Master</h2>
+                <p>The only curriculum that builds complete Media Architects — not one-skill specialists.</p>
             </div>
-            <div class="overlay-stat">
-              <span class="overlay-stat-number">3-in-1</span>
-              <span class="overlay-stat-label">Skills</span>
+            
+            <div class="course-cards-row">
+                <div class="course-feature-card">
+                    <div class="feature-number">01</div>
+                    <div class="feature-icon-lg"><i class="fas fa-video"></i></div>
+                    <h3>Create</h3>
+                    <p>Master video production, cinematography, audio design, and motion graphics.</p>
+                </div>
+                
+                <div class="course-feature-card">
+                    <div class="feature-number">02</div>
+                    <div class="feature-icon-lg"><i class="fas fa-palette"></i></div>
+                    <h3>Design</h3>
+                    <p>Learn UI/UX, branding, typography, and visual identity systems.</p>
+                </div>
+                
+                <div class="course-feature-card">
+                    <div class="feature-number">03</div>
+                    <div class="feature-icon-lg"><i class="fas fa-code"></i></div>
+                    <h3>Compute</h3>
+                    <p>Build websites, web apps, and interactive experiences.</p>
+                </div>
             </div>
-            <div class="overlay-stat">
-              <span class="overlay-stat-number">100%</span>
-              <span class="overlay-stat-label">Project-Based</span>
+            
+            <div class="course-showcase">
+                <div class="course-showcase-content">
+                    <span class="course-diploma-badge">🎓 Advanced Diploma</span>
+                    <h3>Become a <span class="highlight">Media Architect</span></h3>
+                    <p class="course-showcase-desc">
+                        Traditional programs teach ONE skill. We teach the ENTIRE pipeline. 
+                        You'll graduate able to conceive, design, AND build.
+                    </p>
+                    <div class="course-showcase-cta">
+                        <a href="application.html" class="btn btn-primary">Apply Now — No Fee <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </div>
+                <div class="course-showcase-image">
+                    <img src="photos/ads4.jpg" alt="Media Architect" onerror="this.src='https://placehold.co/500x400/2c2f78/white?text=Media+Architect'">
+                    <div class="image-overlay-stats">
+                        <div class="overlay-stat">
+                            <span class="overlay-stat-number">12</span>
+                            <span class="overlay-stat-label">Months</span>
+                        </div>
+                        <div class="overlay-stat">
+                            <span class="overlay-stat-number">3-in-1</span>
+                            <span class="overlay-stat-label">Skills</span>
+                        </div>
+                        <div class="overlay-stat">
+                            <span class="overlay-stat-number">100%</span>
+                            <span class="overlay-stat-label">Project-Based</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ============================================ -->
-  <!-- STUDENT WORK GALLERY -->
-  <!-- ============================================ -->
-  <section class="gallery-section">
-    <div class="container">
-      <div class="gallery-header">
-        <span class="section-tag">🎨 Student Work</span>
-        <h2 class="section-title">Real Projects. Real Portfolios.</h2>
-        <p class="section-sub">See what our students are creating — from films to websites to brand identities.</p>
-      </div>
-      
-      <div class="gallery-filters">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="video">Video</button>
-        <button class="filter-btn" data-filter="design">Design</button>
-        <button class="filter-btn" data-filter="code">Code</button>
-      </div>
-      
-      <div class="gallery-grid" id="studentWorkGrid">
-        <div class="gallery-loading">Loading student work...</div>
-      </div>
-      
-      <div class="gallery-cta">
-        <a href="hub.html" class="btn btn-outline">View Full Gallery →</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <!-- SERVICES SECTION -->
-  <!-- ============================================ -->
-  <section class="services-section" style="background: var(--bg-section-alt);">
-    <div class="container">
-      <div class="services-header">
-        <span class="section-tag">🎬 Creative Agency</span>
-        <h2 class="section-title">Professional Services</h2>
-        <p class="section-sub">Need high-quality work done quickly? Hire our experts.</p>
-      </div>
-      
-      <div class="services-grid">
-        <div class="service-card">
-          <div class="service-icon"><i class="fas fa-film"></i></div>
-          <h3 class="service-title">Media Production</h3>
-          <p class="service-desc">Professional video and photography services for your brand.</p>
-          <ul class="service-list">
-            <li>TV Commercials & Documentaries</li>
-            <li>Corporate Photography</li>
-            <li>Social Media Video Ads</li>
-          </ul>
-        </div>
-        
-        <div class="service-card">
-          <div class="service-icon"><i class="fas fa-paint-brush"></i></div>
-          <h3 class="service-title">Design & Branding</h3>
-          <p class="service-desc">Establish a strong visual identity with our design team.</p>
-          <ul class="service-list">
-            <li>Logo & Brand Identity</li>
-            <li>Marketing Materials</li>
-            <li>Social Media Graphics</li>
-          </ul>
-        </div>
-        
-        <div class="service-card">
-          <div class="service-icon"><i class="fas fa-code"></i></div>
-          <h3 class="service-title">Digital Solutions</h3>
-          <p class="service-desc">Get your business online with our development services.</p>
-          <ul class="service-list">
-            <li>Website Design & Development</li>
-            <li>IT Consultation & Support</li>
-            <li>Portfolio Websites</li>
-          </ul>
-        </div>
-      </div>
-      
-      <div class="services-cta">
-        <a href="contact.html" class="btn btn-primary">Get Quotation <i class="fas fa-arrow-right"></i></a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <!-- PAYMENT PLANS -->
-  <!-- ============================================ -->
-  <section class="payment-section">
-    <div class="container">
-      <div class="payment-header">
-        <span class="section-tag">💳 Investment</span>
-        <h2 class="section-title">Flexible Payment. No Barriers.</h2>
-        <p class="section-sub">Choose the plan that works for your budget.</p>
-      </div>
-      
-      <div class="payment-grid">
-        <div class="payment-card">
-          <div class="payment-badge">MOST POPULAR</div>
-          <h3>Installment Plan</h3>
-          <div class="payment-price">₦90,000 <span>× 3</span></div>
-          <div class="payment-total">Total: ₦270,000</div>
-          <ul class="payment-features">
-            <li><i class="fas fa-check"></i> Start with ₦90k</li>
-            <li><i class="fas fa-check"></i> Pay over 3 months</li>
-            <li><i class="fas fa-check"></i> 0% interest</li>
-            <li><i class="fas fa-check"></i> Full access from day 1</li>
-          </ul>
-          <a href="application.html" class="btn btn-primary">Start Learning →</a>
-        </div>
-        
-        <div class="payment-card featured">
-          <div class="payment-badge">BEST VALUE</div>
-          <h3>One-Time Payment</h3>
-          <div class="payment-price">₦255,000</div>
-          <div class="payment-total">Save ₦15,000</div>
-          <ul class="payment-features">
-            <li><i class="fas fa-check"></i> Full 12-month access</li>
-            <li><i class="fas fa-check"></i> Certificate included</li>
-            <li><i class="fas fa-check"></i> Library pass</li>
-            <li><i class="fas fa-check"></i> Priority support</li>
-          </ul>
-          <a href="application.html" class="btn btn-primary">Enroll Now →</a>
-        </div>
-        
-        <div class="payment-card">
-          <div class="payment-badge">LIMITED</div>
-          <h3>Early Bird</h3>
-          <div class="payment-price">₦237,500</div>
-          <div class="payment-total">Limited slots</div>
-          <ul class="payment-features">
-            <li><i class="fas fa-check"></i> 5% discount</li>
-            <li><i class="fas fa-check"></i> Priority admission</li>
-            <li><i class="fas fa-check"></i> Library pass</li>
-            <li><i class="fas fa-check"></i> Certificate included</li>
-          </ul>
-          <a href="application.html" class="btn btn-outline">Check Availability →</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <!-- STATS SECTION -->
-  <!-- ============================================ -->
-  <section class="stats-premium">
-    <div class="container">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-number counter" data-target="3500">0+</div>
-          <div class="stat-label">Students Trained</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number counter" data-target="99">0%</div>
-          <div class="stat-label">Hire Rate</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number counter" data-target="50">0+</div>
-          <div class="stat-label">Projects Delivered</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number counter" data-target="120">0+</div>
-          <div class="stat-label">Events Hosted</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <!-- TESTIMONIALS -->
-  <!-- ============================================ -->
-  <section class="testimonials-enhanced">
-    <div class="container">
-      <div class="testimonials-header">
-        <span class="section-tag">📹 Success Stories</span>
-        <h2 class="section-title">From Student to Media Architect</h2>
-        <p class="section-sub">Real stories from real people who transformed their careers.</p>
-      </div>
-      
-      <div class="testimonials-grid">
-        <div class="testimonial-card">
-          <div class="testimonial-content">
-            <i class="fas fa-quote-left"></i>
-            <p>"I didn't just learn to edit videos — I learned to build the platform that hosts them. Gliimu made me a complete creator."</p>
-            <div class="testimonial-author">
-              <img src="photos/finiks.jpg" alt="Finiks" onerror="this.src='https://ui-avatars.com/api/?name=Finiks&background=2c2f78&color=fff'">
-              <div>
-                <strong>Finiks Kshel</strong>
-                <span>Media Producer</span>
-              </div>
+    <!-- ============================================ -->
+    <!-- STUDENT WORK GALLERY (Animated) -->
+    <!-- ============================================ -->
+    <section class="gallery-section">
+        <div class="container">
+            <div class="gallery-header">
+                <span class="section-tag">🎨 Student Work</span>
+                <h2 class="section-title">Real Projects. Real Portfolios.</h2>
+                <p class="section-sub">See what our Media Architects are creating</p>
             </div>
-          </div>
-        </div>
-        
-        <div class="testimonial-card">
-          <div class="testimonial-content">
-            <i class="fas fa-quote-left"></i>
-            <p>"The coding modules were challenging at first, but now I design and build my own projects. Best decision I ever made."</p>
-            <div class="testimonial-author">
-              <img src="photos/stu1.jpg" alt="Edi" onerror="this.src='https://ui-avatars.com/api/?name=Edi&background=8b5cf6&color=fff'">
-              <div>
-                <strong>Edi Edidiong</strong>
-                <span>UI/UX Designer</span>
-              </div>
+            
+            <div class="gallery-filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="video">Video</button>
+                <button class="filter-btn" data-filter="design">Design</button>
+                <button class="filter-btn" data-filter="code">Code</button>
             </div>
-          </div>
-        </div>
-        
-        <div class="testimonial-card">
-          <div class="testimonial-content">
-            <i class="fas fa-quote-left"></i>
-            <p>"Got hired before graduation. The practical experience from real client projects made all the difference."</p>
-            <div class="testimonial-author">
-              <img src="photos/stu2.jpg" alt="Chinedu" onerror="this.src='https://ui-avatars.com/api/?name=Chinedu&background=10b981&color=fff'">
-              <div>
-                <strong>Chinedu Okafor</strong>
-                <span>Full-Stack Developer</span>
-              </div>
+            
+            <div class="gallery-grid" id="studentWorkGrid">
+                <div class="gallery-loading">Loading student work...</div>
             </div>
-          </div>
+            
+            <div class="gallery-cta">
+                <a href="hub.html" class="btn btn-outline">View Full Gallery →</a>
+            </div>
         </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ============================================ -->
-  <!-- PARTNERS SECTION -->
-  <!-- ============================================ -->
-  <section class="partners-section">
-    <div class="container">
-      <div class="partners-header">
-        <span class="section-tag">🤝 Trusted By</span>
-        <h2 class="section-title">Our Partners</h2>
-        <p class="section-sub">We collaborate with industry leaders to bring you the best opportunities.</p>
-      </div>
-      
-      <div class="partners-slider-container">
-        <div class="partners-track" id="partnersTrack">
-          <!-- Partner logos loaded via JS -->
+    <!-- ============================================ -->
+    <!-- PROFESSIONAL SERVICES (Captivating) -->
+    <!-- ============================================ -->
+    <section class="services-section premium-services">
+        <div class="container">
+            <div class="services-header">
+                <span class="section-tag">🎬 Creative Agency</span>
+                <h2 class="section-title">Professional Services That Deliver</h2>
+                <p class="section-sub">Super affordable. Results that keep clients coming back.</p>
+            </div>
+            
+            <div class="services-grid">
+                <div class="service-card premium-card">
+                    <div class="service-icon"><i class="fas fa-film"></i></div>
+                    <h3 class="service-title">Media Production</h3>
+                    <p class="service-desc">Cinematic quality that tells your story. From concept to final cut.</p>
+                    <div class="service-pricing">Starting at ₦150k</div>
+                </div>
+                
+                <div class="service-card premium-card">
+                    <div class="service-icon"><i class="fas fa-paint-brush"></i></div>
+                    <h3 class="service-title">Design & Branding</h3>
+                    <p class="service-desc">Identity systems that make you unforgettable. Logos, brands, campaigns.</p>
+                    <div class="service-pricing">Starting at ₦100k</div>
+                </div>
+                
+                <div class="service-card premium-card">
+                    <div class="service-icon"><i class="fas fa-code"></i></div>
+                    <h3 class="service-title">Digital Solutions</h3>
+                    <p class="service-desc">Websites and apps that convert visitors into customers.</p>
+                    <div class="service-pricing">Starting at ₦200k</div>
+                </div>
+            </div>
+            
+            <div class="services-cta">
+                <a href="contact.html" class="btn btn-primary">Get a Free Quotation <i class="fas fa-arrow-right"></i></a>
+            </div>
         </div>
-      </div>
-      
-      <div class="partners-note">
-        <i class="fas fa-handshake"></i> Want to partner with us? <a href="contact.html">Become a partner →</a>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ============================================ -->
-  <!-- FINAL CTA -->
-  <!-- ============================================ -->
-  <section class="final-cta">
-    <div class="container">
-      <div class="cta-content">
-        <h2>Ready to Become a Media Architect?</h2>
-        <p>Join the next cohort and start your journey toward a rewarding creative career.</p>
-        <div class="cta-buttons">
-          <a href="application.html" class="btn btn-primary btn-large">Apply Now — No Fee <i class="fas fa-arrow-right"></i></a>
-          <a href="contact.html" class="btn btn-outline btn-large">Talk to an Advisor <i class="fas fa-headset"></i></a>
+    <!-- ============================================ -->
+    <!-- INVESTMENT SECTION (WOW Factor) -->
+    <!-- ============================================ -->
+    <section class="payment-section">
+        <div class="container">
+            <div class="payment-header">
+                <span class="section-tag">💳 Investment</span>
+                <h2 class="section-title">Your Future, Affordably Priced</h2>
+                <p class="section-sub">Less than a smartphone. More than a degree.</p>
+            </div>
+            
+            <div class="payment-grid">
+                <div class="payment-card">
+                    <div class="payment-badge">FLEXIBLE</div>
+                    <h3>Installment Plan</h3>
+                    <div class="payment-price">₦90,000 <span>× 3</span></div>
+                    <div class="payment-total">Total: ₦270,000</div>
+                    <ul class="payment-features">
+                        <li><i class="fas fa-check"></i> Start with ₦90k</li>
+                        <li><i class="fas fa-check"></i> 0% interest</li>
+                        <li><i class="fas fa-check"></i> Full access from day 1</li>
+                    </ul>
+                    <a href="application.html" class="btn btn-outline">Start Learning →</a>
+                </div>
+                
+                <div class="payment-card featured">
+                    <div class="payment-badge">🎯 BEST VALUE</div>
+                    <h3>One-Time Payment</h3>
+                    <div class="payment-price">₦255,000</div>
+                    <div class="payment-total">Save ₦15,000</div>
+                    <ul class="payment-features">
+                        <li><i class="fas fa-check"></i> Full 12-month access</li>
+                        <li><i class="fas fa-check"></i> Certificate included</li>
+                        <li><i class="fas fa-check"></i> Library pass + Priority support</li>
+                    </ul>
+                    <a href="application.html" class="btn btn-primary">Enroll Now →</a>
+                </div>
+                
+                <div class="payment-card">
+                    <div class="payment-badge">⚡ LIMITED</div>
+                    <h3>Early Bird</h3>
+                    <div class="payment-price">₦237,500</div>
+                    <div class="payment-total">Limited slots only</div>
+                    <ul class="payment-features">
+                        <li><i class="fas fa-check"></i> 5% discount</li>
+                        <li><i class="fas fa-check"></i> Priority admission</li>
+                        <li><i class="fas fa-check"></i> All features included</li>
+                    </ul>
+                    <a href="application.html" class="btn btn-outline">Check Availability →</a>
+                </div>
+            </div>
+            
+            <div class="payment-note">
+                <i class="fas fa-lock"></i> 100% secure payment. No hidden fees.
+            </div>
         </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Footer Placeholder -->
-  <div id="footer-placeholder"></div>
+    <!-- ============================================ -->
+    <!-- STATISTICS SECTION (With Background Pattern) -->
+    <!-- ============================================ -->
+    <section class="stats-premium">
+        <div class="stats-pattern-bg"></div>
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number counter" data-target="3500">0+</div>
+                    <div class="stat-label">Media Architects Trained</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number counter" data-target="99">0%</div>
+                    <div class="stat-label">Hire Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number counter" data-target="150">0+</div>
+                    <div class="stat-label">Projects Delivered</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number counter" data-target="25">0+</div>
+                    <div class="stat-label">Partner Companies</div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  <!-- Login Modal Placeholder -->
-  <div id="login-modal-placeholder"></div>
+    <!-- ============================================ -->
+    <!-- TESTIMONIALS (Updated Header) -->
+    <!-- ============================================ -->
+    <section class="testimonials-enhanced">
+        <div class="container">
+            <div class="testimonials-header">
+                <span class="section-tag">📹 Why Our Architects Won't Stop Talking</span>
+                <h2 class="section-title">From Student to Media Architect</h2>
+                <p class="section-sub">Real stories from real people who transformed their careers.</p>
+            </div>
+            
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <i class="fas fa-quote-left"></i>
+                        <p>"I didn't just learn to edit videos — I learned to build the platform that hosts them. Gliimu made me a complete creator."</p>
+                        <div class="testimonial-author">
+                            <img src="photos/finiks.jpg" alt="Finiks" onerror="this.src='https://ui-avatars.com/api/?name=Finiks&background=2c2f78&color=fff'">
+                            <div>
+                                <strong>Finiks Kshel</strong>
+                                <span>Media Producer</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <i class="fas fa-quote-left"></i>
+                        <p>"The coding modules were challenging at first, but now I design and build my own projects. Best decision I ever made."</p>
+                        <div class="testimonial-author">
+                            <img src="photos/stu1.jpg" alt="Edi" onerror="this.src='https://ui-avatars.com/api/?name=Edi&background=8b5cf6&color=fff'">
+                            <div>
+                                <strong>Edi Edidiong</strong>
+                                <span>UI/UX Designer</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <i class="fas fa-quote-left"></i>
+                        <p>"Got hired before graduation. The practical experience from real client projects made all the difference."</p>
+                        <div class="testimonial-author">
+                            <img src="photos/stu2.jpg" alt="Chinedu" onerror="this.src='https://ui-avatars.com/api/?name=Chinedu&background=10b981&color=fff'">
+                            <div>
+                                <strong>Chinedu Okafor</strong>
+                                <span>Full-Stack Developer</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  <!-- JS Files -->
-  <!-- Load Supabase modules first -->
-  <script type="module">
-    import { supabase } from './js/modules/supabase.js';
-    import { showToast } from './js/modules/toast.js';
+    <!-- ============================================ -->
+    <!-- PARTNERS SECTION (Updated Header) -->
+    <!-- ============================================ -->
+    <section class="partners-section">
+        <div class="container">
+            <div class="partners-header">
+                <span class="section-tag">🤝 Trusted By</span>
+                <h2 class="section-title">Our Partners</h2>
+                <p class="section-sub">We collaborate with industry leaders to co-shape the world of media architecture.</p>
+            </div>
+            
+            <div class="partners-slider-container">
+                <div class="partners-track" id="partnersTrack">
+                    <!-- Partner logos loaded via JS -->
+                </div>
+            </div>
+            
+            <div class="partners-note">
+                <i class="fas fa-handshake"></i> Want to partner with us? <a href="contact.html">Become a partner →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- FINAL CTA -->
+    <!-- ============================================ -->
+    <section class="final-cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to Become a Media Architect?</h2>
+                <p>Join the next cohort and start your journey toward a rewarding creative career.</p>
+                <div class="cta-buttons">
+                    <a href="application.html" class="btn btn-primary btn-large">Apply Now — No Fee <i class="fas fa-arrow-right"></i></a>
+                    <a href="contact.html" class="btn btn-outline btn-large">Talk to an Advisor <i class="fas fa-headset"></i></a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer Placeholder -->
+    <div id="footer-placeholder"></div>
+
+    <!-- Login Modal Placeholder -->
+    <div id="login-modal-placeholder"></div>
+
+    <!-- JS Files -->
+    <script src="js/pages/header.js" type="module"></script>
+    <script src="js/pages/index.js" type="module"></script>
     
-    // Make supabase available globally for debugging
-    window.supabase = supabase;
-    window.showToast = showToast;
-    
-    console.log('Supabase initialized');
-  </script>
-  
-  <!-- Then load header and index scripts -->
-  <script type="module" src="js/pages/header.js"></script>
-  <script src="js/pages/index.js"></script>
-
-  <!-- Load Partials -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      if (document.getElementById('header-placeholder')) {
-        Promise.all([
-          fetch('partials/header.html').then(r => r.text()),
-          fetch('partials/footer.html').then(r => r.text()),
-          fetch('partials/login-modal.html').then(r => r.text())
-        ]).then(results => {
-          document.getElementById('header-placeholder').innerHTML = results[0];
-          document.getElementById('footer-placeholder').innerHTML = results[1];
-          document.getElementById('login-modal-placeholder').innerHTML = results[2];
-          console.log('Partials loaded');
-        }).catch(err => console.error('Failed to load partials:', err));
-      }
-    });
-  </script>
+    <!-- Load Partials -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('header-placeholder')) {
+                Promise.all([
+                    fetch('partials/header.html').then(r => r.text()),
+                    fetch('partials/footer.html').then(r => r.text()),
+                    fetch('partials/login-modal.html').then(r => r.text())
+                ]).then(results => {
+                    document.getElementById('header-placeholder').innerHTML = results[0];
+                    document.getElementById('footer-placeholder').innerHTML = results[1];
+                    document.getElementById('login-modal-placeholder').innerHTML = results[2];
+                    console.log('Partials loaded');
+                }).catch(err => console.error('Failed to load partials:', err));
+            }
+        });
+    </script>
 </body>
 </html>
