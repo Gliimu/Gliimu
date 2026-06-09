@@ -1484,3 +1484,165 @@ body.dark-mode .payment-instructions {
         padding-bottom: 80px !important;
     }
 }
+
+/* =========================================
+   SUBSCRIPTION PLANS SECTION (Go To Tab)
+   ========================================= */
+
+.plans-section {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.plans-section h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.plan-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.plan-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Plan card variants */
+.plan-card.basic {
+    border-top: 4px solid var(--success);
+}
+
+.plan-card.standard {
+    border-top: 4px solid var(--info);
+}
+
+.plan-card.premium {
+    border-top: 4px solid var(--brand-gold);
+}
+
+/* Plan badge for premium */
+.plan-badge {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+/* Plan icon */
+.plan-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Plan title */
+.plan-card h4 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+/* Plan price */
+.plan-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--brand-gold);
+}
+
+.plan-price span {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* Plan features list */
+.plan-features {
+    list-style: none;
+    margin-bottom: 1.5rem;
+}
+
+.plan-features li {
+    padding: 0.5rem 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.plan-features li i {
+    color: var(--brand-gold);
+    font-size: 0.8rem;
+}
+
+/* Plan select button */
+.plan-select {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 0.85rem;
+}
+
+.plan-select.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.plan-select.btn-outline:hover {
+    background: var(--brand-gold);
+    border-color: var(--brand-gold);
+    color: var(--brand-purple-dark);
+}
+
+.plan-select.btn-primary {
+    background: var(--brand-gold);
+    border: none;
+    color: var(--brand-purple-dark);
+}
+
+.plan-select.btn-primary:hover {
+    background: var(--brand-gold-dark);
+    transform: translateY(-2px);
+}
+
+/* Responsive for plans grid */
+@media (max-width: 768px) {
+    .plans-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .plan-card {
+        padding: 1.25rem;
+    }
+    
+    .plan-price {
+        font-size: 1.3rem;
+    }
+}
