@@ -1667,3 +1667,358 @@ body.dark-mode .contact-phone-btn {
         padding: 0.4rem 0.8rem;
     }
 }
+/* =========================================
+   COURSE SHOWCASE - CTA UNDER URGENCY TEXT
+   ========================================= */
+
+.course-showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    background: var(--bg-card);
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.course-showcase-content {
+    padding: 2rem;
+}
+
+.course-showcase-content h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.course-showcase-content .highlight {
+    color: var(--accent);
+}
+
+.course-showcase-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+/* Spots left section */
+.spots-left {
+    margin-bottom: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent);
+    background: rgba(251, 176, 64, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 40px;
+}
+
+.spots-left i {
+    color: #fbb040;
+}
+
+/* CTA button under urgency text */
+.course-showcase-cta {
+    margin-top: 0;
+}
+
+.course-showcase-cta .btn {
+    display: inline-block;
+}
+
+.course-showcase-image {
+    position: relative;
+    overflow: hidden;
+}
+
+.course-showcase-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* =========================================
+   GALLERY SECTION - HORIZONTAL SCROLL
+   ========================================= */
+
+.gallery-section {
+    padding: 80px 0;
+    background: var(--bg-primary);
+}
+
+.gallery-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.gallery-filters-wrapper {
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.gallery-filters {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: nowrap;
+    min-width: min-content;
+    justify-content: center;
+}
+
+.gallery-filters .filter-btn {
+    padding: 0.5rem 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+
+.gallery-filters .filter-btn.active,
+.gallery-filters .filter-btn:hover {
+    background: var(--accent);
+    color: var(--brand-purple-dark);
+    border-color: var(--accent);
+}
+
+body.dark-mode .gallery-filters .filter-btn {
+    background: var(--bg-card);
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+body.dark-mode .gallery-filters .filter-btn.active,
+body.dark-mode .gallery-filters .filter-btn:hover {
+    background: var(--accent);
+    color: var(--brand-purple-dark);
+    border-color: var(--accent);
+}
+
+/* Horizontal scroll gallery - no carousel, native scroll */
+.gallery-horizontal-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 10px;
+}
+
+.gallery-horizontal-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.gallery-horizontal-scroll::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.gallery-horizontal-scroll::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 10px;
+}
+
+.gallery-track {
+    display: flex;
+    gap: 1.5rem;
+    width: fit-content;
+}
+
+.gallery-item {
+    flex: 0 0 auto;
+    width: 320px;
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s, opacity 0.5s;
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+
+.gallery-item:hover {
+    transform: translateY(-5px);
+}
+
+.gallery-item img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+}
+
+.gallery-overlay {
+    padding: 1rem;
+    background: var(--bg-card);
+}
+
+.gallery-overlay h4 {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+}
+
+.gallery-overlay p {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+/* Dark mode CTA button - black on light mode, visible on dark mode */
+.btn-dark-cta {
+    background: #000000 !important;
+    color: white !important;
+    border: none !important;
+}
+
+.btn-dark-cta:hover {
+    background: #1a1a1a !important;
+    transform: translateY(-2px);
+}
+
+body.dark-mode .btn-dark-cta {
+    background: var(--accent) !important;
+    color: var(--brand-purple-dark) !important;
+}
+
+body.dark-mode .btn-dark-cta:hover {
+    background: var(--accent-dark) !important;
+}
+
+.gallery-cta {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+/* =========================================
+   TESTIMONIALS - HORIZONTAL SCROLL
+   ========================================= */
+
+.testimonials-enhanced {
+    padding: 80px 0;
+    background: var(--bg-secondary);
+}
+
+.testimonials-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+/* Horizontal scroll testimonials */
+.testimonials-horizontal-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 10px;
+}
+
+.testimonials-horizontal-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.testimonials-horizontal-scroll::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.testimonials-horizontal-scroll::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 10px;
+}
+
+.testimonials-track {
+    display: flex;
+    gap: 1.5rem;
+    width: fit-content;
+}
+
+.testimonial-card {
+    flex: 0 0 auto;
+    width: 380px;
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-md);
+    transition: transform 0.3s;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-5px);
+}
+
+.testimonial-content i {
+    font-size: 2rem;
+    color: var(--accent);
+    opacity: 0.5;
+    margin-bottom: 1rem;
+}
+
+.testimonial-content p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    font-style: italic;
+}
+
+.testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.testimonial-author img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.testimonial-author strong {
+    display: block;
+    font-size: 0.85rem;
+}
+
+.testimonial-author span {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+/* =========================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================= */
+
+@media (max-width: 768px) {
+    .gallery-item {
+        width: 280px;
+    }
+    
+    .gallery-item img {
+        height: 180px;
+    }
+    
+    .testimonial-card {
+        width: 300px;
+        padding: 1.2rem;
+    }
+    
+    .course-showcase {
+        grid-template-columns: 1fr;
+    }
+    
+    .spots-left {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .gallery-item {
+        width: 260px;
+    }
+    
+    .testimonial-card {
+        width: 280px;
+    }
+}
