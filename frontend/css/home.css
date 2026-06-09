@@ -1,8 +1,9 @@
 /* =========================================
-   GLIIMU HOMEPAGE STYLES - COMPLETE
+   GLIIMU HOMEPAGE STYLES - COMPLETE FIXED
+   Fixed: Container padding, dark mode contrast, carousel sizing, scroll animations
    ========================================= */
 
-/* CSS Variables for Theme */
+/* CSS Variables */
 :root {
     --brand-purple: #2c2f78;
     --brand-purple-dark: #1a1c4a;
@@ -20,6 +21,7 @@
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --container-padding: 2rem;
 }
 
 body.dark-mode {
@@ -31,7 +33,31 @@ body.dark-mode {
     --border-color: #1e293b;
 }
 
-/* Theme Toggle in Hero */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--container-padding);
+    width: 100%;
+}
+
+/* =========================================
+   THEME TOGGLE IN HERO
+   ========================================= */
+
 .theme-toggle-hero {
     position: absolute;
     top: 20px;
@@ -57,7 +83,10 @@ body.dark-mode {
     color: var(--brand-purple-dark);
 }
 
-/* Logo Container - Black Rectangle */
+/* =========================================
+   HERO LOGO CONTAINER
+   ========================================= */
+
 .hero-logo-container {
     position: absolute;
     top: 20px;
@@ -78,7 +107,7 @@ body.dark-mode {
 }
 
 /* =========================================
-   HERO SECTION WITH VIDEO BACKGROUND
+   HERO SECTION
    ========================================= */
 
 .hero-video-section {
@@ -185,6 +214,29 @@ body.dark-mode {
     flex-wrap: wrap;
 }
 
+/* Explore curriculum button - fixed contrast */
+.btn-outline {
+    background: transparent;
+    border: 2px solid white;
+    color: white;
+}
+
+.btn-outline:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--brand-purple-dark);
+}
+
+body.dark-mode .btn-outline {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+body.dark-mode .btn-outline:hover {
+    background: var(--accent);
+    color: var(--brand-purple-dark);
+}
+
 .hero-trust {
     display: flex;
     gap: 1.5rem;
@@ -200,7 +252,7 @@ body.dark-mode {
 }
 
 /* =========================================
-   URGENCY BANNER (Compact)
+   URGENCY BANNER
    ========================================= */
 
 .urgency-banner {
@@ -280,7 +332,14 @@ body.dark-mode {
     padding: 2rem;
     text-align: center;
     border: 1px solid var(--border-color);
-    transition: transform 0.3s;
+    transition: transform 0.3s, opacity 0.5s;
+    opacity: 0;
+    transform: translateY(30px);
+}
+
+.pillar-card.revealed {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .pillar-card:hover {
@@ -524,10 +583,6 @@ body.dark-mode {
     color: var(--text-secondary);
 }
 
-.squad-content .section-tag {
-    margin-bottom: 1rem;
-}
-
 .squad-features {
     list-style: none;
     margin-top: 1.5rem;
@@ -573,7 +628,18 @@ body.dark-mode {
     margin-bottom: 1rem;
     overflow: hidden;
     transition: all 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
 }
+
+.accordion-item.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.accordion-item:nth-child(1).revealed { transition-delay: 0.1s; }
+.accordion-item:nth-child(2).revealed { transition-delay: 0.2s; }
+.accordion-item:nth-child(3).revealed { transition-delay: 0.3s; }
 
 .accordion-header {
     display: flex;
@@ -683,6 +749,23 @@ body.dark-mode {
     margin-bottom: 1.5rem;
 }
 
+.spots-left {
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent);
+    background: rgba(251, 176, 64, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 40px;
+    display: inline-flex;
+}
+
+.spots-left i {
+    color: #fbb040;
+}
+
 .course-showcase-image {
     position: relative;
     overflow: hidden;
@@ -692,35 +775,6 @@ body.dark-mode {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-.image-overlay-stats {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    right: 20px;
-    display: flex;
-    justify-content: space-between;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    padding: 0.75rem;
-    border-radius: 12px;
-}
-
-.overlay-stat {
-    text-align: center;
-}
-
-.overlay-stat-number {
-    display: block;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--accent);
-}
-
-.overlay-stat-label {
-    font-size: 0.7rem;
-    color: white;
 }
 
 /* =========================================
@@ -751,6 +805,7 @@ body.dark-mode {
     justify-content: center;
 }
 
+/* Dark mode filter buttons - fixed contrast */
 .gallery-filters .filter-btn {
     padding: 0.5rem 1.5rem;
     background: var(--bg-secondary);
@@ -760,6 +815,7 @@ body.dark-mode {
     transition: all 0.2s;
     font-weight: 500;
     white-space: nowrap;
+    color: var(--text-primary);
 }
 
 .gallery-filters .filter-btn.active,
@@ -769,17 +825,26 @@ body.dark-mode {
     border-color: var(--accent);
 }
 
+body.dark-mode .gallery-filters .filter-btn {
+    background: var(--bg-card);
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+body.dark-mode .gallery-filters .filter-btn.active,
+body.dark-mode .gallery-filters .filter-btn:hover {
+    background: var(--accent);
+    color: var(--brand-purple-dark);
+    border-color: var(--accent);
+}
+
 .gallery-carousel-container {
     position: relative;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
     margin-bottom: 1rem;
     touch-action: pan-y pinch-zoom;
 }
 
 .gallery-carousel {
-    flex: 1;
     overflow: hidden;
     touch-action: pan-y pinch-zoom;
 }
@@ -795,18 +860,26 @@ body.dark-mode {
     cursor: grabbing;
 }
 
+/* Fixed gallery item sizing */
 .gallery-item {
     flex: 0 0 calc(33.333% - 1rem);
     min-width: calc(33.333% - 1rem);
     border-radius: 16px;
     overflow: hidden;
     cursor: pointer;
-    transition: transform 0.3s;
+    transition: transform 0.3s, opacity 0.5s;
     position: relative;
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+.gallery-item.revealed {
+    opacity: 1;
+    transform: scale(1);
 }
 
 .gallery-item:hover {
-    transform: translateY(-5px);
+    transform: translateY(-5px) scale(1.02);
 }
 
 .gallery-item img {
@@ -839,25 +912,6 @@ body.dark-mode {
 .gallery-overlay p {
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.7rem;
-}
-
-.carousel-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.carousel-btn:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--brand-purple-dark);
 }
 
 .gallery-dots {
@@ -913,9 +967,20 @@ body.dark-mode {
     border-radius: 20px;
     padding: 2rem;
     text-align: center;
-    transition: transform 0.3s;
+    transition: transform 0.3s, opacity 0.5s;
     border: 1px solid var(--border-color);
+    opacity: 0;
+    transform: translateY(30px);
 }
+
+.service-card.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.service-card:nth-child(1).revealed { transition-delay: 0.1s; }
+.service-card:nth-child(2).revealed { transition-delay: 0.2s; }
+.service-card:nth-child(3).revealed { transition-delay: 0.3s; }
 
 .service-card:hover {
     transform: translateY(-5px);
@@ -982,8 +1047,19 @@ body.dark-mode {
     padding: 2rem;
     text-align: center;
     border: 1px solid var(--border-color);
-    transition: transform 0.3s;
+    transition: transform 0.3s, opacity 0.5s;
+    opacity: 0;
+    transform: translateY(30px);
 }
+
+.payment-card.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.payment-card:nth-child(1).revealed { transition-delay: 0.1s; }
+.payment-card:nth-child(2).revealed { transition-delay: 0.2s; }
+.payment-card:nth-child(3).revealed { transition-delay: 0.3s; }
 
 .payment-card:hover {
     transform: translateY(-5px);
@@ -1032,7 +1108,7 @@ body.dark-mode {
 }
 
 /* =========================================
-   TESTIMONIAL CAROUSEL (55% shorter width)
+   TESTIMONIAL CAROUSEL - FIXED DISPLAY
    ========================================= */
 
 .testimonials-enhanced {
@@ -1047,14 +1123,10 @@ body.dark-mode {
 
 .testimonial-carousel-container {
     position: relative;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
     touch-action: pan-y pinch-zoom;
 }
 
 .testimonial-carousel {
-    flex: 1;
     overflow: hidden;
     touch-action: pan-y pinch-zoom;
 }
@@ -1069,6 +1141,7 @@ body.dark-mode {
     cursor: grabbing;
 }
 
+/* Fixed testimonial card sizing */
 .testimonial-card {
     flex: 0 0 55%;
     min-width: 55%;
@@ -1077,20 +1150,14 @@ body.dark-mode {
     padding: 2rem;
     box-shadow: var(--shadow-md);
     margin: 0 auto;
+    transition: opacity 0.5s, transform 0.5s;
+    opacity: 0;
+    transform: translateY(20px);
 }
 
-@media (max-width: 1024px) {
-    .testimonial-card {
-        flex: 0 0 70%;
-        min-width: 70%;
-    }
-}
-
-@media (max-width: 768px) {
-    .testimonial-card {
-        flex: 0 0 85%;
-        min-width: 85%;
-    }
+.testimonial-card.revealed {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .testimonial-content i {
@@ -1130,27 +1197,6 @@ body.dark-mode {
     color: var(--text-secondary);
 }
 
-.testimonial-prev,
-.testimonial-next {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.testimonial-prev:hover,
-.testimonial-next:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--brand-purple-dark);
-}
-
 .testimonial-dots {
     display: flex;
     justify-content: center;
@@ -1174,7 +1220,7 @@ body.dark-mode {
 }
 
 /* =========================================
-   PARTNERS SECTION (52 Partners)
+   PARTNERS SECTION
    ========================================= */
 
 .partners-section {
@@ -1197,7 +1243,7 @@ body.dark-mode {
     display: flex;
     gap: 1rem;
     width: fit-content;
-    animation: scrollPartners 40s linear infinite;
+    animation: scrollPartners 136s linear infinite;
 }
 
 @keyframes scrollPartners {
@@ -1279,6 +1325,62 @@ body.dark-mode {
 }
 
 /* =========================================
+   FIXED ACTION BUTTONS
+   ========================================= */
+
+.fixed-action-buttons {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.scroll-to-top-btn,
+.contact-phone-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--brand-purple-dark);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    text-decoration: none;
+}
+
+.scroll-to-top-btn:hover,
+.contact-phone-btn:hover {
+    transform: translateY(-3px);
+    background: var(--accent-dark);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-to-top-btn {
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+}
+
+.scroll-to-top-btn.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+body.dark-mode .scroll-to-top-btn,
+body.dark-mode .contact-phone-btn {
+    background: var(--accent);
+    color: var(--brand-purple-dark);
+}
+
+/* =========================================
    COPYRIGHT FOOTER
    ========================================= */
 
@@ -1331,18 +1433,6 @@ body.dark-mode {
     transform: translateY(-2px);
 }
 
-.btn-outline {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--text-primary);
-}
-
-.btn-outline:hover {
-    background: var(--accent);
-    color: var(--brand-purple-dark);
-    transform: translateY(-2px);
-}
-
 .btn-large {
     padding: 1rem 2rem;
     font-size: 1rem;
@@ -1363,9 +1453,18 @@ body.dark-mode {
         flex: 0 0 calc(50% - 0.75rem);
         min-width: calc(50% - 0.75rem);
     }
+    
+    .testimonial-card {
+        flex: 0 0 70%;
+        min-width: 70%;
+    }
 }
 
 @media (max-width: 768px) {
+    :root {
+        --container-padding: 1rem;
+    }
+    
     .hero-logo-img {
         height: 24px;
     }
@@ -1427,11 +1526,6 @@ body.dark-mode {
         font-size: 1.2rem;
     }
     
-    .image-overlay-stats {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
     .accordion-header {
         padding: 1rem;
         flex-wrap: wrap;
@@ -1474,13 +1568,6 @@ body.dark-mode {
         font-size: 0.85rem;
     }
     
-    .carousel-btn,
-    .testimonial-prev,
-    .testimonial-next {
-        width: 32px;
-        height: 32px;
-    }
-    
     .gallery-filters {
         justify-content: flex-start;
         padding-bottom: 4px;
@@ -1503,6 +1590,25 @@ body.dark-mode {
     .gallery-item {
         flex: 0 0 100%;
         min-width: 100%;
+    }
+    
+    .testimonial-card {
+        flex: 0 0 85%;
+        min-width: 85%;
+        padding: 1.5rem;
+    }
+    
+    .fixed-action-buttons {
+        bottom: 20px;
+        right: 20px;
+        gap: 10px;
+    }
+    
+    .scroll-to-top-btn,
+    .contact-phone-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
     }
 }
 
@@ -1534,7 +1640,7 @@ body.dark-mode {
     .testimonial-card {
         flex: 0 0 95%;
         min-width: 95%;
-        padding: 1.5rem;
+        padding: 1.2rem;
     }
     
     .earn-graphic {
@@ -1554,5 +1660,10 @@ body.dark-mode {
     .partner-logo img {
         max-width: 60px;
         max-height: 30px;
+    }
+    
+    .spots-left {
+        font-size: 0.7rem;
+        padding: 0.4rem 0.8rem;
     }
 }
