@@ -1,6 +1,6 @@
 /* =========================================
-   GLIIMU HOMEPAGE STYLES - COMPLETE REDESIGN
-   Engaging, Story-driven, Rich Animations
+   GLIIMU HOMEPAGE STYLES - SIMPLIFIED & RELIABLE
+   No disappearing cards, clean animations
    ========================================= */
 
 /* =========================================
@@ -72,19 +72,6 @@
 
 .hero-title .highlight {
     color: var(--accent, #fbb040);
-    position: relative;
-    display: inline-block;
-}
-
-.hero-title .highlight::after {
-    content: '';
-    position: absolute;
-    bottom: 5px;
-    left: 0;
-    width: 100%;
-    height: 8px;
-    background: rgba(251, 176, 64, 0.3);
-    border-radius: 4px;
 }
 
 .hero-desc {
@@ -98,6 +85,7 @@
     display: flex;
     gap: 2rem;
     margin-bottom: 2rem;
+    flex-wrap: wrap;
 }
 
 .hero-stat {
@@ -155,18 +143,13 @@
     opacity: 0.7;
 }
 
-.hero-scroll-indicator i {
-    font-size: 1rem;
-    opacity: 0.7;
-}
-
 @keyframes bounce {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(10px); }
 }
 
 /* =========================================
-   URGENCY BANNER
+   URGENCY BANNER - HIDE ON MOBILE
    ========================================= */
 
 .urgency-banner {
@@ -188,26 +171,15 @@
     font-weight: 500;
 }
 
-.urgency-content i {
-    font-size: 1.1rem;
-}
-
-.urgency-content strong {
-    font-weight: 800;
-}
-
-.urgency-link {
-    color: #1a1c4a;
-    text-decoration: underline;
-    font-weight: 700;
-}
-
-.urgency-link:hover {
-    color: white;
+/* Hide urgency banner on mobile */
+@media (max-width: 768px) {
+    .urgency-banner {
+        display: none;
+    }
 }
 
 /* =========================================
-   EARN SECTION (Subtle)
+   EARN SECTION
    ========================================= */
 
 .earn-section {
@@ -220,6 +192,14 @@
     grid-template-columns: 1fr 1fr;
     gap: 4rem;
     align-items: center;
+}
+
+.earn-grid.swapped {
+    direction: rtl;
+}
+
+.earn-grid.swapped > * {
+    direction: ltr;
 }
 
 .section-tag-subtle {
@@ -294,28 +274,8 @@
     color: var(--accent);
 }
 
-.earn-pulse {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-    background: rgba(251, 176, 64, 0.2);
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        opacity: 0.5;
-    }
-    100% {
-        transform: scale(1.5);
-        opacity: 0;
-    }
-}
-
 /* =========================================
-   SQUAD SYSTEM (Simplified)
+   SQUAD SYSTEM (No testimonial inside)
    ========================================= */
 
 .squad-section {
@@ -337,11 +297,6 @@
     color: var(--accent);
     font-weight: 600;
     display: inline-block;
-    margin-bottom: 1rem;
-}
-
-.squad-content .section-title {
-    font-size: 2rem;
     margin-bottom: 1rem;
 }
 
@@ -390,7 +345,6 @@
     height: 250px;
     top: 0;
     left: 0;
-    animation: float 6s ease-in-out infinite;
 }
 
 .circle-2 {
@@ -400,7 +354,6 @@
     left: 35px;
     background: var(--accent);
     opacity: 0.2;
-    animation: float 8s ease-in-out infinite reverse;
 }
 
 .circle-3 {
@@ -410,44 +363,10 @@
     left: 75px;
     background: var(--brand-purple);
     opacity: 0.4;
-    animation: float 4s ease-in-out infinite;
-}
-
-@keyframes float {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(0, -15px); }
-}
-
-.squad-quote {
-    position: absolute;
-    bottom: -40px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 280px;
-    background: var(--bg-card);
-    padding: 1rem;
-    border-radius: 12px;
-    box-shadow: var(--shadow-md);
-    font-size: 0.8rem;
-    text-align: center;
-    border-left: 3px solid var(--accent);
-    z-index: 10;
-}
-
-.squad-quote i {
-    color: var(--accent);
-    margin-right: 0.5rem;
-}
-
-.squad-quote span {
-    display: block;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
 }
 
 /* =========================================
-   COURSE SECTION
+   COURSE SECTION - CARDS ALWAYS VISIBLE
    ========================================= */
 
 .course-redesign {
@@ -476,11 +395,6 @@
     margin-bottom: 0.5rem;
 }
 
-.course-header p {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-}
-
 .course-cards-row {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -494,13 +408,12 @@
     background: var(--bg-card);
     border-radius: 20px;
     border: 1px solid var(--border-color);
-    transition: all 0.3s;
+    transition: transform 0.3s;
 }
 
 .course-feature-card:hover {
-    transform: translateY(-8px);
-    box-shadow: var(--shadow-lg);
-    border-color: var(--accent);
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-md);
 }
 
 .feature-number {
@@ -567,10 +480,6 @@
     margin-bottom: 1.5rem;
 }
 
-.course-showcase-cta {
-    margin-top: 1rem;
-}
-
 .course-showcase-image {
     position: relative;
     overflow: hidden;
@@ -612,7 +521,7 @@
 }
 
 /* =========================================
-   GALLERY SECTION (Animated)
+   GALLERY SECTION
    ========================================= */
 
 .gallery-section {
@@ -662,25 +571,17 @@
     border-radius: 16px;
     overflow: hidden;
     cursor: pointer;
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.5s;
+    transition: transform 0.3s;
 }
 
-.gallery-item.animate-in {
-    opacity: 1;
-    transform: translateY(0);
+.gallery-item:hover {
+    transform: translateY(-5px);
 }
 
 .gallery-item img {
     width: 100%;
     height: 250px;
     object-fit: cover;
-    transition: transform 0.5s;
-}
-
-.gallery-item:hover img {
-    transform: scale(1.05);
 }
 
 .gallery-overlay {
@@ -709,17 +610,12 @@
     font-size: 0.7rem;
 }
 
-.gallery-loading {
-    text-align: center;
-    padding: 2rem;
-}
-
 .gallery-cta {
     text-align: center;
 }
 
 /* =========================================
-   PROFESSIONAL SERVICES
+   SERVICES SECTION
    ========================================= */
 
 .services-section {
@@ -739,29 +635,18 @@
     margin-bottom: 2rem;
 }
 
-.premium-card {
+.service-card {
     background: var(--bg-card);
     border-radius: 20px;
     padding: 2rem;
     text-align: center;
-    transition: all 0.3s;
-    position: relative;
-    overflow: hidden;
+    transition: transform 0.3s;
+    border: 1px solid var(--border-color);
 }
 
-.premium-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: linear-gradient(90deg, var(--accent), transparent);
-}
-
-.premium-card:hover {
-    transform: translateY(-8px);
-    box-shadow: var(--shadow-lg);
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-md);
 }
 
 .service-icon {
@@ -780,13 +665,6 @@
     font-size: 0.85rem;
     color: var(--text-secondary);
     line-height: 1.5;
-    margin-bottom: 1rem;
-}
-
-.service-pricing {
-    font-weight: 700;
-    color: var(--accent);
-    font-size: 0.9rem;
 }
 
 .services-cta {
@@ -794,7 +672,7 @@
 }
 
 /* =========================================
-   PAYMENT/INVESTMENT SECTION
+   PAYMENT SECTION
    ========================================= */
 
 .payment-section {
@@ -821,18 +699,17 @@
     text-align: center;
     border: 1px solid var(--border-color);
     position: relative;
-    transition: all 0.3s;
+    transition: transform 0.3s;
 }
 
 .payment-card:hover {
     transform: translateY(-5px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
 }
 
 .payment-card.featured {
-    transform: scale(1.02);
     border-color: var(--accent);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
 }
 
 .payment-badge {
@@ -896,7 +773,7 @@
 }
 
 /* =========================================
-   STATISTICS SECTION (With Pattern)
+   STATISTICS SECTION
    ========================================= */
 
 .stats-premium {
@@ -975,7 +852,7 @@
     border-radius: 20px;
     padding: 2rem;
     box-shadow: var(--shadow-md);
-    transition: all 0.3s;
+    transition: transform 0.3s;
 }
 
 .testimonial-card:hover {
@@ -1036,12 +913,14 @@
 .partners-slider-container {
     overflow: hidden;
     padding: 1rem 0;
+    width: 100%;
 }
 
 .partners-track {
     display: flex;
     gap: 2rem;
-    animation: scrollPartners 20s linear infinite;
+    width: fit-content;
+    animation: scrollPartners 30s linear infinite;
 }
 
 @keyframes scrollPartners {
@@ -1051,11 +930,11 @@
 
 .partner-logo {
     flex: 0 0 auto;
-    padding: 1rem;
+    padding: 1rem 2rem;
     background: var(--bg-card);
     border-radius: 12px;
     border: 1px solid var(--border-color);
-    min-width: 150px;
+    min-width: 160px;
     text-align: center;
 }
 
@@ -1112,18 +991,30 @@
 }
 
 /* =========================================
-   BUTTON STYLES (Uniform Border Radius)
+   BUTTONS - ALL UNIFORM
    ========================================= */
 
-.btn {
+.btn,
+.btn-primary,
+.btn-outline,
+.btn-large,
+.gallery-filters .filter-btn,
+.plan-select,
+.payment-card .btn,
+.services-cta .btn,
+.course-showcase-cta .btn,
+.final-cta .btn,
+.hero-actions .btn {
     padding: 0.75rem 1.5rem;
-    border-radius: 40px;
+    border-radius: 40px !important;
     font-weight: 600;
     transition: all 0.3s;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
+    font-family: inherit;
+    text-decoration: none;
 }
 
 .btn-primary {
@@ -1168,6 +1059,7 @@
     
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
     }
 }
 
@@ -1177,7 +1069,6 @@
     }
     
     .hero-stats {
-        flex-wrap: wrap;
         justify-content: center;
     }
     
@@ -1185,6 +1076,10 @@
     .squad-grid,
     .course-showcase {
         grid-template-columns: 1fr;
+    }
+    
+    .earn-grid.swapped {
+        direction: ltr;
     }
     
     .course-cards-row,
@@ -1196,7 +1091,6 @@
     
     .stats-grid {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
     }
     
     .payment-card.featured {
@@ -1212,114 +1106,31 @@
     }
     
     .gallery-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    }
-}
-
-@media (max-width: 480px) {
-    .section-title {
-        font-size: 1.5rem;
+        grid-template-columns: 1fr;
     }
     
-    .hero-title {
-        font-size: 1.6rem;
+    .section-title {
+        font-size: 1.5rem;
     }
     
     .course-showcase-content h3 {
         font-size: 1.2rem;
     }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 1.6rem;
+    }
     
-    .image-overlay-stats {
-        flex-direction: column;
-        gap: 0.5rem;
+    .btn,
+    .btn-primary,
+    .btn-outline {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.85rem;
     }
-}
-
-/* =========================================
-   SCROLL REVEAL ANIMATIONS
-   ========================================= */
-
-.reveal {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.8s ease;
-}
-
-.reveal.active {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* Fade up animation for cards */
-.fade-up {
-    opacity: 0;
-    transform: translateY(40px);
-    transition: opacity 0.6s ease, transform 0.6s ease;
-}
-
-.fade-up.visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* Stagger children animations */
-.stagger-child {
-    opacity: 0;
-    transform: translateY(20px);
-}
-
-.stagger-child.visible {
-    animation: fadeInUp 0.5s forwards;
-}
-
-@keyframes fadeInUp {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Add to home.css */
-.squad-quote-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-right: 0.5rem;
-    vertical-align: middle;
-}
-
-.squad-quote {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-/* Ensure all cards display properly */
-.course-cards-row,
-.services-grid,
-.payment-grid,
-.testimonials-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
-}
-
-@media (max-width: 1024px) {
-    .course-cards-row,
-    .services-grid,
-    .payment-grid,
-    .testimonials-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .course-cards-row,
-    .services-grid,
-    .payment-grid,
-    .testimonials-grid {
-        grid-template-columns: 1fr;
+    
+    .payment-price {
+        font-size: 1.5rem;
     }
 }
