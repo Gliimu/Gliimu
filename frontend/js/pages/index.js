@@ -1,7 +1,50 @@
 // ============================================
 // GLIIMU HOMEPAGE - COMPLETE INTERACTIVITY
-// Carousels, Accordions, Counters, Filters
+// Carousels, Accordions, Counters, Filters, Theme Toggle
 // ============================================
+
+// ============================================
+// THEME HANDLING (System preference first)
+// ============================================
+function initTheme() {
+    // Check localStorage first, then system preference
+    const savedTheme = localStorage.getItem('theme');
+    
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        updateThemeIcon(true);
+    } else if (savedTheme === 'light') {
+        document.body.classList.remove('dark-mode');
+        updateThemeIcon(false);
+    } else {
+        // Use system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDark) {
+            document.body.classList.add('dark-mode');
+            updateThemeIcon(true);
+        } else {
+            document.body.classList.remove('dark-mode');
+            updateThemeIcon(false);
+        }
+    }
+}
+
+function updateThemeIcon(isDark) {
+    const themeToggle = document.getElementById('themeToggleHero');
+    if (themeToggle) {
+        if (isDark) {
+            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        } else {
+            themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+        }
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+}
 
 // ============================================
 // COUNTDOWN TIMER
@@ -81,19 +124,6 @@ function initVideoBackground() {
     const video = document.querySelector('.hero-background-video');
     if (video) {
         video.play().catch(e => console.log('Video autoplay prevented:', e));
-        
-        // Pause video when not in view to save resources
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    video.play().catch(e => console.log('Video play error:', e));
-                } else {
-                    video.pause();
-                }
-            });
-        }, { threshold: 0.1 });
-        
-        observer.observe(video.parentElement);
     }
 }
 
@@ -107,30 +137,29 @@ function initAccordion() {
         const header = item.querySelector('.accordion-header');
         
         header.addEventListener('click', () => {
-            // Close all other items
             accordionItems.forEach(otherItem => {
                 if (otherItem !== item && otherItem.classList.contains('active')) {
                     otherItem.classList.remove('active');
                 }
             });
-            
-            // Toggle current item
             item.classList.toggle('active');
         });
     });
     
-    // Open first item by default
     if (accordionItems.length > 0) {
         accordionItems[0].classList.add('active');
     }
 }
 
 // ============================================
-// GALLERY CAROUSEL
+// GALLERY CAROUSEL (With auto-slide & touch swipe)
 // ============================================
 let currentGalleryIndex = 0;
 let galleryItems = [];
 let galleryFilter = 'all';
+let galleryAutoSlideInterval = null;
+let galleryStartX = 0;
+let galleryEndX = 0;
 
 function loadStudentWorkGallery() {
     const carouselTrack = document.getElementById('carouselTrack');
@@ -165,8 +194,9 @@ function loadStudentWorkGallery() {
         currentGalleryIndex = 0;
         updateCarousel();
         updateDots();
+        startAutoSlide();
         
-        // Add click handlers to gallery items
+        // Add click handlers
         document.querySelectorAll('.gallery-item').forEach(item => {
             item.addEventListener('click', () => {
                 const title = item.querySelector('h4')?.textContent || 'Student Work';
@@ -178,7 +208,8 @@ function loadStudentWorkGallery() {
     function updateCarousel() {
         const track = document.querySelector('.carousel-track');
         const itemsPerView = getItemsPerView();
-        const maxIndex = Math.ceil(galleryItems.filter(i => galleryFilter === 'all' ? true : i.type === galleryFilter).length / itemsPerView) - 1;
+        const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
+        const maxIndex = Math.ceil(filtered.length / itemsPerView) - 1;
         
         if (currentGalleryIndex < 0) currentGalleryIndex = 0;
         if (currentGalleryIndex > maxIndex) currentGalleryIndex = maxIndex;
@@ -210,36 +241,86 @@ function loadStudentWorkGallery() {
                 dot.addEventListener('click', () => {
                     currentGalleryIndex = i;
                     updateCarousel();
+                    resetAutoSlide();
                 });
                 dotsContainer.appendChild(dot);
             }
         }
     }
     
-    // Next/Prev buttons
+    function nextSlide() {
+        const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
+        const itemsPerView = getItemsPerView();
+        const maxIndex = Math.ceil(filtered.length / itemsPerView) - 1;
+        if (currentGalleryIndex < maxIndex) {
+            currentGalleryIndex++;
+            updateCarousel();
+        } else {
+            currentGalleryIndex = 0;
+            updateCarousel();
+        }
+    }
+    
+    function prevSlide() {
+        if (currentGalleryIndex > 0) {
+            currentGalleryIndex--;
+            updateCarousel();
+        }
+    }
+    
+    function startAutoSlide() {
+        if (galleryAutoSlideInterval) clearInterval(galleryAutoSlideInterval);
+        galleryAutoSlideInterval = setInterval(nextSlide, 7000);
+    }
+    
+    function resetAutoSlide() {
+        if (galleryAutoSlideInterval) {
+            clearInterval(galleryAutoSlideInterval);
+            startAutoSlide();
+        }
+    }
+    
+    // Hide arrows on touch screens
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const prevBtn = document.querySelector('.prev-btn');
     const nextBtn = document.querySelector('.next-btn');
     
-    if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-            const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
-            const itemsPerView = getItemsPerView();
-            const maxIndex = Math.ceil(filtered.length / itemsPerView) - 1;
-            if (currentGalleryIndex > 0) {
-                currentGalleryIndex--;
-                updateCarousel();
-            }
-        });
+    if (isTouchDevice) {
+        if (prevBtn) prevBtn.style.display = 'none';
+        if (nextBtn) nextBtn.style.display = 'none';
+    } else {
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                prevSlide();
+                resetAutoSlide();
+            });
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                nextSlide();
+                resetAutoSlide();
+            });
+        }
     }
     
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            const filtered = galleryFilter === 'all' ? galleryItems : galleryItems.filter(item => item.type === galleryFilter);
-            const itemsPerView = getItemsPerView();
-            const maxIndex = Math.ceil(filtered.length / itemsPerView) - 1;
-            if (currentGalleryIndex < maxIndex) {
-                currentGalleryIndex++;
-                updateCarousel();
+    // Touch swipe for mobile
+    const carouselContainer = document.querySelector('.gallery-carousel');
+    if (carouselContainer) {
+        carouselContainer.addEventListener('touchstart', (e) => {
+            galleryStartX = e.touches[0].clientX;
+            resetAutoSlide();
+        });
+        
+        carouselContainer.addEventListener('touchend', (e) => {
+            galleryEndX = e.changedTouches[0].clientX;
+            const diff = galleryStartX - galleryEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) {
+                    nextSlide();
+                } else {
+                    prevSlide();
+                }
+                resetAutoSlide();
             }
         });
     }
@@ -252,6 +333,7 @@ function loadStudentWorkGallery() {
             filterBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             renderCarousel();
+            resetAutoSlide();
         });
     });
     
@@ -265,18 +347,57 @@ function loadStudentWorkGallery() {
 }
 
 // ============================================
-// TESTIMONIAL CAROUSEL
+// TESTIMONIAL CAROUSEL (With auto-slide & touch swipe)
 // ============================================
 let currentTestimonialIndex = 0;
 let testimonialItems = [];
+let testimonialAutoSlideInterval = null;
+let testimonialStartX = 0;
+let testimonialEndX = 0;
 
 function initTestimonialCarousel() {
     const track = document.getElementById('testimonialTrack');
     const dotsContainer = document.getElementById('testimonialDots');
     if (!track) return;
     
-    const testimonials = track.querySelectorAll('.testimonial-card');
-    testimonialItems = Array.from(testimonials);
+    const testimonials = [
+        {
+            text: "I didn't just learn to edit videos — I learned to build the platform that hosts them. Gliimu made me a complete creator.",
+            name: "Finiks Kshel",
+            role: "Media Producer",
+            image: "photos/finiks.jpg"
+        },
+        {
+            text: "The coding modules were challenging at first, but now I design and build my own projects. Best decision I ever made.",
+            name: "Edi Edidiong",
+            role: "UI/UX Designer",
+            image: "photos/stu1.jpg"
+        },
+        {
+            text: "Got hired before graduation. The practical experience from real client projects made all the difference.",
+            name: "Chinedu Okafor",
+            role: "Full-Stack Developer",
+            image: "photos/stu2.jpg"
+        }
+    ];
+    
+    track.innerHTML = testimonials.map(t => `
+        <div class="testimonial-card">
+            <div class="testimonial-content">
+                <i class="fas fa-quote-left"></i>
+                <p>${t.text}</p>
+                <div class="testimonial-author">
+                    <img src="${t.image}" alt="${t.name}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(t.name)}&background=fbb040&color=fff'">
+                    <div>
+                        <strong>${t.name}</strong>
+                        <span>${t.role}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    testimonialItems = document.querySelectorAll('.testimonial-card');
     
     function updateTestimonialCarousel() {
         const scrollAmount = currentTestimonialIndex * 100;
@@ -294,51 +415,116 @@ function initTestimonialCarousel() {
                 dot.addEventListener('click', () => {
                     currentTestimonialIndex = i;
                     updateTestimonialCarousel();
+                    resetTestimonialAutoSlide();
                 });
                 dotsContainer.appendChild(dot);
             }
         }
     }
     
+    function nextTestimonial() {
+        if (currentTestimonialIndex < testimonialItems.length - 1) {
+            currentTestimonialIndex++;
+            updateTestimonialCarousel();
+        } else {
+            currentTestimonialIndex = 0;
+            updateTestimonialCarousel();
+        }
+    }
+    
+    function prevTestimonial() {
+        if (currentTestimonialIndex > 0) {
+            currentTestimonialIndex--;
+            updateTestimonialCarousel();
+        }
+    }
+    
+    function startTestimonialAutoSlide() {
+        if (testimonialAutoSlideInterval) clearInterval(testimonialAutoSlideInterval);
+        testimonialAutoSlideInterval = setInterval(nextTestimonial, 7000);
+    }
+    
+    function resetTestimonialAutoSlide() {
+        if (testimonialAutoSlideInterval) {
+            clearInterval(testimonialAutoSlideInterval);
+            startTestimonialAutoSlide();
+        }
+    }
+    
+    // Hide arrows on touch screens
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const prevBtn = document.querySelector('.testimonial-prev');
     const nextBtn = document.querySelector('.testimonial-next');
     
-    if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-            if (currentTestimonialIndex > 0) {
-                currentTestimonialIndex--;
-                updateTestimonialCarousel();
+    if (isTouchDevice) {
+        if (prevBtn) prevBtn.style.display = 'none';
+        if (nextBtn) nextBtn.style.display = 'none';
+    } else {
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                prevTestimonial();
+                resetTestimonialAutoSlide();
+            });
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                nextTestimonial();
+                resetTestimonialAutoSlide();
+            });
+        }
+    }
+    
+    // Touch swipe for mobile
+    const testimonialContainer = document.querySelector('.testimonial-carousel');
+    if (testimonialContainer) {
+        testimonialContainer.addEventListener('touchstart', (e) => {
+            testimonialStartX = e.touches[0].clientX;
+            resetTestimonialAutoSlide();
+        });
+        
+        testimonialContainer.addEventListener('touchend', (e) => {
+            testimonialEndX = e.changedTouches[0].clientX;
+            const diff = testimonialStartX - testimonialEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) {
+                    nextTestimonial();
+                } else {
+                    prevTestimonial();
+                }
+                resetTestimonialAutoSlide();
             }
         });
     }
     
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            if (currentTestimonialIndex < testimonialItems.length - 1) {
-                currentTestimonialIndex++;
-                updateTestimonialCarousel();
-            }
-        });
-    }
-    
+    startTestimonialAutoSlide();
     updateTestimonialCarousel();
 }
 
 // ============================================
-// LOAD PARTNERS SLIDER
+// LOAD PARTNERS SLIDER (52 Partners)
 // ============================================
 function loadPartnersSlider() {
     const partnersTrack = document.getElementById('partnersTrack');
     if (!partnersTrack) return;
     
-    const partners = [
-        { name: 'Partner 1', logo: 'https://placehold.co/100x50/2c2f78/white?text=Partner+1' },
-        { name: 'Partner 2', logo: 'https://placehold.co/100x50/2c2f78/white?text=Partner+2' },
-        { name: 'Partner 3', logo: 'https://placehold.co/100x50/2c2f78/white?text=Partner+3' },
-        { name: 'Partner 4', logo: 'https://placehold.co/100x50/2c2f78/white?text=Partner+4' },
-        { name: 'Partner 5', logo: 'https://placehold.co/100x50/2c2f78/white?text=Partner+5' },
-        { name: 'Partner 6', logo: 'https://placehold.co/100x50/2c2f78/white?text=Partner+6' }
+    const partnerNames = [
+        'Tech Corp', 'Media Plus', 'Creative Hub', 'Digital Solutions', 'Innovation Lab',
+        'Studio One', 'Design Co', 'Code Masters', 'Film Factory', 'Animation Studio',
+        'Web Experts', 'Brand Builders', 'Content Creators', 'Social Impact', 'Future Tech',
+        'Art Department', 'Sound Lab', 'Edit House', 'Render Farm', 'Pixel Perfect',
+        'UX Studio', 'Dev House', 'Media Group', 'Creative Agency', 'Digital First',
+        'Tech Alliance', 'Media Network', 'Studio 54', 'Design Studio', 'Code Lab'
     ];
+    
+    // Create 52 partners (using duplicates of the above)
+    let partners = [];
+    for (let i = 0; i < 52; i++) {
+        const name = partnerNames[i % partnerNames.length];
+        partners.push({
+            name: `${name} ${Math.floor(i / partnerNames.length) + 1}`,
+            logo: `https://placehold.co/100x40/2c2f78/white?text=${encodeURIComponent(name.split(' ')[0])}`
+        });
+    }
     
     // Duplicate for seamless scrolling
     const allPartners = [...partners, ...partners];
@@ -366,11 +552,22 @@ function initSmoothScroll() {
 }
 
 // ============================================
+// REMOVE STATS OVERLAY FROM IMAGE
+// ============================================
+function removeImageOverlay() {
+    const overlayStats = document.querySelector('.image-overlay-stats');
+    if (overlayStats) {
+        overlayStats.style.display = 'none';
+    }
+}
+
+// ============================================
 // INITIALIZE ALL
 // ============================================
 function init() {
     console.log('Initializing homepage...');
     
+    initTheme();
     initCountdown();
     initVideoBackground();
     loadStudentWorkGallery();
@@ -379,6 +576,13 @@ function init() {
     initAccordion();
     initTestimonialCarousel();
     initSmoothScroll();
+    removeImageOverlay();
+    
+    // Add theme toggle event listener
+    const themeToggle = document.getElementById('themeToggleHero');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
     
     console.log('Homepage initialized');
 }
