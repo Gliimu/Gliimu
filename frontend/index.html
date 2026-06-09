@@ -25,24 +25,23 @@
     
     <!-- External CSS Files -->
     <link rel="stylesheet" href="css/global.css">
-    <link rel="stylesheet" href="css/header.css">
-    <link rel="stylesheet" href="css/footer.css">
-    <link rel="stylesheet" href="css/modal.css">
     <link rel="stylesheet" href="css/home.css">
 </head>
 <body>
 
-    <!-- Header Placeholder -->
-    <div id="header-placeholder"></div>
-
     <!-- ============================================ -->
-    <!-- HERO SECTION WITH VIDEO BACKGROUND -->
+    <!-- HERO SECTION WITH VIDEO BACKGROUND & LOGO -->
     <!-- ============================================ -->
     <section class="hero-video-section">
         <div class="hero-video-overlay"></div>
         <video class="hero-background-video" autoplay muted loop playsinline>
             <source src="videos/pnp.mp4" type="video/mp4">
         </video>
+        
+        <div class="hero-logo">
+            <img src="icons/logo.png" alt="Gliimu" class="hero-logo-img">
+        </div>
+        
         <div class="container hero-container">
             <div class="hero-content">
                 <div class="hero-badge">
@@ -57,15 +56,15 @@
                 </p>
                 <div class="hero-stats">
                     <div class="hero-stat">
-                        <span class="hero-stat-number">99.99%</span>
+                        <span class="hero-stat-number counter" data-target="99.99">0%</span>
                         <span class="hero-stat-label">Employment Rate</span>
                     </div>
                     <div class="hero-stat">
-                        <span class="hero-stat-number">3,500+</span>
+                        <span class="hero-stat-number counter" data-target="3500">0+</span>
                         <span class="hero-stat-label">Media Architects</span>
                     </div>
                     <div class="hero-stat">
-                        <span class="hero-stat-number">₦200k</span>
+                        <span class="hero-stat-number counter" data-target="200">0k</span>
                         <span class="hero-stat-label">Earn While Learning</span>
                     </div>
                 </div>
@@ -84,14 +83,10 @@
                 </div>
             </div>
         </div>
-        <div class="hero-scroll-indicator">
-            <span>Scroll to explore</span>
-            <i class="fas fa-chevron-down"></i>
-        </div>
     </section>
 
     <!-- ============================================ -->
-    <!-- LIMITED COHORT BANNER (Urgency) -->
+    <!-- LIMITED COHORT BANNER (Urgency - Hidden on mobile) -->
     <!-- ============================================ -->
     <div class="urgency-banner">
         <div class="container">
@@ -104,14 +99,50 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- EARN WHILE YOU LEARN (Subtle) - SWAPPED SIDES -->
+    <!-- THREE PILLARS SECTION (Library, Community, Live Classroom) -->
+    <!-- ============================================ -->
+    <section class="pillars-section">
+        <div class="container">
+            <div class="pillars-header">
+                <span class="section-tag">📚 What Makes Us Different</span>
+                <h2 class="section-title">Three Platforms. One Mission.</h2>
+                <p class="section-subtitle">Your complete learning ecosystem</p>
+            </div>
+            
+            <div class="pillars-grid">
+                <div class="pillar-card">
+                    <div class="pillar-icon"><i class="fas fa-book"></i></div>
+                    <h3>Digital Library</h3>
+                    <p>Premium books, bundles, and learning materials crafted by industry experts. Updated weekly.</p>
+                    <div class="pillar-badge">300+ Resources</div>
+                </div>
+                
+                <div class="pillar-card">
+                    <div class="pillar-icon"><i class="fas fa-users"></i></div>
+                    <h3>Community Hub</h3>
+                    <p>Connect with 3,500+ Media Architects. Share work, get feedback, grow together.</p>
+                    <div class="pillar-badge">Active 24/7</div>
+                </div>
+                
+                <div class="pillar-card">
+                    <div class="pillar-icon"><i class="fas fa-chalkboard-user"></i></div>
+                    <h3>Live Classroom</h3>
+                    <p>Real-time sessions with industry experts. Recorded for later review.</p>
+                    <div class="pillar-badge">Weekly Live</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- EARN WHILE YOU LEARN (With Coins Icon) -->
     <!-- ============================================ -->
     <section class="earn-section">
         <div class="container">
             <div class="earn-grid swapped">
                 <div class="earn-image">
                     <div class="earn-graphic">
-                        <i class="fas fa-chart-line"></i>
+                        <i class="fas fa-coins"></i>
                         <div class="earn-pulse"></div>
                     </div>
                 </div>
@@ -139,11 +170,26 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- SQUAD SYSTEM (With Profile Picture) -->
+    <!-- SQUAD SYSTEM (Swapped: Image left, Content right) -->
     <!-- ============================================ -->
     <section class="squad-section">
         <div class="container">
             <div class="squad-grid">
+                <div class="squad-visual">
+                    <div class="squad-circles">
+                        <div class="circle circle-1"></div>
+                        <div class="circle circle-2"></div>
+                        <div class="circle circle-3"></div>
+                    </div>
+                    <div class="squad-profile-card">
+                        <img src="photos/stu.jpg" alt="Student" class="squad-profile-img">
+                        <div class="squad-quote">
+                            <i class="fas fa-quote-left"></i>
+                            <p>"My squad pushed me to create work I never thought possible."</p>
+                            <span>— Chidinma, Current Student</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="squad-content">
                     <span class="section-tag">👥 The Squad System</span>
                     <h2 class="section-title">Learn in Pods. Build Together.</h2>
@@ -155,24 +201,12 @@
                         <li><i class="fas fa-handshake"></i> Alumni network for life</li>
                     </ul>
                 </div>
-                <div class="squad-visual">
-                    <div class="squad-circles">
-                        <div class="circle circle-1"></div>
-                        <div class="circle circle-2"></div>
-                        <div class="circle circle-3"></div>
-                        <div class="squad-quote">
-                            <img src="photos/stu.jpg" alt="Student" class="squad-quote-avatar">
-                            <i class="fas fa-quote-left"></i> "My squad pushed me to create work I never thought possible."
-                            <span>— Chidinma, Current Student</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </section>
 
     <!-- ============================================ -->
-    <!-- WHAT YOU'LL MASTER (Fixed - All 3 Cards) -->
+    <!-- WHAT YOU'LL MASTER (Accordion Style) -->
     <!-- ============================================ -->
     <section id="curriculum" class="course-redesign">
         <div class="container">
@@ -182,36 +216,68 @@
                 <p>The only curriculum that builds complete Media Architects — not one-skill specialists.</p>
             </div>
             
-            <div class="course-cards-row">
-                <div class="course-feature-card">
-                    <div class="feature-number">01</div>
-                    <div class="feature-icon-lg"><i class="fas fa-video"></i></div>
-                    <h3>Create</h3>
-                    <p>Master video production, cinematography, audio design, and motion graphics.</p>
+            <div class="accordion-container">
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-number">01</div>
+                        <div class="accordion-icon"><i class="fas fa-video"></i></div>
+                        <h3>Create</h3>
+                        <i class="fas fa-chevron-down accordion-arrow"></i>
+                    </div>
+                    <div class="accordion-content">
+                        <p>Master video production, cinematography, audio design, and motion graphics. Tell stories that move people.</p>
+                        <ul>
+                            <li>Professional Camera Operation</li>
+                            <li>Cinematography & Lighting</li>
+                            <li>Sound Design & Mixing</li>
+                            <li>Motion Graphics & VFX</li>
+                        </ul>
+                    </div>
                 </div>
                 
-                <div class="course-feature-card">
-                    <div class="feature-number">02</div>
-                    <div class="feature-icon-lg"><i class="fas fa-palette"></i></div>
-                    <h3>Design</h3>
-                    <p>Learn UI/UX, branding, typography, and visual identity systems.</p>
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-number">02</div>
+                        <div class="accordion-icon"><i class="fas fa-palette"></i></div>
+                        <h3>Design</h3>
+                        <i class="fas fa-chevron-down accordion-arrow"></i>
+                    </div>
+                    <div class="accordion-content">
+                        <p>Learn UI/UX, branding, typography, and visual identity. Make every pixel intentional.</p>
+                        <ul>
+                            <li>UI/UX Design Principles</li>
+                            <li>Brand Strategy & Identity</li>
+                            <li>Typography & Color Theory</li>
+                            <li>Design Systems</li>
+                        </ul>
+                    </div>
                 </div>
                 
-                <div class="course-feature-card">
-                    <div class="feature-number">03</div>
-                    <div class="feature-icon-lg"><i class="fas fa-code"></i></div>
-                    <h3>Compute</h3>
-                    <p>Build websites, web apps, and interactive experiences.</p>
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-number">03</div>
+                        <div class="accordion-icon"><i class="fas fa-code"></i></div>
+                        <h3>Compute</h3>
+                        <i class="fas fa-chevron-down accordion-arrow"></i>
+                    </div>
+                    <div class="accordion-content">
+                        <p>Build websites, web apps, and interactive experiences. Turn ideas into working products.</p>
+                        <ul>
+                            <li>HTML5, CSS3, JavaScript</li>
+                            <li>React & Modern Frameworks</li>
+                            <li>Backend Development</li>
+                            <li>Database Management</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             
             <div class="course-showcase">
                 <div class="course-showcase-content">
-                    <span class="course-diploma-badge">🎓 Advanced Diploma</span>
                     <h3>Become a <span class="highlight">Media Architect</span></h3>
                     <p class="course-showcase-desc">
                         Traditional programs teach ONE skill. We teach the ENTIRE pipeline. 
-                        You'll graduate able to conceive, design, AND build.
+                        You'll graduate able to conceive, design, AND build — making you invaluable to any team.
                     </p>
                     <div class="course-showcase-cta">
                         <a href="application.html" class="btn btn-primary">Apply Now — No Fee <i class="fas fa-arrow-right"></i></a>
@@ -239,7 +305,7 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- STUDENT WORK GALLERY -->
+    <!-- STUDENT WORK CAROUSEL (Hub-style) -->
     <!-- ============================================ -->
     <section class="gallery-section">
         <div class="container">
@@ -249,16 +315,26 @@
                 <p class="section-sub">See what our Media Architects are creating</p>
             </div>
             
-            <div class="gallery-filters">
-                <button class="filter-btn active" data-filter="all">All</button>
-                <button class="filter-btn" data-filter="video">Video</button>
-                <button class="filter-btn" data-filter="design">Design</button>
-                <button class="filter-btn" data-filter="code">Code</button>
+            <div class="gallery-filters-wrapper">
+                <div class="gallery-filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="video">Video</button>
+                    <button class="filter-btn" data-filter="design">Design</button>
+                    <button class="filter-btn" data-filter="code">Code</button>
+                </div>
             </div>
             
-            <div class="gallery-grid" id="studentWorkGrid">
-                <div class="gallery-loading">Loading student work...</div>
+            <div class="gallery-carousel-container">
+                <button class="carousel-btn prev-btn"><i class="fas fa-chevron-left"></i></button>
+                <div class="gallery-carousel" id="galleryCarousel">
+                    <div class="carousel-track" id="carouselTrack">
+                        <!-- Gallery items will be loaded here -->
+                    </div>
+                </div>
+                <button class="carousel-btn next-btn"><i class="fas fa-chevron-right"></i></button>
             </div>
+            
+            <div class="gallery-dots" id="galleryDots"></div>
             
             <div class="gallery-cta">
                 <a href="hub.html" class="btn btn-outline">View Full Gallery →</a>
@@ -267,7 +343,7 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- PROFESSIONAL SERVICES (All 3 Cards, No Prices) -->
+    <!-- PROFESSIONAL SERVICES (Simplified Pricing) -->
     <!-- ============================================ -->
     <section class="services-section premium-services">
         <div class="container">
@@ -278,22 +354,25 @@
             </div>
             
             <div class="services-grid">
-                <div class="service-card premium-card">
+                <div class="service-card">
                     <div class="service-icon"><i class="fas fa-film"></i></div>
                     <h3 class="service-title">Media Production</h3>
                     <p class="service-desc">Cinematic quality that tells your story. From concept to final cut.</p>
+                    <div class="service-price-icon"><i class="fas fa-tag"></i> Budget-friendly</div>
                 </div>
                 
-                <div class="service-card premium-card">
+                <div class="service-card">
                     <div class="service-icon"><i class="fas fa-paint-brush"></i></div>
                     <h3 class="service-title">Design & Branding</h3>
                     <p class="service-desc">Identity systems that make you unforgettable. Logos, brands, campaigns.</p>
+                    <div class="service-price-icon"><i class="fas fa-tag"></i> Budget-friendly</div>
                 </div>
                 
-                <div class="service-card premium-card">
+                <div class="service-card">
                     <div class="service-icon"><i class="fas fa-code"></i></div>
                     <h3 class="service-title">Digital Solutions</h3>
                     <p class="service-desc">Websites and apps that convert visitors into customers.</p>
+                    <div class="service-price-icon"><i class="fas fa-tag"></i> Budget-friendly</div>
                 </div>
             </div>
             
@@ -304,7 +383,7 @@
     </section>
 
     <!-- ============================================ -->
-    <!-- INVESTMENT SECTION (All 3 Cards) -->
+    <!-- INVESTMENT SECTION (Simplified) -->
     <!-- ============================================ -->
     <section class="payment-section">
         <div class="container">
@@ -316,80 +395,44 @@
             
             <div class="payment-grid">
                 <div class="payment-card">
-                    <div class="payment-badge">FLEXIBLE</div>
-                    <h3>Installment Plan</h3>
-                    <div class="payment-price">₦90,000 <span>× 3</span></div>
-                    <div class="payment-total">Total: ₦270,000</div>
-                    <ul class="payment-features">
-                        <li><i class="fas fa-check"></i> Start with ₦90k</li>
-                        <li><i class="fas fa-check"></i> 0% interest</li>
-                        <li><i class="fas fa-check"></i> Full access from day 1</li>
-                    </ul>
-                    <a href="application.html" class="btn btn-outline">Start Learning →</a>
+                    <div class="payment-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                    <h3>Flexible Payment</h3>
+                    <div class="payment-features-simple">
+                        <p>Start with as low as <strong>₦90,000</strong></p>
+                        <p>Pay over 3 months • 0% interest</p>
+                    </div>
+                    <a href="faq.html" class="btn btn-outline">Learn More →</a>
                 </div>
                 
                 <div class="payment-card featured">
-                    <div class="payment-badge">🎯 BEST VALUE</div>
-                    <h3>One-Time Payment</h3>
-                    <div class="payment-price">₦255,000</div>
-                    <div class="payment-total">Save ₦15,000</div>
-                    <ul class="payment-features">
-                        <li><i class="fas fa-check"></i> Full 12-month access</li>
-                        <li><i class="fas fa-check"></i> Certificate included</li>
-                        <li><i class="fas fa-check"></i> Library pass + Priority support</li>
-                    </ul>
-                    <a href="application.html" class="btn btn-primary">Enroll Now →</a>
+                    <div class="payment-icon"><i class="fas fa-gem"></i></div>
+                    <h3>Best Value</h3>
+                    <div class="payment-features-simple">
+                        <p><strong>Save ₦15,000</strong> with one-time payment</p>
+                        <p>Full 12-month access + Certificate</p>
+                    </div>
+                    <a href="faq.html" class="btn btn-primary">View Details →</a>
                 </div>
                 
                 <div class="payment-card">
-                    <div class="payment-badge">⚡ LIMITED</div>
+                    <div class="payment-icon"><i class="fas fa-clock"></i></div>
                     <h3>Early Bird</h3>
-                    <div class="payment-price">₦237,500</div>
-                    <div class="payment-total">Limited slots only</div>
-                    <ul class="payment-features">
-                        <li><i class="fas fa-check"></i> 5% discount</li>
-                        <li><i class="fas fa-check"></i> Priority admission</li>
-                        <li><i class="fas fa-check"></i> All features included</li>
-                    </ul>
-                    <a href="application.html" class="btn btn-outline">Check Availability →</a>
+                    <div class="payment-features-simple">
+                        <p><strong>5% discount</strong> for early applicants</p>
+                        <p>Limited slots available</p>
+                    </div>
+                    <a href="faq.html" class="btn btn-outline">Check Availability →</a>
                 </div>
             </div>
             
             <div class="payment-note">
-                <i class="fas fa-lock"></i> 100% secure payment. No hidden fees.
+                <i class="fas fa-question-circle"></i> Need more details? <a href="faq.html">Visit our FAQ page →</a>
             </div>
         </div>
     </section>
 
     <!-- ============================================ -->
-    <!-- STATISTICS SECTION (With Background Pattern) -->
-    <!-- ============================================ -->
-    <section class="stats-premium">
-        <div class="stats-pattern-bg"></div>
-        <div class="container">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number counter" data-target="3500">0+</div>
-                    <div class="stat-label">Media Architects Trained</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number counter" data-target="99">0%</div>
-                    <div class="stat-label">Hire Rate</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number counter" data-target="150">0+</div>
-                    <div class="stat-label">Projects Delivered</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number counter" data-target="25">0+</div>
-                    <div class="stat-label">Partner Companies</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ============================================ -->
-    <!-- TESTIMONIALS (All 3 Cards) -->
+    <!-- TESTIMONIAL CAROUSEL -->
     <!-- ============================================ -->
     <section class="testimonials-enhanced">
         <div class="container">
@@ -399,54 +442,59 @@
                 <p class="section-sub">Real stories from real people who transformed their careers.</p>
             </div>
             
-            <div class="testimonials-grid">
-                <div class="testimonial-card">
-                    <div class="testimonial-content">
-                        <i class="fas fa-quote-left"></i>
-                        <p>"I didn't just learn to edit videos — I learned to build the platform that hosts them. Gliimu made me a complete creator."</p>
-                        <div class="testimonial-author">
-                            <img src="photos/finiks.jpg" alt="Finiks" onerror="this.src='https://ui-avatars.com/api/?name=Finiks&background=2c2f78&color=fff'">
-                            <div>
-                                <strong>Finiks Kshel</strong>
-                                <span>Media Producer</span>
+            <div class="testimonial-carousel-container">
+                <button class="testimonial-prev"><i class="fas fa-chevron-left"></i></button>
+                <div class="testimonial-carousel">
+                    <div class="testimonial-track" id="testimonialTrack">
+                        <div class="testimonial-card">
+                            <div class="testimonial-content">
+                                <i class="fas fa-quote-left"></i>
+                                <p>"I didn't just learn to edit videos — I learned to build the platform that hosts them. Gliimu made me a complete creator."</p>
+                                <div class="testimonial-author">
+                                    <img src="photos/finiks.jpg" alt="Finiks">
+                                    <div>
+                                        <strong>Finiks Kshel</strong>
+                                        <span>Media Producer</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="testimonial-card">
+                            <div class="testimonial-content">
+                                <i class="fas fa-quote-left"></i>
+                                <p>"The coding modules were challenging at first, but now I design and build my own projects. Best decision I ever made."</p>
+                                <div class="testimonial-author">
+                                    <img src="photos/stu1.jpg" alt="Edi">
+                                    <div>
+                                        <strong>Edi Edidiong</strong>
+                                        <span>UI/UX Designer</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="testimonial-card">
+                            <div class="testimonial-content">
+                                <i class="fas fa-quote-left"></i>
+                                <p>"Got hired before graduation. The practical experience from real client projects made all the difference."</p>
+                                <div class="testimonial-author">
+                                    <img src="photos/stu2.jpg" alt="Chinedu">
+                                    <div>
+                                        <strong>Chinedu Okafor</strong>
+                                        <span>Full-Stack Developer</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="testimonial-card">
-                    <div class="testimonial-content">
-                        <i class="fas fa-quote-left"></i>
-                        <p>"The coding modules were challenging at first, but now I design and build my own projects. Best decision I ever made."</p>
-                        <div class="testimonial-author">
-                            <img src="photos/stu1.jpg" alt="Edi" onerror="this.src='https://ui-avatars.com/api/?name=Edi&background=8b5cf6&color=fff'">
-                            <div>
-                                <strong>Edi Edidiong</strong>
-                                <span>UI/UX Designer</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="testimonial-card">
-                    <div class="testimonial-content">
-                        <i class="fas fa-quote-left"></i>
-                        <p>"Got hired before graduation. The practical experience from real client projects made all the difference."</p>
-                        <div class="testimonial-author">
-                            <img src="photos/stu2.jpg" alt="Chinedu" onerror="this.src='https://ui-avatars.com/api/?name=Chinedu&background=10b981&color=fff'">
-                            <div>
-                                <strong>Chinedu Okafor</strong>
-                                <span>Full-Stack Developer</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <button class="testimonial-next"><i class="fas fa-chevron-right"></i></button>
             </div>
+            <div class="testimonial-dots" id="testimonialDots"></div>
         </div>
     </section>
 
     <!-- ============================================ -->
-    <!-- PARTNERS SECTION (Original Slider Animation) -->
+    <!-- PARTNERS SECTION -->
     <!-- ============================================ -->
     <section class="partners-section">
         <div class="container">
@@ -484,31 +532,28 @@
         </div>
     </section>
 
-    <!-- Footer Placeholder -->
-    <div id="footer-placeholder"></div>
+    <!-- Copyright Footer -->
+    <footer class="copyright-footer">
+        <div class="container">
+            <p>&copy; 2025 Gliimu Institute of Media Technologies Ltd. All rights reserved.</p>
+        </div>
+    </footer>
 
     <!-- Login Modal Placeholder -->
     <div id="login-modal-placeholder"></div>
 
     <!-- JS Files -->
-    <script src="js/pages/header.js" type="module"></script>
     <script src="js/pages/index.js" type="module"></script>
     
-    <!-- Load Partials -->
+    <!-- Load Login Modal Partial -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            if (document.getElementById('header-placeholder')) {
-                Promise.all([
-                    fetch('partials/header.html').then(r => r.text()),
-                    fetch('partials/footer.html').then(r => r.text()),
-                    fetch('partials/login-modal.html').then(r => r.text())
-                ]).then(results => {
-                    document.getElementById('header-placeholder').innerHTML = results[0];
-                    document.getElementById('footer-placeholder').innerHTML = results[1];
-                    document.getElementById('login-modal-placeholder').innerHTML = results[2];
-                    console.log('Partials loaded');
-                }).catch(err => console.error('Failed to load partials:', err));
-            }
+            fetch('partials/login-modal.html')
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('login-modal-placeholder').innerHTML = html;
+                })
+                .catch(err => console.error('Failed to load login modal:', err));
         });
     </script>
 </body>
