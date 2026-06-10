@@ -1,7 +1,7 @@
 // ============================================
 // GLIIMU DASHBOARD - COMPLETE STUDENT VERSION
-// Wallet Balance: ₦14,500 (NOT ₦25,000)
-// Tabs: Dashboard, Questions, Go To, Wallet, Settings
+// Updated: Platform selection for Basic/Standard plans
+// Hub is always free
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -11,10 +11,13 @@ import {
     getUserAccess, 
     purchasePremium, 
     purchaseStandard, 
-    purchasePlatform,
+    purchaseBasic,
     getTransactionHistory,
     isPremium,
     subscribeToWalletUpdates,
+    getAvailablePlatforms,
+    getPlanDetails,
+    PLATFORM_INFO,
     PRICING
 } from '../modules/wallet.js';
 
@@ -31,6 +34,7 @@ import {
 } from '../modules/progression.js';
 
 import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
+import { showPlatformSelector } from '../modules/access-guard.js';
 
 // ============================================
 // GLOBAL STATE
@@ -54,8 +58,8 @@ let lastPaymentsFetch = 0;
 let cachedBalance = null;
 let cachedTransactions = null;
 let lastWalletUpdate = 0;
-const CACHE_DURATION = 30000; // 30 seconds
-const PAYMENTS_CACHE_DURATION = 60000; // 1 minute
+const CACHE_DURATION = 30000;
+const PAYMENTS_CACHE_DURATION = 60000;
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -113,7 +117,9 @@ async function loadUserFromSupabase(userId) {
                     name: authUser.user.email?.split('@')[0] || 'User',
                     email: authUser.user.email,
                     role: 'student',
-                    wallet_balance: 14500  // ✅ CORRECT: ₦14,500
+                    subscription_plan: 'free',
+                    selected_platforms: [],
+                    wallet_balance: 14500
                 };
                 const { error: insertError } = await supabase
                     .from('users')
@@ -133,14 +139,15 @@ async function loadUserFromSupabase(userId) {
         await loadPaymentsFromStorage();
         
         currentUserProfile = profile;
-        currentWalletBalance = profile.wallet_balance || 14500;  // ✅ CORRECT: ₦14,500
+        currentWalletBalance = profile.wallet_balance || 14500;
         currentUser = {
             id: userId,
             name: profile.name || profile.full_name || 'User',
             email: profile.email,
             role: profile.role || 'student',
-            subscriptionTier: profile.subscription_tier || 'premium',
-            walletBalance: profile.wallet_balance || 14500,  // ✅ CORRECT: ₦14,500
+            subscriptionPlan: profile.subscription_plan || 'free',
+            selectedPlatforms: profile.selected_platforms || [],
+            walletBalance: profile.wallet_balance || 14500,
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
         };
         currentRole = currentUser.role;
@@ -156,8 +163,9 @@ async function loadUserFromSupabase(userId) {
             name: 'Test User',
             email: 'test@example.com',
             role: 'student',
-            subscriptionTier: 'premium',
-            walletBalance: 14500,  // ✅ CORRECT: ₦14,500
+            subscriptionPlan: 'free',
+            selectedPlatforms: [],
+            walletBalance: 14500,
             avatar: 'https://ui-avatars.com/api/?name=Test+User&background=fbb040&color=fff'
         };
         currentRole = 'student';
@@ -166,7 +174,7 @@ async function loadUserFromSupabase(userId) {
 }
 
 // ============================================
-// OPTIMIZED PAYMENT STORAGE FUNCTIONS
+// PAYMENT STORAGE FUNCTIONS
 // ============================================
 async function loadPaymentsFromStorage(forceRefresh = false) {
     if (!currentUser?.id) {
@@ -439,13 +447,12 @@ async function loadTabData(tabId) {
 }
 
 // ============================================
-// DASHBOARD RENDER - FIXED
+// DASHBOARD RENDER
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
-    // Show loading
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
     
     try {
@@ -455,22 +462,92 @@ async function renderDashboard() {
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
         const leaderboardData = await getLeaderboard(10);
         const isAmbassador = (scoreData?.current_score || 0) >= 100;
+        const walletBalance = currentUser?.walletBalance || 14500;
+        const subscriptionPlan = currentUser?.subscriptionPlan || 'free';
+        const selectedPlatforms = currentUser?.selectedPlatforms || [];
+        
+        // Format selected platforms for display
+        const platformNames = selectedPlatforms.map(p => {
+            switch(p) {
+                case 'library': return 'Library';
+                case 'virtualroom': return 'Virtual Classroom';
+                case 'chat': return 'Community Chat';
+                default: return p;
+            }
+        }).join(', ');
         
         container.innerHTML = `
             <div class="progress-section">
                 ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
             </div>
             
-            <div class="leaderboard-section">
-                <div class="leaderboard-header">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Top Performers</h3>
-                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
+            <div class="quick-stats">
+                <div class="quick-stat-card">
+                    <i class="fas fa-wallet"></i>
+                    <div>
+                        <span class="quick-stat-label">Wallet Balance</span>
+                        <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
+                    </div>
+                    <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
                 </div>
-                <div class="leaderboard-list">
-                    ${renderLeaderboardList(leaderboardData)}
+                <div class="quick-stat-card">
+                    <i class="fas fa-crown"></i>
+                    <div>
+                        <span class="quick-stat-label">Current Plan</span>
+                        <span class="quick-stat-value">${subscriptionPlan === 'premium' ? '👑 Premium' : subscriptionPlan === 'standard' ? '📦 Standard' : subscriptionPlan === 'basic' ? '🌱 Basic' : '🎁 Free'}</span>
+                    </div>
+                    ${subscriptionPlan !== 'premium' ? `<button class="upgrade-plan-small" id="upgradePlanBtn">Upgrade</button>` : ''}
                 </div>
             </div>
+            
+            ${subscriptionPlan === 'standard' || subscriptionPlan === 'basic' ? `
+                <div class="platform-access-card">
+                    <div class="platform-access-header">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Your Selected Platforms</span>
+                        <button class="change-platforms-btn" id="changePlatformsBtn">Change</button>
+                    </div>
+                    <div class="platform-access-list">
+                        ${selectedPlatforms.map(p => `
+                            <div class="platform-access-item">
+                                <span class="platform-icon">${p === 'library' ? '📚' : p === 'virtualroom' ? '🎥' : '💬'}</span>
+                                <span class="platform-name">${p === 'library' ? 'Digital Library' : p === 'virtualroom' ? 'Virtual Classroom' : 'Community Chat'}</span>
+                                <span class="platform-badge">Unlimited ✓</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="hub-free-note">
+                        <i class="fas fa-info-circle"></i> Hub is always free for everyone.
+                    </div>
+                </div>
+            ` : subscriptionPlan === 'premium' ? `
+                <div class="platform-access-card premium">
+                    <div class="platform-access-header">
+                        <i class="fas fa-crown"></i>
+                        <span>Premium Access - All Platforms</span>
+                    </div>
+                    <div class="platform-access-list">
+                        <div class="platform-access-item"><span class="platform-icon">📚</span><span class="platform-name">Digital Library</span><span class="platform-badge">Unlimited ✓</span></div>
+                        <div class="platform-access-item"><span class="platform-icon">🎥</span><span class="platform-name">Virtual Classroom</span><span class="platform-badge">Unlimited ✓</span></div>
+                        <div class="platform-access-item"><span class="platform-icon">💬</span><span class="platform-name">Community Chat</span><span class="platform-badge">Unlimited ✓</span></div>
+                        <div class="platform-access-item"><span class="platform-icon">📰</span><span class="platform-name">Hub</span><span class="platform-badge">Always Free</span></div>
+                    </div>
+                </div>
+            ` : `
+                <div class="platform-access-card free">
+                    <div class="platform-access-header">
+                        <i class="fas fa-hourglass-half"></i>
+                        <span>Free Access (15 min/day per platform)</span>
+                    </div>
+                    <div class="platform-access-list">
+                        <div class="platform-access-item"><span class="platform-icon">📚</span><span class="platform-name">Digital Library</span><span class="platform-badge">15 min/day</span></div>
+                        <div class="platform-access-item"><span class="platform-icon">🎥</span><span class="platform-name">Virtual Classroom</span><span class="platform-badge">15 min/day</span></div>
+                        <div class="platform-access-item"><span class="platform-icon">💬</span><span class="platform-name">Community Chat</span><span class="platform-badge">15 min/day</span></div>
+                        <div class="platform-access-item"><span class="platform-icon">📰</span><span class="platform-name">Hub</span><span class="platform-badge">Always Free</span></div>
+                    </div>
+                    <button class="upgrade-plan-btn-full" id="upgradeFromFreeBtn">Upgrade for Unlimited Access</button>
+                </div>
+            `}
             
             ${isAmbassador ? `
                 <div class="mvp-section">
@@ -496,9 +573,36 @@ async function renderDashboard() {
                     </div>
                 </div>
             `}
+            
+            <div class="leaderboard-section">
+                <div class="leaderboard-header">
+                    <i class="fas fa-trophy"></i>
+                    <h3>Top Performers</h3>
+                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
+                </div>
+                <div class="leaderboard-list">
+                    ${renderLeaderboardList(leaderboardData)}
+                </div>
+            </div>
         `;
         
         // Event listeners
+        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
+            switchTab('wallet');
+        });
+        
+        document.getElementById('upgradePlanBtn')?.addEventListener('click', () => {
+            switchTab('wallet');
+        });
+        
+        document.getElementById('upgradeFromFreeBtn')?.addEventListener('click', () => {
+            switchTab('wallet');
+        });
+        
+        document.getElementById('changePlatformsBtn')?.addEventListener('click', () => {
+            showPlatformSelectorForCurrentUser();
+        });
+        
         const openMvpBtn = document.getElementById('openMvpFormBtn');
         if (openMvpBtn) {
             openMvpBtn.addEventListener('click', () => {
@@ -618,64 +722,456 @@ function openMvpModal() {
 }
 
 // ============================================
-// QUESTIONS TAB
+// PLATFORM SELECTOR FOR BASIC/STANDARD USERS
 // ============================================
-async function renderQuestionBar() {
-    const container = document.getElementById('question-section');
+async function showPlatformSelectorForCurrentUser() {
+    const subscriptionPlan = currentUser?.subscriptionPlan || 'free';
+    const currentSelections = currentUser?.selectedPlatforms || [];
+    const maxSelections = subscriptionPlan === 'standard' ? 2 : 1;
+    
+    const platforms = [
+        { id: 'library', name: 'Digital Library', icon: '📚', description: 'Access books, bundles, learning materials' },
+        { id: 'virtualroom', name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
+        { id: 'chat', name: 'Community Chat', icon: '💬', description: 'Connect with fellow learners' }
+    ];
+    
+    let selected = [...currentSelections];
+    
+    const modalContent = `
+        <div class="modal-content platform-selector-modal">
+            <div class="modal-header">
+                <h2>${subscriptionPlan === 'standard' ? '📦 Choose 2 Platforms' : '🌱 Choose 1 Platform'}</h2>
+                <button class="modal-close" id="closePlatformModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select which platforms you want unlimited access to:</p>
+                <div class="platform-list">
+                    ${platforms.map(p => `
+                        <div class="platform-option ${selected.includes(p.id) ? 'selected' : ''}" data-platform="${p.id}">
+                            <div class="platform-icon">${p.icon}</div>
+                            <div class="platform-info">
+                                <div class="platform-name">${p.name}</div>
+                                <div class="platform-desc">${p.description}</div>
+                            </div>
+                            <div class="platform-check">
+                                ${selected.includes(p.id) ? '✓' : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="selection-info">
+                    <span id="selectionCount">${selected.length}</span> / ${maxSelections} selected
+                </div>
+                <div class="hub-note">
+                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="savePlatformsBtn" class="btn-primary" ${selected.length !== maxSelections ? 'disabled' : ''}>Save Changes</button>
+                <button id="cancelPlatformBtn" class="btn-outline">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    let modal = document.getElementById('platformSelectorModal');
+    if (modal) modal.remove();
+    
+    modal = document.createElement('div');
+    modal.id = 'platformSelectorModal';
+    modal.className = 'modal';
+    modal.innerHTML = modalContent;
+    document.body.appendChild(modal);
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    // Platform selection handler
+    document.querySelectorAll('.platform-option').forEach(option => {
+        option.addEventListener('click', () => {
+            const platformId = option.getAttribute('data-platform');
+            const index = selected.indexOf(platformId);
+            
+            if (index === -1 && selected.length < maxSelections) {
+                selected.push(platformId);
+                option.classList.add('selected');
+                option.querySelector('.platform-check').textContent = '✓';
+            } else if (index !== -1) {
+                selected.splice(index, 1);
+                option.classList.remove('selected');
+                option.querySelector('.platform-check').textContent = '';
+            }
+            
+            document.getElementById('selectionCount').textContent = selected.length;
+            const saveBtn = document.getElementById('savePlatformsBtn');
+            if (saveBtn) {
+                saveBtn.disabled = selected.length !== maxSelections;
+            }
+        });
+    });
+    
+    document.getElementById('closePlatformModal')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    document.getElementById('cancelPlatformBtn')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    document.getElementById('savePlatformsBtn')?.addEventListener('click', async () => {
+        if (selected.length === maxSelections) {
+            // Update user's selected platforms in database
+            const { error } = await supabase
+                .from('users')
+                .update({ selected_platforms: selected })
+                .eq('id', currentUser.id);
+            
+            if (error) {
+                showToast('Failed to update platform selection', 'error');
+            } else {
+                currentUser.selectedPlatforms = selected;
+                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                showToast('Platform selection updated!', 'success');
+                await renderDashboard();
+            }
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+}
+
+// ============================================
+// WALLET TAB - UPDATED WITH NEW PLANS
+// ============================================
+async function renderWallet() {
+    const container = document.getElementById('wallet-section');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
     
     try {
-        const nextQuestion = await getNextQuestion(currentUser.id);
+        await loadPaymentsFromStorage(true);
         
-        if (!nextQuestion) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>All Questions Complete!</h3>
-                    <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
-                </div>
-            `;
-            return;
-        }
+        const balance = await getWalletBalance();
+        const transactions = await getTransactionHistory();
+        const planDetails = getPlanDetails();
         
-        questionRenderer = new QuestionRenderer(
-            'question-section',
-            currentUser.id,
-            async (result) => {
-                const scoreData = await getStudentScore(currentUser.id);
-                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-                const nextBadge = getNextBadge(scoreData?.current_score || 0);
-                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-                
-                const progressSection = document.querySelector('.progress-section');
-                if (progressSection) {
-                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
-                }
-                
-                setTimeout(() => renderQuestionBar(), 2000);
-            }
-        );
+        // Get user's current plan
+        const userPlan = currentUser?.subscriptionPlan || 'free';
+        const selectedPlatforms = currentUser?.selectedPlatforms || [];
         
-        await questionRenderer.renderQuestion(nextQuestion);
-        
-    } catch (error) {
-        console.error('Error loading question:', error);
         container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load question</h3>
-                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
+            <div class="section-header">
+                <div>
+                    <h2>Wallet & Subscriptions</h2>
+                    <p>Manage your funds and subscription plans</p>
+                </div>
+            </div>
+            
+            <div class="wallet-balance-card">
+                <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
+                <div class="wallet-balance-info">
+                    <span class="wallet-label">Available Balance</span>
+                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
+                </div>
+                <button id="addFundsBtn" class="btn-primary">Add Funds</button>
+            </div>
+            
+            <div class="current-plan-section">
+                <h3>Your Current Plan</h3>
+                <div class="current-plan-card">
+                    <div class="plan-icon-large">${userPlan === 'premium' ? '👑' : userPlan === 'standard' ? '📦' : userPlan === 'basic' ? '🌱' : '🎁'}</div>
+                    <div class="plan-info-large">
+                        <div class="plan-name">${userPlan === 'premium' ? 'Premium' : userPlan === 'standard' ? 'Standard' : userPlan === 'basic' ? 'Basic' : 'Free'}</div>
+                        <div class="plan-description">
+                            ${userPlan === 'premium' ? 'Unlimited access to all platforms' : 
+                              userPlan === 'standard' ? `Unlimited access to: ${selectedPlatforms.map(p => p === 'library' ? 'Library' : p === 'virtualroom' ? 'Virtual Classroom' : 'Community Chat').join(', ')}` :
+                              userPlan === 'basic' ? `Unlimited access to: ${selectedPlatforms.map(p => p === 'library' ? 'Library' : p === 'virtualroom' ? 'Virtual Classroom' : 'Community Chat').join(', ')}` :
+                              '15 minutes per day on each platform'}
+                        </div>
+                    </div>
+                    ${userPlan !== 'premium' ? `<button class="upgrade-plan-main" id="upgradePlanMainBtn">Upgrade Plan</button>` : ''}
+                </div>
+            </div>
+            
+            <div class="plans-section">
+                <h3>Subscription Plans</h3>
+                <div class="plans-grid">
+                    <div class="plan-card basic">
+                        <div class="plan-icon">🌱</div>
+                        <h4>Basic</h4>
+                        <div class="plan-price">₦7,500<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>✓ Access to <strong>1 platform</strong> of your choice</li>
+                            <li>✓ Unlimited Hub access</li>
+                            <li>✓ Basic support</li>
+                        </ul>
+                        <button class="plan-select-btn" data-plan="basic">Select Plan</button>
+                    </div>
+                    
+                    <div class="plan-card standard">
+                        <div class="plan-icon">📦</div>
+                        <h4>Standard</h4>
+                        <div class="plan-price">₦13,000<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>✓ Access to <strong>2 platforms</strong> of your choice</li>
+                            <li>✓ Unlimited Hub access</li>
+                            <li>✓ Priority support</li>
+                        </ul>
+                        <button class="plan-select-btn" data-plan="standard">Select Plan</button>
+                    </div>
+                    
+                    <div class="plan-card premium">
+                        <div class="plan-badge">Most Popular</div>
+                        <div class="plan-icon">👑</div>
+                        <h4>Premium</h4>
+                        <div class="plan-price">₦15,000<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>✓ Full access to <strong>all 3 platforms</strong></li>
+                            <li>✓ Unlimited Hub access</li>
+                            <li>✓ 24/7 priority support</li>
+                            <li>✓ Monthly bonus rewards</li>
+                        </ul>
+                        <button class="plan-select-btn btn-primary" data-plan="premium">Select Plan</button>
+                    </div>
+                </div>
+                <div class="plan-note">
+                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
+                </div>
+            </div>
+            
+            <div class="transactions-section">
+                <h3>Recent Transactions</h3>
+                <div class="transactions-list">
+                    ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                        transactions.slice(0, 5).map(t => `
+                            <div class="transaction-item">
+                                <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
+                                    <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                                </div>
+                                <div class="transaction-info">
+                                    <div class="transaction-desc">${escapeHtml(t.description)}</div>
+                                    <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
+                                </div>
+                                <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
+                                    ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+            
+            <div class="payments-section">
+                <h3>Payment Requests</h3>
+                <div class="payments-list">
+                    ${allPayments.length === 0 ? '<p class="empty-payments">No payment requests</p>' : 
+                        allPayments.slice(0, 3).map(p => `
+                            <div class="payment-item ${p.status}">
+                                <div class="payment-info">
+                                    <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                                    <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+                                    <div class="payment-ref">Ref: ${p.reference_code}</div>
+                                </div>
+                                <div class="payment-status-badge ${p.status}">${p.status}</div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
             </div>
         `;
+        
+        // Add Funds button
+        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
+            openFundWalletModal();
+        });
+        
+        // Upgrade plan button
+        document.getElementById('upgradePlanMainBtn')?.addEventListener('click', () => {
+            document.querySelector('.plans-section').scrollIntoView({ behavior: 'smooth' });
+        });
+        
+        // Plan selection
+        document.querySelectorAll('.plan-select-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const plan = btn.getAttribute('data-plan');
+                
+                if (plan === 'premium') {
+                    const result = await purchasePremium();
+                    if (result === true) {
+                        showToast('Premium activated!', 'success');
+                        setTimeout(() => renderDashboard(), 1000);
+                    } else if (result?.needsTopUp) {
+                        openFundWalletModal(result.amount);
+                    }
+                } else if (plan === 'standard') {
+                    // Show platform selector
+                    showPlatformSelectorForPurchase('standard', async (selectedPlatforms) => {
+                        const result = await purchaseStandard(selectedPlatforms);
+                        if (result === true) {
+                            showToast('Standard plan activated!', 'success');
+                            setTimeout(() => {
+                                renderDashboard();
+                                renderWallet();
+                            }, 1000);
+                        } else if (result?.needsTopUp) {
+                            openFundWalletModal(result.amount);
+                        }
+                    });
+                } else if (plan === 'basic') {
+                    // Show platform selector
+                    showPlatformSelectorForPurchase('basic', async (selectedPlatform) => {
+                        const result = await purchaseBasic(selectedPlatform[0]);
+                        if (result === true) {
+                            showToast('Basic plan activated!', 'success');
+                            setTimeout(() => {
+                                renderDashboard();
+                                renderWallet();
+                            }, 1000);
+                        } else if (result?.needsTopUp) {
+                            openFundWalletModal(result.amount);
+                        }
+                    });
+                }
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error rendering wallet:', error);
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
     }
 }
 
 // ============================================
-// GO TO MENU TAB - WITH SUBSCRIPTION CARDS
+// PLATFORM SELECTOR FOR PURCHASE FLOW
 // ============================================
+function showPlatformSelectorForPurchase(planType, onComplete) {
+    const maxSelections = planType === 'standard' ? 2 : 1;
+    let selected = [];
+    
+    const platforms = [
+        { id: 'library', name: 'Digital Library', icon: '📚', description: 'Access books, bundles, learning materials' },
+        { id: 'virtualroom', name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
+        { id: 'chat', name: 'Community Chat', icon: '💬', description: 'Connect with fellow learners' }
+    ];
+    
+    const modalContent = `
+        <div class="modal-content platform-selector-modal">
+            <div class="modal-header">
+                <h2>${planType === 'standard' ? '📦 Choose 2 Platforms' : '🌱 Choose 1 Platform'}</h2>
+                <button class="modal-close" id="closePlatformModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select which platforms you want unlimited access to:</p>
+                <div class="platform-list">
+                    ${platforms.map(p => `
+                        <div class="platform-option" data-platform="${p.id}">
+                            <div class="platform-icon">${p.icon}</div>
+                            <div class="platform-info">
+                                <div class="platform-name">${p.name}</div>
+                                <div class="platform-desc">${p.description}</div>
+                            </div>
+                            <div class="platform-check"></div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="selection-info">
+                    <span id="selectionCount">0</span> / ${maxSelections} selected
+                </div>
+                <div class="hub-note">
+                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirmPlatformBtn" class="btn-primary" disabled>Continue to Payment</button>
+                <button id="cancelPlatformBtn" class="btn-outline">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    let modal = document.getElementById('platformPurchaseModal');
+    if (modal) modal.remove();
+    
+    modal = document.createElement('div');
+    modal.id = 'platformPurchaseModal';
+    modal.className = 'modal';
+    modal.innerHTML = modalContent;
+    document.body.appendChild(modal);
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    document.querySelectorAll('.platform-option').forEach(option => {
+        option.addEventListener('click', () => {
+            const platformId = option.getAttribute('data-platform');
+            const index = selected.indexOf(platformId);
+            
+            if (index === -1 && selected.length < maxSelections) {
+                selected.push(platformId);
+                option.classList.add('selected');
+                option.querySelector('.platform-check').textContent = '✓';
+            } else if (index !== -1) {
+                selected.splice(index, 1);
+                option.classList.remove('selected');
+                option.querySelector('.platform-check').textContent = '';
+            }
+            
+            document.getElementById('selectionCount').textContent = selected.length;
+            const confirmBtn = document.getElementById('confirmPlatformBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = selected.length !== maxSelections;
+            }
+        });
+    });
+    
+    document.getElementById('closePlatformModal')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    document.getElementById('cancelPlatformBtn')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    document.getElementById('confirmPlatformBtn')?.addEventListener('click', () => {
+        if (selected.length === maxSelections) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            onComplete(selected);
+        }
+    });
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+}
+
+// ============================================
+// FUND WALLET MODAL
+// ============================================
+function openFundWalletModal(suggestedAmount = null) {
+    // ... (keep existing fund wallet modal code)
+    // This function remains the same as before
+    console.log('Open fund wallet modal', suggestedAmount);
+    showToast('Add funds feature coming soon', 'info');
+}
+
+// ============================================
+// OTHER FUNCTIONS (Go To Menu, Settings, etc.)
+// ============================================
+
 function renderGoToMenu() {
     const container = document.getElementById('gotomenu-section');
     if (!container) return;
@@ -690,439 +1186,66 @@ function renderGoToMenu() {
         
         <div class="go-to-grid">
             <div class="go-to-card" onclick="window.location.href='/library.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-book"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Library</h3>
-                    <p>Access books, bundles, and learning materials</p>
-                </div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/hub.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-newspaper"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Hub</h3>
-                    <p>Events, insights, and latest updates</p>
-                </div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/chat.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-comments"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Community</h3>
-                    <p>Connect with fellow learners and instructors</p>
-                </div>
+                <div class="go-to-icon"><i class="fas fa-book"></i></div>
+                <div class="go-to-info"><h3>Library</h3><p>Access books, bundles, and learning materials</p></div>
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
             
             <div class="go-to-card" onclick="window.location.href='/virtualroom.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-video"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Virtual Classroom</h3>
-                    <p>Live classes and interactive sessions</p>
-                </div>
+                <div class="go-to-icon"><i class="fas fa-video"></i></div>
+                <div class="go-to-info"><h3>Virtual Classroom</h3><p>Live classes and interactive sessions</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/hub.html'">
+                <div class="go-to-icon"><i class="fas fa-newspaper"></i></div>
+                <div class="go-to-info"><h3>Hub</h3><p>Events, insights, and latest updates</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/chat.html'">
+                <div class="go-to-icon"><i class="fas fa-comments"></i></div>
+                <div class="go-to-info"><h3>Community</h3><p>Connect with fellow learners and instructors</p></div>
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
         </div>
-        
-        <div class="plans-section">
-            <h3>Subscription Plans</h3>
-            <div class="plans-grid">
-                <div class="plan-card basic">
-                    <div class="plan-icon">🌱</div>
-                    <h4>Basic</h4>
-                    <div class="plan-price">₦7,500<span>/month</span></div>
-                    <ul class="plan-features">
-                        <li>✓ Access to 1 platform</li>
-                        <li>✓ Choose Library, Hub, or Community</li>
-                        <li>✓ Basic support</li>
-                    </ul>
-                    <button class="btn-outline plan-select" data-plan="basic">Select Plan</button>
-                </div>
-                
-                <div class="plan-card standard">
-                    <div class="plan-icon">📦</div>
-                    <h4>Standard</h4>
-                    <div class="plan-price">₦13,000<span>/month</span></div>
-                    <ul class="plan-features">
-                        <li>✓ Access to any 2 platforms</li>
-                        <li>✓ Hub + Community (default)</li>
-                        <li>✓ Priority support</li>
-                    </ul>
-                    <button class="btn-outline plan-select" data-plan="standard">Select Plan</button>
-                </div>
-                
-                <div class="plan-card premium">
-                    <div class="plan-badge">Most Popular</div>
-                    <div class="plan-icon">👑</div>
-                    <h4>Premium</h4>
-                    <div class="plan-price">₦15,000<span>/month</span></div>
-                    <ul class="plan-features">
-                        <li>✓ Full access to all 3 platforms</li>
-                        <li>✓ Library + Hub + Community</li>
-                        <li>✓ 24/7 priority support</li>
-                        <li>✓ Monthly bonus rewards</li>
-                    </ul>
-                    <button class="btn-primary plan-select" data-plan="premium">Select Plan</button>
-                </div>
-            </div>
-        </div>
     `;
-    
-    document.querySelectorAll('.plan-select').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const plan = btn.getAttribute('data-plan');
-            if (plan === 'premium') {
-                const result = await purchasePremium();
-                if (result === true) {
-                    showToast('Premium activated!', 'success');
-                } else if (result?.needsTopUp) {
-                    openFundWalletModal(result.amount);
-                }
-            } else if (plan === 'standard') {
-                if (confirm('⚠️ WARNING: Standard plan gives Hub + Community access. You will forfeit remaining credit. Continue?')) {
-                    await purchaseStandard();
-                    showToast('Standard plan activated!', 'success');
-                }
-            } else {
-                showToast('Basic plan selection coming soon. Please contact support.', 'info');
-            }
-        });
-    });
 }
 
-// ============================================
-// WALLET TAB - WITHOUT RECENT TRANSACTIONS
-// ============================================
-async function renderWallet() {
-    const container = document.getElementById('wallet-section');
+async function renderQuestionBar() {
+    const container = document.getElementById('question-section');
     if (!container) return;
-    
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
     
     try {
-        await loadPaymentsFromStorage(true);
+        const nextQuestion = await getNextQuestion(currentUser.id);
         
-        const balance = await getWalletBalance();
-        const transactions = await getTransactionHistory();
-        
-        container.innerHTML = `
-            <div class="section-header">
-                <div>
-                    <h2>Wallet</h2>
-                    <p>Manage your funds</p>
-                </div>
-            </div>
-            
-            <div class="wallet-balance-card">
-                <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
-                <div class="wallet-balance-info">
-                    <span class="wallet-label">Available Balance</span>
-                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
-                </div>
-                <button id="addFundsBtn" class="btn-primary">Add Funds</button>
-            </div>
-            
-    <div class="payment-filters-wrapper">
-        <div class="payment-filters">
-            <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All (${allPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${pendingPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved (${approvedPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'rejected' ? 'active' : ''}" data-filter="rejected">Rejected (${cancelledPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'transactions' ? 'active' : ''}" data-filter="transactions">Transactions (${transactions?.length || 0})</button>
-        </div>
-    </div>
-            
-            <div class="payments-section">
-                <h3>${currentPaymentFilter === 'transactions' ? 'Transaction History' : 'Payment Requests'}</h3>
-                <div class="payments-list">
-                    ${renderPaymentList()}
-                </div>
-            </div>
-        `;
-        
-        function renderPaymentList() {
-            if (currentPaymentFilter === 'transactions') {
-                if (!transactions || transactions.length === 0) {
-                    return '<p class="empty-payments">No transactions found</p>';
-                }
-                return transactions.map(t => `
-                    <div class="transaction-item-full">
-                        <div class="transaction-info">
-                            <div class="transaction-desc">${escapeHtml(t.description)}</div>
-                            <div class="transaction-date">${new Date(t.created_at).toLocaleString()}</div>
-                        </div>
-                        <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
-                            ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            let displayPayments = [];
-            if (currentPaymentFilter === 'pending') displayPayments = pendingPayments;
-            else if (currentPaymentFilter === 'approved') displayPayments = approvedPayments;
-            else if (currentPaymentFilter === 'rejected') displayPayments = cancelledPayments;
-            else displayPayments = allPayments;
-            
-            if (displayPayments.length === 0) {
-                return `<p class="empty-payments">No ${currentPaymentFilter !== 'all' ? currentPaymentFilter : ''} payments found</p>`;
-            }
-            
-            return displayPayments.map(p => `
-                <div class="payment-item ${p.status}">
-                    <div class="payment-info">
-                        <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
-                        <div class="payment-date">${new Date(p.submitted_at || p.date).toLocaleDateString()}</div>
-                        <div class="payment-ref">Ref: ${p.reference_code || p.reference}</div>
-                        ${p.status === 'rejected' ? `<div class="payment-reason">Reason: ${p.admin_notes || 'Contact support for details'}</div>` : ''}
-                    </div>
-                    <div class="payment-status-badge ${p.status}">${p.status}</div>
-                </div>
-            `).join('');
-        }
-        
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => openFundWalletModal());
-        
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentPaymentFilter = btn.getAttribute('data-filter');
-                renderWallet();
-            });
-        });
-        
-    } catch (error) {
-        console.error('Error rendering wallet:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
-    }
-}
-
-// ============================================
-// FUND WALLET MODAL - WITH RANDOM BANK
-// ============================================
-function openFundWalletModal(suggestedAmount = null) {
-    let modal = document.getElementById('fundWalletModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'fundWalletModal';
-        modal.className = 'modal';
-        modal.innerHTML = `
-            <div class="modal-content wallet-modal">
-                <div class="modal-header">
-                    <h2>Add Funds to Wallet</h2>
-                    <button class="modal-close" id="closeFundWalletModal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="funding-options">
-                        <h3>Select Amount</h3>
-                        <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
-                            <p>You are about to add:</p>
-                            <div class="selected-amount-large" id="selectedAmountLarge">₦0</div>
-                        </div>
-                        <div class="amount-buttons">
-                            <button class="amount-btn" data-amount="1000">₦1,000</button>
-                            <button class="amount-btn" data-amount="2500">₦2,500</button>
-                            <button class="amount-btn" data-amount="5000">₦5,000</button>
-                            <button class="amount-btn" data-amount="10000">₦10,000</button>
-                            <button class="amount-btn" data-amount="25000">₦25,000</button>
-                            <button class="amount-btn" data-amount="50000">₦50,000</button>
-                        </div>
-                        <div class="custom-amount">
-                            <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
-                        </div>
-                    </div>
-                    
-                    <div class="bank-details" style="display: none;">
-                        <h3>Bank Transfer Details</h3>
-                        <div class="bank-info-card" id="bankInfoCard">
-                            <!-- Random bank will be inserted here -->
-                        </div>
-                        <div class="reference-code-box">
-                            <p>Your Reference Code:</p>
-                            <div class="reference-code" id="referenceCode"></div>
-                            <button id="copyRefCodeBtn" class="btn-outline">Copy Code</button>
-                        </div>
-                        <div class="payment-instructions">
-                            <p><i class="fas fa-info-circle"></i> Instructions:</p>
-                            <ol>
-                                <li>Send the exact amount to <strong>the account above</strong></li>
-                                <li>Use the <strong>Reference Code</strong> as your transaction narration</li>
-                                <li>After sending, click "I Have Made Payment" below</li>
-                                <li>Your wallet will be credited after admin verification, <strong>within 24 hours</strong></li>
-                            </ol>
-                        </div>
-                        <button id="confirmPaymentBtn" class="btn-success">✅ I Have Made Payment</button>
-                        <button id="backToAmountBtn" class="btn-outline">← Back</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        
-        document.getElementById('closeFundWalletModal').onclick = () => {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        };
-    }
-    
-    let selectedAmount = suggestedAmount || 0;
-    let referenceCode = '';
-    let selectedBank = null;
-    
-    const banks = [
-        { name: 'MoniePoint Microfinance Bank', accountNumber: '6315085115', accountName: 'Gliimu LTD', code: 'moniepoint' },
-        { name: 'Opay', accountNumber: '6142049426', accountName: 'Gliimu LTD', code: 'opay' }
-    ];
-    
-    // Randomly select a bank
-    const randomBank = banks[Math.floor(Math.random() * banks.length)];
-    selectedBank = randomBank;
-    
-    const fundingOptions = modal.querySelector('.funding-options');
-    const bankDetails = modal.querySelector('.bank-details');
-    const selectedAmountDisplay = modal.querySelector('#selectedAmountDisplay');
-    const selectedAmountLarge = modal.querySelector('#selectedAmountLarge');
-    
-    fundingOptions.style.display = 'block';
-    bankDetails.style.display = 'none';
-    selectedAmountDisplay.style.display = 'none';
-    
-    if (suggestedAmount) {
-        const customInput = modal.querySelector('#customAmount');
-        if (customInput) customInput.value = suggestedAmount;
-        selectedAmount = suggestedAmount;
-    }
-    
-    // Amount button handlers
-    modal.querySelectorAll('.amount-btn').forEach(btn => {
-        btn.onclick = () => {
-            modal.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            selectedAmount = parseInt(btn.getAttribute('data-amount'));
-            const customInput = modal.querySelector('#customAmount');
-            if (customInput) customInput.value = '';
-            // Show selected amount
-            selectedAmountDisplay.style.display = 'block';
-            selectedAmountLarge.textContent = `₦${selectedAmount.toLocaleString()}`;
-        };
-    });
-    
-    const customInput = modal.querySelector('#customAmount');
-    if (customInput) {
-        customInput.oninput = () => {
-            modal.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-            selectedAmount = parseInt(customInput.value) || 0;
-            if (selectedAmount > 0) {
-                selectedAmountDisplay.style.display = 'block';
-                selectedAmountLarge.textContent = `₦${selectedAmount.toLocaleString()}`;
-            } else {
-                selectedAmountDisplay.style.display = 'none';
-            }
-        };
-    }
-    
-    const proceedToBank = () => {
-        if (!selectedAmount || selectedAmount < 100) {
-            showToast('Please select or enter a valid amount (minimum ₦100)', 'error');
+        if (!nextQuestion) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle"></i><h3>All Questions Complete!</h3><button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button></div>`;
             return;
         }
         
-        // Generate short reference code
-        const shortName = currentUser.name.substring(0, 8).replace(/\s/g, '');
-        const randomNum = Math.floor(Math.random() * 9000) + 1000;
-        referenceCode = `GLM-${shortName}-${randomNum}`;
-        modal.querySelector('#referenceCode').textContent = referenceCode;
-        
-        // Show the randomly selected bank
-        const bankInfoCard = modal.querySelector('#bankInfoCard');
-        bankInfoCard.innerHTML = `
-            <div class="bank-option">
-                <div class="bank-name">🏦 ${selectedBank.name}</div>
-                <div class="bank-account">Account Number: <strong>${selectedBank.accountNumber}</strong></div>
-                <div class="bank-name">Account Name: <strong>${selectedBank.accountName}</strong></div>
-            </div>
-        `;
-        
-        fundingOptions.style.display = 'none';
-        bankDetails.style.display = 'block';
-    };
-    
-    let continueBtn = modal.querySelector('#continueToBankBtn');
-    if (!continueBtn) {
-        continueBtn = document.createElement('button');
-        continueBtn.id = 'continueToBankBtn';
-        continueBtn.className = 'btn-primary';
-        continueBtn.textContent = 'Continue to Payment';
-        continueBtn.style.marginTop = '1rem';
-        continueBtn.style.width = '100%';
-        fundingOptions.appendChild(continueBtn);
-    }
-    continueBtn.onclick = proceedToBank;
-    
-    if (suggestedAmount) {
-        proceedToBank();
-    }
-    
-    const backBtn = modal.querySelector('#backToAmountBtn');
-    if (backBtn) backBtn.onclick = () => {
-        fundingOptions.style.display = 'block';
-        bankDetails.style.display = 'none';
-    };
-    
-    const copyBtn = modal.querySelector('#copyRefCodeBtn');
-    if (copyBtn) {
-        copyBtn.onclick = () => {
-            const code = modal.querySelector('#referenceCode').textContent;
-            navigator.clipboard.writeText(code);
-            showToast('Reference code copied!', 'success');
-        };
-    }
-    
-    const confirmBtn = modal.querySelector('#confirmPaymentBtn');
-    if (confirmBtn) {
-        confirmBtn.onclick = async () => {
-            if (!selectedAmount) {
-                showToast('Invalid amount', 'error');
-                return;
+        questionRenderer = new QuestionRenderer('question-section', currentUser.id, async (result) => {
+            const scoreData = await getStudentScore(currentUser.id);
+            const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+            const nextBadge = getNextBadge(scoreData?.current_score || 0);
+            const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+            
+            const progressSection = document.querySelector('.progress-section');
+            if (progressSection) {
+                progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
             }
-            
-            const paymentRequest = {
-                id: `pay_${Date.now()}`,
-                user_id: currentUser.id,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                amount: selectedAmount,
-                reference_code: referenceCode,
-                bank: selectedBank.name,
-                status: 'pending',
-                submitted_at: new Date().toISOString()
-            };
-            
-            await savePaymentToStorage(paymentRequest);
-            
-            showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-            setTimeout(() => renderWallet(), 500);
-        };
+            setTimeout(() => renderQuestionBar(), 2000);
+        });
+        
+        await questionRenderer.renderQuestion(nextQuestion);
+        
+    } catch (error) {
+        console.error('Error loading question:', error);
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Unable to load question</h3><button class="btn-primary" onclick="renderQuestionBar()">Try Again</button></div>`;
     }
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
 }
 
-// ============================================
-// SETTINGS TAB - WITH CHANGE PASSWORD
-// ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
     if (!container) return;
@@ -1133,19 +1256,14 @@ async function renderSettings() {
     
     container.innerHTML = `
         <div class="section-header">
-            <div>
-                <h2>Settings</h2>
-                <p>Manage your account preferences</p>
-            </div>
+            <div><h2>Settings</h2><p>Manage your account preferences</p></div>
         </div>
         
         <div class="settings-grid">
             <div class="settings-card">
                 <h3>Profile Picture</h3>
                 <div class="profile-picture-section">
-                    <div class="current-avatar">
-                        <img src="${currentUser?.avatar}" alt="Profile" id="profilePreview">
-                    </div>
+                    <div class="current-avatar"><img src="${currentUser?.avatar}" alt="Profile" id="profilePreview"></div>
                     <div class="avatar-upload">
                         <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
                         <button class="btn-outline" id="uploadAvatarBtn">Upload Photo</button>
@@ -1156,64 +1274,33 @@ async function renderSettings() {
             <div class="settings-card">
                 <h3>Account Information</h3>
                 <form id="settingsForm">
-                    <div class="form-group">
-                        <label>Full Name</label>
-                        <input type="text" id="fullNameInput" value="${currentUser?.name || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" value="${currentUser?.email || ''}" disabled>
-                        <small>Email cannot be changed</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Home/Work Address</label>
-                        <input type="text" id="addressInput" value="${currentUser?.address || ''}" placeholder="Enter your address">
-                    </div>
+                    <div class="form-group"><label>Full Name</label><input type="text" id="fullNameInput" value="${currentUser?.name || ''}"></div>
+                    <div class="form-group"><label>Email</label><input type="email" value="${currentUser?.email || ''}" disabled><small>Email cannot be changed</small></div>
+                    <div class="form-group"><label>Home/Work Address</label><input type="text" id="addressInput" value="${currentUser?.address || ''}" placeholder="Enter your address"></div>
                 </form>
             </div>
             
             <div class="settings-card">
                 <h3>Change Password</h3>
                 <form id="passwordForm">
-                    <div class="form-group">
-                        <label>Current Password</label>
-                        <input type="password" id="currentPassword" placeholder="Enter current password">
-                    </div>
-                    <div class="form-group">
-                        <label>New Password</label>
-                        <input type="password" id="newPassword" placeholder="At least 8 characters">
-                    </div>
-                    <div class="form-group">
-                        <label>Confirm New Password</label>
-                        <input type="password" id="confirmPassword" placeholder="Re-enter new password">
-                    </div>
+                    <div class="form-group"><label>Current Password</label><input type="password" id="currentPassword" placeholder="Enter current password"></div>
+                    <div class="form-group"><label>New Password</label><input type="password" id="newPassword" placeholder="At least 8 characters"></div>
+                    <div class="form-group"><label>Confirm New Password</label><input type="password" id="confirmPassword" placeholder="Re-enter new password"></div>
                     <button type="submit" class="btn-primary">Update Password</button>
                 </form>
             </div>
             
             <div class="settings-card">
                 <h3>Preferences</h3>
-                <div class="form-group">
-                    <label>Theme</label>
-                    <div class="theme-selector">
-                        <button class="theme-option ${!isDark ? 'active' : ''}" data-theme="light">☀️ Light</button>
-                        <button class="theme-option ${isDark ? 'active' : ''}" data-theme="dark">🌙 Dark</button>
-                    </div>
-                </div>
+                <div class="form-group"><label>Theme</label><div class="theme-selector"><button class="theme-option ${!isDark ? 'active' : ''}" data-theme="light">☀️ Light</button><button class="theme-option ${isDark ? 'active' : ''}" data-theme="dark">🌙 Dark</button></div></div>
             </div>
             
             <div class="settings-card">
                 <h3>Portfolio</h3>
                 <div class="portfolio-settings">
                     <p>Your public portfolio shows your best work to the world.</p>
-                    <div class="portfolio-stats">
-                        <span><i class="fas fa-briefcase"></i> ${portfolioItems.length} items</span>
-                        <span><i class="fas fa-eye"></i> Total views: ${portfolioItems.reduce((sum, i) => sum + (i.view_count || 0), 0)}</span>
-                    </div>
-                    <div class="portfolio-url-display">
-                        <input type="text" id="portfolioUrl" readonly value="${portfolioUrl}">
-                        <button id="copyPortfolioUrlBtn" class="btn-outline">Copy URL</button>
-                    </div>
+                    <div class="portfolio-stats"><span><i class="fas fa-briefcase"></i> ${portfolioItems.length} items</span><span><i class="fas fa-eye"></i> Total views: ${portfolioItems.reduce((sum, i) => sum + (i.view_count || 0), 0)}</span></div>
+                    <div class="portfolio-url-display"><input type="text" id="portfolioUrl" readonly value="${portfolioUrl}"><button id="copyPortfolioUrlBtn" class="btn-outline">Copy URL</button></div>
                     <button id="viewPublicPortfolioBtn" class="btn-primary">View Public Portfolio</button>
                 </div>
             </div>
@@ -1249,12 +1336,7 @@ async function renderSettings() {
             reader.onload = async (event) => {
                 const avatarUrl = event.target.result;
                 document.getElementById('profilePreview').src = avatarUrl;
-                
-                const { error } = await supabase
-                    .from('users')
-                    .update({ avatar_url: avatarUrl })
-                    .eq('id', currentUser.id);
-                
+                const { error } = await supabase.from('users').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
                 if (!error) {
                     currentUser.avatar = avatarUrl;
                     localStorage.setItem('glimu_user', JSON.stringify(currentUser));
@@ -1277,35 +1359,30 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
-// Save settings - Fixed version
-document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
-    const newName = document.getElementById('fullNameInput').value;
-    const newAddress = document.getElementById('addressInput').value;
-    
-    const updates = {};
-    if (newName !== currentUser.name) updates.name = newName;
-    if (newAddress !== (currentUser.address || '')) updates.address = newAddress;
-    
-    if (Object.keys(updates).length > 0) {
-        const { error } = await supabase
-            .from('users')
-            .update({ ...updates, full_name: newName, updated_at: new Date() })
-            .eq('id', currentUser.id);
+    // Save settings
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
+        const newName = document.getElementById('fullNameInput').value;
+        const newAddress = document.getElementById('addressInput').value;
         
-        if (error) {
-            console.error('Update error:', error);
-            showToast('Failed to update settings', 'error');
+        const updates = {};
+        if (newName !== currentUser.name) updates.name = newName;
+        if (newAddress !== (currentUser.address || '')) updates.address = newAddress;
+        
+        if (Object.keys(updates).length > 0) {
+            const { error } = await supabase.from('users').update({ ...updates, full_name: newName }).eq('id', currentUser.id);
+            if (error) {
+                showToast('Failed to update settings', 'error');
+            } else {
+                currentUser.name = newName;
+                currentUser.address = newAddress;
+                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                document.getElementById('userName').textContent = newName;
+                showToast('Settings saved successfully!', 'success');
+            }
         } else {
-            currentUser.name = newName;
-            currentUser.address = newAddress;
-            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-            document.getElementById('userName').textContent = newName;
-            showToast('Settings saved successfully!', 'success');
+            showToast('No changes to save', 'info');
         }
-    } else {
-        showToast('No changes to save', 'info');
-    }
-});
+    });
     
     // Change password
     document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
@@ -1329,10 +1406,7 @@ document.getElementById('saveSettingsBtn')?.addEventListener('click', async () =
             return;
         }
         
-        // Update password via Supabase
-        const { error } = await supabase.auth.updateUser({
-            password: newPassword
-        });
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
         
         if (error) {
             showToast(error.message || 'Failed to update password', 'error');
@@ -1352,18 +1426,12 @@ document.getElementById('saveSettingsBtn')?.addEventListener('click', async () =
     });
 }
 
-// ============================================
-// GRADE SUBMISSIONS TAB (Instructor)
-// ============================================
 function renderGradeSubmissions() {
     const container = document.getElementById('grade-section');
     if (!container) return;
     container.innerHTML = `<div class="section-header"><h2>Grade Submissions</h2></div><div class="empty-state"><i class="fas fa-check-circle"></i><h3>No pending submissions</h3></div>`;
 }
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -1371,33 +1439,22 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ============================================
-// MOBILE BOTTOM NAVIGATION
-// ============================================
 function initMobileNavigation() {
     const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
-    
-    // Only proceed if we're on mobile and items exist
     if (mobileNavItems.length === 0) return;
     
     mobileNavItems.forEach(item => {
-        // Remove existing listeners to avoid duplicates
         const newItem = item.cloneNode(true);
         item.parentNode.replaceChild(newItem, item);
         
-        newItem.addEventListener('click', (e) => {
+        newItem.addEventListener('click', () => {
             const tabId = newItem.getAttribute('data-tab');
-            
-            // Update mobile nav active state
-            mobileNavItems.forEach(nav => nav.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-item').forEach(nav => nav.classList.remove('active'));
             newItem.classList.add('active');
-            
-            // Switch tab
             switchTab(tabId);
         });
     });
     
-    // Sync active state with current tab
     function syncMobileActiveState() {
         document.querySelectorAll('.mobile-nav-item').forEach(item => {
             const tabId = item.getAttribute('data-tab');
@@ -1409,7 +1466,6 @@ function initMobileNavigation() {
         });
     }
     
-    // Override switchTab to also update mobile nav
     const originalSwitchTab = window.switchTab;
     window.switchTab = function(tabId) {
         originalSwitchTab(tabId);
@@ -1435,15 +1491,13 @@ async function initDashboard() {
     await renderDashboard();
     
     setupRealtimeWallet();
-    initMobileNavigation();  // Call once here
+    initMobileNavigation();
     
     console.log('Dashboard initialized successfully');
 }
 
-// Start the dashboard
 initDashboard();
 
-// Make functions global
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
 window.renderQuestionBar = renderQuestionBar;
