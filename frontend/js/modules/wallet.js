@@ -1,6 +1,8 @@
 // ============================================
-// GLIIMU WALLET MODULE - FIXED
-// Initial balance: ₦14,500 (NOT ₦25,000)
+// GLIIMU WALLET MODULE - UPDATED
+// Plans: Basic (1 platform), Standard (2 platforms), Premium (All 3)
+// Hub is always FREE (not part of paid plans)
+// Platforms: library, virtualroom, chat
 // ============================================
 
 import { supabase } from './supabase.js';
@@ -8,17 +10,29 @@ import { showToast } from './toast.js';
 
 // Platform pricing (locked)
 const PRICING = {
-    library: 5900,
-    community: 4900,
-    hub: 4200,
-    premium: 15000,
-    standard: 13000  // Hub + Community
+    library: 7500,      // Individual platform price
+    virtualroom: 7500,  // Individual platform price
+    chat: 7500,         // Individual platform price
+    premium: 15000,     // All 3 platforms
+    standard: 13000,    // Any 2 platforms
+    basic: 7500         // Any 1 platform
 };
 
-// Get current user's wallet balance - FIXED to return 14500
+// Platform display names and icons
+const PLATFORM_INFO = {
+    library: { name: 'Digital Library', icon: '📚', description: 'Access books, bundles, and learning materials' },
+    virtualroom: { name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
+    chat: { name: 'Community Chat', icon: '💬', description: 'Connect with peers and instructors' }
+};
+
+// Hub is always free - not in paid platforms list
+const PAID_PLATFORMS = ['library', 'virtualroom', 'chat'];
+const FREE_PLATFORMS = ['hub']; // Always accessible
+
+// Get current user's wallet balance
 export async function getWalletBalance() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return 14500;  // ✅ FIXED: Return 14500 not 25000
+    if (!user) return 14500;
     
     const { data, error } = await supabase
         .from('users')
@@ -28,13 +42,11 @@ export async function getWalletBalance() {
     
     if (error) {
         console.error('Error fetching wallet:', error);
-        return 14500;  // ✅ FIXED: Return 14500 as default
+        return 14500;
     }
     
-    // ✅ FIXED: Ensure we never return 25000
     const balance = data?.wallet_balance || 14500;
     if (balance === 25000) {
-        // Update incorrect balance to 14500
         await supabase
             .from('users')
             .update({ wallet_balance: 14500 })
@@ -45,14 +57,14 @@ export async function getWalletBalance() {
     return balance;
 }
 
-// Get user's current access
+// Get user's current access and subscription
 export async function getUserAccess() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     
     const { data, error } = await supabase
         .from('users')
-        .select('access_library, access_hub, access_community, subscription_tier, wallet_balance')
+        .select('subscription_plan, selected_platforms, wallet_balance')
         .eq('id', user.id)
         .single();
     
@@ -61,20 +73,37 @@ export async function getUserAccess() {
         return null;
     }
     
-    return data;
+    return {
+        plan: data?.subscription_plan || 'free',
+        selectedPlatforms: data?.selected_platforms || [],
+        walletBalance: data?.wallet_balance || 14500
+    };
 }
 
 // Check if user can access a specific platform
 export async function canAccess(platform) {
-    const access = await getUserAccess();
-    if (!access) return false;
+    // Hub is always free
+    if (platform === 'hub') return true;
     
-    switch(platform) {
-        case 'library': return access.access_library;
-        case 'hub': return access.access_hub;
-        case 'community': return access.access_community;
-        default: return false;
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    
+    const { data, error } = await supabase
+        .from('users')
+        .select('subscription_plan, selected_platforms')
+        .eq('id', user.id)
+        .single();
+    
+    if (error) return false;
+    
+    const plan = data?.subscription_plan || 'free';
+    const selectedPlatforms = data?.selected_platforms || [];
+    
+    if (plan === 'premium') return true;
+    if (plan === 'standard') return selectedPlatforms.includes(platform);
+    if (plan === 'basic') return selectedPlatforms.includes(platform);
+    
+    return false;
 }
 
 // Record transaction
@@ -103,27 +132,22 @@ async function updateWalletBalance(userId, newBalance) {
     if (error) console.error('Error updating wallet:', error);
 }
 
-// Update user's access based on purchase
-async function updateUserAccess(userId, platforms, tier) {
-    const updates = {
-        subscription_tier: tier,
-        updated_at: new Date().toISOString()
-    };
-    
-    if (platforms.includes('library')) updates.access_library = true;
-    if (platforms.includes('hub')) updates.access_hub = true;
-    if (platforms.includes('community')) updates.access_community = true;
-    
+// Update user's subscription plan and selected platforms
+async function updateUserSubscription(userId, plan, selectedPlatforms) {
     const { error } = await supabase
         .from('users')
-        .update(updates)
+        .update({
+            subscription_plan: plan,
+            selected_platforms: selectedPlatforms,
+            updated_at: new Date().toISOString()
+        })
         .eq('id', userId);
     
-    if (error) console.error('Error updating access:', error);
+    if (error) console.error('Error updating subscription:', error);
 }
 
-// PREMIUM PATH: Add ₦500 real money to get Premium
-export async function purchasePremium() {
+// Purchase Basic plan (1 platform)
+export async function purchaseBasic(selectedPlatform) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         showToast('Please login first', 'error');
@@ -131,69 +155,7 @@ export async function purchasePremium() {
     }
     
     const currentBalance = await getWalletBalance();
-    
-    if (currentBalance >= 15000) {
-        const newBalance = currentBalance - 15000;
-        await updateWalletBalance(user.id, newBalance);
-        await updateUserAccess(user.id, ['library', 'hub', 'community'], 'premium');
-        
-        await addTransaction(user.id, -15000, 'debit', 'Premium Purchase (Library + Hub + Community)');
-        
-        await supabase.from('access_purchases').insert([{
-            user_id: user.id,
-            plan_type: 'premium',
-            amount_paid: 15000,
-            platforms: ['library', 'hub', 'community'],
-            purchase_date: new Date().toISOString(),
-            expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        }]);
-        
-        showToast('Premium activated! You now have access to everything.', 'success');
-        return true;
-    }
-    
-    showToast(`You need ₦${15000 - currentBalance} more to get Premium`, 'info');
-    return { needsTopUp: true, amount: 15000 - currentBalance, targetBalance: 15000 };
-}
-
-// STANDARD PATH: Hub + Community only (forfeit remaining credit)
-export async function purchaseStandard() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        showToast('Please login first', 'error');
-        return false;
-    }
-    
-    const currentBalance = await getWalletBalance();
-    const newBalance = 0;
-    
-    await updateWalletBalance(user.id, newBalance);
-    await updateUserAccess(user.id, ['hub', 'community'], 'standard');
-    
-    await addTransaction(user.id, -13000, 'debit', 'Standard Purchase (Hub + Community)');
-    if (currentBalance > 13000) {
-        await addTransaction(user.id, -(currentBalance - 13000), 'debit', 'Remaining credit forfeited by choice');
-    }
-    
-    await supabase.from('access_purchases').insert([{
-        user_id: user.id,
-        plan_type: 'standard',
-        amount_paid: 13000,
-        platforms: ['hub', 'community'],
-        purchase_date: new Date().toISOString()
-    }]);
-    
-    showToast('Standard access activated (Hub + Community). You forfeited remaining credit.', 'info');
-    return true;
-}
-
-// Purchase individual platform
-export async function purchasePlatform(platform) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    
-    const price = PRICING[platform];
-    const currentBalance = await getWalletBalance();
+    const price = PRICING.basic;
     
     if (currentBalance < price) {
         showToast(`Insufficient funds. Need ₦${price - currentBalance} more.`, 'error');
@@ -202,16 +164,70 @@ export async function purchasePlatform(platform) {
     
     const newBalance = currentBalance - price;
     await updateWalletBalance(user.id, newBalance);
+    await updateUserSubscription(user.id, 'basic', [selectedPlatform]);
     
-    const accessField = `access_${platform}`;
-    await supabase
-        .from('users')
-        .update({ [accessField]: true, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+    await addTransaction(user.id, -price, 'debit', 
+        `Basic Plan: ${PLATFORM_INFO[selectedPlatform]?.name || selectedPlatform} access`);
     
-    await addTransaction(user.id, -price, 'debit', `${platform.charAt(0).toUpperCase() + platform.slice(1)} Purchase`);
+    showToast(`Basic plan activated! You now have unlimited access to ${PLATFORM_INFO[selectedPlatform]?.name || selectedPlatform}.`, 'success');
+    return true;
+}
+
+// Purchase Standard plan (2 platforms)
+export async function purchaseStandard(selectedPlatforms) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        showToast('Please login first', 'error');
+        return false;
+    }
     
-    showToast(`You now have access to ${platform.charAt(0).toUpperCase() + platform.slice(1)}!`, 'success');
+    if (!selectedPlatforms || selectedPlatforms.length !== 2) {
+        showToast('Please select 2 platforms for your Standard plan', 'error');
+        return false;
+    }
+    
+    const currentBalance = await getWalletBalance();
+    const price = PRICING.standard;
+    
+    if (currentBalance < price) {
+        showToast(`Insufficient funds. Need ₦${price - currentBalance} more.`, 'error');
+        return { needsTopUp: true, amount: price - currentBalance, targetBalance: price };
+    }
+    
+    const newBalance = currentBalance - price;
+    await updateWalletBalance(user.id, newBalance);
+    await updateUserSubscription(user.id, 'standard', selectedPlatforms);
+    
+    const platformNames = selectedPlatforms.map(p => PLATFORM_INFO[p]?.name || p).join(' + ');
+    await addTransaction(user.id, -price, 'debit', `Standard Plan: ${platformNames} access`);
+    
+    showToast(`Standard plan activated! You now have unlimited access to ${platformNames}.`, 'success');
+    return true;
+}
+
+// Purchase Premium plan (all 3 platforms)
+export async function purchasePremium() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        showToast('Please login first', 'error');
+        return false;
+    }
+    
+    const currentBalance = await getWalletBalance();
+    const price = PRICING.premium;
+    
+    if (currentBalance < price) {
+        showToast(`You need ₦${price - currentBalance} more to get Premium`, 'info');
+        return { needsTopUp: true, amount: price - currentBalance, targetBalance: price };
+    }
+    
+    const newBalance = currentBalance - price;
+    await updateWalletBalance(user.id, newBalance);
+    await updateUserSubscription(user.id, 'premium', PAID_PLATFORMS);
+    
+    await addTransaction(user.id, -price, 'debit', 'Premium Plan: All platforms access');
+    
+    showToast('Premium activated! You now have unlimited access to Library, Virtual Classroom, and Community Chat.', 'success');
     return true;
 }
 
@@ -235,25 +251,6 @@ export async function getTransactionHistory(limit = 20) {
     return data;
 }
 
-// Get user's purchase history
-export async function getPurchaseHistory() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-        .from('access_purchases')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('purchase_date', { ascending: false });
-    
-    if (error) {
-        console.error('Error fetching purchases:', error);
-        return [];
-    }
-    
-    return data;
-}
-
 // Check if user is Premium
 export async function isPremium() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -261,12 +258,12 @@ export async function isPremium() {
     
     const { data, error } = await supabase
         .from('users')
-        .select('subscription_tier')
+        .select('subscription_plan')
         .eq('id', user.id)
         .single();
     
     if (error) return false;
-    return data?.subscription_tier === 'premium';
+    return data?.subscription_plan === 'premium';
 }
 
 // Subscribe to real-time wallet updates
@@ -295,11 +292,17 @@ export async function requestAddFunds(amount, bank, referenceCode) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
     
+    const { data: profile } = await supabase
+        .from('users')
+        .select('name, email')
+        .eq('id', user.id)
+        .single();
+    
     const paymentRequest = {
         id: `pay_${Date.now()}`,
         user_id: user.id,
-        user_name: currentUser?.name || 'User',
-        user_email: currentUser?.email || '',
+        user_name: profile?.name || 'User',
+        user_email: profile?.email || '',
         amount: amount,
         bank: bank,
         reference_code: referenceCode,
@@ -321,31 +324,44 @@ export async function requestAddFunds(amount, bank, referenceCode) {
     return true;
 }
 
-export { PRICING };
-
-// Add this function to wallet.js
-export async function addPlanTransaction(userId, plan, duration, amount, discount = 0) {
-    const originalAmount = amount;
-    const discountedAmount = amount * (1 - discount / 100);
-    const savings = originalAmount - discountedAmount;
-    
-    let description = `${plan.toUpperCase()} Plan - ${duration} month${duration > 1 ? 's' : ''}`;
-    if (discount > 0) {
-        description += ` (${discount}% discount - saved ₦${savings.toLocaleString()})`;
-    }
-    
-    const { error } = await supabase
-        .from('transactions')
-        .insert([{
-            id: `tx_${Date.now()}`,
-            user_id: userId,
-            amount: -discountedAmount,
-            type: 'debit',
-            description: description,
-            status: 'completed',
-            created_at: new Date().toISOString(),
-            metadata: { plan, duration, originalAmount, discount }
-        }]);
-    
-    if (error) console.error('Error adding plan transaction:', error);
+// Get available platforms for selection
+export function getAvailablePlatforms() {
+    return PAID_PLATFORMS.map(platform => ({
+        id: platform,
+        name: PLATFORM_INFO[platform].name,
+        icon: PLATFORM_INFO[platform].icon,
+        description: PLATFORM_INFO[platform].description
+    }));
 }
+
+// Get plan details for display
+export function getPlanDetails() {
+    return {
+        basic: {
+            name: 'Basic',
+            price: PRICING.basic,
+            priceDisplay: '₦7,500',
+            platforms: 1,
+            features: ['Access to 1 paid platform of your choice', 'Unlimited Hub access', 'Basic support'],
+            icon: '🌱'
+        },
+        standard: {
+            name: 'Standard',
+            price: PRICING.standard,
+            priceDisplay: '₦13,000',
+            platforms: 2,
+            features: ['Access to 2 paid platforms of your choice', 'Unlimited Hub access', 'Priority support'],
+            icon: '📦'
+        },
+        premium: {
+            name: 'Premium',
+            price: PRICING.premium,
+            priceDisplay: '₦15,000',
+            platforms: 3,
+            features: ['Full access to all 3 platforms', 'Unlimited Hub access', '24/7 priority support', 'Monthly bonus rewards'],
+            icon: '👑'
+        }
+    };
+}
+
+export { PRICING, PLATFORM_INFO, PAID_PLATFORMS, FREE_PLATFORMS };
