@@ -1,4 +1,9 @@
-// hub.js - Hub page functionality
+// hub.js - Hub page functionality with Monetization Integration
+
+import { supabase } from '../modules/supabase.js';
+import { hubMonetization } from '../modules/hub-monetization.js';
+import { showToast } from '../modules/toast.js';
+import { checkPlatformAccess } from '../modules/access-guard.js';
 
 // ============================================
 // MOCK DATA
@@ -136,29 +141,192 @@ let currentUser = null;
 let currentFilter = "all";
 let currentSearch = "";
 
+// Monetization status
+let monetizationInitialized = false;
+let adRefreshInterval = null;
+
 // ============================================
 // INITIALIZATION
 // ============================================
 
-function initHub() {
-  console.log("Hub initializing...");
+async function initHub() {
+  console.log("Hub initializing with monetization...");
   
-  currentUser = JSON.parse(localStorage.getItem("gliimu_user") || "null");
+  // Check authentication
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user || JSON.parse(localStorage.getItem("gliimu_user") || "null");
   
-  loadHubPosts();
+  // Hub is always free - no access check needed
+  // But we still load user data if available
+  
+  // Load hub posts
+  await loadHubPosts();
+  
+  // Setup event listeners
   setupEventListeners();
+  
+  // Update stats
   updateStats();
   
+  // Initialize monetization
+  await initMonetization();
+  
   // Check if user is admin (for moderation)
-  if (currentUser && currentUser.role === "Admin") {
+  if (currentUser && (currentUser.role === "Admin" || currentUser.user_metadata?.role === "admin")) {
     showModerationBadge();
+  }
+  
+  // Track page view for analytics
+  trackPageView();
+}
+
+async function loadHubPosts() {
+  // Try to load from Supabase first
+  try {
+    const { data: supabasePosts, error } = await supabase
+      .from('hub_posts')
+      .select('*')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+    
+    if (!error && supabasePosts && supabasePosts.length > 0) {
+      // Convert Supabase posts to our format
+      hubPosts = supabasePosts.map(post => ({
+        id: post.id,
+        type: post.type,
+        title: post.title,
+        description: post.description,
+        image: post.image_url,
+        videoUrl: post.video_url,
+        author: {
+          id: post.user_id,
+          name: post.author_name || 'Anonymous',
+          avatar: post.author_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author_name || 'User')}&background=random`
+        },
+        date: post.created_at,
+        likes: post.likes || 0,
+        comments: post.comments || 0,
+        featured: post.featured || false,
+        status: post.status
+      }));
+    }
+  } catch (e) {
+    console.log('Using mock data for hub posts');
+  }
+  
+  // Load pending posts from localStorage
+  const storedPending = localStorage.getItem("gliimu_pending_posts");
+  if (storedPending) {
+    pendingSubmissions = JSON.parse(storedPending);
+  }
+  
+  renderPosts();
+}
+
+async function initMonetization() {
+  if (monetizationInitialized) return;
+  
+  try {
+    // Initialize the monetization module
+    await hubMonetization.init();
+    monetizationInitialized = true;
+    
+    // Setup ad refresh interval (every 30 seconds for banner rotation)
+    if (adRefreshInterval) clearInterval(adRefreshInterval);
+    adRefreshInterval = setInterval(() => {
+      if (hubMonetization.displayBannerAd) {
+        hubMonetization.displayBannerAd();
+      }
+    }, 30000);
+    
+    console.log('Monetization initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize monetization:', error);
+    // Fallback to mock ads if monetization module fails
+    initMockAds();
   }
 }
 
-function loadHubPosts() {
-  // For demo, use mock data
-  // In production, fetch from API
-  renderPosts();
+function initMockAds() {
+  // Fallback mock ads if Supabase fails
+  const bannerAd = document.getElementById('bannerAd');
+  if (bannerAd) {
+    bannerAd.innerHTML = `
+      <div class="banner-ad">
+        <div class="sponsored-badge">Sponsored</div>
+        <div class="banner-content">
+          <div class="banner-text">
+            <h4>🎓 Master Video Editing</h4>
+            <p>Get 30% off on our professional course. Limited offer!</p>
+          </div>
+          <a href="#" class="banner-cta">Learn More →</a>
+        </div>
+      </div>
+    `;
+    bannerAd.classList.remove('hidden');
+  }
+  
+  // Mock sidebar ads
+  const sidebarAds = document.getElementById('sidebarAds');
+  if (sidebarAds) {
+    sidebarAds.innerHTML = `
+      <div class="sidebar-ad">
+        <img src="https://via.placeholder.com/300x200?text=Adobe+Sponsor" alt="Adobe">
+        <h4>Adobe Creative Cloud</h4>
+        <p>Student discount available for Gliimu members!</p>
+        <a href="#" class="sidebar-ad-link">Get Offer →</a>
+      </div>
+      <div class="sidebar-ad">
+        <img src="https://via.placeholder.com/300x200?text=Canon" alt="Canon">
+        <h4>Canon Cameras</h4>
+        <p>Special pricing for students</p>
+        <a href="#" class="sidebar-ad-link">Shop Now →</a>
+      </div>
+    `;
+    sidebarAds.classList.remove('hidden');
+  }
+  
+  // Mock affiliate links
+  const affiliateLinks = document.getElementById('affiliateLinks');
+  if (affiliateLinks) {
+    affiliateLinks.innerHTML = `
+      <div class="affiliate-header">
+        <i class="fas fa-shopping-bag"></i>
+        <span>Recommended for You</span>
+      </div>
+      <div class="affiliate-links">
+        <a href="#" class="affiliate-link">
+          <div class="affiliate-info">
+            <div class="affiliate-title">Best Microphones for Creators</div>
+            <div class="affiliate-desc">Top 5 picks under ₦50,000</div>
+          </div>
+          <i class="fas fa-arrow-right affiliate-arrow"></i>
+        </a>
+        <a href="#" class="affiliate-link">
+          <div class="affiliate-info">
+            <div class="affiliate-title">Laptop Buying Guide 2025</div>
+            <div class="affiliate-desc">Best laptops for video editing</div>
+          </div>
+          <i class="fas fa-arrow-right affiliate-arrow"></i>
+        </a>
+      </div>
+    `;
+    affiliateLinks.classList.remove('hidden');
+  }
+}
+
+function trackPageView() {
+  if (supabase && currentUser) {
+    supabase
+      .from('page_views')
+      .insert({
+        user_id: currentUser.id,
+        page: 'hub',
+        timestamp: new Date().toISOString()
+      })
+      .then(() => console.log('Page view tracked'))
+      .catch(err => console.log('Could not track page view'));
+  }
 }
 
 function renderPosts() {
@@ -190,7 +358,7 @@ function renderPosts() {
         <i class="fas fa-newspaper"></i>
         <h3>No posts found</h3>
         <p>Be the first to share something with the community!</p>
-        <button class="filter-btn" onclick="openCreatePostModal()" style="margin-top: 16px;">
+        <button class="filter-btn" onclick="window.openCreatePostModal && window.openCreatePostModal()" style="margin-top: 16px;">
           <i class="fas fa-plus"></i> Create Post
         </button>
       </div>
@@ -257,22 +425,22 @@ function createPostCard(post) {
   if (post.type === "event") {
     extraContent = `
       <div class="card-meta">
-        <span><i class="fas fa-map-marker-alt"></i> ${post.location}</span>
-        <span><i class="fas fa-tag"></i> ${post.price}</span>
-        <span><i class="fas fa-users"></i> ${post.seats} seats left</span>
+        <span><i class="fas fa-map-marker-alt"></i> ${post.location || 'Online'}</span>
+        <span><i class="fas fa-tag"></i> ${post.price || 'Free'}</span>
+        <span><i class="fas fa-users"></i> ${post.seats || 'Unlimited'} seats left</span>
       </div>
     `;
   } else if (post.type === "support") {
     extraContent = `
       <div class="card-meta">
-        <span><i class="fas fa-chart-line"></i> Goal: ${post.goal}</span>
-        <span><i class="fas fa-hand-holding-heart"></i> Raised: ${post.raised}</span>
+        <span><i class="fas fa-chart-line"></i> Goal: ${post.goal || 'Not set'}</span>
+        <span><i class="fas fa-hand-holding-heart"></i> Raised: ${post.raised || '₦0'}</span>
       </div>
     `;
   } else if (post.type === "video") {
     extraContent = `
       <div class="card-meta">
-        <span><i class="fas fa-clock"></i> ${post.duration}</span>
+        <span><i class="fas fa-clock"></i> ${post.duration || "3:00 min"}</span>
       </div>
     `;
   } else {
@@ -287,9 +455,9 @@ function createPostCard(post) {
     <div class="content-card ${post.featured ? 'featured' : ''}" data-id="${post.id}" data-type="${post.type}">
       ${mediaHtml}
       <div class="card-body">
-        <h3 class="card-title">${post.title}</h3>
+        <h3 class="card-title">${escapeHtml(post.title)}</h3>
         ${extraContent}
-        <p class="card-description">${post.description}</p>
+        <p class="card-description">${escapeHtml(post.description.substring(0, 200))}${post.description.length > 200 ? '...' : ''}</p>
         
         <div class="engagement-stats">
           <div class="engagement-item like-btn" data-id="${post.id}">
@@ -305,9 +473,9 @@ function createPostCard(post) {
         
         <div class="card-footer">
           <div class="author-info">
-            <img src="${post.author.avatar}" alt="${post.author.name}" class="author-avatar">
+            <img src="${post.author.avatar}" alt="${escapeHtml(post.author.name)}" class="author-avatar">
             <div>
-              <div class="author-name">${post.author.name}</div>
+              <div class="author-name">${escapeHtml(post.author.name)}</div>
               <div class="post-date">${formattedDate}</div>
             </div>
           </div>
@@ -318,6 +486,12 @@ function createPostCard(post) {
       </div>
     </div>
   `;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function attachPostEventListeners() {
@@ -340,11 +514,17 @@ function attachPostEventListeners() {
   });
 }
 
-function handleLike(e) {
+async function handleLike(e) {
   e.stopPropagation();
   const btn = e.currentTarget;
   const postId = btn.dataset.id;
   const post = hubPosts.find(p => p.id === postId);
+  
+  if (!currentUser) {
+    showToast("Please login to like posts", "info");
+    if (window.openLoginModal) window.openLoginModal();
+    return;
+  }
   
   if (post) {
     post.likes++;
@@ -352,7 +532,16 @@ function handleLike(e) {
     if (likeSpan) likeSpan.textContent = post.likes;
     btn.classList.add("liked");
     
-    // Show toast
+    // Try to save to Supabase
+    try {
+      await supabase
+        .from('hub_posts')
+        .update({ likes: post.likes })
+        .eq('id', postId);
+    } catch (e) {
+      console.log('Could not sync like to database');
+    }
+    
     showToast("You liked this post!", "success");
   }
 }
@@ -360,6 +549,13 @@ function handleLike(e) {
 function handleComment(e) {
   e.stopPropagation();
   const postId = e.currentTarget.dataset.id;
+  
+  if (!currentUser) {
+    showToast("Please login to comment", "info");
+    if (window.openLoginModal) window.openLoginModal();
+    return;
+  }
+  
   const comment = prompt("Write your comment:");
   if (comment && comment.trim()) {
     const post = hubPosts.find(p => p.id === postId);
@@ -375,22 +571,53 @@ function handleComment(e) {
 function handleShare(e) {
   e.stopPropagation();
   const postId = e.currentTarget.dataset.id;
-  const url = `${window.location.origin}/hub.html?post=${postId}`;
+  const url = `${window.location.origin}${window.location.pathname}?post=${postId}`;
   navigator.clipboard.writeText(url);
   showToast("Link copied to clipboard!", "success");
+  
+  // Track share for analytics
+  if (supabase && currentUser) {
+    supabase
+      .from('post_shares')
+      .insert({
+        post_id: postId,
+        user_id: currentUser.id,
+        timestamp: new Date().toISOString()
+      })
+      .catch(err => console.log('Could not track share'));
+  }
 }
 
-function supportCreator(postId) {
+async function supportCreator(postId) {
   if (!currentUser) {
-    if (confirm("You need to sign in to support creators. Go to login?")) {
-      window.openLoginModal();
-    }
+    showToast("Please login to support creators", "info");
+    if (window.openLoginModal) window.openLoginModal();
     return;
   }
   
   const amount = prompt("Enter tip amount (₦):", "500");
   if (amount && !isNaN(amount) && amount > 0) {
+    // Check wallet balance if available
+    if (currentUser.wallet_balance && currentUser.wallet_balance < amount) {
+      showToast("Insufficient wallet balance. Please fund your wallet.", "error");
+      return;
+    }
+    
     showToast(`Thank you for tipping ₦${amount}! The creator has been notified.`, "success");
+    
+    // Track tip in database
+    try {
+      await supabase
+        .from('tips')
+        .insert({
+          from_user_id: currentUser.id,
+          post_id: postId,
+          amount: amount,
+          created_at: new Date().toISOString()
+        });
+    } catch (e) {
+      console.log('Could not save tip record');
+    }
   }
 }
 
@@ -400,9 +627,8 @@ function supportCreator(postId) {
 
 function openCreatePostModal() {
   if (!currentUser) {
-    if (confirm("You need to sign in to create a post. Go to login?")) {
-      window.openLoginModal();
-    }
+    showToast("Please login to create a post", "info");
+    if (window.openLoginModal) window.openLoginModal();
     return;
   }
   
@@ -433,15 +659,37 @@ function previewImage(input) {
   }
 }
 
-function submitPost() {
+async function submitPost() {
   const title = document.getElementById("postTitle").value;
   const type = document.getElementById("postType").value;
   const description = document.getElementById("postDescription").value;
   const imageFile = document.getElementById("postImage").files[0];
   
   if (!title || !description) {
-    alert("Please fill in all required fields.");
+    showToast("Please fill in all required fields.", "error");
     return;
+  }
+  
+  let imageUrl = null;
+  
+  // Upload image if provided
+  if (imageFile) {
+    try {
+      const fileName = `${currentUser.id}_${Date.now()}_${imageFile.name}`;
+      const { data, error } = await supabase.storage
+        .from('hub-content')
+        .upload(`posts/${fileName}`, imageFile);
+      
+      if (!error && data) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('hub-content')
+          .getPublicUrl(`posts/${fileName}`);
+        imageUrl = publicUrl;
+      }
+    } catch (e) {
+      console.log('Could not upload image, using placeholder');
+      imageUrl = `https://via.placeholder.com/600x400?text=${encodeURIComponent(title)}`;
+    }
   }
   
   // Create new post object
@@ -450,12 +698,12 @@ function submitPost() {
     type: type,
     title: title,
     description: description,
-    image: imageFile ? URL.createObjectURL(imageFile) : "https://via.placeholder.com/600x400?text=Pending+Review",
+    image: imageUrl || `https://via.placeholder.com/600x400?text=Pending+Review`,
     videoUrl: null,
     author: {
       id: currentUser.id || currentUser.username,
-      name: currentUser.name || currentUser.username,
-      avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || currentUser.username)}&background=random`
+      name: currentUser.user_metadata?.name || currentUser.name || currentUser.username,
+      avatar: currentUser.user_metadata?.avatar_url || currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.user_metadata?.name || currentUser.name || currentUser.username)}&background=random`
     },
     date: new Date().toISOString(),
     likes: 0,
@@ -464,19 +712,34 @@ function submitPost() {
     status: "pending" // Needs admin approval
   };
   
-  // Add to pending submissions
-  pendingSubmissions.push(newPost);
+  // Try to save to Supabase
+  try {
+    const { error } = await supabase
+      .from('hub_posts')
+      .insert({
+        id: newPost.id,
+        user_id: currentUser.id,
+        title: title,
+        description: description,
+        type: type,
+        image_url: imageUrl,
+        status: 'pending',
+        created_at: newPost.date
+      });
+    
+    if (error) throw error;
+    showToast("Your post has been submitted for review!", "success");
+  } catch (e) {
+    // Fallback to localStorage
+    pendingSubmissions.push(newPost);
+    localStorage.setItem("gliimu_pending_posts", JSON.stringify(pendingSubmissions));
+    showToast("Your post has been submitted for review. It will appear once approved.", "info");
+  }
   
-  // Save to localStorage
-  const allPending = JSON.parse(localStorage.getItem("gliimu_pending_posts") || "[]");
-  allPending.push(newPost);
-  localStorage.setItem("gliimu_pending_posts", JSON.stringify(allPending));
-  
-  showToast("Your post has been submitted for review. It will appear once approved.", "info");
   closeCreatePostModal();
   
   // If user is admin, auto-approve for demo
-  if (currentUser.role === "Admin") {
+  if (currentUser.role === "Admin" || currentUser.user_metadata?.role === "admin") {
     approvePost(newPost.id);
   }
 }
@@ -490,6 +753,10 @@ function approvePost(postId) {
     hubPosts.unshift(post);
     renderPosts();
     showToast("Post approved and published!", "success");
+    
+    // Remove from pending
+    const updated = pending.filter(p => p.id !== postId);
+    localStorage.setItem("gliimu_pending_posts", JSON.stringify(updated));
   }
 }
 
@@ -572,65 +839,6 @@ function openModerationPanel() {
 }
 
 // ============================================
-// TOAST NOTIFICATION
-// ============================================
-
-function showToast(message, type = "success") {
-  const toast = document.createElement("div");
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `
-    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'info' ? 'info-circle' : 'exclamation-circle'}"></i>
-    <span>${message}</span>
-  `;
-  
-  toast.style.cssText = `
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--bg-card);
-    color: var(--text-main);
-    padding: 12px 24px;
-    border-radius: 50px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    z-index: 1000;
-    animation: fadeInUp 0.3s ease;
-    border-left: 4px solid ${type === 'success' ? '#10b981' : type === 'info' ? '#3b82f6' : '#ef4444'};
-  `;
-  
-  document.body.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.style.opacity = "0";
-    toast.style.transform = "translateX(-50%) translateY(20px)";
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-}
-
-// Add animation style
-if (!document.querySelector("#toast-animation")) {
-  const style = document.createElement("style");
-  style.id = "toast-animation";
-  style.textContent = `
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-// ============================================
 // EVENT LISTENERS
 // ============================================
 
@@ -666,6 +874,16 @@ function setupEventListeners() {
     });
   }
 }
+
+// ============================================
+// CLEANUP ON PAGE UNLOAD
+// ============================================
+
+window.addEventListener('beforeunload', () => {
+  if (adRefreshInterval) {
+    clearInterval(adRefreshInterval);
+  }
+});
 
 // ============================================
 // EXPOSE GLOBALLY
