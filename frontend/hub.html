@@ -47,27 +47,48 @@
         </div>
       </div>
       
-      <!-- Search Bar -->
-      <div class="search-bar">
-        <i class="fas fa-search"></i>
-        <input type="text" id="searchInput" placeholder="Search posts, events, or insights...">
-      </div>
+      <!-- BANNER AD SECTION (Sponsored) -->
+      <div id="bannerAd" class="banner-ad-container hidden monetization-section"></div>
       
-      <!-- Filter Bar -->
-      <div class="filter-bar">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="event">Events</button>
-        <button class="filter-btn" data-filter="insight">Insights</button>
-        <button class="filter-btn" data-filter="video">Videos</button>
-        <button class="filter-btn" data-filter="support">Support</button>
-      </div>
-      
-      <!-- Posts Grid (Masonry) -->
-      <div class="masonry-grid" id="postsContainer">
-        <!-- Posts will be loaded here dynamically -->
-        <div class="empty-state">
-          <i class="fas fa-spinner fa-spin"></i>
-          <h3>Loading posts...</h3>
+      <!-- Main Layout with Sidebar -->
+      <div class="hub-layout">
+        <!-- Main Content Area -->
+        <div class="main-content">
+          <!-- Search Bar -->
+          <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search posts, events, or insights...">
+          </div>
+          
+          <!-- Filter Bar -->
+          <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="event">Events</button>
+            <button class="filter-btn" data-filter="insight">Insights</button>
+            <button class="filter-btn" data-filter="video">Videos</button>
+            <button class="filter-btn" data-filter="support">Support</button>
+          </div>
+          
+          <!-- Posts Grid (Masonry) -->
+          <div class="masonry-grid" id="postsContainer">
+            <!-- Posts will be loaded here dynamically -->
+            <div class="empty-state">
+              <i class="fas fa-spinner fa-spin"></i>
+              <h3>Loading posts...</h3>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Sidebar Content (Ads & Monetization) -->
+        <div class="sidebar-content">
+          <!-- Sponsored Video Section -->
+          <div id="sponsoredVideo" class="sponsored-video hidden"></div>
+          
+          <!-- Sidebar Ads Container -->
+          <div id="sidebarAds" class="sidebar-ads hidden"></div>
+          
+          <!-- Affiliate Links Section -->
+          <div id="affiliateLinks" class="affiliate-section hidden"></div>
         </div>
       </div>
       
@@ -116,8 +137,8 @@
         
         <div class="form-group">
           <label>Image / Thumbnail</label>
-          <input type="file" id="postImage" accept="image/*" onchange="previewImage(this)">
-          <div class="image-preview" id="imagePreview">
+          <input type="file" id="postImage" accept="image/*">
+          <div class="image-preview" id="imagePreview" style="display: none;">
             <img id="previewImg" src="" alt="Preview">
           </div>
         </div>
@@ -131,25 +152,47 @@
   </div>
 
   <!-- JS Files -->
-  <script src="js/pages/header.js"></script>
-  <script src="js/pages/hub.js"></script>
-
-  <!-- Load Partials -->
+  <script type="module" src="js/pages/hub.js"></script>
+  
+  <!-- Legacy fallback functions -->
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      if (document.getElementById('header-placeholder')) {
-        Promise.all([
-          fetch('partials/header.html').then(r => r.text()),
-          fetch('partials/footer.html').then(r => r.text()),
-          fetch('partials/login-modal.html').then(r => r.text())
-        ]).then(results => {
-          document.getElementById('header-placeholder').innerHTML = results[0];
-          document.getElementById('footer-placeholder').innerHTML = results[1];
-          document.getElementById('login-modal-placeholder').innerHTML = results[2];
-          console.log('Partials loaded');
-        }).catch(err => console.error('Failed to load partials:', err));
+    // Legacy support for inline handlers
+    window.openCreatePostModal = function() {
+      const modal = document.getElementById('createPostModal');
+      if (modal) modal.classList.add('active');
+    };
+    
+    window.closeCreatePostModal = function() {
+      const modal = document.getElementById('createPostModal');
+      if (modal) modal.classList.remove('active');
+    };
+    
+    window.previewImage = function(input) {
+      const preview = document.getElementById('imagePreview');
+      const previewImg = document.getElementById('previewImg');
+      
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          previewImg.src = e.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
       }
-    });
+    };
+    
+    window.submitPost = function() {
+      // This is handled by the module
+      const event = new CustomEvent('submitPost', {
+        detail: {
+          title: document.getElementById('postTitle').value,
+          type: document.getElementById('postType').value,
+          description: document.getElementById('postDescription').value,
+          imageFile: document.getElementById('postImage').files[0]
+        }
+      });
+      window.dispatchEvent(event);
+    };
   </script>
 </body>
 </html>
