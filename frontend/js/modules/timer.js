@@ -1,6 +1,7 @@
 // ============================================
 // TIMER MODULE - Free Access Limiting System
 // 15 minutes per day across all platforms
+// WITH SUPABASE BACKEND SYNC
 // ============================================
 
 import { supabase } from './supabase.js';
@@ -16,49 +17,94 @@ let timerState = {
     lastResetDate: null,
     isActive: false,
     currentPlatform: null,
-    startTime: null
+    startTime: null,
+    sessionId: null
 };
 
 let timerInterval = null;
 let warningShown = false;
 
 // ============================================
+// SUPABASE SYNC FUNCTIONS
+// ============================================
+
+// Save daily usage to Supabase
+async function saveDailyUsageToSupabase() {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return false;
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { error } = await supabase
+            .from('daily_usage')
+            .upsert({
+                user_id: user.id,
+                platform: 'all', // Track total usage across platforms
+                date: today,
+                minutes_used: timerState.minutesUsed,
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: 'user_id,platform,date'
+            });
+        
+        if (error) {
+            console.error('Error saving to Supabase:', error);
+            return false;
+        }
+        
+        return true;
+    } catch (e) {
+        console.log('Could not sync to Supabase:', e);
+        return false;
+    }
+}
+
+// Load daily usage from Supabase
+async function loadDailyUsageFromSupabase() {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { data, error } = await supabase
+            .from('daily_usage')
+            .select('minutes_used')
+            .eq('user_id', user.id)
+            .eq('platform', 'all')
+            .eq('date', today)
+            .single();
+        
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error loading from Supabase:', error);
+            return null;
+        }
+        
+        return data?.minutes_used || null;
+    } catch (e) {
+        console.log('Could not load from Supabase:', e);
+        return null;
+    }
+}
+
+// ============================================
 // LOAD/SAVE TIMER STATE
 // ============================================
 
-// Load timer data from localStorage or Supabase
+// Load timer data from Supabase first, then localStorage
 export async function loadTimerState() {
-    try {
-        // First try to get from Supabase
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-            const { data: profile, error } = await supabase
-                .from('users')
-                .select('free_minutes_used, daily_free_usage')
-                .eq('id', user.id)
-                .single();
-            
-            if (!error && profile) {
-                const lastReset = profile.daily_free_usage ? new Date(profile.daily_free_usage) : null;
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                // Check if last reset was today
-                if (lastReset && lastReset >= today) {
-                    timerState.minutesUsed = profile.free_minutes_used || 0;
-                    timerState.lastResetDate = lastReset;
-                } else {
-                    // Reset for new day
-                    timerState.minutesUsed = 0;
-                    timerState.lastResetDate = today;
-                    await saveTimerState();
-                }
-                return timerState;
-            }
-        }
-    } catch (e) {
-        console.log('Supabase not available, using localStorage');
+    // First try Supabase for cross-device sync
+    const supabaseMinutes = await loadDailyUsageFromSupabase();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (supabaseMinutes !== null) {
+        // Use Supabase data as source of truth
+        timerState.minutesUsed = supabaseMinutes;
+        timerState.lastResetDate = today;
+        await saveTimerState(); // Sync to localStorage
+        return timerState;
     }
     
     // Fallback to localStorage
@@ -66,47 +112,88 @@ export async function loadTimerState() {
     if (saved) {
         const data = JSON.parse(saved);
         const lastReset = data.lastResetDate ? new Date(data.lastResetDate) : null;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
         
         if (lastReset && lastReset >= today) {
             timerState = data;
+            // Sync localStorage to Supabase
+            await saveDailyUsageToSupabase();
         } else {
             // Reset for new day
-            timerState = {
-                minutesUsed: 0,
-                lastResetDate: today.toISOString(),
-                isActive: false,
-                currentPlatform: null,
-                startTime: null
-            };
-            saveTimerState();
+            resetTimerForNewDay();
         }
+    } else {
+        resetTimerForNewDay();
     }
     
     return timerState;
 }
 
+// Reset timer for new day
+async function resetTimerForNewDay() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    timerState = {
+        minutesUsed: 0,
+        lastResetDate: today.toISOString(),
+        isActive: false,
+        currentPlatform: null,
+        startTime: null,
+        sessionId: null
+    };
+    
+    await saveTimerState();
+}
+
 // Save timer state to localStorage and Supabase
 async function saveTimerState() {
     // Save to localStorage
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(timerState));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...timerState,
+        sessionId: undefined // Don't store session ID
+    }));
     
-    // Save to Supabase if user is logged in
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            await supabase
-                .from('users')
-                .update({
-                    free_minutes_used: timerState.minutesUsed,
-                    daily_free_usage: timerState.lastResetDate
-                })
-                .eq('id', user.id);
+    // Save to Supabase
+    await saveDailyUsageToSupabase();
+}
+
+// ============================================
+// AUTO-SAVE DURING SESSION
+// ============================================
+
+let autoSaveInterval = null;
+
+function startAutoSave() {
+    if (autoSaveInterval) clearInterval(autoSaveInterval);
+    
+    autoSaveInterval = setInterval(async () => {
+        if (timerState.isActive && timerState.startTime) {
+            await saveCurrentSessionTime();
         }
-    } catch (e) {
-        console.log('Could not sync timer to Supabase');
+    }, 30000); // Save every 30 seconds
+}
+
+function stopAutoSave() {
+    if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
     }
+}
+
+async function saveCurrentSessionTime() {
+    if (!timerState.isActive || !timerState.startTime) return;
+    
+    const elapsedMinutes = (Date.now() - timerState.startTime) / 60000;
+    const newTotal = timerState.minutesUsed + elapsedMinutes;
+    
+    if (newTotal <= timerState.minutesUsed + 0.1) return; // No significant change
+    
+    timerState.minutesUsed = newTotal;
+    timerState.startTime = Date.now(); // Reset start time after saving
+    await saveTimerState();
+    
+    // Update UI
+    updateTimerDisplay();
 }
 
 // ============================================
@@ -129,7 +216,7 @@ export function getRemainingTimeFormatted() {
 
 // Get percentage of time used (for progress bar)
 export function getTimeUsedPercentage() {
-    return (timerState.minutesUsed / FREE_MINUTES_PER_DAY) * 100;
+    return Math.min(100, (timerState.minutesUsed / FREE_MINUTES_PER_DAY) * 100);
 }
 
 // Check if user has time remaining
@@ -142,17 +229,22 @@ export function hasTimeRemaining() {
 // ============================================
 
 // Start tracking time on a platform
-export function startTimer(platform) {
+export async function startTimer(platform) {
     if (timerInterval) {
-        // Don't start multiple timers
         return;
     }
     
     // Check if user has premium or standard plan for this platform
-    if (hasUnlimitedAccess(platform)) {
+    const unlimited = await hasUnlimitedAccess(platform);
+    if (unlimited) {
         console.log('Unlimited access for', platform);
+        // Hide timer banner if showing
+        hideTimerBanner();
         return;
     }
+    
+    // Reload latest state before starting
+    await loadTimerState();
     
     // Check if time is already used up
     if (!hasTimeRemaining()) {
@@ -163,9 +255,14 @@ export function startTimer(platform) {
     timerState.isActive = true;
     timerState.currentPlatform = platform;
     timerState.startTime = Date.now();
+    timerState.sessionId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
     
     // Start interval to track time
-    timerInterval = setInterval(updateTimer, 60000); // Update every minute
+    timerInterval = setInterval(async () => {
+        await updateTimer();
+    }, 60000); // Update every minute
+    
+    startAutoSave();
     warningShown = false;
     
     // Show timer banner
@@ -173,15 +270,23 @@ export function startTimer(platform) {
 }
 
 // Stop tracking time
-export function stopTimer() {
+export async function stopTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
     }
     
+    stopAutoSave();
+    
+    // Save final session time
+    if (timerState.isActive && timerState.startTime) {
+        await saveCurrentSessionTime();
+    }
+    
     timerState.isActive = false;
     timerState.currentPlatform = null;
     timerState.startTime = null;
+    timerState.sessionId = null;
     
     hideTimerBanner();
 }
@@ -190,51 +295,72 @@ export function stopTimer() {
 async function updateTimer() {
     if (!timerState.isActive || !timerState.startTime) return;
     
-    const elapsedMinutes = (Date.now() - timerState.startTime) / 60000;
-    const newTotal = timerState.minutesUsed + elapsedMinutes;
+    await saveCurrentSessionTime();
     
-    if (newTotal >= FREE_MINUTES_PER_DAY) {
+    if (timerState.minutesUsed >= FREE_MINUTES_PER_DAY) {
         // Time's up!
         timerState.minutesUsed = FREE_MINUTES_PER_DAY;
         await saveTimerState();
-        stopTimer();
+        await stopTimer();
         showTimeUpModal(timerState.currentPlatform);
-    } else if (!warningShown && newTotal >= FREE_MINUTES_PER_DAY - 2) {
+    } else if (!warningShown && timerState.minutesUsed >= FREE_MINUTES_PER_DAY - 2) {
         // Show warning when 2 minutes remaining
         warningShown = true;
         showLowTimeWarning();
     }
+    
+    updateTimerDisplay();
 }
 
 // Add time manually (when user closes page)
 export async function addTimeSpent() {
     if (timerState.isActive && timerState.startTime) {
-        const elapsedMinutes = (Date.now() - timerState.startTime) / 60000;
-        timerState.minutesUsed += elapsedMinutes;
+        await saveCurrentSessionTime();
         await saveTimerState();
     }
+    await stopTimer();
 }
 
 // ============================================
 // SUBSCRIPTION CHECK
 // ============================================
 
-// Get user's subscription data
+// Get user's subscription data with caching
+let cachedSubscription = null;
+let subscriptionCacheTime = null;
+
 async function getUserSubscription() {
+    // Cache for 30 seconds
+    if (cachedSubscription && subscriptionCacheTime && (Date.now() - subscriptionCacheTime) < 30000) {
+        return cachedSubscription;
+    }
+    
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return null;
         
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
             .from('users')
             .select('subscription_plan, selected_platforms')
             .eq('id', user.id)
             .single();
         
-        return profile;
+        if (!error && profile) {
+            cachedSubscription = profile;
+            subscriptionCacheTime = Date.now();
+            return profile;
+        }
     } catch (e) {
-        return null;
+        console.log('Error fetching subscription:', e);
     }
+    
+    return null;
+}
+
+// Clear subscription cache (call after plan purchase)
+export function clearSubscriptionCache() {
+    cachedSubscription = null;
+    subscriptionCacheTime = null;
 }
 
 // Check if user has unlimited access to a platform
@@ -248,7 +374,11 @@ export async function hasUnlimitedAccess(platform) {
     }
     
     if (subscription.subscription_plan === 'standard' && subscription.selected_platforms) {
-        return subscription.selected_platforms.includes(platform);
+        let selectedPlatforms = subscription.selected_platforms;
+        if (typeof selectedPlatforms === 'string') {
+            selectedPlatforms = JSON.parse(selectedPlatforms);
+        }
+        return selectedPlatforms.includes(platform);
     }
     
     return false;
@@ -260,8 +390,27 @@ export async function canAccessPlatform(platform) {
     const hasUnlimited = await hasUnlimitedAccess(platform);
     if (hasUnlimited) return true;
     
+    // Reload latest state
+    await loadTimerState();
+    
     // Check free time remaining
     return hasTimeRemaining();
+}
+
+// ============================================
+// UI UPDATE FUNCTIONS
+// ============================================
+
+function updateTimerDisplay() {
+    const timeDisplay = document.getElementById('timerTimeDisplay');
+    if (timeDisplay) {
+        timeDisplay.textContent = getRemainingTimeFormatted();
+    }
+    
+    const progressBar = document.querySelector('.timer-progress-bar');
+    if (progressBar) {
+        progressBar.style.width = `${getTimeUsedPercentage()}%`;
+    }
 }
 
 // ============================================
@@ -278,10 +427,10 @@ function showTimerBanner() {
     timerBanner.innerHTML = `
         <div class="timer-banner-content">
             <div class="timer-icon">
-                <i class="fas fa-hourglass-half"></i>
+                ⏱️
             </div>
             <div class="timer-info">
-                <div class="timer-label">Free Access</div>
+                <div class="timer-label">Free Access Today</div>
                 <div class="timer-time" id="timerTimeDisplay">${getRemainingTimeFormatted()}</div>
                 <div class="timer-progress">
                     <div class="timer-progress-bar" style="width: ${getTimeUsedPercentage()}%"></div>
@@ -294,128 +443,122 @@ function showTimerBanner() {
     
     document.body.appendChild(timerBanner);
     
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
-        #timer-banner {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: var(--bg-card);
-            border-radius: 12px;
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border-color);
-            z-index: 1000;
-            animation: slideUp 0.3s ease;
-            max-width: 350px;
-        }
-        
-        @keyframes slideUp {
-            from {
-                transform: translateY(100px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        
-        .timer-banner-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-        }
-        
-        .timer-icon {
-            font-size: 1.5rem;
-            color: var(--accent);
-        }
-        
-        .timer-info {
-            flex: 1;
-        }
-        
-        .timer-label {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-        }
-        
-        .timer-time {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--accent);
-        }
-        
-        .timer-progress {
-            width: 100%;
-            height: 3px;
-            background: var(--border-color);
-            border-radius: 3px;
-            margin-top: 4px;
-            overflow: hidden;
-        }
-        
-        .timer-progress-bar {
-            height: 100%;
-            background: var(--accent);
-            border-radius: 3px;
-            transition: width 0.3s;
-        }
-        
-        .timer-upgrade-btn {
-            background: var(--accent);
-            color: var(--brand-purple-dark);
-            border: none;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.7rem;
-        }
-        
-        .timer-close-btn {
-            background: none;
-            border: none;
-            font-size: 1.2rem;
-            cursor: pointer;
-            color: var(--text-secondary);
-            padding: 4px;
-        }
-        
-        body.dark-mode #timer-banner {
-            background: var(--bg-card);
-        }
-        
-        @media (max-width: 768px) {
+    // Add styles if not already present
+    if (!document.getElementById('timer-banner-styles')) {
+        const style = document.createElement('style');
+        style.id = 'timer-banner-styles';
+        style.textContent = `
             #timer-banner {
-                left: 10px;
-                right: 10px;
-                bottom: 10px;
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                right: 20px;
+                background: var(--bg-card, #ffffff);
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                border: 1px solid var(--border-color, #e5e7eb);
+                z-index: 1000;
+                animation: slideUp 0.3s ease;
+                max-width: 350px;
+            }
+            
+            @keyframes slideUp {
+                from {
+                    transform: translateY(100px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
             }
             
             .timer-banner-content {
-                padding: 10px 12px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px 16px;
             }
-        }
-    `;
-    document.head.appendChild(style);
+            
+            .timer-icon {
+                font-size: 1.5rem;
+            }
+            
+            .timer-info {
+                flex: 1;
+            }
+            
+            .timer-label {
+                font-size: 0.7rem;
+                color: var(--text-secondary, #6b7280);
+            }
+            
+            .timer-time {
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: var(--accent, #7c3aed);
+            }
+            
+            .timer-progress {
+                width: 100%;
+                height: 3px;
+                background: var(--border-color, #e5e7eb);
+                border-radius: 3px;
+                margin-top: 4px;
+                overflow: hidden;
+            }
+            
+            .timer-progress-bar {
+                height: 100%;
+                background: var(--accent, #7c3aed);
+                border-radius: 3px;
+                transition: width 0.3s;
+            }
+            
+            .timer-upgrade-btn {
+                background: var(--accent, #7c3aed);
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 0.7rem;
+            }
+            
+            .timer-close-btn {
+                background: none;
+                border: none;
+                font-size: 1.2rem;
+                cursor: pointer;
+                color: var(--text-secondary, #6b7280);
+                padding: 4px;
+            }
+            
+            body.dark-mode #timer-banner {
+                background: var(--bg-card, #1f2937);
+            }
+            
+            @media (max-width: 768px) {
+                #timer-banner {
+                    left: 10px;
+                    right: 10px;
+                    bottom: 10px;
+                }
+                
+                .timer-banner-content {
+                    padding: 10px 12px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
     
     // Update timer display every second
     const updateDisplay = setInterval(() => {
-        const timeDisplay = document.getElementById('timerTimeDisplay');
-        if (timeDisplay) {
-            timeDisplay.textContent = getRemainingTimeFormatted();
-        }
-        const progressBar = document.querySelector('.timer-progress-bar');
-        if (progressBar) {
-            progressBar.style.width = `${getTimeUsedPercentage()}%`;
-        }
+        updateTimerDisplay();
     }, 1000);
     
-    // Store interval ID on banner for cleanup
     timerBanner._updateInterval = updateDisplay;
     
     // Upgrade button
@@ -440,7 +583,7 @@ function hideTimerBanner() {
 }
 
 function showLowTimeWarning() {
-    showToast(`⚠️ Only 2 minutes of free access remaining! Upgrade for unlimited access.`, 'warning');
+    showToast(`⚠️ Only 2 minutes of free access remaining! Upgrade for unlimited access.`, 'warning', 5000);
 }
 
 function showTimeUpModal(platform) {
@@ -467,17 +610,17 @@ function showTimeUpModal(platform) {
                 </div>
                 <div class="modal-body">
                     <div class="timeup-icon">
-                        <i class="fas fa-hourglass-end"></i>
+                        ⏳
                     </div>
                     <p>You've used your <strong>15 minutes</strong> of free access for today.</p>
                     <p>Come back tomorrow for more free access, or upgrade now for unlimited browsing!</p>
                     <div class="timeup-plans">
                         <div class="plan-option">
-                            <h4>🎓 Standard Plan</h4>
+                            <h4>📚 Standard Plan - ₦13,000</h4>
                             <p>Unlimited access to <strong>2 platforms</strong> of your choice</p>
                         </div>
                         <div class="plan-option premium">
-                            <h4>👑 Premium Plan</h4>
+                            <h4>👑 Premium Plan - ₦15,000</h4>
                             <p>Unlimited access to <strong>ALL platforms</strong></p>
                         </div>
                     </div>
@@ -490,70 +633,141 @@ function showTimeUpModal(platform) {
         `;
         document.body.appendChild(modal);
         
-        // Add styles
-        const style = document.createElement('style');
-        style.textContent = `
-            .timeup-modal {
-                max-width: 450px;
-                text-align: center;
-            }
-            .timeup-icon {
-                font-size: 3rem;
-                color: var(--accent);
-                margin-bottom: 1rem;
-            }
-            .timeup-plans {
-                margin-top: 1.5rem;
-                text-align: left;
-            }
-            .plan-option {
-                background: var(--bg-secondary);
-                padding: 0.75rem;
-                border-radius: 12px;
-                margin-bottom: 0.75rem;
-            }
-            .plan-option.premium {
-                border-left: 3px solid var(--accent);
-            }
-            .plan-option h4 {
-                font-size: 0.9rem;
-                margin-bottom: 0.25rem;
-            }
-            .plan-option p {
-                font-size: 0.75rem;
-                color: var(--text-secondary);
-            }
-        `;
-        document.head.appendChild(style);
+        // Add modal styles
+        if (!document.getElementById('timeup-modal-styles')) {
+            const style = document.createElement('style');
+            style.id = 'timeup-modal-styles';
+            style.textContent = `
+                .modal {
+                    display: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 2000;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .modal.active {
+                    display: flex;
+                }
+                .modal-content {
+                    background: white;
+                    border-radius: 16px;
+                    max-width: 450px;
+                    width: 90%;
+                    max-height: 90vh;
+                    overflow-y: auto;
+                }
+                body.dark-mode .modal-content {
+                    background: #1f2937;
+                }
+                .timeup-modal {
+                    text-align: center;
+                }
+                .timeup-icon {
+                    font-size: 3rem;
+                    margin-bottom: 1rem;
+                }
+                .modal-header {
+                    padding: 1rem;
+                    border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .modal-header h2 {
+                    margin: 0;
+                    font-size: 1.25rem;
+                }
+                .modal-close {
+                    background: none;
+                    border: none;
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                }
+                .modal-body {
+                    padding: 1.5rem;
+                }
+                .modal-footer {
+                    padding: 1rem;
+                    border-top: 1px solid #e5e7eb;
+                    display: flex;
+                    gap: 1rem;
+                }
+                .timeup-plans {
+                    margin-top: 1.5rem;
+                    text-align: left;
+                }
+                .plan-option {
+                    background: #f3f4f6;
+                    padding: 0.75rem;
+                    border-radius: 12px;
+                    margin-bottom: 0.75rem;
+                }
+                body.dark-mode .plan-option {
+                    background: #374151;
+                }
+                .plan-option.premium {
+                    border-left: 3px solid #7c3aed;
+                }
+                .plan-option h4 {
+                    font-size: 0.9rem;
+                    margin-bottom: 0.25rem;
+                }
+                .plan-option p {
+                    font-size: 0.75rem;
+                    color: #6b7280;
+                }
+                .btn-primary {
+                    flex: 1;
+                    padding: 0.75rem;
+                    background: #7c3aed;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                }
+                .btn-outline {
+                    flex: 1;
+                    padding: 0.75rem;
+                    background: none;
+                    border: 1px solid #7c3aed;
+                    color: #7c3aed;
+                    border-radius: 8px;
+                    cursor: pointer;
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
     
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
     
-    document.getElementById('closeTimeUpModal')?.addEventListener('click', () => {
+    const closeModal = () => {
         modal.classList.remove('active');
         document.body.style.overflow = '';
-    });
+    };
+    
+    document.getElementById('closeTimeUpModal')?.addEventListener('click', closeModal);
+    document.getElementById('remindMeLaterBtn')?.addEventListener('click', closeModal);
     
     document.getElementById('upgradeNowBtn')?.addEventListener('click', () => {
         window.location.href = '/dashboard.html?tab=wallet';
     });
     
-    document.getElementById('remindMeLaterBtn')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    });
-    
     modal.onclick = (e) => {
         if (e.target === modal) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
+            closeModal();
         }
     };
 }
 
 // ============================================
-// INITIALIZE
+// EXPORT FUNCTIONS
 // ============================================
 
 // Call this on page load to restore state
@@ -562,13 +776,9 @@ export async function initTimer() {
     
     // Check if time is already used up
     if (!hasTimeRemaining()) {
-        // Show time up message but don't block
-        const user = await supabase.auth.getUser();
-        if (user.data.user) {
-            const hasUnlimited = await hasUnlimitedAccess('library');
-            if (!hasUnlimited) {
-                showToast(`You've used your daily free access. Upgrade for unlimited access!`, 'info');
-            }
+        const subscription = await getUserSubscription();
+        if (!subscription || subscription.subscription_plan === 'free') {
+            showToast(`You've used your daily free access. Upgrade for unlimited access!`, 'info', 5000);
         }
     }
 }
@@ -584,5 +794,6 @@ export default {
     getRemainingMinutes,
     getRemainingTimeFormatted,
     getTimeUsedPercentage,
-    hasTimeRemaining
+    hasTimeRemaining,
+    clearSubscriptionCache
 };
