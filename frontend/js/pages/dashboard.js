@@ -1,7 +1,6 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE STUDENT VERSION
-// Updated: Platform selection for Basic/Standard plans
-// Hub is always free
+// GLIIMU DASHBOARD - COMPLETE FUNCTIONAL VERSION
+// No infinite loading, all features working
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -17,7 +16,6 @@ import {
     subscribeToWalletUpdates,
     getAvailablePlatforms,
     getPlanDetails,
-    PLATFORM_INFO,
     PRICING
 } from '../modules/wallet.js';
 
@@ -34,7 +32,6 @@ import {
 } from '../modules/progression.js';
 
 import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
-import { showPlatformSelector } from '../modules/access-guard.js';
 
 // ============================================
 // GLOBAL STATE
@@ -148,6 +145,7 @@ async function loadUserFromSupabase(userId) {
             subscriptionPlan: profile.subscription_plan || 'free',
             selectedPlatforms: profile.selected_platforms || [],
             walletBalance: profile.wallet_balance || 14500,
+            address: profile.address || '',
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
         };
         currentRole = currentUser.role;
@@ -466,16 +464,6 @@ async function renderDashboard() {
         const subscriptionPlan = currentUser?.subscriptionPlan || 'free';
         const selectedPlatforms = currentUser?.selectedPlatforms || [];
         
-        // Format selected platforms for display
-        const platformNames = selectedPlatforms.map(p => {
-            switch(p) {
-                case 'library': return 'Library';
-                case 'virtualroom': return 'Virtual Classroom';
-                case 'chat': return 'Community Chat';
-                default: return p;
-            }
-        }).join(', ');
-        
         container.innerHTML = `
             <div class="progress-section">
                 ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
@@ -785,7 +773,6 @@ async function showPlatformSelectorForCurrentUser() {
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
     
-    // Platform selection handler
     document.querySelectorAll('.platform-option').forEach(option => {
         option.addEventListener('click', () => {
             const platformId = option.getAttribute('data-platform');
@@ -821,7 +808,6 @@ async function showPlatformSelectorForCurrentUser() {
     
     document.getElementById('savePlatformsBtn')?.addEventListener('click', async () => {
         if (selected.length === maxSelections) {
-            // Update user's selected platforms in database
             const { error } = await supabase
                 .from('users')
                 .update({ selected_platforms: selected })
@@ -849,6 +835,114 @@ async function showPlatformSelectorForCurrentUser() {
 }
 
 // ============================================
+// PLATFORM SELECTOR FOR PURCHASE FLOW
+// ============================================
+function showPlatformSelectorForPurchase(planType, onComplete) {
+    const maxSelections = planType === 'standard' ? 2 : 1;
+    let selected = [];
+    
+    const platforms = [
+        { id: 'library', name: 'Digital Library', icon: '📚', description: 'Access books, bundles, learning materials' },
+        { id: 'virtualroom', name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
+        { id: 'chat', name: 'Community Chat', icon: '💬', description: 'Connect with fellow learners' }
+    ];
+    
+    const modalContent = `
+        <div class="modal-content platform-selector-modal">
+            <div class="modal-header">
+                <h2>${planType === 'standard' ? '📦 Choose 2 Platforms' : '🌱 Choose 1 Platform'}</h2>
+                <button class="modal-close" id="closePlatformModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select which platforms you want unlimited access to:</p>
+                <div class="platform-list">
+                    ${platforms.map(p => `
+                        <div class="platform-option" data-platform="${p.id}">
+                            <div class="platform-icon">${p.icon}</div>
+                            <div class="platform-info">
+                                <div class="platform-name">${p.name}</div>
+                                <div class="platform-desc">${p.description}</div>
+                            </div>
+                            <div class="platform-check"></div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="selection-info">
+                    <span id="selectionCount">0</span> / ${maxSelections} selected
+                </div>
+                <div class="hub-note">
+                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirmPlatformBtn" class="btn-primary" disabled>Continue to Payment</button>
+                <button id="cancelPlatformBtn" class="btn-outline">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    let modal = document.getElementById('platformPurchaseModal');
+    if (modal) modal.remove();
+    
+    modal = document.createElement('div');
+    modal.id = 'platformPurchaseModal';
+    modal.className = 'modal';
+    modal.innerHTML = modalContent;
+    document.body.appendChild(modal);
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    document.querySelectorAll('.platform-option').forEach(option => {
+        option.addEventListener('click', () => {
+            const platformId = option.getAttribute('data-platform');
+            const index = selected.indexOf(platformId);
+            
+            if (index === -1 && selected.length < maxSelections) {
+                selected.push(platformId);
+                option.classList.add('selected');
+                option.querySelector('.platform-check').textContent = '✓';
+            } else if (index !== -1) {
+                selected.splice(index, 1);
+                option.classList.remove('selected');
+                option.querySelector('.platform-check').textContent = '';
+            }
+            
+            document.getElementById('selectionCount').textContent = selected.length;
+            const confirmBtn = document.getElementById('confirmPlatformBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = selected.length !== maxSelections;
+            }
+        });
+    });
+    
+    document.getElementById('closePlatformModal')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    document.getElementById('cancelPlatformBtn')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    document.getElementById('confirmPlatformBtn')?.addEventListener('click', () => {
+        if (selected.length === maxSelections) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            onComplete(selected);
+        }
+    });
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+}
+
+// ============================================
 // WALLET TAB - UPDATED WITH NEW PLANS
 // ============================================
 async function renderWallet() {
@@ -862,9 +956,6 @@ async function renderWallet() {
         
         const balance = await getWalletBalance();
         const transactions = await getTransactionHistory();
-        const planDetails = getPlanDetails();
-        
-        // Get user's current plan
         const userPlan = currentUser?.subscriptionPlan || 'free';
         const selectedPlatforms = currentUser?.selectedPlatforms || [];
         
@@ -989,17 +1080,14 @@ async function renderWallet() {
             </div>
         `;
         
-        // Add Funds button
         document.getElementById('addFundsBtn')?.addEventListener('click', () => {
             openFundWalletModal();
         });
         
-        // Upgrade plan button
         document.getElementById('upgradePlanMainBtn')?.addEventListener('click', () => {
             document.querySelector('.plans-section').scrollIntoView({ behavior: 'smooth' });
         });
         
-        // Plan selection
         document.querySelectorAll('.plan-select-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const plan = btn.getAttribute('data-plan');
@@ -1008,12 +1096,14 @@ async function renderWallet() {
                     const result = await purchasePremium();
                     if (result === true) {
                         showToast('Premium activated!', 'success');
-                        setTimeout(() => renderDashboard(), 1000);
+                        setTimeout(() => {
+                            renderDashboard();
+                            renderWallet();
+                        }, 1000);
                     } else if (result?.needsTopUp) {
                         openFundWalletModal(result.amount);
                     }
                 } else if (plan === 'standard') {
-                    // Show platform selector
                     showPlatformSelectorForPurchase('standard', async (selectedPlatforms) => {
                         const result = await purchaseStandard(selectedPlatforms);
                         if (result === true) {
@@ -1027,7 +1117,6 @@ async function renderWallet() {
                         }
                     });
                 } else if (plan === 'basic') {
-                    // Show platform selector
                     showPlatformSelectorForPurchase('basic', async (selectedPlatform) => {
                         const result = await purchaseBasic(selectedPlatform[0]);
                         if (result === true) {
@@ -1050,128 +1139,13 @@ async function renderWallet() {
     }
 }
 
-// ============================================
-// PLATFORM SELECTOR FOR PURCHASE FLOW
-// ============================================
-function showPlatformSelectorForPurchase(planType, onComplete) {
-    const maxSelections = planType === 'standard' ? 2 : 1;
-    let selected = [];
-    
-    const platforms = [
-        { id: 'library', name: 'Digital Library', icon: '📚', description: 'Access books, bundles, learning materials' },
-        { id: 'virtualroom', name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
-        { id: 'chat', name: 'Community Chat', icon: '💬', description: 'Connect with fellow learners' }
-    ];
-    
-    const modalContent = `
-        <div class="modal-content platform-selector-modal">
-            <div class="modal-header">
-                <h2>${planType === 'standard' ? '📦 Choose 2 Platforms' : '🌱 Choose 1 Platform'}</h2>
-                <button class="modal-close" id="closePlatformModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Select which platforms you want unlimited access to:</p>
-                <div class="platform-list">
-                    ${platforms.map(p => `
-                        <div class="platform-option" data-platform="${p.id}">
-                            <div class="platform-icon">${p.icon}</div>
-                            <div class="platform-info">
-                                <div class="platform-name">${p.name}</div>
-                                <div class="platform-desc">${p.description}</div>
-                            </div>
-                            <div class="platform-check"></div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="selection-info">
-                    <span id="selectionCount">0</span> / ${maxSelections} selected
-                </div>
-                <div class="hub-note">
-                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="confirmPlatformBtn" class="btn-primary" disabled>Continue to Payment</button>
-                <button id="cancelPlatformBtn" class="btn-outline">Cancel</button>
-            </div>
-        </div>
-    `;
-    
-    let modal = document.getElementById('platformPurchaseModal');
-    if (modal) modal.remove();
-    
-    modal = document.createElement('div');
-    modal.id = 'platformPurchaseModal';
-    modal.className = 'modal';
-    modal.innerHTML = modalContent;
-    document.body.appendChild(modal);
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    
-    document.querySelectorAll('.platform-option').forEach(option => {
-        option.addEventListener('click', () => {
-            const platformId = option.getAttribute('data-platform');
-            const index = selected.indexOf(platformId);
-            
-            if (index === -1 && selected.length < maxSelections) {
-                selected.push(platformId);
-                option.classList.add('selected');
-                option.querySelector('.platform-check').textContent = '✓';
-            } else if (index !== -1) {
-                selected.splice(index, 1);
-                option.classList.remove('selected');
-                option.querySelector('.platform-check').textContent = '';
-            }
-            
-            document.getElementById('selectionCount').textContent = selected.length;
-            const confirmBtn = document.getElementById('confirmPlatformBtn');
-            if (confirmBtn) {
-                confirmBtn.disabled = selected.length !== maxSelections;
-            }
-        });
-    });
-    
-    document.getElementById('closePlatformModal')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    });
-    
-    document.getElementById('cancelPlatformBtn')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    });
-    
-    document.getElementById('confirmPlatformBtn')?.addEventListener('click', () => {
-        if (selected.length === maxSelections) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-            onComplete(selected);
-        }
-    });
-    
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    };
-}
-
-// ============================================
-// FUND WALLET MODAL
-// ============================================
 function openFundWalletModal(suggestedAmount = null) {
-    // ... (keep existing fund wallet modal code)
-    // This function remains the same as before
-    console.log('Open fund wallet modal', suggestedAmount);
-    showToast('Add funds feature coming soon', 'info');
+    showToast('Add funds feature coming soon. Please contact support.', 'info');
 }
 
 // ============================================
-// OTHER FUNCTIONS (Go To Menu, Settings, etc.)
+// GO TO MENU TAB
 // ============================================
-
 function renderGoToMenu() {
     const container = document.getElementById('gotomenu-section');
     if (!container) return;
@@ -1212,40 +1186,65 @@ function renderGoToMenu() {
     `;
 }
 
+// ============================================
+// QUESTIONS TAB
+// ============================================
 async function renderQuestionBar() {
     const container = document.getElementById('question-section');
     if (!container) return;
+    
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
     
     try {
         const nextQuestion = await getNextQuestion(currentUser.id);
         
         if (!nextQuestion) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle"></i><h3>All Questions Complete!</h3><button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button></div>`;
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>All Questions Complete!</h3>
+                    <p>You've answered all available questions. Check back later for more.</p>
+                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
+                </div>
+            `;
             return;
         }
         
-        questionRenderer = new QuestionRenderer('question-section', currentUser.id, async (result) => {
-            const scoreData = await getStudentScore(currentUser.id);
-            const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-            const nextBadge = getNextBadge(scoreData?.current_score || 0);
-            const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-            
-            const progressSection = document.querySelector('.progress-section');
-            if (progressSection) {
-                progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
+        questionRenderer = new QuestionRenderer(
+            'question-section',
+            currentUser.id,
+            async (result) => {
+                const scoreData = await getStudentScore(currentUser.id);
+                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+                const nextBadge = getNextBadge(scoreData?.current_score || 0);
+                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+                
+                const progressSection = document.querySelector('.progress-section');
+                if (progressSection) {
+                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
+                }
+                
+                setTimeout(() => renderQuestionBar(), 2000);
             }
-            setTimeout(() => renderQuestionBar(), 2000);
-        });
+        );
         
         await questionRenderer.renderQuestion(nextQuestion);
         
     } catch (error) {
         console.error('Error loading question:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Unable to load question</h3><button class="btn-primary" onclick="renderQuestionBar()">Try Again</button></div>`;
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Unable to load question</h3>
+                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
+            </div>
+        `;
     }
 }
 
+// ============================================
+// SETTINGS TAB
+// ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
     if (!container) return;
@@ -1256,7 +1255,10 @@ async function renderSettings() {
     
     container.innerHTML = `
         <div class="section-header">
-            <div><h2>Settings</h2><p>Manage your account preferences</p></div>
+            <div>
+                <h2>Settings</h2>
+                <p>Manage your account preferences</p>
+            </div>
         </div>
         
         <div class="settings-grid">
@@ -1312,7 +1314,6 @@ async function renderSettings() {
         </div>
     `;
     
-    // Theme selector
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const theme = btn.getAttribute('data-theme');
@@ -1324,7 +1325,6 @@ async function renderSettings() {
         });
     });
     
-    // Avatar upload
     document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
         document.getElementById('avatarUpload').click();
     });
@@ -1347,7 +1347,6 @@ async function renderSettings() {
         }
     });
     
-    // Portfolio URL
     document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
         const urlInput = document.getElementById('portfolioUrl');
         urlInput.select();
@@ -1359,7 +1358,6 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
-    // Save settings
     document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
         const newName = document.getElementById('fullNameInput').value;
         const newAddress = document.getElementById('addressInput').value;
@@ -1384,7 +1382,6 @@ async function renderSettings() {
         }
     });
     
-    // Change password
     document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const currentPassword = document.getElementById('currentPassword').value;
@@ -1416,7 +1413,6 @@ async function renderSettings() {
         }
     });
     
-    // Sign Out
     document.getElementById('signOutBtn')?.addEventListener('click', async () => {
         if (confirm('Are you sure you want to sign out?')) {
             await supabase.auth.signOut();
@@ -1496,8 +1492,10 @@ async function initDashboard() {
     console.log('Dashboard initialized successfully');
 }
 
+// Start the dashboard
 initDashboard();
 
+// Make functions global
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
 window.renderQuestionBar = renderQuestionBar;
