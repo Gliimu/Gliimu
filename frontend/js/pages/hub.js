@@ -238,4 +238,259 @@ function createPostCard(post) {
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
-  return div
+  return div.innerHTML;
+}
+
+async function updateStats() {
+  try {
+    const { data: posts, error } = await supabase
+      .from('hub_posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved');
+    
+    if (!error && posts) {
+      document.getElementById('statPosts').textContent = posts.length || 0;
+    }
+    
+    // Get pending count for admin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.role === 'admin') {
+        const { count } = await supabase
+          .from('hub_posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        
+        document.getElementById('statPending').textContent = count || 0;
+      }
+    }
+  } catch (error) {
+    console.error('Error updating stats:', error);
+  }
+}
+
+async function filterPosts(filter) {
+  currentFilter = filter;
+  const container = document.getElementById('postsContainer');
+  if (!container) return;
+  
+  try {
+    let query = supabase
+      .from('hub_posts')
+      .select('*')
+      .eq('status', 'approved');
+    
+    if (filter !== 'all') {
+      query = query.eq('type', filter);
+    }
+    
+    const { data: posts, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    if (!posts || posts.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-filter"></i>
+          <h3>No posts found</h3>
+          <p>Try a different filter.</p>
+        </div>
+      `;
+    } else {
+      container.innerHTML = posts.map(post => createPostCard(post)).join('');
+    }
+  } catch (error) {
+    console.error('Error filtering posts:', error);
+  }
+}
+
+async function searchPosts() {
+  const searchInput = document.getElementById('searchInput');
+  currentSearch = searchInput?.value || '';
+  
+  if (!currentSearch.trim()) {
+    await loadPosts();
+    return;
+  }
+  
+  const container = document.getElementById('postsContainer');
+  if (!container) return;
+  
+  try {
+    const { data: posts, error } = await supabase
+      .from('hub_posts')
+      .select('*')
+      .eq('status', 'approved')
+      .ilike('title', `%${currentSearch}%`)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    if (!posts || posts.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-search"></i>
+          <h3>No results found</h3>
+          <p>Try searching with different keywords.</p>
+        </div>
+      `;
+    } else {
+      container.innerHTML = posts.map(post => createPostCard(post)).join('');
+    }
+  } catch (error) {
+    console.error('Error searching posts:', error);
+  }
+}
+
+async function handlePostSubmission(event) {
+  const { title, type, description, imageFile } = event.detail;
+  
+  if (!title || !description) {
+    showToast('Please fill in all required fields.', 'error');
+    return;
+  }
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    showToast('Please login to create a post', 'error');
+    return;
+  }
+  
+  let imageUrl = null;
+  
+  if (imageFile) {
+    const fileName = `${user.id}_${Date.now()}_${imageFile.name}`;
+    const { error } = await supabase.storage
+      .from('hub-content')
+      .upload(`posts/${fileName}`, imageFile);
+    
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage
+        .from('hub-content')
+        .getPublicUrl(`posts/${fileName}`);
+      imageUrl = publicUrl;
+    }
+  }
+  
+  const { error } = await supabase
+    .from('hub_posts')
+    .insert({
+      user_id: user.id,
+      title: title,
+      description: description,
+      type: type,
+      image_url: imageUrl,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    });
+  
+  if (error) {
+    showToast('Failed to submit post. Please try again.', 'error');
+    return;
+  }
+  
+  showToast('Post submitted for review!', 'success');
+  window.closeCreatePostModal();
+  
+  // Clear form
+  document.getElementById('postForm').reset();
+  document.getElementById('imagePreview').style.display = 'none';
+}
+
+async function handleLike(postId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    showToast('Please login to like posts', 'info');
+    return;
+  }
+  
+  // Get current likes
+  const { data: post } = await supabase
+    .from('hub_posts')
+    .select('likes')
+    .eq('id', postId)
+    .single();
+  
+  const newLikes = (post?.likes || 0) + 1;
+  
+  const { error } = await supabase
+    .from('hub_posts')
+    .update({ likes: newLikes })
+    .eq('id', postId);
+  
+  if (!error) {
+    // Update UI
+    const likeSpan = document.querySelector(`.like-btn[data-id="${postId}"] .like-count`);
+    if (likeSpan) likeSpan.textContent = newLikes;
+    showToast('Post liked!', 'success');
+  }
+}
+
+function setupEventListeners() {
+  // Filter buttons
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter;
+      filterPosts(filter);
+    });
+  });
+  
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', searchPosts);
+  }
+  
+  // Create post button
+  const createBtn = document.getElementById('createPostBtn');
+  if (createBtn) {
+    createBtn.addEventListener('click', () => {
+      document.getElementById('createPostModal').classList.add('active');
+    });
+  }
+  
+  // Close modal
+  const closeModal = document.getElementById('closeModalBtn');
+  if (closeModal) {
+    closeModal.addEventListener('click', window.closeCreatePostModal);
+  }
+  
+  // Modal backdrop
+  const modal = document.getElementById('createPostModal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) window.closeCreatePostModal();
+    });
+  }
+  
+  // Like buttons (delegation)
+  document.addEventListener('click', async (e) => {
+    const likeBtn = e.target.closest('.like-btn');
+    if (likeBtn) {
+      const postId = likeBtn.dataset.id;
+      await handleLike(postId);
+    }
+  });
+}
+
+// Global function for tipping
+window.supportCreator = async function(postId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    showToast('Please login to support creators', 'info');
+    return;
+  }
+  
+  const amount = prompt('Enter tip amount (₦):', '500');
+  if (amount && !isNaN(amount) && amount > 0) {
+    showToast(`Thank you for tipping ₦${amount}!`, 'success');
+  }
+};
