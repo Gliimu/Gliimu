@@ -14,13 +14,13 @@ let currentSearch = '';
 let savedItems = new Set();
 let isLoading = false;
 
-// Categories for filter chips
+// Categories for filter chips (based on actual categories in database)
 const CATEGORIES = [
     { id: 'all', name: 'All', icon: '📚' },
-    { id: 'Video Production', name: 'Video', icon: '🎬' },
-    { id: 'Motion Graphics', name: 'Motion', icon: '✨' },
+    { id: 'Video Production', name: 'Video Production', icon: '🎬' },
+    { id: 'Motion Graphics', name: 'Motion Graphics', icon: '✨' },
     { id: 'Design', name: 'Design', icon: '🎨' },
-    { id: 'Development', name: 'Dev', icon: '💻' },
+    { id: 'Development', name: 'Development', icon: '💻' },
     { id: 'Animation', name: 'Animation', icon: '🎮' },
     { id: 'Bundle', name: 'Bundles', icon: '📦' }
 ];
@@ -63,8 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="empty-state">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Failed to Load Library</h3>
-                    <p>Please check your internet connection and refresh the page.</p>
-                    <button onclick="location.reload()" style="margin-top: 16px; padding: 8px 20px; background: #fbb040; border: none; border-radius: 8px; cursor: pointer;">Retry</button>
+                    <p>Please refresh the page to try again.</p>
                 </div>
             `;
         }
@@ -85,23 +84,18 @@ async function loadLibraryItems() {
     console.log('Fetching library items from Supabase...');
     
     try {
-        const { data: items, error, status } = await supabase
+        const { data: items, error } = await supabase
             .from('library_items')
             .select('*')
             .order('created_at', { ascending: false });
-        
-        console.log('Supabase response status:', status);
-        console.log('Supabase error:', error);
-        console.log('Items fetched:', items?.length || 0);
         
         if (error) {
             console.error('Database error:', error);
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-database"></i>
-                    <h3>Database Connection Error</h3>
+                    <h3>Database Error</h3>
                     <p>${error.message}</p>
-                    <p style="font-size: 12px; margin-top: 10px;">Please ensure the library_items table exists in Supabase.</p>
                 </div>
             `;
             return;
@@ -114,7 +108,6 @@ async function loadLibraryItems() {
                     <i class="fas fa-book-open"></i>
                     <h3>No Materials Found</h3>
                     <p>The library is being populated with content.</p>
-                    <p style="font-size: 12px; margin-top: 10px;">Check back soon for exciting resources!</p>
                 </div>
             `;
             return;
@@ -134,7 +127,6 @@ async function loadLibraryItems() {
                 <i class="fas fa-exclamation-circle"></i>
                 <h3>Error Loading Content</h3>
                 <p>${error.message || 'Unknown error occurred'}</p>
-                <button onclick="location.reload()" style="margin-top: 16px; padding: 8px 20px; background: #fbb040; border: none; border-radius: 8px; cursor: pointer;">Retry</button>
             </div>
         `;
     } finally {
@@ -197,11 +189,14 @@ function renderItems() {
     const container = document.getElementById('booksContainer');
     if (!container) return;
     
+    console.log('Rendering items. Total items:', allItems.length);
+    
     let filtered = [...allItems];
     
     // Apply category filter
     if (currentFilter !== 'all') {
         filtered = filtered.filter(item => item.category === currentFilter);
+        console.log(`Filtered by category "${currentFilter}": ${filtered.length} items`);
     }
     
     // Apply search
@@ -212,9 +207,8 @@ function renderItems() {
             (item.description && item.description.toLowerCase().includes(searchLower)) ||
             (item.author && item.author.toLowerCase().includes(searchLower))
         );
+        console.log(`Filtered by search "${currentSearch}": ${filtered.length} items`);
     }
-    
-    console.log(`Rendering ${filtered.length} items (filtered from ${allItems.length})`);
     
     if (filtered.length === 0) {
         container.innerHTML = `
@@ -229,6 +223,7 @@ function renderItems() {
     
     // Generate HTML for each item
     container.innerHTML = filtered.map(item => createItemCard(item)).join('');
+    console.log(`Rendered ${filtered.length} items`);
 }
 
 // ============================================
@@ -240,7 +235,10 @@ function createItemCard(item) {
     const isBundle = item.type === 'bundle';
     
     // Default cover image if none provided
-    const coverUrl = item.cover_url || 'https://placehold.co/300x450/2c2f78/white?text=' + encodeURIComponent(item.title || 'Book');
+    let coverUrl = item.cover_url;
+    if (!coverUrl || coverUrl === 'null' || coverUrl === '') {
+        coverUrl = `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Book')}`;
+    }
     
     if (isBundle) {
         return `
@@ -263,11 +261,15 @@ function createItemCard(item) {
         `;
     }
     
-    // Book/Resource card
+    // Book/Resource card - Portrait style
     return `
         <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewItemDetails && window.viewItemDetails('${item.id}')">
             <div class="card-cover" style="background-image: url('${coverUrl}')">
                 ${isSaved ? '<div class="saved-badge">★ Saved</div>' : ''}
+                <div class="card-info-overlay">
+                    <div class="card-title">${escapeHtml(item.title)}</div>
+                    <div class="card-author">${escapeHtml(item.author || 'Gliimu Team')}</div>
+                </div>
             </div>
         </div>
     `;
@@ -298,33 +300,43 @@ window.viewItemDetails = async (itemId) => {
         return;
     }
     
-    const coverUrl = item.cover_url || 'https://placehold.co/300x450/2c2f78/white?text=' + encodeURIComponent(item.title || 'Book');
+    let coverUrl = item.cover_url;
+    if (!coverUrl || coverUrl === 'null' || coverUrl === '') {
+        coverUrl = `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Book')}`;
+    }
     
     modalTitle.textContent = item.title;
     modalImage.src = coverUrl;
     modalDescription.innerHTML = `
         <strong>Author:</strong> ${escapeHtml(item.author || 'Gliimu Team')}<br>
         <strong>Type:</strong> ${item.type || 'Book'} | <strong>Level:</strong> ${item.level || 'Beginner'}<br>
-        <strong>Access:</strong> ${item.requires_subscription || 'Free'}<br><br>
+        <strong>Access:</strong> ${item.requires_subscription || 'Free'}<br>
+        <strong>Pages:</strong> ${item.pages || 'N/A'}<br><br>
         ${escapeHtml(item.description || 'No description available.')}
     `;
     
-    modalFooter.innerHTML = `
-        ${!canAccess && item.requires_subscription !== 'free' ? `
+    let footerHtml = '';
+    
+    if (!canAccess && item.requires_subscription !== 'free') {
+        footerHtml = `
             <button class="modal-btn modal-btn-secondary" onclick="closeModal(); window.location.href='/dashboard.html?tab=wallet'">
                 Upgrade to ${item.requires_subscription}
             </button>
-        ` : `
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    } else {
+        footerHtml = `
             <button class="modal-btn modal-btn-secondary" onclick="toggleSaveItem('${item.id}')">
                 ${isSaved ? 'Remove from Library' : 'Save to Library'}
             </button>
             <button class="modal-btn modal-btn-primary" onclick="startReading('${item.id}')">
                 ${item.type === 'bundle' ? 'Download Bundle' : 'Start Reading'}
             </button>
-        `}
-        <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
-    `;
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    }
     
+    modalFooter.innerHTML = footerHtml;
     modal.classList.add('active');
     
     // Track view
@@ -417,13 +429,7 @@ window.startReading = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
     if (!item) return;
     
-    if (item.type === 'bundle' || item.file_url) {
-        window.open(item.file_url || '#', '_blank');
-        showToast(`Opening ${item.title}...`, 'success');
-    } else {
-        showToast(`Opening ${item.title}. Enjoy reading!`, 'success');
-    }
-    
+    showToast(`Opening ${item.title}. Enjoy!`, 'success');
     closeModal();
 };
 
@@ -432,11 +438,7 @@ window.downloadBundle = async (itemId) => {
     if (!item) return;
     
     showToast(`Preparing ${item.title} for download...`, 'info');
-    if (item.file_url) {
-        window.open(item.file_url, '_blank');
-    } else {
-        showToast(`Download will be available soon!`, 'info');
-    }
+    closeModal();
 };
 
 // ============================================
@@ -447,7 +449,6 @@ async function trackView(itemId) {
     if (!currentUser) return;
     
     try {
-        // Update user progress last viewed
         const { data: existing } = await supabase
             .from('user_library_progress')
             .select('id')
@@ -462,7 +463,7 @@ async function trackView(itemId) {
                 .eq('id', existing.id);
         }
     } catch (error) {
-        console.error('Error tracking view:', error);
+        // Ignore - item not in progress yet
     }
 }
 
@@ -484,7 +485,6 @@ function setupThemeToggle() {
     const themeToggle = document.getElementById('themeToggle');
     if (!themeToggle) return;
     
-    // Check for saved theme preference
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
@@ -510,13 +510,11 @@ window.closeModal = () => {
 // ============================================
 
 function setupEventListeners() {
-    // Search button
     const searchBtn = document.getElementById('searchBtn');
     if (searchBtn) {
         searchBtn.addEventListener('click', performSearch);
     }
     
-    // Enter key on search input
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         searchInput.addEventListener('keypress', (e) => {
@@ -524,13 +522,11 @@ function setupEventListeners() {
         });
     }
     
-    // Modal close button
     const modalCloseBtn = document.getElementById('modalCloseBtn');
     if (modalCloseBtn) {
         modalCloseBtn.addEventListener('click', closeModal);
     }
     
-    // Close modal on outside click
     const modal = document.getElementById('itemModal');
     if (modal) {
         modal.addEventListener('click', (e) => {
@@ -538,7 +534,6 @@ function setupEventListeners() {
         });
     }
     
-    // Download app button
     const downloadBtn = document.getElementById('downloadAppBtn');
     if (downloadBtn) {
         downloadBtn.addEventListener('click', () => {
@@ -546,7 +541,6 @@ function setupEventListeners() {
         });
     }
     
-    // Back arrow
     const backArrow = document.querySelector('.back-arrow');
     if (backArrow) {
         backArrow.addEventListener('click', (e) => {
