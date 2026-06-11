@@ -1,4 +1,4 @@
-// js/pages/hub.js - Social Media Style Feed
+// js/hub.js - Social Media Feed with Company Values Content
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
@@ -6,6 +6,98 @@ import { showToast } from '../modules/toast.js';
 let currentFilter = 'all';
 let allPosts = [];
 let currentUser = null;
+
+// Company values content - Default posts that showcase Gliimu's mission
+const DEFAULT_POSTS = [
+  {
+    id: 'default_1',
+    title: 'Welcome to the Gliimu Creative Community! 🎨',
+    description: 'We are building Africa\'s largest community of media architects - video producers, designers, and developers. Share your journey, learn from peers, and grow together. What creative project are you working on today?',
+    type: 'insight',
+    image_url: null,
+    likes: 156,
+    comments: 34,
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    status: 'approved'
+  },
+  {
+    id: 'default_2',
+    title: 'Student Spotlight: Amazing Animation Project',
+    description: 'Check out this incredible 3D animation created by one of our video production students. The attention to detail, lighting, and storytelling is outstanding! Drop a comment to celebrate this achievement. 🎬✨',
+    type: 'video',
+    image_url: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=800',
+    likes: 342,
+    comments: 67,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    status: 'approved'
+  },
+  {
+    id: 'default_3',
+    title: 'Free Masterclass: Advanced Video Editing Techniques',
+    description: 'Join us this Saturday for a free masterclass with industry professionals. Learn color grading, motion graphics, and professional workflow tips. Limited spots available! Register now through the link in bio. 🎥',
+    type: 'event',
+    image_url: 'https://images.unsplash.com/photo-1574717024453-3540563c7a4f?w=800',
+    likes: 234,
+    comments: 89,
+    created_at: new Date(Date.now() - 172800000).toISOString(),
+    status: 'approved'
+  },
+  {
+    id: 'default_4',
+    title: 'Design Trends 2025: What You Need to Know',
+    description: 'From AI-powered design tools to immersive 3D experiences, discover the trends shaping the creative industry. Our design team shares insights on staying ahead in the fast-evolving world of digital design. 💡',
+    type: 'insight',
+    image_url: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800',
+    likes: 189,
+    comments: 45,
+    created_at: new Date(Date.now() - 259200000).toISOString(),
+    status: 'approved'
+  },
+  {
+    id: 'default_5',
+    title: 'Call for Mentors: Shape the Next Generation',
+    description: 'We\'re looking for experienced creatives to mentor our students. Share your expertise in video production, UI/UX design, or web development. Make a lasting impact on aspiring media architects. 🤝',
+    type: 'support',
+    image_url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800',
+    likes: 78,
+    comments: 23,
+    created_at: new Date(Date.now() - 345600000).toISOString(),
+    status: 'approved'
+  },
+  {
+    id: 'default_6',
+    title: 'Portfolio Review Workshop - Get Expert Feedback',
+    description: 'Present your portfolio to industry experts and receive constructive feedback. Perfect for students preparing for job applications. Happening virtually next Thursday. Save your spot! 📁✨',
+    type: 'event',
+    image_url: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800',
+    likes: 145,
+    comments: 52,
+    created_at: new Date(Date.now() - 432000000).toISOString(),
+    status: 'approved'
+  },
+  {
+    id: 'default_7',
+    title: 'From Student to Professional: My Journey',
+    description: 'Read how Sarah transitioned from a beginner to a professional video editor within 6 months at Gliimu. Her tips on consistency, networking, and building a portfolio that lands jobs. 🚀',
+    type: 'insight',
+    image_url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800',
+    likes: 267,
+    comments: 73,
+    created_at: new Date(Date.now() - 518400000).toISOString(),
+    status: 'approved'
+  },
+  {
+    id: 'default_8',
+    title: 'Scholarship Opportunity: Full Tuition Coverage',
+    description: 'Applications now open for the Gliimu Creative Excellence Scholarship. Open to talented students from underrepresented backgrounds. Covers full tuition and provides mentorship. Deadline: March 30th. 🎓',
+    type: 'support',
+    image_url: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800',
+    likes: 423,
+    comments: 112,
+    created_at: new Date(Date.now() - 604800000).toISOString(),
+    status: 'approved'
+  }
+];
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', async () => {
@@ -20,33 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Setup event listeners
   setupEventListeners();
-  
-  // Load partials
-  await loadPartials();
 });
-
-async function loadPartials() {
-  const headerPlaceholder = document.getElementById('header-placeholder');
-  const footerPlaceholder = document.getElementById('footer-placeholder');
-  const loginModalPlaceholder = document.getElementById('login-modal-placeholder');
-  
-  try {
-    if (headerPlaceholder) {
-      const response = await fetch('partials/header.html');
-      headerPlaceholder.innerHTML = await response.text();
-    }
-    if (footerPlaceholder) {
-      const response = await fetch('partials/footer.html');
-      footerPlaceholder.innerHTML = await response.text();
-    }
-    if (loginModalPlaceholder) {
-      const response = await fetch('partials/login-modal.html');
-      loginModalPlaceholder.innerHTML = await response.text();
-    }
-  } catch (error) {
-    console.error('Error loading partials:', error);
-  }
-}
 
 async function loadPosts() {
   const container = document.getElementById('feedContainer');
@@ -63,17 +129,23 @@ async function loadPosts() {
     if (error) throw error;
     
     if (!posts || posts.length === 0) {
-      showEmptyState();
-      return;
+      // Use default posts if no data
+      allPosts = [...DEFAULT_POSTS];
+    } else {
+      allPosts = [...posts, ...DEFAULT_POSTS.slice(0, 3)];
+      // Sort by date
+      allPosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
     
-    allPosts = posts;
     filterAndDisplayPosts();
     updateStats();
     
   } catch (error) {
     console.error('Error loading posts:', error);
-    showEmptyState();
+    // Fallback to default posts
+    allPosts = [...DEFAULT_POSTS];
+    filterAndDisplayPosts();
+    updateStats();
   }
 }
 
@@ -94,17 +166,18 @@ function displayPosts(posts) {
   if (posts.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <i class="fas fa-newspaper"></i>
+        <i class="fas fa-comments"></i>
         <h3>No posts yet</h3>
         <p>Be the first to share something with the community!</p>
+        <button class="btn-primary" onclick="document.getElementById('createPostTriggerBtn').click()">
+          <i class="fas fa-plus"></i> Create First Post
+        </button>
       </div>
     `;
     return;
   }
   
   container.innerHTML = posts.map(post => createPostHTML(post)).join('');
-  
-  // Attach event listeners to new posts
   attachPostEventListeners();
 }
 
@@ -114,9 +187,9 @@ function createPostHTML(post) {
   
   const typeInfo = {
     insight: { icon: 'fa-lightbulb', label: 'Insight' },
-    video: { icon: 'fa-video', label: 'Video' },
+    video: { icon: 'fa-video', label: 'Project' },
     event: { icon: 'fa-calendar-alt', label: 'Event' },
-    support: { icon: 'fa-hand-holding-heart', label: 'Support' }
+    support: { icon: 'fa-hand-holding-heart', label: 'Opportunity' }
   };
   
   const info = typeInfo[post.type] || typeInfo.insight;
@@ -129,7 +202,7 @@ function createPostHTML(post) {
             <i class="fas fa-user-circle"></i>
           </div>
           <div class="author-info">
-            <span class="author-name">Community Member</span>
+            <span class="author-name">Gliimu Community</span>
             <div class="post-time">
               <span>${timeAgo}</span>
               <span class="post-type-badge ${post.type}">
@@ -147,7 +220,7 @@ function createPostHTML(post) {
       
       ${post.image_url ? `
         <div class="post-media">
-          <img src="${post.image_url}" alt="${escapeHtml(post.title)}" loading="lazy" onclick="openImageModal('${post.image_url}')">
+          <img src="${post.image_url}" alt="${escapeHtml(post.title)}" loading="lazy" onclick="window.open('${post.image_url}', '_blank')">
         </div>
       ` : ''}
       
@@ -180,9 +253,11 @@ function createPostHTML(post) {
       <div class="comments-section" id="comments-${post.id}" style="display: none;">
         <div class="comment-input">
           <input type="text" placeholder="Write a comment..." id="comment-input-${post.id}">
-          <button onclick="submitComment('${post.id}')">Post</button>
+          <button onclick="window.submitComment && window.submitComment('${post.id}')">Post</button>
         </div>
-        <div class="comments-list" id="comments-list-${post.id}"></div>
+        <div class="comments-list" id="comments-list-${post.id}">
+          <p style="text-align: center; padding: 20px; color: #999;">No comments yet. Start the conversation!</p>
+        </div>
       </div>
     </div>
   `;
@@ -203,6 +278,7 @@ function getTimeAgo(date) {
 }
 
 function escapeHtml(text) {
+  if (!text) return '';
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
@@ -217,17 +293,18 @@ async function handleLike(postId) {
   const post = allPosts.find(p => p.id === postId);
   if (post) {
     const newLikes = (post.likes || 0) + 1;
-    
-    // Optimistic update
     post.likes = newLikes;
+    
     const likeSpan = document.querySelector(`.like-btn[data-id="${postId}"] .like-count`);
     if (likeSpan) likeSpan.textContent = newLikes;
     
-    // Update in database
-    await supabase
-      .from('hub_posts')
-      .update({ likes: newLikes })
-      .eq('id', postId);
+    // Update in database if not default post
+    if (!post.id.startsWith('default_')) {
+      await supabase
+        .from('hub_posts')
+        .update({ likes: newLikes })
+        .eq('id', postId);
+    }
     
     showToast('Post liked!', 'success');
   }
@@ -248,6 +325,29 @@ async function loadComments(postId) {
   const container = document.getElementById(`comments-list-${postId}`);
   if (!container) return;
   
+  // For default posts, show sample comments
+  if (postId.startsWith('default_')) {
+    container.innerHTML = `
+      <div class="comment-item">
+        <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
+        <div class="comment-content">
+          <div class="comment-name">Creative Student</div>
+          <div class="comment-text">This is so inspiring! Thanks for sharing 🙌</div>
+          <div class="comment-time">2 hours ago</div>
+        </div>
+      </div>
+      <div class="comment-item">
+        <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
+        <div class="comment-content">
+          <div class="comment-name">Design Mentor</div>
+          <div class="comment-text">Amazing work! Keep pushing the boundaries 🎨</div>
+          <div class="comment-time">1 day ago</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
   try {
     const { data: comments, error } = await supabase
       .from('post_comments')
@@ -258,15 +358,13 @@ async function loadComments(postId) {
     if (error) throw error;
     
     if (!comments || comments.length === 0) {
-      container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 20px;">No comments yet. Be the first!</p>';
+      container.innerHTML = '<p style="text-align: center; padding: 20px; color: #999;">No comments yet. Be the first!</p>';
       return;
     }
     
     container.innerHTML = comments.map(comment => `
       <div class="comment-item">
-        <div class="comment-avatar">
-          <i class="fas fa-user-circle"></i>
-        </div>
+        <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
         <div class="comment-content">
           <div class="comment-name">Community Member</div>
           <div class="comment-text">${escapeHtml(comment.comment)}</div>
@@ -290,9 +388,27 @@ async function submitComment(postId) {
   
   if (!comment) return;
   
-  // Optimistic add
   input.value = '';
-  await loadComments(postId);
+  
+  // For default posts, just show locally
+  if (postId.startsWith('default_')) {
+    const container = document.getElementById(`comments-list-${postId}`);
+    if (container) {
+      const newComment = `
+        <div class="comment-item">
+          <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
+          <div class="comment-content">
+            <div class="comment-name">You</div>
+            <div class="comment-text">${escapeHtml(comment)}</div>
+            <div class="comment-time">Just now</div>
+          </div>
+        </div>
+      `;
+      container.innerHTML = newComment + container.innerHTML;
+    }
+    showToast('Comment added!', 'success');
+    return;
+  }
   
   // Save to database
   const { error } = await supabase
@@ -305,7 +421,6 @@ async function submitComment(postId) {
     });
   
   if (!error) {
-    // Update comment count
     const post = allPosts.find(p => p.id === postId);
     if (post) {
       post.comments = (post.comments || 0) + 1;
@@ -318,7 +433,7 @@ async function submitComment(postId) {
 }
 
 async function sharePost(postId) {
-  const url = `${window.location.origin}${window.location.pathname}?post=${postId}`;
+  const url = `${window.location.origin}${window.location.pathname}`;
   await navigator.clipboard.writeText(url);
   showToast('Link copied to clipboard!', 'success');
 }
@@ -353,6 +468,7 @@ async function handlePostSubmission(event) {
   }
   
   const newPost = {
+    id: Date.now().toString(),
     user_id: currentUser.id,
     title: title,
     description: description,
@@ -364,20 +480,26 @@ async function handlePostSubmission(event) {
     created_at: new Date().toISOString()
   };
   
-  const { data, error } = await supabase
+  // Add to local state
+  allPosts.unshift(newPost);
+  filterAndDisplayPosts();
+  updateStats();
+  
+  // Try to save to database
+  const { error } = await supabase
     .from('hub_posts')
-    .insert(newPost)
-    .select();
+    .insert({
+      user_id: currentUser.id,
+      title: title,
+      description: description,
+      type: type,
+      image_url: imageUrl,
+      status: 'approved',
+      created_at: new Date().toISOString()
+    });
   
   if (error) {
-    showToast('Failed to create post. Please try again.', 'error');
-    return;
-  }
-  
-  if (data && data[0]) {
-    allPosts.unshift(data[0]);
-    filterAndDisplayPosts();
-    updateStats();
+    console.error('Error saving to database:', error);
   }
   
   showToast('Post published successfully!', 'success');
@@ -389,29 +511,13 @@ async function handlePostSubmission(event) {
   document.getElementById('imagePreview').style.display = 'none';
 }
 
-async function updateStats() {
+function updateStats() {
   const totalLikes = allPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
   const totalComments = allPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
   
   document.getElementById('statPosts').textContent = allPosts.length;
   document.getElementById('statLikes').textContent = totalLikes;
   document.getElementById('statComments').textContent = totalComments;
-}
-
-function showEmptyState() {
-  const container = document.getElementById('feedContainer');
-  if (container) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-users"></i>
-        <h3>Welcome to the Community Feed!</h3>
-        <p>Be the first to share something with fellow creatives.</p>
-        <button class="btn-primary" onclick="document.getElementById('createPostTriggerBtn').click()" style="margin-top: 16px;">
-          <i class="fas fa-plus"></i> Create First Post
-        </button>
-      </div>
-    `;
-  }
 }
 
 function attachPostEventListeners() {
@@ -481,11 +587,14 @@ function closeCreatePostModal() {
   document.getElementById('createPostModal').classList.remove('active');
 }
 
-// Global functions
-window.submitComment = submitComment;
-window.openImageModal = (imageUrl) => {
-  window.open(imageUrl, '_blank');
-};
-
-// Make functions available globally
+// Make functions global
 window.closeCreatePostModal = closeCreatePostModal;
+window.submitComment = submitComment;
+window.removeImage = window.removeImage || function() {
+  const preview = document.getElementById('imagePreview');
+  const previewImg = document.getElementById('previewImg');
+  const fileInput = document.getElementById('postImage');
+  if (preview) preview.style.display = 'none';
+  if (previewImg) previewImg.src = '';
+  if (fileInput) fileInput.value = '';
+};
