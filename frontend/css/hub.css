@@ -50,12 +50,11 @@ body.dark-mode {
     --border-color: #1e293b;
 }
 
-/* App Container - 3 Column Layout */
+/* App Container - Full width */
 .app-container {
     display: flex;
     min-height: 100vh;
-    max-width: 1600px;
-    margin: 0 auto;
+    width: 100%;
 }
 
 /* =========================================
@@ -65,19 +64,22 @@ body.dark-mode {
     width: 280px;
     background: var(--bg-primary);
     border-right: 1px solid var(--border-color);
-    padding: 24px 20px;
+    padding: 24px 16px;
     display: flex;
     flex-direction: column;
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    bottom: 0;
     height: 100vh;
     overflow-y: auto;
+    z-index: 100;
 }
 
 .sidebar-header {
     display: flex;
     justify-content: center;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--border-color);
 }
@@ -91,7 +93,7 @@ body.dark-mode {
 .sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 32px;
 }
 
@@ -99,16 +101,17 @@ body.dark-mode {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 12px 16px;
+    padding: 10px 16px;
     border-radius: var(--radius-button);
     color: var(--text-secondary);
     text-decoration: none;
     font-weight: 500;
     transition: all 0.2s;
+    font-size: 14px;
 }
 
 .nav-item i {
-    width: 24px;
+    width: 22px;
     font-size: 18px;
 }
 
@@ -125,7 +128,7 @@ body.dark-mode {
 /* Leaderboard Section */
 .leaderboard-section {
     flex: 1;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
 .leaderboard-header {
@@ -151,14 +154,14 @@ body.dark-mode {
 .leaderboard-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .leaderboard-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px;
+    gap: 10px;
+    padding: 8px 10px;
     background: var(--bg-secondary);
     border-radius: 12px;
     transition: all 0.2s;
@@ -170,14 +173,15 @@ body.dark-mode {
 }
 
 .rank-badge {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 12px;
     border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .rank-1 {
@@ -202,64 +206,51 @@ body.dark-mode {
 }
 
 .leaderboard-avatar {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .leaderboard-avatar i {
-    font-size: 22px;
+    font-size: 20px;
     color: white;
 }
 
 .leaderboard-info {
     flex: 1;
+    min-width: 0;
 }
 
 .leaderboard-name {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .leaderboard-score {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--brand-gold);
     font-weight: 600;
 }
 
 .leaderboard-percent {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--brand-purple);
-}
-
-.loading-leaderboard {
-    text-align: center;
-    padding: 20px;
-}
-
-.loading-spinner-small {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--border-color);
-    border-top-color: var(--brand-gold);
-    border-radius: 50%;
-    margin: 0 auto;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
+    flex-shrink: 0;
 }
 
 .sidebar-footer {
     margin-top: auto;
-    padding-top: 20px;
+    padding-top: 16px;
     border-top: 1px solid var(--border-color);
 }
 
@@ -267,13 +258,13 @@ body.dark-mode {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px;
+    padding: 10px;
     border-radius: 12px;
     background: var(--bg-secondary);
 }
 
 .user-avatar i {
-    font-size: 40px;
+    font-size: 36px;
     color: var(--brand-purple);
 }
 
@@ -284,22 +275,24 @@ body.dark-mode {
 
 .user-name {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-primary);
 }
 
 .user-role {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--brand-gold);
 }
 
 /* =========================================
-   MAIN CONTENT - Feed Area
+   MAIN CONTENT - Feed Area (Centered)
    ========================================= */
 .main-content {
     flex: 1;
+    margin-left: 280px;
     padding: 24px 32px;
-    max-width: 800px;
+    max-width: 900px;
+    width: calc(100% - 600px);
     min-width: 0;
 }
 
@@ -378,13 +371,13 @@ body.dark-mode {
 /* Category Chips */
 .category-chips {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 32px;
     flex-wrap: wrap;
 }
 
 .chip {
-    padding: 8px 20px;
+    padding: 8px 18px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-button);
@@ -394,7 +387,8 @@ body.dark-mode {
     transition: all 0.2s;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    font-size: 13px;
 }
 
 .chip i {
@@ -416,7 +410,7 @@ body.dark-mode {
 .feed-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
 }
 
 /* Content Cards */
@@ -600,17 +594,19 @@ body.dark-mode {
 }
 
 /* =========================================
-   RIGHT SIDEBAR - Ads & Sponsorships
+   RIGHT SIDEBAR - Ads & Sponsorships (Fixed)
    ========================================= */
 .right-sidebar {
     width: 320px;
-    padding: 24px 20px;
     background: var(--bg-primary);
     border-left: 1px solid var(--border-color);
-    position: sticky;
+    position: fixed;
     top: 0;
+    right: 0;
+    bottom: 0;
     height: 100vh;
     overflow-y: auto;
+    padding: 24px 20px;
 }
 
 /* Premium Card */
@@ -686,10 +682,11 @@ body.dark-mode {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding-bottom: 16px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 16px;
     font-weight: 600;
+    font-size: 14px;
     color: var(--text-primary);
 }
 
@@ -708,27 +705,31 @@ body.dark-mode {
 
 .sponsor-logo {
     width: 100%;
+    height: 100px;
+    object-fit: cover;
     border-radius: 12px;
     margin-bottom: 16px;
+    background: var(--brand-purple);
 }
 
 .sponsor-card h4 {
-    font-size: 16px;
+    font-size: 15px;
     margin-bottom: 8px;
     color: var(--text-primary);
 }
 
 .sponsor-card p {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 12px;
+    line-height: 1.5;
 }
 
 .sponsor-link {
     color: var(--brand-gold);
     text-decoration: none;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 /* Events Card */
@@ -742,34 +743,35 @@ body.dark-mode {
 
 .event-item {
     display: flex;
-    gap: 14px;
+    gap: 12px;
     padding: 12px 0;
     border-bottom: 1px solid var(--border-color);
 }
 
 .event-item:last-child {
     border-bottom: none;
+    padding-bottom: 0;
 }
 
 .event-date {
     text-align: center;
-    min-width: 50px;
+    min-width: 45px;
 }
 
 .event-day {
     display: block;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--brand-gold);
 }
 
 .event-month {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-secondary);
 }
 
 .event-info h4 {
-    font-size: 14px;
+    font-size: 13px;
     margin-bottom: 4px;
     color: var(--text-primary);
 }
@@ -795,22 +797,23 @@ body.dark-mode {
 }
 
 .announcement-card h4 {
-    font-size: 16px;
+    font-size: 15px;
     margin-bottom: 8px;
     color: var(--text-primary);
 }
 
 .announcement-card p {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 12px;
+    line-height: 1.5;
 }
 
 .learn-more {
     color: var(--brand-gold);
     text-decoration: none;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 /* Stats Card */
@@ -824,29 +827,30 @@ body.dark-mode {
 .stat-item {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 0;
+    gap: 12px;
+    padding: 10px 0;
     border-bottom: 1px solid var(--border-color);
 }
 
 .stat-item:last-child {
     border-bottom: none;
+    padding-bottom: 0;
 }
 
 .stat-item i {
-    font-size: 28px;
+    font-size: 24px;
     color: var(--brand-purple);
 }
 
 .stat-number {
     display: block;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .stat-label {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-secondary);
 }
 
@@ -915,18 +919,18 @@ body.dark-mode {
 
 .type-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .type-btn {
-    padding: 8px 16px;
+    padding: 8px 14px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-button);
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     transition: all 0.2s;
 }
 
@@ -955,12 +959,12 @@ textarea {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
+    padding: 8px 16px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-button);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
 }
 
@@ -999,7 +1003,7 @@ textarea {
 
 .btn-cancel, .btn-publish {
     flex: 1;
-    padding: 12px;
+    padding: 10px;
     border-radius: var(--radius-button);
     font-weight: 600;
     cursor: pointer;
@@ -1021,6 +1025,9 @@ textarea {
     .right-sidebar {
         width: 280px;
     }
+    .main-content {
+        width: calc(100% - 560px);
+    }
 }
 
 @media (max-width: 1024px) {
@@ -1028,6 +1035,8 @@ textarea {
         display: none;
     }
     .main-content {
+        width: calc(100% - 280px);
+        margin-left: 280px;
         max-width: 100%;
     }
 }
@@ -1037,6 +1046,8 @@ textarea {
         display: none;
     }
     .main-content {
+        margin-left: 0;
+        width: 100%;
         padding: 20px;
     }
 }
