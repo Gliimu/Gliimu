@@ -245,5 +245,36 @@
   </div>
 
   <script type="module" src="js/pages/chat.js"></script>
+  <script>
+    // Handle mobile keyboard
+    window.addEventListener('resize', function() {
+        if (window.visualViewport) {
+            const height = window.visualViewport.height;
+            document.documentElement.style.setProperty('--vh', `${height * 0.01}px`);
+            
+            // Check if keyboard is open
+            if (window.innerHeight < height - 100) {
+                document.body.classList.add('keyboard-open');
+                setTimeout(() => {
+                    const messages = document.getElementById('messagesContainer');
+                    if (messages) messages.scrollTop = messages.scrollHeight;
+                }, 100);
+            } else {
+                document.body.classList.remove('keyboard-open');
+            }
+        }
+    });
+    
+    // Focus handling for mobile
+    const messageInput = document.getElementById('messageInput');
+    if (messageInput) {
+        messageInput.addEventListener('focus', function() {
+            setTimeout(() => {
+                const container = document.getElementById('messagesContainer');
+                if (container) container.scrollTop = container.scrollHeight;
+            }, 200);
+        });
+    }
+</script>
 </body>
 </html>
