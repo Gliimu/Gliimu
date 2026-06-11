@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Community Hub | Gliimu Institute</title>
-  <meta name="description" content="Connect with the Gliimu community. Share your creative journey, discover insights, and grow with fellow media architects.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Hub | Gliimu Creative Feed</title>
+  <meta name="description" content="Discover creative content from the Gliimu community - short videos, design insights, and creative inspiration">
   
   <link rel="icon" type="image/png" href="icons/logo2.png">
   
@@ -17,159 +17,154 @@
 </head>
 <body>
 
-  <div class="hub-wrapper">
-    <div class="hub-container">
-      
-      <!-- Hero Section -->
-      <div class="hub-hero">
-        <div class="hero-icon">
-          <i class="fas fa-users"></i>
-        </div>
-        <h1>Community Hub</h1>
-        <p>Share your journey, celebrate wins, and grow with fellow creatives</p>
+  <div class="feed-app">
+    
+    <!-- Header - Minimal -->
+    <div class="feed-header">
+      <div class="header-left">
+        <i class="fas fa-fire" style="color: #fe2c55;"></i>
+        <h1>Creative Feed</h1>
       </div>
-      
-      <!-- Create Post Card -->
-      <div class="create-post-card" id="createPostCard">
-        <div class="create-post-avatar">
-          <i class="fas fa-user-circle"></i>
-        </div>
-        <div class="create-post-input">
-          <input type="text" id="createPostInput" placeholder="Share something with the community...">
-        </div>
-        <div class="create-post-actions">
-          <button class="create-post-trigger" id="createPostTriggerBtn">
-            <i class="fas fa-plus-circle"></i> Create Post
-          </button>
-        </div>
-      </div>
-      
-      <!-- Feed Filters -->
-      <div class="feed-filters">
-        <button class="filter-btn active" data-filter="all">
-          <i class="fas fa-fire"></i> For You
+      <div class="header-right">
+        <button class="create-short-btn" id="createPostBtn">
+          <i class="fas fa-plus"></i>
         </button>
-        <button class="filter-btn" data-filter="insight">
-          <i class="fas fa-lightbulb"></i> Insights
-        </button>
-        <button class="filter-btn" data-filter="video">
-          <i class="fas fa-video"></i> Projects
-        </button>
-        <button class="filter-btn" data-filter="event">
-          <i class="fas fa-calendar-alt"></i> Events
-        </button>
-        <button class="filter-btn" data-filter="support">
-          <i class="fas fa-hand-holding-heart"></i> Opportunities
+        <button class="search-btn" id="searchBtn">
+          <i class="fas fa-search"></i>
         </button>
       </div>
-      
-      <!-- Stats Bar -->
-      <div class="stats-bar">
-        <div class="stat-item">
-          <i class="fas fa-users"></i>
-          <span id="statPosts">0</span>
-          <span>Members</span>
-        </div>
-        <div class="stat-item">
-          <i class="fas fa-heart"></i>
-          <span id="statLikes">0</span>
-          <span>Engagements</span>
-        </div>
-        <div class="stat-item">
-          <i class="fas fa-chart-line"></i>
-          <span id="statComments">0</span>
-          <span>Discussions</span>
-        </div>
-      </div>
-      
-      <!-- Feed Container -->
-      <div class="feed-container" id="feedContainer">
-        <!-- Posts loaded dynamically -->
-        <div class="loading-spinner">
-          <i class="fas fa-spinner fa-spin"></i>
-          <p>Loading community feed...</p>
-        </div>
-      </div>
-      
     </div>
-  </div>
 
-  <!-- Create Post Modal -->
-  <div class="modal-overlay" id="createPostModal">
-    <div class="generic-modal modal-create">
-      <div class="modal-header">
-        <h3><i class="fas fa-pen-alt"></i> Share Your Story</h3>
-        <button class="modal-close" id="closeModalBtn">&times;</button>
+    <!-- Search Bar (Hidden by default) -->
+    <div class="search-container" id="searchContainer" style="display: none;">
+      <div class="search-input-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search creators, content, or topics...">
+        <button id="closeSearchBtn"><i class="fas fa-times"></i></button>
       </div>
-      
-      <form id="postForm">
-        <div class="form-group">
-          <label>Post Type</label>
-          <div class="post-type-selector">
-            <button type="button" class="type-option active" data-type="insight">
-              <i class="fas fa-lightbulb"></i> Insight
-            </button>
-            <button type="button" class="type-option" data-type="video">
-              <i class="fas fa-video"></i> Project
-            </button>
-            <button type="button" class="type-option" data-type="event">
-              <i class="fas fa-calendar-alt"></i> Event
-            </button>
-            <button type="button" class="type-option" data-type="support">
-              <i class="fas fa-bullhorn"></i> Opportunity
+    </div>
+
+    <!-- Feed Tabs -->
+    <div class="feed-tabs">
+      <button class="tab-btn active" data-tab="for-you">
+        <i class="fas fa-fire"></i> For You
+      </button>
+      <button class="tab-btn" data-tab="following">
+        <i class="fas fa-user-plus"></i> Following
+      </button>
+      <button class="tab-btn" data-tab="trending">
+        <i class="fas fa-chart-line"></i> Trending
+      </button>
+    </div>
+
+    <!-- Category Chips -->
+    <div class="category-chips">
+      <button class="chip active" data-filter="all">All</button>
+      <button class="chip" data-filter="video">
+        <i class="fas fa-video"></i> Shorts
+      </button>
+      <button class="chip" data-filter="insight">
+        <i class="fas fa-lightbulb"></i> Insights
+      </button>
+      <button class="chip" data-filter="design">
+        <i class="fas fa-palette"></i> Design
+      </button>
+      <button class="chip" data-filter="project">
+        <i class="fas fa-code"></i> Projects
+      </button>
+    </div>
+
+    <!-- Feed Container - Vertical Scroll -->
+    <div class="feed-container" id="feedContainer">
+      <div class="loading-feed">
+        <div class="loading-spinner"></div>
+        <p>Loading creative content...</p>
+      </div>
+    </div>
+
+    <!-- Create Post Modal -->
+    <div class="modal-overlay" id="createPostModal">
+      <div class="modal-content modal-create">
+        <div class="modal-header">
+          <h3>Create New Content</h3>
+          <button class="modal-close" id="closeModalBtn">&times;</button>
+        </div>
+        
+        <form id="postForm">
+          <div class="form-group">
+            <label>Content Type</label>
+            <div class="type-buttons">
+              <button type="button" class="type-btn active" data-type="insight">
+                <i class="fas fa-lightbulb"></i> Insight
+              </button>
+              <button type="button" class="type-btn" data-type="video">
+                <i class="fas fa-video"></i> Short
+              </button>
+              <button type="button" class="type-btn" data-type="design">
+                <i class="fas fa-palette"></i> Design
+              </button>
+              <button type="button" class="type-btn" data-type="project">
+                <i class="fas fa-code"></i> Project
+              </button>
+            </div>
+            <input type="hidden" id="postType" value="insight">
+          </div>
+          
+          <div class="form-group">
+            <input type="text" id="postTitle" placeholder="Caption / Title..." class="caption-input" required>
+          </div>
+          
+          <div class="form-group">
+            <textarea id="postDescription" rows="3" placeholder="Tell your story or share insights..."></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label class="upload-btn">
+              <i class="fas fa-image"></i> Add Image or Thumbnail
+              <input type="file" id="postImage" accept="image/*" style="display: none;">
+            </label>
+            <div class="image-preview" id="imagePreview" style="display: none;">
+              <img id="previewImg" src="" alt="Preview">
+              <button type="button" class="remove-preview" onclick="removeImage()">
+                <i class="fas fa-times-circle"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="closeCreatePostModal()">Cancel</button>
+            <button type="button" class="btn-publish" onclick="submitPost()">
+              <i class="fas fa-paper-plane"></i> Publish
             </button>
           </div>
-          <input type="hidden" id="postType" value="insight">
-        </div>
-        
-        <div class="form-group">
-          <input type="text" id="postTitle" placeholder="What's the title? (e.g., My first animation project)" class="title-input" required>
-        </div>
-        
-        <div class="form-group">
-          <textarea id="postDescription" rows="5" placeholder="Share your story, insights, or experience with the community..." required></textarea>
-        </div>
-        
-        <div class="form-group">
-          <label class="image-upload-label">
-            <i class="fas fa-image"></i> Add Image or Thumbnail
-            <input type="file" id="postImage" accept="image/*" style="display: none;">
-          </label>
-          <div class="image-preview" id="imagePreview" style="display: none;">
-            <img id="previewImg" src="" alt="Preview">
-            <button type="button" class="remove-image" onclick="window.removeImage && window.removeImage()">
-              <i class="fas fa-times-circle"></i>
-            </button>
-          </div>
-        </div>
-        
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary" onclick="closeCreatePostModal()">Cancel</button>
-          <button type="button" class="btn-primary" onclick="submitPost()">
-            <i class="fas fa-paper-plane"></i> Share with Community
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
+
+    <!-- Post Detail Modal -->
+    <div class="modal-overlay" id="postDetailModal">
+      <div class="modal-content modal-detail">
+        <button class="detail-close" id="closeDetailModal">
+          <i class="fas fa-times"></i>
+        </button>
+        <div id="postDetailContent"></div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- JS Files -->
-  <script type="module" src="js/hub.js"></script>
+  <!-- JS File -->
+  <script type="module" src="js/pages/hub.js"></script>
   
   <script>
-    // Legacy functions for inline handlers
     window.closeCreatePostModal = function() {
-      const modal = document.getElementById('createPostModal');
-      if (modal) modal.classList.remove('active');
+      document.getElementById('createPostModal').classList.remove('active');
     };
     
     window.removeImage = function() {
-      const preview = document.getElementById('imagePreview');
-      const previewImg = document.getElementById('previewImg');
-      const fileInput = document.getElementById('postImage');
-      preview.style.display = 'none';
-      previewImg.src = '';
-      fileInput.value = '';
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('previewImg').src = '';
+      document.getElementById('postImage').value = '';
     };
     
     window.submitPost = function() {
@@ -184,18 +179,18 @@
       window.dispatchEvent(event);
     };
     
-    // Initialize post type selector
+    // Type selector
     document.addEventListener('DOMContentLoaded', function() {
-      const typeOptions = document.querySelectorAll('.type-option');
-      typeOptions.forEach(opt => {
-        opt.addEventListener('click', function() {
-          typeOptions.forEach(o => o.classList.remove('active'));
+      const typeBtns = document.querySelectorAll('.type-btn');
+      typeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          typeBtns.forEach(b => b.classList.remove('active'));
           this.classList.add('active');
           document.getElementById('postType').value = this.dataset.type;
         });
       });
       
-      // Image upload preview
+      // Image preview
       const imageInput = document.getElementById('postImage');
       if (imageInput) {
         imageInput.addEventListener('change', function(e) {
@@ -212,17 +207,32 @@
         });
       }
       
-      // Create post trigger
-      const createTrigger = document.getElementById('createPostTriggerBtn');
-      const createInput = document.getElementById('createPostInput');
-      if (createTrigger) {
-        createTrigger.addEventListener('click', () => {
+      // Create post button
+      const createBtn = document.getElementById('createPostBtn');
+      if (createBtn) {
+        createBtn.addEventListener('click', () => {
           document.getElementById('createPostModal').classList.add('active');
         });
       }
-      if (createInput) {
-        createInput.addEventListener('click', () => {
-          document.getElementById('createPostModal').classList.add('active');
+      
+      // Search button
+      const searchBtn = document.getElementById('searchBtn');
+      const searchContainer = document.getElementById('searchContainer');
+      const closeSearchBtn = document.getElementById('closeSearchBtn');
+      
+      if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+          searchContainer.style.display = searchContainer.style.display === 'none' ? 'block' : 'none';
+          if (searchContainer.style.display === 'block') {
+            document.getElementById('searchInput').focus();
+          }
+        });
+      }
+      
+      if (closeSearchBtn) {
+        closeSearchBtn.addEventListener('click', () => {
+          searchContainer.style.display = 'none';
+          document.getElementById('searchInput').value = '';
         });
       }
     });
