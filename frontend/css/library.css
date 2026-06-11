@@ -755,3 +755,82 @@ body.dark-mode .icon-moon {
     color: var(--text-secondary);
     font-size: 0.9rem;
 }
+
+/* Card info overlay */
+.card-info-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 40px 12px 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    border-radius: 0 0 12px 12px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.item-book:hover .card-info-overlay {
+    opacity: 1;
+}
+
+.card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.card-author {
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+}
+
+/* Masonry grid improvements */
+.pinterest-grid {
+    column-count: 6;
+    column-gap: 20px;
+}
+
+@media (max-width: 1400px) {
+    .pinterest-grid { column-count: 5; }
+}
+@media (max-width: 1200px) {
+    .pinterest-grid { column-count: 4; }
+}
+@media (max-width: 900px) {
+    .pinterest-grid { column-count: 3; }
+}
+@media (max-width: 600px) {
+    .pinterest-grid { column-count: 2; }
+}
+
+.grid-item {
+    break-inside: avoid;
+    margin-bottom: 20px;
+}
+
+.item-book {
+    cursor: pointer;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s ease;
+}
+
+.item-book:hover {
+    transform: translateY(-4px);
+}
+
+.card-cover {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2/3;
+    background-size: cover;
+    background-position: center;
+    background-color: var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
