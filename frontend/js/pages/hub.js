@@ -213,3 +213,302 @@ function renderFeed() {
   if (currentSearch) {
     const searchLower = currentSearch.toLowerCase();
     filtered = filtered.filter(post => 
+      post.title.toLowerCase().includes(searchLower) ||
+      post.description.toLowerCase().includes(searchLower) ||
+      post.author.toLowerCase().includes(searchLower)
+    );
+  }
+  
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-compass"></i>
+        <h3>No content found</h3>
+        <p>Be the first to share your creative journey!</p>
+        <button class="create-post-btn" onclick="document.getElementById('createPostBtn').click()" style="margin-top: 16px;">
+          Create Post
+        </button>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = filtered.map(post => createFeedCard(post)).join('');
+  attachCardListeners();
+}
+
+function createFeedCard(post) {
+  const timeAgo = getTimeAgo(new Date(post.createdAt));
+  
+  const typeIcons = {
+    video: 'fa-video',
+    design: 'fa-palette',
+    insight: 'fa-lightbulb',
+    project: 'fa-code'
+  };
+  
+  const typeLabels = {
+    video: 'Short',
+    design: 'Design',
+    insight: 'Insight',
+    project: 'Project'
+  };
+  
+  const icon = typeIcons[post.type] || 'fa-star';
+  const label = typeLabels[post.type] || 'Creative';
+  
+  return `
+    <div class="content-card" data-id="${post.id}" onclick="viewPostDetail('${post.id}')">
+      <div class="card-media">
+        <img src="${post.image}" alt="${escapeHtml(post.title)}" loading="lazy" onerror="this.src='https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800'">
+        <span class="card-badge">
+          <i class="fas ${icon}"></i> ${label}
+        </span>
+      </div>
+      <div class="card-content">
+        <h3 class="card-title">${escapeHtml(post.title)}</h3>
+        <p class="card-description">${escapeHtml(post.description.substring(0, 120))}${post.description.length > 120 ? '...' : ''}</p>
+        <div class="card-footer">
+          <div class="author-info">
+            <div class="author-avatar">
+              <i class="fas fa-user-circle"></i>
+            </div>
+            <div>
+              <div class="author-name">${escapeHtml(post.author)}</div>
+              <div class="post-time">${timeAgo}</div>
+            </div>
+          </div>
+          <div class="engagement-actions">
+            <button class="action-btn like-btn" data-id="${post.id}" onclick="event.stopPropagation()">
+              <i class="far fa-heart"></i>
+              <span class="like-count">${formatNumber(post.likes)}</span>
+            </button>
+            <button class="action-btn comment-btn" data-id="${post.id}" onclick="event.stopPropagation()">
+              <i class="far fa-comment"></i>
+              <span class="comment-count">${formatNumber(post.comments)}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function getTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function formatNumber(num) {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  return num.toString();
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function handleLike(postId) {
+  if (!currentUser) {
+    showToast('Login to like content', 'info');
+    return;
+  }
+  
+  const post = allPosts.find(p => p.id === postId);
+  if (post) {
+    post.likes++;
+    const likeBtn = document.querySelector(`.like-btn[data-id="${postId}"]`);
+    if (likeBtn) {
+      likeBtn.classList.add('liked');
+      likeBtn.querySelector('.like-count').textContent = formatNumber(post.likes);
+      likeBtn.querySelector('i').classList.remove('far');
+      likeBtn.querySelector('i').classList.add('fas');
+    }
+    
+    if (!post.id.startsWith('feed_')) {
+      await supabase
+        .from('hub_posts')
+        .update({ likes: post.likes })
+        .eq('id', postId);
+    }
+  }
+}
+
+function viewPostDetail(postId) {
+  const post = allPosts.find(p => p.id === postId);
+  if (!post) return;
+  
+  const modal = document.getElementById('postDetailModal');
+  const content = document.getElementById('postDetailContent');
+  
+  if (modal && content) {
+    content.innerHTML = createDetailView(post);
+    modal.classList.add('active');
+  }
+}
+
+function createDetailView(post) {
+  const timeAgo = getTimeAgo(new Date(post.createdAt));
+  
+  return `
+    <div style="padding: 60px 20px 20px;">
+      ${post.image ? `<img src="${post.image}" style="width: 100%; border-radius: 16px; margin-bottom: 20px;" onerror="this.src='https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800'">` : ''}
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <div class="author-avatar" style="width: 48px; height: 48px;">
+          <i class="fas fa-user-circle" style="font-size: 28px;"></i>
+        </div>
+        <div>
+          <div style="color: var(--text-primary); font-weight: 600;">${escapeHtml(post.author)}</div>
+          <div style="color: var(--text-secondary); font-size: 12px;">${timeAgo}</div>
+        </div>
+      </div>
+      <h3 style="color: var(--text-primary); font-size: 18px; margin-bottom: 12px;">${escapeHtml(post.title)}</h3>
+      <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px;">${escapeHtml(post.description)}</p>
+      <div style="display: flex; gap: 24px; padding: 16px 0; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+        <div style="display: flex; align-items: center; gap: 6px; color: var(--text-secondary);">
+          <i class="fas fa-heart" style="color: var(--danger);"></i> ${formatNumber(post.likes)}
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; color: var(--text-secondary);">
+          <i class="fas fa-comment"></i> ${formatNumber(post.comments)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function handlePostSubmission(event) {
+  const { title, type, description, imageFile } = event.detail;
+  
+  if (!title) {
+    showToast('Please add a caption', 'error');
+    return;
+  }
+  
+  if (!currentUser) {
+    showToast('Please login to post', 'error');
+    return;
+  }
+  
+  let imageUrl = imageFile ? URL.createObjectURL(imageFile) : DEFAULT_FEED[0].image;
+  
+  const newPost = {
+    id: Date.now().toString(),
+    type: type,
+    title: title,
+    description: description || '',
+    image: imageUrl,
+    author: currentUser.user_metadata?.name || 'Creator',
+    likes: 0,
+    comments: 0,
+    createdAt: new Date().toISOString()
+  };
+  
+  allPosts.unshift(newPost);
+  renderFeed();
+  showToast('Post published successfully!', 'success');
+  closeCreatePostModal();
+  
+  document.getElementById('postForm').reset();
+  document.getElementById('postType').value = 'insight';
+  document.getElementById('imagePreview').style.display = 'none';
+  
+  // Reset type buttons
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.type === 'insight') btn.classList.add('active');
+  });
+}
+
+function attachCardListeners() {
+  document.querySelectorAll('.like-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      handleLike(btn.dataset.id);
+    };
+  });
+}
+
+function setupEventListeners() {
+  // Category chips
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFilter = chip.dataset.filter;
+      renderFeed();
+    });
+  });
+  
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      currentSearch = e.target.value;
+      renderFeed();
+    });
+  }
+  
+  // Modal close
+  const closeModal = document.getElementById('closeModalBtn');
+  if (closeModal) {
+    closeModal.addEventListener('click', closeCreatePostModal);
+  }
+  
+  const detailClose = document.getElementById('closeDetailModal');
+  if (detailClose) {
+    detailClose.addEventListener('click', () => {
+      document.getElementById('postDetailModal').classList.remove('active');
+    });
+  }
+  
+  const modal = document.getElementById('createPostModal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeCreatePostModal();
+    });
+  }
+  
+  const detailModal = document.getElementById('postDetailModal');
+  if (detailModal) {
+    detailModal.addEventListener('click', (e) => {
+      if (e.target === detailModal) {
+        detailModal.classList.remove('active');
+      }
+    });
+  }
+  
+  const createBtn = document.getElementById('createPostBtn');
+  if (createBtn) {
+    createBtn.addEventListener('click', () => {
+      document.getElementById('createPostModal').classList.add('active');
+    });
+  }
+  
+  window.addEventListener('submitPost', handlePostSubmission);
+}
+
+function closeCreatePostModal() {
+  document.getElementById('createPostModal').classList.remove('active');
+}
+
+// Make functions global
+window.closeCreatePostModal = closeCreatePostModal;
+window.viewPostDetail = viewPostDetail;
+window.removeImage = window.removeImage || function() {
+  document.getElementById('imagePreview').style.display = 'none';
+  document.getElementById('previewImg').src = '';
+  document.getElementById('postImage').value = '';
+};
