@@ -12,6 +12,7 @@ let allItems = [];
 let currentFilter = 'all';
 let currentSearch = '';
 let savedItems = new Set();
+let isLoading = false;
 
 // Categories for filter chips
 const CATEGORIES = [
@@ -31,23 +32,43 @@ const CATEGORIES = [
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Digital Library initializing...');
     
-    // Get current user
-    currentUser = await getCurrentUser();
-    console.log('Current user:', currentUser?.email || 'Guest');
-    
-    // Load saved items if user is logged in
-    if (currentUser) {
-        await loadSavedItems();
+    const container = document.getElementById('booksContainer');
+    if (container) {
+        container.innerHTML = '<div class="loading">Loading library materials...</div>';
     }
     
-    // Load library items from Supabase
-    await loadLibraryItems();
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    // Setup theme toggle
-    setupThemeToggle();
+    try {
+        // Get current user
+        currentUser = await getCurrentUser();
+        console.log('Current user:', currentUser?.email || 'Guest');
+        
+        // Load library items from Supabase
+        await loadLibraryItems();
+        
+        // Load saved items if user is logged in
+        if (currentUser) {
+            await loadSavedItems();
+        }
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        // Setup theme toggle
+        setupThemeToggle();
+        
+    } catch (error) {
+        console.error('Initialization error:', error);
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to Load Library</h3>
+                    <p>Please check your internet connection and refresh the page.</p>
+                    <button onclick="location.reload()" style="margin-top: 16px; padding: 8px 20px; background: #fbb040; border: none; border-radius: 8px; cursor: pointer;">Retry</button>
+                </div>
+            `;
+        }
+    }
 });
 
 // ============================================
@@ -58,40 +79,66 @@ async function loadLibraryItems() {
     const container = document.getElementById('booksContainer');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading">Loading library materials...</div>';
+    if (isLoading) return;
+    isLoading = true;
+    
+    console.log('Fetching library items from Supabase...');
     
     try {
-        const { data: items, error } = await supabase
+        const { data: items, error, status } = await supabase
             .from('library_items')
             .select('*')
             .order('created_at', { ascending: false });
         
-        if (error) throw error;
+        console.log('Supabase response status:', status);
+        console.log('Supabase error:', error);
+        console.log('Items fetched:', items?.length || 0);
         
-        if (!items || items.length === 0) {
+        if (error) {
+            console.error('Database error:', error);
             container.innerHTML = `
                 <div class="empty-state">
-                    <i class="fas fa-book-open"></i>
-                    <h3>No materials found</h3>
-                    <p>Check back soon for new content!</p>
+                    <i class="fas fa-database"></i>
+                    <h3>Database Connection Error</h3>
+                    <p>${error.message}</p>
+                    <p style="font-size: 12px; margin-top: 10px;">Please ensure the library_items table exists in Supabase.</p>
                 </div>
             `;
             return;
         }
         
+        if (!items || items.length === 0) {
+            console.warn('No items found in library_items table');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-book-open"></i>
+                    <h3>No Materials Found</h3>
+                    <p>The library is being populated with content.</p>
+                    <p style="font-size: 12px; margin-top: 10px;">Check back soon for exciting resources!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        console.log(`✅ Successfully loaded ${items.length} library items`);
         allItems = items;
+        
+        // Render filters and items
         renderFilters();
         renderItems();
         
     } catch (error) {
-        console.error('Error loading library items:', error);
+        console.error('Exception loading library items:', error);
         container.innerHTML = `
             <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error loading content</h3>
-                <p>Please refresh the page to try again.</p>
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>Error Loading Content</h3>
+                <p>${error.message || 'Unknown error occurred'}</p>
+                <button onclick="location.reload()" style="margin-top: 16px; padding: 8px 20px; background: #fbb040; border: none; border-radius: 8px; cursor: pointer;">Retry</button>
             </div>
         `;
+    } finally {
+        isLoading = false;
     }
 }
 
@@ -100,6 +147,8 @@ async function loadLibraryItems() {
 // ============================================
 
 async function loadSavedItems() {
+    if (!currentUser) return;
+    
     try {
         const { data, error } = await supabase
             .from('user_library_progress')
@@ -108,6 +157,7 @@ async function loadSavedItems() {
         
         if (!error && data) {
             savedItems = new Set(data.map(item => item.item_id));
+            console.log(`Loaded ${savedItems.size} saved items`);
         }
     } catch (error) {
         console.error('Error loading saved items:', error);
@@ -158,11 +208,13 @@ function renderItems() {
     if (currentSearch) {
         const searchLower = currentSearch.toLowerCase();
         filtered = filtered.filter(item => 
-            item.title.toLowerCase().includes(searchLower) ||
+            (item.title && item.title.toLowerCase().includes(searchLower)) ||
             (item.description && item.description.toLowerCase().includes(searchLower)) ||
             (item.author && item.author.toLowerCase().includes(searchLower))
         );
     }
+    
+    console.log(`Rendering ${filtered.length} items (filtered from ${allItems.length})`);
     
     if (filtered.length === 0) {
         container.innerHTML = `
@@ -187,19 +239,22 @@ function createItemCard(item) {
     const isSaved = savedItems.has(item.id);
     const isBundle = item.type === 'bundle';
     
+    // Default cover image if none provided
+    const coverUrl = item.cover_url || 'https://placehold.co/300x450/2c2f78/white?text=' + encodeURIComponent(item.title || 'Book');
+    
     if (isBundle) {
         return `
-            <div class="grid-item item-bundle" data-id="${item.id}" onclick="viewItemDetails('${item.id}')">
+            <div class="grid-item item-bundle" data-id="${item.id}" onclick="window.viewItemDetails && window.viewItemDetails('${item.id}')">
                 <div class="bundle-content">
                     <div class="bundle-title">${escapeHtml(item.title)}</div>
                     <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
-                        ${item.author || 'Gliimu Team'}
+                        ${escapeHtml(item.author || 'Gliimu Team')}
                     </div>
                     <div style="font-size: 10px; color: var(--accent); margin-top: 4px;">
                         ${item.level || 'Beginner'} • ${item.requires_subscription || 'Free'}
                     </div>
                 </div>
-                <button class="bundle-download-btn" onclick="event.stopPropagation(); downloadBundle('${item.id}')">
+                <button class="bundle-download-btn" onclick="event.stopPropagation(); window.downloadBundle && window.downloadBundle('${item.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 3v12m0 0-3-3m3 3 3-3M5 21h14"/>
                     </svg>
@@ -210,8 +265,8 @@ function createItemCard(item) {
     
     // Book/Resource card
     return `
-        <div class="grid-item item-book" data-id="${item.id}" onclick="viewItemDetails('${item.id}')">
-            <div class="card-cover" style="background-image: url('${item.cover_url || 'https://placehold.co/300x450/2c2f78/white?text=No+Cover'}')">
+        <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewItemDetails && window.viewItemDetails('${item.id}')">
+            <div class="card-cover" style="background-image: url('${coverUrl}')">
                 ${isSaved ? '<div class="saved-badge">★ Saved</div>' : ''}
             </div>
         </div>
@@ -224,7 +279,10 @@ function createItemCard(item) {
 
 window.viewItemDetails = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) {
+        console.error('Item not found:', itemId);
+        return;
+    }
     
     const isSaved = savedItems.has(item.id);
     const canAccess = await checkAccess(item.requires_subscription);
@@ -235,17 +293,24 @@ window.viewItemDetails = async (itemId) => {
     const modalDescription = document.getElementById('modalDescription');
     const modalFooter = document.getElementById('modalFooter');
     
+    if (!modal) {
+        console.error('Modal element not found');
+        return;
+    }
+    
+    const coverUrl = item.cover_url || 'https://placehold.co/300x450/2c2f78/white?text=' + encodeURIComponent(item.title || 'Book');
+    
     modalTitle.textContent = item.title;
-    modalImage.src = item.cover_url || 'https://placehold.co/300x450/2c2f78/white?text=No+Cover';
+    modalImage.src = coverUrl;
     modalDescription.innerHTML = `
         <strong>Author:</strong> ${escapeHtml(item.author || 'Gliimu Team')}<br>
-        <strong>Pages:</strong> ${item.pages || 'N/A'} | <strong>Level:</strong> ${item.level || 'Beginner'}<br>
+        <strong>Type:</strong> ${item.type || 'Book'} | <strong>Level:</strong> ${item.level || 'Beginner'}<br>
         <strong>Access:</strong> ${item.requires_subscription || 'Free'}<br><br>
         ${escapeHtml(item.description || 'No description available.')}
     `;
     
     modalFooter.innerHTML = `
-        ${!canAccess ? `
+        ${!canAccess && item.requires_subscription !== 'free' ? `
             <button class="modal-btn modal-btn-secondary" onclick="closeModal(); window.location.href='/dashboard.html?tab=wallet'">
                 Upgrade to ${item.requires_subscription}
             </button>
@@ -273,20 +338,24 @@ window.viewItemDetails = async (itemId) => {
 // ============================================
 
 async function checkAccess(requiredSubscription) {
-    if (requiredSubscription === 'free') return true;
+    if (!requiredSubscription || requiredSubscription === 'free') return true;
     if (!currentUser) return false;
     
-    const profile = await getUserProfile();
-    const userPlan = profile?.plan || profile?.subscription_plan || 'free';
-    
-    if (requiredSubscription === 'basic') {
-        return ['basic', 'standard', 'premium'].includes(userPlan);
-    }
-    if (requiredSubscription === 'standard') {
-        return ['standard', 'premium'].includes(userPlan);
-    }
-    if (requiredSubscription === 'premium') {
-        return userPlan === 'premium';
+    try {
+        const profile = await getUserProfile();
+        const userPlan = profile?.plan || profile?.subscription_plan || 'free';
+        
+        if (requiredSubscription === 'basic') {
+            return ['basic', 'standard', 'premium'].includes(userPlan);
+        }
+        if (requiredSubscription === 'standard') {
+            return ['standard', 'premium'].includes(userPlan);
+        }
+        if (requiredSubscription === 'premium') {
+            return userPlan === 'premium';
+        }
+    } catch (error) {
+        console.error('Error checking access:', error);
     }
     return false;
 }
@@ -304,7 +373,6 @@ window.toggleSaveItem = async (itemId) => {
     const isSaved = savedItems.has(itemId);
     
     if (isSaved) {
-        // Remove from saved
         const { error } = await supabase
             .from('user_library_progress')
             .delete()
@@ -315,22 +383,28 @@ window.toggleSaveItem = async (itemId) => {
             savedItems.delete(itemId);
             showToast('Removed from your library', 'info');
             renderItems();
+            closeModal();
+        } else {
+            showToast('Error removing item', 'error');
         }
     } else {
-        // Add to saved
         const { error } = await supabase
             .from('user_library_progress')
             .insert({
                 user_id: currentUser.id,
                 item_id: itemId,
                 progress: 0,
-                completed: false
+                completed: false,
+                created_at: new Date().toISOString()
             });
         
         if (!error) {
             savedItems.add(itemId);
             showToast('Saved to your library!', 'success');
             renderItems();
+            closeModal();
+        } else {
+            showToast('Error saving item', 'error');
         }
     }
 };
@@ -358,7 +432,11 @@ window.downloadBundle = async (itemId) => {
     if (!item) return;
     
     showToast(`Preparing ${item.title} for download...`, 'info');
-    window.open(item.file_url || '#', '_blank');
+    if (item.file_url) {
+        window.open(item.file_url, '_blank');
+    } else {
+        showToast(`Download will be available soon!`, 'info');
+    }
 };
 
 // ============================================
@@ -366,23 +444,22 @@ window.downloadBundle = async (itemId) => {
 // ============================================
 
 async function trackView(itemId) {
+    if (!currentUser) return;
+    
     try {
-        // Update view count
-        await supabase.rpc('increment_views', { item_id: itemId });
-        
-        // Update user progress
-        const { data } = await supabase
+        // Update user progress last viewed
+        const { data: existing } = await supabase
             .from('user_library_progress')
-            .select('*')
+            .select('id')
             .eq('user_id', currentUser.id)
             .eq('item_id', itemId)
             .single();
         
-        if (data) {
+        if (existing) {
             await supabase
                 .from('user_library_progress')
                 .update({ last_viewed: new Date().toISOString() })
-                .eq('id', data.id);
+                .eq('id', existing.id);
         }
     } catch (error) {
         console.error('Error tracking view:', error);
@@ -490,19 +567,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ============================================
-// INCREMENT VIEWS FUNCTION (Run in Supabase)
-// ============================================
+// Make functions global
+window.performSearch = performSearch;
+window.closeModal = closeModal;
+window.toggleSaveItem = window.toggleSaveItem;
+window.startReading = window.startReading;
+window.downloadBundle = window.downloadBundle;
+window.viewItemDetails = window.viewItemDetails;
 
-/* 
-Run this in Supabase SQL editor to create the increment function:
-
-CREATE OR REPLACE FUNCTION increment_views(item_id UUID)
-RETURNS void AS $$
-BEGIN
-    UPDATE library_items 
-    SET views = COALESCE(views, 0) + 1 
-    WHERE id = item_id;
-END;
-$$ LANGUAGE plpgsql;
-*/
+console.log('Library.js loaded successfully');
