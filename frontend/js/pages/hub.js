@@ -1,6 +1,6 @@
-// js/pages/hub.js - Creative Feed with Gliimu Brand Identity
+// frontend/js/pages/hub.js - Creative Feed with Gliimu Brand Identity
 
-import { supabase } from 'js/pages/modules/supabase.js';
+import { supabase, getCurrentUser } from 'js/pages/modules/supabase.js';
 import { showToast } from 'js/pages/modules/toast.js';
 
 let currentUser = null;
@@ -8,13 +8,13 @@ let allPosts = [];
 let currentFilter = 'all';
 let currentSearch = '';
 
-// Default feed content with WORKING image URLs
+// Default feed content (fallback if database is empty)
 const DEFAULT_FEED = [
   {
     id: 'feed_1',
     type: 'video',
     title: '🎬 Motion Graphics: From Beginner to Pro',
-    description: 'Watch how I created this stunning motion graphics project using After Effects. Full breakdown in comments! This is what you can achieve with dedication and the right guidance.',
+    description: 'Watch how I created this stunning motion graphics project using After Effects. Full breakdown in comments! This is what you can achieve with dedication and the right guidance at Gliimu.',
     image: 'https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800',
     author: 'Michael Chen',
     likes: 1234,
@@ -23,13 +23,13 @@ const DEFAULT_FEED = [
   },
   {
     id: 'feed_2',
-    type: 'design',
-    title: '✨ UI Design Trends That Will Dominate 2025',
-    description: 'Minimalism meets maximalism. Here are the top design trends shaping the creative industry. From glassmorphism to brutalist design, here\'s what you need to know.',
-    image: 'https://images.pexels.com/photos/196644/pexels-photo-196644.jpeg?w=800',
+    type: 'insight',
+    title: '🎯 Color Psychology in Branding: A Complete Guide',
+    description: 'How the right colors can make or break your brand identity. A deep dive into color meanings, cultural associations, and practical applications for designers.',
+    image: 'https://images.pexels.com/photos/196645/pexels-photo-196645.jpeg?w=800',
     author: 'Sarah Johnson',
-    likes: 3421,
-    comments: 156,
+    likes: 4567,
+    comments: 267,
     createdAt: new Date(Date.now() - 86400000).toISOString()
   },
   {
@@ -45,7 +45,7 @@ const DEFAULT_FEED = [
   },
   {
     id: 'feed_4',
-    type: 'project',
+    type: 'video',
     title: '🚀 Built a Streaming Platform in 30 Days',
     description: 'My final project at Gliimu - a fully functional streaming platform with React, Node.js, and Supabase. Live demo in comments!',
     image: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?w=800',
@@ -67,35 +67,35 @@ const DEFAULT_FEED = [
   },
   {
     id: 'feed_6',
-    type: 'design',
-    title: '🎯 Color Psychology in Branding',
-    description: 'How the right colors can make or break your brand identity. A deep dive into color meanings, cultural associations, and practical applications.',
-    image: 'https://images.pexels.com/photos/196645/pexels-photo-196645.jpeg?w=800',
-    author: 'Grace Mbah',
-    likes: 4567,
-    comments: 267,
-    createdAt: new Date(Date.now() - 432000000).toISOString()
-  },
-  {
-    id: 'feed_7',
     type: 'insight',
-    title: '📱 The Future of Content Creation',
+    title: '📱 The Future of Content Creation: AI Revolution',
     description: 'AI is changing everything. Here\'s how creators can adapt and thrive in the new era of content. Practical tips and tools you can use today.',
     image: 'https://images.pexels.com/photos/256514/pexels-photo-256514.jpeg?w=800',
     author: 'Emeka Nwosu',
     likes: 6789,
     comments: 345,
-    createdAt: new Date(Date.now() - 518400000).toISOString()
+    createdAt: new Date(Date.now() - 432000000).toISOString()
   },
   {
-    id: 'feed_8',
-    type: 'project',
-    title: '🎮 3D Game Environment Design',
+    id: 'feed_7',
+    type: 'video',
+    title: '🎮 3D Game Environment Design Showcase',
     description: 'Check out my 3D game environment created in Unity. Open for freelance work! Portfolio link in bio.',
     image: 'https://images.pexels.com/photos/442576/pexels-photo-442576.jpeg?w=800',
     author: 'Alex Hunter',
     likes: 3456,
     comments: 198,
+    createdAt: new Date(Date.now() - 518400000).toISOString()
+  },
+  {
+    id: 'feed_8',
+    type: 'event',
+    title: 'Free Masterclass: Advanced Video Editing',
+    description: 'Join us this Saturday for a free masterclass with industry professionals. Limited spots available!',
+    image: 'https://images.pexels.com/photos/1574717024453540563c7a4f?w=800',
+    author: 'Gliimu Institute',
+    likes: 2345,
+    comments: 567,
     createdAt: new Date(Date.now() - 604800000).toISOString()
   }
 ];
@@ -125,13 +125,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderFeed();
   loadLeaderboard();
   
-  const { data: { user } } = await supabase.auth.getUser();
-  currentUser = user;
+  // Get current user
+  currentUser = await getCurrentUser();
   
   if (currentUser) {
     const userName = document.getElementById('userName');
     const userRole = document.getElementById('userRole');
-    if (userName) userName.textContent = currentUser.user_metadata?.name || 'Creator';
+    if (userName) userName.textContent = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Creator';
     if (userRole) userRole.textContent = 'Student';
   }
   
@@ -159,14 +159,12 @@ function loadLeaderboard() {
         <i class="fas fa-user-circle"></i>
       </div>
       <div class="leaderboard-info">
-        <div class="leaderboard-name">${user.name}</div>
+        <div class="leaderboard-name">${escapeHtml(user.name)}</div>
         <div class="leaderboard-score">${user.score}% completion</div>
       </div>
       <div class="leaderboard-percent">${user.percentage}%</div>
     </div>
   `).join('');
-  
-  console.log('Leaderboard rendered');
 }
 
 async function loadFeedFromDatabase() {
@@ -227,8 +225,6 @@ function renderFeed() {
   }
   
   console.log('Rendering feed with', allPosts.length, 'posts');
-  console.log('Current filter:', currentFilter);
-  console.log('Current search:', currentSearch);
   
   let filtered = [...allPosts];
   
@@ -278,16 +274,16 @@ function createFeedCard(post) {
   
   const typeIcons = {
     video: 'fa-video',
-    design: 'fa-palette',
     insight: 'fa-lightbulb',
-    project: 'fa-code'
+    event: 'fa-calendar-alt',
+    support: 'fa-hand-holding-heart'
   };
   
   const typeLabels = {
-    video: 'Short',
-    design: 'Design',
+    video: 'Video',
     insight: 'Insight',
-    project: 'Project'
+    event: 'Event',
+    support: 'Support'
   };
   
   const icon = typeIcons[post.type] || 'fa-star';
@@ -383,6 +379,7 @@ async function handleLike(postId) {
       }
     }
     
+    // Update in database if not a default post
     if (!post.id.startsWith('feed_')) {
       await supabase
         .from('hub_posts')
@@ -482,6 +479,26 @@ async function handlePostSubmission(event) {
     btn.classList.remove('active');
     if (btn.dataset.type === 'insight') btn.classList.add('active');
   });
+  
+  // Save to database
+  try {
+    await supabase
+      .from('hub_posts')
+      .insert({
+        user_id: currentUser.id,
+        title: title,
+        description: description || '',
+        type: type,
+        image_url: imageUrl,
+        status: 'approved',
+        author_name: newPost.author,
+        created_at: newPost.createdAt,
+        likes: 0,
+        comments: 0
+      });
+  } catch (error) {
+    console.error('Error saving to database:', error);
+  }
 }
 
 function attachCardListeners() {
