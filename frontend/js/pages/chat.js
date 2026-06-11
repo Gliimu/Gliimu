@@ -1,6 +1,6 @@
 // ============================================
 // COMMUNITY CHAT - GLIIMU
-// Real-time messaging with Supabase Realtime
+// Optimized Real-time Messaging + Mobile Fix
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -13,10 +13,11 @@ import { showToast } from '../modules/toast.js';
 let currentUser = null;
 let currentChannel = 'general';
 let allMessages = [];
-let onlineUsers = [];
-let typingUsers = new Set();
 let messageSubscription = null;
-let userSubscription = null;
+let pendingFile = null;
+let pendingVoiceBlob = null;
+let typingTimeout = null;
+let lastMessageId = null;
 
 // Audio recording
 let mediaRecorder = null;
@@ -24,16 +25,6 @@ let audioChunks = [];
 let isRecording = false;
 let recordingStartTime = null;
 let recordingTimer = null;
-
-// File handling
-let pendingFile = null;
-
-// Typing timeout
-let typingTimeout = null;
-
-// Free tier timer (will be set later)
-let freeTimerInterval = null;
-let freeTimeRemaining = 0;
 
 // Unread counts
 let unreadCounts = {
@@ -50,6 +41,9 @@ let unreadCounts = {
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Community Chat initializing...');
+    
+    // Fix mobile viewport issue - adjust height on mobile
+    fixMobileViewport();
     
     // Show loading state
     const container = document.getElementById('messagesContainer');
@@ -73,33 +67,90 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     if (!currentUser) {
-        // Show login prompt
-        const chatMain = document.querySelector('.chat-main');
-        if (chatMain) {
-            chatMain.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 40px;">
-                    <i class="fas fa-comments" style="font-size: 64px; color: var(--text-secondary); margin-bottom: 20px;"></i>
-                    <h2>Join the Conversation</h2>
-                    <p style="color: var(--text-secondary); text-align: center; margin: 16px 0;">Sign in to chat with fellow creatives, share your work, and get feedback.</p>
-                    <button onclick="window.location.href='/signin.html'" style="padding: 12px 32px; background: linear-gradient(135deg, #2c2f78, #1a1c4a); color: white; border: none; border-radius: 40px; cursor: pointer;">Sign In to Chat</button>
-                </div>
-            `;
-        }
-        
-        // Update UI for guest
-        const userNameEl = document.getElementById('currentUserName');
-        const userStatusEl = document.getElementById('userStatusText');
-        const messageInput = document.getElementById('messageInput');
-        const sendBtn = document.getElementById('sendBtn');
-        
-        if (userNameEl) userNameEl.textContent = 'Guest User';
-        if (userStatusEl) userStatusEl.textContent = 'Not signed in';
-        if (messageInput) messageInput.disabled = true;
-        if (sendBtn) sendBtn.disabled = true;
+        showLoginScreen();
         return;
     }
     
     // Update UI with user info
+    updateUserUI();
+    
+    // Load messages for current channel
+    await loadMessages();
+    
+    // Setup real-time subscription (optimized)
+    setupRealtimeSubscription();
+    
+    // Load online users
+    await loadOnlineUsers();
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Mark channel as read
+    markChannelRead(currentChannel);
+    
+    // Focus input on mobile
+    setTimeout(() => {
+        const input = document.getElementById('messageInput');
+        if (input) input.focus();
+    }, 500);
+    
+    console.log('Chat initialized successfully');
+});
+
+function fixMobileViewport() {
+    // Fix for mobile browsers where input is hidden behind keyboard
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    
+    window.addEventListener('resize', () => {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        
+        // Scroll to bottom when keyboard opens
+        setTimeout(() => {
+            scrollToBottom();
+        }, 100);
+    });
+    
+    // Ensure input is visible when focused
+    const messageInput = document.getElementById('messageInput');
+    if (messageInput) {
+        messageInput.addEventListener('focus', () => {
+            setTimeout(() => {
+                messageInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                scrollToBottom();
+            }, 300);
+        });
+    }
+}
+
+function showLoginScreen() {
+    const chatMain = document.querySelector('.chat-main');
+    if (chatMain) {
+        chatMain.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 40px;">
+                <i class="fas fa-comments" style="font-size: 64px; color: var(--text-secondary); margin-bottom: 20px;"></i>
+                <h2>Join the Conversation</h2>
+                <p style="color: var(--text-secondary); text-align: center; margin: 16px 0;">Sign in to chat with fellow creatives, share your work, and get feedback.</p>
+                <button onclick="window.location.href='/signin.html'" style="padding: 12px 32px; background: linear-gradient(135deg, #2c2f78, #1a1c4a); color: white; border: none; border-radius: 40px; cursor: pointer;">Sign In to Chat</button>
+            </div>
+        `;
+    }
+    
+    // Update UI for guest
+    const userNameEl = document.getElementById('currentUserName');
+    const userStatusEl = document.getElementById('userStatusText');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    if (userNameEl) userNameEl.textContent = 'Guest User';
+    if (userStatusEl) userStatusEl.textContent = 'Not signed in';
+    if (messageInput) messageInput.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+}
+
+function updateUserUI() {
     const userNameEl = document.getElementById('currentUserName');
     const userStatusEl = document.getElementById('userStatusText');
     const messageInput = document.getElementById('messageInput');
@@ -112,32 +163,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sendBtn) sendBtn.disabled = false;
     if (logoutBtn) logoutBtn.style.display = 'block';
     
-    // Setup logout
     if (logoutBtn) {
         logoutBtn.onclick = async () => {
             await supabase.auth.signOut();
             window.location.reload();
         };
     }
-    
-    // Load messages for current channel
-    await loadMessages();
-    
-    // Setup real-time subscription
-    setupRealtimeSubscription();
-    
-    // Load online users
-    await loadOnlineUsers();
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    // Mark channel as read
-    markChannelRead(currentChannel);
-});
+}
 
 // ============================================
-// LOAD MESSAGES FROM SUPABASE
+// LOAD MESSAGES
 // ============================================
 
 async function loadMessages() {
@@ -145,6 +180,8 @@ async function loadMessages() {
     if (!container) return;
     
     try {
+        console.log(`Loading messages for channel: ${currentChannel}`);
+        
         const { data: messages, error } = await supabase
             .from('chat_messages')
             .select('*')
@@ -154,56 +191,62 @@ async function loadMessages() {
         
         if (error) {
             console.error('Error loading messages:', error);
-            showMockMessages();
             return;
         }
         
+        console.log(`Loaded ${messages?.length || 0} messages`);
+        
         if (messages && messages.length > 0) {
             allMessages = messages;
+            // Set last message ID for duplicate prevention
+            if (messages.length > 0) {
+                lastMessageId = messages[messages.length - 1].id;
+            }
             renderMessages();
         } else {
-            showMockMessages();
+            await insertWelcomeMessage();
+            renderMessages();
         }
         
         scrollToBottom();
         
     } catch (error) {
         console.error('Exception loading messages:', error);
-        showMockMessages();
     }
 }
 
-function showMockMessages() {
-    const container = document.getElementById('messagesContainer');
-    if (!container) return;
+async function insertWelcomeMessage() {
+    const welcomeMessage = {
+        channel: currentChannel,
+        sender_id: null,
+        sender_name: 'System',
+        message: getWelcomeMessageForChannel(currentChannel),
+        type: 'text',
+        created_at: new Date().toISOString()
+    };
     
-    const mockMessages = [
-        {
-            id: '1',
-            sender_id: null,
-            sender_name: 'System',
-            message: 'Welcome to the Gliimu Community Chat! Feel free to introduce yourself.',
-            type: 'text',
-            created_at: new Date().toISOString(),
-            channel: currentChannel
-        },
-        {
-            id: '2',
-            sender_id: null,
-            sender_name: 'System',
-            message: 'Share your projects, ask questions, and connect with fellow creatives!',
-            type: 'text',
-            created_at: new Date(Date.now() - 60000).toISOString(),
-            channel: currentChannel
-        }
-    ];
+    const { error } = await supabase
+        .from('chat_messages')
+        .insert([welcomeMessage]);
     
-    allMessages = mockMessages;
-    renderMessages();
+    if (error) {
+        console.error('Error inserting welcome message:', error);
+    }
+}
+
+function getWelcomeMessageForChannel(channel) {
+    const messages = {
+        general: 'Welcome to #general! Feel free to introduce yourself and start chatting with the community.',
+        announcements: 'Welcome to #announcements! Check here for important updates and news from the Gliimu team.',
+        help: 'Welcome to #help! Ask questions about courses, projects, or technical issues here.',
+        random: 'Welcome to #random! Casual conversation, memes, and off-topic discussions go here.',
+        projects: 'Welcome to #projects! Share your work, get feedback, and collaborate with other creators.'
+    };
+    return messages[channel] || `Welcome to #${channel}!`;
 }
 
 // ============================================
-// RENDER MESSAGES
+// RENDER MESSAGES - Optimized
 // ============================================
 
 function renderMessages() {
@@ -215,14 +258,20 @@ function renderMessages() {
             <div class="welcome-message">
                 <i class="fas fa-comments"></i>
                 <h3>Welcome to #${currentChannel}</h3>
-                <p>Start the conversation!</p>
+                <p>${getWelcomeMessageForChannel(currentChannel)}</p>
             </div>
         `;
         return;
     }
     
+    // Only update if new messages added (optimized rendering)
+    const shouldScroll = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
+    
     container.innerHTML = allMessages.map(msg => createMessageHTML(msg)).join('');
-    scrollToBottom();
+    
+    if (shouldScroll) {
+        scrollToBottom();
+    }
 }
 
 function createMessageHTML(message) {
@@ -266,7 +315,7 @@ function createMessageHTML(message) {
     }
     
     return `
-        <div class="message-group ${isSelf ? 'self' : 'other'}">
+        <div class="message-group ${isSelf ? 'self' : 'other'}" data-message-id="${message.id}">
             ${!isSelf ? `<div class="message-sender">${escapeHtml(senderName)}</div>` : ''}
             ${contentHtml}
             <div class="message-time">${time}</div>
@@ -275,14 +324,14 @@ function createMessageHTML(message) {
 }
 
 // ============================================
-// SEND MESSAGE
+// SEND MESSAGE - Optimized
 // ============================================
 
 async function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     
-    if (!text && !pendingFile && !window.pendingVoiceBlob) return;
+    if (!text && !pendingFile && !pendingVoiceBlob) return;
     
     if (!currentUser) {
         showToast('Please login to send messages', 'error');
@@ -293,6 +342,14 @@ async function sendMessage() {
     let fileName = null;
     let messageType = 'text';
     let messageText = text;
+    
+    // Show sending indicator
+    const sendBtn = document.getElementById('sendBtn');
+    const originalBtnHtml = sendBtn?.innerHTML;
+    if (sendBtn) {
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        sendBtn.disabled = true;
+    }
     
     // Handle file upload
     if (pendingFile) {
@@ -320,12 +377,12 @@ async function sendMessage() {
     }
     
     // Handle voice message
-    if (window.pendingVoiceBlob) {
+    if (pendingVoiceBlob) {
         const filePath = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
         
         const { error: uploadError } = await supabase.storage
             .from('chat-files')
-            .upload(filePath, window.pendingVoiceBlob);
+            .upload(filePath, pendingVoiceBlob);
         
         if (!uploadError) {
             const { data: { publicUrl } } = supabase.storage
@@ -337,7 +394,7 @@ async function sendMessage() {
             messageText = '';
         }
         
-        window.pendingVoiceBlob = null;
+        pendingVoiceBlob = null;
         hideVoicePreview();
     }
     
@@ -353,28 +410,50 @@ async function sendMessage() {
     };
     
     try {
-        const { error } = await supabase
+        // Optimistic update - add to UI immediately
+        const tempId = 'temp_' + Date.now();
+        const tempMessage = { ...message, id: tempId };
+        allMessages.push(tempMessage);
+        renderMessages();
+        
+        const { data, error } = await supabase
             .from('chat_messages')
-            .insert(message);
+            .insert([message])
+            .select();
         
         if (error) {
-            console.error('Error saving message:', error);
-            allMessages.push(message);
+            // Remove temp message on error
+            allMessages = allMessages.filter(m => m.id !== tempId);
             renderMessages();
+            showToast(`Failed to send: ${error.message}`, 'error');
+            return;
         }
+        
+        // Replace temp message with real one
+        if (data && data[0]) {
+            const index = allMessages.findIndex(m => m.id === tempId);
+            if (index !== -1) {
+                allMessages[index] = data[0];
+                renderMessages();
+            }
+        }
+        
+        input.value = '';
+        scrollToBottom();
         
     } catch (error) {
         console.error('Exception saving message:', error);
-        allMessages.push(message);
-        renderMessages();
+        showToast('Failed to send message', 'error');
+    } finally {
+        if (sendBtn) {
+            sendBtn.innerHTML = originalBtnHtml;
+            sendBtn.disabled = false;
+        }
     }
-    
-    input.value = '';
-    scrollToBottom();
 }
 
 // ============================================
-// REAL-TIME SUBSCRIPTION
+// REAL-TIME SUBSCRIPTION - Optimized
 // ============================================
 
 function setupRealtimeSubscription() {
@@ -382,17 +461,34 @@ function setupRealtimeSubscription() {
         messageSubscription.unsubscribe();
     }
     
+    console.log('Setting up optimized real-time subscription');
+    
+    // Use a more efficient channel
     messageSubscription = supabase
-        .channel('chat_messages')
-        .on('postgres_changes', 
-            { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        .channel('chat_realtime')
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'chat_messages'
+            },
             (payload) => {
                 const newMessage = payload.new;
+                console.log('Real-time message received:', newMessage.id);
+                
+                // Prevent duplicate messages
+                if (lastMessageId === newMessage.id) return;
+                if (allMessages.some(m => m.id === newMessage.id)) return;
+                
+                // Only process messages for current channel
                 if (newMessage.channel === currentChannel) {
+                    lastMessageId = newMessage.id;
                     allMessages.push(newMessage);
                     renderMessages();
                     markChannelRead(currentChannel);
                 } else {
+                    // Update unread count for other channels
                     if (unreadCounts[newMessage.channel] !== undefined) {
                         unreadCounts[newMessage.channel]++;
                         updateChannelBadge(newMessage.channel, unreadCounts[newMessage.channel]);
@@ -400,7 +496,9 @@ function setupRealtimeSubscription() {
                 }
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('Realtime subscription status:', status);
+        });
 }
 
 // ============================================
@@ -434,16 +532,6 @@ async function loadOnlineUsers() {
         }
     } catch (error) {
         console.error('Error loading users:', error);
-        // Show mock users
-        const container = document.getElementById('onlineUsersList');
-        if (container) {
-            container.innerHTML = `
-                <div class="user-item">
-                    <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
-                    <div class="user-info"><div class="user-name">Demo User</div><div class="user-role">Student</div></div>
-                </div>
-            `;
-        }
     }
 }
 
@@ -452,6 +540,8 @@ async function loadOnlineUsers() {
 // ============================================
 
 window.switchChannel = async (channel) => {
+    console.log(`Switching to channel: ${channel}`);
+    
     document.querySelectorAll('.channel-item').forEach(item => {
         item.classList.remove('active');
         if (item.getAttribute('data-channel') === channel) {
@@ -460,6 +550,7 @@ window.switchChannel = async (channel) => {
     });
     
     currentChannel = channel;
+    
     const channelNameEl = document.getElementById('channelName');
     if (channelNameEl) channelNameEl.textContent = channel;
     
@@ -473,6 +564,7 @@ window.switchChannel = async (channel) => {
     const channelIcon = document.getElementById('channelIcon');
     if (channelIcon) channelIcon.className = `fas ${channelIcons[channel] || 'fa-hashtag'}`;
     
+    allMessages = [];
     markChannelRead(channel);
     await loadMessages();
 };
@@ -551,7 +643,7 @@ async function startVoiceRecording() {
         mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
         mediaRecorder.onstop = () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            window.pendingVoiceBlob = audioBlob;
+            pendingVoiceBlob = audioBlob;
             showVoicePreview();
             stream.getTracks().forEach(track => track.stop());
         };
@@ -566,7 +658,6 @@ async function startVoiceRecording() {
             voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
         }
         
-        // Start timer display
         recordingTimer = setInterval(() => {
             const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
@@ -612,11 +703,11 @@ function showVoicePreview() {
 function hideVoicePreview() {
     const preview = document.getElementById('voicePreview');
     if (preview) preview.style.display = 'none';
-    window.pendingVoiceBlob = null;
+    pendingVoiceBlob = null;
 }
 
 window.cancelVoicePreview = () => {
-    window.pendingVoiceBlob = null;
+    pendingVoiceBlob = null;
     hideVoicePreview();
 };
 
@@ -720,7 +811,10 @@ function setupEventListeners() {
     if (sendBtn) sendBtn.addEventListener('click', sendMessage);
     if (messageInput) {
         messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
         });
         messageInput.addEventListener('input', onTyping);
     }
@@ -732,7 +826,6 @@ function setupEventListeners() {
     if (messagesContainer) messagesContainer.addEventListener('scroll', checkScroll);
     if (callBtn) callBtn.addEventListener('click', () => showToast('Voice channels coming soon!', 'info'));
     
-    // Close emoji picker on outside click
     document.addEventListener('click', (e) => {
         const picker = document.getElementById('emojiPicker');
         const emojiBtnEl = document.getElementById('emojiBtn');
@@ -753,7 +846,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Make functions global for onclick handlers
+// Make functions global
 window.sendMessage = sendMessage;
 window.toggleSidebar = toggleSidebar;
 window.toggleInfoPanel = toggleInfoPanel;
