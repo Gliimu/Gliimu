@@ -22,11 +22,10 @@
 
   <div class="app-container">
     
-    <!-- LEFT SIDEBAR - Navigation -->
+    <!-- LEFT SIDEBAR - Navigation & Leaderboard -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <img src="icons/logo.png" alt="Gliimu" class="sidebar-logo" id="sidebarLogo">
-        <h2 class="sidebar-brand">GLIIMU</h2>
       </div>
       
       <nav class="sidebar-nav">
@@ -56,6 +55,19 @@
         </a>
       </nav>
       
+      <!-- Leaderboard Section -->
+      <div class="leaderboard-section">
+        <div class="leaderboard-header">
+          <i class="fas fa-trophy"></i>
+          <h3>Top Creators</h3>
+        </div>
+        <div class="leaderboard-list" id="leaderboardList">
+          <div class="loading-leaderboard">
+            <div class="loading-spinner-small"></div>
+          </div>
+        </div>
+      </div>
+      
       <div class="sidebar-footer">
         <div class="user-info" id="userInfo">
           <div class="user-avatar">
@@ -66,10 +78,6 @@
             <span class="user-role" id="userRole">Join Us</span>
           </div>
         </div>
-        <button class="theme-toggle" id="themeToggle">
-          <i class="fas fa-moon"></i>
-          <span>Dark Mode</span>
-        </button>
       </div>
     </aside>
 
@@ -106,10 +114,7 @@
 
       <!-- Feed Container -->
       <div class="feed-container" id="feedContainer">
-        <div class="loading-feed">
-          <div class="loading-spinner"></div>
-          <p>Loading creative content...</p>
-        </div>
+        <!-- Posts will be loaded here -->
       </div>
     </main>
 
@@ -137,7 +142,7 @@
           <span>Sponsor Spotlight</span>
         </div>
         <div class="sponsor-content">
-          <img src="https://via.placeholder.com/300x150/2c2f78/white?text=Adobe" alt="Sponsor" class="sponsor-logo">
+          <img src="https://placehold.co/400x200/2c2f78/white?text=ADOBE" alt="Sponsor" class="sponsor-logo">
           <h4>Adobe Creative Cloud</h4>
           <p>Get 40% off student subscription. Limited offer for Gliimu members!</p>
           <a href="#" class="sponsor-link">Claim Offer →</a>
@@ -344,20 +349,6 @@
               preview.style.display = 'block';
             };
             reader.readAsDataURL(this.files[0]);
-          }
-        });
-      }
-      
-      // Theme toggle
-      const themeToggle = document.getElementById('themeToggle');
-      if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-          document.body.classList.toggle('dark-mode');
-          const logo = document.getElementById('sidebarLogo');
-          if (document.body.classList.contains('dark-mode')) {
-            logo.style.filter = 'brightness(0) invert(1)';
-          } else {
-            logo.style.filter = 'none';
           }
         });
       }
