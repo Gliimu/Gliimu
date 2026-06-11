@@ -1,7 +1,7 @@
 // js/pages/hub.js - Creative Feed with Gliimu Brand Identity
 
-import { supabase } from '../../modules/supabase.js';
-import { showToast } from '../../modules/toast.js';
+import { supabase } from 'js/pages/modules/supabase.js';
+import { showToast } from 'js/pages/modules/toast.js';
 
 let currentUser = null;
 let allPosts = [];
