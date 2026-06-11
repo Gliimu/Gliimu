@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Hub – Community & Updates | Gliimu Institute</title>
+  <title>Hub – Community Feed | Gliimu Institute</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Join the Gliimu Community. Read insights, watch student projects, attend events, and support the next generation of creatives.">
+  <meta name="description" content="Connect with the Gliimu community. Share your journey, discover insights, and engage with fellow creatives.">
   
   <link rel="icon" type="image/png" href="icons/logo2.png">
   
@@ -27,78 +27,146 @@
   <section class="hub-section">
     <div class="container">
       
-      <!-- Hero -->
+      <!-- Hero Banner -->
       <div class="hub-hero">
-        <h1>Community Hub</h1>
-        <p>Discover stories, insights, and opportunities from the Gliimu community.</p>
-        <div class="stats-bar">
-          <div class="stat-item">
-            <span class="stat-number" id="statPosts">0</span>
-            <span class="stat-label">Posts</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-number" id="statLikes">0</span>
-            <span class="stat-label">Likes</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-number" id="statPending">0</span>
-            <span class="stat-label">Pending</span>
-          </div>
+        <h1>Community Feed</h1>
+        <p>Share your journey, celebrate wins, and grow with fellow creatives</p>
+      </div>
+      
+      <!-- Create Post Card (Sticky) -->
+      <div class="create-post-card" id="createPostCard">
+        <div class="create-post-avatar">
+          <i class="fas fa-user-circle"></i>
+        </div>
+        <div class="create-post-input">
+          <input type="text" id="createPostInput" placeholder="Share something with the community...">
+        </div>
+        <div class="create-post-actions">
+          <button class="create-post-trigger" id="createPostTriggerBtn">
+            <i class="fas fa-plus-circle"></i> Create Post
+          </button>
         </div>
       </div>
       
-      <!-- BANNER AD SECTION (Sponsored) -->
-      <div id="bannerAd" class="banner-ad-container hidden monetization-section"></div>
+      <!-- Feed Filter Bar -->
+      <div class="feed-filters">
+        <button class="filter-btn active" data-filter="all">
+          <i class="fas fa-fire"></i> For You
+        </button>
+        <button class="filter-btn" data-filter="insight">
+          <i class="fas fa-lightbulb"></i> Insights
+        </button>
+        <button class="filter-btn" data-filter="video">
+          <i class="fas fa-video"></i> Videos
+        </button>
+        <button class="filter-btn" data-filter="event">
+          <i class="fas fa-calendar-alt"></i> Events
+        </button>
+        <button class="filter-btn" data-filter="support">
+          <i class="fas fa-heart"></i> Support
+        </button>
+      </div>
       
-      <!-- Main Layout with Sidebar -->
-      <div class="hub-layout">
-        <!-- Main Content Area -->
-        <div class="main-content">
-          <!-- Search Bar -->
-          <div class="search-bar">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchInput" placeholder="Search posts, events, or insights...">
-          </div>
-          
-          <!-- Filter Bar -->
-          <div class="filter-bar">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="event">Events</button>
-            <button class="filter-btn" data-filter="insight">Insights</button>
-            <button class="filter-btn" data-filter="video">Videos</button>
-            <button class="filter-btn" data-filter="support">Support</button>
-          </div>
-          
-          <!-- Posts Grid (Masonry) -->
-          <div class="masonry-grid" id="postsContainer">
-            <!-- Posts will be loaded here dynamically -->
-            <div class="empty-state">
-              <i class="fas fa-spinner fa-spin"></i>
-              <h3>Loading posts...</h3>
-            </div>
-          </div>
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat-item">
+          <i class="fas fa-users"></i>
+          <span id="statPosts">0</span>
+          <span>Posts</span>
         </div>
-        
-        <!-- Sidebar Content (Ads & Monetization) -->
-        <div class="sidebar-content">
-          <!-- Sponsored Video Section -->
-          <div id="sponsoredVideo" class="sponsored-video hidden"></div>
-          
-          <!-- Sidebar Ads Container -->
-          <div id="sidebarAds" class="sidebar-ads hidden"></div>
-          
-          <!-- Affiliate Links Section -->
-          <div id="affiliateLinks" class="affiliate-section hidden"></div>
+        <div class="stat-item">
+          <i class="fas fa-heart"></i>
+          <span id="statLikes">0</span>
+          <span>Likes</span>
+        </div>
+        <div class="stat-item">
+          <i class="fas fa-comment"></i>
+          <span id="statComments">0</span>
+          <span>Comments</span>
+        </div>
+      </div>
+      
+      <!-- Feed Container -->
+      <div class="feed-container" id="feedContainer">
+        <!-- Posts will be loaded here dynamically -->
+        <div class="loading-spinner">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>Loading feed...</p>
         </div>
       </div>
       
     </div>
   </section>
 
-  <!-- Create Post Button -->
-  <button class="create-post-btn" id="createPostBtn">
-    <i class="fas fa-plus"></i>
-  </button>
+  <!-- Create Post Modal -->
+  <div class="modal-overlay" id="createPostModal">
+    <div class="generic-modal modal-create">
+      <div class="modal-header">
+        <h3><i class="fas fa-pen-alt"></i> Create New Post</h3>
+        <button class="modal-close" id="closeModalBtn">&times;</button>
+      </div>
+      
+      <form id="postForm">
+        <div class="form-group">
+          <label>Post Type</label>
+          <div class="post-type-selector">
+            <button type="button" class="type-option active" data-type="insight">
+              <i class="fas fa-lightbulb"></i> Insight
+            </button>
+            <button type="button" class="type-option" data-type="video">
+              <i class="fas fa-video"></i> Video
+            </button>
+            <button type="button" class="type-option" data-type="event">
+              <i class="fas fa-calendar-alt"></i> Event
+            </button>
+            <button type="button" class="type-option" data-type="support">
+              <i class="fas fa-hand-holding-heart"></i> Support
+            </button>
+          </div>
+          <input type="hidden" id="postType" value="insight">
+        </div>
+        
+        <div class="form-group">
+          <input type="text" id="postTitle" placeholder="What's the title?" class="title-input" required>
+        </div>
+        
+        <div class="form-group">
+          <textarea id="postDescription" rows="5" placeholder="Share your story, insights, or experience..." required></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label class="image-upload-label">
+            <i class="fas fa-image"></i> Add Image (optional)
+            <input type="file" id="postImage" accept="image/*" style="display: none;">
+          </label>
+          <div class="image-preview" id="imagePreview" style="display: none;">
+            <img id="previewImg" src="" alt="Preview">
+            <button type="button" class="remove-image" onclick="removeImage()">
+              <i class="fas fa-times-circle"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeCreatePostModal()">Cancel</button>
+          <button type="button" class="btn-primary" onclick="submitPost()">
+            <i class="fas fa-paper-plane"></i> Publish
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Post Detail Modal (for expanded view) -->
+  <div class="modal-overlay" id="postDetailModal">
+    <div class="generic-modal modal-detail">
+      <div class="modal-header">
+        <h3>Post</h3>
+        <button class="modal-close" id="closeDetailModal">&times;</button>
+      </div>
+      <div id="postDetailContent"></div>
+    </div>
+  </div>
 
   <!-- Footer Placeholder -->
   <div id="footer-placeholder"></div>
@@ -106,83 +174,25 @@
   <!-- Login Modal Placeholder -->
   <div id="login-modal-placeholder"></div>
 
-  <!-- Create Post Modal -->
-  <div class="modal-overlay" id="createPostModal">
-    <div class="generic-modal modal-large">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h3 style="margin: 0;">Share with the Community</h3>
-        <button id="closeModalBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
-      </div>
-      
-      <form id="postForm">
-        <div class="form-group">
-          <label>Post Type *</label>
-          <select id="postType" required>
-            <option value="insight">💡 Insight / Article</option>
-            <option value="video">🎬 Video / Project</option>
-            <option value="event">📅 Event / Workshop</option>
-            <option value="support">❤️ Support / Fundraiser</option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label>Title *</label>
-          <input type="text" id="postTitle" placeholder="Enter a catchy title..." required>
-        </div>
-        
-        <div class="form-group">
-          <label>Description *</label>
-          <textarea id="postDescription" rows="4" placeholder="Share your story, insights, or details..." required></textarea>
-        </div>
-        
-        <div class="form-group">
-          <label>Image / Thumbnail</label>
-          <input type="file" id="postImage" accept="image/*">
-          <div class="image-preview" id="imagePreview" style="display: none;">
-            <img id="previewImg" src="" alt="Preview">
-          </div>
-        </div>
-        
-        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
-          <button type="button" class="btn-secondary" onclick="closeCreatePostModal()" style="padding: 10px 24px; border-radius: 30px;">Cancel</button>
-          <button type="button" class="btn-primary" onclick="submitPost()" style="padding: 10px 24px; border-radius: 30px;">Submit for Review</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- JS Files -->
   <script type="module" src="js/pages/hub.js"></script>
   
-  <!-- Legacy fallback functions -->
   <script>
-    // Legacy support for inline handlers
-    window.openCreatePostModal = function() {
-      const modal = document.getElementById('createPostModal');
-      if (modal) modal.classList.add('active');
-    };
-    
+    // Legacy functions for inline handlers
     window.closeCreatePostModal = function() {
-      const modal = document.getElementById('createPostModal');
-      if (modal) modal.classList.remove('active');
+      document.getElementById('createPostModal').classList.remove('active');
     };
     
-    window.previewImage = function(input) {
+    window.removeImage = function() {
       const preview = document.getElementById('imagePreview');
       const previewImg = document.getElementById('previewImg');
-      
-      if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          previewImg.src = e.target.result;
-          preview.style.display = 'block';
-        };
-        reader.readAsDataURL(input.files[0]);
-      }
+      const fileInput = document.getElementById('postImage');
+      preview.style.display = 'none';
+      previewImg.src = '';
+      fileInput.value = '';
     };
     
     window.submitPost = function() {
-      // This is handled by the module
       const event = new CustomEvent('submitPost', {
         detail: {
           title: document.getElementById('postTitle').value,
@@ -193,6 +203,49 @@
       });
       window.dispatchEvent(event);
     };
+    
+    // Post type selector
+    document.addEventListener('DOMContentLoaded', function() {
+      const typeOptions = document.querySelectorAll('.type-option');
+      typeOptions.forEach(opt => {
+        opt.addEventListener('click', function() {
+          typeOptions.forEach(o => o.classList.remove('active'));
+          this.classList.add('active');
+          document.getElementById('postType').value = this.dataset.type;
+        });
+      });
+      
+      // Image upload preview
+      const imageInput = document.getElementById('postImage');
+      if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+          const preview = document.getElementById('imagePreview');
+          const previewImg = document.getElementById('previewImg');
+          if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              previewImg.src = e.target.result;
+              preview.style.display = 'block';
+            };
+            reader.readAsDataURL(this.files[0]);
+          }
+        });
+      }
+      
+      // Create post trigger
+      const createTrigger = document.getElementById('createPostTriggerBtn');
+      const createInput = document.getElementById('createPostInput');
+      if (createTrigger) {
+        createTrigger.addEventListener('click', () => {
+          document.getElementById('createPostModal').classList.add('active');
+        });
+      }
+      if (createInput) {
+        createInput.addEventListener('click', () => {
+          document.getElementById('createPostModal').classList.add('active');
+        });
+      }
+    });
   </script>
 </body>
 </html>
