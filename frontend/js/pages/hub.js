@@ -118,6 +118,13 @@ const LEADERBOARD_DATA = [
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Creative Feed initializing...');
   
+  // Set default posts immediately so content shows right away
+  allPosts = [...DEFAULT_FEED];
+  
+  // Render immediately with default posts
+  renderFeed();
+  loadLeaderboard();
+  
   const { data: { user } } = await supabase.auth.getUser();
   currentUser = user;
   
@@ -128,14 +135,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (userRole) userRole.textContent = 'Student';
   }
   
-  await loadFeed();
-  loadLeaderboard();
+  // Then try to load from database and merge
+  await loadFeedFromDatabase();
+  
   setupEventListeners();
 });
 
 function loadLeaderboard() {
   const container = document.getElementById('leaderboardList');
-  if (!container) return;
+  if (!container) {
+    console.error('Leaderboard container not found');
+    return;
+  }
+  
+  console.log('Loading leaderboard with', LEADERBOARD_DATA.length, 'users');
   
   container.innerHTML = LEADERBOARD_DATA.map(user => `
     <div class="leaderboard-item">
@@ -152,16 +165,13 @@ function loadLeaderboard() {
       <div class="leaderboard-percent">${user.percentage}%</div>
     </div>
   `).join('');
+  
+  console.log('Leaderboard rendered');
 }
 
-async function loadFeed() {
-  const container = document.getElementById('feedContainer');
-  if (!container) return;
+async function loadFeedFromDatabase() {
+  console.log('Attempting to load feed from database...');
   
-  // Always show default posts first for immediate content
-  allPosts = [...DEFAULT_FEED];
-  
-  // Try to fetch from database and merge
   try {
     const { data: posts, error } = await supabase
       .from('hub_posts')
@@ -169,7 +179,14 @@ async function loadFeed() {
       .eq('status', 'approved')
       .order('created_at', { ascending: false });
     
-    if (!error && posts && posts.length > 0) {
+    if (error) {
+      console.error('Supabase error:', error);
+      return;
+    }
+    
+    if (posts && posts.length > 0) {
+      console.log('Found', posts.length, 'posts from database');
+      
       const formattedPosts = posts.map(p => ({
         id: p.id,
         type: p.type,
@@ -182,7 +199,7 @@ async function loadFeed() {
         createdAt: p.created_at
       }));
       
-      // Merge and remove duplicates
+      // Merge with default posts, remove duplicates
       const allPostsMap = new Map();
       [...formattedPosts, ...DEFAULT_FEED].forEach(post => {
         if (!allPostsMap.has(post.id)) {
@@ -190,24 +207,34 @@ async function loadFeed() {
         }
       });
       allPosts = Array.from(allPostsMap.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      console.log('Total posts after merge:', allPosts.length);
+      renderFeed();
+    } else {
+      console.log('No posts from database, using defaults only');
     }
     
-    renderFeed();
-    
   } catch (error) {
-    console.error('Error loading feed from Supabase, using defaults:', error);
-    renderFeed();
+    console.error('Error loading feed from Supabase:', error);
   }
 }
 
 function renderFeed() {
   const container = document.getElementById('feedContainer');
-  if (!container) return;
+  if (!container) {
+    console.error('Feed container not found! Check that element with id="feedContainer" exists in HTML');
+    return;
+  }
+  
+  console.log('Rendering feed with', allPosts.length, 'posts');
+  console.log('Current filter:', currentFilter);
+  console.log('Current search:', currentSearch);
   
   let filtered = [...allPosts];
   
   if (currentFilter !== 'all') {
     filtered = filtered.filter(post => post.type === currentFilter);
+    console.log('After filter:', filtered.length, 'posts');
   }
   
   if (currentSearch) {
@@ -217,6 +244,7 @@ function renderFeed() {
       post.description.toLowerCase().includes(searchLower) ||
       post.author.toLowerCase().includes(searchLower)
     );
+    console.log('After search:', filtered.length, 'posts');
   }
   
   if (filtered.length === 0) {
@@ -225,7 +253,7 @@ function renderFeed() {
         <i class="fas fa-compass"></i>
         <h3>No content found</h3>
         <p>Be the first to share your creative journey!</p>
-        <button class="create-post-btn" onclick="document.getElementById('createPostBtn').click()" style="margin-top: 16px;">
+        <button class="create-post-btn" onclick="document.getElementById('createPostBtn').click()" style="margin-top: 16px; background: linear-gradient(135deg, #2c2f78, #1a1c4a); color: white; border: none; padding: 10px 24px; border-radius: 40px; cursor: pointer;">
           Create Post
         </button>
       </div>
@@ -233,7 +261,15 @@ function renderFeed() {
     return;
   }
   
-  container.innerHTML = filtered.map(post => createFeedCard(post)).join('');
+  // Generate HTML for each post
+  let postsHTML = '';
+  for (let i = 0; i < filtered.length; i++) {
+    postsHTML += createFeedCard(filtered[i]);
+  }
+  
+  container.innerHTML = postsHTML;
+  console.log('Feed rendered with', filtered.length, 'posts');
+  
   attachCardListeners();
 }
 
@@ -257,10 +293,13 @@ function createFeedCard(post) {
   const icon = typeIcons[post.type] || 'fa-star';
   const label = typeLabels[post.type] || 'Creative';
   
+  // Ensure image URL is valid
+  const imageUrl = post.image || 'https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800';
+  
   return `
-    <div class="content-card" data-id="${post.id}" onclick="viewPostDetail('${post.id}')">
+    <div class="content-card" data-id="${post.id}" onclick="window.viewPostDetail && window.viewPostDetail('${post.id}')">
       <div class="card-media">
-        <img src="${post.image}" alt="${escapeHtml(post.title)}" loading="lazy" onerror="this.src='https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800'">
+        <img src="${imageUrl}" alt="${escapeHtml(post.title)}" loading="lazy" onerror="this.src='https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800'">
         <span class="card-badge">
           <i class="fas ${icon}"></i> ${label}
         </span>
@@ -295,6 +334,8 @@ function createFeedCard(post) {
 }
 
 function getTimeAgo(date) {
+  if (isNaN(date.getTime())) return 'Recently';
+  
   const now = new Date();
   const diffMs = now - date;
   const diffMins = Math.floor(diffMs / 60000);
@@ -333,9 +374,13 @@ async function handleLike(postId) {
     const likeBtn = document.querySelector(`.like-btn[data-id="${postId}"]`);
     if (likeBtn) {
       likeBtn.classList.add('liked');
-      likeBtn.querySelector('.like-count').textContent = formatNumber(post.likes);
-      likeBtn.querySelector('i').classList.remove('far');
-      likeBtn.querySelector('i').classList.add('fas');
+      const likeSpan = likeBtn.querySelector('.like-count');
+      if (likeSpan) likeSpan.textContent = formatNumber(post.likes);
+      const likeIcon = likeBtn.querySelector('i');
+      if (likeIcon) {
+        likeIcon.classList.remove('far');
+        likeIcon.classList.add('fas');
+      }
     }
     
     if (!post.id.startsWith('feed_')) {
@@ -362,10 +407,11 @@ function viewPostDetail(postId) {
 
 function createDetailView(post) {
   const timeAgo = getTimeAgo(new Date(post.createdAt));
+  const imageUrl = post.image || 'https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800';
   
   return `
     <div style="padding: 60px 20px 20px;">
-      ${post.image ? `<img src="${post.image}" style="width: 100%; border-radius: 16px; margin-bottom: 20px;" onerror="this.src='https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800'">` : ''}
+      ${imageUrl ? `<img src="${imageUrl}" style="width: 100%; border-radius: 16px; margin-bottom: 20px;" onerror="this.src='https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800'">` : ''}
       <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
         <div class="author-avatar" style="width: 48px; height: 48px;">
           <i class="fas fa-user-circle" style="font-size: 28px;"></i>
@@ -402,15 +448,19 @@ async function handlePostSubmission(event) {
     return;
   }
   
-  let imageUrl = imageFile ? URL.createObjectURL(imageFile) : DEFAULT_FEED[0].image;
+  let imageUrl = 'https://images.pexels.com/photos/4924135/pexels-photo-4924135.jpeg?w=800';
+  
+  if (imageFile) {
+    imageUrl = URL.createObjectURL(imageFile);
+  }
   
   const newPost = {
-    id: Date.now().toString(),
+    id: 'post_' + Date.now(),
     type: type,
     title: title,
     description: description || '',
     image: imageUrl,
-    author: currentUser.user_metadata?.name || 'Creator',
+    author: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Creator',
     likes: 0,
     comments: 0,
     createdAt: new Date().toISOString()
@@ -421,33 +471,43 @@ async function handlePostSubmission(event) {
   showToast('Post published successfully!', 'success');
   closeCreatePostModal();
   
+  // Clear form
   document.getElementById('postForm').reset();
   document.getElementById('postType').value = 'insight';
   document.getElementById('imagePreview').style.display = 'none';
   
   // Reset type buttons
-  document.querySelectorAll('.type-btn').forEach(btn => {
+  const typeBtns = document.querySelectorAll('.type-btn');
+  typeBtns.forEach(btn => {
     btn.classList.remove('active');
     if (btn.dataset.type === 'insight') btn.classList.add('active');
   });
 }
 
 function attachCardListeners() {
-  document.querySelectorAll('.like-btn').forEach(btn => {
+  const likeBtns = document.querySelectorAll('.like-btn');
+  console.log('Attaching listeners to', likeBtns.length, 'like buttons');
+  
+  likeBtns.forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      handleLike(btn.dataset.id);
+      const postId = btn.getAttribute('data-id');
+      if (postId) handleLike(postId);
     };
   });
 }
 
 function setupEventListeners() {
   // Category chips
-  document.querySelectorAll('.chip').forEach(chip => {
+  const chips = document.querySelectorAll('.chip');
+  console.log('Found', chips.length, 'category chips');
+  
+  chips.forEach(chip => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chips.forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
-      currentFilter = chip.dataset.filter;
+      currentFilter = chip.getAttribute('data-filter');
+      console.log('Filter changed to:', currentFilter);
       renderFeed();
     });
   });
@@ -457,6 +517,7 @@ function setupEventListeners() {
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       currentSearch = e.target.value;
+      console.log('Search changed to:', currentSearch);
       renderFeed();
     });
   }
@@ -508,7 +569,10 @@ function closeCreatePostModal() {
 window.closeCreatePostModal = closeCreatePostModal;
 window.viewPostDetail = viewPostDetail;
 window.removeImage = window.removeImage || function() {
-  document.getElementById('imagePreview').style.display = 'none';
-  document.getElementById('previewImg').src = '';
-  document.getElementById('postImage').value = '';
+  const preview = document.getElementById('imagePreview');
+  const previewImg = document.getElementById('previewImg');
+  const fileInput = document.getElementById('postImage');
+  if (preview) preview.style.display = 'none';
+  if (previewImg) previewImg.src = '';
+  if (fileInput) fileInput.value = '';
 };
