@@ -1,125 +1,146 @@
-// js/hub.js - Social Media Feed with Company Values Content
+// js/pages/hub.js - Creative Feed (TikTok/Pinterest/Shorts Style)
 
-import { supabase } from '../modules/supabase.js';
-import { showToast } from '../modules/toast.js';
+import { supabase } from '../../modules/supabase.js';
+import { showToast } from '../../modules/toast.js';
 
-let currentFilter = 'all';
-let allPosts = [];
 let currentUser = null;
+let allPosts = [];
+let currentTab = 'for-you';
+let currentFilter = 'all';
+let currentSearch = '';
 
-// Company values content - Default posts that showcase Gliimu's mission
-const DEFAULT_POSTS = [
+// Creative feed content with company values
+const DEFAULT_FEED = [
   {
-    id: 'default_1',
-    title: 'Welcome to the Gliimu Creative Community! 🎨',
-    description: 'We are building Africa\'s largest community of media architects - video producers, designers, and developers. Share your journey, learn from peers, and grow together. What creative project are you working on today?',
-    type: 'insight',
-    image_url: null,
-    likes: 156,
-    comments: 34,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    status: 'approved'
-  },
-  {
-    id: 'default_2',
-    title: 'Student Spotlight: Amazing Animation Project',
-    description: 'Check out this incredible 3D animation created by one of our video production students. The attention to detail, lighting, and storytelling is outstanding! Drop a comment to celebrate this achievement. 🎬✨',
+    id: 'feed_1',
     type: 'video',
-    image_url: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=800',
-    likes: 342,
-    comments: 67,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    status: 'approved'
-  },
-  {
-    id: 'default_3',
-    title: 'Free Masterclass: Advanced Video Editing Techniques',
-    description: 'Join us this Saturday for a free masterclass with industry professionals. Learn color grading, motion graphics, and professional workflow tips. Limited spots available! Register now through the link in bio. 🎥',
-    type: 'event',
-    image_url: 'https://images.unsplash.com/photo-1574717024453-3540563c7a4f?w=800',
-    likes: 234,
+    title: '🎬 Motion Graphics Magic',
+    description: 'Watch how I created this amazing motion graphics project using After Effects. Full tutorial coming soon!',
+    image: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=600',
+    videoUrl: null,
+    author: 'Creative Studio',
+    avatar: null,
+    likes: 1234,
     comments: 89,
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    status: 'approved'
+    shares: 234,
+    createdAt: new Date(Date.now() - 3600000).toISOString()
   },
   {
-    id: 'default_4',
-    title: 'Design Trends 2025: What You Need to Know',
-    description: 'From AI-powered design tools to immersive 3D experiences, discover the trends shaping the creative industry. Our design team shares insights on staying ahead in the fast-evolving world of digital design. 💡',
+    id: 'feed_2',
+    type: 'design',
+    title: '✨ UI Design Trends 2025',
+    description: 'Minimalism meets maximalism. Here are the top design trends shaping the creative industry this year. What\'s your favorite?',
+    image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600',
+    videoUrl: null,
+    author: 'Design Weekly',
+    avatar: null,
+    likes: 3421,
+    comments: 156,
+    shares: 89,
+    createdAt: new Date(Date.now() - 86400000).toISOString()
+  },
+  {
+    id: 'feed_3',
     type: 'insight',
-    image_url: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800',
-    likes: 189,
-    comments: 45,
-    created_at: new Date(Date.now() - 259200000).toISOString(),
-    status: 'approved'
+    title: '💡 From Beginner to Pro: My Journey',
+    description: '6 months ago I knew nothing about video editing. Now I\'m working with major brands. Here\'s what I learned...',
+    image: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=600',
+    videoUrl: null,
+    author: 'Sarah Creative',
+    avatar: null,
+    likes: 5678,
+    comments: 423,
+    shares: 567,
+    createdAt: new Date(Date.now() - 172800000).toISOString()
   },
   {
-    id: 'default_5',
-    title: 'Call for Mentors: Shape the Next Generation',
-    description: 'We\'re looking for experienced creatives to mentor our students. Share your expertise in video production, UI/UX design, or web development. Make a lasting impact on aspiring media architects. 🤝',
-    type: 'support',
-    image_url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800',
-    likes: 78,
-    comments: 23,
-    created_at: new Date(Date.now() - 345600000).toISOString(),
-    status: 'approved'
+    id: 'feed_4',
+    type: 'project',
+    title: '🚀 Built a Streaming Platform in 30 Days',
+    description: 'My final project at Gliimu - a fully functional streaming platform with React, Node.js, and Supabase.',
+    image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600',
+    videoUrl: null,
+    author: 'Tech Creator',
+    avatar: null,
+    likes: 2345,
+    comments: 178,
+    shares: 345,
+    createdAt: new Date(Date.now() - 259200000).toISOString()
   },
   {
-    id: 'default_6',
-    title: 'Portfolio Review Workshop - Get Expert Feedback',
-    description: 'Present your portfolio to industry experts and receive constructive feedback. Perfect for students preparing for job applications. Happening virtually next Thursday. Save your spot! 📁✨',
-    type: 'event',
-    image_url: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800',
-    likes: 145,
-    comments: 52,
-    created_at: new Date(Date.now() - 432000000).toISOString(),
-    status: 'approved'
+    id: 'feed_5',
+    type: 'video',
+    title: '🎨 Speed Art: Digital Painting Process',
+    description: 'Watch me create this digital artwork from sketch to final render. 3 hours compressed into 60 seconds!',
+    image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600',
+    videoUrl: null,
+    author: 'Art Daily',
+    avatar: null,
+    likes: 8901,
+    comments: 234,
+    shares: 123,
+    createdAt: new Date(Date.now() - 345600000).toISOString()
   },
   {
-    id: 'default_7',
-    title: 'From Student to Professional: My Journey',
-    description: 'Read how Sarah transitioned from a beginner to a professional video editor within 6 months at Gliimu. Her tips on consistency, networking, and building a portfolio that lands jobs. 🚀',
+    id: 'feed_6',
+    type: 'design',
+    title: '🎯 Color Psychology in Branding',
+    description: 'How the right colors can make or break your brand identity. A breakdown of color meanings and applications.',
+    image: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=600',
+    videoUrl: null,
+    author: 'Brand Master',
+    avatar: null,
+    likes: 4567,
+    comments: 267,
+    shares: 456,
+    createdAt: new Date(Date.now() - 432000000).toISOString()
+  },
+  {
+    id: 'feed_7',
     type: 'insight',
-    image_url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800',
-    likes: 267,
-    comments: 73,
-    created_at: new Date(Date.now() - 518400000).toISOString(),
-    status: 'approved'
+    title: '📱 The Future of Content Creation',
+    description: 'AI is changing everything. Here\'s how creators can adapt and thrive in the new era of content.',
+    image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600',
+    videoUrl: null,
+    author: 'Future Thinker',
+    avatar: null,
+    likes: 6789,
+    comments: 345,
+    shares: 789,
+    createdAt: new Date(Date.now() - 518400000).toISOString()
   },
   {
-    id: 'default_8',
-    title: 'Scholarship Opportunity: Full Tuition Coverage',
-    description: 'Applications now open for the Gliimu Creative Excellence Scholarship. Open to talented students from underrepresented backgrounds. Covers full tuition and provides mentorship. Deadline: March 30th. 🎓',
-    type: 'support',
-    image_url: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800',
-    likes: 423,
-    comments: 112,
-    created_at: new Date(Date.now() - 604800000).toISOString(),
-    status: 'approved'
+    id: 'feed_8',
+    type: 'project',
+    title: '🎮 Game Design Portfolio',
+    description: 'Check out my 3D game environment created in Unity. Open for freelance work!',
+    image: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?w=600',
+    videoUrl: null,
+    author: 'Game Dev',
+    avatar: null,
+    likes: 3456,
+    comments: 198,
+    shares: 234,
+    createdAt: new Date(Date.now() - 604800000).toISOString()
   }
 ];
 
-// Initialize page
+// Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Hub feed initializing...');
+  console.log('Creative Feed initializing...');
   
-  // Get current user
   const { data: { user } } = await supabase.auth.getUser();
   currentUser = user;
   
-  // Load posts
-  await loadPosts();
-  
-  // Setup event listeners
+  await loadFeed();
   setupEventListeners();
 });
 
-async function loadPosts() {
+async function loadFeed() {
   const container = document.getElementById('feedContainer');
   if (!container) return;
   
   try {
-    // Try to fetch from database
     const { data: posts, error } = await supabase
       .from('hub_posts')
       .select('*')
@@ -129,134 +150,166 @@ async function loadPosts() {
     if (error) throw error;
     
     if (!posts || posts.length === 0) {
-      // Use default posts if no data
-      allPosts = [...DEFAULT_POSTS];
+      allPosts = [...DEFAULT_FEED];
     } else {
-      allPosts = [...posts, ...DEFAULT_POSTS.slice(0, 3)];
-      // Sort by date
-      allPosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const formattedPosts = posts.map(p => ({
+        id: p.id,
+        type: p.type,
+        title: p.title,
+        description: p.description,
+        image: p.image_url,
+        videoUrl: p.video_url,
+        author: p.author_name || 'Community Creator',
+        likes: p.likes || 0,
+        comments: p.comments || 0,
+        shares: 0,
+        createdAt: p.created_at
+      }));
+      allPosts = [...formattedPosts, ...DEFAULT_FEED.slice(0, 4)];
+      allPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
     
-    filterAndDisplayPosts();
-    updateStats();
+    renderFeed();
     
   } catch (error) {
-    console.error('Error loading posts:', error);
-    // Fallback to default posts
-    allPosts = [...DEFAULT_POSTS];
-    filterAndDisplayPosts();
-    updateStats();
+    console.error('Error loading feed:', error);
+    allPosts = [...DEFAULT_FEED];
+    renderFeed();
   }
 }
 
-function filterAndDisplayPosts() {
+function renderFeed() {
+  const container = document.getElementById('feedContainer');
+  if (!container) return;
+  
   let filtered = [...allPosts];
   
+  // Apply filter
   if (currentFilter !== 'all') {
     filtered = filtered.filter(post => post.type === currentFilter);
   }
   
-  displayPosts(filtered);
-}
-
-function displayPosts(posts) {
-  const container = document.getElementById('feedContainer');
-  if (!container) return;
+  // Apply search
+  if (currentSearch) {
+    const searchLower = currentSearch.toLowerCase();
+    filtered = filtered.filter(post => 
+      post.title.toLowerCase().includes(searchLower) ||
+      post.description.toLowerCase().includes(searchLower) ||
+      post.author.toLowerCase().includes(searchLower)
+    );
+  }
   
-  if (posts.length === 0) {
+  if (filtered.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <i class="fas fa-comments"></i>
-        <h3>No posts yet</h3>
-        <p>Be the first to share something with the community!</p>
-        <button class="btn-primary" onclick="document.getElementById('createPostTriggerBtn').click()">
-          <i class="fas fa-plus"></i> Create First Post
-        </button>
+        <i class="fas fa-compass"></i>
+        <p>No content found. Be the first to create!</p>
       </div>
     `;
     return;
   }
   
-  container.innerHTML = posts.map(post => createPostHTML(post)).join('');
-  attachPostEventListeners();
+  container.innerHTML = filtered.map(post => createFeedCard(post)).join('');
+  attachCardListeners();
 }
 
-function createPostHTML(post) {
-  const date = new Date(post.created_at);
-  const timeAgo = getTimeAgo(date);
+function createFeedCard(post) {
+  const timeAgo = getTimeAgo(new Date(post.createdAt));
   
-  const typeInfo = {
-    insight: { icon: 'fa-lightbulb', label: 'Insight' },
-    video: { icon: 'fa-video', label: 'Project' },
-    event: { icon: 'fa-calendar-alt', label: 'Event' },
-    support: { icon: 'fa-hand-holding-heart', label: 'Opportunity' }
+  const typeIcons = {
+    video: 'fa-video',
+    design: 'fa-palette',
+    insight: 'fa-lightbulb',
+    project: 'fa-code'
   };
   
-  const info = typeInfo[post.type] || typeInfo.insight;
+  const typeLabels = {
+    video: 'Short',
+    design: 'Design',
+    insight: 'Insight',
+    project: 'Project'
+  };
   
-  return `
-    <div class="post-card" data-post-id="${post.id}">
-      <div class="post-header">
-        <div class="post-author">
-          <div class="author-avatar">
-            <i class="fas fa-user-circle"></i>
-          </div>
-          <div class="author-info">
-            <span class="author-name">Gliimu Community</span>
-            <div class="post-time">
-              <span>${timeAgo}</span>
-              <span class="post-type-badge ${post.type}">
-                <i class="fas ${info.icon}"></i> ${info.label}
-              </span>
+  const icon = typeIcons[post.type] || 'fa-star';
+  const label = typeLabels[post.type] || 'Creative';
+  
+  // Video/Shorts style card
+  if (post.type === 'video') {
+    return `
+      <div class="content-card video-card" data-id="${post.id}">
+        <div class="video-container" onclick="viewPostDetail('${post.id}')">
+          <img src="${post.image}" alt="${escapeHtml(post.title)}" style="width: 100%; min-height: 400px; object-fit: cover;">
+          <div class="video-overlay">
+            <div class="video-title">${escapeHtml(post.title)}</div>
+            <div class="video-stats">
+              <span><i class="fas fa-heart"></i> ${formatNumber(post.likes)}</span>
+              <span><i class="fas fa-comment"></i> ${formatNumber(post.comments)}</span>
             </div>
           </div>
         </div>
-      </div>
-      
-      <div class="post-content">
-        <h3 class="post-title">${escapeHtml(post.title)}</h3>
-        <p class="post-description">${escapeHtml(post.description)}</p>
-      </div>
-      
-      ${post.image_url ? `
-        <div class="post-media">
-          <img src="${post.image_url}" alt="${escapeHtml(post.title)}" loading="lazy" onclick="window.open('${post.image_url}', '_blank')">
+        <div class="card-footer">
+          <div class="author-info">
+            <div class="author-avatar">
+              <i class="fas fa-user-circle"></i>
+            </div>
+            <div>
+              <div class="author-name">${escapeHtml(post.author)}</div>
+              <div class="post-time">${timeAgo}</div>
+            </div>
+          </div>
+          <div class="engagement-actions">
+            <button class="action-icon like-btn" data-id="${post.id}">
+              <i class="far fa-heart"></i>
+              <span>${formatNumber(post.likes)}</span>
+            </button>
+            <button class="action-icon comment-btn" data-id="${post.id}">
+              <i class="far fa-comment"></i>
+              <span>${formatNumber(post.comments)}</span>
+            </button>
+            <button class="action-icon share-btn" data-id="${post.id}">
+              <i class="far fa-share-alt"></i>
+              <span>${formatNumber(post.shares)}</span>
+            </button>
+          </div>
         </div>
-      ` : ''}
-      
-      <div class="post-stats">
-        <div class="stat-like">
-          <i class="far fa-heart"></i>
-          <span class="like-count">${post.likes || 0}</span>
-        </div>
-        <div class="stat-comment">
-          <i class="far fa-comment"></i>
-          <span class="comment-count">${post.comments || 0}</span>
-        </div>
       </div>
-      
-      <div class="post-actions">
-        <button class="action-btn like-btn" data-id="${post.id}">
-          <i class="far fa-heart"></i>
-          <span>Like</span>
-        </button>
-        <button class="action-btn comment-btn" data-id="${post.id}">
-          <i class="far fa-comment"></i>
-          <span>Comment</span>
-        </button>
-        <button class="action-btn share-btn" data-id="${post.id}">
-          <i class="far fa-share-alt"></i>
-          <span>Share</span>
-        </button>
-      </div>
-      
-      <div class="comments-section" id="comments-${post.id}" style="display: none;">
-        <div class="comment-input">
-          <input type="text" placeholder="Write a comment..." id="comment-input-${post.id}">
-          <button onclick="window.submitComment && window.submitComment('${post.id}')">Post</button>
+    `;
+  }
+  
+  // Image/Pinterest style card
+  return `
+    <div class="content-card image-card" data-id="${post.id}" onclick="viewPostDetail('${post.id}')">
+      <img src="${post.image}" alt="${escapeHtml(post.title)}" style="width: 100%; min-height: 350px; object-fit: cover;">
+      <div class="image-overlay">
+        <div class="card-badge">
+          <i class="fas ${icon}"></i> ${label}
         </div>
-        <div class="comments-list" id="comments-list-${post.id}">
-          <p style="text-align: center; padding: 20px; color: #999;">No comments yet. Start the conversation!</p>
+        <div class="card-title">${escapeHtml(post.title)}</div>
+        <div class="card-description">${escapeHtml(post.description.substring(0, 100))}${post.description.length > 100 ? '...' : ''}</div>
+        <div class="card-footer">
+          <div class="author-info">
+            <div class="author-avatar">
+              <i class="fas fa-user-circle"></i>
+            </div>
+            <div>
+              <div class="author-name">${escapeHtml(post.author)}</div>
+              <div class="post-time">${timeAgo}</div>
+            </div>
+          </div>
+          <div class="engagement-actions">
+            <button class="action-icon like-btn" data-id="${post.id}">
+              <i class="far fa-heart"></i>
+              <span>${formatNumber(post.likes)}</span>
+            </button>
+            <button class="action-icon comment-btn" data-id="${post.id}">
+              <i class="far fa-comment"></i>
+              <span>${formatNumber(post.comments)}</span>
+            </button>
+            <button class="action-icon share-btn" data-id="${post.id}">
+              <i class="far fa-share-alt"></i>
+              <span>${formatNumber(post.shares)}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -270,11 +323,17 @@ function getTimeAgo(date) {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
   
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) return 'Now';
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
   return date.toLocaleDateString();
+}
+
+function formatNumber(num) {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  return num.toString();
 }
 
 function escapeHtml(text) {
@@ -286,100 +345,40 @@ function escapeHtml(text) {
 
 async function handleLike(postId) {
   if (!currentUser) {
-    showToast('Please login to like posts', 'info');
+    showToast('Login to like content', 'info');
     return;
   }
   
   const post = allPosts.find(p => p.id === postId);
   if (post) {
-    const newLikes = (post.likes || 0) + 1;
-    post.likes = newLikes;
-    
-    const likeSpan = document.querySelector(`.like-btn[data-id="${postId}"] .like-count`);
-    if (likeSpan) likeSpan.textContent = newLikes;
-    
-    // Update in database if not default post
-    if (!post.id.startsWith('default_')) {
-      await supabase
-        .from('hub_posts')
-        .update({ likes: newLikes })
-        .eq('id', postId);
+    post.likes++;
+    const likeBtn = document.querySelector(`.like-btn[data-id="${postId}"]`);
+    if (likeBtn) {
+      likeBtn.classList.add('liked');
+      likeBtn.querySelector('span').textContent = formatNumber(post.likes);
+      likeBtn.querySelector('i').classList.remove('far');
+      likeBtn.querySelector('i').classList.add('fas');
     }
     
-    showToast('Post liked!', 'success');
+    if (!post.id.startsWith('feed_')) {
+      await supabase
+        .from('hub_posts')
+        .update({ likes: post.likes })
+        .eq('id', postId);
+    }
   }
 }
 
 function toggleComments(postId) {
   const commentsSection = document.getElementById(`comments-${postId}`);
   if (commentsSection) {
-    const isVisible = commentsSection.style.display === 'block';
-    commentsSection.style.display = isVisible ? 'none' : 'block';
-    if (!isVisible) {
-      loadComments(postId);
-    }
-  }
-}
-
-async function loadComments(postId) {
-  const container = document.getElementById(`comments-list-${postId}`);
-  if (!container) return;
-  
-  // For default posts, show sample comments
-  if (postId.startsWith('default_')) {
-    container.innerHTML = `
-      <div class="comment-item">
-        <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
-        <div class="comment-content">
-          <div class="comment-name">Creative Student</div>
-          <div class="comment-text">This is so inspiring! Thanks for sharing 🙌</div>
-          <div class="comment-time">2 hours ago</div>
-        </div>
-      </div>
-      <div class="comment-item">
-        <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
-        <div class="comment-content">
-          <div class="comment-name">Design Mentor</div>
-          <div class="comment-text">Amazing work! Keep pushing the boundaries 🎨</div>
-          <div class="comment-time">1 day ago</div>
-        </div>
-      </div>
-    `;
-    return;
-  }
-  
-  try {
-    const { data: comments, error } = await supabase
-      .from('post_comments')
-      .select('*')
-      .eq('post_id', postId)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    
-    if (!comments || comments.length === 0) {
-      container.innerHTML = '<p style="text-align: center; padding: 20px; color: #999;">No comments yet. Be the first!</p>';
-      return;
-    }
-    
-    container.innerHTML = comments.map(comment => `
-      <div class="comment-item">
-        <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
-        <div class="comment-content">
-          <div class="comment-name">Community Member</div>
-          <div class="comment-text">${escapeHtml(comment.comment)}</div>
-          <div class="comment-time">${getTimeAgo(new Date(comment.created_at))}</div>
-        </div>
-      </div>
-    `).join('');
-  } catch (error) {
-    console.error('Error loading comments:', error);
+    commentsSection.style.display = commentsSection.style.display === 'block' ? 'none' : 'block';
   }
 }
 
 async function submitComment(postId) {
   if (!currentUser) {
-    showToast('Please login to comment', 'info');
+    showToast('Login to comment', 'info');
     return;
   }
   
@@ -389,65 +388,93 @@ async function submitComment(postId) {
   if (!comment) return;
   
   input.value = '';
+  showToast('Comment added!', 'success');
   
-  // For default posts, just show locally
-  if (postId.startsWith('default_')) {
-    const container = document.getElementById(`comments-list-${postId}`);
-    if (container) {
-      const newComment = `
-        <div class="comment-item">
-          <div class="comment-avatar"><i class="fas fa-user-circle"></i></div>
-          <div class="comment-content">
-            <div class="comment-name">You</div>
-            <div class="comment-text">${escapeHtml(comment)}</div>
-            <div class="comment-time">Just now</div>
-          </div>
-        </div>
-      `;
-      container.innerHTML = newComment + container.innerHTML;
-    }
-    showToast('Comment added!', 'success');
-    return;
+  const post = allPosts.find(p => p.id === postId);
+  if (post) {
+    post.comments++;
+    const commentSpan = document.querySelector(`.comment-btn[data-id="${postId}"] span`);
+    if (commentSpan) commentSpan.textContent = formatNumber(post.comments);
   }
   
-  // Save to database
-  const { error } = await supabase
-    .from('post_comments')
-    .insert({
-      post_id: postId,
-      user_id: currentUser.id,
-      comment: comment,
-      created_at: new Date().toISOString()
-    });
-  
-  if (!error) {
-    const post = allPosts.find(p => p.id === postId);
-    if (post) {
-      post.comments = (post.comments || 0) + 1;
-      const commentSpan = document.querySelector(`.comment-btn[data-id="${postId}"] + .comment-count`);
-      if (commentSpan) commentSpan.textContent = post.comments;
-    }
-    await loadComments(postId);
-    showToast('Comment added!', 'success');
+  if (!postId.startsWith('feed_')) {
+    await supabase
+      .from('post_comments')
+      .insert({
+        post_id: postId,
+        user_id: currentUser.id,
+        comment: comment,
+        created_at: new Date().toISOString()
+      });
   }
 }
 
 async function sharePost(postId) {
   const url = `${window.location.origin}${window.location.pathname}`;
   await navigator.clipboard.writeText(url);
-  showToast('Link copied to clipboard!', 'success');
+  showToast('Link copied!', 'success');
+  
+  const post = allPosts.find(p => p.id === postId);
+  if (post) {
+    post.shares++;
+  }
+}
+
+function viewPostDetail(postId) {
+  const post = allPosts.find(p => p.id === postId);
+  if (!post) return;
+  
+  const modal = document.getElementById('postDetailModal');
+  const content = document.getElementById('postDetailContent');
+  
+  if (modal && content) {
+    content.innerHTML = createDetailView(post);
+    modal.classList.add('active');
+  }
+}
+
+function createDetailView(post) {
+  const timeAgo = getTimeAgo(new Date(post.createdAt));
+  
+  return `
+    <div style="padding: 60px 20px 20px;">
+      ${post.image ? `<img src="${post.image}" style="width: 100%; border-radius: 16px; margin-bottom: 20px;">` : ''}
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <div class="author-avatar" style="width: 48px; height: 48px;">
+          <i class="fas fa-user-circle" style="font-size: 28px;"></i>
+        </div>
+        <div>
+          <div style="color: white; font-weight: 600;">${escapeHtml(post.author)}</div>
+          <div style="color: #666; font-size: 12px;">${timeAgo}</div>
+        </div>
+      </div>
+      <h3 style="color: white; font-size: 18px; margin-bottom: 12px;">${escapeHtml(post.title)}</h3>
+      <p style="color: #aaa; line-height: 1.6; margin-bottom: 20px;">${escapeHtml(post.description)}</p>
+      <div style="display: flex; gap: 24px; padding: 16px 0; border-top: 0.5px solid rgba(255,255,255,0.1); border-bottom: 0.5px solid rgba(255,255,255,0.1);">
+        <div style="display: flex; align-items: center; gap: 6px; color: #888;">
+          <i class="fas fa-heart" style="color: #fe2c55;"></i> ${formatNumber(post.likes)}
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; color: #888;">
+          <i class="fas fa-comment"></i> ${formatNumber(post.comments)}
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; color: #888;">
+          <i class="fas fa-share-alt"></i> ${formatNumber(post.shares)}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 async function handlePostSubmission(event) {
   const { title, type, description, imageFile } = event.detail;
   
-  if (!title || !description) {
-    showToast('Please fill in all required fields.', 'error');
+  if (!title) {
+    showToast('Please add a caption', 'error');
     return;
   }
   
   if (!currentUser) {
-    showToast('Please login to create a post', 'error');
+    showToast('Please login to post', 'error');
     return;
   }
   
@@ -464,112 +491,116 @@ async function handlePostSubmission(event) {
         .from('hub-content')
         .getPublicUrl(`posts/${fileName}`);
       imageUrl = publicUrl;
+    } else {
+      imageUrl = `https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=600`;
     }
+  } else {
+    imageUrl = `https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=600`;
   }
   
   const newPost = {
     id: Date.now().toString(),
-    user_id: currentUser.id,
-    title: title,
-    description: description,
     type: type,
-    image_url: imageUrl,
-    status: 'approved',
+    title: title,
+    description: description || '',
+    image: imageUrl,
+    videoUrl: null,
+    author: currentUser.user_metadata?.name || 'Creator',
     likes: 0,
     comments: 0,
-    created_at: new Date().toISOString()
+    shares: 0,
+    createdAt: new Date().toISOString()
   };
   
-  // Add to local state
   allPosts.unshift(newPost);
-  filterAndDisplayPosts();
-  updateStats();
+  renderFeed();
   
-  // Try to save to database
-  const { error } = await supabase
+  await supabase
     .from('hub_posts')
     .insert({
       user_id: currentUser.id,
       title: title,
-      description: description,
+      description: description || '',
       type: type,
       image_url: imageUrl,
       status: 'approved',
-      created_at: new Date().toISOString()
+      author_name: newPost.author,
+      created_at: newPost.createdAt
     });
   
-  if (error) {
-    console.error('Error saving to database:', error);
-  }
-  
-  showToast('Post published successfully!', 'success');
+  showToast('Content published!', 'success');
   closeCreatePostModal();
   
-  // Clear form
   document.getElementById('postForm').reset();
   document.getElementById('postType').value = 'insight';
   document.getElementById('imagePreview').style.display = 'none';
 }
 
-function updateStats() {
-  const totalLikes = allPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
-  const totalComments = allPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
-  
-  document.getElementById('statPosts').textContent = allPosts.length;
-  document.getElementById('statLikes').textContent = totalLikes;
-  document.getElementById('statComments').textContent = totalComments;
-}
-
-function attachPostEventListeners() {
+function attachCardListeners() {
   document.querySelectorAll('.like-btn').forEach(btn => {
-    btn.removeEventListener('click', handleLikeClick);
-    btn.addEventListener('click', handleLikeClick);
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      handleLike(btn.dataset.id);
+    };
   });
   
   document.querySelectorAll('.comment-btn').forEach(btn => {
-    btn.removeEventListener('click', handleCommentClick);
-    btn.addEventListener('click', handleCommentClick);
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toggleComments(btn.dataset.id);
+    };
   });
   
   document.querySelectorAll('.share-btn').forEach(btn => {
-    btn.removeEventListener('click', handleShareClick);
-    btn.addEventListener('click', handleShareClick);
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      sharePost(btn.dataset.id);
+    };
   });
-}
-
-function handleLikeClick(e) {
-  const btn = e.currentTarget;
-  const postId = btn.dataset.id;
-  handleLike(postId);
-}
-
-function handleCommentClick(e) {
-  const btn = e.currentTarget;
-  const postId = btn.dataset.id;
-  toggleComments(postId);
-}
-
-function handleShareClick(e) {
-  const btn = e.currentTarget;
-  const postId = btn.dataset.id;
-  sharePost(postId);
 }
 
 function setupEventListeners() {
-  // Filter buttons
-  document.querySelectorAll('.filter-btn').forEach(btn => {
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      currentFilter = btn.dataset.filter;
-      filterAndDisplayPosts();
+      currentTab = btn.dataset.tab;
+      // Implement tab filtering logic here
+      renderFeed();
     });
   });
+  
+  // Category chips
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFilter = chip.dataset.filter;
+      renderFeed();
+    });
+  });
+  
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      currentSearch = e.target.value;
+      renderFeed();
+    });
+  }
   
   // Modal close
   const closeModal = document.getElementById('closeModalBtn');
   if (closeModal) {
     closeModal.addEventListener('click', closeCreatePostModal);
+  }
+  
+  const detailClose = document.getElementById('closeDetailModal');
+  if (detailClose) {
+    detailClose.addEventListener('click', () => {
+      document.getElementById('postDetailModal').classList.remove('active');
+    });
   }
   
   const modal = document.getElementById('createPostModal');
@@ -579,7 +610,15 @@ function setupEventListeners() {
     });
   }
   
-  // Post submission listener
+  const detailModal = document.getElementById('postDetailModal');
+  if (detailModal) {
+    detailModal.addEventListener('click', (e) => {
+      if (e.target === detailModal) {
+        detailModal.classList.remove('active');
+      }
+    });
+  }
+  
   window.addEventListener('submitPost', handlePostSubmission);
 }
 
@@ -590,11 +629,9 @@ function closeCreatePostModal() {
 // Make functions global
 window.closeCreatePostModal = closeCreatePostModal;
 window.submitComment = submitComment;
+window.viewPostDetail = viewPostDetail;
 window.removeImage = window.removeImage || function() {
-  const preview = document.getElementById('imagePreview');
-  const previewImg = document.getElementById('previewImg');
-  const fileInput = document.getElementById('postImage');
-  if (preview) preview.style.display = 'none';
-  if (previewImg) previewImg.src = '';
-  if (fileInput) fileInput.value = '';
+  document.getElementById('imagePreview').style.display = 'none';
+  document.getElementById('previewImg').src = '';
+  document.getElementById('postImage').value = '';
 };
