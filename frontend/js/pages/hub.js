@@ -1,19 +1,19 @@
-// js/pages/hub.js - Hub page functionality with Monetization
+// js/pages/hub.js - Social Media Style Feed
 
 import { supabase } from '../modules/supabase.js';
-import { hubMonetization } from '../modules/hub-monetization.js';
 import { showToast } from '../modules/toast.js';
 
-// State variables
 let currentFilter = 'all';
-let currentSearch = '';
+let allPosts = [];
+let currentUser = null;
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Hub initializing with monetization...');
+  console.log('Hub feed initializing...');
   
-  // Initialize monetization
-  await initMonetization();
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user;
   
   // Load posts
   await loadPosts();
@@ -21,91 +21,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Setup event listeners
   setupEventListeners();
   
-  // Load header and footer partials
+  // Load partials
   await loadPartials();
-  
-  // Update stats
-  await updateStats();
-  
-  // Listen for post submission
-  window.addEventListener('submitPost', handlePostSubmission);
 });
-
-async function initMonetization() {
-  try {
-    await hubMonetization.init();
-    console.log('Monetization initialized');
-  } catch (error) {
-    console.error('Monetization error:', error);
-    initMockAds();
-  }
-}
-
-function initMockAds() {
-  // Fallback mock ads
-  const bannerAd = document.getElementById('bannerAd');
-  if (bannerAd) {
-    bannerAd.innerHTML = `
-      <div class="banner-ad">
-        <div class="sponsored-badge">Sponsored</div>
-        <div class="banner-content">
-          <div class="banner-text">
-            <h4>🎓 Master Video Editing</h4>
-            <p>Get 30% off on our professional course. Limited offer!</p>
-          </div>
-          <a href="#" class="banner-cta">Learn More →</a>
-        </div>
-      </div>
-    `;
-    bannerAd.classList.remove('hidden');
-  }
-  
-  const sidebarAds = document.getElementById('sidebarAds');
-  if (sidebarAds) {
-    sidebarAds.innerHTML = `
-      <div class="sidebar-ad">
-        <img src="https://via.placeholder.com/300x200?text=Adobe+Sponsor" alt="Adobe">
-        <h4>Adobe Creative Cloud</h4>
-        <p>Student discount available for Gliimu members!</p>
-        <a href="#" class="sidebar-ad-link">Get Offer →</a>
-      </div>
-      <div class="sidebar-ad">
-        <img src="https://via.placeholder.com/300x200?text=Canon" alt="Canon">
-        <h4>Canon Cameras</h4>
-        <p>Special pricing for students</p>
-        <a href="#" class="sidebar-ad-link">Shop Now →</a>
-      </div>
-    `;
-    sidebarAds.classList.remove('hidden');
-  }
-  
-  const affiliateLinks = document.getElementById('affiliateLinks');
-  if (affiliateLinks) {
-    affiliateLinks.innerHTML = `
-      <div class="affiliate-header">
-        <i class="fas fa-shopping-bag"></i>
-        <span>Recommended for You</span>
-      </div>
-      <div class="affiliate-links">
-        <a href="#" class="affiliate-link">
-          <div class="affiliate-info">
-            <div class="affiliate-title">Best Microphones for Creators</div>
-            <div class="affiliate-desc">Top 5 picks under ₦50,000</div>
-          </div>
-          <i class="fas fa-arrow-right affiliate-arrow"></i>
-        </a>
-        <a href="#" class="affiliate-link">
-          <div class="affiliate-info">
-            <div class="affiliate-title">Laptop Buying Guide 2025</div>
-            <div class="affiliate-desc">Best laptops for video editing</div>
-          </div>
-          <i class="fas fa-arrow-right affiliate-arrow"></i>
-        </a>
-      </div>
-    `;
-    affiliateLinks.classList.remove('hidden');
-  }
-}
 
 async function loadPartials() {
   const headerPlaceholder = document.getElementById('header-placeholder');
@@ -117,12 +35,10 @@ async function loadPartials() {
       const response = await fetch('partials/header.html');
       headerPlaceholder.innerHTML = await response.text();
     }
-    
     if (footerPlaceholder) {
       const response = await fetch('partials/footer.html');
       footerPlaceholder.innerHTML = await response.text();
     }
-    
     if (loginModalPlaceholder) {
       const response = await fetch('partials/login-modal.html');
       loginModalPlaceholder.innerHTML = await response.text();
@@ -133,10 +49,11 @@ async function loadPartials() {
 }
 
 async function loadPosts() {
-  const container = document.getElementById('postsContainer');
+  const container = document.getElementById('feedContainer');
   if (!container) return;
   
   try {
+    // Try to fetch from database
     const { data: posts, error } = await supabase
       .from('hub_posts')
       .select('*')
@@ -146,93 +63,143 @@ async function loadPosts() {
     if (error) throw error;
     
     if (!posts || posts.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <i class="fas fa-newspaper"></i>
-          <h3>No posts yet</h3>
-          <p>Be the first to share something with the community!</p>
-        </div>
-      `;
+      showEmptyState();
       return;
     }
     
-    container.innerHTML = posts.map(post => createPostCard(post)).join('');
-    
-    // Update stats
-    document.getElementById('statPosts').textContent = posts.length;
-    const totalLikes = posts.reduce((sum, p) => sum + (p.likes || 0), 0);
-    document.getElementById('statLikes').textContent = totalLikes;
+    allPosts = posts;
+    filterAndDisplayPosts();
+    updateStats();
     
   } catch (error) {
     console.error('Error loading posts:', error);
-    container.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-exclamation-circle"></i>
-        <h3>Error loading posts</h3>
-        <p>Please refresh the page to try again.</p>
-      </div>
-    `;
+    showEmptyState();
   }
 }
 
-function createPostCard(post) {
+function filterAndDisplayPosts() {
+  let filtered = [...allPosts];
+  
+  if (currentFilter !== 'all') {
+    filtered = filtered.filter(post => post.type === currentFilter);
+  }
+  
+  displayPosts(filtered);
+}
+
+function displayPosts(posts) {
+  const container = document.getElementById('feedContainer');
+  if (!container) return;
+  
+  if (posts.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-newspaper"></i>
+        <h3>No posts yet</h3>
+        <p>Be the first to share something with the community!</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = posts.map(post => createPostHTML(post)).join('');
+  
+  // Attach event listeners to new posts
+  attachPostEventListeners();
+}
+
+function createPostHTML(post) {
   const date = new Date(post.created_at);
-  const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const timeAgo = getTimeAgo(date);
   
-  const typeIcons = {
-    event: 'fa-calendar-alt',
-    insight: 'fa-lightbulb',
-    video: 'fa-video',
-    support: 'fa-hand-holding-heart'
+  const typeInfo = {
+    insight: { icon: 'fa-lightbulb', label: 'Insight' },
+    video: { icon: 'fa-video', label: 'Video' },
+    event: { icon: 'fa-calendar-alt', label: 'Event' },
+    support: { icon: 'fa-hand-holding-heart', label: 'Support' }
   };
   
-  const typeClasses = {
-    event: 'category-event',
-    insight: 'category-insight',
-    video: 'category-video',
-    support: 'category-support'
-  };
-  
-  const icon = typeIcons[post.type] || 'fa-newspaper';
-  const typeClass = typeClasses[post.type] || 'category-insight';
+  const info = typeInfo[post.type] || typeInfo.insight;
   
   return `
-    <div class="content-card" data-id="${post.id}">
-      <div class="card-media">
-        ${post.image_url ? `<img src="${post.image_url}" alt="${escapeHtml(post.title)}">` : ''}
-        <span class="category-badge ${typeClass}"><i class="fas ${icon}"></i> ${post.type}</span>
-      </div>
-      <div class="card-body">
-        <h3 class="card-title">${escapeHtml(post.title)}</h3>
-        <p class="card-description">${escapeHtml(post.description.substring(0, 150))}${post.description.length > 150 ? '...' : ''}</p>
-        <div class="engagement-stats">
-          <div class="engagement-item like-btn" data-id="${post.id}">
-            <i class="far fa-heart"></i> <span class="like-count">${post.likes || 0}</span>
+    <div class="post-card" data-post-id="${post.id}">
+      <div class="post-header">
+        <div class="post-author">
+          <div class="author-avatar">
+            <i class="fas fa-user-circle"></i>
           </div>
-          <div class="engagement-item comment-btn" data-id="${post.id}">
-            <i class="far fa-comment"></i> <span class="comment-count">${post.comments || 0}</span>
-          </div>
-          <div class="engagement-item share-btn" data-id="${post.id}">
-            <i class="far fa-share-alt"></i> Share
-          </div>
-        </div>
-        <div class="card-footer">
           <div class="author-info">
-            <div class="author-avatar">
-              <i class="fas fa-user-circle" style="font-size: 32px;"></i>
-            </div>
-            <div>
-              <div class="author-name">Community Member</div>
-              <div class="post-date">${formattedDate}</div>
+            <span class="author-name">Community Member</span>
+            <div class="post-time">
+              <span>${timeAgo}</span>
+              <span class="post-type-badge ${post.type}">
+                <i class="fas ${info.icon}"></i> ${info.label}
+              </span>
             </div>
           </div>
-          <button class="tip-btn" onclick="window.supportCreator && window.supportCreator('${post.id}')">
-            <i class="fas fa-coffee"></i> Tip
-          </button>
         </div>
+      </div>
+      
+      <div class="post-content">
+        <h3 class="post-title">${escapeHtml(post.title)}</h3>
+        <p class="post-description">${escapeHtml(post.description)}</p>
+      </div>
+      
+      ${post.image_url ? `
+        <div class="post-media">
+          <img src="${post.image_url}" alt="${escapeHtml(post.title)}" loading="lazy" onclick="openImageModal('${post.image_url}')">
+        </div>
+      ` : ''}
+      
+      <div class="post-stats">
+        <div class="stat-like">
+          <i class="far fa-heart"></i>
+          <span class="like-count">${post.likes || 0}</span>
+        </div>
+        <div class="stat-comment">
+          <i class="far fa-comment"></i>
+          <span class="comment-count">${post.comments || 0}</span>
+        </div>
+      </div>
+      
+      <div class="post-actions">
+        <button class="action-btn like-btn" data-id="${post.id}">
+          <i class="far fa-heart"></i>
+          <span>Like</span>
+        </button>
+        <button class="action-btn comment-btn" data-id="${post.id}">
+          <i class="far fa-comment"></i>
+          <span>Comment</span>
+        </button>
+        <button class="action-btn share-btn" data-id="${post.id}">
+          <i class="far fa-share-alt"></i>
+          <span>Share</span>
+        </button>
+      </div>
+      
+      <div class="comments-section" id="comments-${post.id}" style="display: none;">
+        <div class="comment-input">
+          <input type="text" placeholder="Write a comment..." id="comment-input-${post.id}">
+          <button onclick="submitComment('${post.id}')">Post</button>
+        </div>
+        <div class="comments-list" id="comments-list-${post.id}"></div>
       </div>
     </div>
   `;
+}
+
+function getTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
 }
 
 function escapeHtml(text) {
@@ -241,111 +208,119 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-async function updateStats() {
-  try {
-    const { data: posts, error } = await supabase
-      .from('hub_posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'approved');
-    
-    if (!error && posts) {
-      document.getElementById('statPosts').textContent = posts.length || 0;
-    }
-    
-    // Get pending count for admin
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.role === 'admin') {
-        const { count } = await supabase
-          .from('hub_posts')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
-        
-        document.getElementById('statPending').textContent = count || 0;
-      }
-    }
-  } catch (error) {
-    console.error('Error updating stats:', error);
-  }
-}
-
-async function filterPosts(filter) {
-  currentFilter = filter;
-  const container = document.getElementById('postsContainer');
-  if (!container) return;
-  
-  try {
-    let query = supabase
-      .from('hub_posts')
-      .select('*')
-      .eq('status', 'approved');
-    
-    if (filter !== 'all') {
-      query = query.eq('type', filter);
-    }
-    
-    const { data: posts, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    
-    if (!posts || posts.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <i class="fas fa-filter"></i>
-          <h3>No posts found</h3>
-          <p>Try a different filter.</p>
-        </div>
-      `;
-    } else {
-      container.innerHTML = posts.map(post => createPostCard(post)).join('');
-    }
-  } catch (error) {
-    console.error('Error filtering posts:', error);
-  }
-}
-
-async function searchPosts() {
-  const searchInput = document.getElementById('searchInput');
-  currentSearch = searchInput?.value || '';
-  
-  if (!currentSearch.trim()) {
-    await loadPosts();
+async function handleLike(postId) {
+  if (!currentUser) {
+    showToast('Please login to like posts', 'info');
     return;
   }
   
-  const container = document.getElementById('postsContainer');
+  const post = allPosts.find(p => p.id === postId);
+  if (post) {
+    const newLikes = (post.likes || 0) + 1;
+    
+    // Optimistic update
+    post.likes = newLikes;
+    const likeSpan = document.querySelector(`.like-btn[data-id="${postId}"] .like-count`);
+    if (likeSpan) likeSpan.textContent = newLikes;
+    
+    // Update in database
+    await supabase
+      .from('hub_posts')
+      .update({ likes: newLikes })
+      .eq('id', postId);
+    
+    showToast('Post liked!', 'success');
+  }
+}
+
+function toggleComments(postId) {
+  const commentsSection = document.getElementById(`comments-${postId}`);
+  if (commentsSection) {
+    const isVisible = commentsSection.style.display === 'block';
+    commentsSection.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+      loadComments(postId);
+    }
+  }
+}
+
+async function loadComments(postId) {
+  const container = document.getElementById(`comments-list-${postId}`);
   if (!container) return;
   
   try {
-    const { data: posts, error } = await supabase
-      .from('hub_posts')
+    const { data: comments, error } = await supabase
+      .from('post_comments')
       .select('*')
-      .eq('status', 'approved')
-      .ilike('title', `%${currentSearch}%`)
+      .eq('post_id', postId)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     
-    if (!posts || posts.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <i class="fas fa-search"></i>
-          <h3>No results found</h3>
-          <p>Try searching with different keywords.</p>
-        </div>
-      `;
-    } else {
-      container.innerHTML = posts.map(post => createPostCard(post)).join('');
+    if (!comments || comments.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 20px;">No comments yet. Be the first!</p>';
+      return;
     }
+    
+    container.innerHTML = comments.map(comment => `
+      <div class="comment-item">
+        <div class="comment-avatar">
+          <i class="fas fa-user-circle"></i>
+        </div>
+        <div class="comment-content">
+          <div class="comment-name">Community Member</div>
+          <div class="comment-text">${escapeHtml(comment.comment)}</div>
+          <div class="comment-time">${getTimeAgo(new Date(comment.created_at))}</div>
+        </div>
+      </div>
+    `).join('');
   } catch (error) {
-    console.error('Error searching posts:', error);
+    console.error('Error loading comments:', error);
   }
+}
+
+async function submitComment(postId) {
+  if (!currentUser) {
+    showToast('Please login to comment', 'info');
+    return;
+  }
+  
+  const input = document.getElementById(`comment-input-${postId}`);
+  const comment = input?.value.trim();
+  
+  if (!comment) return;
+  
+  // Optimistic add
+  input.value = '';
+  await loadComments(postId);
+  
+  // Save to database
+  const { error } = await supabase
+    .from('post_comments')
+    .insert({
+      post_id: postId,
+      user_id: currentUser.id,
+      comment: comment,
+      created_at: new Date().toISOString()
+    });
+  
+  if (!error) {
+    // Update comment count
+    const post = allPosts.find(p => p.id === postId);
+    if (post) {
+      post.comments = (post.comments || 0) + 1;
+      const commentSpan = document.querySelector(`.comment-btn[data-id="${postId}"] + .comment-count`);
+      if (commentSpan) commentSpan.textContent = post.comments;
+    }
+    await loadComments(postId);
+    showToast('Comment added!', 'success');
+  }
+}
+
+async function sharePost(postId) {
+  const url = `${window.location.origin}${window.location.pathname}?post=${postId}`;
+  await navigator.clipboard.writeText(url);
+  showToast('Link copied to clipboard!', 'success');
 }
 
 async function handlePostSubmission(event) {
@@ -356,8 +331,7 @@ async function handlePostSubmission(event) {
     return;
   }
   
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!currentUser) {
     showToast('Please login to create a post', 'error');
     return;
   }
@@ -365,7 +339,7 @@ async function handlePostSubmission(event) {
   let imageUrl = null;
   
   if (imageFile) {
-    const fileName = `${user.id}_${Date.now()}_${imageFile.name}`;
+    const fileName = `${currentUser.id}_${Date.now()}_${imageFile.name}`;
     const { error } = await supabase.storage
       .from('hub-content')
       .upload(`posts/${fileName}`, imageFile);
@@ -378,58 +352,101 @@ async function handlePostSubmission(event) {
     }
   }
   
-  const { error } = await supabase
+  const newPost = {
+    user_id: currentUser.id,
+    title: title,
+    description: description,
+    type: type,
+    image_url: imageUrl,
+    status: 'approved',
+    likes: 0,
+    comments: 0,
+    created_at: new Date().toISOString()
+  };
+  
+  const { data, error } = await supabase
     .from('hub_posts')
-    .insert({
-      user_id: user.id,
-      title: title,
-      description: description,
-      type: type,
-      image_url: imageUrl,
-      status: 'pending',
-      created_at: new Date().toISOString()
-    });
+    .insert(newPost)
+    .select();
   
   if (error) {
-    showToast('Failed to submit post. Please try again.', 'error');
+    showToast('Failed to create post. Please try again.', 'error');
     return;
   }
   
-  showToast('Post submitted for review!', 'success');
-  window.closeCreatePostModal();
+  if (data && data[0]) {
+    allPosts.unshift(data[0]);
+    filterAndDisplayPosts();
+    updateStats();
+  }
+  
+  showToast('Post published successfully!', 'success');
+  closeCreatePostModal();
   
   // Clear form
   document.getElementById('postForm').reset();
+  document.getElementById('postType').value = 'insight';
   document.getElementById('imagePreview').style.display = 'none';
 }
 
-async function handleLike(postId) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    showToast('Please login to like posts', 'info');
-    return;
+async function updateStats() {
+  const totalLikes = allPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
+  const totalComments = allPosts.reduce((sum, p) => sum + (p.comments || 0), 0);
+  
+  document.getElementById('statPosts').textContent = allPosts.length;
+  document.getElementById('statLikes').textContent = totalLikes;
+  document.getElementById('statComments').textContent = totalComments;
+}
+
+function showEmptyState() {
+  const container = document.getElementById('feedContainer');
+  if (container) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-users"></i>
+        <h3>Welcome to the Community Feed!</h3>
+        <p>Be the first to share something with fellow creatives.</p>
+        <button class="btn-primary" onclick="document.getElementById('createPostTriggerBtn').click()" style="margin-top: 16px;">
+          <i class="fas fa-plus"></i> Create First Post
+        </button>
+      </div>
+    `;
   }
+}
+
+function attachPostEventListeners() {
+  document.querySelectorAll('.like-btn').forEach(btn => {
+    btn.removeEventListener('click', handleLikeClick);
+    btn.addEventListener('click', handleLikeClick);
+  });
   
-  // Get current likes
-  const { data: post } = await supabase
-    .from('hub_posts')
-    .select('likes')
-    .eq('id', postId)
-    .single();
+  document.querySelectorAll('.comment-btn').forEach(btn => {
+    btn.removeEventListener('click', handleCommentClick);
+    btn.addEventListener('click', handleCommentClick);
+  });
   
-  const newLikes = (post?.likes || 0) + 1;
-  
-  const { error } = await supabase
-    .from('hub_posts')
-    .update({ likes: newLikes })
-    .eq('id', postId);
-  
-  if (!error) {
-    // Update UI
-    const likeSpan = document.querySelector(`.like-btn[data-id="${postId}"] .like-count`);
-    if (likeSpan) likeSpan.textContent = newLikes;
-    showToast('Post liked!', 'success');
-  }
+  document.querySelectorAll('.share-btn').forEach(btn => {
+    btn.removeEventListener('click', handleShareClick);
+    btn.addEventListener('click', handleShareClick);
+  });
+}
+
+function handleLikeClick(e) {
+  const btn = e.currentTarget;
+  const postId = btn.dataset.id;
+  handleLike(postId);
+}
+
+function handleCommentClick(e) {
+  const btn = e.currentTarget;
+  const postId = btn.dataset.id;
+  toggleComments(postId);
+}
+
+function handleShareClick(e) {
+  const btn = e.currentTarget;
+  const postId = btn.dataset.id;
+  sharePost(postId);
 }
 
 function setupEventListeners() {
@@ -438,59 +455,37 @@ function setupEventListeners() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const filter = btn.dataset.filter;
-      filterPosts(filter);
+      currentFilter = btn.dataset.filter;
+      filterAndDisplayPosts();
     });
   });
   
-  // Search
-  const searchInput = document.getElementById('searchInput');
-  if (searchInput) {
-    searchInput.addEventListener('input', searchPosts);
-  }
-  
-  // Create post button
-  const createBtn = document.getElementById('createPostBtn');
-  if (createBtn) {
-    createBtn.addEventListener('click', () => {
-      document.getElementById('createPostModal').classList.add('active');
-    });
-  }
-  
-  // Close modal
+  // Modal close
   const closeModal = document.getElementById('closeModalBtn');
   if (closeModal) {
-    closeModal.addEventListener('click', window.closeCreatePostModal);
+    closeModal.addEventListener('click', closeCreatePostModal);
   }
   
-  // Modal backdrop
   const modal = document.getElementById('createPostModal');
   if (modal) {
     modal.addEventListener('click', (e) => {
-      if (e.target === modal) window.closeCreatePostModal();
+      if (e.target === modal) closeCreatePostModal();
     });
   }
   
-  // Like buttons (delegation)
-  document.addEventListener('click', async (e) => {
-    const likeBtn = e.target.closest('.like-btn');
-    if (likeBtn) {
-      const postId = likeBtn.dataset.id;
-      await handleLike(postId);
-    }
-  });
+  // Post submission listener
+  window.addEventListener('submitPost', handlePostSubmission);
 }
 
-// Global function for tipping
-window.supportCreator = async function(postId) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    showToast('Please login to support creators', 'info');
-    return;
-  }
-  
-  const amount = prompt('Enter tip amount (₦):', '500');
-  if (amount && !isNaN(amount) && amount > 0) {
-    showToast(`Thank you for tipping ₦${amount}!`, 'success');
-  }
+function closeCreatePostModal() {
+  document.getElementById('createPostModal').classList.remove('active');
+}
+
+// Global functions
+window.submitComment = submitComment;
+window.openImageModal = (imageUrl) => {
+  window.open(imageUrl, '_blank');
 };
+
+// Make functions available globally
+window.closeCreatePostModal = closeCreatePostModal;
