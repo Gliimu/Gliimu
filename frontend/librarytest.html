@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Library Test</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: monospace; padding: 20px; background: #0f172a; color: white; }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #fbb040; }
+        pre { background: #1e293b; padding: 10px; border-radius: 8px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Library Database Test</h1>
+    <div id="results">Running tests...</div>
+    
+    <script type="module">
+        import { supabase } from './js/modules/supabase.js';
+        
+        const resultsDiv = document.getElementById('results');
+        
+        async function runTests() {
+            let html = '<h2>Test Results:</h2>';
+            
+            // Test 1: Check supabase connection
+            html += '<h3>1. Supabase Connection:</h3>';
+            if (supabase) {
+                html += '<p class="success">✓ Supabase client loaded successfully</p>';
+            } else {
+                html += '<p class="error">✗ Supabase client failed to load</p>';
+            }
+            
+            // Test 2: Check library_items table
+            html += '<h3>2. Library Items Table:</h3>';
+            try {
+                const { data, error, count } = await supabase
+                    .from('library_items')
+                    .select('*', { count: 'exact' });
+                
+                if (error) {
+                    html += `<p class="error">✗ Error: ${error.message}</p>`;
+                } else {
+                    html += `<p class="success">✓ Table exists!</p>`;
+                    html += `<p>📊 Total items found: <strong>${data?.length || 0}</strong></p>`;
+                    
+                    if (data && data.length > 0) {
+                        html += `<p class="success">✅ Found ${data.length} items in the database!</p>`;
+                        html += `<h3>Sample Items:</h3>`;
+                        html += `<pre>${JSON.stringify(data.slice(0, 3), null, 2)}</pre>`;
+                    } else {
+                        html += `<p class="error">⚠️ No items found in library_items table!</p>`;
+                        html += `<p class="info">👉 Please run the INSERT SQL query to add sample data.</p>`;
+                    }
+                }
+            } catch (err) {
+                html += `<p class="error">✗ Exception: ${err.message}</p>`;
+            }
+            
+            // Test 3: Check table structure
+            html += '<h3>3. Table Structure Check:</h3>';
+            try {
+                const { data, error } = await supabase
+                    .from('library_items')
+                    .select('id, title, type, category')
+                    .limit(1);
+                
+                if (error) {
+                    html += `<p class="error">✗ Table structure error: ${error.message}</p>`;
+                } else {
+                    html += `<p class="success">✓ Table structure is correct!</p>`;
+                    html += `<p>Columns detected: id, title, type, category</p>`;
+                }
+            } catch (err) {
+                html += `<p class="error">✗ Exception: ${err.message}</p>`;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>
