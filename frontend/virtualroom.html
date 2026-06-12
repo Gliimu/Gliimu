@@ -1,163 +1,179 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Virtual Classroom – Live Class | Gliimu Institute</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="description" content="Live virtual classroom for Gliimu Institute. Join your class in real-time with video, audio, and interactive whiteboard.">
-  
-  <link rel="icon" type="image/png" href="icons/logo.png">
-  
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
-  <!-- PeerJS for WebRTC -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  
-  <!-- External CSS Files -->
-  <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/virtualroom.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Virtual Classroom | Gliimu Institute</title>
+    <meta name="description" content="Live virtual classroom with video, chat, whiteboard, and recording">
+    
+    <link rel="icon" type="image/png" href="icons/logo.png">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/virtualroom.css">
 </head>
 <body>
 
-  <!-- Virtual Room Container - No Header/Footer -->
-  <div class="virtual-room">
-    
-    <!-- Top Bar -->
-    <div class="room-top-bar">
-      <div class="room-info">
-        <button class="back-btn" id="backBtn" title="Back to Dashboard">
-          <i class="fas fa-arrow-left"></i>
-        </button>
-        <div class="room-title" id="roomTitle">Loading...</div>
-        <div class="room-status live" id="roomStatus">
-          <span class="status-dot"></span>
-          <span>LIVE</span>
-        </div>
-        <div class="room-timer" id="roomTimer">00:00</div>
-      </div>
-      <div class="room-actions">
-        <button class="room-btn" id="toggleSidebarBtn">
-          <i class="fas fa-users"></i> <span>Participants</span>
-        </button>
-        <button class="room-btn danger" id="leaveBtn">
-          <i class="fas fa-sign-out-alt"></i> <span>Leave</span>
-        </button>
-      </div>
-    </div>
-    
-    <!-- Main Content -->
-    <div class="room-main">
-      
-      <!-- Video Grid -->
-      <div class="video-grid" id="videoGrid">
-        <!-- Local Video -->
-        <div class="video-card local-video" id="localVideoCard">
-          <video id="localVideo" autoplay muted playsinline></video>
-          <div class="video-label">
-            <i class="fas fa-user"></i> You
-          </div>
-          <div class="video-controls">
-            <button class="video-control-btn" id="localMicBtn" title="Microphone">
-              <i class="fas fa-microphone"></i>
-            </button>
-            <button class="video-control-btn" id="localCamBtn" title="Camera">
-              <i class="fas fa-video"></i>
-            </button>
-          </div>
-        </div>
+    <div class="classroom-container">
         
-        <!-- Waiting State -->
-        <div class="waiting-state" id="waitingState" style="display: none;">
-          <div class="waiting-spinner"></div>
-          <h3>Connecting to class...</h3>
-          <p>Please wait while we connect you to the virtual classroom.</p>
-        </div>
-      </div>
-      
-      <!-- Sidebar (Chat & Participants) -->
-      <div class="room-sidebar" id="roomSidebar">
-        <div class="sidebar-header">
-          <div class="sidebar-tabs">
-            <button class="sidebar-tab active" data-tab="chat">Chat</button>
-            <button class="sidebar-tab" data-tab="participants">Participants</button>
-          </div>
-          <button class="close-sidebar" id="closeSidebarBtn">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        
-        <!-- Chat Panel -->
-        <div class="chat-panel" id="chatPanel">
-          <div class="chat-messages" id="chatMessages">
-            <div class="chat-message system">
-              <div class="chat-bubble">
-                <i class="fas fa-info-circle"></i> Welcome to the virtual classroom!
-              </div>
+        <!-- Top Bar -->
+        <div class="classroom-header">
+            <div class="header-left">
+                <button class="icon-btn" id="backBtn" title="Back to Dashboard">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="room-info">
+                    <h2 id="roomTitle">Loading...</h2>
+                    <div class="live-badge" id="liveBadge">
+                        <span class="live-dot"></span>
+                        LIVE
+                    </div>
+                    <div class="class-timer" id="classTimer">00:00</div>
+                </div>
             </div>
-          </div>
-          <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
-            <button class="chat-send-btn" id="chatSendBtn">
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </div>
+            <div class="header-right">
+                <button class="icon-btn" id="participantsBtn" title="Participants">
+                    <i class="fas fa-users"></i>
+                    <span class="badge" id="participantCount">0</span>
+                </button>
+                <button class="icon-btn danger" id="leaveBtn" title="Leave Class">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
         </div>
         
-        <!-- Participants Panel -->
-        <div class="participants-panel" id="participantsPanel" style="display: none;">
-          <div class="participants-list" id="participantsList">
-            <!-- Participants will be loaded here -->
-          </div>
+        <!-- Main Content -->
+        <div class="classroom-main">
+            
+            <!-- Video Grid -->
+            <div class="video-grid" id="videoGrid">
+                <!-- Local Video -->
+                <div class="video-card local" id="localVideoCard">
+                    <video id="localVideo" autoplay muted playsinline></video>
+                    <div class="video-placeholder" id="localVideoPlaceholder">
+                        <i class="fas fa-user-circle"></i>
+                        <span>Camera off</span>
+                    </div>
+                    <div class="video-overlay">
+                        <div class="participant-name">You</div>
+                        <div class="participant-role" id="userRoleLabel">Student</div>
+                    </div>
+                    <div class="video-controls-overlay">
+                        <button class="video-control" id="localMicControl" title="Microphone">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button class="video-control" id="localCamControl" title="Camera">
+                            <i class="fas fa-video"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+                <h3>Connecting to classroom...</h3>
+                <p>Please wait while we establish connection</p>
+            </div>
+            
         </div>
-      </div>
-      
+        
+        <!-- Bottom Controls -->
+        <div class="classroom-controls">
+            <button class="control-btn" id="micBtn" title="Microphone">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button class="control-btn" id="camBtn" title="Camera">
+                <i class="fas fa-video"></i>
+            </button>
+            <button class="control-btn" id="screenShareBtn" title="Share Screen">
+                <i class="fas fa-desktop"></i>
+            </button>
+            <button class="control-btn" id="whiteboardBtn" title="Whiteboard">
+                <i class="fas fa-chalkboard"></i>
+            </button>
+            <button class="control-btn" id="recordBtn" title="Record Session">
+                <i class="fas fa-record-vinyl"></i>
+            </button>
+            <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
+                <i class="fas fa-hand-paper"></i>
+            </button>
+        </div>
+        
     </div>
     
-    <!-- Controls Bar -->
-    <div class="controls-bar">
-      <button class="control-btn" id="toggleMicBtn" title="Microphone">
-        <i class="fas fa-microphone"></i>
-      </button>
-      <button class="control-btn" id="toggleCamBtn" title="Camera">
-        <i class="fas fa-video"></i>
-      </button>
-      <button class="control-btn" id="shareScreenBtn" title="Share Screen">
-        <i class="fas fa-desktop"></i>
-      </button>
-      <button class="control-btn" id="whiteboardBtn" title="Whiteboard">
-        <i class="fas fa-chalkboard"></i>
-      </button>
-      <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
-        <i class="fas fa-hand-paper"></i>
-      </button>
-      <button class="control-btn" id="recordBtn" title="Record Session">
-        <i class="fas fa-record-vinyl"></i>
-      </button>
+    <!-- Chat Sidebar -->
+    <div class="chat-sidebar" id="chatSidebar">
+        <div class="chat-header">
+            <div class="chat-tabs">
+                <button class="chat-tab active" data-tab="chat">Chat</button>
+                <button class="chat-tab" data-tab="participants">Participants</button>
+            </div>
+            <button class="close-chat" id="closeChatBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <!-- Chat Messages -->
+        <div class="chat-messages" id="chatMessages">
+            <div class="system-message">
+                <i class="fas fa-info-circle"></i> Welcome to the classroom!
+            </div>
+        </div>
+        
+        <!-- Chat Input -->
+        <div class="chat-input-container">
+            <input type="text" id="chatInput" placeholder="Type a message..." class="chat-input">
+            <button id="sendChatBtn" class="send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+        
+        <!-- Participants List -->
+        <div class="participants-list" id="participantsList" style="display: none;">
+            <!-- Populated by JS -->
+        </div>
     </div>
     
-  </div>
-
-  <!-- Whiteboard Overlay -->
-  <div class="whiteboard-overlay" id="whiteboardOverlay">
-    <div class="whiteboard-toolbar">
-      <button class="wb-tool active" data-tool="pen">
-        <i class="fas fa-pen"></i>
-      </button>
-      <button class="wb-tool" data-tool="eraser">
-        <i class="fas fa-eraser"></i>
-      </button>
-      <input type="color" class="wb-color" value="#fbb040">
-      <button class="wb-tool" data-tool="clear">
-        <i class="fas fa-trash"></i>
-      </button>
-      <button class="wb-tool" id="closeWhiteboardBtn">
-        <i class="fas fa-times"></i>
-      </button>
+    <!-- Whiteboard Overlay -->
+    <div class="whiteboard-overlay" id="whiteboardOverlay">
+        <div class="whiteboard-toolbar">
+            <button class="wb-tool active" data-tool="pen">
+                <i class="fas fa-pen"></i>
+            </button>
+            <button class="wb-tool" data-tool="eraser">
+                <i class="fas fa-eraser"></i>
+            </button>
+            <input type="color" class="wb-color" value="#fbb040">
+            <button class="wb-tool" data-tool="clear">
+                <i class="fas fa-trash"></i>
+            </button>
+            <button class="wb-tool" id="closeWhiteboard">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <canvas id="whiteboardCanvas"></canvas>
     </div>
-    <canvas id="wbCanvas"></canvas>
-  </div>
+    
+    <!-- Recording Indicator -->
+    <div class="recording-indicator" id="recordingIndicator" style="display: none;">
+        <i class="fas fa-circle"></i> Recording in progress...
+        <span id="recordingTimer">00:00</span>
+    </div>
+    
+    <!-- Raise Hand Notification -->
+    <div class="hand-raised-toast" id="handRaisedToast" style="display: none;">
+        <i class="fas fa-hand-paper"></i> Hand raised!
+    </div>
 
-  <script type="module" src="js/pages/virtualroom.js"></script>
+    <script type="module" src="js/pages/virtualroom.js"></script>
 </body>
 </html>
