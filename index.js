@@ -1,18 +1,21 @@
 // frontend/index.js - Smart redirect for root page
+
+// Import Supabase client
+import { supabase } from './js/modules/supabase.js';
+
 (function() {
     // Check if user is logged in
     const checkAuth = async () => {
         // Check localStorage for existing session
         const gliimuUser = localStorage.getItem('gliimu_user');
-        const supabaseSession = localStorage.getItem('sb-vsgvscemqtqgolrindcx-auth-token');
         
-        if (gliimuUser || supabaseSession) {
+        if (gliimuUser) {
             // User is logged in, redirect to hub
             window.location.replace('/hub');
             return true;
         }
         
-        // Optional: Check with Supabase for valid session
+        // Check with Supabase for valid session
         try {
             const { data } = await supabase.auth.getSession();
             if (data?.session) {
@@ -20,7 +23,7 @@
                 return true;
             }
         } catch (e) {
-            // No valid session, stay on marketing page
+            console.log('No active session:', e);
         }
         
         return false;
