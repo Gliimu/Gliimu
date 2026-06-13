@@ -1,1029 +1,681 @@
-// ============================================
-// VIRTUAL CLASSROOM - COMPLETE IMPLEMENTATION
-// ============================================
+/* ============================================
+   VIRTUAL CLASSROOM - COMPLETE STYLES
+   ============================================ */
 
-import { supabase, getCurrentUser } from '../modules/supabase.js';
-import { showToast } from '../modules/toast.js';
-import { checkPlatformAccess, startTimer, stopTimer, addTimeSpent } from '../modules/access-guard.js';
+:root {
+    --bg-dark: #0a0a14;
+    --bg-card: #1a1a2a;
+    --bg-sidebar: #151525;
+    --accent: #fbb040;
+    --accent-dark: #cc8a2a;
+    --danger: #ef4444;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --text-primary: #ffffff;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(255, 255, 255, 0.08);
+}
 
-// ============================================
-// CONFIGURATION
-// ============================================
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-let currentUser = null;
-let isTeacher = false;
-let roomId = null;
-let localStream = null;
-let peer = null;
-let peers = new Map();
-let screenStream = null;
-let isRecording = false;
-let mediaRecorder = null;
-let recordedChunks = [];
-let recordingStartTime = null;
-let recordingTimer = null;
-let whiteboardSynced = false;
-let currentWbData = null;
+body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+}
 
-// DOM Elements
-let localVideo = null;
-let videoGrid = null;
-let loadingOverlay = null;
-let chatSidebar = null;
-let whiteboardOverlay = null;
-let wbCanvas = null;
-let wbCtx = null;
-let painting = false;
-let currentTool = 'pen';
-let currentColor = '#fbb040';
-let lastDrawPoint = null;
+/* Classroom Container */
+.classroom-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg-dark);
+}
 
-// Room state
-let participants = new Map();
-let chatSubscription = null;
-let participantsSubscription = null;
-let classStartTime = Date.now();
-let classTimerInterval = null;
+/* Header */
+.classroom-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 10;
+}
 
-// ============================================
-// INITIALIZATION
-// ============================================
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
 
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Virtual Classroom initializing...');
-    
-    // Get current user
-    currentUser = await getCurrentUser();
-    
-    if (!currentUser) {
-        window.location.href = '/signin.html';
-        return;
+.icon-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+}
+
+.icon-btn.danger:hover {
+    background: var(--danger);
+}
+
+.badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--danger);
+    color: white;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 10px;
+}
+
+.room-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.room-info h2 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 1.5s infinite;
+}
+
+.class-timer {
+    font-size: 0.85rem;
+    font-family: monospace;
+    color: var(--text-secondary);
+}
+
+/* Main Content */
+.classroom-main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Video Grid */
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 20px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.video-card {
+    position: relative;
+    background: var(--bg-card);
+    border-radius: 16px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+.video-card.local {
+    border-color: var(--accent);
+}
+
+.video-card video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #2a2a3a, #1a1a2a);
+}
+
+.video-card.camera-off .video-placeholder {
+    display: flex;
+}
+
+.video-placeholder i {
+    font-size: 48px;
+    margin-bottom: 8px;
+}
+
+.video-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 40px 12px 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+}
+
+.participant-name {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.participant-role {
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+.video-controls-overlay {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+}
+
+.video-control {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: white;
+    cursor: pointer;
+}
+
+.video-control.off {
+    background: var(--danger);
+}
+
+/* Bottom Controls */
+.classroom-controls {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+.control-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+}
+
+.control-btn.off {
+    background: var(--danger);
+}
+
+.control-btn.active {
+    background: var(--accent);
+    color: #111;
+}
+
+.control-btn.recording {
+    background: var(--danger);
+    animation: pulse 1.5s infinite;
+}
+
+/* Chat Sidebar */
+.chat-sidebar {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 360px;
+    background: var(--bg-sidebar);
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 30;
+}
+
+.chat-sidebar.open {
+    transform: translateX(0);
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.chat-tabs {
+    display: flex;
+    gap: 16px;
+}
+
+.chat-tab {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.chat-tab.active {
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+}
+
+.close-chat {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+}
+
+/* Chat Messages */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chat-message {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chat-message.self {
+    align-items: flex-end;
+}
+
+.chat-message.other {
+    align-items: flex-start;
+}
+
+.chat-bubble {
+    max-width: 80%;
+    padding: 8px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.chat-message.self .chat-bubble {
+    background: var(--accent);
+    color: #111;
+}
+
+.chat-sender {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-bottom: 2px;
+}
+
+.chat-time {
+    font-size: 10px;
+    opacity: 0.5;
+    margin-top: 4px;
+}
+
+.system-message {
+    text-align: center;
+    padding: 8px;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--accent);
+}
+
+/* Chat Input */
+.chat-input-container {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 8px;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    border-radius: 30px;
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+}
+
+.send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    color: #111;
+    cursor: pointer;
+}
+
+/* Participants List */
+.participants-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 12px;
+    transition: background 0.2s;
+}
+
+.participant-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.participant-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.participant-avatar i {
+    font-size: 20px;
+    color: #111;
+}
+
+.participant-details {
+    flex: 1;
+}
+
+.participant-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.participant-role {
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.participant-status {
+    display: flex;
+    gap: 8px;
+}
+
+.status-icon {
+    font-size: 12px;
+}
+
+.status-icon.muted { color: var(--danger); }
+.status-icon.video-off { color: var(--warning); }
+.status-icon.hand-raised { color: var(--accent); }
+
+/* Whiteboard Overlay */
+.whiteboard-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+}
+
+.whiteboard-overlay.active {
+    display: flex;
+}
+
+.whiteboard-toolbar {
+    display: flex;
+    gap: 12px;
+    padding: 12px 20px;
+    background: #2c2f78;
+    align-items: center;
+}
+
+.wb-tool {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    cursor: pointer;
+}
+
+.wb-tool.active {
+    background: var(--accent);
+    color: #111;
+}
+
+.wb-color {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 2px solid white;
+    cursor: pointer;
+}
+
+#whiteboardCanvas {
+    flex: 1;
+    cursor: crosshair;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+/* Recording Indicator */
+.recording-indicator {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--danger);
+    padding: 8px 20px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    z-index: 40;
+    animation: pulse 1.5s infinite;
+}
+
+.recording-indicator i {
+    font-size: 10px;
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .video-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 12px;
     }
     
-    // Check access
-    const hasAccess = await checkPlatformAccess('virtualroom');
-    if (!hasAccess) {
-        showNoAccessMessage();
-        return;
+    .control-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
     }
     
-    // Start timer for free tier
-    startTimer('virtualroom');
-    
-    // Get room info from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    roomId = urlParams.get('room') || `class_${Date.now()}`;
-    isTeacher = currentUser.user_metadata?.role === 'admin' || urlParams.get('role') === 'teacher';
-    
-    // Initialize DOM
-    initDOM();
-    
-    // Update UI for role
-    updateUIForRole();
-    
-    // Show loading
-    showLoading(true);
-    
-    // Initialize components
-    await initPeerJS();
-    await setupRealtimeSubscriptions();
-    await loadChatHistory();
-    await loadParticipants();
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    // Start class timer
-    startClassTimer();
-    
-    // Hide loading
-    showLoading(false);
-    
-    // Send welcome message
-    sendSystemMessage(`${currentUser.user_metadata?.name || 'A user'} joined the classroom`);
-    
-    console.log('Virtual Classroom ready');
-});
-
-function initDOM() {
-    localVideo = document.getElementById('localVideo');
-    videoGrid = document.getElementById('videoGrid');
-    loadingOverlay = document.getElementById('loadingOverlay');
-    chatSidebar = document.getElementById('chatSidebar');
-    whiteboardOverlay = document.getElementById('whiteboardOverlay');
-    wbCanvas = document.getElementById('whiteboardCanvas');
-    
-    if (wbCanvas) {
-        wbCtx = wbCanvas.getContext('2d');
-        initWhiteboard();
+    .chat-sidebar {
+        width: 100%;
     }
     
-    document.getElementById('roomTitle').textContent = roomId.replace(/_/g, ' ').toUpperCase();
-    document.getElementById('userRoleLabel').textContent = isTeacher ? 'Teacher' : 'Student';
-}
-
-function updateUIForRole() {
-    const teacherOnlyBtns = ['screenShareBtn'];
-    teacherOnlyBtns.forEach(btnId => {
-        const btn = document.getElementById(btnId);
-        if (btn) btn.style.display = isTeacher ? 'flex' : 'none';
-    });
-}
-
-function showLoading(show) {
-    if (loadingOverlay) {
-        loadingOverlay.style.display = show ? 'flex' : 'none';
-    }
-}
-
-function showNoAccessMessage() {
-    const container = document.querySelector('.classroom-container');
-    if (container) {
-        container.innerHTML = `
-            <div class="access-denied">
-                <i class="fas fa-lock"></i>
-                <h2>Access Restricted</h2>
-                <p>You've used your 15 minutes of free access for today.</p>
-                <button onclick="window.location.href='/dashboard.html?tab=wallet'" class="upgrade-btn">
-                    Upgrade to Premium
-                </button>
-            </div>
-        `;
-    }
-}
-
-// ============================================
-// PEERJS WEBRTC
-// ============================================
-
-async function initPeerJS() {
-    return new Promise(async (resolve) => {
-        const peerId = `${currentUser.id}_${Date.now()}`;
-        
-        peer = new Peer(peerId, {
-            host: '0.peerjs.com',
-            port: 443,
-            path: '/',
-            secure: true,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' }
-                ]
-            }
-        });
-        
-        peer.on('open', async (id) => {
-            console.log('PeerJS connected:', id);
-            
-            // Register in database
-            await registerParticipant(id);
-            
-            // Start local stream
-            await startLocalStream();
-            
-            if (isTeacher) {
-                await startBroadcasting();
-            } else {
-                await connectToTeacher();
-            }
-            
-            resolve();
-        });
-        
-        peer.on('call', async (call) => {
-            console.log('Incoming call from:', call.peer);
-            
-            if (localStream) {
-                call.answer(localStream);
-                call.on('stream', (stream) => {
-                    addRemoteVideo(call.peer, stream);
-                });
-            }
-        });
-        
-        peer.on('error', (err) => {
-            console.error('PeerJS error:', err);
-            showToast('Connection error. Using fallback mode.', 'error');
-            useFallbackMode();
-            resolve();
-        });
-    });
-}
-
-async function registerParticipant(peerId) {
-    try {
-        const { error } = await supabase
-            .from('classroom_participants')
-            .upsert({
-                room_id: roomId,
-                user_id: currentUser.id,
-                peer_id: peerId,
-                name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
-                role: isTeacher ? 'teacher' : 'student',
-                joined_at: new Date().toISOString(),
-                status: 'online'
-            });
-        
-        if (error) console.error('Register error:', error);
-    } catch (error) {
-        console.error('Registration error:', error);
-    }
-}
-
-async function startLocalStream() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
-        });
-        
-        localVideo.srcObject = localStream;
-        await localVideo.play();
-        
-        updateLocalVideoUI(true);
-        showToast('Camera and microphone connected', 'success');
-        
-    } catch (err) {
-        console.error('Camera error:', err);
-        showToast('Could not access camera/microphone', 'error');
-        useFallbackMode();
-    }
-}
-
-async function startBroadcasting() {
-    console.log('Teacher broadcasting...');
-    // Teacher will accept incoming calls from students
-}
-
-async function connectToTeacher() {
-    try {
-        const { data } = await supabase
-            .from('classroom_participants')
-            .select('peer_id')
-            .eq('room_id', roomId)
-            .eq('role', 'teacher')
-            .single();
-        
-        if (data?.peer_id && localStream) {
-            const call = peer.call(data.peer_id, localStream);
-            call.on('stream', (stream) => {
-                addRemoteVideo(data.peer_id, stream, true);
-            });
-        }
-    } catch (error) {
-        console.error('Error connecting to teacher:', error);
-        useFallbackMode();
-    }
-}
-
-function addRemoteVideo(peerId, stream, isTeacher = false) {
-    const existingCard = document.getElementById(`video_${peerId}`);
-    if (existingCard) return;
-    
-    const videoCard = document.createElement('div');
-    videoCard.className = `video-card ${isTeacher ? 'featured' : ''}`;
-    videoCard.id = `video_${peerId}`;
-    
-    const video = document.createElement('video');
-    video.srcObject = stream;
-    video.autoplay = true;
-    video.playsInline = true;
-    
-    videoCard.appendChild(video);
-    videoCard.innerHTML += `
-        <div class="video-overlay">
-            <div class="participant-name">${isTeacher ? 'Teacher' : 'Student'}</div>
-            <div class="participant-role">${isTeacher ? 'Instructor' : 'Learner'}</div>
-        </div>
-    `;
-    
-    videoGrid.appendChild(videoCard);
-}
-
-function updateLocalVideoUI(isConnected) {
-    const localCard = document.getElementById('localVideoCard');
-    if (localCard) {
-        if (!isConnected) {
-            localCard.classList.add('camera-off');
-        } else {
-            localCard.classList.remove('camera-off');
-        }
-    }
-}
-
-function useFallbackMode() {
-    showLoading(false);
-    showToast('Connected in fallback mode (chat only)', 'info');
-}
-
-// ============================================
-// MEDIA CONTROLS
-// ============================================
-
-function toggleMicrophone() {
-    if (!localStream) return;
-    
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        const micBtn = document.getElementById('micBtn');
-        const localMicControl = document.getElementById('localMicControl');
-        
-        const icon = audioTrack.enabled ? 'fa-microphone' : 'fa-microphone-slash';
-        if (micBtn) micBtn.innerHTML = `<i class="fas ${icon}"></i>`;
-        if (localMicControl) localMicControl.innerHTML = `<i class="fas ${icon}"></i>`;
-        
-        micBtn?.classList.toggle('off', !audioTrack.enabled);
-        localMicControl?.classList.toggle('off', !audioTrack.enabled);
-        
-        // Update database
-        updateParticipantStatus({ is_muted: !audioTrack.enabled });
-        
-        showToast(audioTrack.enabled ? 'Microphone on' : 'Microphone off', 'info');
-    }
-}
-
-function toggleCamera() {
-    if (!localStream) return;
-    
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        const camBtn = document.getElementById('camBtn');
-        const localCamControl = document.getElementById('localCamControl');
-        
-        const icon = videoTrack.enabled ? 'fa-video' : 'fa-video-slash';
-        if (camBtn) camBtn.innerHTML = `<i class="fas ${icon}"></i>`;
-        if (localCamControl) localCamControl.innerHTML = `<i class="fas ${icon}"></i>`;
-        
-        camBtn?.classList.toggle('off', !videoTrack.enabled);
-        localCamControl?.classList.toggle('off', !videoTrack.enabled);
-        
-        // Update UI
-        const localCard = document.getElementById('localVideoCard');
-        if (!videoTrack.enabled) {
-            localCard?.classList.add('camera-off');
-        } else {
-            localCard?.classList.remove('camera-off');
-        }
-        
-        // Update database
-        updateParticipantStatus({ is_video_off: !videoTrack.enabled });
-        
-        showToast(videoTrack.enabled ? 'Camera on' : 'Camera off', 'info');
-    }
-}
-
-async function toggleScreenShare() {
-    if (!isTeacher) {
-        showToast('Only teachers can share screens', 'warning');
-        return;
+    .classroom-controls {
+        gap: 12px;
+        padding: 12px;
     }
     
-    try {
-        if (!screenStream) {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            const videoTrack = screenStream.getVideoTracks()[0];
-            
-            // Broadcast screen to all students
-            for (const [peerId, connection] of peers) {
-                const sender = connection.peerConnection
-                    ?.getSenders()?.find(s => s.track?.kind === 'video');
-                if (sender) {
-                    sender.replaceTrack(videoTrack);
-                }
-            }
-            
-            videoTrack.onended = () => stopScreenShare();
-            
-            const shareBtn = document.getElementById('screenShareBtn');
-            shareBtn?.classList.add('active');
-            shareBtn.innerHTML = '<i class="fas fa-desktop"></i>';
-            
-            showToast('Screen sharing started', 'success');
-        } else {
-            stopScreenShare();
-        }
-    } catch (err) {
-        console.error('Screen share error:', err);
-        showToast('Screen share cancelled', 'error');
-    }
-}
-
-function stopScreenShare() {
-    if (screenStream) {
-        screenStream.getTracks().forEach(track => track.stop());
-        screenStream = null;
-        
-        // Restore camera track
-        const videoTrack = localStream?.getVideoTracks()[0];
-        for (const [peerId, connection] of peers) {
-            const sender = connection.peerConnection
-                ?.getSenders()?.find(s => s.track?.kind === 'video');
-            if (sender && videoTrack) {
-                sender.replaceTrack(videoTrack);
-            }
-        }
-        
-        const shareBtn = document.getElementById('screenShareBtn');
-        shareBtn?.classList.remove('active');
-        shareBtn.innerHTML = '<i class="fas fa-desktop"></i>';
-        
-        showToast('Screen sharing stopped', 'info');
-    }
-}
-
-function toggleRaiseHand() {
-    const btn = document.getElementById('raiseHandBtn');
-    const isRaised = btn?.classList.contains('active');
-    
-    if (isRaised) {
-        btn?.classList.remove('active');
-        updateParticipantStatus({ hand_raised: false });
-        showToast('Hand lowered', 'info');
-    } else {
-        btn?.classList.add('active');
-        updateParticipantStatus({ hand_raised: true });
-        showToast('Hand raised! Teacher notified.', 'success');
-        
-        // Show notification
-        const toast = document.getElementById('handRaisedToast');
-        if (toast) {
-            toast.style.display = 'flex';
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 3000);
-        }
-        
-        // Send system message
-        sendSystemMessage(`${currentUser.user_metadata?.name || 'A student'} raised their hand`);
-    }
-}
-
-async function updateParticipantStatus(updates) {
-    try {
-        await supabase
-            .from('classroom_participants')
-            .update(updates)
-            .eq('room_id', roomId)
-            .eq('user_id', currentUser.id);
-    } catch (error) {
-        console.error('Error updating status:', error);
-    }
-}
-
-// ============================================
-// RECORDING
-// ============================================
-
-async function startRecording() {
-    if (!localStream || !isTeacher) {
-        showToast('Only teachers can record sessions', 'warning');
-        return;
+    .room-info h2 {
+        font-size: 0.9rem;
     }
     
-    recordedChunks = [];
-    
-    // Create a combined stream
-    const combinedStream = new MediaStream();
-    localStream.getTracks().forEach(track => combinedStream.addTrack(track));
-    
-    // Add screen share if active
-    if (screenStream) {
-        screenStream.getTracks().forEach(track => combinedStream.addTrack(track));
-    }
-    
-    mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
-    
-    mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-            recordedChunks.push(event.data);
-        }
-    };
-    
-    mediaRecorder.onstop = async () => {
-        const blob = new Blob(recordedChunks, { type: 'video/webm' });
-        await saveRecording(blob);
-    };
-    
-    mediaRecorder.start(1000);
-    isRecording = true;
-    recordingStartTime = Date.now();
-    
-    // Update UI
-    const recordBtn = document.getElementById('recordBtn');
-    recordBtn?.classList.add('recording');
-    recordBtn.innerHTML = '<i class="fas fa-stop"></i>';
-    
-    const indicator = document.getElementById('recordingIndicator');
-    if (indicator) {
-        indicator.style.display = 'flex';
-        recordingTimer = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-            const minutes = Math.floor(elapsed / 60);
-            const seconds = elapsed % 60;
-            const timerSpan = document.getElementById('recordingTimer');
-            if (timerSpan) timerSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }, 1000);
-    }
-    
-    showToast('Recording started', 'success');
-}
-
-function stopRecording() {
-    if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        
-        if (recordingTimer) clearInterval(recordingTimer);
-        
-        const recordBtn = document.getElementById('recordBtn');
-        recordBtn?.classList.remove('recording');
-        recordBtn.innerHTML = '<i class="fas fa-record-vinyl"></i>';
-        
-        const indicator = document.getElementById('recordingIndicator');
-        if (indicator) indicator.style.display = 'none';
-        
-        showToast('Recording stopped. Saving...', 'info');
-    }
-}
-
-async function saveRecording(blob) {
-    try {
-        const fileName = `${roomId}_${Date.now()}.webm`;
-        const filePath = `recordings/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-            .from('classroom-recordings')
-            .upload(filePath, blob);
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-            .from('classroom-recordings')
-            .getPublicUrl(filePath);
-        
-        await supabase
-            .from('classroom_recordings')
-            .insert({
-                room_id: roomId,
-                teacher_id: currentUser.id,
-                title: `Class Recording - ${new Date().toLocaleString()}`,
-                recording_url: publicUrl,
-                duration: Math.floor((Date.now() - recordingStartTime) / 1000),
-                file_size: blob.size
-            });
-        
-        showToast('Recording saved successfully!', 'success');
-    } catch (error) {
-        console.error('Error saving recording:', error);
-        showToast('Failed to save recording', 'error');
-    }
-}
-
-function toggleRecording() {
-    if (isRecording) {
-        stopRecording();
-    } else {
-        startRecording();
-    }
-}
-
-// ============================================
-// CHAT FUNCTIONALITY
-// ============================================
-
-async function loadChatHistory() {
-    try {
-        const { data, error } = await supabase
-            .from('classroom_chat')
-            .select('*')
-            .eq('room_id', roomId)
-            .order('created_at', { ascending: true })
-            .limit(100);
-        
-        if (!error && data) {
-            data.forEach(msg => displayChatMessage(msg));
-        }
-    } catch (error) {
-        console.error('Error loading chat:', error);
-    }
-}
-
-function setupRealtimeSubscriptions() {
-    // Chat subscription
-    if (chatSubscription) chatSubscription.unsubscribe();
-    
-    chatSubscription = supabase
-        .channel('classroom_chat')
-        .on('postgres_changes', 
-            { event: 'INSERT', schema: 'public', table: 'classroom_chat', filter: `room_id=eq.${roomId}` },
-            (payload) => {
-                displayChatMessage(payload.new);
-            }
-        )
-        .subscribe();
-    
-    // Participants subscription
-    if (participantsSubscription) participantsSubscription.unsubscribe();
-    
-    participantsSubscription = supabase
-        .channel('classroom_participants')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'classroom_participants', filter: `room_id=eq.${roomId}` },
-            () => {
-                loadParticipants();
-            }
-        )
-        .subscribe();
-}
-
-async function sendChatMessage() {
-    const input = document.getElementById('chatInput');
-    const text = input.value.trim();
-    
-    if (!text) return;
-    
-    const message = {
-        room_id: roomId,
-        user_id: currentUser.id,
-        user_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
-        message: text,
-        created_at: new Date().toISOString()
-    };
-    
-    try {
-        await supabase.from('classroom_chat').insert(message);
-        input.value = '';
-    } catch (error) {
-        console.error('Error sending message:', error);
-        displayChatMessage(message, true);
+    .live-badge span:last-child {
+        display: none;
     }
 }
 
-function displayChatMessage(message, isLocal = false) {
-    const container = document.getElementById('chatMessages');
-    const isSelf = message.user_id === currentUser?.id;
+@media (max-width: 480px) {
+    .control-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
     
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${isSelf ? 'self' : 'other'}`;
-    messageDiv.innerHTML = `
-        ${!isSelf ? `<div class="chat-sender">${escapeHtml(message.user_name || 'User')}</div>` : ''}
-        <div class="chat-bubble">
-            <div>${escapeHtml(message.message)}</div>
-            <div class="chat-time">${new Date(message.created_at).toLocaleTimeString()}</div>
-        </div>
-    `;
+    .header-left {
+        gap: 8px;
+    }
     
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
-}
-
-function sendSystemMessage(text) {
-    const container = document.getElementById('chatMessages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'system-message';
-    messageDiv.innerHTML = `
-        <i class="fas fa-info-circle"></i> ${escapeHtml(text)}
-    `;
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
-}
-
-// ============================================
-// PARTICIPANTS
-// ============================================
-
-async function loadParticipants() {
-    try {
-        const { data, error } = await supabase
-            .from('classroom_participants')
-            .select('*')
-            .eq('room_id', roomId);
-        
-        if (!error && data) {
-            participants.clear();
-            data.forEach(p => participants.set(p.user_id, p));
-            
-            const container = document.getElementById('participantsList');
-            if (container) {
-                container.innerHTML = data.map(p => `
-                    <div class="participant-item">
-                        <div class="participant-avatar">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <div class="participant-details">
-                            <div class="participant-name">${escapeHtml(p.name || 'User')}</div>
-                            <div class="participant-role">${p.role === 'teacher' ? 'Teacher' : 'Student'}</div>
-                        </div>
-                        <div class="participant-status">
-                            ${p.is_muted ? '<i class="fas fa-microphone-slash status-icon muted"></i>' : ''}
-                            ${p.is_video_off ? '<i class="fas fa-video-slash status-icon video-off"></i>' : ''}
-                            ${p.hand_raised ? '<i class="fas fa-hand-paper status-icon hand-raised"></i>' : ''}
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            const countSpan = document.getElementById('participantCount');
-            if (countSpan) countSpan.textContent = data.length;
-        }
-    } catch (error) {
-        console.error('Error loading participants:', error);
+    .icon-btn {
+        width: 32px;
+        height: 32px;
     }
 }
 
-// ============================================
-// WHITEBOARD
-// ============================================
-
-function initWhiteboard() {
-    if (!wbCanvas || !wbCtx) return;
-    
-    const resizeCanvas = () => {
-        wbCanvas.width = window.innerWidth;
-        wbCanvas.height = window.innerHeight - 70;
-        wbCtx.fillStyle = '#ffffff';
-        wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
-        wbCtx.strokeStyle = currentColor;
-        wbCtx.lineWidth = 3;
-        wbCtx.lineCap = 'round';
-        wbCtx.lineJoin = 'round';
-    };
-    
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    
-    // Drawing events
-    wbCanvas.addEventListener('mousedown', startDrawing);
-    wbCanvas.addEventListener('mouseup', stopDrawing);
-    wbCanvas.addEventListener('mousemove', draw);
-    wbCanvas.addEventListener('touchstart', startDrawingTouch);
-    wbCanvas.addEventListener('touchend', stopDrawing);
-    wbCanvas.addEventListener('touchmove', drawTouch);
+/* Access Denied Screen */
+.access-denied {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+    padding: 40px;
+    background: var(--bg-dark);
 }
 
-function startDrawing(e) {
-    painting = true;
-    const rect = wbCanvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (wbCanvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (wbCanvas.height / rect.height);
-    wbCtx.beginPath();
-    wbCtx.moveTo(x, y);
-    lastDrawPoint = { x, y };
+.access-denied i {
+    font-size: 64px;
+    color: var(--danger);
+    margin-bottom: 20px;
 }
 
-function draw(e) {
-    if (!painting) return;
-    e.preventDefault();
-    const rect = wbCanvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (wbCanvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (wbCanvas.height / rect.height);
-    wbCtx.lineTo(x, y);
-    wbCtx.stroke();
-    wbCtx.beginPath();
-    wbCtx.moveTo(x, y);
-    
-    // Sync whiteboard
-    syncWhiteboardDrawing({ x1: lastDrawPoint?.x, y1: lastDrawPoint?.y, x2: x, y2: y });
-    lastDrawPoint = { x, y };
+.access-denied h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
 }
 
-function startDrawingTouch(e) {
-    e.preventDefault();
-    painting = true;
-    const rect = wbCanvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    const x = (touch.clientX - rect.left) * (wbCanvas.width / rect.width);
-    const y = (touch.clientY - rect.top) * (wbCanvas.height / rect.height);
-    wbCtx.beginPath();
-    wbCtx.moveTo(x, y);
-    lastDrawPoint = { x, y };
+.access-denied p {
+    color: var(--text-secondary);
+    margin-bottom: 8px;
 }
 
-function drawTouch(e) {
-    e.preventDefault();
-    if (!painting) return;
-    const rect = wbCanvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    const x = (touch.clientX - rect.left) * (wbCanvas.width / rect.width);
-    const y = (touch.clientY - rect.top) * (wbCanvas.height / rect.height);
-    wbCtx.lineTo(x, y);
-    wbCtx.stroke();
-    wbCtx.beginPath();
-    wbCtx.moveTo(x, y);
+.access-denied .upgrade-btn {
+    margin-top: 24px;
+    padding: 12px 32px;
+    background: linear-gradient(135deg, #2c2f78, #1a1c4a);
+    color: white;
+    border: none;
+    border-radius: 40px;
+    cursor: pointer;
 }
-
-function stopDrawing() {
-    painting = false;
-    lastDrawPoint = null;
-}
-
-async function syncWhiteboardDrawing(drawingData) {
-    if (!isTeacher) return;
-    
-    try {
-        await supabase
-            .from('classroom_whiteboard')
-            .insert({
-                room_id: roomId,
-                drawing_data: drawingData,
-                created_by: currentUser.id,
-                created_at: new Date().toISOString()
-            });
-    } catch (error) {
-        console.error('Error syncing whiteboard:', error);
-    }
-}
-
-function setWbTool(tool) {
-    currentTool = tool;
-    if (tool === 'eraser') {
-        wbCtx.strokeStyle = '#ffffff';
-        wbCtx.lineWidth = 20;
-    } else if (tool === 'pen') {
-        wbCtx.strokeStyle = currentColor;
-        wbCtx.lineWidth = 3;
-    } else if (tool === 'clear') {
-        wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
-        wbCtx.fillStyle = '#ffffff';
-        wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
-    }
-    
-    document.querySelectorAll('.wb-tool').forEach(btn => btn.classList.remove('active'));
-    if (tool !== 'clear') {
-        const activeBtn = document.querySelector(`.wb-tool[data-tool="${tool}"]`);
-        activeBtn?.classList.add('active');
-    }
-}
-
-function setWbColor(color) {
-    currentColor = color;
-    if (currentTool !== 'eraser') {
-        wbCtx.strokeStyle = color;
-    }
-}
-
-function toggleWhiteboard() {
-    whiteboardOverlay?.classList.toggle('active');
-}
-
-// ============================================
-// CLASS TIMER
-// ============================================
-
-function startClassTimer() {
-    classTimerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - classStartTime) / 1000);
-        const minutes = Math.floor(elapsed / 60);
-        const seconds = elapsed % 60;
-        const timerElement = document.getElementById('classTimer');
-        if (timerElement) {
-            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-    }, 1000);
-}
-
-// ============================================
-// UI HELPERS
-// ============================================
-
-function toggleSidebar() {
-    chatSidebar?.classList.toggle('open');
-}
-
-function switchTab(tab) {
-    const chatContainer = document.querySelector('.chat-messages');
-    const participantsContainer = document.getElementById('participantsList');
-    const tabs = document.querySelectorAll('.chat-tab');
-    
-    tabs.forEach(t => t.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    if (tab === 'chat') {
-        if (chatContainer) chatContainer.style.display = 'flex';
-        if (participantsContainer) participantsContainer.style.display = 'none';
-    } else {
-        if (chatContainer) chatContainer.style.display = 'none';
-        if (participantsContainer) participantsContainer.style.display = 'flex';
-        loadParticipants();
-    }
-}
-
-function leaveRoom() {
-    if (confirm('Are you sure you want to leave the classroom?')) {
-        // Clean up
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-        if (screenStream) {
-            screenStream.getTracks().forEach(track => track.stop());
-        }
-        if (peer) {
-            peer.destroy();
-        }
-        if (chatSubscription) chatSubscription.unsubscribe();
-        if (participantsSubscription) participantsSubscription.unsubscribe();
-        if (classTimerInterval) clearInterval(classTimerInterval);
-        
-        // Record attendance
-        recordAttendance();
-        
-        // Stop timer
-        addTimeSpent();
-        stopTimer();
-        
-        window.location.href = '/dashboard.html';
-    }
-}
-
-async function recordAttendance() {
-    const duration = Math.floor((Date.now() - classStartTime) / 1000);
-    
-    await supabase
-        .from('classroom_attendance')
-        .upsert({
-            room_id: roomId,
-            user_id: currentUser.id,
-            left_at: new Date().toISOString(),
-            duration_seconds: duration
-        });
-}
-
-// ============================================
-// EVENT LISTENERS
-// ============================================
-
-function setupEventListeners() {
-    // Navigation
-    document.getElementById('backBtn')?.addEventListener('click', leaveRoom);
-    document.getElementById('leaveBtn')?.addEventListener('click', leaveRoom);
-    document.getElementById('participantsBtn')?.addEventListener('click', toggleSidebar);
-    document.getElementById('closeChatBtn')?.addEventListener('click', toggleSidebar);
-    
-    // Media controls
-    document.getElementById('micBtn')?.addEventListener('click', toggleMicrophone);
-    document.getElementById('camBtn')?.addEventListener('click', toggleCamera);
-    document.getElementById('screenShareBtn')?.addEventListener('click', toggleScreenShare);
-    document.getElementById('raiseHandBtn')?.addEventListener('click', toggleRaiseHand);
-    document.getElementById('recordBtn')?.addEventListener('click', toggleRecording);
-    document.getElementById('whiteboardBtn')?.addEventListener('click', toggleWhiteboard);
-    
-    // Local video controls
-    document.getElementById('localMicControl')?.addEventListener('click', toggleMicrophone);
-    document.getElementById('localCamControl')?.addEventListener('click', toggleCamera);
-    
-    // Chat
-    document.getElementById('sendChatBtn')?.addEventListener('click', sendChatMessage);
-    document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendChatMessage();
-    });
-    
-    // Tabs
-    document.querySelectorAll('.chat-tab').forEach(tab => {
-        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-    });
-    
-    // Whiteboard
-    document.querySelectorAll('.wb-tool').forEach(tool => {
-        tool.addEventListener('click', () => {
-            const toolName = tool.dataset.tool;
-            if (toolName) setWbTool(toolName);
-        });
-    });
-    document.querySelector('.wb-color')?.addEventListener('change', (e) => setWbColor(e.target.value));
-    document.getElementById('closeWhiteboard')?.addEventListener('click', toggleWhiteboard);
-    
-    // Clean up on page unload
-    window.addEventListener('beforeunload', () => {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-        addTimeSpent();
-        stopTimer();
-    });
-}
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Make functions global
-window.toggleSidebar = toggleSidebar;
-window.switchTab = switchTab;
-window.sendChatMessage = sendChatMessage;
-window.toggleWhiteboard = toggleWhiteboard;
-window.setWbTool = setWbTool;
-window.setWbColor = setWbColor;
-window.leaveRoom = leaveRoom;
-
-console.log('Virtual Classroom fully loaded');
