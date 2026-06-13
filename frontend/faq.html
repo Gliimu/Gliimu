@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FAQs – Gliimu Institute</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQs – Gliimu Institute | Frequently Asked Questions</title>
   <meta name="description" content="Find answers to frequently asked questions about admissions, tuition, learning structure, and accreditation at Gliimu Institute of Media Technologies.">
   
-  <link rel="icon" type="image/png" href="icons/logo2.png">
+  <link rel="icon" type="image/png" href="icons/logo.png">
   
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,11 +14,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- External CSS Files -->
-  <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/header.css">
-  <link rel="stylesheet" href="css/footer.css">
-  <link rel="stylesheet" href="css/modal.css">
+  <!-- CSS -->
   <link rel="stylesheet" href="css/faq.css">
 </head>
 <body>
@@ -36,15 +32,15 @@
     }
   </script>
 
-  <!-- Global Header -->
-  <div id="header-placeholder"></div>
-
-  <!-- FAQ Main Content -->
+  <!-- FAQ Main Content - No Header/Footer -->
   <main class="faq-main">
     <div class="faq-container">
       
       <!-- Hero Section -->
       <div class="faq-hero">
+        <div class="hero-icon">
+          <i class="fas fa-question-circle"></i>
+        </div>
         <h1>Frequently Asked Questions</h1>
         <p>Find answers to common questions about admissions, tuition, and more.</p>
       </div>
@@ -54,6 +50,9 @@
         <div class="faq-search-box">
           <i class="fas fa-search"></i>
           <input type="text" id="faqSearchInput" placeholder="Search for answers...">
+          <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
       </div>
       
@@ -75,53 +74,24 @@
       
       <!-- Still Have Questions -->
       <div class="faq-contact-section">
+        <div class="contact-icon">
+          <i class="fas fa-headset"></i>
+        </div>
         <h3>Still have questions?</h3>
         <p>Can't find the answer you're looking for? We're here to help.</p>
         <a href="contact.html" class="faq-contact-btn">
-          <i class="fas fa-envelope"></i> Contact Us
+          <i class="fas fa-envelope"></i> Contact Support
         </a>
       </div>
       
     </div>
   </main>
 
-  <!-- Footer -->
-  <div id="footer-placeholder"></div>
+  <!-- Back to Top Button -->
+  <button class="back-to-top" id="backToTopBtn">
+    <i class="fas fa-arrow-up"></i>
+  </button>
 
-  <!-- Login Modal Placeholder -->
-  <div id="login-modal-placeholder"></div>
-
-  <!-- JS Files -->
-  <script src="js/pages/header.js"></script>
-  <script src="js/pages/faq.js"></script>
-
-  <!-- Load Partials -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Load header
-      fetch('partials/header.html')
-        .then(r => r.text())
-        .then(html => {
-          document.getElementById('header-placeholder').innerHTML = html;
-        })
-        .catch(err => console.error('Header error:', err));
-      
-      // Load footer
-      fetch('partials/footer.html')
-        .then(r => r.text())
-        .then(html => {
-          document.getElementById('footer-placeholder').innerHTML = html;
-        })
-        .catch(err => console.error('Footer error:', err));
-      
-      // Load login modal
-      fetch('partials/login-modal.html')
-        .then(r => r.text())
-        .then(html => {
-          document.getElementById('login-modal-placeholder').innerHTML = html;
-        })
-        .catch(err => console.error('Modal error:', err));
-    });
-  </script>
+  <script type="module" src="js/pages/faq.js"></script>
 </body>
 </html>
