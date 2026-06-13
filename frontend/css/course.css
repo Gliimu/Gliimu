@@ -684,3 +684,147 @@ body.dark-mode .pricing-btn {
     font-size: 0.9rem;
   }
 }
+
+/* Progress Section */
+.progress-section {
+    padding: 30px 0;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.progress-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.progress-bar-bg {
+    background: var(--border-color);
+    border-radius: 20px;
+    height: 10px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    background: linear-gradient(90deg, var(--accent), var(--brand-gold-dark));
+    border-radius: 20px;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.progress-track-info {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: var(--accent);
+    text-align: center;
+}
+
+/* Module Complete Button */
+.module-complete-btn {
+    margin-top: 12px;
+    padding: 6px 12px;
+    background: var(--success);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.module-complete-btn:hover {
+    background: #0d9488;
+}
+
+.completed-badge {
+    margin-top: 12px;
+    font-size: 0.7rem;
+    color: var(--success);
+}
+
+.module-item.completed {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+/* Enrollment Modal */
+.enrollment-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.enrollment-modal-content {
+    background: var(--bg-card);
+    border-radius: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.enrollment-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.enrollment-modal-body {
+    padding: 20px;
+}
+
+.track-option, .payment-option {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.track-option:hover, .payment-option:hover {
+    border-color: var(--accent);
+    background: rgba(251, 176, 64, 0.05);
+}
+
+.track-option i {
+    font-size: 32px;
+    color: var(--accent);
+}
+
+.payment-option {
+    justify-content: space-between;
+}
+
+.price {
+    font-weight: 700;
+    color: var(--accent);
+}
