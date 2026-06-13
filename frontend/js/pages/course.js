@@ -1,6 +1,6 @@
-// course.js - Enhanced with enrollment, progress, and payment
+// course.js - Gamified Learning Path with Progress Tracking
 
-import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
+import { supabase, getCurrentUser } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ============================================
@@ -8,337 +8,228 @@ import { showToast } from '../modules/toast.js';
 // ============================================
 
 let currentUser = null;
-let isEnrolled = false;
-let enrollmentData = null;
-let userProgress = [];
-let currentTrack = null;
 let curriculumData = [];
+let userProgress = [];
+let userXP = 0;
+let userStreak = 0;
+let achievements = [];
+let expandedPhases = new Set();
+
+// XP values for different module types
+const XP_VALUES = {
+    'foundation': 50,
+    'core': 75,
+    'advanced': 100,
+    'capstone': 150
+};
+
+// Achievement definitions
+const ACHIEVEMENTS = [
+    { id: 'first_step', name: 'First Step', icon: 'fa-shoe-prints', desc: 'Complete your first module', xp: 50 },
+    { id: 'phase_master', name: 'Phase Master', icon: 'fa-trophy', desc: 'Complete an entire phase', xp: 200 },
+    { id: 'streak_7', name: 'Consistency King', icon: 'fa-calendar-check', desc: '7 day learning streak', xp: 100 },
+    { id: 'xp_hunter', name: 'XP Hunter', icon: 'fa-bolt', desc: 'Earn 1000 XP', xp: 150 },
+    { id: 'completionist', name: 'Completionist', icon: 'fa-crown', desc: 'Complete all modules', xp: 500 }
+];
 
 // ============================================
 // INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Course page initializing...');
+    console.log('Gamified Learning Path initializing...');
+    
+    // Show loading state
+    showLoading();
     
     // Get current user
     currentUser = await getCurrentUser();
     
-    // Load curriculum from database
-    await loadCurriculum();
-    
-    // Check enrollment status
-    if (currentUser) {
-        await checkEnrollmentStatus();
-        await loadUserProgress();
-        updateUIForUser();
+    if (!currentUser) {
+        showLoginPrompt();
+        return;
     }
     
-    // Render curriculum with progress
+    // Load curriculum
+    await loadCurriculum();
+    
+    // Load user progress
+    await loadUserProgress();
+    
+    // Load user stats
+    await loadUserStats();
+    
+    // Load leaderboard
+    await loadLeaderboard();
+    
+    // Check and unlock achievements
+    await checkAchievements();
+    
+    // Render everything
     renderCurriculum();
+    renderAchievements();
     
     // Setup event listeners
     setupEventListeners();
-    animateOnScroll();
     
-    // Update pricing based on user
-    updatePricingForUser();
+    // Hide loading
+    hideLoading();
+    
+    // Update overall stats
+    updateOverallStats();
 });
 
-// ============================================
-// DATABASE FUNCTIONS
-// ============================================
-
-async function loadCurriculum() {
-    try {
-        const { data, error } = await supabase
-            .from('course_curriculum')
-            .select('*')
-            .order('phase', { ascending: true })
-            .order('module_order', { ascending: true });
-        
-        if (!error && data && data.length > 0) {
-            // Group by phase
-            const phases = {};
-            data.forEach(module => {
-                if (!phases[module.phase]) {
-                    phases[module.phase] = {
-                        phase: module.phase,
-                        title: module.phase_title,
-                        modules: []
-                    };
-                }
-                phases[module.phase].modules.push(module);
-            });
-            curriculumData = Object.values(phases);
-        } else {
-            // Fallback to static data
-            useStaticCurriculum();
-        }
-    } catch (error) {
-        console.error('Error loading curriculum:', error);
-        useStaticCurriculum();
+function showLoading() {
+    const container = document.getElementById('curriculumTimeline');
+    if (container) {
+        container.innerHTML = `
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading your learning path...</p>
+            </div>
+        `;
     }
 }
 
-function useStaticCurriculum() {
+function hideLoading() {
+    // Loading will be replaced by render
+}
+
+function showLoginPrompt() {
+    const container = document.getElementById('curriculumTimeline');
+    if (container) {
+        container.innerHTML = `
+            <div class="login-prompt">
+                <i class="fas fa-lock"></i>
+                <h3>Sign In Required</h3>
+                <p>Please sign in to track your learning progress and earn XP.</p>
+                <button onclick="window.location.href='/signin.html'" class="btn-primary">Sign In</button>
+            </div>
+        `;
+    }
+}
+
+// ============================================
+// LOAD DATA
+// ============================================
+
+async function loadCurriculum() {
+    // Static curriculum data (can be moved to database later)
     curriculumData = [
         {
-            phase: 1,
-            title: "Phase 1: Foundation (Month 1-2)",
+            id: 1,
+            name: "Phase 1: Foundation",
             modules: [
-                { module_name: "Introduction to Media Technologies", module_description: "Overview of the media landscape and career paths" },
-                { module_name: "Visual Storytelling Fundamentals", module_description: "Understanding narrative structure and visual language" },
-                { module_name: "Design Principles", module_description: "Color theory, typography, layout, and composition" },
-                { module_name: "Introduction to Programming", module_description: "Basic coding concepts using JavaScript" }
+                { id: 1, name: "Introduction to Media Technologies", desc: "Overview of the media landscape and career paths", duration: "2 hours", xp: 50, type: "foundation" },
+                { id: 2, name: "Visual Storytelling Fundamentals", desc: "Understanding narrative structure and visual language", duration: "3 hours", xp: 50, type: "foundation" },
+                { id: 3, name: "Design Principles", desc: "Color theory, typography, layout, and composition", duration: "4 hours", xp: 50, type: "foundation" },
+                { id: 4, name: "Introduction to Programming", desc: "Basic coding concepts using JavaScript", duration: "5 hours", xp: 50, type: "foundation" }
             ]
         },
         {
-            phase: 2,
-            title: "Phase 2: Core Skills (Month 3-6)",
+            id: 2,
+            name: "Phase 2: Core Skills",
             modules: [
-                { module_name: "Video Production & Cinematography", module_description: "Camera operation, lighting, and audio recording" },
-                { module_name: "Post-Production & Editing", module_description: "Adobe Premiere Pro, DaVinci Resolve, After Effects" },
-                { module_name: "UI/UX Design", module_description: "Figma, prototyping, user research, accessibility" },
-                { module_name: "Web Development", module_description: "HTML, CSS, JavaScript, responsive design" }
+                { id: 5, name: "Video Production & Cinematography", desc: "Camera operation, lighting, and audio recording", duration: "6 hours", xp: 75, type: "core" },
+                { id: 6, name: "Post-Production & Editing", desc: "Adobe Premiere Pro, DaVinci Resolve, After Effects", duration: "8 hours", xp: 75, type: "core" },
+                { id: 7, name: "UI/UX Design", desc: "Figma, prototyping, user research, accessibility", duration: "6 hours", xp: 75, type: "core" },
+                { id: 8, name: "Web Development", desc: "HTML, CSS, JavaScript, responsive design", duration: "8 hours", xp: 75, type: "core" }
             ]
         },
         {
-            phase: 3,
-            title: "Phase 3: Advanced (Month 7-10)",
+            id: 3,
+            name: "Phase 3: Advanced",
             modules: [
-                { module_name: "Advanced Video Effects", module_description: "VFX, motion graphics, 3D animation" },
-                { module_name: "Full-Stack Development", module_description: "React, Node.js, databases, APIs" },
-                { module_name: "Brand Strategy & Management", module_description: "Brand identity, marketing, social media" },
-                { module_name: "Portfolio Development", module_description: "Building a professional portfolio" }
+                { id: 9, name: "Advanced Video Effects", desc: "VFX, motion graphics, 3D animation", duration: "8 hours", xp: 100, type: "advanced" },
+                { id: 10, name: "Full-Stack Development", desc: "React, Node.js, databases, APIs", duration: "10 hours", xp: 100, type: "advanced" },
+                { id: 11, name: "Brand Strategy & Management", desc: "Brand identity, marketing, social media", duration: "4 hours", xp: 100, type: "advanced" },
+                { id: 12, name: "Portfolio Development", desc: "Building a professional portfolio", duration: "6 hours", xp: 100, type: "advanced" }
             ]
         },
         {
-            phase: 4,
-            title: "Phase 4: Capstone (Month 11-12)",
+            id: 4,
+            name: "Phase 4: Capstone",
             modules: [
-                { module_name: "Industry Project", module_description: "Real-world client project with mentorship" },
-                { module_name: "Career Preparation", module_description: "Resume building, interview skills, networking" },
-                { module_name: "Final Portfolio Review", module_description: "Presentation to industry panel" }
+                { id: 13, name: "Industry Project", desc: "Real-world client project with mentorship", duration: "20 hours", xp: 150, type: "capstone" },
+                { id: 14, name: "Career Preparation", desc: "Resume building, interview skills, networking", duration: "4 hours", xp: 150, type: "capstone" },
+                { id: 15, name: "Final Portfolio Review", desc: "Presentation to industry panel", duration: "3 hours", xp: 150, type: "capstone" }
             ]
         }
     ];
 }
 
-async function checkEnrollmentStatus() {
-    if (!currentUser) return;
-    
-    try {
-        const { data, error } = await supabase
-            .from('course_enrollments')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .eq('course_id', 'diploma-fullstack-media')
-            .single();
-        
-        if (!error && data) {
-            isEnrolled = true;
-            enrollmentData = data;
-            currentTrack = data.track;
-            showToast(`Welcome back! You're enrolled in the ${currentTrack === 'creative' ? 'Creative Media' : 'Tech'} Track.`, 'success');
-        }
-    } catch (error) {
-        console.log('Not enrolled yet');
-    }
-}
-
 async function loadUserProgress() {
-    if (!currentUser || !isEnrolled) return;
-    
     try {
         const { data, error } = await supabase
             .from('module_progress')
-            .select('module_name, completed')
+            .select('*')
             .eq('user_id', currentUser.id);
         
         if (!error && data) {
             userProgress = data;
-            updateProgressStats();
+        } else {
+            // Initialize empty progress
+            userProgress = [];
         }
     } catch (error) {
         console.error('Error loading progress:', error);
+        userProgress = [];
     }
 }
 
-async function enrollInCourse(track, paymentPlan) {
-    if (!currentUser) {
-        showToast('Please login to enroll', 'error');
-        setTimeout(() => {
-            window.location.href = 'signin.html';
-        }, 1500);
-        return;
-    }
-    
-    // Check wallet balance
-    const profile = await getUserProfile();
-    const walletBalance = profile?.wallet_balance || 0;
-    
-    let amount = 0;
-    if (paymentPlan === 'one-time') amount = 250000;
-    else if (paymentPlan === 'installment') amount = 90000;
-    else if (paymentPlan === 'scholarship') amount = 237500;
-    
-    if (walletBalance < amount) {
-        showToast(`Insufficient wallet balance. Need ₦${amount.toLocaleString()}`, 'error');
-        if (confirm('Would you like to fund your wallet?')) {
-            window.location.href = 'dashboard.html?tab=wallet';
+async function loadUserStats() {
+    // Calculate XP from completed modules
+    userXP = userProgress.reduce((total, p) => {
+        if (p.completed) {
+            // Find module XP
+            for (const phase of curriculumData) {
+                const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
+                if (module) {
+                    return total + module.xp;
+                }
+            }
         }
-        return;
-    }
+        return total;
+    }, 0);
     
-    // Process enrollment
+    // Calculate streak (simplified - would need daily tracking)
+    userStreak = await calculateStreak();
+    
+    // Update UI
+    document.getElementById('xpPoints').textContent = userXP;
+    document.getElementById('streakDays').textContent = userStreak;
+}
+
+async function calculateStreak() {
+    // For now, return mock streak
+    // In production, track daily logins and completions
+    return 3;
+}
+
+async function loadLeaderboard() {
     try {
-        // Deduct from wallet
-        const newBalance = walletBalance - amount;
-        await supabase
-            .from('users')
-            .update({ wallet_balance: newBalance })
-            .eq('id', currentUser.id);
+        // Get top users by XP
+        const { data, error } = await supabase
+            .from('user_stats')
+            .select('user_id, total_xp, users(name)')
+            .order('total_xp', { ascending: false })
+            .limit(5);
         
-        // Create enrollment record
-        const { error } = await supabase
-            .from('course_enrollments')
-            .insert({
-                user_id: currentUser.id,
-                course_id: 'diploma-fullstack-media',
-                track: track,
-                payment_plan: paymentPlan,
-                enrollment_date: new Date().toISOString(),
-                status: 'active'
-            });
-        
-        if (error) throw error;
-        
-        // Record transaction
-        await supabase
-            .from('transactions')
-            .insert({
-                user_id: currentUser.id,
-                amount: amount,
-                type: 'debit',
-                description: `Course Enrollment: Full-Stack Media Diploma (${track} track)`,
-                status: 'completed'
-            });
-        
-        showToast('Successfully enrolled! Welcome to the program.', 'success');
-        isEnrolled = true;
-        currentTrack = track;
-        
-        // Update UI
-        updateUIForUser();
-        renderCurriculum();
-        
+        if (!error && data) {
+            renderLeaderboard(data);
+        } else {
+            // Mock leaderboard
+            const mockLeaderboard = [
+                { name: 'Michael Chen', xp: 2450 },
+                { name: 'Sarah Johnson', xp: 2100 },
+                { name: 'David Okafor', xp: 1890 },
+                { name: 'Zoe Williams', xp: 1670 },
+                { name: 'Alex Hunter', xp: 1450 }
+            ];
+            renderLeaderboard(mockLeaderboard);
+        }
     } catch (error) {
-        console.error('Enrollment error:', error);
-        showToast('Enrollment failed. Please try again.', 'error');
-    }
-}
-
-async function markModuleComplete(moduleName) {
-    if (!currentUser || !isEnrolled) {
-        showToast('Please enroll to track progress', 'info');
-        return;
-    }
-    
-    // Check if already completed
-    const existing = userProgress.find(p => p.module_name === moduleName);
-    if (existing?.completed) {
-        showToast('Module already completed!', 'info');
-        return;
-    }
-    
-    try {
-        const { error } = await supabase
-            .from('module_progress')
-            .insert({
-                user_id: currentUser.id,
-                module_name: moduleName,
-                completed: true,
-                completed_at: new Date().toISOString()
-            });
-        
-        if (error) throw error;
-        
-        userProgress.push({ module_name: moduleName, completed: true });
-        updateProgressStats();
-        renderCurriculum();
-        
-        showToast(`Great job! Completed "${moduleName}"`, 'success');
-        
-        // Check if all modules completed
-        await checkCourseCompletion();
-        
-    } catch (error) {
-        console.error('Error marking module complete:', error);
-        showToast('Failed to update progress', 'error');
-    }
-}
-
-async function checkCourseCompletion() {
-    // Get total required modules
-    const totalModules = curriculumData.reduce((sum, phase) => sum + phase.modules.length, 0);
-    const completedModules = userProgress.filter(p => p.completed).length;
-    
-    if (completedModules === totalModules && totalModules > 0) {
-        // Generate certificate
-        await generateCertificate();
-    }
-}
-
-async function generateCertificate() {
-    // Check if certificate already exists
-    const { data: existing } = await supabase
-        .from('certificates')
-        .select('id')
-        .eq('user_id', currentUser.id)
-        .eq('course_id', 'diploma-fullstack-media')
-        .single();
-    
-    if (existing) {
-        showToast('Certificate already generated! Check your profile.', 'info');
-        return;
-    }
-    
-    // Generate certificate
-    const certificateId = `GLM-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-    
-    const { error } = await supabase
-        .from('certificates')
-        .insert({
-            user_id: currentUser.id,
-            course_id: 'diploma-fullstack-media',
-            certificate_number: certificateId,
-            student_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
-            completion_date: new Date().toISOString(),
-            track: currentTrack
-        });
-    
-    if (!error) {
-        showToast('🎉 Congratulations! You\'ve earned your certificate!', 'success');
-        setTimeout(() => {
-            window.location.href = 'dashboard.html?tab=certificates';
-        }, 3000);
-    }
-}
-
-function updateProgressStats() {
-    const totalModules = curriculumData.reduce((sum, phase) => sum + phase.modules.length, 0);
-    const completedModules = userProgress.filter(p => p.completed).length;
-    const percentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-    
-    // Update progress bar if exists
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-    if (progressBar) {
-        progressBar.style.width = `${percentage}%`;
-    }
-    if (progressText) {
-        progressText.textContent = `${Math.round(percentage)}% Complete`;
+        console.error('Error loading leaderboard:', error);
     }
 }
 
@@ -347,209 +238,453 @@ function updateProgressStats() {
 // ============================================
 
 function renderCurriculum() {
-    const container = document.getElementById('curriculumContainer');
+    const container = document.getElementById('curriculumTimeline');
     if (!container) return;
     
-    container.innerHTML = curriculumData.map(phase => {
-        const phaseNumber = phase.phase || 1;
-        const phaseModules = phase.modules || [];
+    let totalModules = 0;
+    let completedModules = 0;
+    
+    curriculumData.forEach(phase => {
+        totalModules += phase.modules.length;
+        phase.modules.forEach(module => {
+            const isCompleted = userProgress.some(p => 
+                (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
+            );
+            if (isCompleted) completedModules++;
+        });
+    });
+    
+    document.getElementById('totalModules').textContent = totalModules;
+    document.getElementById('completedModules').textContent = completedModules;
+    
+    const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
+    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
+    
+    container.innerHTML = curriculumData.map((phase, phaseIndex) => {
+        const phaseCompleted = phase.modules.every(module => 
+            userProgress.some(p => (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed)
+        );
+        const phaseProgress = calculatePhaseProgress(phase);
+        const isExpanded = expandedPhases.has(phase.id);
         
         return `
-            <div class="curriculum-phase">
-                <h3 class="phase-title">${phase.title || `Phase ${phaseNumber}`}</h3>
-                <div class="modules-grid">
-                    ${phaseModules.map(module => {
-                        const moduleName = module.module_name || module.name;
-                        const isCompleted = userProgress.some(p => p.module_name === moduleName && p.completed);
-                        const canComplete = isEnrolled && !isCompleted;
-                        
-                        return `
-                            <div class="module-item ${isCompleted ? 'completed' : ''}">
-                                <div class="module-icon">
-                                    ${isCompleted ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-book-open"></i>'}
-                                </div>
-                                <div class="module-name">${moduleName}</div>
-                                <div class="module-desc">${module.module_description || module.desc}</div>
-                                ${isEnrolled && !isCompleted ? `
-                                    <button class="module-complete-btn" onclick="markModuleComplete('${moduleName.replace(/'/g, "\\'")}')">
-                                        Mark Complete
-                                    </button>
-                                ` : ''}
-                                ${isCompleted ? '<div class="completed-badge"><i class="fas fa-check"></i> Completed</div>' : ''}
+            <div class="phase-card ${isExpanded ? 'expanded' : ''}" data-phase="${phase.id}">
+                <div class="phase-marker ${phaseCompleted ? 'completed' : ''}">
+                    ${phaseCompleted ? '<i class="fas fa-check"></i>' : phase.id}
+                </div>
+                <div class="phase-content">
+                    <div class="phase-header" onclick="togglePhase(${phase.id})">
+                        <div class="phase-title">${phase.name}</div>
+                        <div class="phase-stats">
+                            <span><i class="fas fa-${phaseCompleted ? 'check-circle' : 'circle'}"></i> ${phaseProgress.completed}/${phase.modules.length} modules</span>
+                            <div class="phase-progress">
+                                <div class="phase-progress-fill" style="width: ${phaseProgress.percentage}%"></div>
                             </div>
-                        `;
-                    }).join('')}
+                            <i class="fas fa-chevron-${isExpanded ? 'up' : 'down'}"></i>
+                        </div>
+                    </div>
+                    <div class="phase-modules">
+                        ${phase.modules.map(module => renderModuleItem(module)).join('')}
+                    </div>
                 </div>
             </div>
         `;
     }).join('');
 }
 
-function updateUIForUser() {
-    // Show/hide enrollment CTA
-    const enrollmentSection = document.getElementById('enrollmentSection');
-    const progressSection = document.getElementById('progressSection');
+function renderModuleItem(module) {
+    const isCompleted = userProgress.some(p => 
+        (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
+    );
+    const isLocked = checkModuleLock(module);
     
-    if (isEnrolled) {
-        if (enrollmentSection) enrollmentSection.style.display = 'none';
-        if (progressSection) progressSection.style.display = 'block';
-        
-        // Add progress bar to page
-        addProgressBar();
-    } else {
-        if (enrollmentSection) enrollmentSection.style.display = 'block';
-        if (progressSection) progressSection.style.display = 'none';
+    let statusClass = 'locked';
+    let statusIcon = '<i class="fas fa-lock"></i>';
+    
+    if (isCompleted) {
+        statusClass = 'completed';
+        statusIcon = '<i class="fas fa-check"></i>';
+    } else if (!isLocked) {
+        statusClass = 'in-progress';
+        statusIcon = '<i class="fas fa-play"></i>';
     }
     
-    // Update CTA buttons
-    const applyBtns = document.querySelectorAll('.apply-now, .pricing-btn, .track-btn, .btn-cta-primary');
-    applyBtns.forEach(btn => {
-        if (!isEnrolled) {
-            btn.onclick = () => showEnrollmentModal();
-        } else {
-            btn.onclick = () => window.location.href = 'dashboard.html';
-            btn.textContent = 'Go to Dashboard';
-        }
-    });
+    return `
+        <div class="module-item" onclick="openModuleModal(${module.id})">
+            <div class="module-status ${statusClass}">
+                ${statusIcon}
+            </div>
+            <div class="module-info">
+                <div class="module-name">${module.name}</div>
+                <div class="module-meta">
+                    <span><i class="fas fa-clock"></i> ${module.duration}</span>
+                    <span class="module-xp"><i class="fas fa-star"></i> ${module.xp} XP</span>
+                </div>
+            </div>
+            <button class="module-action" onclick="event.stopPropagation(); completeModule(${module.id})" ${isCompleted ? 'disabled' : ''}>
+                <i class="fas fa-${isCompleted ? 'check' : 'arrow-right'}"></i>
+            </button>
+        </div>
+    `;
 }
 
-function addProgressBar() {
-    const existingBar = document.getElementById('progressSection');
-    if (existingBar) return;
+function calculatePhaseProgress(phase) {
+    let completed = 0;
+    phase.modules.forEach(module => {
+        const isCompleted = userProgress.some(p => 
+            (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
+        );
+        if (isCompleted) completed++;
+    });
+    const percentage = phase.modules.length > 0 ? (completed / phase.modules.length) * 100 : 0;
+    return { completed, percentage };
+}
+
+function checkModuleLock(module) {
+    // Check if previous modules are completed
+    // For now, all modules are unlocked
+    // In production, check prerequisites
+    return false;
+}
+
+function renderAchievements() {
+    const container = document.getElementById('achievementsGrid');
+    if (!container) return;
     
-    const heroSection = document.querySelector('.course-hero');
-    if (heroSection) {
-        const progressHtml = `
-            <div id="progressSection" class="progress-section">
-                <div class="progress-container">
-                    <div class="progress-header">
-                        <span>Your Progress</span>
-                        <span id="progressText">0% Complete</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
-                    </div>
-                    <div class="progress-track-info">
-                        <i class="fas fa-map-marker-alt"></i> Track: ${currentTrack === 'creative' ? 'Creative Media' : 'Tech'}
-                    </div>
+    container.innerHTML = ACHIEVEMENTS.map(achievement => {
+        const isUnlocked = checkAchievementUnlocked(achievement);
+        return `
+            <div class="achievement-card ${isUnlocked ? 'unlocked' : ''}">
+                <div class="achievement-icon ${!isUnlocked ? 'achievement-locked' : ''}">
+                    <i class="fas ${achievement.icon}"></i>
                 </div>
+                <div class="achievement-name">${achievement.name}</div>
+                <div class="achievement-desc">${achievement.desc}</div>
+                ${!isUnlocked ? '<div class="achievement-locked-badge"><i class="fas fa-lock"></i></div>' : ''}
             </div>
         `;
-        heroSection.insertAdjacentHTML('afterend', progressHtml);
-        updateProgressStats();
+    }).join('');
+}
+
+function renderLeaderboard(users) {
+    const container = document.getElementById('leaderboardList');
+    if (!container) return;
+    
+    container.innerHTML = users.map((user, index) => `
+        <div class="leaderboard-item">
+            <div class="leaderboard-rank">#${index + 1}</div>
+            <div class="leaderboard-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="leaderboard-name">${user.name || 'User'}</div>
+            <div class="leaderboard-xp">${user.xp || user.total_xp} XP</div>
+        </div>
+    `).join('');
+}
+
+// ============================================
+// PROGRESS & XP FUNCTIONS
+// ============================================
+
+async function completeModule(moduleId) {
+    // Find module
+    let module = null;
+    for (const phase of curriculumData) {
+        const found = phase.modules.find(m => m.id === moduleId);
+        if (found) {
+            module = found;
+            break;
+        }
+    }
+    
+    if (!module) return;
+    
+    // Check if already completed
+    const alreadyCompleted = userProgress.some(p => 
+        (p.module_id === moduleId.toString() || p.module_name === module.name) && p.completed
+    );
+    
+    if (alreadyCompleted) {
+        showToast('Module already completed!', 'info');
+        return;
+    }
+    
+    // Show loading
+    showToast(`Completing "${module.name}"...`, 'info');
+    
+    // Save progress
+    try {
+        const { error } = await supabase
+            .from('module_progress')
+            .insert({
+                user_id: currentUser.id,
+                module_id: moduleId.toString(),
+                module_name: module.name,
+                completed: true,
+                completed_at: new Date().toISOString(),
+                xp_earned: module.xp
+            });
+        
+        if (error) throw error;
+        
+        // Update local state
+        userProgress.push({
+            module_id: moduleId.toString(),
+            module_name: module.name,
+            completed: true
+        });
+        
+        // Add XP
+        userXP += module.xp;
+        document.getElementById('xpPoints').textContent = userXP;
+        
+        // Show celebration
+        celebrateCompletion(module);
+        
+        // Update UI
+        renderCurriculum();
+        updateOverallStats();
+        
+        // Check for achievements
+        await checkAchievements();
+        
+        // Update leaderboard
+        await loadLeaderboard();
+        
+    } catch (error) {
+        console.error('Error completing module:', error);
+        showToast('Failed to mark module complete', 'error');
     }
 }
 
-function updatePricingForUser() {
-    if (!currentUser) return;
+function celebrateCompletion(module) {
+    // Show toast with XP gain
+    showToast(`🎉 +${module.xp} XP earned for completing "${module.name}"!`, 'success');
     
-    // Show user-specific pricing (e.g., returning student discount)
-    const pricingCards = document.querySelectorAll('.pricing-price');
-    // Could apply discounts based on user history
+    // Trigger confetti effect
+    triggerConfetti();
+    
+    // Play celebration sound (optional)
+    // playCelebrationSound();
 }
 
-function showEnrollmentModal() {
-    // Create enrollment modal
-    const modalHtml = `
-        <div class="enrollment-modal" id="enrollmentModal">
-            <div class="enrollment-modal-content">
-                <div class="enrollment-modal-header">
-                    <h3>Choose Your Track</h3>
-                    <button class="close-modal" onclick="closeEnrollmentModal()">&times;</button>
-                </div>
-                <div class="enrollment-modal-body">
-                    <div class="track-option" onclick="selectTrack('creative')">
-                        <i class="fas fa-palette"></i>
-                        <div>
-                            <h4>Creative Media Track</h4>
-                            <p>Focus on video production, motion graphics, and UI/UX design</p>
-                        </div>
-                    </div>
-                    <div class="track-option" onclick="selectTrack('tech')">
-                        <i class="fas fa-code"></i>
-                        <div>
-                            <h4>Tech Track</h4>
-                            <p>Focus on web development, programming, and cloud computing</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+function triggerConfetti() {
+    const canvas = document.getElementById('confettiCanvas');
+    if (!canvas) return;
     
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('enrollmentModal').style.display = 'flex';
+    canvas.style.display = 'block';
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const particles = [];
+    const colors = ['#fbb040', '#2c2f78', '#10b981', '#ef4444', '#3b82f6'];
+    
+    for (let i = 0; i < 150; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height,
+            size: Math.random() * 8 + 4,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            speedY: Math.random() * 5 + 3,
+            speedX: (Math.random() - 0.5) * 3,
+            rotation: Math.random() * 360
+        });
+    }
+    
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let anyVisible = false;
+        
+        for (const p of particles) {
+            p.y += p.speedY;
+            p.x += p.speedX;
+            p.rotation += 5;
+            
+            if (p.y < canvas.height + 50) {
+                anyVisible = true;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation * Math.PI / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+            }
+        }
+        
+        if (anyVisible) {
+            requestAnimationFrame(animate);
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.style.display = 'none';
+        }
+    }
+    
+    animate();
+    
+    setTimeout(() => {
+        canvas.style.display = 'none';
+    }, 3000);
 }
 
-function closeEnrollmentModal() {
-    const modal = document.getElementById('enrollmentModal');
-    if (modal) modal.remove();
+async function checkAchievements() {
+    const completedCount = userProgress.filter(p => p.completed).length;
+    const totalModules = curriculumData.reduce((sum, p) => sum + p.modules.length, 0);
+    
+    // Check each achievement
+    for (const achievement of ACHIEVEMENTS) {
+        let earned = false;
+        
+        switch (achievement.id) {
+            case 'first_step':
+                earned = completedCount >= 1;
+                break;
+            case 'phase_master':
+                // Check if any phase is fully completed
+                for (const phase of curriculumData) {
+                    const phaseCompleted = phase.modules.every(m => 
+                        userProgress.some(p => (p.module_id === m.id.toString() || p.module_name === m.name) && p.completed)
+                    );
+                    if (phaseCompleted) earned = true;
+                }
+                break;
+            case 'streak_7':
+                earned = userStreak >= 7;
+                break;
+            case 'xp_hunter':
+                earned = userXP >= 1000;
+                break;
+            case 'completionist':
+                earned = completedCount === totalModules;
+                break;
+        }
+        
+        if (earned && !userAchievements?.includes(achievement.id)) {
+            // Unlock achievement
+            await unlockAchievement(achievement);
+        }
+    }
+}
+
+async function unlockAchievement(achievement) {
+    showToast(`🏆 Achievement Unlocked: ${achievement.name}! +${achievement.xp} XP`, 'success');
+    
+    // Add XP for achievement
+    userXP += achievement.xp;
+    document.getElementById('xpPoints').textContent = userXP;
+    
+    // Save to database
+    try {
+        await supabase
+            .from('user_achievements')
+            .insert({
+                user_id: currentUser.id,
+                achievement_id: achievement.id,
+                unlocked_at: new Date().toISOString()
+            });
+    } catch (error) {
+        console.error('Error saving achievement:', error);
+    }
+    
+    // Re-render achievements
+    renderAchievements();
+}
+
+function checkAchievementUnlocked(achievement) {
+    // Check if user has this achievement
+    // For demo, return false for locked ones
+    if (achievement.id === 'first_step' && userProgress.length > 0) return true;
+    if (achievement.id === 'xp_hunter' && userXP >= 1000) return true;
+    return false;
 }
 
 // ============================================
-// TRACK & PLAN SELECTION (Enhanced)
+// UI HELPERS
 // ============================================
 
-function selectTrack(track) {
-    closeEnrollmentModal();
-    
-    // Store selected track
-    window.selectedTrack = track;
-    
-    // Show payment options modal
-    showPaymentModal(track);
+function togglePhase(phaseId) {
+    if (expandedPhases.has(phaseId)) {
+        expandedPhases.delete(phaseId);
+    } else {
+        expandedPhases.add(phaseId);
+    }
+    renderCurriculum();
 }
 
-function showPaymentModal(track) {
-    const trackName = track === 'creative' ? 'Creative Media' : 'Tech';
+function openModuleModal(moduleId) {
+    let module = null;
+    for (const phase of curriculumData) {
+        const found = phase.modules.find(m => m.id === moduleId);
+        if (found) {
+            module = found;
+            break;
+        }
+    }
     
-    const modalHtml = `
-        <div class="enrollment-modal" id="paymentModal">
-            <div class="enrollment-modal-content">
-                <div class="enrollment-modal-header">
-                    <h3>Complete Enrollment - ${trackName} Track</h3>
-                    <button class="close-modal" onclick="closePaymentModal()">&times;</button>
-                </div>
-                <div class="enrollment-modal-body">
-                    <p>Select your payment plan:</p>
-                    <div class="payment-option" onclick="processEnrollment('${track}', 'one-time')">
-                        <div>
-                            <h4>One-Time Payment</h4>
-                            <p>Pay ₦250,000 once</p>
-                        </div>
-                        <div class="price">₦250,000</div>
-                    </div>
-                    <div class="payment-option" onclick="processEnrollment('${track}', 'installment')">
-                        <div>
-                            <h4>Installment Plan</h4>
-                            <p>3 payments of ₦90,000 + ₦80,000 + ₦80,000</p>
-                        </div>
-                        <div class="price">₦90,000 upfront</div>
-                    </div>
-                    <div class="payment-option" onclick="processEnrollment('${track}', 'scholarship')">
-                        <div>
-                            <h4>Early Bird Scholarship</h4>
-                            <p>Limited slots - 5% discount</p>
-                        </div>
-                        <div class="price">₦237,500</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+    if (!module) return;
     
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('paymentModal').style.display = 'flex';
+    const isCompleted = userProgress.some(p => 
+        (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
+    );
+    
+    document.getElementById('modalTitle').textContent = module.name;
+    document.getElementById('modalDescription').textContent = module.desc;
+    document.getElementById('modalDuration').textContent = module.duration;
+    document.getElementById('modalXP').textContent = `${module.xp} XP`;
+    document.getElementById('modalIcon').innerHTML = `<i class="fas fa-${getModuleIcon(module)}"></i>`;
+    
+    const completeBtn = document.getElementById('modalCompleteBtn');
+    if (completeBtn) {
+        if (isCompleted) {
+            completeBtn.disabled = true;
+            completeBtn.textContent = 'Completed ✓';
+            completeBtn.style.opacity = '0.5';
+        } else {
+            completeBtn.disabled = false;
+            completeBtn.textContent = 'Mark Complete';
+            completeBtn.style.opacity = '1';
+            completeBtn.onclick = () => {
+                completeModule(module.id);
+                closeModuleModal();
+            };
+        }
+    }
+    
+    document.getElementById('moduleModal').classList.add('active');
 }
 
-function closePaymentModal() {
-    const modal = document.getElementById('paymentModal');
-    if (modal) modal.remove();
+function closeModuleModal() {
+    document.getElementById('moduleModal').classList.remove('active');
 }
 
-function processEnrollment(track, plan) {
-    closePaymentModal();
-    enrollInCourse(track, plan);
+function completeModuleFromModal() {
+    const modal = document.getElementById('moduleModal');
+    const completeBtn = document.getElementById('modalCompleteBtn');
+    if (completeBtn && !completeBtn.disabled) {
+        completeBtn.click();
+    }
+}
+
+function getModuleIcon(module) {
+    if (module.name.includes('Video') || module.name.includes('Cinematography')) return 'video';
+    if (module.name.includes('Design')) return 'palette';
+    if (module.name.includes('Development') || module.name.includes('Programming')) return 'code';
+    if (module.name.includes('Project')) return 'rocket';
+    return 'book-open';
+}
+
+function updateOverallStats() {
+    const totalModules = curriculumData.reduce((sum, p) => sum + p.modules.length, 0);
+    const completedModules = userProgress.filter(p => p.completed).length;
+    const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+    
+    document.getElementById('totalModules').textContent = totalModules;
+    document.getElementById('completedModules').textContent = completedModules;
+    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
+    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
 }
 
 // ============================================
@@ -557,46 +692,23 @@ function processEnrollment(track, plan) {
 // ============================================
 
 function setupEventListeners() {
-    const brochureBtn = document.getElementById('downloadBrochure');
-    if (brochureBtn) {
-        brochureBtn.addEventListener('click', () => {
-            window.open('/brochure/diploma-media-production.pdf', '_blank');
+    // Close modal on outside click
+    const modal = document.getElementById('moduleModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModuleModal();
         });
     }
-}
-
-// ============================================
-// ANIMATIONS
-// ============================================
-
-function animateOnScroll() {
-    const elements = document.querySelectorAll('.curriculum-phase, .track-card, .instructor-card, .pricing-card');
-    
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-                observer.unobserve(entry.target);
-            }
-        });
-    }, { threshold: 0.1 });
-    
-    elements.forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(30px)';
-        el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-        observer.observe(el);
-    });
 }
 
 // ============================================
 // EXPOSE GLOBALLY
 // ============================================
 
-window.selectTrack = selectTrack;
-window.markModuleComplete = markModuleComplete;
-window.closeEnrollmentModal = closeEnrollmentModal;
-window.closePaymentModal = closePaymentModal;
-window.processEnrollment = processEnrollment;
-window.enrollInCourse = enrollInCourse;
+window.togglePhase = togglePhase;
+window.openModuleModal = openModuleModal;
+window.closeModuleModal = closeModuleModal;
+window.completeModule = completeModule;
+window.completeModuleFromModal = completeModuleFromModal;
+
+console.log('Gamified Learning Path ready');
