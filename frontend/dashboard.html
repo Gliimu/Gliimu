@@ -3,16 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Glimu</title>
+    <title>Dashboard | Gliimu</title>
     <link rel="stylesheet" href="/css/global.css">
     <link rel="stylesheet" href="/css/dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-
-    <!-- NO HEADER PLACEHOLDER - Dashboard has its own layout -->
-    <!-- <div id="header-placeholder"></div> -->
 
     <!-- Dashboard Container -->
     <div class="dashboard-container">
@@ -34,7 +31,6 @@
 
         <!-- Main Content -->
         <main class="dashboard-main">
-            <!-- Dynamic Content Sections -->
             <div id="dashboardContent">
                 <div class="loading-spinner" style="text-align: center; padding: 40px;">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -47,49 +43,98 @@
     <!-- Mobile Sidebar Overlay -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <div id="viewBookModal" class="modal">
+    <!-- Notification Modal -->
+    <div id="notificationModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="viewBookTitle"></h2>
-                <button class="modal-close closeViewBookModal">&times;</button>
+                <h2>Notification Preferences</h2>
+                <button class="modal-close closeNotificationModal">&times;</button>
             </div>
             <div class="modal-body">
-                <img id="viewBookImage" src="" alt="">
-                <p id="viewBookDescription"></p>
+                <form id="notificationForm">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="notificationEmail" placeholder="your@email.com">
+                        <small>Receive updates, payment confirmations, and certificate alerts</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="notificationPhone" placeholder="08012345678">
+                        <small>Receive SMS notifications (optional)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Notification Preferences</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" id="notifyPayment"> Payment confirmations</label>
+                            <label><input type="checkbox" id="notifyCertificate"> Certificate awards</label>
+                            <label><input type="checkbox" id="notifyPromo"> Promotions & updates</label>
+                            <label><input type="checkbox" id="notifyWithdrawal"> Withdrawal status</label>
+                        </div>
+                    </div>
+                </form>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn modal-btn-secondary closeViewBookFooterBtn">Close</button>
-                <button class="modal-btn modal-btn-primary" id="readBookBtn">Read Now</button>
+                <button class="btn-primary" id="saveNotificationSettings">Save Preferences</button>
+                <button class="btn-outline closeNotificationModalBtn">Cancel</button>
             </div>
         </div>
     </div>
 
-    <!-- No header.js script - dashboard doesn't need the global header -->
-    <!-- <script src="js/pages/header.js" type="module"></script> -->
-    <script src="js/pages/dashboard.js" type="module"></script>
-    
+    <!-- Add Funds Modal -->
+    <div id="fundWalletModal" class="modal">
+        <div class="modal-content wallet-modal">
+            <div class="modal-header">
+                <h2>Add Funds to Wallet</h2>
+                <button class="modal-close closeFundModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="funding-options">
+                    <h3>Select Amount</h3>
+                    <div class="amount-buttons">
+                        <button class="amount-btn" data-amount="1000">₦1,000</button>
+                        <button class="amount-btn" data-amount="2000">₦2,000</button>
+                        <button class="amount-btn" data-amount="5000">₦5,000</button>
+                        <button class="amount-btn" data-amount="10000">₦10,000</button>
+                        <button class="amount-btn" data-amount="20000">₦20,000</button>
+                        <button class="amount-btn" data-amount="50000">₦50,000</button>
+                    </div>
+                    <div class="custom-amount">
+                        <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
+                    </div>
+                </div>
+                <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
+                    <p>You are about to add:</p>
+                    <div class="selected-amount-large" id="selectedAmountValue">₦0</div>
+                </div>
+                <button id="proceedToPaymentBtn" class="btn-success">Proceed to Payment</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Bottom Navigation -->
-<div class="mobile-bottom-nav" id="mobileBottomNav">
-    <button class="mobile-nav-item" data-tab="dashboard">
-        <i class="fas fa-tachometer-alt"></i>
-        <span>Home</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="question">
-        <i class="fas fa-question-circle"></i>
-        <span>Learn</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="gotomenu">
-        <i class="fas fa-door-open"></i>
-        <span>Go To</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="wallet">
-        <i class="fas fa-wallet"></i>
-        <span>Wallet</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="settings">
-        <i class="fas fa-cog"></i>
-        <span>Profile</span>
-    </button>
-</div>
+    <div class="mobile-bottom-nav" id="mobileBottomNav">
+        <button class="mobile-nav-item" data-tab="overview">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>Overview</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="question">
+            <i class="fas fa-question-circle"></i>
+            <span>Learn</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="gotomenu">
+            <i class="fas fa-door-open"></i>
+            <span>Go To</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="wallet">
+            <i class="fas fa-wallet"></i>
+            <span>Wallet</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="settings">
+            <i class="fas fa-cog"></i>
+            <span>Profile</span>
+        </button>
+    </div>
+
+    <script type="module" src="/js/pages/dashboard.js"></script>
 </body>
 </html>
