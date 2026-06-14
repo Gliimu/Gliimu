@@ -1646,3 +1646,398 @@ body.dark-mode .payment-instructions {
         font-size: 1.3rem;
     }
 }
+
+/* =========================================
+   ADDITIONAL DASHBOARD STYLES
+   ========================================= */
+
+/* Notification Section */
+.notification-section {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.notification-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.notification-header i {
+    font-size: 1.2rem;
+    color: var(--brand-gold);
+}
+
+.notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.notification-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.notification-item.unread {
+    background: rgba(251, 176, 64, 0.1);
+    border-left: 3px solid var(--brand-gold);
+}
+
+.notification-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.notification-icon.payment {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.notification-icon.certificate {
+    background: rgba(251, 176, 64, 0.15);
+    color: var(--brand-gold);
+}
+
+.notification-icon.system {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--info);
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+.notification-message {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.notification-time {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.notification-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--brand-gold);
+    border-radius: 50%;
+}
+
+.mark-all-read {
+    background: none;
+    border: none;
+    color: var(--brand-gold);
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+/* Courses Grid */
+.courses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.course-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1rem;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.course-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--brand-gold);
+    box-shadow: var(--shadow-md);
+}
+
+.course-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 0.75rem;
+    color: var(--brand-gold);
+}
+
+.course-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.course-progress {
+    margin: 0.75rem 0;
+}
+
+.course-progress-bar {
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.course-progress-fill {
+    height: 100%;
+    background: var(--brand-gold);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.course-progress-text {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.certificate-badge {
+    display: inline-block;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    padding: 0.25rem 0.5rem;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    margin-top: 0.5rem;
+}
+
+/* Store Grid */
+.store-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.store-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.store-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--brand-gold);
+}
+
+.store-image {
+    width: 100%;
+    height: 150px;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+}
+
+.store-info {
+    padding: 1rem;
+}
+
+.store-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.store-price {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--brand-gold);
+    margin: 0.5rem 0;
+}
+
+.store-stock {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.buy-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Portfolios Directory */
+.portfolios-search {
+    margin-bottom: 1.5rem;
+}
+
+.portfolios-search input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 40px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.portfolios-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.portfolio-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.portfolio-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--brand-gold);
+}
+
+.portfolio-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+}
+
+.portfolio-avatar i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.portfolio-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.portfolio-role {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.portfolio-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+/* Checkbox Group */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+/* Quick Stats */
+.quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.quick-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.quick-stat-card i {
+    font-size: 1.5rem;
+    color: var(--brand-gold);
+}
+
+.quick-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    display: block;
+}
+
+.quick-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.quick-add-funds {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--brand-gold);
+    color: var(--brand-gold);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.7rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .quick-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .courses-grid,
+    .store-grid,
+    .portfolios-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .notification-item {
+        flex-wrap: wrap;
+    }
+}
