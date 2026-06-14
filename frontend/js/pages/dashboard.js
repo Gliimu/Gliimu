@@ -1,36 +1,13 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE FUNCTIONAL VERSION
-// No infinite loading, all features working
+// GLIIMU DASHBOARD - COMPLETE VERSION
+// Roles: Student, Instructor, Partner
+// Tabs: Overview, Questions/Question Pull/Submit Project, Go To, Wallet, Settings
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
-import { 
-    getWalletBalance, 
-    getUserAccess, 
-    purchasePremium, 
-    purchaseStandard, 
-    purchaseBasic,
-    getTransactionHistory,
-    isPremium,
-    subscribeToWalletUpdates,
-    getAvailablePlatforms,
-    getPlanDetails,
-    PRICING
-} from '../modules/wallet.js';
-
-import {
-    getStudentScore,
-    getCurrentBadge,
-    getNextBadge,
-    getProgressToNextBadge,
-    getNextQuestion,
-    getLeaderboard,
-    sharePortfolio,
-    submitMVPProposal,
-    getStudentPortfolio
-} from '../modules/progression.js';
-
+import { getWalletBalance, getTransactionHistory, updateWalletBalance } from '../modules/wallet.js';
+import { getStudentScore, getCurrentBadge, getNextBadge, getProgressToNextBadge, getLeaderboard, getStudentPortfolio } from '../modules/progression.js';
 import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
 
 // ============================================
@@ -39,27 +16,55 @@ import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
 let currentUser = null;
 let currentUserProfile = null;
 let currentRole = 'student';
-let currentTab = 'dashboard';
+let currentTab = 'overview';
 let currentWalletBalance = 0;
 let walletSubscription = null;
-let pendingPayments = [];
-let approvedPayments = [];
-let cancelledPayments = [];
-let allPayments = [];
 let questionRenderer = null;
-let currentPaymentFilter = 'all';
 
-// Cache for performance
-let paymentsCache = null;
-let lastPaymentsFetch = 0;
-let cachedBalance = null;
-let cachedTransactions = null;
-let lastWalletUpdate = 0;
-const CACHE_DURATION = 30000;
-const PAYMENTS_CACHE_DURATION = 60000;
+// Notification preferences
+let notificationPrefs = {
+    email_notifications: true,
+    sms_notifications: false,
+    email: '',
+    phone: ''
+};
 
 // ============================================
-// CHECK AUTHENTICATION
+// ROLE-BASED TAB CONFIGURATION
+// ============================================
+const roleTabs = {
+    student: [
+        { id: 'overview', name: 'Overview', icon: 'fas fa-tachometer-alt' },
+        { id: 'question', name: 'Questions', icon: 'fas fa-question-circle' },
+        { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
+        { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
+    ],
+    instructor: [
+        { id: 'overview', name: 'Overview', icon: 'fas fa-tachometer-alt' },
+        { id: 'question-pull', name: 'Question Pull', icon: 'fas fa-database' },
+        { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
+        { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
+    ],
+    partner: [
+        { id: 'overview', name: 'Overview', icon: 'fas fa-tachometer-alt' },
+        { id: 'submit-project', name: 'Submit Project', icon: 'fas fa-file-alt' },
+        { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
+        { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
+    ],
+    admin: [
+        { id: 'overview', name: 'Overview', icon: 'fas fa-tachometer-alt' },
+        { id: 'users', name: 'Users', icon: 'fas fa-users-cog' },
+        { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
+        { id: 'store', name: 'Store', icon: 'fas fa-store' },
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
+    ]
+};
+
+// ============================================
+// AUTHENTICATION
 // ============================================
 async function checkAuth() {
     console.log('Checking authentication...');
@@ -88,15 +93,12 @@ async function checkAuth() {
     showToast('Please login to access your dashboard', 'info');
     
     setTimeout(() => {
-        window.location.href = '/signin.html';
+        window.location.href = '/signin';
     }, 1500);
     
     return false;
 }
 
-// ============================================
-// LOAD USER FROM SUPABASE
-// ============================================
 async function loadUserFromSupabase(userId) {
     try {
         const { data: profile, error: profileError } = await supabase
@@ -107,236 +109,54 @@ async function loadUserFromSupabase(userId) {
         
         if (profileError) {
             console.error('Profile error:', profileError);
-            const { data: authUser } = await supabase.auth.getUser();
-            if (authUser?.user) {
-                const defaultProfile = {
-                    id: userId,
-                    name: authUser.user.email?.split('@')[0] || 'User',
-                    email: authUser.user.email,
-                    role: 'student',
-                    subscription_plan: 'free',
-                    selected_platforms: [],
-                    wallet_balance: 14500
-                };
-                const { error: insertError } = await supabase
-                    .from('users')
-                    .insert([defaultProfile]);
-                
-                if (!insertError) {
-                    currentUser = defaultProfile;
-                    currentRole = 'student';
-                    currentWalletBalance = 14500;
-                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                    return;
-                }
-            }
             throw profileError;
         }
         
-        await loadPaymentsFromStorage();
-        
         currentUserProfile = profile;
-        currentWalletBalance = profile.wallet_balance || 14500;
+        currentWalletBalance = profile.wallet_balance || 0;
+        currentRole = profile.role || 'student';
+        
+        // Load notification preferences
+        if (profile.notification_prefs) {
+            notificationPrefs = { ...notificationPrefs, ...profile.notification_prefs };
+        }
+        notificationPrefs.email = profile.email || '';
+        notificationPrefs.phone = profile.phone || '';
+        
         currentUser = {
             id: userId,
             name: profile.name || profile.full_name || 'User',
             email: profile.email,
-            role: profile.role || 'student',
-            subscriptionPlan: profile.subscription_plan || 'free',
-            selectedPlatforms: profile.selected_platforms || [],
-            walletBalance: profile.wallet_balance || 14500,
+            role: currentRole,
+            walletBalance: profile.wallet_balance || 0,
             address: profile.address || '',
+            phone: profile.phone || '',
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
         };
-        currentRole = currentUser.role;
         
         localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-        
         console.log('User loaded from Supabase:', currentUser);
         
     } catch (error) {
         console.error('Error loading user from Supabase:', error);
-        currentUser = {
-            id: userId,
-            name: 'Test User',
-            email: 'test@example.com',
-            role: 'student',
-            subscriptionPlan: 'free',
-            selectedPlatforms: [],
-            walletBalance: 14500,
-            avatar: 'https://ui-avatars.com/api/?name=Test+User&background=fbb040&color=fff'
-        };
-        currentRole = 'student';
-        localStorage.setItem('glimu_user', JSON.stringify(currentUser));
     }
 }
-
-// ============================================
-// PAYMENT STORAGE FUNCTIONS
-// ============================================
-async function loadPaymentsFromStorage(forceRefresh = false) {
-    if (!currentUser?.id) {
-        allPayments = [];
-        pendingPayments = [];
-        approvedPayments = [];
-        cancelledPayments = [];
-        return;
-    }
-    
-    const now = Date.now();
-    if (!forceRefresh && paymentsCache && (now - lastPaymentsFetch) < PAYMENTS_CACHE_DURATION) {
-        allPayments = paymentsCache;
-        pendingPayments = allPayments.filter(p => p.status === 'pending');
-        approvedPayments = allPayments.filter(p => p.status === 'approved');
-        cancelledPayments = allPayments.filter(p => p.status === 'rejected');
-        return;
-    }
-    
-    try {
-        const { data, error } = await supabase
-            .from('payment_requests')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('submitted_at', { ascending: false });
-        
-        if (!error && data) {
-            paymentsCache = data;
-            lastPaymentsFetch = now;
-            allPayments = data;
-            pendingPayments = allPayments.filter(p => p.status === 'pending');
-            approvedPayments = allPayments.filter(p => p.status === 'approved');
-            cancelledPayments = allPayments.filter(p => p.status === 'rejected');
-            return;
-        }
-    } catch (e) {
-        console.log('Supabase not available, using localStorage');
-    }
-    
-    const storedPayments = localStorage.getItem(`glimu_payments_${currentUser.id}`);
-    if (storedPayments) {
-        paymentsCache = JSON.parse(storedPayments);
-        lastPaymentsFetch = now;
-        allPayments = paymentsCache;
-    } else {
-        allPayments = [];
-    }
-    
-    pendingPayments = allPayments.filter(p => p.status === 'pending');
-    approvedPayments = allPayments.filter(p => p.status === 'approved');
-    cancelledPayments = allPayments.filter(p => p.status === 'rejected');
-}
-
-async function savePaymentToStorage(payment) {
-    allPayments.unshift(payment);
-    paymentsCache = allPayments;
-    lastPaymentsFetch = Date.now();
-    
-    pendingPayments = allPayments.filter(p => p.status === 'pending');
-    approvedPayments = allPayments.filter(p => p.status === 'approved');
-    cancelledPayments = allPayments.filter(p => p.status === 'rejected');
-    
-    try {
-        supabase
-            .from('payment_requests')
-            .insert([payment])
-            .then(({ error }) => {
-                if (error) console.error('Error saving to Supabase:', error);
-            });
-    } catch (e) {
-        console.log('Supabase not available, saving to localStorage');
-    }
-    
-    localStorage.setItem(`glimu_payments_${currentUser.id}`, JSON.stringify(allPayments));
-}
-
-// ============================================
-// REAL-TIME WALLET UPDATES
-// ============================================
-function setupRealtimeWallet() {
-    if (!currentUser?.id) return;
-    
-    if (walletSubscription) {
-        walletSubscription.unsubscribe();
-    }
-    
-    walletSubscription = subscribeToWalletUpdates(currentUser.id, (newBalance) => {
-        console.log('Wallet balance updated:', newBalance);
-        currentUser.walletBalance = newBalance;
-        currentWalletBalance = newBalance;
-        cachedBalance = newBalance;
-        lastWalletUpdate = Date.now();
-        
-        if (currentTab === 'wallet') {
-            renderWallet();
-        }
-        if (currentTab === 'dashboard') {
-            const balanceElement = document.querySelector('.quick-balance');
-            if (balanceElement) {
-                balanceElement.textContent = `₦${newBalance.toLocaleString()}`;
-            }
-        }
-        
-        showToast(`Wallet updated: ₦${newBalance.toLocaleString()}`, 'info');
-    });
-}
-
-// ============================================
-// ROLE-BASED TAB CONFIGURATION - 5 TABS
-// ============================================
-const roleTabs = {
-    student: [
-        { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'question', name: 'Questions', icon: 'fas fa-question-circle' },
-        { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
-        { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
-        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
-    ],
-    instructor: [
-        { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'grade', name: 'Grade Submissions', icon: 'fas fa-clipboard-list' },
-        { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
-        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
-    ],
-    admin: [
-        { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'users', name: 'Users', icon: 'fas fa-users-cog' },
-        { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
-        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
-    ],
-    partner: [
-        { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'projects', name: 'Projects', icon: 'fas fa-project-diagram' },
-        { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
-        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
-    ],
-    other: [
-        { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
-    ]
-};
 
 // ============================================
 // THEME HANDLING
 // ============================================
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-mode');
+    if (savedTheme === 'light') {
+        document.body.classList.remove('dark-mode');
     } else {
         document.body.classList.add('dark-mode');
         localStorage.setItem('theme', 'dark');
     }
 }
 
-function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    showToast(`Switched to ${isDark ? 'dark' : 'light'} mode`, 'info');
-}
-
 // ============================================
-// UPDATE UI WITH USER DATA
+// UPDATE UI
 // ============================================
 function updateUI() {
     if (!currentUser) return;
@@ -356,7 +176,7 @@ function updateUI() {
 // SIDEBAR NAVIGATION
 // ============================================
 function buildSidebar() {
-    const tabs = roleTabs[currentRole] || roleTabs.other;
+    const tabs = roleTabs[currentRole] || roleTabs.student;
     const sidebarNav = document.getElementById('sidebarNav');
     
     if (!sidebarNav) return;
@@ -407,10 +227,10 @@ function createContentSections() {
     const dashboardContent = document.getElementById('dashboardContent');
     if (!dashboardContent) return;
     
-    const tabs = roleTabs[currentRole] || roleTabs.other;
+    const tabs = roleTabs[currentRole] || roleTabs.student;
     
     dashboardContent.innerHTML = tabs.map(tab => `
-        <div id="${tab.id}-section" class="dashboard-section ${tab.id === 'dashboard' ? 'active' : ''}">
+        <div id="${tab.id}-section" class="dashboard-section ${tab.id === 'overview' ? 'active' : ''}">
             <div class="loading-spinner">Loading...</div>
         </div>
     `).join('');
@@ -421,11 +241,17 @@ function createContentSections() {
 // ============================================
 async function loadTabData(tabId) {
     switch(tabId) {
-        case 'dashboard':
-            await renderDashboard();
+        case 'overview':
+            await renderOverview();
             break;
         case 'question':
             await renderQuestionBar();
+            break;
+        case 'question-pull':
+            await renderQuestionPull();
+            break;
+        case 'submit-project':
+            await renderSubmitProject();
             break;
         case 'gotomenu':
             renderGoToMenu();
@@ -436,22 +262,19 @@ async function loadTabData(tabId) {
         case 'settings':
             await renderSettings();
             break;
-        case 'grade':
-            renderGradeSubmissions();
-            break;
         default:
-            await renderDashboard();
+            await renderOverview();
     }
 }
 
 // ============================================
-// DASHBOARD RENDER
+// OVERVIEW TAB (Student Dashboard)
 // ============================================
-async function renderDashboard() {
-    const container = document.getElementById('dashboard-section');
+async function renderOverview() {
+    const container = document.getElementById('overview-section');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading overview...</div>';
     
     try {
         const scoreData = await getStudentScore(currentUser.id);
@@ -459,109 +282,47 @@ async function renderDashboard() {
         const nextBadge = getNextBadge(scoreData?.current_score || 0);
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
         const leaderboardData = await getLeaderboard(10);
-        const isAmbassador = (scoreData?.current_score || 0) >= 100;
-        const walletBalance = currentUser?.walletBalance || 14500;
-        const subscriptionPlan = currentUser?.subscriptionPlan || 'free';
-        const selectedPlatforms = currentUser?.selectedPlatforms || [];
+        const walletBalance = currentUser?.walletBalance || 0;
+        
+        // Get user notifications
+        const notifications = await getUserNotifications();
         
         container.innerHTML = `
+            <div class="section-header">
+                <h2>Welcome back, ${currentUser.name || 'Student'}!</h2>
+                <p>Track your progress and stay updated</p>
+            </div>
+            
+            <!-- Progress Section -->
             <div class="progress-section">
                 ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
             </div>
             
-            <div class="quick-stats">
-                <div class="quick-stat-card">
-                    <i class="fas fa-wallet"></i>
-                    <div>
-                        <span class="quick-stat-label">Wallet Balance</span>
-                        <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
-                    </div>
-                    <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
+            <!-- Notifications Section (replaces Ambassador Zone) -->
+            <div class="notifications-section">
+                <div class="notifications-header">
+                    <i class="fas fa-bell"></i>
+                    <h3>Notifications</h3>
+                    <button class="mark-all-read" id="markAllReadBtn">Mark all read</button>
                 </div>
-                <div class="quick-stat-card">
-                    <i class="fas fa-crown"></i>
-                    <div>
-                        <span class="quick-stat-label">Current Plan</span>
-                        <span class="quick-stat-value">${subscriptionPlan === 'premium' ? '👑 Premium' : subscriptionPlan === 'standard' ? '📦 Standard' : subscriptionPlan === 'basic' ? '🌱 Basic' : '🎁 Free'}</span>
-                    </div>
-                    ${subscriptionPlan !== 'premium' ? `<button class="upgrade-plan-small" id="upgradePlanBtn">Upgrade</button>` : ''}
+                <div class="notifications-list" id="notificationsList">
+                    ${notifications.length === 0 ? '<div class="empty-notifications"><i class="fas fa-bell-slash"></i><p>No new notifications</p></div>' : 
+                        notifications.map(n => `
+                            <div class="notification-item ${n.read ? 'read' : 'unread'}" data-id="${n.id}">
+                                <div class="notification-icon"><i class="fas ${n.icon || 'fa-info-circle'}"></i></div>
+                                <div class="notification-content">
+                                    <div class="notification-title">${escapeHtml(n.title)}</div>
+                                    <div class="notification-message">${escapeHtml(n.message)}</div>
+                                    <div class="notification-time">${formatTimeAgo(new Date(n.created_at))}</div>
+                                </div>
+                                ${!n.read ? '<div class="notification-unread-dot"></div>' : ''}
+                            </div>
+                        `).join('')
+                    }
                 </div>
             </div>
             
-            ${subscriptionPlan === 'standard' || subscriptionPlan === 'basic' ? `
-                <div class="platform-access-card">
-                    <div class="platform-access-header">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Your Selected Platforms</span>
-                        <button class="change-platforms-btn" id="changePlatformsBtn">Change</button>
-                    </div>
-                    <div class="platform-access-list">
-                        ${selectedPlatforms.map(p => `
-                            <div class="platform-access-item">
-                                <span class="platform-icon">${p === 'library' ? '📚' : p === 'virtualroom' ? '🎥' : '💬'}</span>
-                                <span class="platform-name">${p === 'library' ? 'Digital Library' : p === 'virtualroom' ? 'Virtual Classroom' : 'Community Chat'}</span>
-                                <span class="platform-badge">Unlimited ✓</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="hub-free-note">
-                        <i class="fas fa-info-circle"></i> Hub is always free for everyone.
-                    </div>
-                </div>
-            ` : subscriptionPlan === 'premium' ? `
-                <div class="platform-access-card premium">
-                    <div class="platform-access-header">
-                        <i class="fas fa-crown"></i>
-                        <span>Premium Access - All Platforms</span>
-                    </div>
-                    <div class="platform-access-list">
-                        <div class="platform-access-item"><span class="platform-icon">📚</span><span class="platform-name">Digital Library</span><span class="platform-badge">Unlimited ✓</span></div>
-                        <div class="platform-access-item"><span class="platform-icon">🎥</span><span class="platform-name">Virtual Classroom</span><span class="platform-badge">Unlimited ✓</span></div>
-                        <div class="platform-access-item"><span class="platform-icon">💬</span><span class="platform-name">Community Chat</span><span class="platform-badge">Unlimited ✓</span></div>
-                        <div class="platform-access-item"><span class="platform-icon">📰</span><span class="platform-name">Hub</span><span class="platform-badge">Always Free</span></div>
-                    </div>
-                </div>
-            ` : `
-                <div class="platform-access-card free">
-                    <div class="platform-access-header">
-                        <i class="fas fa-hourglass-half"></i>
-                        <span>Free Access (15 min/day per platform)</span>
-                    </div>
-                    <div class="platform-access-list">
-                        <div class="platform-access-item"><span class="platform-icon">📚</span><span class="platform-name">Digital Library</span><span class="platform-badge">15 min/day</span></div>
-                        <div class="platform-access-item"><span class="platform-icon">🎥</span><span class="platform-name">Virtual Classroom</span><span class="platform-badge">15 min/day</span></div>
-                        <div class="platform-access-item"><span class="platform-icon">💬</span><span class="platform-name">Community Chat</span><span class="platform-badge">15 min/day</span></div>
-                        <div class="platform-access-item"><span class="platform-icon">📰</span><span class="platform-name">Hub</span><span class="platform-badge">Always Free</span></div>
-                    </div>
-                    <button class="upgrade-plan-btn-full" id="upgradeFromFreeBtn">Upgrade for Unlimited Access</button>
-                </div>
-            `}
-            
-            ${isAmbassador ? `
-                <div class="mvp-section">
-                    <div class="mvp-header">
-                        <i class="fas fa-rocket"></i>
-                        <h3>MVP Ambassador Zone</h3>
-                    </div>
-                    <p>You've reached 100%! Submit your real-world project proposal.</p>
-                    <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
-                </div>
-            ` : `
-                <div class="mvp-locked-section">
-                    <div class="mvp-locked-header">
-                        <i class="fas fa-lock"></i>
-                        <h3>Unlock Ambassador Zone</h3>
-                    </div>
-                    <p>Reach 100% score to submit real-world project proposals.</p>
-                    <div class="progress-to-unlock">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
-                        </div>
-                        <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
-                    </div>
-                </div>
-            `}
-            
+            <!-- Leaderboard Section -->
             <div class="leaderboard-section">
                 <div class="leaderboard-header">
                     <i class="fas fa-trophy"></i>
@@ -575,50 +336,59 @@ async function renderDashboard() {
         `;
         
         // Event listeners
-        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
-            switchTab('wallet');
+        document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
+            const newLeaderboard = await getLeaderboard(10);
+            const leaderboardList = document.querySelector('.leaderboard-list');
+            if (leaderboardList) {
+                leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
+            }
+            showToast('Leaderboard refreshed!', 'success');
         });
         
-        document.getElementById('upgradePlanBtn')?.addEventListener('click', () => {
-            switchTab('wallet');
+        document.getElementById('markAllReadBtn')?.addEventListener('click', async () => {
+            await markAllNotificationsRead();
+            await renderOverview();
         });
-        
-        document.getElementById('upgradeFromFreeBtn')?.addEventListener('click', () => {
-            switchTab('wallet');
-        });
-        
-        document.getElementById('changePlatformsBtn')?.addEventListener('click', () => {
-            showPlatformSelectorForCurrentUser();
-        });
-        
-        const openMvpBtn = document.getElementById('openMvpFormBtn');
-        if (openMvpBtn) {
-            openMvpBtn.addEventListener('click', () => {
-                openMvpModal();
-            });
-        }
-        
-        const refreshBtn = document.getElementById('refreshLeaderboardBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
-                const newLeaderboard = await getLeaderboard(10);
-                const leaderboardList = document.querySelector('.leaderboard-list');
-                if (leaderboardList) {
-                    leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
-                }
-                showToast('Leaderboard refreshed!', 'success');
-            });
-        }
         
     } catch (error) {
-        console.error('Error rendering dashboard:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Dashboard</h3>
-                <button class="btn-primary" onclick="location.reload()">Refresh</button>
-            </div>
-        `;
+        console.error('Error rendering overview:', error);
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Overview</h3><button class="btn-primary" onclick="location.reload()">Refresh</button></div>`;
+    }
+}
+
+// ============================================
+// NOTIFICATION FUNCTIONS
+// ============================================
+async function getUserNotifications() {
+    try {
+        const { data, error } = await supabase
+            .from('user_notifications')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+        
+        if (!error && data) return data;
+    } catch (e) {
+        console.log('Using mock notifications');
+    }
+    
+    // Mock notifications
+    return [
+        { id: '1', title: 'Welcome!', message: 'Welcome to Gliimu! Start your learning journey today.', icon: 'fa-rocket', read: false, created_at: new Date().toISOString() },
+        { id: '2', title: 'New Course Available', message: 'Advanced Motion Graphics course is now available in the library.', icon: 'fa-graduation-cap', read: false, created_at: new Date(Date.now() - 86400000).toISOString() }
+    ];
+}
+
+async function markAllNotificationsRead() {
+    try {
+        await supabase
+            .from('user_notifications')
+            .update({ read: true })
+            .eq('user_id', currentUser.id)
+            .eq('read', false);
+    } catch (e) {
+        console.log('Error marking notifications read');
     }
 }
 
@@ -642,552 +412,8 @@ function renderLeaderboardList(leaderboardData) {
     `).join('');
 }
 
-function openMvpModal() {
-    let modal = document.getElementById('mvpModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'mvpModal';
-        modal.className = 'modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Submit MVP Proposal</h2>
-                    <button class="modal-close" id="closeMvpModal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="mvpForm">
-                        <div class="form-group">
-                            <label>Project Title</label>
-                            <input type="text" id="mvpTitle" required placeholder="e.g., The Documentary Project">
-                        </div>
-                        <div class="form-group">
-                            <label>Project Type</label>
-                            <select id="mvpType" required>
-                                <option value="">Select type</option>
-                                <option value="book">Book</option>
-                                <option value="documentary">Documentary</option>
-                                <option value="movie">Movie</option>
-                                <option value="business">Business</option>
-                                <option value="movement">Movement</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Project Description</label>
-                            <textarea id="mvpDescription" rows="4" required placeholder="Describe your project in detail..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Proposal / Execution Plan</label>
-                            <textarea id="mvpProposal" rows="6" required placeholder="How do you plan to execute this project? What resources do you need?"></textarea>
-                        </div>
-                        <button type="submit" class="btn-primary">Submit MVP Proposal</button>
-                    </form>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        
-        document.getElementById('closeMvpModal').onclick = () => {
-            modal.classList.remove('active');
-        };
-        
-        document.getElementById('mvpForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const title = document.getElementById('mvpTitle').value;
-            const type = document.getElementById('mvpType').value;
-            const description = document.getElementById('mvpDescription').value;
-            const proposal = document.getElementById('mvpProposal').value;
-            
-            const result = await submitMVPProposal(currentUser.id, title, description, type, proposal);
-            
-            if (result) {
-                modal.classList.remove('active');
-                showToast('MVP Proposal submitted! The school will review and reach out.', 'success');
-            }
-        });
-    }
-    
-    modal.classList.add('active');
-}
-
 // ============================================
-// PLATFORM SELECTOR FOR BASIC/STANDARD USERS
-// ============================================
-async function showPlatformSelectorForCurrentUser() {
-    const subscriptionPlan = currentUser?.subscriptionPlan || 'free';
-    const currentSelections = currentUser?.selectedPlatforms || [];
-    const maxSelections = subscriptionPlan === 'standard' ? 2 : 1;
-    
-    const platforms = [
-        { id: 'library', name: 'Digital Library', icon: '📚', description: 'Access books, bundles, learning materials' },
-        { id: 'virtualroom', name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
-        { id: 'chat', name: 'Community Chat', icon: '💬', description: 'Connect with fellow learners' }
-    ];
-    
-    let selected = [...currentSelections];
-    
-    const modalContent = `
-        <div class="modal-content platform-selector-modal">
-            <div class="modal-header">
-                <h2>${subscriptionPlan === 'standard' ? '📦 Choose 2 Platforms' : '🌱 Choose 1 Platform'}</h2>
-                <button class="modal-close" id="closePlatformModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Select which platforms you want unlimited access to:</p>
-                <div class="platform-list">
-                    ${platforms.map(p => `
-                        <div class="platform-option ${selected.includes(p.id) ? 'selected' : ''}" data-platform="${p.id}">
-                            <div class="platform-icon">${p.icon}</div>
-                            <div class="platform-info">
-                                <div class="platform-name">${p.name}</div>
-                                <div class="platform-desc">${p.description}</div>
-                            </div>
-                            <div class="platform-check">
-                                ${selected.includes(p.id) ? '✓' : ''}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="selection-info">
-                    <span id="selectionCount">${selected.length}</span> / ${maxSelections} selected
-                </div>
-                <div class="hub-note">
-                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="savePlatformsBtn" class="btn-primary" ${selected.length !== maxSelections ? 'disabled' : ''}>Save Changes</button>
-                <button id="cancelPlatformBtn" class="btn-outline">Cancel</button>
-            </div>
-        </div>
-    `;
-    
-    let modal = document.getElementById('platformSelectorModal');
-    if (modal) modal.remove();
-    
-    modal = document.createElement('div');
-    modal.id = 'platformSelectorModal';
-    modal.className = 'modal';
-    modal.innerHTML = modalContent;
-    document.body.appendChild(modal);
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    
-    document.querySelectorAll('.platform-option').forEach(option => {
-        option.addEventListener('click', () => {
-            const platformId = option.getAttribute('data-platform');
-            const index = selected.indexOf(platformId);
-            
-            if (index === -1 && selected.length < maxSelections) {
-                selected.push(platformId);
-                option.classList.add('selected');
-                option.querySelector('.platform-check').textContent = '✓';
-            } else if (index !== -1) {
-                selected.splice(index, 1);
-                option.classList.remove('selected');
-                option.querySelector('.platform-check').textContent = '';
-            }
-            
-            document.getElementById('selectionCount').textContent = selected.length;
-            const saveBtn = document.getElementById('savePlatformsBtn');
-            if (saveBtn) {
-                saveBtn.disabled = selected.length !== maxSelections;
-            }
-        });
-    });
-    
-    document.getElementById('closePlatformModal')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    });
-    
-    document.getElementById('cancelPlatformBtn')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    });
-    
-    document.getElementById('savePlatformsBtn')?.addEventListener('click', async () => {
-        if (selected.length === maxSelections) {
-            const { error } = await supabase
-                .from('users')
-                .update({ selected_platforms: selected })
-                .eq('id', currentUser.id);
-            
-            if (error) {
-                showToast('Failed to update platform selection', 'error');
-            } else {
-                currentUser.selectedPlatforms = selected;
-                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                showToast('Platform selection updated!', 'success');
-                await renderDashboard();
-            }
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    });
-    
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    };
-}
-
-// ============================================
-// PLATFORM SELECTOR FOR PURCHASE FLOW
-// ============================================
-function showPlatformSelectorForPurchase(planType, onComplete) {
-    const maxSelections = planType === 'standard' ? 2 : 1;
-    let selected = [];
-    
-    const platforms = [
-        { id: 'library', name: 'Digital Library', icon: '📚', description: 'Access books, bundles, learning materials' },
-        { id: 'virtualroom', name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
-        { id: 'chat', name: 'Community Chat', icon: '💬', description: 'Connect with fellow learners' }
-    ];
-    
-    const modalContent = `
-        <div class="modal-content platform-selector-modal">
-            <div class="modal-header">
-                <h2>${planType === 'standard' ? '📦 Choose 2 Platforms' : '🌱 Choose 1 Platform'}</h2>
-                <button class="modal-close" id="closePlatformModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Select which platforms you want unlimited access to:</p>
-                <div class="platform-list">
-                    ${platforms.map(p => `
-                        <div class="platform-option" data-platform="${p.id}">
-                            <div class="platform-icon">${p.icon}</div>
-                            <div class="platform-info">
-                                <div class="platform-name">${p.name}</div>
-                                <div class="platform-desc">${p.description}</div>
-                            </div>
-                            <div class="platform-check"></div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="selection-info">
-                    <span id="selectionCount">0</span> / ${maxSelections} selected
-                </div>
-                <div class="hub-note">
-                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="confirmPlatformBtn" class="btn-primary" disabled>Continue to Payment</button>
-                <button id="cancelPlatformBtn" class="btn-outline">Cancel</button>
-            </div>
-        </div>
-    `;
-    
-    let modal = document.getElementById('platformPurchaseModal');
-    if (modal) modal.remove();
-    
-    modal = document.createElement('div');
-    modal.id = 'platformPurchaseModal';
-    modal.className = 'modal';
-    modal.innerHTML = modalContent;
-    document.body.appendChild(modal);
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    
-    document.querySelectorAll('.platform-option').forEach(option => {
-        option.addEventListener('click', () => {
-            const platformId = option.getAttribute('data-platform');
-            const index = selected.indexOf(platformId);
-            
-            if (index === -1 && selected.length < maxSelections) {
-                selected.push(platformId);
-                option.classList.add('selected');
-                option.querySelector('.platform-check').textContent = '✓';
-            } else if (index !== -1) {
-                selected.splice(index, 1);
-                option.classList.remove('selected');
-                option.querySelector('.platform-check').textContent = '';
-            }
-            
-            document.getElementById('selectionCount').textContent = selected.length;
-            const confirmBtn = document.getElementById('confirmPlatformBtn');
-            if (confirmBtn) {
-                confirmBtn.disabled = selected.length !== maxSelections;
-            }
-        });
-    });
-    
-    document.getElementById('closePlatformModal')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    });
-    
-    document.getElementById('cancelPlatformBtn')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    });
-    
-    document.getElementById('confirmPlatformBtn')?.addEventListener('click', () => {
-        if (selected.length === maxSelections) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-            onComplete(selected);
-        }
-    });
-    
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    };
-}
-
-// ============================================
-// WALLET TAB - UPDATED WITH NEW PLANS
-// ============================================
-async function renderWallet() {
-    const container = document.getElementById('wallet-section');
-    if (!container) return;
-    
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
-    
-    try {
-        await loadPaymentsFromStorage(true);
-        
-        const balance = await getWalletBalance();
-        const transactions = await getTransactionHistory();
-        const userPlan = currentUser?.subscriptionPlan || 'free';
-        const selectedPlatforms = currentUser?.selectedPlatforms || [];
-        
-        container.innerHTML = `
-            <div class="section-header">
-                <div>
-                    <h2>Wallet & Subscriptions</h2>
-                    <p>Manage your funds and subscription plans</p>
-                </div>
-            </div>
-            
-            <div class="wallet-balance-card">
-                <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
-                <div class="wallet-balance-info">
-                    <span class="wallet-label">Available Balance</span>
-                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
-                </div>
-                <button id="addFundsBtn" class="btn-primary">Add Funds</button>
-            </div>
-            
-            <div class="current-plan-section">
-                <h3>Your Current Plan</h3>
-                <div class="current-plan-card">
-                    <div class="plan-icon-large">${userPlan === 'premium' ? '👑' : userPlan === 'standard' ? '📦' : userPlan === 'basic' ? '🌱' : '🎁'}</div>
-                    <div class="plan-info-large">
-                        <div class="plan-name">${userPlan === 'premium' ? 'Premium' : userPlan === 'standard' ? 'Standard' : userPlan === 'basic' ? 'Basic' : 'Free'}</div>
-                        <div class="plan-description">
-                            ${userPlan === 'premium' ? 'Unlimited access to all platforms' : 
-                              userPlan === 'standard' ? `Unlimited access to: ${selectedPlatforms.map(p => p === 'library' ? 'Library' : p === 'virtualroom' ? 'Virtual Classroom' : 'Community Chat').join(', ')}` :
-                              userPlan === 'basic' ? `Unlimited access to: ${selectedPlatforms.map(p => p === 'library' ? 'Library' : p === 'virtualroom' ? 'Virtual Classroom' : 'Community Chat').join(', ')}` :
-                              '15 minutes per day on each platform'}
-                        </div>
-                    </div>
-                    ${userPlan !== 'premium' ? `<button class="upgrade-plan-main" id="upgradePlanMainBtn">Upgrade Plan</button>` : ''}
-                </div>
-            </div>
-            
-            <div class="plans-section">
-                <h3>Subscription Plans</h3>
-                <div class="plans-grid">
-                    <div class="plan-card basic">
-                        <div class="plan-icon">🌱</div>
-                        <h4>Basic</h4>
-                        <div class="plan-price">₦7,500<span>/month</span></div>
-                        <ul class="plan-features">
-                            <li>✓ Access to <strong>1 platform</strong> of your choice</li>
-                            <li>✓ Unlimited Hub access</li>
-                            <li>✓ Basic support</li>
-                        </ul>
-                        <button class="plan-select-btn" data-plan="basic">Select Plan</button>
-                    </div>
-                    
-                    <div class="plan-card standard">
-                        <div class="plan-icon">📦</div>
-                        <h4>Standard</h4>
-                        <div class="plan-price">₦13,000<span>/month</span></div>
-                        <ul class="plan-features">
-                            <li>✓ Access to <strong>2 platforms</strong> of your choice</li>
-                            <li>✓ Unlimited Hub access</li>
-                            <li>✓ Priority support</li>
-                        </ul>
-                        <button class="plan-select-btn" data-plan="standard">Select Plan</button>
-                    </div>
-                    
-                    <div class="plan-card premium">
-                        <div class="plan-badge">Most Popular</div>
-                        <div class="plan-icon">👑</div>
-                        <h4>Premium</h4>
-                        <div class="plan-price">₦15,000<span>/month</span></div>
-                        <ul class="plan-features">
-                            <li>✓ Full access to <strong>all 3 platforms</strong></li>
-                            <li>✓ Unlimited Hub access</li>
-                            <li>✓ 24/7 priority support</li>
-                            <li>✓ Monthly bonus rewards</li>
-                        </ul>
-                        <button class="plan-select-btn btn-primary" data-plan="premium">Select Plan</button>
-                    </div>
-                </div>
-                <div class="plan-note">
-                    <i class="fas fa-info-circle"></i> Hub is always free for everyone.
-                </div>
-            </div>
-            
-            <div class="transactions-section">
-                <h3>Recent Transactions</h3>
-                <div class="transactions-list">
-                    ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
-                        transactions.slice(0, 5).map(t => `
-                            <div class="transaction-item">
-                                <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
-                                    <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
-                                </div>
-                                <div class="transaction-info">
-                                    <div class="transaction-desc">${escapeHtml(t.description)}</div>
-                                    <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
-                                </div>
-                                <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
-                                    ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
-                                </div>
-                            </div>
-                        `).join('')
-                    }
-                </div>
-            </div>
-            
-            <div class="payments-section">
-                <h3>Payment Requests</h3>
-                <div class="payments-list">
-                    ${allPayments.length === 0 ? '<p class="empty-payments">No payment requests</p>' : 
-                        allPayments.slice(0, 3).map(p => `
-                            <div class="payment-item ${p.status}">
-                                <div class="payment-info">
-                                    <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
-                                    <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
-                                    <div class="payment-ref">Ref: ${p.reference_code}</div>
-                                </div>
-                                <div class="payment-status-badge ${p.status}">${p.status}</div>
-                            </div>
-                        `).join('')
-                    }
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
-            openFundWalletModal();
-        });
-        
-        document.getElementById('upgradePlanMainBtn')?.addEventListener('click', () => {
-            document.querySelector('.plans-section').scrollIntoView({ behavior: 'smooth' });
-        });
-        
-        document.querySelectorAll('.plan-select-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const plan = btn.getAttribute('data-plan');
-                
-                if (plan === 'premium') {
-                    const result = await purchasePremium();
-                    if (result === true) {
-                        showToast('Premium activated!', 'success');
-                        setTimeout(() => {
-                            renderDashboard();
-                            renderWallet();
-                        }, 1000);
-                    } else if (result?.needsTopUp) {
-                        openFundWalletModal(result.amount);
-                    }
-                } else if (plan === 'standard') {
-                    showPlatformSelectorForPurchase('standard', async (selectedPlatforms) => {
-                        const result = await purchaseStandard(selectedPlatforms);
-                        if (result === true) {
-                            showToast('Standard plan activated!', 'success');
-                            setTimeout(() => {
-                                renderDashboard();
-                                renderWallet();
-                            }, 1000);
-                        } else if (result?.needsTopUp) {
-                            openFundWalletModal(result.amount);
-                        }
-                    });
-                } else if (plan === 'basic') {
-                    showPlatformSelectorForPurchase('basic', async (selectedPlatform) => {
-                        const result = await purchaseBasic(selectedPlatform[0]);
-                        if (result === true) {
-                            showToast('Basic plan activated!', 'success');
-                            setTimeout(() => {
-                                renderDashboard();
-                                renderWallet();
-                            }, 1000);
-                        } else if (result?.needsTopUp) {
-                            openFundWalletModal(result.amount);
-                        }
-                    });
-                }
-            });
-        });
-        
-    } catch (error) {
-        console.error('Error rendering wallet:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
-    }
-}
-
-function openFundWalletModal(suggestedAmount = null) {
-    showToast('Add funds feature coming soon. Please contact support.', 'info');
-}
-
-// ============================================
-// GO TO MENU TAB
-// ============================================
-function renderGoToMenu() {
-    const container = document.getElementById('gotomenu-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2><i class="fas fa-door-open"></i> Go To</h2>
-                <p>Quick access to all platform sections</p>
-            </div>
-        </div>
-        
-        <div class="go-to-grid">
-            <div class="go-to-card" onclick="window.location.href='/library.html'">
-                <div class="go-to-icon"><i class="fas fa-book"></i></div>
-                <div class="go-to-info"><h3>Library</h3><p>Access books, bundles, and learning materials</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/virtualroom.html'">
-                <div class="go-to-icon"><i class="fas fa-video"></i></div>
-                <div class="go-to-info"><h3>Virtual Classroom</h3><p>Live classes and interactive sessions</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/hub.html'">
-                <div class="go-to-icon"><i class="fas fa-newspaper"></i></div>
-                <div class="go-to-info"><h3>Hub</h3><p>Events, insights, and latest updates</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/chat.html'">
-                <div class="go-to-icon"><i class="fas fa-comments"></i></div>
-                <div class="go-to-info"><h3>Community</h3><p>Connect with fellow learners and instructors</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-        </div>
-    `;
-}
-
-// ============================================
-// QUESTIONS TAB
+// QUESTIONS TAB (Student)
 // ============================================
 async function renderQuestionBar() {
     const container = document.getElementById('question-section');
@@ -1204,7 +430,7 @@ async function renderQuestionBar() {
                     <i class="fas fa-check-circle"></i>
                     <h3>All Questions Complete!</h3>
                     <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
+                    <button class="btn-primary" onclick="switchTab('overview')">Return to Overview</button>
                 </div>
             `;
             return;
@@ -1213,18 +439,9 @@ async function renderQuestionBar() {
         questionRenderer = new QuestionRenderer(
             'question-section',
             currentUser.id,
-            async (result) => {
-                const scoreData = await getStudentScore(currentUser.id);
-                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-                const nextBadge = getNextBadge(scoreData?.current_score || 0);
-                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-                
-                const progressSection = document.querySelector('.progress-section');
-                if (progressSection) {
-                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
-                }
-                
-                setTimeout(() => renderQuestionBar(), 2000);
+            async () => {
+                await renderQuestionBar();
+                await renderOverview();
             }
         );
         
@@ -1243,7 +460,461 @@ async function renderQuestionBar() {
 }
 
 // ============================================
-// SETTINGS TAB
+// QUESTION PULL TAB (Instructor)
+// ============================================
+async function renderQuestionPull() {
+    const container = document.getElementById('question-pull-section');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <h2><i class="fas fa-database"></i> Question Pull</h2>
+            <p>Create and manage questions for students</p>
+        </div>
+        
+        <div class="question-pull-actions">
+            <button class="btn-primary" id="createQuestionBtn"><i class="fas fa-plus"></i> Create New Question</button>
+        </div>
+        
+        <div class="questions-list" id="instructorQuestionsList">
+            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading questions...</div>
+        </div>
+    `;
+    
+    await loadInstructorQuestions();
+    
+    document.getElementById('createQuestionBtn')?.addEventListener('click', () => {
+        openCreateQuestionModal();
+    });
+}
+
+async function loadInstructorQuestions() {
+    const container = document.getElementById('instructorQuestionsList');
+    if (!container) return;
+    
+    try {
+        const { data, error } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('created_by', currentUser.id)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-question-circle"></i>
+                    <h3>No questions yet</h3>
+                    <p>Create your first question to start assessing students.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = data.map(q => `
+            <div class="question-pull-item">
+                <div class="question-pull-text">${escapeHtml(q.text)}</div>
+                <div class="question-pull-meta">
+                    <span><i class="fas fa-tag"></i> ${q.category || 'General'}</span>
+                    <span><i class="fas fa-clock"></i> ${new Date(q.created_at).toLocaleDateString()}</span>
+                </div>
+                <div class="question-pull-actions">
+                    <button class="btn-outline-small" onclick="editQuestion('${q.id}')">Edit</button>
+                    <button class="btn-danger-small" onclick="deleteQuestion('${q.id}')">Delete</button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading questions:', error);
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading questions</h3></div>`;
+    }
+}
+
+function openCreateQuestionModal() {
+    let modal = document.getElementById('createQuestionModal');
+    if (modal) modal.remove();
+    
+    modal = document.createElement('div');
+    modal.id = 'createQuestionModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Question</h2>
+                <button class="modal-close" id="closeQuestionModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="questionForm">
+                    <div class="form-group">
+                        <label>Question Text</label>
+                        <textarea id="questionText" rows="3" required placeholder="Enter your question here..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="questionCategory">
+                            <option value="General">General</option>
+                            <option value="Video Production">Video Production</option>
+                            <option value="Design">Design</option>
+                            <option value="Development">Development</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Correct Answer</label>
+                        <input type="text" id="correctAnswer" required placeholder="The correct answer">
+                    </div>
+                    <div class="form-group">
+                        <label>Wrong Answer 1</label>
+                        <input type="text" id="wrongAnswer1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Wrong Answer 2</label>
+                        <input type="text" id="wrongAnswer2" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Wrong Answer 3</label>
+                        <input type="text" id="wrongAnswer3" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Create Question</button>
+                </form>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.classList.add('active');
+    
+    document.getElementById('closeQuestionModal').onclick = () => modal.classList.remove('active');
+    
+    document.getElementById('questionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const questionText = document.getElementById('questionText').value;
+        const category = document.getElementById('questionCategory').value;
+        const correctAnswer = document.getElementById('correctAnswer').value;
+        const wrongAnswers = [
+            document.getElementById('wrongAnswer1').value,
+            document.getElementById('wrongAnswer2').value,
+            document.getElementById('wrongAnswer3').value
+        ];
+        
+        const { error } = await supabase
+            .from('questions')
+            .insert({
+                text: questionText,
+                category: category,
+                correct_answer: correctAnswer,
+                wrong_answers: wrongAnswers,
+                created_by: currentUser.id,
+                created_at: new Date().toISOString()
+            });
+        
+        if (error) {
+            showToast('Failed to create question', 'error');
+        } else {
+            showToast('Question created successfully!', 'success');
+            modal.classList.remove('active');
+            await loadInstructorQuestions();
+        }
+    });
+}
+
+// ============================================
+// SUBMIT PROJECT TAB (Partner)
+// ============================================
+async function renderSubmitProject() {
+    const container = document.getElementById('submit-project-section');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <h2><i class="fas fa-file-alt"></i> Submit Project</h2>
+            <p>Submit your project proposals for review</p>
+        </div>
+        
+        <div class="project-submission-form">
+            <form id="projectSubmissionForm">
+                <div class="form-group">
+                    <label>Project Title</label>
+                    <input type="text" id="projectTitle" required placeholder="e.g., Brand Identity Design">
+                </div>
+                <div class="form-group">
+                    <label>Project Category</label>
+                    <select id="projectCategory" required>
+                        <option value="">Select category</option>
+                        <option value="Video Production">Video Production</option>
+                        <option value="Design">Design</option>
+                        <option value="Web Development">Web Development</option>
+                        <option value="Content Creation">Content Creation</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Project Description</label>
+                    <textarea id="projectDescription" rows="5" required placeholder="Describe your project in detail..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Budget Range</label>
+                    <input type="text" id="projectBudget" placeholder="e.g., ₦50,000 - ₦100,000">
+                </div>
+                <div class="form-group">
+                    <label>Timeline</label>
+                    <input type="text" id="projectTimeline" placeholder="e.g., 2 weeks">
+                </div>
+                <div class="form-group">
+                    <label>Attachments (Optional)</label>
+                    <input type="file" id="projectAttachments" multiple accept=".pdf,.doc,.docx,.jpg,.png">
+                </div>
+                <button type="submit" class="btn-primary">Submit Project</button>
+            </form>
+        </div>
+        
+        <div class="recent-submissions">
+            <h3>Recent Submissions</h3>
+            <div id="recentSubmissionsList" class="submissions-list">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    `;
+    
+    await loadRecentSubmissions();
+    
+    document.getElementById('projectSubmissionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('projectTitle').value;
+        const category = document.getElementById('projectCategory').value;
+        const description = document.getElementById('projectDescription').value;
+        const budget = document.getElementById('projectBudget').value;
+        const timeline = document.getElementById('projectTimeline').value;
+        
+        const { error } = await supabase
+            .from('partner_projects')
+            .insert({
+                user_id: currentUser.id,
+                title: title,
+                category: category,
+                description: description,
+                budget: budget,
+                timeline: timeline,
+                status: 'pending',
+                submitted_at: new Date().toISOString()
+            });
+        
+        if (error) {
+            showToast('Failed to submit project', 'error');
+        } else {
+            showToast('Project submitted successfully!', 'success');
+            document.getElementById('projectSubmissionForm').reset();
+            await loadRecentSubmissions();
+        }
+    });
+}
+
+async function loadRecentSubmissions() {
+    const container = document.getElementById('recentSubmissionsList');
+    if (!container) return;
+    
+    try {
+        const { data, error } = await supabase
+            .from('partner_projects')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('submitted_at', { ascending: false })
+            .limit(5);
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>No submissions yet</p></div>';
+            return;
+        }
+        
+        container.innerHTML = data.map(p => `
+            <div class="submission-item">
+                <div class="submission-title">${escapeHtml(p.title)}</div>
+                <div class="submission-status status-${p.status}">${p.status}</div>
+                <div class="submission-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading submissions:', error);
+        container.innerHTML = '<div class="empty-state"><p>Error loading submissions</p></div>';
+    }
+}
+
+// ============================================
+// GO TO MENU TAB (Updated with Courses, Portfolios, Store)
+// ============================================
+function renderGoToMenu() {
+    const container = document.getElementById('gotomenu-section');
+    if (!container) return;
+    
+    // Different links based on role
+    let roleSpecificLinks = '';
+    
+    if (currentRole === 'instructor') {
+        roleSpecificLinks = `
+            <div class="go-to-card" onclick="window.location.href='/virtualroom?role=teacher'">
+                <div class="go-to-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+                <div class="go-to-info"><h3>Host Live Session</h3><p>Start a new virtual classroom session</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+        `;
+    } else if (currentRole === 'partner') {
+        roleSpecificLinks = `
+            <div class="go-to-card" onclick="window.location.href='/course'">
+                <div class="go-to-icon"><i class="fas fa-graduation-cap"></i></div>
+                <div class="go-to-info"><h3>Enroll in Course</h3><p>Become a student to access full learning</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <h2><i class="fas fa-door-open"></i> Go To</h2>
+            <p>Quick access to all platform sections</p>
+        </div>
+        
+        <div class="go-to-grid">
+            <!-- Courses Link -->
+            <div class="go-to-card" onclick="window.location.href='/course'">
+                <div class="go-to-icon"><i class="fas fa-graduation-cap"></i></div>
+                <div class="go-to-info">
+                    <h3>Courses</h3>
+                    <p>View your course progress and earn certificates</p>
+                </div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <!-- Portfolios Link -->
+            <div class="go-to-card" onclick="window.location.href='/portfolios'">
+                <div class="go-to-icon"><i class="fas fa-briefcase"></i></div>
+                <div class="go-to-info">
+                    <h3>Portfolios</h3>
+                    <p>Search and view student portfolios</p>
+                </div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <!-- Store Link -->
+            <div class="go-to-card" onclick="window.location.href='/store'">
+                <div class="go-to-icon"><i class="fas fa-store"></i></div>
+                <div class="go-to-info">
+                    <h3>Store</h3>
+                    <p>Get uniforms, gadgets, and merchandise</p>
+                </div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <!-- Library -->
+            <div class="go-to-card" onclick="window.location.href='/library'">
+                <div class="go-to-icon"><i class="fas fa-book"></i></div>
+                <div class="go-to-info"><h3>Library</h3><p>Access books, bundles, and learning materials</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <!-- Virtual Classroom -->
+            <div class="go-to-card" onclick="window.location.href='/virtualroom'">
+                <div class="go-to-icon"><i class="fas fa-video"></i></div>
+                <div class="go-to-info"><h3>Virtual Classroom</h3><p>Join live classes and interactive sessions</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <!-- Hub -->
+            <div class="go-to-card" onclick="window.location.href='/hub'">
+                <div class="go-to-icon"><i class="fas fa-newspaper"></i></div>
+                <div class="go-to-info"><h3>Hub</h3><p>Events, insights, and latest updates</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <!-- Community Chat -->
+            <div class="go-to-card" onclick="window.location.href='/chat'">
+                <div class="go-to-icon"><i class="fas fa-comments"></i></div>
+                <div class="go-to-info"><h3>Community</h3><p>Connect with fellow learners and instructors</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            ${roleSpecificLinks}
+        </div>
+    `;
+}
+
+// ============================================
+// WALLET TAB (Simplified - No Subscription Plans)
+// ============================================
+async function renderWallet() {
+    const container = document.getElementById('wallet-section');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
+    
+    try {
+        const balance = await getWalletBalance();
+        const transactions = await getTransactionHistory();
+        
+        container.innerHTML = `
+            <div class="section-header">
+                <h2><i class="fas fa-wallet"></i> My Wallet</h2>
+                <p>Manage your funds and transactions</p>
+            </div>
+            
+            <div class="wallet-balance-card">
+                <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
+                <div class="wallet-balance-info">
+                    <span class="wallet-label">Available Balance</span>
+                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
+                </div>
+                <button id="addFundsBtn" class="btn-primary">Add Funds</button>
+                <button id="withdrawFundsBtn" class="btn-outline">Withdraw</button>
+            </div>
+            
+            <div class="transactions-section">
+                <h3>Transaction History</h3>
+                <div class="transactions-list">
+                    ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                        transactions.map(t => `
+                            <div class="transaction-item">
+                                <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
+                                    <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                                </div>
+                                <div class="transaction-info">
+                                    <div class="transaction-desc">${escapeHtml(t.description)}</div>
+                                    <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
+                                </div>
+                                <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
+                                    ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
+            openFundWalletModal();
+        });
+        
+        document.getElementById('withdrawFundsBtn')?.addEventListener('click', () => {
+            openWithdrawModal();
+        });
+        
+    } catch (error) {
+        console.error('Error rendering wallet:', error);
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
+    }
+}
+
+function openFundWalletModal() {
+    showToast('Add funds feature coming soon. Please contact support.', 'info');
+}
+
+function openWithdrawModal() {
+    showToast('Withdrawal requests can be made from the Withdraw section.', 'info');
+}
+
+// ============================================
+// SETTINGS TAB (Updated)
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
@@ -1255,10 +926,8 @@ async function renderSettings() {
     
     container.innerHTML = `
         <div class="section-header">
-            <div>
-                <h2>Settings</h2>
-                <p>Manage your account preferences</p>
-            </div>
+            <h2><i class="fas fa-cog"></i> Settings</h2>
+            <p>Manage your account preferences</p>
         </div>
         
         <div class="settings-grid">
@@ -1278,7 +947,36 @@ async function renderSettings() {
                 <form id="settingsForm">
                     <div class="form-group"><label>Full Name</label><input type="text" id="fullNameInput" value="${currentUser?.name || ''}"></div>
                     <div class="form-group"><label>Email</label><input type="email" value="${currentUser?.email || ''}" disabled><small>Email cannot be changed</small></div>
+                    <div class="form-group"><label>Phone Number</label><input type="tel" id="phoneInput" value="${currentUser?.phone || ''}" placeholder="Enter your phone number"></div>
                     <div class="form-group"><label>Home/Work Address</label><input type="text" id="addressInput" value="${currentUser?.address || ''}" placeholder="Enter your address"></div>
+                </form>
+            </div>
+            
+            <div class="settings-card">
+                <h3>Notification Preferences</h3>
+                <form id="notificationPrefsForm">
+                    <div class="form-group">
+                        <label>Email for notifications</label>
+                        <input type="email" id="notificationEmail" placeholder="Enter email for notifications" value="${notificationPrefs.email || currentUser?.email || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone for SMS alerts</label>
+                        <input type="tel" id="notificationPhone" placeholder="Enter phone number for SMS" value="${notificationPrefs.phone || ''}">
+                    </div>
+                    <div class="form-group toggle-group">
+                        <label>Email Notifications</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="emailNotifications" ${notificationPrefs.email_notifications ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group toggle-group">
+                        <label>SMS Notifications</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="smsNotifications" ${notificationPrefs.sms_notifications ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </form>
             </div>
             
@@ -1310,10 +1008,11 @@ async function renderSettings() {
         
         <div class="settings-actions">
             <button type="submit" class="btn-primary" id="saveSettingsBtn">Save Changes</button>
-            <button id="signOutBtn" class="btn-danger">Sign Out</button>
+            <button id="logOutBtn" class="btn-danger">Log Out</button>
         </div>
     `;
     
+    // Theme selector
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const theme = btn.getAttribute('data-theme');
@@ -1325,6 +1024,7 @@ async function renderSettings() {
         });
     });
     
+    // Avatar upload
     document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
         document.getElementById('avatarUpload').click();
     });
@@ -1347,6 +1047,7 @@ async function renderSettings() {
         }
     });
     
+    // Portfolio
     document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
         const urlInput = document.getElementById('portfolioUrl');
         urlInput.select();
@@ -1358,30 +1059,44 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
+    // Save settings
     document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
         const newName = document.getElementById('fullNameInput').value;
         const newAddress = document.getElementById('addressInput').value;
+        const newPhone = document.getElementById('phoneInput').value;
+        const notificationEmail = document.getElementById('notificationEmail').value;
+        const notificationPhone = document.getElementById('notificationPhone').value;
+        const emailNotifications = document.getElementById('emailNotifications').checked;
+        const smsNotifications = document.getElementById('smsNotifications').checked;
         
-        const updates = {};
-        if (newName !== currentUser.name) updates.name = newName;
-        if (newAddress !== (currentUser.address || '')) updates.address = newAddress;
-        
-        if (Object.keys(updates).length > 0) {
-            const { error } = await supabase.from('users').update({ ...updates, full_name: newName }).eq('id', currentUser.id);
-            if (error) {
-                showToast('Failed to update settings', 'error');
-            } else {
-                currentUser.name = newName;
-                currentUser.address = newAddress;
-                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                document.getElementById('userName').textContent = newName;
-                showToast('Settings saved successfully!', 'success');
+        const updates = {
+            name: newName,
+            address: newAddress,
+            phone: newPhone,
+            notification_prefs: {
+                email_notifications: emailNotifications,
+                sms_notifications: smsNotifications,
+                email: notificationEmail,
+                phone: notificationPhone
             }
+        };
+        
+        const { error } = await supabase.from('users').update(updates).eq('id', currentUser.id);
+        
+        if (error) {
+            showToast('Failed to update settings', 'error');
         } else {
-            showToast('No changes to save', 'info');
+            currentUser.name = newName;
+            currentUser.address = newAddress;
+            currentUser.phone = newPhone;
+            notificationPrefs = updates.notification_prefs;
+            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+            document.getElementById('userName').textContent = newName;
+            showToast('Settings saved successfully!', 'success');
         }
     });
     
+    // Password change
     document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const currentPassword = document.getElementById('currentPassword').value;
@@ -1413,19 +1128,31 @@ async function renderSettings() {
         }
     });
     
-    document.getElementById('signOutBtn')?.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to sign out?')) {
+    // Log Out (changed from Sign Out)
+    document.getElementById('logOutBtn')?.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to log out?')) {
             await supabase.auth.signOut();
             localStorage.clear();
-            window.location.href = '/signin.html';
+            window.location.href = '/signin';
         }
     });
 }
 
-function renderGradeSubmissions() {
-    const container = document.getElementById('grade-section');
-    if (!container) return;
-    container.innerHTML = `<div class="section-header"><h2>Grade Submissions</h2></div><div class="empty-state"><i class="fas fa-check-circle"></i><h3>No pending submissions</h3></div>`;
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+function formatTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
 }
 
 function escapeHtml(text) {
@@ -1435,6 +1162,9 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// ============================================
+// MOBILE NAVIGATION
+// ============================================
 function initMobileNavigation() {
     const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
     if (mobileNavItems.length === 0) return;
@@ -1484,9 +1214,8 @@ async function initDashboard() {
     updateUI();
     createContentSections();
     buildSidebar();
-    await renderDashboard();
+    await renderOverview();
     
-    setupRealtimeWallet();
     initMobileNavigation();
     
     console.log('Dashboard initialized successfully');
@@ -1497,5 +1226,13 @@ initDashboard();
 
 // Make functions global
 window.switchTab = switchTab;
-window.toggleTheme = toggleTheme;
 window.renderQuestionBar = renderQuestionBar;
+window.renderQuestionPull = renderQuestionPull;
+window.editQuestion = (id) => { console.log('Edit question:', id); };
+window.deleteQuestion = async (id) => {
+    if (confirm('Delete this question?')) {
+        await supabase.from('questions').delete().eq('id', id);
+        await loadInstructorQuestions();
+        showToast('Question deleted', 'success');
+    }
+};
