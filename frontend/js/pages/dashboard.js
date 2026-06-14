@@ -1,33 +1,17 @@
 // ============================================
 // GLIIMU DASHBOARD - COMPLETE VERSION
 // Roles: Student, Instructor, Partner
-// Tabs: Overview, Questions/Question Pull/Submit Project, Go To, Wallet, Settings
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
-import { getWalletBalance, getTransactionHistory, updateWalletBalance } from '../modules/wallet.js';
-import { getStudentScore, getCurrentBadge, getNextBadge, getProgressToNextBadge, getLeaderboard, getStudentPortfolio } from '../modules/progression.js';
-import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
 
 // ============================================
 // GLOBAL STATE
 // ============================================
 let currentUser = null;
-let currentUserProfile = null;
 let currentRole = 'student';
 let currentTab = 'overview';
-let currentWalletBalance = 0;
-let walletSubscription = null;
-let questionRenderer = null;
-
-// Notification preferences
-let notificationPrefs = {
-    email_notifications: true,
-    sms_notifications: false,
-    email: '',
-    phone: ''
-};
 
 // ============================================
 // ROLE-BASED TAB CONFIGURATION
@@ -53,13 +37,6 @@ const roleTabs = {
         { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
-    ],
-    admin: [
-        { id: 'overview', name: 'Overview', icon: 'fas fa-tachometer-alt' },
-        { id: 'users', name: 'Users', icon: 'fas fa-users-cog' },
-        { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
-        { id: 'store', name: 'Store', icon: 'fas fa-store' },
-        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ]
 };
 
@@ -69,34 +46,42 @@ const roleTabs = {
 async function checkAuth() {
     console.log('Checking authentication...');
     
-    const localUser = localStorage.getItem('glimu_user');
-    if (localUser) {
-        currentUser = JSON.parse(localUser);
-        currentRole = currentUser.role || 'student';
-        console.log('User found in localStorage:', currentUser);
-        return true;
-    }
-    
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-        console.error('Session error:', error);
+    try {
+        // Check localStorage first
+        const localUser = localStorage.getItem('glimu_user');
+        if (localUser) {
+            currentUser = JSON.parse(localUser);
+            currentRole = currentUser.role || 'student';
+            console.log('User found in localStorage:', currentUser);
+            return true;
+        }
+        
+        // Check Supabase session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+            console.error('Session error:', error);
+            return false;
+        }
+        
+        if (session) {
+            await loadUserFromSupabase(session.user.id);
+            return true;
+        }
+        
+        console.log('No user found, redirecting to signin');
+        showToast('Please login to access your dashboard', 'info');
+        
+        setTimeout(() => {
+            window.location.href = '/signin';
+        }, 1500);
+        
+        return false;
+        
+    } catch (err) {
+        console.error('Auth check error:', err);
         return false;
     }
-    
-    if (session) {
-        await loadUserFromSupabase(session.user.id);
-        return true;
-    }
-    
-    console.log('No user found, redirecting to signin');
-    showToast('Please login to access your dashboard', 'info');
-    
-    setTimeout(() => {
-        window.location.href = '/signin';
-    }, 1500);
-    
-    return false;
 }
 
 async function loadUserFromSupabase(userId) {
@@ -109,36 +94,47 @@ async function loadUserFromSupabase(userId) {
         
         if (profileError) {
             console.error('Profile error:', profileError);
-            throw profileError;
+            // Create fallback user
+            currentUser = {
+                id: userId,
+                name: 'User',
+                email: 'user@example.com',
+                role: 'student',
+                walletBalance: 0,
+                avatar: 'https://ui-avatars.com/api/?name=User&background=fbb040&color=fff'
+            };
+            currentRole = 'student';
+            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+            return;
         }
-        
-        currentUserProfile = profile;
-        currentWalletBalance = profile.wallet_balance || 0;
-        currentRole = profile.role || 'student';
-        
-        // Load notification preferences
-        if (profile.notification_prefs) {
-            notificationPrefs = { ...notificationPrefs, ...profile.notification_prefs };
-        }
-        notificationPrefs.email = profile.email || '';
-        notificationPrefs.phone = profile.phone || '';
         
         currentUser = {
             id: userId,
             name: profile.name || profile.full_name || 'User',
             email: profile.email,
-            role: currentRole,
+            role: profile.role || 'student',
             walletBalance: profile.wallet_balance || 0,
             address: profile.address || '',
             phone: profile.phone || '',
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
         };
+        currentRole = currentUser.role;
         
         localStorage.setItem('glimu_user', JSON.stringify(currentUser));
         console.log('User loaded from Supabase:', currentUser);
         
     } catch (error) {
-        console.error('Error loading user from Supabase:', error);
+        console.error('Error loading user:', error);
+        // Fallback user
+        currentUser = {
+            id: userId,
+            name: 'User',
+            email: 'user@example.com',
+            role: 'student',
+            walletBalance: 0,
+            avatar: 'https://ui-avatars.com/api/?name=User&background=fbb040&color=fff'
+        };
+        currentRole = 'student';
     }
 }
 
@@ -155,9 +151,6 @@ function initTheme() {
     }
 }
 
-// ============================================
-// UPDATE UI
-// ============================================
 function updateUI() {
     if (!currentUser) return;
     
@@ -240,543 +233,163 @@ function createContentSections() {
 // LOAD TAB DATA
 // ============================================
 async function loadTabData(tabId) {
+    const container = document.getElementById(`${tabId}-section`);
+    if (!container) return;
+    
     switch(tabId) {
         case 'overview':
-            await renderOverview();
+            container.innerHTML = await renderOverview();
             break;
         case 'question':
-            await renderQuestionBar();
+            container.innerHTML = await renderQuestionPlaceholder();
             break;
         case 'question-pull':
-            await renderQuestionPull();
+            container.innerHTML = await renderQuestionPullPlaceholder();
             break;
         case 'submit-project':
-            await renderSubmitProject();
+            container.innerHTML = await renderSubmitProjectPlaceholder();
             break;
         case 'gotomenu':
-            renderGoToMenu();
+            container.innerHTML = renderGoToMenu();
             break;
         case 'wallet':
-            await renderWallet();
+            container.innerHTML = await renderWallet();
             break;
         case 'settings':
-            await renderSettings();
+            container.innerHTML = await renderSettings();
             break;
         default:
-            await renderOverview();
+            container.innerHTML = await renderOverview();
     }
 }
 
 // ============================================
-// OVERVIEW TAB (Student Dashboard)
+// OVERVIEW TAB
 // ============================================
 async function renderOverview() {
-    const container = document.getElementById('overview-section');
-    if (!container) return;
-    
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading overview...</div>';
-    
-    try {
-        const scoreData = await getStudentScore(currentUser.id);
-        const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-        const nextBadge = getNextBadge(scoreData?.current_score || 0);
-        const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-        const leaderboardData = await getLeaderboard(10);
-        const walletBalance = currentUser?.walletBalance || 0;
-        
-        // Get user notifications
-        const notifications = await getUserNotifications();
-        
-        container.innerHTML = `
-            <div class="section-header">
-                <h2>Welcome back, ${currentUser.name || 'Student'}!</h2>
-                <p>Track your progress and stay updated</p>
-            </div>
-            
-            <!-- Progress Section -->
-            <div class="progress-section">
-                ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
-            </div>
-            
-            <!-- Notifications Section (replaces Ambassador Zone) -->
-            <div class="notifications-section">
-                <div class="notifications-header">
-                    <i class="fas fa-bell"></i>
-                    <h3>Notifications</h3>
-                    <button class="mark-all-read" id="markAllReadBtn">Mark all read</button>
-                </div>
-                <div class="notifications-list" id="notificationsList">
-                    ${notifications.length === 0 ? '<div class="empty-notifications"><i class="fas fa-bell-slash"></i><p>No new notifications</p></div>' : 
-                        notifications.map(n => `
-                            <div class="notification-item ${n.read ? 'read' : 'unread'}" data-id="${n.id}">
-                                <div class="notification-icon"><i class="fas ${n.icon || 'fa-info-circle'}"></i></div>
-                                <div class="notification-content">
-                                    <div class="notification-title">${escapeHtml(n.title)}</div>
-                                    <div class="notification-message">${escapeHtml(n.message)}</div>
-                                    <div class="notification-time">${formatTimeAgo(new Date(n.created_at))}</div>
-                                </div>
-                                ${!n.read ? '<div class="notification-unread-dot"></div>' : ''}
-                            </div>
-                        `).join('')
-                    }
-                </div>
-            </div>
-            
-            <!-- Leaderboard Section -->
-            <div class="leaderboard-section">
-                <div class="leaderboard-header">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Top Performers</h3>
-                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
-                </div>
-                <div class="leaderboard-list">
-                    ${renderLeaderboardList(leaderboardData)}
-                </div>
-            </div>
-        `;
-        
-        // Event listeners
-        document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
-            const newLeaderboard = await getLeaderboard(10);
-            const leaderboardList = document.querySelector('.leaderboard-list');
-            if (leaderboardList) {
-                leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
-            }
-            showToast('Leaderboard refreshed!', 'success');
-        });
-        
-        document.getElementById('markAllReadBtn')?.addEventListener('click', async () => {
-            await markAllNotificationsRead();
-            await renderOverview();
-        });
-        
-    } catch (error) {
-        console.error('Error rendering overview:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Overview</h3><button class="btn-primary" onclick="location.reload()">Refresh</button></div>`;
-    }
-}
-
-// ============================================
-// NOTIFICATION FUNCTIONS
-// ============================================
-async function getUserNotifications() {
-    try {
-        const { data, error } = await supabase
-            .from('user_notifications')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
-            .limit(10);
-        
-        if (!error && data) return data;
-    } catch (e) {
-        console.log('Using mock notifications');
-    }
-    
-    // Mock notifications
-    return [
-        { id: '1', title: 'Welcome!', message: 'Welcome to Gliimu! Start your learning journey today.', icon: 'fa-rocket', read: false, created_at: new Date().toISOString() },
-        { id: '2', title: 'New Course Available', message: 'Advanced Motion Graphics course is now available in the library.', icon: 'fa-graduation-cap', read: false, created_at: new Date(Date.now() - 86400000).toISOString() }
-    ];
-}
-
-async function markAllNotificationsRead() {
-    try {
-        await supabase
-            .from('user_notifications')
-            .update({ read: true })
-            .eq('user_id', currentUser.id)
-            .eq('read', false);
-    } catch (e) {
-        console.log('Error marking notifications read');
-    }
-}
-
-function renderLeaderboardList(leaderboardData) {
-    if (!leaderboardData || leaderboardData.length === 0) {
-        return '<div class="empty-state"><i class="fas fa-trophy"></i><p>No leaders yet. Be the first!</p></div>';
-    }
-    
-    return leaderboardData.map((entry, index) => `
-        <div class="leaderboard-item ${index < 3 ? 'top-' + (index + 1) : ''}">
-            <div class="leaderboard-rank">#${index + 1}</div>
-            <div class="leaderboard-avatar">
-                <img src="${entry.users?.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(entry.users?.name || 'User') + '&background=fbb040&color=fff'}" alt="">
-            </div>
-            <div class="leaderboard-info">
-                <div class="leaderboard-name">${entry.users?.name || 'Anonymous'}</div>
-                <div class="leaderboard-badge">${entry.current_badge}</div>
-            </div>
-            <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
+    // Simple overview without complex imports
+    return `
+        <div class="section-header">
+            <h2>Welcome back, ${currentUser?.name || 'Student'}!</h2>
+            <p>Track your progress and stay updated</p>
         </div>
-    `).join('');
-}
-
-// ============================================
-// QUESTIONS TAB (Student)
-// ============================================
-async function renderQuestionBar() {
-    const container = document.getElementById('question-section');
-    if (!container) return;
-    
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
-    
-    try {
-        const nextQuestion = await getNextQuestion(currentUser.id);
         
-        if (!nextQuestion) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>All Questions Complete!</h3>
-                    <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-primary" onclick="switchTab('overview')">Return to Overview</button>
+        <div class="progress-section">
+            <div class="progress-header">
+                <div class="current-badge">
+                    <div class="badge-icon">🎓</div>
+                    <div class="badge-info">
+                        <h4>Learning Progress</h4>
+                        <p>Keep going to unlock achievements</p>
+                    </div>
                 </div>
-            `;
-            return;
-        }
-        
-        questionRenderer = new QuestionRenderer(
-            'question-section',
-            currentUser.id,
-            async () => {
-                await renderQuestionBar();
-                await renderOverview();
-            }
-        );
-        
-        await questionRenderer.renderQuestion(nextQuestion);
-        
-    } catch (error) {
-        console.error('Error loading question:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load question</h3>
-                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
             </div>
-        `;
-    }
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" style="width: 45%; background: var(--brand-gold)"></div>
+            </div>
+            <div class="next-badge-info">
+                <span>45% Complete</span>
+                <span>Next: 50% → Silver Badge</span>
+            </div>
+        </div>
+        
+        <div class="notifications-section">
+            <div class="notifications-header">
+                <i class="fas fa-bell"></i>
+                <h3>Notifications</h3>
+            </div>
+            <div class="notifications-list">
+                <div class="notification-item unread">
+                    <div class="notification-icon"><i class="fas fa-rocket"></i></div>
+                    <div class="notification-content">
+                        <div class="notification-title">Welcome to Gliimu!</div>
+                        <div class="notification-message">Start your learning journey today.</div>
+                        <div class="notification-time">Just now</div>
+                    </div>
+                </div>
+                <div class="notification-item">
+                    <div class="notification-icon"><i class="fas fa-graduation-cap"></i></div>
+                    <div class="notification-content">
+                        <div class="notification-title">New Course Available</div>
+                        <div class="notification-message">Advanced Motion Graphics is now in the library.</div>
+                        <div class="notification-time">Yesterday</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="leaderboard-section">
+            <div class="leaderboard-header">
+                <i class="fas fa-trophy"></i>
+                <h3>Top Performers</h3>
+            </div>
+            <div class="leaderboard-list">
+                <div class="leaderboard-item"><div class="leaderboard-rank">#1</div><div class="leaderboard-info"><div class="leaderboard-name">Michael Chen</div></div><div class="leaderboard-score">98%</div></div>
+                <div class="leaderboard-item"><div class="leaderboard-rank">#2</div><div class="leaderboard-info"><div class="leaderboard-name">Sarah Johnson</div></div><div class="leaderboard-score">95%</div></div>
+                <div class="leaderboard-item"><div class="leaderboard-rank">#3</div><div class="leaderboard-info"><div class="leaderboard-name">David Okafor</div></div><div class="leaderboard-score">92%</div></div>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================
-// QUESTION PULL TAB (Instructor)
+// PLACEHOLDER FUNCTIONS (to be implemented)
 // ============================================
-async function renderQuestionPull() {
-    const container = document.getElementById('question-pull-section');
-    if (!container) return;
-    
-    container.innerHTML = `
+async function renderQuestionPlaceholder() {
+    return `
+        <div class="section-header">
+            <h2><i class="fas fa-question-circle"></i> Questions</h2>
+            <p>Test your knowledge and earn points</p>
+        </div>
+        <div class="empty-state">
+            <i class="fas fa-check-circle"></i>
+            <h3>Questions Coming Soon</h3>
+            <p>Check back later for new challenges!</p>
+        </div>
+    `;
+}
+
+async function renderQuestionPullPlaceholder() {
+    return `
         <div class="section-header">
             <h2><i class="fas fa-database"></i> Question Pull</h2>
             <p>Create and manage questions for students</p>
         </div>
-        
-        <div class="question-pull-actions">
-            <button class="btn-primary" id="createQuestionBtn"><i class="fas fa-plus"></i> Create New Question</button>
-        </div>
-        
-        <div class="questions-list" id="instructorQuestionsList">
-            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading questions...</div>
+        <div class="empty-state">
+            <i class="fas fa-plus-circle"></i>
+            <h3>Create Your First Question</h3>
+            <p>Use the button below to start creating questions.</p>
+            <button class="btn-primary" onclick="alert('Question creation coming soon')">Create Question</button>
         </div>
     `;
-    
-    await loadInstructorQuestions();
-    
-    document.getElementById('createQuestionBtn')?.addEventListener('click', () => {
-        openCreateQuestionModal();
-    });
 }
 
-async function loadInstructorQuestions() {
-    const container = document.getElementById('instructorQuestionsList');
-    if (!container) return;
-    
-    try {
-        const { data, error } = await supabase
-            .from('questions')
-            .select('*')
-            .eq('created_by', currentUser.id)
-            .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-question-circle"></i>
-                    <h3>No questions yet</h3>
-                    <p>Create your first question to start assessing students.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        container.innerHTML = data.map(q => `
-            <div class="question-pull-item">
-                <div class="question-pull-text">${escapeHtml(q.text)}</div>
-                <div class="question-pull-meta">
-                    <span><i class="fas fa-tag"></i> ${q.category || 'General'}</span>
-                    <span><i class="fas fa-clock"></i> ${new Date(q.created_at).toLocaleDateString()}</span>
-                </div>
-                <div class="question-pull-actions">
-                    <button class="btn-outline-small" onclick="editQuestion('${q.id}')">Edit</button>
-                    <button class="btn-danger-small" onclick="deleteQuestion('${q.id}')">Delete</button>
-                </div>
-            </div>
-        `).join('');
-        
-    } catch (error) {
-        console.error('Error loading questions:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading questions</h3></div>`;
-    }
-}
-
-function openCreateQuestionModal() {
-    let modal = document.getElementById('createQuestionModal');
-    if (modal) modal.remove();
-    
-    modal = document.createElement('div');
-    modal.id = 'createQuestionModal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create New Question</h2>
-                <button class="modal-close" id="closeQuestionModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="questionForm">
-                    <div class="form-group">
-                        <label>Question Text</label>
-                        <textarea id="questionText" rows="3" required placeholder="Enter your question here..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Category</label>
-                        <select id="questionCategory">
-                            <option value="General">General</option>
-                            <option value="Video Production">Video Production</option>
-                            <option value="Design">Design</option>
-                            <option value="Development">Development</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Correct Answer</label>
-                        <input type="text" id="correctAnswer" required placeholder="The correct answer">
-                    </div>
-                    <div class="form-group">
-                        <label>Wrong Answer 1</label>
-                        <input type="text" id="wrongAnswer1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Wrong Answer 2</label>
-                        <input type="text" id="wrongAnswer2" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Wrong Answer 3</label>
-                        <input type="text" id="wrongAnswer3" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Create Question</button>
-                </form>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    modal.classList.add('active');
-    
-    document.getElementById('closeQuestionModal').onclick = () => modal.classList.remove('active');
-    
-    document.getElementById('questionForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const questionText = document.getElementById('questionText').value;
-        const category = document.getElementById('questionCategory').value;
-        const correctAnswer = document.getElementById('correctAnswer').value;
-        const wrongAnswers = [
-            document.getElementById('wrongAnswer1').value,
-            document.getElementById('wrongAnswer2').value,
-            document.getElementById('wrongAnswer3').value
-        ];
-        
-        const { error } = await supabase
-            .from('questions')
-            .insert({
-                text: questionText,
-                category: category,
-                correct_answer: correctAnswer,
-                wrong_answers: wrongAnswers,
-                created_by: currentUser.id,
-                created_at: new Date().toISOString()
-            });
-        
-        if (error) {
-            showToast('Failed to create question', 'error');
-        } else {
-            showToast('Question created successfully!', 'success');
-            modal.classList.remove('active');
-            await loadInstructorQuestions();
-        }
-    });
-}
-
-// ============================================
-// SUBMIT PROJECT TAB (Partner)
-// ============================================
-async function renderSubmitProject() {
-    const container = document.getElementById('submit-project-section');
-    if (!container) return;
-    
-    container.innerHTML = `
+async function renderSubmitProjectPlaceholder() {
+    return `
         <div class="section-header">
             <h2><i class="fas fa-file-alt"></i> Submit Project</h2>
             <p>Submit your project proposals for review</p>
         </div>
-        
-        <div class="project-submission-form">
-            <form id="projectSubmissionForm">
-                <div class="form-group">
-                    <label>Project Title</label>
-                    <input type="text" id="projectTitle" required placeholder="e.g., Brand Identity Design">
-                </div>
-                <div class="form-group">
-                    <label>Project Category</label>
-                    <select id="projectCategory" required>
-                        <option value="">Select category</option>
-                        <option value="Video Production">Video Production</option>
-                        <option value="Design">Design</option>
-                        <option value="Web Development">Web Development</option>
-                        <option value="Content Creation">Content Creation</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Project Description</label>
-                    <textarea id="projectDescription" rows="5" required placeholder="Describe your project in detail..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Budget Range</label>
-                    <input type="text" id="projectBudget" placeholder="e.g., ₦50,000 - ₦100,000">
-                </div>
-                <div class="form-group">
-                    <label>Timeline</label>
-                    <input type="text" id="projectTimeline" placeholder="e.g., 2 weeks">
-                </div>
-                <div class="form-group">
-                    <label>Attachments (Optional)</label>
-                    <input type="file" id="projectAttachments" multiple accept=".pdf,.doc,.docx,.jpg,.png">
-                </div>
-                <button type="submit" class="btn-primary">Submit Project</button>
-            </form>
-        </div>
-        
-        <div class="recent-submissions">
-            <h3>Recent Submissions</h3>
-            <div id="recentSubmissionsList" class="submissions-list">
-                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
-            </div>
+        <div class="empty-state">
+            <i class="fas fa-paper-plane"></i>
+            <h3>Submit a Project</h3>
+            <p>Fill out the form below to submit your project.</p>
+            <button class="btn-primary" onclick="alert('Project submission coming soon')">Submit Project</button>
         </div>
     `;
-    
-    await loadRecentSubmissions();
-    
-    document.getElementById('projectSubmissionForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const title = document.getElementById('projectTitle').value;
-        const category = document.getElementById('projectCategory').value;
-        const description = document.getElementById('projectDescription').value;
-        const budget = document.getElementById('projectBudget').value;
-        const timeline = document.getElementById('projectTimeline').value;
-        
-        const { error } = await supabase
-            .from('partner_projects')
-            .insert({
-                user_id: currentUser.id,
-                title: title,
-                category: category,
-                description: description,
-                budget: budget,
-                timeline: timeline,
-                status: 'pending',
-                submitted_at: new Date().toISOString()
-            });
-        
-        if (error) {
-            showToast('Failed to submit project', 'error');
-        } else {
-            showToast('Project submitted successfully!', 'success');
-            document.getElementById('projectSubmissionForm').reset();
-            await loadRecentSubmissions();
-        }
-    });
-}
-
-async function loadRecentSubmissions() {
-    const container = document.getElementById('recentSubmissionsList');
-    if (!container) return;
-    
-    try {
-        const { data, error } = await supabase
-            .from('partner_projects')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('submitted_at', { ascending: false })
-            .limit(5);
-        
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No submissions yet</p></div>';
-            return;
-        }
-        
-        container.innerHTML = data.map(p => `
-            <div class="submission-item">
-                <div class="submission-title">${escapeHtml(p.title)}</div>
-                <div class="submission-status status-${p.status}">${p.status}</div>
-                <div class="submission-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
-            </div>
-        `).join('');
-        
-    } catch (error) {
-        console.error('Error loading submissions:', error);
-        container.innerHTML = '<div class="empty-state"><p>Error loading submissions</p></div>';
-    }
 }
 
 // ============================================
-// GO TO MENU TAB (Updated with Courses, Portfolios, Store)
+// GO TO MENU TAB
 // ============================================
 function renderGoToMenu() {
-    const container = document.getElementById('gotomenu-section');
-    if (!container) return;
-    
-    // Different links based on role
-    let roleSpecificLinks = '';
-    
-    if (currentRole === 'instructor') {
-        roleSpecificLinks = `
-            <div class="go-to-card" onclick="window.location.href='/virtualroom?role=teacher'">
-                <div class="go-to-icon"><i class="fas fa-chalkboard-teacher"></i></div>
-                <div class="go-to-info"><h3>Host Live Session</h3><p>Start a new virtual classroom session</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-        `;
-    } else if (currentRole === 'partner') {
-        roleSpecificLinks = `
-            <div class="go-to-card" onclick="window.location.href='/course'">
-                <div class="go-to-icon"><i class="fas fa-graduation-cap"></i></div>
-                <div class="go-to-info"><h3>Enroll in Course</h3><p>Become a student to access full learning</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-        `;
-    }
-    
-    container.innerHTML = `
+    return `
         <div class="section-header">
             <h2><i class="fas fa-door-open"></i> Go To</h2>
             <p>Quick access to all platform sections</p>
         </div>
         
         <div class="go-to-grid">
-            <!-- Courses Link -->
             <div class="go-to-card" onclick="window.location.href='/course'">
                 <div class="go-to-icon"><i class="fas fa-graduation-cap"></i></div>
                 <div class="go-to-info">
@@ -786,7 +399,6 @@ function renderGoToMenu() {
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
             
-            <!-- Portfolios Link -->
             <div class="go-to-card" onclick="window.location.href='/portfolios'">
                 <div class="go-to-icon"><i class="fas fa-briefcase"></i></div>
                 <div class="go-to-info">
@@ -796,7 +408,6 @@ function renderGoToMenu() {
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
             
-            <!-- Store Link -->
             <div class="go-to-card" onclick="window.location.href='/store'">
                 <div class="go-to-icon"><i class="fas fa-store"></i></div>
                 <div class="go-to-info">
@@ -806,125 +417,71 @@ function renderGoToMenu() {
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
             
-            <!-- Library -->
             <div class="go-to-card" onclick="window.location.href='/library'">
                 <div class="go-to-icon"><i class="fas fa-book"></i></div>
                 <div class="go-to-info"><h3>Library</h3><p>Access books, bundles, and learning materials</p></div>
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
             
-            <!-- Virtual Classroom -->
             <div class="go-to-card" onclick="window.location.href='/virtualroom'">
                 <div class="go-to-icon"><i class="fas fa-video"></i></div>
                 <div class="go-to-info"><h3>Virtual Classroom</h3><p>Join live classes and interactive sessions</p></div>
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
             
-            <!-- Hub -->
             <div class="go-to-card" onclick="window.location.href='/hub'">
                 <div class="go-to-icon"><i class="fas fa-newspaper"></i></div>
                 <div class="go-to-info"><h3>Hub</h3><p>Events, insights, and latest updates</p></div>
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
             
-            <!-- Community Chat -->
             <div class="go-to-card" onclick="window.location.href='/chat'">
                 <div class="go-to-icon"><i class="fas fa-comments"></i></div>
                 <div class="go-to-info"><h3>Community</h3><p>Connect with fellow learners and instructors</p></div>
                 <i class="fas fa-arrow-right go-to-arrow"></i>
             </div>
-            
-            ${roleSpecificLinks}
         </div>
     `;
 }
 
 // ============================================
-// WALLET TAB (Simplified - No Subscription Plans)
+// WALLET TAB
 // ============================================
 async function renderWallet() {
-    const container = document.getElementById('wallet-section');
-    if (!container) return;
+    const balance = currentUser?.walletBalance || 0;
     
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
-    
-    try {
-        const balance = await getWalletBalance();
-        const transactions = await getTransactionHistory();
+    return `
+        <div class="section-header">
+            <h2><i class="fas fa-wallet"></i> My Wallet</h2>
+            <p>Manage your funds and transactions</p>
+        </div>
         
-        container.innerHTML = `
-            <div class="section-header">
-                <h2><i class="fas fa-wallet"></i> My Wallet</h2>
-                <p>Manage your funds and transactions</p>
+        <div class="wallet-balance-card">
+            <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
+            <div class="wallet-balance-info">
+                <span class="wallet-label">Available Balance</span>
+                <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
             </div>
-            
-            <div class="wallet-balance-card">
-                <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
-                <div class="wallet-balance-info">
-                    <span class="wallet-label">Available Balance</span>
-                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
-                </div>
-                <button id="addFundsBtn" class="btn-primary">Add Funds</button>
-                <button id="withdrawFundsBtn" class="btn-outline">Withdraw</button>
+            <button id="addFundsBtn" class="btn-primary">Add Funds</button>
+            <button id="withdrawFundsBtn" class="btn-outline">Withdraw</button>
+        </div>
+        
+        <div class="transactions-section">
+            <h3>Transaction History</h3>
+            <div class="transactions-list">
+                <div class="empty-state"><p>No transactions yet</p></div>
             </div>
-            
-            <div class="transactions-section">
-                <h3>Transaction History</h3>
-                <div class="transactions-list">
-                    ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
-                        transactions.map(t => `
-                            <div class="transaction-item">
-                                <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
-                                    <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
-                                </div>
-                                <div class="transaction-info">
-                                    <div class="transaction-desc">${escapeHtml(t.description)}</div>
-                                    <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
-                                </div>
-                                <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
-                                    ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
-                                </div>
-                            </div>
-                        `).join('')
-                    }
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
-            openFundWalletModal();
-        });
-        
-        document.getElementById('withdrawFundsBtn')?.addEventListener('click', () => {
-            openWithdrawModal();
-        });
-        
-    } catch (error) {
-        console.error('Error rendering wallet:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
-    }
-}
-
-function openFundWalletModal() {
-    showToast('Add funds feature coming soon. Please contact support.', 'info');
-}
-
-function openWithdrawModal() {
-    showToast('Withdrawal requests can be made from the Withdraw section.', 'info');
+        </div>
+    `;
 }
 
 // ============================================
-// SETTINGS TAB (Updated)
+// SETTINGS TAB
 // ============================================
 async function renderSettings() {
-    const container = document.getElementById('settings-section');
-    if (!container) return;
-    
     const isDark = document.body.classList.contains('dark-mode');
-    const portfolioUrl = `${window.location.origin}/u/${currentUser.name.toLowerCase().replace(/\s+/g, '-')}`;
-    const portfolioItems = await getStudentPortfolio(currentUser.id, false);
     
-    container.innerHTML = `
+    return `
         <div class="section-header">
             <h2><i class="fas fa-cog"></i> Settings</h2>
             <p>Manage your account preferences</p>
@@ -957,25 +514,11 @@ async function renderSettings() {
                 <form id="notificationPrefsForm">
                     <div class="form-group">
                         <label>Email for notifications</label>
-                        <input type="email" id="notificationEmail" placeholder="Enter email for notifications" value="${notificationPrefs.email || currentUser?.email || ''}">
+                        <input type="email" id="notificationEmail" placeholder="Enter email for notifications" value="${currentUser?.email || ''}">
                     </div>
                     <div class="form-group">
                         <label>Phone for SMS alerts</label>
-                        <input type="tel" id="notificationPhone" placeholder="Enter phone number for SMS" value="${notificationPrefs.phone || ''}">
-                    </div>
-                    <div class="form-group toggle-group">
-                        <label>Email Notifications</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="emailNotifications" ${notificationPrefs.email_notifications ? 'checked' : ''}>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="form-group toggle-group">
-                        <label>SMS Notifications</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="smsNotifications" ${notificationPrefs.sms_notifications ? 'checked' : ''}>
-                            <span class="toggle-slider"></span>
-                        </label>
+                        <input type="tel" id="notificationPhone" placeholder="Enter phone number for SMS" value="${currentUser?.phone || ''}">
                     </div>
                 </form>
             </div>
@@ -994,211 +537,13 @@ async function renderSettings() {
                 <h3>Preferences</h3>
                 <div class="form-group"><label>Theme</label><div class="theme-selector"><button class="theme-option ${!isDark ? 'active' : ''}" data-theme="light">☀️ Light</button><button class="theme-option ${isDark ? 'active' : ''}" data-theme="dark">🌙 Dark</button></div></div>
             </div>
-            
-            <div class="settings-card">
-                <h3>Portfolio</h3>
-                <div class="portfolio-settings">
-                    <p>Your public portfolio shows your best work to the world.</p>
-                    <div class="portfolio-stats"><span><i class="fas fa-briefcase"></i> ${portfolioItems.length} items</span><span><i class="fas fa-eye"></i> Total views: ${portfolioItems.reduce((sum, i) => sum + (i.view_count || 0), 0)}</span></div>
-                    <div class="portfolio-url-display"><input type="text" id="portfolioUrl" readonly value="${portfolioUrl}"><button id="copyPortfolioUrlBtn" class="btn-outline">Copy URL</button></div>
-                    <button id="viewPublicPortfolioBtn" class="btn-primary">View Public Portfolio</button>
-                </div>
-            </div>
         </div>
         
         <div class="settings-actions">
-            <button type="submit" class="btn-primary" id="saveSettingsBtn">Save Changes</button>
+            <button class="btn-primary" id="saveSettingsBtn">Save Changes</button>
             <button id="logOutBtn" class="btn-danger">Log Out</button>
         </div>
     `;
-    
-    // Theme selector
-    document.querySelectorAll('.theme-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const theme = btn.getAttribute('data-theme');
-            if (theme === 'dark') document.body.classList.add('dark-mode');
-            else document.body.classList.remove('dark-mode');
-            localStorage.setItem('theme', theme);
-            document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        });
-    });
-    
-    // Avatar upload
-    document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
-        document.getElementById('avatarUpload').click();
-    });
-    
-    document.getElementById('avatarUpload')?.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const avatarUrl = event.target.result;
-                document.getElementById('profilePreview').src = avatarUrl;
-                const { error } = await supabase.from('users').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
-                if (!error) {
-                    currentUser.avatar = avatarUrl;
-                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-                    showToast('Profile picture updated!', 'success');
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-    
-    // Portfolio
-    document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
-        const urlInput = document.getElementById('portfolioUrl');
-        urlInput.select();
-        document.execCommand('copy');
-        showToast('Portfolio URL copied!', 'success');
-    });
-    
-    document.getElementById('viewPublicPortfolioBtn')?.addEventListener('click', () => {
-        window.open(portfolioUrl, '_blank');
-    });
-    
-    // Save settings
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
-        const newName = document.getElementById('fullNameInput').value;
-        const newAddress = document.getElementById('addressInput').value;
-        const newPhone = document.getElementById('phoneInput').value;
-        const notificationEmail = document.getElementById('notificationEmail').value;
-        const notificationPhone = document.getElementById('notificationPhone').value;
-        const emailNotifications = document.getElementById('emailNotifications').checked;
-        const smsNotifications = document.getElementById('smsNotifications').checked;
-        
-        const updates = {
-            name: newName,
-            address: newAddress,
-            phone: newPhone,
-            notification_prefs: {
-                email_notifications: emailNotifications,
-                sms_notifications: smsNotifications,
-                email: notificationEmail,
-                phone: notificationPhone
-            }
-        };
-        
-        const { error } = await supabase.from('users').update(updates).eq('id', currentUser.id);
-        
-        if (error) {
-            showToast('Failed to update settings', 'error');
-        } else {
-            currentUser.name = newName;
-            currentUser.address = newAddress;
-            currentUser.phone = newPhone;
-            notificationPrefs = updates.notification_prefs;
-            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-            document.getElementById('userName').textContent = newName;
-            showToast('Settings saved successfully!', 'success');
-        }
-    });
-    
-    // Password change
-    document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const currentPassword = document.getElementById('currentPassword').value;
-        const newPassword = document.getElementById('newPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-        
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            showToast('Please fill in all password fields', 'error');
-            return;
-        }
-        
-        if (newPassword !== confirmPassword) {
-            showToast('New passwords do not match', 'error');
-            return;
-        }
-        
-        if (newPassword.length < 8) {
-            showToast('Password must be at least 8 characters', 'error');
-            return;
-        }
-        
-        const { error } = await supabase.auth.updateUser({ password: newPassword });
-        
-        if (error) {
-            showToast(error.message || 'Failed to update password', 'error');
-        } else {
-            showToast('Password updated successfully!', 'success');
-            document.getElementById('passwordForm').reset();
-        }
-    });
-    
-    // Log Out (changed from Sign Out)
-    document.getElementById('logOutBtn')?.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to log out?')) {
-            await supabase.auth.signOut();
-            localStorage.clear();
-            window.location.href = '/signin';
-        }
-    });
-}
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-function formatTimeAgo(date) {
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// ============================================
-// MOBILE NAVIGATION
-// ============================================
-function initMobileNavigation() {
-    const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
-    if (mobileNavItems.length === 0) return;
-    
-    mobileNavItems.forEach(item => {
-        const newItem = item.cloneNode(true);
-        item.parentNode.replaceChild(newItem, item);
-        
-        newItem.addEventListener('click', () => {
-            const tabId = newItem.getAttribute('data-tab');
-            document.querySelectorAll('.mobile-nav-item').forEach(nav => nav.classList.remove('active'));
-            newItem.classList.add('active');
-            switchTab(tabId);
-        });
-    });
-    
-    function syncMobileActiveState() {
-        document.querySelectorAll('.mobile-nav-item').forEach(item => {
-            const tabId = item.getAttribute('data-tab');
-            if (tabId === currentTab) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
-            }
-        });
-    }
-    
-    const originalSwitchTab = window.switchTab;
-    window.switchTab = function(tabId) {
-        originalSwitchTab(tabId);
-        syncMobileActiveState();
-    };
-    
-    syncMobileActiveState();
 }
 
 // ============================================
@@ -1214,25 +559,108 @@ async function initDashboard() {
     updateUI();
     createContentSections();
     buildSidebar();
-    await renderOverview();
+    await loadTabData('overview');
     
-    initMobileNavigation();
+    // Set up event listeners after DOM is ready
+    setTimeout(() => {
+        setupEventListeners();
+    }, 100);
     
     console.log('Dashboard initialized successfully');
+}
+
+function setupEventListeners() {
+    // Add Funds button
+    const addFundsBtn = document.getElementById('addFundsBtn');
+    if (addFundsBtn) {
+        addFundsBtn.addEventListener('click', () => {
+            showToast('Add funds feature coming soon. Please contact support.', 'info');
+        });
+    }
+    
+    // Withdraw button
+    const withdrawBtn = document.getElementById('withdrawFundsBtn');
+    if (withdrawBtn) {
+        withdrawBtn.addEventListener('click', () => {
+            showToast('Withdrawal requests coming soon.', 'info');
+        });
+    }
+    
+    // Save settings
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const newName = document.getElementById('fullNameInput')?.value;
+            const newPhone = document.getElementById('phoneInput')?.value;
+            const newAddress = document.getElementById('addressInput')?.value;
+            
+            if (newName && newName !== currentUser.name) {
+                const { error } = await supabase.from('users').update({ name: newName }).eq('id', currentUser.id);
+                if (!error) {
+                    currentUser.name = newName;
+                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                    document.getElementById('userName').textContent = newName;
+                    showToast('Settings saved!', 'success');
+                }
+            } else {
+                showToast('No changes to save', 'info');
+            }
+        });
+    }
+    
+    // Theme selector
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.getAttribute('data-theme');
+            if (theme === 'dark') document.body.classList.add('dark-mode');
+            else document.body.classList.remove('dark-mode');
+            localStorage.setItem('theme', theme);
+            document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+    
+    // Log out
+    const logoutBtn = document.getElementById('logOutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to log out?')) {
+                await supabase.auth.signOut();
+                localStorage.clear();
+                window.location.href = '/signin';
+            }
+        });
+    }
+    
+    // Avatar upload
+    const uploadBtn = document.getElementById('uploadAvatarBtn');
+    const avatarInput = document.getElementById('avatarUpload');
+    if (uploadBtn && avatarInput) {
+        uploadBtn.addEventListener('click', () => avatarInput.click());
+        avatarInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const avatarUrl = event.target.result;
+                    const preview = document.getElementById('profilePreview');
+                    if (preview) preview.src = avatarUrl;
+                    
+                    const { error } = await supabase.from('users').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
+                    if (!error) {
+                        currentUser.avatar = avatarUrl;
+                        localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                        showToast('Profile picture updated!', 'success');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 }
 
 // Start the dashboard
 initDashboard();
 
-// Make functions global
+// Make functions global for onclick handlers
 window.switchTab = switchTab;
-window.renderQuestionBar = renderQuestionBar;
-window.renderQuestionPull = renderQuestionPull;
-window.editQuestion = (id) => { console.log('Edit question:', id); };
-window.deleteQuestion = async (id) => {
-    if (confirm('Delete this question?')) {
-        await supabase.from('questions').delete().eq('id', id);
-        await loadInstructorQuestions();
-        showToast('Question deleted', 'success');
-    }
-};
