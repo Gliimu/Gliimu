@@ -1,11 +1,11 @@
 // ============================================
 // GLIIMU DASHBOARD - UPDATED VERSION
-// Changes: Overview tab, Notifications, Go To links, Wallet simplified
+// Changes: Removed Quick Stats, Learn → Assessment, Wallet with funding
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
-import { getWalletBalance, getTransactionHistory } from '../modules/wallet.js';
+import { getWalletBalance, getTransactionHistory, addTransaction } from '../modules/wallet.js';
 import { getStudentScore, getCurrentBadge, getNextBadge, getProgressToNextBadge, getLeaderboard, getStudentPortfolio } from '../modules/progression.js';
 import { QuestionRenderer } from '../modules/questions.js';
 
@@ -21,6 +21,7 @@ let walletSubscription = null;
 let notifications = [];
 let selectedAmount = 0;
 let allPayments = [];
+let allTransactions = [];
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -91,9 +92,42 @@ async function loadUserFromSupabase(userId) {
         console.log('User loaded from Supabase:', currentUser);
         
         await loadNotifications();
+        await loadPaymentsAndTransactions();
         
     } catch (error) {
         console.error('Error loading user from Supabase:', error);
+    }
+}
+
+// ============================================
+// LOAD PAYMENTS & TRANSACTIONS
+// ============================================
+async function loadPaymentsAndTransactions() {
+    try {
+        // Load payment requests (funding requests)
+        const { data: payments, error: paymentsError } = await supabase
+            .from('payment_requests')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('submitted_at', { ascending: false });
+        
+        if (!paymentsError && payments) {
+            allPayments = payments;
+        }
+        
+        // Load transactions
+        const { data: transactions, error: transactionsError } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+        
+        if (!transactionsError && transactions) {
+            allTransactions = transactions;
+        }
+        
+    } catch (error) {
+        console.error('Error loading payments/transactions:', error);
     }
 }
 
@@ -112,10 +146,8 @@ async function loadNotifications() {
         if (!error && data) {
             notifications = data;
         } else {
-            // Mock notifications
             notifications = [
-                { id: 1, title: 'Welcome!', message: 'Welcome to Gliimu Dashboard', type: 'system', read: false, created_at: new Date().toISOString() },
-                { id: 2, title: 'Payment Received', message: 'Your wallet has been credited with ₦5,000', type: 'payment', read: false, created_at: new Date().toISOString() }
+                { id: 1, title: 'Welcome!', message: 'Welcome to Gliimu Dashboard', type: 'system', read: false, created_at: new Date().toISOString() }
             ];
         }
     } catch (error) {
@@ -150,7 +182,7 @@ async function markAllNotificationsRead() {
 const roleTabs = {
     student: [
         { id: 'overview', name: 'Overview', icon: 'fas fa-tachometer-alt' },
-        { id: 'question', name: 'Learn', icon: 'fas fa-question-circle' },
+        { id: 'assessment', name: 'Assessment', icon: 'fas fa-question-circle' },
         { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Profile', icon: 'fas fa-cog' }
@@ -252,7 +284,7 @@ function createContentSections() {
 }
 
 // ============================================
-// OVERVIEW TAB (Formerly Dashboard)
+// OVERVIEW TAB (No Quick Stats)
 // ============================================
 async function renderOverview() {
     const container = document.getElementById('overview-section');
@@ -267,37 +299,10 @@ async function renderOverview() {
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
         const leaderboardData = await getLeaderboard(10);
         const unreadCount = notifications.filter(n => !n.read).length;
-        const walletBalance = currentUser?.walletBalance || 14500;
         
         container.innerHTML = `
             <div class="progress-section">
                 ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
-            </div>
-            
-            <div class="quick-stats">
-                <div class="quick-stat-card">
-                    <i class="fas fa-wallet"></i>
-                    <div>
-                        <span class="quick-stat-label">Wallet Balance</span>
-                        <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
-                    </div>
-                    <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
-                </div>
-                <div class="quick-stat-card">
-                    <i class="fas fa-trophy"></i>
-                    <div>
-                        <span class="quick-stat-label">Current Badge</span>
-                        <span class="quick-stat-value">${currentBadge.name}</span>
-                    </div>
-                </div>
-                <div class="quick-stat-card">
-                    <i class="fas fa-bell"></i>
-                    <div>
-                        <span class="quick-stat-label">Notifications</span>
-                        <span class="quick-stat-value">${unreadCount} unread</span>
-                    </div>
-                    <button class="quick-add-funds" id="viewNotificationsBtn">View</button>
-                </div>
             </div>
             
             <div class="notification-section">
@@ -336,8 +341,6 @@ async function renderOverview() {
             </div>
         `;
         
-        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => switchTab('wallet'));
-        document.getElementById('viewNotificationsBtn')?.addEventListener('click', () => openNotificationModal());
         document.getElementById('markAllReadBtn')?.addEventListener('click', () => markAllNotificationsRead());
         
         document.querySelectorAll('.notification-item').forEach(item => {
@@ -410,7 +413,117 @@ function renderLeaderboardList(leaderboardData) {
 }
 
 // ============================================
-// GO TO MENU TAB - UPDATED
+// ASSESSMENT TAB (formerly Learn)
+// ============================================
+async function renderAssessment() {
+    const container = document.getElementById('assessment-section');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading assessment...</div>';
+    
+    try {
+        const scoreData = await getStudentScore(currentUser.id);
+        
+        container.innerHTML = `
+            <div class="section-header">
+                <div>
+                    <h2><i class="fas fa-question-circle"></i> Assessment</h2>
+                    <p>Test your knowledge and earn XP points</p>
+                </div>
+            </div>
+            
+            <div class="assessment-stats">
+                <div class="assessment-stat-card">
+                    <div class="assessment-stat-value">${Math.round(scoreData?.current_score || 0)}%</div>
+                    <div class="assessment-stat-label">Overall Score</div>
+                </div>
+                <div class="assessment-stat-card">
+                    <div class="assessment-stat-value">${scoreData?.questions_answered || 0}</div>
+                    <div class="assessment-stat-label">Questions Answered</div>
+                </div>
+                <div class="assessment-stat-card">
+                    <div class="assessment-stat-value">${scoreData?.correct_answers || 0}</div>
+                    <div class="assessment-stat-label">Correct Answers</div>
+                </div>
+            </div>
+            
+            <div class="questions-container" id="questionsContainer">
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>Assessment Questions</h3>
+                    <p>Answer questions to improve your score and unlock achievements</p>
+                    <button class="btn-primary" id="startAssessmentBtn">Start Assessment</button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('startAssessmentBtn')?.addEventListener('click', () => {
+            loadNextQuestion();
+        });
+        
+    } catch (error) {
+        console.error('Error loading assessment:', error);
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Unable to load assessment</h3></div>`;
+    }
+}
+
+async function loadNextQuestion() {
+    const container = document.getElementById('questionsContainer');
+    if (!container) return;
+    
+    try {
+        // For now, show a sample question
+        container.innerHTML = `
+            <div class="question-card">
+                <div class="question-header">
+                    <span class="question-number">Question 1 of 10</span>
+                    <span class="question-points">+50 XP</span>
+                </div>
+                <div class="question-text">What is the primary purpose of color grading in video production?</div>
+                <div class="question-options">
+                    <label class="question-option">
+                        <input type="radio" name="question" value="a"> To make the video brighter
+                    </label>
+                    <label class="question-option">
+                        <input type="radio" name="question" value="b"> To establish mood and visual consistency
+                    </label>
+                    <label class="question-option">
+                        <input type="radio" name="question" value="c"> To reduce file size
+                    </label>
+                    <label class="question-option">
+                        <input type="radio" name="question" value="d"> To add special effects
+                    </label>
+                </div>
+                <div class="question-actions">
+                    <button class="btn-primary" id="submitAnswerBtn">Submit Answer</button>
+                    <button class="btn-outline" id="skipQuestionBtn">Skip</button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('submitAnswerBtn')?.addEventListener('click', () => {
+            showToast('+50 XP earned! Great answer!', 'success');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>Great Job!</h3>
+                    <p>You've earned 50 XP points</p>
+                    <button class="btn-primary" onclick="location.reload()">Continue</button>
+                </div>
+            `;
+        });
+        
+        document.getElementById('skipQuestionBtn')?.addEventListener('click', () => {
+            loadNextQuestion();
+        });
+        
+    } catch (error) {
+        console.error('Error loading question:', error);
+    }
+}
+
+// ============================================
+// GO TO MENU TAB
 // ============================================
 function renderGoToMenu() {
     const container = document.getElementById('gotomenu-section');
@@ -471,7 +584,7 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// WALLET TAB - SIMPLIFIED (No Subscription Plans)
+// WALLET TAB - With Funding and Transactions
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
@@ -480,14 +593,19 @@ async function renderWallet() {
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
     
     try {
-        const balance = await getWalletBalance();
-        const transactions = await getTransactionHistory();
+        await loadPaymentsAndTransactions();
+        const balance = currentWalletBalance;
+        
+        // Separate payment requests by status
+        const pendingPayments = allPayments.filter(p => p.status === 'pending');
+        const approvedPayments = allPayments.filter(p => p.status === 'approved');
+        const rejectedPayments = allPayments.filter(p => p.status === 'rejected');
         
         container.innerHTML = `
             <div class="section-header">
                 <div>
                     <h2>My Wallet</h2>
-                    <p>Manage your funds and transactions</p>
+                    <p>Manage your funds, view transactions, and fund your wallet</p>
                 </div>
             </div>
             
@@ -500,11 +618,46 @@ async function renderWallet() {
                 <button id="addFundsBtn" class="btn-primary">Add Funds</button>
             </div>
             
+            <div class="funding-section">
+                <h3>Fund Wallet</h3>
+                <div class="funding-options">
+                    <div class="amount-buttons">
+                        <button class="amount-btn" data-amount="1000">₦1,000</button>
+                        <button class="amount-btn" data-amount="2000">₦2,000</button>
+                        <button class="amount-btn" data-amount="5000">₦5,000</button>
+                        <button class="amount-btn" data-amount="10000">₦10,000</button>
+                        <button class="amount-btn" data-amount="20000">₦20,000</button>
+                        <button class="amount-btn" data-amount="50000">₦50,000</button>
+                    </div>
+                    <div class="custom-amount">
+                        <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
+                    </div>
+                    <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
+                        <p>You are about to add:</p>
+                        <div class="selected-amount-large" id="selectedAmountValue">₦0</div>
+                    </div>
+                    <button id="proceedToPaymentBtn" class="btn-success">Proceed to Payment</button>
+                </div>
+            </div>
+            
+            <div class="payments-section">
+                <h3>Payment Requests</h3>
+                <div class="payments-filter">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="pending">Pending</button>
+                    <button class="filter-btn" data-filter="approved">Approved</button>
+                    <button class="filter-btn" data-filter="rejected">Rejected</button>
+                </div>
+                <div class="payments-list" id="paymentsList">
+                    ${renderPaymentsList(allPayments)}
+                </div>
+            </div>
+            
             <div class="transactions-section">
-                <h3>Recent Transactions</h3>
+                <h3>Transaction History</h3>
                 <div class="transactions-list">
-                    ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
-                        transactions.slice(0, 10).map(t => `
+                    ${allTransactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                        allTransactions.map(t => `
                             <div class="transaction-item-full">
                                 <div class="transaction-info">
                                     <div class="transaction-desc">${escapeHtml(t.description)}</div>
@@ -520,7 +673,26 @@ async function renderWallet() {
             </div>
         `;
         
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => openFundWalletModal());
+        // Setup funding modal
+        setupFundingButtons();
+        
+        // Setup payment filters
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const filter = btn.getAttribute('data-filter');
+                const filteredPayments = filterPayments(filter);
+                const paymentsList = document.getElementById('paymentsList');
+                if (paymentsList) {
+                    paymentsList.innerHTML = renderPaymentsList(filteredPayments);
+                }
+            });
+        });
+        
+        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
+            document.querySelector('.funding-section').scrollIntoView({ behavior: 'smooth' });
+        });
         
     } catch (error) {
         console.error('Error rendering wallet:', error);
@@ -528,15 +700,29 @@ async function renderWallet() {
     }
 }
 
-function openFundWalletModal() {
-    const modal = document.getElementById('fundWalletModal');
-    if (modal) {
-        modal.classList.add('active');
-        setupFundWalletModal();
-    }
+function filterPayments(filter) {
+    if (filter === 'all') return allPayments;
+    return allPayments.filter(p => p.status === filter);
 }
 
-function setupFundWalletModal() {
+function renderPaymentsList(payments) {
+    if (payments.length === 0) {
+        return '<div class="empty-payments">No payment requests found</div>';
+    }
+    
+    return payments.map(p => `
+        <div class="payment-item ${p.status}">
+            <div class="payment-info">
+                <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+                <div class="payment-ref">Ref: ${p.reference_code}</div>
+            </div>
+            <div class="payment-status-badge ${p.status}">${p.status}</div>
+        </div>
+    `).join('');
+}
+
+function setupFundingButtons() {
     let selectedAmount = 0;
     
     document.querySelectorAll('.amount-btn').forEach(btn => {
@@ -557,52 +743,105 @@ function setupFundWalletModal() {
         document.getElementById('selectedAmountDisplay').style.display = selectedAmount > 0 ? 'block' : 'none';
     });
     
-    document.getElementById('proceedToPaymentBtn')?.addEventListener('click', () => {
-        if (selectedAmount > 0) {
-            showToast(`Add funds feature coming soon. Amount: ₦${selectedAmount.toLocaleString()}`, 'info');
-            document.getElementById('fundWalletModal').classList.remove('active');
-        } else {
+    document.getElementById('proceedToPaymentBtn')?.addEventListener('click', async () => {
+        if (selectedAmount <= 0) {
             showToast('Please select an amount', 'error');
+            return;
         }
+        
+        // Generate reference code
+        const referenceCode = `GLI-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        
+        // Create payment request
+        const { data, error } = await supabase
+            .from('payment_requests')
+            .insert([{
+                user_id: currentUser.id,
+                amount: selectedAmount,
+                reference_code: referenceCode,
+                status: 'pending',
+                submitted_at: new Date().toISOString()
+            }])
+            .select();
+        
+        if (error) {
+            showToast('Failed to create payment request', 'error');
+            console.error('Payment error:', error);
+            return;
+        }
+        
+        // Show payment instructions
+        showPaymentInstructions(selectedAmount, referenceCode);
+    });
+}
+
+function showPaymentInstructions(amount, referenceCode) {
+    const modalHtml = `
+        <div class="modal" id="paymentInstructionsModal" style="display: flex;">
+            <div class="modal-content wallet-modal">
+                <div class="modal-header">
+                    <h2>Payment Instructions</h2>
+                    <button class="modal-close" id="closePaymentModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="bank-info-card">
+                        <div class="bank-option">
+                            <div class="bank-name">Bank Name</div>
+                            <div class="bank-account">Moniepoint MFB</div>
+                        </div>
+                        <div class="bank-option">
+                            <div class="bank-name">Account Name</div>
+                            <div class="bank-account">Gliimu Institute</div>
+                        </div>
+                        <div class="bank-option">
+                            <div class="bank-name">Account Number</div>
+                            <div class="bank-account">7012345678</div>
+                        </div>
+                    </div>
+                    
+                    <div class="reference-code-box">
+                        <p>Your unique payment reference:</p>
+                        <div class="reference-code">${referenceCode}</div>
+                        <button class="btn-outline" id="copyReferenceBtn">Copy Reference</button>
+                    </div>
+                    
+                    <div class="payment-instructions">
+                        <p><strong>Instructions:</strong></p>
+                        <ol>
+                            <li>Transfer ₦${amount.toLocaleString()} to the bank details above</li>
+                            <li>Use the reference code <strong>${referenceCode}</strong> as narration</li>
+                            <li>Your wallet will be credited after admin verification</li>
+                            <li>This usually takes 5-15 minutes during business hours</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" id="understoodBtn">I Understand</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    document.getElementById('closePaymentModal')?.addEventListener('click', () => {
+        document.getElementById('paymentInstructionsModal')?.remove();
     });
     
-    document.querySelectorAll('.closeFundModal, .closeFundModalBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.getElementById('fundWalletModal').classList.remove('active');
-        });
+    document.getElementById('understoodBtn')?.addEventListener('click', () => {
+        document.getElementById('paymentInstructionsModal')?.remove();
+        showToast('Payment request submitted! Awaiting admin approval.', 'success');
+        setTimeout(() => renderWallet(), 2000);
+    });
+    
+    document.getElementById('copyReferenceBtn')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(referenceCode);
+        showToast('Reference code copied!', 'success');
     });
 }
 
 // ============================================
-// QUESTIONS TAB
-// ============================================
-async function renderQuestionBar() {
-    const container = document.getElementById('question-section');
-    if (!container) return;
-    
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
-    
-    try {
-        // For now, show a placeholder
-        container.innerHTML = `
-            <div class="section-header">
-                <h2>Daily Questions</h2>
-                <p>Answer questions to earn XP and level up</p>
-            </div>
-            <div class="empty-state">
-                <i class="fas fa-check-circle"></i>
-                <h3>Questions Coming Soon</h3>
-                <p>Check back later for new questions</p>
-            </div>
-        `;
-    } catch (error) {
-        console.error('Error loading question:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Unable to load questions</h3></div>`;
-    }
-}
-
-// ============================================
-// SETTINGS TAB - UPDATED
+// SETTINGS TAB
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
@@ -806,45 +1045,13 @@ async function renderSettings() {
         }
     });
     
-    // Log Out (changed from Sign Out)
+    // Log Out
     document.getElementById('logOutBtn')?.addEventListener('click', async () => {
         if (confirm('Are you sure you want to log out?')) {
             await supabase.auth.signOut();
             localStorage.clear();
             window.location.href = '/signin';
         }
-    });
-}
-
-function openNotificationModal() {
-    const modal = document.getElementById('notificationModal');
-    if (modal) modal.classList.add('active');
-    
-    document.getElementById('saveNotificationSettings')?.addEventListener('click', async () => {
-        const email = document.getElementById('notificationEmail').value;
-        const phone = document.getElementById('notificationPhone').value;
-        const notifyPayment = document.getElementById('notifyPayment').checked;
-        const notifyCertificate = document.getElementById('notifyCertificate').checked;
-        const notifyPromo = document.getElementById('notifyPromo').checked;
-        const notifyWithdrawal = document.getElementById('notifyWithdrawal').checked;
-        
-        const { error } = await supabase.from('users').update({
-            notification_email: email,
-            notification_phone: phone,
-            notify_payment: notifyPayment,
-            notify_certificate: notifyCertificate,
-            notify_promo: notifyPromo,
-            notify_withdrawal: notifyWithdrawal
-        }).eq('id', currentUser.id);
-        
-        if (!error) {
-            showToast('Notification preferences saved!', 'success');
-            modal.classList.remove('active');
-        }
-    });
-    
-    document.querySelectorAll('.closeNotificationModal, .closeNotificationModalBtn').forEach(btn => {
-        btn.addEventListener('click', () => modal.classList.remove('active'));
     });
 }
 
@@ -856,8 +1063,8 @@ async function loadTabData(tabId) {
         case 'overview':
             await renderOverview();
             break;
-        case 'question':
-            await renderQuestionBar();
+        case 'assessment':
+            await renderAssessment();
             break;
         case 'gotomenu':
             renderGoToMenu();
