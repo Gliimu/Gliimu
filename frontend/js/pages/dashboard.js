@@ -1,13 +1,13 @@
 // ============================================
-// GLIIMU DASHBOARD - UPDATED VERSION
-// Features: Overview Tab, Notifications, Simplified Wallet
+// GLIIMU DASHBOARD - COMPLETE WITH WALLET FUNDING
+// Features: Overview, Questions, Go To, Wallet (with funding), Settings
 // ============================================
 
-import { supabase } from '../modules/supabase.js';
+import { supabase, getCurrentUser, createPaymentRequest, getUserPayments, getTransactionHistory } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 import { 
     getWalletBalance, 
-    getTransactionHistory,
+    getTransactionHistory as getWalletTransactions,
     subscribeToWalletUpdates
 } from '../modules/wallet.js';
 
@@ -33,6 +33,23 @@ let currentTab = 'overview';
 let currentWalletBalance = 0;
 let walletSubscription = null;
 let questionRenderer = null;
+let paymentsSubscription = null;
+
+// Bank details for funding
+const BANK_ACCOUNTS = [
+    {
+        bank: "Moniepoint",
+        accountName: "Gliimu Institute",
+        accountNumber: "8022093704",
+        description: "Send to Moniepoint for instant crediting"
+    },
+    {
+        bank: "Opay",
+        accountName: "Gliimu Institute",
+        accountNumber: "8116156938",
+        description: "Send to Opay for instant crediting"
+    }
+];
 
 // ============================================
 // ROLE-BASED TAB CONFIGURATION
@@ -304,19 +321,6 @@ async function renderOverview() {
                 </div>
             </div>
             
-            <div class="notifications-section">
-                <div class="notifications-header">
-                    <i class="fas fa-bell"></i>
-                    <h3>Notifications</h3>
-                </div>
-                <div class="notifications-list" id="notificationsList">
-                    <div class="empty-notifications">
-                        <i class="fas fa-bell-slash"></i>
-                        <p>No new notifications</p>
-                    </div>
-                </div>
-            </div>
-            
             <div class="leaderboard-section">
                 <div class="leaderboard-header">
                     <i class="fas fa-trophy"></i>
@@ -552,7 +556,7 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// WALLET TAB (Simplified - No Subscriptions)
+// WALLET TAB WITH FUNDING FUNCTIONALITY
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
@@ -561,8 +565,9 @@ async function renderWallet() {
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading wallet...</div>';
     
     try {
-        const balance = await getWalletBalance();
+        const balance = currentWalletBalance;
         const transactions = await getTransactionHistory();
+        const payments = await getUserPayments();
         
         container.innerHTML = `
             <div class="section-header">
@@ -574,10 +579,28 @@ async function renderWallet() {
                 <div class="wallet-balance-icon"><i class="fas fa-wallet"></i></div>
                 <div class="wallet-balance-info">
                     <span class="wallet-label">Available Balance</span>
-                    <span class="wallet-balance-large">₦${balance.toLocaleString()}</span>
+                    <span class="wallet-balance-large" id="walletBalanceDisplay">₦${balance.toLocaleString()}</span>
                 </div>
                 <button id="addFundsBtn" class="btn-primary">Add Funds</button>
                 <button id="withdrawFundsBtn" class="btn-outline">Withdraw</button>
+            </div>
+            
+            <div class="payment-requests-section">
+                <h3>Your Payment Requests</h3>
+                <div class="payments-list" id="paymentsList">
+                    ${payments.length === 0 ? '<p class="empty-payments">No payment requests yet</p>' : 
+                        payments.map(p => `
+                            <div class="payment-item ${p.status}">
+                                <div class="payment-info">
+                                    <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                                    <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+                                    <div class="payment-ref">Ref: ${p.reference_code}</div>
+                                </div>
+                                <div class="payment-status-badge ${p.status}">${p.status}</div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
             </div>
             
             <div class="transactions-section">
@@ -603,18 +626,283 @@ async function renderWallet() {
             </div>
         `;
         
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
-            showToast('Add funds feature coming soon. Please contact support.', 'info');
-        });
-        
-        document.getElementById('withdrawFundsBtn')?.addEventListener('click', () => {
-            showToast('Withdrawal requests can be made from the Withdraw section.', 'info');
-        });
+        document.getElementById('addFundsBtn')?.addEventListener('click', openFundWalletModal);
+        document.getElementById('withdrawFundsBtn')?.addEventListener('click', openWithdrawModal);
         
     } catch (error) {
         console.error('Error rendering wallet:', error);
         container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
     }
+}
+
+// ============================================
+// FUND WALLET MODAL
+// ============================================
+let selectedAmount = null;
+let currentStep = 'amount';
+let paymentData = null;
+
+function openFundWalletModal() {
+    currentStep = 'amount';
+    selectedAmount = null;
+    paymentData = null;
+    showAmountSelection();
+}
+
+function showAmountSelection() {
+    const modalContent = `
+        <div class="modal-content wallet-modal">
+            <div class="modal-header">
+                <h2>Fund Your Wallet</h2>
+                <button class="modal-close" id="closeFundModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="funding-options">
+                    <h3>Select Amount</h3>
+                    <div class="amount-buttons">
+                        <button class="amount-btn" data-amount="1000">₦1,000</button>
+                        <button class="amount-btn" data-amount="2000">₦2,000</button>
+                        <button class="amount-btn" data-amount="5000">₦5,000</button>
+                        <button class="amount-btn" data-amount="10000">₦10,000</button>
+                        <button class="amount-btn" data-amount="20000">₦20,000</button>
+                        <button class="amount-btn" data-amount="50000">₦50,000</button>
+                    </div>
+                    <div class="custom-amount">
+                        <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="continueToBankBtn" class="btn-primary" disabled>Continue</button>
+                <button id="cancelFundBtn" class="btn-outline">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    showModal(modalContent, () => {
+        const amountBtns = document.querySelectorAll('.amount-btn');
+        const customInput = document.getElementById('customAmount');
+        const continueBtn = document.getElementById('continueToBankBtn');
+        
+        function updateSelectedAmount() {
+            const customValue = customInput?.value;
+            if (customValue && parseInt(customValue) > 0) {
+                selectedAmount = parseInt(customValue);
+                amountBtns.forEach(btn => btn.classList.remove('active'));
+            }
+            continueBtn.disabled = !selectedAmount || selectedAmount <= 0;
+        }
+        
+        amountBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                amountBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedAmount = parseInt(btn.dataset.amount);
+                if (customInput) customInput.value = '';
+                continueBtn.disabled = false;
+            });
+        });
+        
+        if (customInput) {
+            customInput.addEventListener('input', () => {
+                amountBtns.forEach(btn => btn.classList.remove('active'));
+                selectedAmount = parseInt(customInput.value) || null;
+                continueBtn.disabled = !selectedAmount || selectedAmount <= 0;
+            });
+        }
+        
+        continueBtn?.addEventListener('click', () => {
+            if (selectedAmount && selectedAmount > 0) {
+                showBankDetails();
+            }
+        });
+    });
+}
+
+function showBankDetails() {
+    const modalContent = `
+        <div class="modal-content wallet-modal">
+            <div class="modal-header">
+                <h2>Complete Your Payment</h2>
+                <button class="modal-close" id="closeFundModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="selected-amount-display">
+                    <p>You are about to fund</p>
+                    <div class="selected-amount-large">₦${selectedAmount.toLocaleString()}</div>
+                </div>
+                
+                <div class="bank-details">
+                    <h3>Send to any of these accounts:</h3>
+                    ${BANK_ACCOUNTS.map(bank => `
+                        <div class="bank-info-card">
+                            <div class="bank-name">${bank.bank}</div>
+                            <div class="bank-account">${bank.accountNumber}</div>
+                            <div class="bank-account-name">${bank.accountName}</div>
+                            <div class="bank-note">${bank.description}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="payment-instructions">
+                    <p><strong>After payment:</strong></p>
+                    <ol>
+                        <li>Enter your payment reference below</li>
+                        <li>Click "I Have Paid" to submit for approval</li>
+                        <li>Admin will verify and credit your wallet</li>
+                    </ol>
+                </div>
+                
+                <div class="form-group">
+                    <label>Payment Reference / Transaction ID</label>
+                    <input type="text" id="paymentReference" placeholder="Enter the reference number from your bank transfer" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="submitPaymentBtn" class="btn-primary">I Have Paid</button>
+                <button id="backToAmountBtn" class="btn-outline">Back</button>
+                <button id="cancelFundBtn" class="btn-outline">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    showModal(modalContent, () => {
+        const submitBtn = document.getElementById('submitPaymentBtn');
+        const backBtn = document.getElementById('backToAmountBtn');
+        
+        submitBtn?.addEventListener('click', async () => {
+            const referenceCode = document.getElementById('paymentReference')?.value.trim();
+            
+            if (!referenceCode) {
+                showToast('Please enter your payment reference', 'error');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            const result = await createPaymentRequest(selectedAmount, 'bank_transfer', referenceCode);
+            
+            if (result.success) {
+                showToast('Payment request submitted! Awaiting admin approval.', 'success');
+                closeModal();
+                await renderWallet();
+            } else {
+                showToast(result.error || 'Failed to submit payment request', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'I Have Paid';
+            }
+        });
+        
+        backBtn?.addEventListener('click', showAmountSelection);
+    });
+}
+
+function openWithdrawModal() {
+    const modalContent = `
+        <div class="modal-content wallet-modal">
+            <div class="modal-header">
+                <h2>Withdraw Funds</h2>
+                <button class="modal-close" id="closeWithdrawModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Amount to Withdraw</label>
+                    <input type="number" id="withdrawAmount" placeholder="Enter amount" min="1000">
+                    <small>Minimum withdrawal: ₦1,000</small>
+                </div>
+                <div class="form-group">
+                    <label>Bank Name</label>
+                    <select id="withdrawBank">
+                        <option value="">Select bank</option>
+                        <option value="Moniepoint">Moniepoint</option>
+                        <option value="Opay">Opay</option>
+                        <option value="GTBank">GTBank</option>
+                        <option value="UBA">UBA</option>
+                        <option value="First Bank">First Bank</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Account Number</label>
+                    <input type="text" id="withdrawAccount" placeholder="Enter account number">
+                </div>
+                <div class="form-group">
+                    <label>Account Name</label>
+                    <input type="text" id="withdrawAccountName" placeholder="Enter account name">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="submitWithdrawBtn" class="btn-primary">Request Withdrawal</button>
+                <button id="cancelWithdrawBtn" class="btn-outline">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    showModal(modalContent, () => {
+        document.getElementById('submitWithdrawBtn')?.addEventListener('click', async () => {
+            const amount = parseInt(document.getElementById('withdrawAmount')?.value);
+            const bank = document.getElementById('withdrawBank')?.value;
+            const accountNumber = document.getElementById('withdrawAccount')?.value;
+            const accountName = document.getElementById('withdrawAccountName')?.value;
+            
+            if (!amount || amount < 1000) {
+                showToast('Please enter a valid amount (minimum ₦1,000)', 'error');
+                return;
+            }
+            
+            if (amount > currentWalletBalance) {
+                showToast('Insufficient wallet balance', 'error');
+                return;
+            }
+            
+            if (!bank || !accountNumber || !accountName) {
+                showToast('Please fill in all bank details', 'error');
+                return;
+            }
+            
+            showToast('Withdrawal request submitted for admin approval', 'success');
+            closeModal();
+        });
+    });
+}
+
+// ============================================
+// MODAL HELPERS
+// ============================================
+let currentModal = null;
+
+function showModal(content, setupCallback) {
+    closeModal();
+    
+    currentModal = document.createElement('div');
+    currentModal.className = 'modal active';
+    currentModal.innerHTML = content;
+    document.body.appendChild(currentModal);
+    document.body.style.overflow = 'hidden';
+    
+    const closeBtn = currentModal.querySelector('#closeFundModal, #closeWithdrawModal');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeModal);
+    }
+    
+    const cancelBtns = currentModal.querySelectorAll('#cancelFundBtn, #cancelWithdrawBtn');
+    cancelBtns.forEach(btn => {
+        btn.addEventListener('click', closeModal);
+    });
+    
+    currentModal.addEventListener('click', (e) => {
+        if (e.target === currentModal) closeModal();
+    });
+    
+    if (setupCallback) setupCallback();
+}
+
+function closeModal() {
+    if (currentModal) {
+        currentModal.remove();
+        currentModal = null;
+    }
+    document.body.style.overflow = '';
 }
 
 // ============================================
@@ -653,34 +941,6 @@ async function renderSettings() {
                     <div class="form-group"><label>Email</label><input type="email" value="${currentUser?.email || ''}" disabled><small>Email cannot be changed</small></div>
                     <div class="form-group"><label>Phone Number</label><input type="tel" id="phoneInput" value="${currentUser?.phone || ''}" placeholder="Enter your phone number"></div>
                     <div class="form-group"><label>Home/Work Address</label><input type="text" id="addressInput" value="${currentUser?.address || ''}" placeholder="Enter your address"></div>
-                </form>
-            </div>
-            
-            <div class="settings-card">
-                <h3>Notification Preferences</h3>
-                <form id="notificationPrefsForm">
-                    <div class="form-group">
-                        <label>Email for notifications</label>
-                        <input type="email" id="notificationEmail" placeholder="Enter email for notifications" value="${currentUser?.email || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>Phone for SMS alerts</label>
-                        <input type="tel" id="notificationPhone" placeholder="Enter phone number for SMS" value="${currentUser?.phone || ''}">
-                    </div>
-                    <div class="form-group toggle-group">
-                        <label>Email Notifications</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="emailNotifications" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="form-group toggle-group">
-                        <label>SMS Notifications</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="smsNotifications">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
                 </form>
             </div>
             
@@ -832,6 +1092,62 @@ async function renderSettings() {
 }
 
 // ============================================
+// REAL-TIME WALLET & PAYMENT UPDATES
+// ============================================
+function setupRealtimeUpdates() {
+    if (!currentUser?.id) return;
+    
+    // Subscribe to wallet changes
+    if (walletSubscription) walletSubscription.unsubscribe();
+    
+    walletSubscription = supabase
+        .channel(`wallet_${currentUser.id}`)
+        .on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${currentUser.id}` },
+            (payload) => {
+                const newBalance = payload.new.wallet_balance;
+                if (newBalance !== currentWalletBalance) {
+                    currentWalletBalance = newBalance;
+                    currentUser.walletBalance = newBalance;
+                    localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                    
+                    // Update UI
+                    const balanceDisplay = document.getElementById('walletBalanceDisplay');
+                    if (balanceDisplay) balanceDisplay.textContent = `₦${newBalance.toLocaleString()}`;
+                    
+                    const quickBalance = document.querySelector('.quick-balance');
+                    if (quickBalance) quickBalance.textContent = `₦${newBalance.toLocaleString()}`;
+                    
+                    showToast(`Wallet updated: ₦${newBalance.toLocaleString()}`, 'success');
+                    
+                    if (currentTab === 'wallet') renderWallet();
+                }
+            }
+        )
+        .subscribe();
+    
+    // Subscribe to payment status changes
+    if (paymentsSubscription) paymentsSubscription.unsubscribe();
+    
+    paymentsSubscription = supabase
+        .channel(`payments_${currentUser.id}`)
+        .on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'payments', filter: `user_id=eq.${currentUser.id}` },
+            (payload) => {
+                const payment = payload.new;
+                if (payment.status === 'approved') {
+                    showToast(`Payment of ₦${payment.amount.toLocaleString()} has been approved!`, 'success');
+                    if (currentTab === 'wallet') renderWallet();
+                } else if (payment.status === 'rejected') {
+                    showToast(`Payment of ₦${payment.amount.toLocaleString()} was rejected. Please contact support.`, 'error');
+                    if (currentTab === 'wallet') renderWallet();
+                }
+            }
+        )
+        .subscribe();
+}
+
+// ============================================
 // UTILITY FUNCTIONS
 // ============================================
 function escapeHtml(text) {
@@ -895,7 +1211,7 @@ async function initDashboard() {
     buildSidebar();
     await renderOverview();
     
-    setupRealtimeWallet();
+    setupRealtimeUpdates();
     initMobileNavigation();
     
     console.log('Dashboard initialized successfully');
