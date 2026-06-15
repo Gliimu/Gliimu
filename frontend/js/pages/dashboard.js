@@ -316,20 +316,45 @@ async function savePaymentToStorage(payment) {
     approvedPayments = allPayments.filter(p => p.status === 'approved');
     cancelledPayments = allPayments.filter(p => p.status === 'rejected');
     
-    try {
-        supabase
-            .from('payment_requests')
-            .insert([payment])
-            .then(({ error }) => {
-                if (error) console.error('Error saving to Supabase:', error);
-            });
-    } catch (e) {
-        console.log('Supabase not available, saving to localStorage');
-    }
-    
+    // Save to localStorage as backup
     localStorage.setItem(`glimu_payments_${currentUser.id}`, JSON.stringify(allPayments));
+    
+    // Save to Supabase - FIXED VERSION
+    try {
+        // Check if table exists first
+        const { error: tableCheck } = await supabase
+            .from('payment_requests')
+            .select('id')
+            .limit(1);
+        
+        if (tableCheck && tableCheck.code === '42P01') {
+            console.warn('payment_requests table not found, using localStorage only');
+            return;
+        }
+        
+        const { error: insertError } = await supabase
+            .from('payment_requests')
+            .insert([{
+                id: payment.id,
+                user_id: currentUser.id,
+                user_name: currentUser.name,
+                user_email: currentUser.email,
+                amount: payment.amount,
+                reference_code: payment.reference_code,
+                bank: payment.bank,
+                status: payment.status,
+                submitted_at: payment.submitted_at
+            }]);
+        
+        if (insertError) {
+            console.error('Error saving to Supabase:', insertError);
+        } else {
+            console.log('Payment saved to Supabase successfully');
+        }
+    } catch (e) {
+        console.error('Supabase error:', e);
+    }
 }
-
 // ============================================
 // REAL-TIME WALLET UPDATES
 // ============================================
