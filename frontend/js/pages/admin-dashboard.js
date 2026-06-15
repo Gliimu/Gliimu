@@ -32,12 +32,11 @@ const roleTabs = {
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'payments', name: 'Payments', icon: 'fas fa-wallet' },
         { id: 'students', name: 'Students', icon: 'fas fa-users' },
-        { id: 'library', name: 'Library Manager', icon: 'fas fa-book' },
         { id: 'inventory', name: 'Inventory', icon: 'fas fa-boxes' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
         { id: 'submissions', name: 'User Submissions', icon: 'fas fa-briefcase' },
-        { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar-star' },
+        { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar' },
         { id: 'contacts', name: 'Contacts', icon: 'fas fa-address-book' },
         { id: 'partnerships', name: 'Partnerships', icon: 'fas fa-handshake' },
         { id: 'peering', name: 'Instructor to Students', icon: 'fas fa-chalkboard-user' },
@@ -48,7 +47,7 @@ const roleTabs = {
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
         { id: 'submissions', name: 'User Submissions', icon: 'fas fa-briefcase' },
-        { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar-star' },
+        { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar' },
         { id: 'contacts', name: 'Contacts', icon: 'fas fa-address-book' }
     ],
     secretary: [
