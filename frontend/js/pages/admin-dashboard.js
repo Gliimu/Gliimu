@@ -31,7 +31,7 @@ const roleTabs = {
     founder: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'payments', name: 'Payments', icon: 'fas fa-wallet' },
-        { id: 'students', name: 'Students', icon: 'fas fa-users' },
+        { id: 'users', name: 'Users', icon: 'fas fa-users' },
         { id: 'inventory', name: 'Inventory', icon: 'fas fa-boxes' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
@@ -41,28 +41,32 @@ const roleTabs = {
         { id: 'partnerships', name: 'Partnerships', icon: 'fas fa-handshake' },
         { id: 'peering', name: 'Instructor to Students', icon: 'fas fa-chalkboard-user' },
         { id: 'offers', name: 'Student Work Offers', icon: 'fas fa-briefcase' },
-        { id: 'sales', name: 'Store Sales', icon: 'fas fa-chart-simple' }
+        { id: 'sales', name: 'Store Sales', icon: 'fas fa-chart-simple' },
+        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
     ],
     crm: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
         { id: 'submissions', name: 'User Submissions', icon: 'fas fa-briefcase' },
         { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar' },
-        { id: 'contacts', name: 'Contacts', icon: 'fas fa-address-book' }
+        { id: 'contacts', name: 'Contacts', icon: 'fas fa-address-book' },
+        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
     ],
     secretary: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'payments', name: 'Payments', icon: 'fas fa-cash-register' },
         { id: 'sales', name: 'Store Sales', icon: 'fas fa-chart-simple' },
         { id: 'inventory', name: 'Inventory', icon: 'fas fa-boxes' },
-        { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' }
+        { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
+        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
     ],
     manager: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'partnerships', name: 'Partnership Agreements', icon: 'fas fa-handshake' },
         { id: 'peering', name: 'Instructor to Students', icon: 'fas fa-chalkboard-user' },
         { id: 'offers', name: 'Student Work Offers', icon: 'fas fa-briefcase' },
-        { id: 'students', name: 'Students & Status', icon: 'fas fa-chart-bar' }
+        { id: 'users', name: 'Users', icon: 'fas fa-users' },
+        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
     ]
 };
 
