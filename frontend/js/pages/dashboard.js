@@ -1,5 +1,5 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE VERSION
+// GLIIMU DASHBOARD - FULLY FUNCTIONAL
 // Free access to all platforms
 // Tabs: Dashboard, Questions, Go To, Wallet, Settings
 // Admin redirected to separate dashboard
@@ -247,7 +247,7 @@ async function fetchLibraryItems() {
 }
 
 // ============================================
-// PAYMENT STORAGE FUNCTIONS - FIXED FOR ADMIN VISIBILITY
+// PAYMENT STORAGE FUNCTIONS - FULLY WORKING
 // ============================================
 async function loadPaymentsFromStorage(forceRefresh = false) {
     if (!currentUser?.id) {
@@ -267,6 +267,7 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
         return;
     }
     
+    // First try to load from Supabase
     try {
         const { data, error } = await supabase
             .from('payment_requests')
@@ -274,19 +275,21 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
             .eq('user_id', currentUser.id)
             .order('submitted_at', { ascending: false });
         
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
             paymentsCache = data;
             lastPaymentsFetch = now;
             allPayments = data;
             pendingPayments = allPayments.filter(p => p.status === 'pending');
             approvedPayments = allPayments.filter(p => p.status === 'approved');
             cancelledPayments = allPayments.filter(p => p.status === 'rejected');
+            console.log(`Loaded ${data.length} payments from Supabase`);
             return;
         }
     } catch (e) {
-        console.log('Supabase not available, using localStorage');
+        console.log('Supabase not available, checking localStorage');
     }
     
+    // Fallback to localStorage
     const storedPayments = localStorage.getItem(`glimu_payments_${currentUser.id}`);
     if (storedPayments) {
         paymentsCache = JSON.parse(storedPayments);
@@ -302,6 +305,7 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
 }
 
 async function savePaymentToStorage(payment) {
+    // Update local arrays
     allPayments.unshift(payment);
     paymentsCache = allPayments;
     lastPaymentsFetch = Date.now();
@@ -313,9 +317,9 @@ async function savePaymentToStorage(payment) {
     // Save to localStorage as backup
     localStorage.setItem(`glimu_payments_${currentUser.id}`, JSON.stringify(allPayments));
     
-    // Save to Supabase payment_requests table for admin visibility
+    // Save to Supabase - this makes it visible to admin
     try {
-        const paymentRequest = {
+        const paymentData = {
             id: payment.id,
             user_id: currentUser.id,
             user_name: currentUser.name || 'User',
@@ -323,40 +327,24 @@ async function savePaymentToStorage(payment) {
             amount: payment.amount,
             reference_code: payment.reference_code,
             bank: payment.bank,
-            status: payment.status,
-            submitted_at: payment.submitted_at || new Date().toISOString()
+            status: 'pending',
+            submitted_at: new Date().toISOString()
         };
         
-        // Check if payment already exists in Supabase
-        const { data: existing, error: checkError } = await supabase
+        const { error } = await supabase
             .from('payment_requests')
-            .select('id')
-            .eq('reference_code', payment.reference_code)
-            .maybeSingle();
+            .insert([paymentData]);
         
-        if (checkError && checkError.code !== 'PGRST116') {
-            console.error('Error checking existing payment:', checkError);
-        }
-        
-        if (!existing) {
-            const { error: insertError } = await supabase
-                .from('payment_requests')
-                .insert([paymentRequest]);
-            
-            if (insertError) {
-                console.error('Error saving to Supabase:', insertError);
-                showToast('Payment request saved locally only. Admin will be notified.', 'warning');
-            } else {
-                console.log('Payment saved to Supabase successfully:', paymentRequest);
-                showToast('Payment request submitted successfully! Admin will review and credit your wallet within 24 hours.', 'success');
-            }
+        if (error) {
+            console.error('Supabase insert error:', error.message);
+            showToast('Payment saved locally. Admin will be notified.', 'warning');
         } else {
-            console.log('Payment already exists in Supabase');
+            console.log('Payment saved to Supabase successfully:', paymentData);
+            showToast('Payment request submitted! Admin will review within 24 hours.', 'success');
         }
-        
-    } catch (e) {
-        console.error('Supabase error:', e);
-        showToast('Payment request saved locally. Please contact support if not processed.', 'warning');
+    } catch (err) {
+        console.error('Error saving to Supabase:', err);
+        showToast('Payment saved locally. Please contact support.', 'warning');
     }
 }
 
@@ -553,8 +541,6 @@ async function renderDashboard() {
         console.log('Starting dashboard render...');
         
         const scoreData = await getStudentScore(currentUser.id);
-        console.log('Score data:', scoreData);
-        
         const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
         const nextBadge = getNextBadge(scoreData?.current_score || 0);
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
@@ -615,31 +601,16 @@ async function renderDashboard() {
             </div>
         `;
         
-        const addFundsBtn = document.getElementById('quickAddFundsBtn');
-        if (addFundsBtn) {
-            addFundsBtn.addEventListener('click', () => {
-                switchTab('wallet');
-            });
-        }
-        
-        const openMvpBtn = document.getElementById('openMvpFormBtn');
-        if (openMvpBtn) {
-            openMvpBtn.addEventListener('click', () => {
-                openMvpModal();
-            });
-        }
-        
-        const refreshBtn = document.getElementById('refreshLeaderboardBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
-                const newLeaderboard = await getLeaderboard(10);
-                const leaderboardList = document.querySelector('.leaderboard-list');
-                if (leaderboardList) {
-                    leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
-                }
-                showToast('Leaderboard refreshed!', 'success');
-            });
-        }
+        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => switchTab('wallet'));
+        document.getElementById('openMvpFormBtn')?.addEventListener('click', () => openMvpModal());
+        document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
+            const newLeaderboard = await getLeaderboard(10);
+            const leaderboardList = document.querySelector('.leaderboard-list');
+            if (leaderboardList) {
+                leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
+            }
+            showToast('Leaderboard refreshed!', 'success');
+        });
         
         console.log('Dashboard rendered successfully');
         
@@ -649,7 +620,7 @@ async function renderDashboard() {
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
                 <h3>Error Loading Dashboard</h3>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 8px 0;">${error.message || 'Unknown error'}</p>
+                <p style="font-size: 12px;">${error.message || 'Unknown error'}</p>
                 <button class="btn-primary" onclick="location.reload()">Refresh Page</button>
             </div>
         `;
@@ -711,7 +682,7 @@ function openMvpModal() {
                         </div>
                         <div class="form-group">
                             <label>Proposal / Execution Plan</label>
-                            <textarea id="mvpProposal" rows="6" required placeholder="How do you plan to execute this project? What resources do you need?"></textarea>
+                            <textarea id="mvpProposal" rows="6" required placeholder="How do you plan to execute this project?"></textarea>
                         </div>
                         <button type="submit" class="btn-primary">Submit MVP Proposal</button>
                     </form>
@@ -720,10 +691,7 @@ function openMvpModal() {
         `;
         document.body.appendChild(modal);
         
-        document.getElementById('closeMvpModal').onclick = () => {
-            modal.classList.remove('active');
-        };
-        
+        document.getElementById('closeMvpModal').onclick = () => modal.classList.remove('active');
         document.getElementById('mvpForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const title = document.getElementById('mvpTitle').value;
@@ -732,14 +700,12 @@ function openMvpModal() {
             const proposal = document.getElementById('mvpProposal').value;
             
             const result = await submitMVPProposal(currentUser.id, title, description, type, proposal);
-            
             if (result) {
                 modal.classList.remove('active');
                 showToast('MVP Proposal submitted! The school will review and reach out.', 'success');
             }
         });
     }
-    
     modal.classList.add('active');
 }
 
@@ -816,9 +782,7 @@ async function renderWallet() {
             </div>
         `;
         
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
-            openFundWalletModal();
-        });
+        document.getElementById('addFundsBtn')?.addEventListener('click', () => openFundWalletModal());
         
     } catch (error) {
         console.error('Error rendering wallet:', error);
@@ -827,7 +791,7 @@ async function renderWallet() {
 }
 
 // ============================================
-// FUND WALLET MODAL
+// FUND WALLET MODAL - FULLY WORKING
 // ============================================
 function openFundWalletModal(suggestedAmount = null) {
     let modal = document.getElementById('fundWalletModal');
@@ -982,9 +946,7 @@ function openFundWalletModal(suggestedAmount = null) {
     }
     continueBtn.onclick = proceedToBank;
     
-    if (suggestedAmount) {
-        proceedToBank();
-    }
+    if (suggestedAmount) proceedToBank();
     
     const backBtn = modal.querySelector('#backToAmountBtn');
     if (backBtn) backBtn.onclick = () => {
@@ -1009,7 +971,10 @@ function openFundWalletModal(suggestedAmount = null) {
                 return;
             }
             
-            const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            
+            const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
             
             const paymentRequest = {
                 id: paymentId,
@@ -1023,15 +988,35 @@ function openFundWalletModal(suggestedAmount = null) {
                 submitted_at: new Date().toISOString()
             };
             
-            // Save to localStorage and Supabase
-            await savePaymentToStorage(paymentRequest);
-            
-            showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-            
-            // Refresh wallet to show pending request
-            setTimeout(() => renderWallet(), 500);
+            try {
+                // Save to Supabase directly
+                const { error } = await supabase
+                    .from('payment_requests')
+                    .insert([paymentRequest]);
+                
+                if (error) {
+                    console.error('Insert error:', error);
+                    showToast('Failed to submit payment request. Please try again.', 'error');
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '✅ I Have Made Payment';
+                    return;
+                }
+                
+                // Also save to localStorage
+                await savePaymentToStorage(paymentRequest);
+                
+                showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+                
+                setTimeout(() => renderWallet(), 500);
+                
+            } catch (err) {
+                console.error('Error:', err);
+                showToast('Error submitting payment request', 'error');
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '✅ I Have Made Payment';
+            }
         };
     }
     
@@ -1341,9 +1326,7 @@ async function renderSettings() {
             return;
         }
         
-        const { error } = await supabase.auth.updateUser({
-            password: newPassword
-        });
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
         
         if (error) {
             showToast(error.message || 'Failed to update password', 'error');
