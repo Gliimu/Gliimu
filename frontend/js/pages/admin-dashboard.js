@@ -42,7 +42,7 @@ const roleTabs = {
         { id: 'peering', name: 'Instructor to Students', icon: 'fas fa-chalkboard-user' },
         { id: 'offers', name: 'Student Work Offers', icon: 'fas fa-briefcase' },
         { id: 'sales', name: 'Store Sales', icon: 'fas fa-chart-simple' },
-        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     crm: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -50,7 +50,7 @@ const roleTabs = {
         { id: 'submissions', name: 'User Submissions', icon: 'fas fa-briefcase' },
         { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar' },
         { id: 'contacts', name: 'Contacts', icon: 'fas fa-address-book' },
-        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     secretary: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -58,7 +58,7 @@ const roleTabs = {
         { id: 'sales', name: 'Store Sales', icon: 'fas fa-chart-simple' },
         { id: 'inventory', name: 'Inventory', icon: 'fas fa-boxes' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
-        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
     manager: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -66,9 +66,39 @@ const roleTabs = {
         { id: 'peering', name: 'Instructor to Students', icon: 'fas fa-chalkboard-user' },
         { id: 'offers', name: 'Student Work Offers', icon: 'fas fa-briefcase' },
         { id: 'users', name: 'Users', icon: 'fas fa-users' },
-        { id: 'settings', name: 'settings', icon: 'fas fa-gear' }
+        { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ]
 };
+
+// ============================================
+// THEME MANAGEMENT
+// ============================================
+
+function initTheme() {
+    // Check for saved theme or system preference
+    const savedTheme = localStorage.getItem('admin_theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+        document.body.classList.add('dark-mode');
+    } else if (savedTheme === 'light') {
+        document.body.classList.remove('dark-mode');
+    } else if (systemPrefersDark) {
+        document.body.classList.add('dark-mode');
+    }
+}
+
+function toggleTheme() {
+    if (document.body.classList.contains('dark-mode')) {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('admin_theme', 'light');
+        showToast('Light mode activated', 'info');
+    } else {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('admin_theme', 'dark');
+        showToast('Dark mode activated', 'info');
+    }
+}
 
 // ============================================
 // AUTHENTICATION CHECK WITH ROLE
@@ -83,6 +113,7 @@ async function checkAuth() {
         currentRole = 'founder';
         document.getElementById('adminName').textContent = 'Founder (Dev Mode)';
         document.getElementById('adminRole').textContent = 'Founder';
+        document.getElementById('dashboardTitle').textContent = 'Founder Dashboard';
         return true;
     }
     
@@ -106,7 +137,7 @@ async function checkAuth() {
         console.error('Profile error:', profileError);
     }
     
-    const userRole = profile?.role || 'secretary'; // Default to secretary
+    const userRole = profile?.role || 'secretary';
     currentRole = userRole;
     currentUser = user;
     
@@ -118,8 +149,16 @@ async function checkAuth() {
         manager: 'Operations Manager'
     };
     
+    const roleTitles = {
+        founder: 'Founder Dashboard',
+        crm: 'CRM Dashboard',
+        secretary: 'Secretary Dashboard',
+        manager: 'Manager Dashboard'
+    };
+    
     document.getElementById('adminName').textContent = profile?.name || 'Admin';
     document.getElementById('adminRole').textContent = roleNames[userRole] || userRole;
+    document.getElementById('dashboardTitle').textContent = roleTitles[userRole] || 'Admin Dashboard';
     
     return true;
 }
@@ -158,8 +197,7 @@ function createContentSections() {
     dashboardContent.innerHTML = `
         <div id="dashboard-section" class="admin-tab active"><div class="loading">Loading dashboard...</div></div>
         <div id="payments-section" class="admin-tab"><div class="loading">Loading payments...</div></div>
-        <div id="students-section" class="admin-tab"><div class="loading">Loading students...</div></div>
-        <div id="library-section" class="admin-tab"><div class="loading">Loading library...</div></div>
+        <div id="users-section" class="admin-tab"><div class="loading">Loading users...</div></div>
         <div id="inventory-section" class="admin-tab"><div class="loading">Loading inventory...</div></div>
         <div id="finance-section" class="admin-tab"><div class="loading">Loading finance...</div></div>
         <div id="posts-section" class="admin-tab"><div class="loading">Loading posts...</div></div>
@@ -170,6 +208,7 @@ function createContentSections() {
         <div id="peering-section" class="admin-tab"><div class="loading">Loading peering...</div></div>
         <div id="offers-section" class="admin-tab"><div class="loading">Loading offers...</div></div>
         <div id="sales-section" class="admin-tab"><div class="loading">Loading sales...</div></div>
+        <div id="settings-section" class="admin-tab"><div class="loading">Loading settings...</div></div>
     `;
 }
 
@@ -203,8 +242,7 @@ async function loadTabData(tabId) {
     switch(tabId) {
         case 'dashboard': await renderDashboard(); break;
         case 'payments': await renderPayments(); break;
-        case 'students': await renderStudents(); break;
-        case 'library': await renderLibraryManager(); break;
+        case 'users': await renderUsers(); break;
         case 'inventory': await renderInventory(); break;
         case 'finance': await renderFinance(); break;
         case 'posts': await renderPostsManager(); break;
@@ -215,12 +253,13 @@ async function loadTabData(tabId) {
         case 'peering': await renderPeering(); break;
         case 'offers': await renderOffers(); break;
         case 'sales': await renderSales(); break;
+        case 'settings': await renderSettings(); break;
         default: await renderDashboard();
     }
 }
 
 // ============================================
-// DASHBOARD RENDER (Overview for all roles)
+// DASHBOARD RENDER
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
@@ -246,139 +285,405 @@ async function renderDashboard() {
 }
 
 // ============================================
-// LIBRARY MANAGER (Secretary & Founder)
+// SETTINGS TAB WITH THEME
 // ============================================
-async function renderLibraryManager() {
-    const container = document.getElementById('library-section');
+async function renderSettings() {
+    const container = document.getElementById('settings-section');
     if (!container) return;
     
-    const { data: items, error } = await supabase.from('library_items').select('*').order('created_at', { ascending: false });
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    const currentTheme = isDarkMode ? 'dark' : 'light';
     
     container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-book"></i> Library Manager</h2><button id="addLibraryItemBtn" class="btn-primary"><i class="fas fa-plus"></i> Add New Item</button></div>
-        <div class="library-items-grid">
-            ${items?.map(item => `
-                <div class="library-admin-card">
-                    <img src="${item.cover_url || 'https://placehold.co/80x100'}" alt="${item.title}" onerror="this.src='https://placehold.co/80x100'">
-                    <div class="info"><h4>${escapeHtml(item.title)}</h4><p>${item.type} • ${item.category || 'Uncategorized'}</p><p>Digital: ₦${item.price || 0} | Physical: ₦${item.physical_price || 0}</p><p>Stock: ${item.stock_quantity || 0}</p></div>
-                    <div class="actions"><button class="btn-outline edit-item" data-id="${item.id}"><i class="fas fa-edit"></i> Edit</button><button class="btn-danger delete-item" data-id="${item.id}"><i class="fas fa-trash"></i> Delete</button></div>
-                </div>
-            `).join('') || '<div class="empty-state">No library items found</div>'}
+        <div class="tab-header">
+            <h2><i class="fas fa-cog"></i> Settings</h2>
+            <p>Manage your dashboard preferences</p>
         </div>
-        ${renderLibraryModal()}
+        
+        <div class="settings-grid">
+            <div class="settings-card">
+                <h3><i class="fas fa-palette"></i> Appearance</h3>
+                <div class="form-group">
+                    <label>Theme Preference</label>
+                    <div class="theme-selector">
+                        <button class="theme-option ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
+                            <i class="fas fa-sun"></i> Light Mode
+                        </button>
+                        <button class="theme-option ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
+                            <i class="fas fa-moon"></i> Dark Mode
+                        </button>
+                        <button class="theme-option" data-theme="system">
+                            <i class="fas fa-desktop"></i> System Default
+                        </button>
+                    </div>
+                    <small class="form-hint">Choose your preferred theme for the admin dashboard.</small>
+                </div>
+            </div>
+            
+            <div class="settings-card">
+                <h3><i class="fas fa-bell"></i> Notifications</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="emailNotifications" ${localStorage.getItem('admin_email_notifications') !== 'false' ? 'checked' : ''}>
+                        Email notifications for new payments
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="paymentAlerts" ${localStorage.getItem('admin_payment_alerts') !== 'false' ? 'checked' : ''}>
+                        Sound alerts for new payments
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-card">
+                <h3><i class="fas fa-user-shield"></i> Account</h3>
+                <div class="form-group">
+                    <label>Role</label>
+                    <input type="text" value="${currentRole.toUpperCase()}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" value="${currentUser?.email || ''}" disabled>
+                </div>
+            </div>
+            
+            <div class="settings-card">
+                <h3><i class="fas fa-database"></i> Data Management</h3>
+                <div class="form-group">
+                    <button id="exportDataBtn" class="btn-outline"><i class="fas fa-download"></i> Export All Data (CSV)</button>
+                </div>
+                <div class="form-group">
+                    <button id="clearCacheBtn" class="btn-outline"><i class="fas fa-broom"></i> Clear Dashboard Cache</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-actions">
+            <button id="saveSettingsBtn" class="btn-primary"><i class="fas fa-save"></i> Save Preferences</button>
+        </div>
     `;
     
-    document.getElementById('addLibraryItemBtn')?.addEventListener('click', () => openLibraryModal());
-    document.querySelectorAll('.edit-item').forEach(btn => btn.addEventListener('click', () => openLibraryModal(btn.dataset.id)));
-    document.querySelectorAll('.delete-item').forEach(btn => btn.addEventListener('click', () => deleteLibraryItem(btn.dataset.id)));
+    // Theme selector event listeners
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.getAttribute('data-theme');
+            
+            if (theme === 'system') {
+                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (systemPrefersDark) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+                localStorage.setItem('admin_theme', 'system');
+            } else if (theme === 'dark') {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('admin_theme', 'dark');
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('admin_theme', 'light');
+            }
+            
+            // Update active state
+            document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            showToast(`${theme.charAt(0).toUpperCase() + theme.slice(1)} mode activated`, 'success');
+        });
+    });
+    
+    // Save settings
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
+        const emailNotifications = document.getElementById('emailNotifications')?.checked;
+        const paymentAlerts = document.getElementById('paymentAlerts')?.checked;
+        
+        localStorage.setItem('admin_email_notifications', emailNotifications);
+        localStorage.setItem('admin_payment_alerts', paymentAlerts);
+        
+        showToast('Settings saved successfully!', 'success');
+    });
+    
+    // Export data
+    document.getElementById('exportDataBtn')?.addEventListener('click', async () => {
+        await exportAllData();
+    });
+    
+    // Clear cache
+    document.getElementById('clearCacheBtn')?.addEventListener('click', () => {
+        localStorage.removeItem('admin_payments_cache');
+        localStorage.removeItem('admin_students_cache');
+        showToast('Cache cleared! Refreshing data...', 'success');
+        setTimeout(() => refreshAllData(), 1000);
+    });
+}
+
+async function exportAllData() {
+    try {
+        const payments = await loadPayments();
+        const students = await loadStudents();
+        
+        let csvContent = "Data Type,ID,Name,Amount,Status,Date\n";
+        payments.forEach(p => {
+            csvContent += `Payment,${p.id},${p.user_name},${p.amount},${p.status},${new Date(p.submitted_at).toLocaleDateString()}\n`;
+        });
+        students.forEach(s => {
+            csvContent += `Student,${s.id},${s.name},${s.wallet_balance},Active,${new Date(s.created_at).toLocaleDateString()}\n`;
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `admin_export_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showToast('Data exported successfully!', 'success');
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Error exporting data', 'error');
+    }
 }
 
 // ============================================
-// POSTS MANAGER (CRM & Founder)
+// PAYMENTS RENDER
+// ============================================
+async function renderPayments() {
+    const container = document.getElementById('payments-section');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading">Loading payments...</div>';
+    
+    const payments = await loadPayments();
+    allPayments = payments;
+    
+    const pendingCount = payments.filter(p => p.status === 'pending').length;
+    const badgeEl = document.getElementById('pendingPaymentsBadge');
+    if (badgeEl) badgeEl.textContent = pendingCount;
+    
+    const filtered = payments.filter(p => p.status === currentPaymentFilter);
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>No ${currentPaymentFilter} payments found</p></div>`;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="tab-header">
+            <h2><i class="fas fa-wallet"></i> Payment Management</h2>
+            <div class="payment-filters">
+                <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${payments.filter(p => p.status === 'pending').length})</button>
+                <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved</button>
+                <button class="filter-btn ${currentPaymentFilter === 'rejected' ? 'active' : ''}" data-filter="rejected">Rejected</button>
+            </div>
+        </div>
+        <div class="payments-list">
+            ${filtered.map(p => `
+                <div class="payment-item ${p.status}">
+                    <div class="payment-info">
+                        <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                        <div class="payment-date">${new Date(p.submitted_at).toLocaleString()}</div>
+                        <div class="payment-ref">Ref: ${p.reference_code}</div>
+                        <div class="payment-user">${p.user_name || p.user_email}</div>
+                        ${p.bank ? `<div class="payment-bank">Bank: ${p.bank}</div>` : ''}
+                    </div>
+                    <div class="payment-status ${p.status}">${p.status.toUpperCase()}</div>
+                    <div class="payment-actions">
+                        ${p.status === 'pending' ? `
+                            <button class="btn-approve" data-id="${p.id}" data-amount="${p.amount}" data-user="${p.user_name || p.user_email}"><i class="fas fa-check"></i> Approve</button>
+                            <button class="btn-reject" data-id="${p.id}" data-amount="${p.amount}" data-user="${p.user_name || p.user_email}"><i class="fas fa-times"></i> Reject</button>
+                        ` : p.status === 'approved' ? `<span class="approved-label"><i class="fas fa-check-circle"></i> Approved</span>` : `<span class="rejected-label"><i class="fas fa-ban"></i> Rejected</span>`}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentPaymentFilter = btn.getAttribute('data-filter');
+            renderPayments();
+        });
+    });
+    
+    // Approve/Reject buttons
+    document.querySelectorAll('.btn-approve').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            const amount = parseInt(btn.getAttribute('data-amount'));
+            const userName = btn.getAttribute('data-user');
+            if (confirm(`Approve payment of ₦${amount.toLocaleString()} from ${userName}?`)) {
+                await approvePayment(id, amount, userName);
+            }
+        });
+    });
+    
+    document.querySelectorAll('.btn-reject').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            const amount = parseInt(btn.getAttribute('data-amount'));
+            const userName = btn.getAttribute('data-user');
+            if (confirm(`Reject payment of ₦${amount.toLocaleString()} from ${userName}?`)) {
+                await rejectPayment(id, amount, userName);
+            }
+        });
+    });
+}
+
+// ============================================
+// USERS RENDER
+// ============================================
+async function renderUsers() {
+    const container = document.getElementById('users-section');
+    if (!container) return;
+    
+    const students = await loadStudents();
+    
+    container.innerHTML = `
+        <div class="tab-header"><h2><i class="fas fa-users"></i> User Management</h2><button id="exportUsersBtn" class="btn-outline"><i class="fas fa-download"></i> Export CSV</button></div>
+        <div class="users-list"><div class="table-responsive"><table class="users-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Wallet Balance</th><th>Joined</th></tr></thead><tbody>
+            ${students.map(s => `<tr><td><strong>${escapeHtml(s.name)}</strong></td><td>${s.email}</td><td>${s.role || 'Student'}</td><td>₦${(s.wallet_balance || 0).toLocaleString()}</td><td>${new Date(s.created_at).toLocaleDateString()}</td></tr>`).join('')}
+        </tbody></table></div></div>
+    `;
+    
+    document.getElementById('exportUsersBtn')?.addEventListener('click', () => {
+        let csv = "Name,Email,Role,Wallet Balance,Joined\n";
+        students.forEach(s => {
+            csv += `"${s.name || ''}","${s.email}","${s.role || 'Student'}","${s.wallet_balance || 0}","${new Date(s.created_at).toLocaleDateString()}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `users_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Users exported successfully!', 'success');
+    });
+}
+
+// ============================================
+// INVENTORY RENDER
+// ============================================
+async function renderInventory() {
+    const container = document.getElementById('inventory-section');
+    if (!container) return;
+    
+    const { data: products } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+    
+    container.innerHTML = `
+        <div class="tab-header"><h2><i class="fas fa-boxes"></i> Inventory Management</h2><button id="addProductBtn" class="btn-primary"><i class="fas fa-plus"></i> Add Product</button></div>
+        <div class="inventory-stats"><div class="inv-stat"><span>Total Products</span><strong>${products?.length || 0}</strong></div><div class="inv-stat"><span>Low Stock Alerts</span><strong>${products?.filter(p => p.stock_quantity < 10).length || 0}</strong></div></div>
+        <div class="inventory-grid">${products?.map(p => `<div class="inventory-card ${p.stock_quantity < 10 ? 'low-stock' : ''}"><div class="inventory-card-header"><h4>${escapeHtml(p.name)}</h4><span>${p.category}</span></div><div class="inventory-stock">Stock: ${p.stock_quantity || 0} units</div><div class="inventory-price">₦${(p.price || 0).toLocaleString()}</div><div class="inventory-actions"><button class="btn-outline edit-product" data-id="${p.id}">Edit</button><button class="btn-danger delete-product" data-id="${p.id}">Delete</button></div></div>`).join('') || '<div class="empty-state">No products found</div>'}</div>
+    `;
+    
+    document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
+    document.querySelectorAll('.edit-product').forEach(btn => btn.addEventListener('click', () => openProductModal(btn.dataset.id)));
+}
+
+// ============================================
+// FINANCE RENDER
+// ============================================
+async function renderFinance() {
+    const container = document.getElementById('finance-section');
+    if (!container) return;
+    
+    const payments = await loadPayments();
+    const approvedPayments = payments.filter(p => p.status === 'approved');
+    const totalRevenue = approvedPayments.reduce((sum, p) => sum + p.amount, 0);
+    
+    container.innerHTML = `
+        <div class="tab-header"><h2><i class="fas fa-chart-line"></i> Financial Management</h2></div>
+        <div class="finance-stats"><div class="finance-card"><h4>Total Revenue</h4><div class="amount">₦${totalRevenue.toLocaleString()}</div></div><div class="finance-card"><h4>Total Transactions</h4><div class="amount">${payments.length}</div></div></div>
+        <div class="revenue-breakdown"><h3>Recent Transactions</h3><div class="breakdown-list">${approvedPayments.slice(0, 10).map(p => `<div class="breakdown-item"><span>${p.user_name || p.user_email}</span><strong>₦${p.amount.toLocaleString()}</strong></div>`).join('') || '<div class="empty-state">No transactions yet</div>'}</div></div>
+    `;
+}
+
+// ============================================
+// OTHER RENDER FUNCTIONS (Placeholders)
 // ============================================
 async function renderPostsManager() {
     const container = document.getElementById('posts-section');
     if (!container) return;
-    
-    const { data: posts, error } = await supabase.from('website_posts').select('*').order('created_at', { ascending: false });
-    
-    container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-pen"></i> Website Content Manager</h2><button id="addPostBtn" class="btn-primary"><i class="fas fa-plus"></i> New Post</button></div>
-        <div class="posts-list">
-            ${posts?.map(post => `
-                <div class="post-card"><h4>${escapeHtml(post.title)}</h4><p>${escapeHtml(post.excerpt || '')}</p><div class="post-meta">Status: ${post.is_published ? 'Published' : 'Draft'} | ${new Date(post.created_at).toLocaleDateString()}</div><div class="post-actions"><button class="btn-outline edit-post" data-id="${post.id}">Edit</button><button class="btn-danger delete-post" data-id="${post.id}">Delete</button></div></div>
-            `).join('') || '<div class="empty-state">No posts yet</div>'}
-        </div>
-    `;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-pen"></i> Website Content Manager</h2><button id="addPostBtn" class="btn-primary">New Post</button></div><div class="empty-state">Posts manager - Coming soon</div>`;
 }
 
-// ============================================
-// SUBMISSIONS (User project submissions)
-// ============================================
 async function renderSubmissions() {
     const container = document.getElementById('submissions-section');
     if (!container) return;
-    
-    const { data: submissions, error } = await supabase.from('user_submissions').select('*, users(name, email)').order('submitted_at', { ascending: false });
-    
-    container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-briefcase"></i> User Submissions</h2><div class="submission-filters"><button class="filter-btn active" data-status="pending">Pending</button><button class="filter-btn" data-status="reviewed">Reviewed</button><button class="filter-btn" data-status="all">All</button></div></div>
-        <div class="submissions-list">${renderSubmissionsList(submissions || [])}</div>
-    `;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-briefcase"></i> User Submissions</h2></div><div class="empty-state">Submissions manager - Coming soon</div>`;
 }
 
-// ============================================
-// PARTNERSHIPS (Manager & Founder)
-// ============================================
+async function renderEvents() {
+    const container = document.getElementById('events-section');
+    if (!container) return;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-calendar"></i> Hosted Events</h2><button id="addEventBtn" class="btn-primary">Create Event</button></div><div class="empty-state">Events manager - Coming soon</div>`;
+}
+
+async function renderContacts() {
+    const container = document.getElementById('contacts-section');
+    if (!container) return;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-address-book"></i> Contacts</h2><button id="addContactBtn" class="btn-primary">Add Contact</button></div><div class="empty-state">Contacts manager - Coming soon</div>`;
+}
+
 async function renderPartnerships() {
     const container = document.getElementById('partnerships-section');
     if (!container) return;
-    
-    const { data: partnerships, error } = await supabase.from('partnerships').select('*').order('created_at', { ascending: false });
-    
-    container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-handshake"></i> Partnership Agreements</h2><button id="addPartnershipBtn" class="btn-primary"><i class="fas fa-plus"></i> New Partnership</button></div>
-        <div class="partnerships-grid">
-            ${partnerships?.map(p => `
-                <div class="partnership-card"><h4>${escapeHtml(p.company_name)}</h4><p>${escapeHtml(p.agreement_type)}</p><div class="status-badge ${p.status}">${p.status}</div><div class="actions"><button class="btn-outline edit-partnership" data-id="${p.id}">Edit</button></div></div>
-            `).join('') || '<div class="empty-state">No partnerships yet</div>'}
-        </div>
-    `;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-handshake"></i> Partnership Agreements</h2><button id="addPartnershipBtn" class="btn-primary">New Partnership</button></div><div class="empty-state">Partnerships manager - Coming soon</div>`;
 }
 
-// ============================================
-// PEERING (Instructor to Student Matching)
-// ============================================
 async function renderPeering() {
     const container = document.getElementById('peering-section');
     if (!container) return;
-    
-    const { data: instructors } = await supabase.from('users').select('id, name, email').eq('role', 'instructor');
-    const { data: students } = await supabase.from('users').select('id, name, email').eq('role', 'student');
-    
-    container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-chalkboard-user"></i> Instructor to Student Matching</h2></div>
-        <div class="peering-container">
-            <div class="instructors-list"><h3>Instructors</h3>${instructors?.map(i => `<div class="instructor-card" data-id="${i.id}"><strong>${escapeHtml(i.name)}</strong><br>${i.email}</div>`).join('') || 'No instructors'}</div>
-            <div class="students-list"><h3>Students</h3>${students?.map(s => `<div class="student-card" data-id="${s.id}"><strong>${escapeHtml(s.name)}</strong><br>${s.email}<button class="assign-btn" data-instructor="" data-student="${s.id}">Assign</button></div>`).join('') || 'No students'}</div>
-        </div>
-    `;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-chalkboard-user"></i> Instructor to Student Matching</h2></div><div class="empty-state">Peering system - Coming soon</div>`;
 }
 
-// ============================================
-// OFFERS (Student Work Offers)
-// ============================================
 async function renderOffers() {
     const container = document.getElementById('offers-section');
     if (!container) return;
-    
-    const { data: offers } = await supabase.from('work_offers').select('*, users(name, email)').order('created_at', { ascending: false });
-    
-    container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-briefcase"></i> Student Work Offers</h2><button id="addOfferBtn" class="btn-primary"><i class="fas fa-plus"></i> Create Offer</button></div>
-        <div class="offers-grid">
-            ${offers?.map(offer => `
-                <div class="offer-card"><h4>${escapeHtml(offer.title)}</h4><p>${escapeHtml(offer.description?.substring(0, 100))}</p><div class="offer-meta">💰 ${offer.budget} | 📅 ${new Date(offer.deadline).toLocaleDateString()}</div><div class="status-badge ${offer.status}">${offer.status}</div></div>
-            `).join('') || '<div class="empty-state">No offers yet</div>'}
-        </div>
-    `;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-briefcase"></i> Student Work Offers</h2><button id="addOfferBtn" class="btn-primary">Create Offer</button></div><div class="empty-state">Work offers - Coming soon</div>`;
 }
 
-// ============================================
-// SALES (Store Sales Tracking)
-// ============================================
 async function renderSales() {
     const container = document.getElementById('sales-section');
     if (!container) return;
-    
-    const { data: sales } = await supabase.from('user_purchases').select('*, users(name, email), library_items(title)').order('created_at', { ascending: false });
-    const totalSales = sales?.reduce((sum, s) => sum + s.amount, 0) || 0;
-    
-    container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-chart-simple"></i> Store Sales</h2></div>
-        <div class="sales-stats"><div class="stat-card"><div class="stat-value">₦${totalSales.toLocaleString()}</div><div class="stat-label">Total Revenue</div></div><div class="stat-card"><div class="stat-value">${sales?.length || 0}</div><div class="stat-label">Transactions</div></div></div>
-        <div class="sales-list">${sales?.map(s => `<div class="sale-item"><span>${escapeHtml(s.users?.name)}</span><span>${escapeHtml(s.library_items?.title)}</span><span>₦${s.amount.toLocaleString()}</span><span>${new Date(s.created_at).toLocaleDateString()}</span></div>`).join('') || '<div class="empty-state">No sales yet</div>'}</div>
-    `;
+    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-chart-simple"></i> Store Sales</h2></div><div class="empty-state">Sales data - Coming soon</div>`;
+}
+
+// ============================================
+// APPROVE/REJECT PAYMENT FUNCTIONS
+// ============================================
+async function approvePayment(paymentId, amount, userName) {
+    try {
+        const { data: payment } = await supabase.from('payment_requests').select('*').eq('id', paymentId).single();
+        
+        await supabase.from('payment_requests').update({ status: 'approved', approved_at: new Date().toISOString() }).eq('id', paymentId);
+        
+        const { data: user } = await supabase.from('users').select('wallet_balance').eq('id', payment.user_id).single();
+        const newBalance = (user?.wallet_balance || 0) + payment.amount;
+        await supabase.from('users').update({ wallet_balance: newBalance }).eq('id', payment.user_id);
+        
+        showToast(`✅ Payment of ₦${amount.toLocaleString()} from ${userName} approved!`, 'success');
+        await renderPayments();
+        await renderDashboard();
+    } catch (error) {
+        console.error('Error approving payment:', error);
+        showToast('Error approving payment', 'error');
+    }
+}
+
+async function rejectPayment(paymentId, amount, userName) {
+    try {
+        await supabase.from('payment_requests').update({ status: 'rejected', admin_notes: 'Payment rejected by admin' }).eq('id', paymentId);
+        showToast(`❌ Payment of ₦${amount.toLocaleString()} from ${userName} rejected`, 'info');
+        await renderPayments();
+        await renderDashboard();
+    } catch (error) {
+        console.error('Error rejecting payment:', error);
+        showToast('Error rejecting payment', 'error');
+    }
 }
 
 // ============================================
@@ -394,35 +699,6 @@ function renderRecentPayments(payments) {
     `).join('');
 }
 
-function renderSubmissionsList(submissions) {
-    if (!submissions.length) return '<div class="empty-state">No submissions yet</div>';
-    return submissions.map(s => `
-        <div class="submission-item"><div class="submission-info"><strong>${escapeHtml(s.users?.name)}</strong><p>${escapeHtml(s.description?.substring(0, 100))}</p></div><div class="submission-status ${s.status}">${s.status}</div><div class="submission-actions"><button class="btn-outline review-btn" data-id="${s.id}">Review</button></div></div>
-    `).join('');
-}
-
-function renderLibraryModal() {
-    return `
-        <div id="libraryItemModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="libraryModalTitle">Add Library Item</h2><button class="modal-close" id="closeLibraryModal">&times;</button></div>
-        <div class="modal-body"><form id="libraryItemForm"><input type="hidden" id="editItemId"><div class="form-group"><label>Title</label><input type="text" id="itemTitle" required></div>
-        <div class="form-group"><label>Type</label><select id="itemType"><option value="book">Book</option><option value="bundle">Bundle</option></select></div>
-        <div class="form-group"><label>Category</label><input type="text" id="itemCategory" placeholder="Video Production, Design, etc."></div>
-        <div class="form-group"><label>Author</label><input type="text" id="itemAuthor"></div>
-        <div class="form-group"><label>Description</label><textarea id="itemDescription" rows="3"></textarea></div>
-        <div class="form-group"><label>Cover Image URL</label><input type="url" id="itemCoverUrl"></div>
-        <div class="form-group"><label>Digital Price (₦)</label><input type="number" id="itemPrice" value="0"></div>
-        <div class="form-group"><label>Physical Price (₦)</label><input type="number" id="itemPhysicalPrice" value="0"></div>
-        <div class="form-group"><label>Stock Quantity</label><input type="number" id="itemStock" value="0"></div>
-        <div class="form-group"><label>File URL</label><input type="url" id="itemFileUrl" placeholder="PDF, EPUB, or video link"></div>
-        <div class="form-group"><label>Download URL</label><input type="url" id="itemDownloadUrl"></div>
-        <div class="form-group"><label>Level</label><select id="itemLevel"><option value="Beginner">Beginner</option><option value="Intermediate">Intermediate</option><option value="Advanced">Advanced</option></select></div>
-        <button type="submit" class="btn-primary">Save Item</button></form></div></div></div>
-    `;
-}
-
-// ============================================
-// DATABASE LOAD FUNCTIONS
-// ============================================
 async function loadPayments() {
     try {
         const { data, error } = await supabase.from('payment_requests').select('*').order('submitted_at', { ascending: false });
@@ -444,11 +720,30 @@ async function loadStudents() {
     }
 }
 
+async function refreshAllData() {
+    await renderPayments();
+    await renderDashboard();
+}
+
+function openProductModal(productId = null) {
+    showToast('Product management coming soon', 'info');
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // ============================================
 // INITIALIZE ADMIN DASHBOARD
 // ============================================
 async function initAdminDashboard() {
     console.log('Initializing admin dashboard...');
+    
+    // Initialize theme first
+    initTheme();
     
     const isAuth = await checkAuth();
     if (!isAuth) return;
@@ -464,14 +759,6 @@ async function initAdminDashboard() {
     }, 30000);
     
     console.log(`Admin dashboard initialized for role: ${currentRole}`);
-}
-
-// Helper functions
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Start the dashboard
