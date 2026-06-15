@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secretary Dashboard | Gliimu Institute</title>
+    <title>Admin Dashboard | Gliimu Institute</title>
     <link rel="stylesheet" href="/css/global.css">
     <link rel="stylesheet" href="/css/admin-dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,15 +11,18 @@
 </head>
 <body>
 
-    <!-- Simple Header for Admin Dashboard -->
+    <!-- Dynamic Header for Admin Dashboard -->
     <div class="admin-header">
         <div class="header-container">
             <div class="logo">
                 <img src="/icons/logo.png" alt="Gliimu" class="logo-img">
-                <span>Secretary Dashboard</span>
+                <span id="dashboardTitle">Admin Dashboard</span>
             </div>
             <div class="header-right">
-                <span class="admin-name" id="adminName">Loading...</span>
+                <div class="admin-info">
+                    <span class="admin-name" id="adminName">Loading...</span>
+                    <span class="admin-role" id="adminRole">Loading...</span>
+                </div>
                 <button id="logoutBtn" class="logout-btn">
                     <i class="fas fa-sign-out-alt"></i> Sign Out
                 </button>
@@ -29,198 +32,109 @@
 
     <!-- Admin Dashboard Container -->
     <div class="admin-container">
-        <!-- Sidebar -->
+        <!-- Sidebar - Dynamically populated by JavaScript -->
         <aside class="admin-sidebar">
-            <nav class="admin-nav">
-                <div class="nav-item active" data-tab="dashboard">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
-                </div>
-                <div class="nav-item" data-tab="payments">
-                    <i class="fas fa-wallet"></i>
-                    <span>Payments</span>
-                    <span class="badge" id="pendingPaymentsBadge">0</span>
-                </div>
-                <div class="nav-item" data-tab="students">
-                    <i class="fas fa-users"></i>
-                    <span>Students</span>
-                </div>
-                <div class="nav-item" data-tab="inventory">
-                    <i class="fas fa-boxes"></i>
-                    <span>Inventory</span>
-                </div>
-                <div class="nav-item" data-tab="finance">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Finance</span>
-                </div>
+            <nav class="admin-nav" id="sidebarNav">
+                <!-- Navigation will be dynamically inserted based on user role -->
+                <div class="loading-nav">Loading...</div>
             </nav>
         </aside>
 
-        <!-- Main Content -->
-        <main class="admin-main">
-            <!-- Dashboard Tab -->
-            <div id="dashboardTab" class="admin-tab active">
-                <div class="stats-grid" id="statsGrid">
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-clock"></i></div>
-                        <div class="stat-info">
-                            <h3>Pending Payments</h3>
-                            <div class="stat-value" id="statPendingPayments">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-                        <div class="stat-info">
-                            <h3>Approved Payments</h3>
-                            <div class="stat-value" id="statApprovedPayments">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-users"></i></div>
-                        <div class="stat-info">
-                            <h3>Total Students</h3>
-                            <div class="stat-value" id="statTotalStudents">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-certificate"></i></div>
-                        <div class="stat-info">
-                            <h3>Certificates Issued</h3>
-                            <div class="stat-value" id="statCertificatesIssued">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
-                        <div class="stat-info">
-                            <h3>Total Revenue</h3>
-                            <div class="stat-value" id="statTotalRevenue">₦0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-box"></i></div>
-                        <div class="stat-info">
-                            <h3>Low Stock Items</h3>
-                            <div class="stat-value" id="statLowStock">0</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="recent-section">
-                    <h3>Recent Payment Requests</h3>
-                    <div class="recent-payments" id="recentPayments">
-                        <div class="loading">Loading...</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Payments Tab -->
-            <div id="paymentsTab" class="admin-tab">
-                <div class="tab-header">
-                    <h2>Payment Management</h2>
-                    <div class="payment-filters">
-                        <button class="filter-btn active" data-payment-filter="pending">Pending</button>
-                        <button class="filter-btn" data-payment-filter="approved">Approved</button>
-                        <button class="filter-btn" data-payment-filter="rejected">Rejected</button>
-                    </div>
-                </div>
-                <div class="payments-list" id="paymentsList">
-                    <div class="loading">Loading payments...</div>
-                </div>
-            </div>
-
-            <!-- Students Tab -->
-            <div id="studentsTab" class="admin-tab">
-                <div class="tab-header">
-                    <h2>Student Management</h2>
-                    <button id="exportStudentsBtn" class="btn-outline">Export CSV</button>
-                </div>
-                <div class="students-list" id="studentsList">
-                    <div class="loading">Loading students...</div>
-                </div>
-            </div>
-
-            <!-- Inventory Tab -->
-            <div id="inventoryTab" class="admin-tab">
-                <div class="tab-header">
-                    <h2>Inventory Management</h2>
-                    <button id="addProductBtn" class="btn-primary">+ Add Product</button>
-                </div>
-                <div class="inventory-stats">
-                    <div class="inv-stat">
-                        <span>Total Products</span>
-                        <strong id="totalProducts">0</strong>
-                    </div>
-                    <div class="inv-stat">
-                        <span>Low Stock Alerts</span>
-                        <strong id="lowStockCount">0</strong>
-                    </div>
-                    <div class="inv-stat">
-                        <span>Monthly Sales</span>
-                        <strong id="monthlySales">₦0</strong>
-                    </div>
-                </div>
-                <div class="inventory-list" id="inventoryList">
-                    <div class="loading">Loading inventory...</div>
-                </div>
-            </div>
-
-            <!-- Finance Tab -->
-            <div id="financeTab" class="admin-tab">
-                <div class="tab-header">
-                    <h2>Financial Management</h2>
-                    <div class="finance-filters">
-                        <button class="filter-btn active" data-finance-filter="overview">Overview</button>
-                        <button class="filter-btn" data-finance-filter="expenses">Expenses</button>
-                        <button class="filter-btn" data-finance-filter="disbursements">Disbursements</button>
-                    </div>
-                </div>
-                
-                <!-- Overview Section -->
-                <div id="financeOverview" class="finance-section active">
-                    <div class="finance-stats">
-                        <div class="finance-card">
-                            <h4>Total Revenue</h4>
-                            <div class="amount" id="financeTotalRevenue">₦0</div>
-                        </div>
-                        <div class="finance-card">
-                            <h4>Total Expenses</h4>
-                            <div class="amount negative" id="financeTotalExpenses">₦0</div>
-                        </div>
-                        <div class="finance-card">
-                            <h4>Net Profit</h4>
-                            <div class="amount" id="financeNetProfit">₦0</div>
-                        </div>
-                    </div>
-                    <div class="revenue-breakdown">
-                        <h3>Revenue Breakdown</h3>
-                        <div class="breakdown-list" id="revenueBreakdown"></div>
-                    </div>
-                </div>
-
-                <!-- Expenses Section -->
-                <div id="financeExpenses" class="finance-section">
-                    <div class="section-actions">
-                        <button id="addExpenseBtn" class="btn-primary">+ Add Expense</button>
-                    </div>
-                    <div class="expenses-list" id="expensesList">
-                        <div class="loading">Loading expenses...</div>
-                    </div>
-                </div>
-
-                <!-- Disbursements Section -->
-                <div id="financeDisbursements" class="finance-section">
-                    <div class="section-actions">
-                        <button id="addDisbursementBtn" class="btn-primary">+ New Disbursement</button>
-                    </div>
-                    <div class="disbursements-list" id="disbursementsList">
-                        <div class="loading">Loading disbursements...</div>
-                    </div>
+        <!-- Main Content - Dynamically populated -->
+        <main class="admin-main" id="dashboardContent">
+            <div class="loading-container">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading dashboard...</p>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Add Product Modal -->
+    <!-- ============================================ -->
+    <!-- MODALS FOR DIFFERENT SECTIONS -->
+    <!-- ============================================ -->
+
+    <!-- Library Item Modal (Secretary & Founder) -->
+    <div id="libraryItemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="libraryModalTitle">Add Library Item</h2>
+                <button class="modal-close closeLibraryModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="libraryItemForm">
+                    <input type="hidden" id="editItemId">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" id="itemTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="itemType">
+                            <option value="book">Book</option>
+                            <option value="bundle">Bundle</option>
+                            <option value="course">Course</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="itemCategory" placeholder="Video Production, Design, Development, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label>Author</label>
+                        <input type="text" id="itemAuthor">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="itemDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Cover Image URL</label>
+                        <input type="url" id="itemCoverUrl" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label>Digital Price (₦)</label>
+                        <input type="number" id="itemPrice" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Physical Price (₦)</label>
+                        <input type="number" id="itemPhysicalPrice" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Stock Quantity</label>
+                        <input type="number" id="itemStock" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>File URL (for reading)</label>
+                        <input type="url" id="itemFileUrl" placeholder="PDF, EPUB, or video link">
+                    </div>
+                    <div class="form-group">
+                        <label>Download URL (for bundles)</label>
+                        <input type="url" id="itemDownloadUrl" placeholder="ZIP or resource link">
+                    </div>
+                    <div class="form-group">
+                        <label>Level</label>
+                        <select id="itemLevel">
+                            <option value="Beginner">Beginner</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Advanced">Advanced</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="itemStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Item</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal (Secretary & Founder) -->
     <div id="productModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -229,6 +143,7 @@
             </div>
             <div class="modal-body">
                 <form id="productForm">
+                    <input type="hidden" id="editProductId">
                     <div class="form-group">
                         <label>Product Name</label>
                         <input type="text" id="productName" required>
@@ -238,6 +153,7 @@
                         <select id="productCategory" required>
                             <option value="uniform">Uniform</option>
                             <option value="gadget">Gadget</option>
+                            <option value="merchandise">Merchandise</option>
                             <option value="material">Learning Material</option>
                         </select>
                     </div>
@@ -249,13 +165,21 @@
                         <label>Stock Quantity</label>
                         <input type="number" id="productStock" required>
                     </div>
+                    <div class="form-group">
+                        <label>Image URL</label>
+                        <input type="url" id="productImage" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="productDescription" rows="2"></textarea>
+                    </div>
                     <button type="submit" class="btn-primary">Save Product</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Add Expense Modal -->
+    <!-- Expense Modal -->
     <div id="expenseModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -271,6 +195,7 @@
                             <option value="salary">Salary</option>
                             <option value="software">Software</option>
                             <option value="marketing">Marketing</option>
+                            <option value="operations">Operations</option>
                             <option value="other">Other</option>
                         </select>
                     </div>
@@ -280,9 +205,184 @@
                     </div>
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea id="expenseDescription" rows="3"></textarea>
+                        <textarea id="expenseDescription" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="expenseDate" required>
                     </div>
                     <button type="submit" class="btn-primary">Add Expense</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disbursement Modal -->
+    <div id="disbursementModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Disbursement</h2>
+                <button class="modal-close closeDisbursementModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="disbursementForm">
+                    <div class="form-group">
+                        <label>Recipient</label>
+                        <input type="text" id="disbursementRecipient" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount (₦)</label>
+                        <input type="number" id="disbursementAmount" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Purpose</label>
+                        <textarea id="disbursementPurpose" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="disbursementDate" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Create Disbursement</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Post Modal (CRM & Founder) -->
+    <div id="postModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="postModalTitle">Create Post</h2>
+                <button class="modal-modal-close closePostModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="postForm">
+                    <input type="hidden" id="editPostId">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" id="postTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Excerpt</label>
+                        <input type="text" id="postExcerpt" placeholder="Short summary">
+                    </div>
+                    <div class="form-group">
+                        <label>Content</label>
+                        <textarea id="postContent" rows="6" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="postCategory">
+                            <option value="news">News</option>
+                            <option value="announcement">Announcement</option>
+                            <option value="update">Update</option>
+                            <option value="success">Success Story</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Featured Image URL</label>
+                        <input type="url" id="postImage" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="postPublished"> Publish immediately
+                        </label>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Post</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Partnership Modal (Manager & Founder) -->
+    <div id="partnershipModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="partnershipModalTitle">Add Partnership</h2>
+                <button class="modal-close closePartnershipModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="partnershipForm">
+                    <input type="hidden" id="editPartnershipId">
+                    <div class="form-group">
+                        <label>Company/Organization Name</label>
+                        <input type="text" id="partnershipCompany" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Agreement Type</label>
+                        <select id="partnershipType" required>
+                            <option value="academic">Academic</option>
+                            <option value="corporate">Corporate</option>
+                            <option value="technology">Technology</option>
+                            <option value="media">Media</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Person</label>
+                        <input type="text" id="partnershipContact">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="partnershipEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Agreement Details</label>
+                        <textarea id="partnershipDetails" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="partnershipStatus">
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="expired">Expired</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Partnership</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Work Offer Modal (Manager & Founder) -->
+    <div id="offerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="offerModalTitle">Create Work Offer</h2>
+                <button class="modal-close closeOfferModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="offerForm">
+                    <input type="hidden" id="editOfferId">
+                    <div class="form-group">
+                        <label>Job Title</label>
+                        <input type="text" id="offerTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="offerDescription" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Budget (₦)</label>
+                        <input type="number" id="offerBudget" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Deadline</label>
+                        <input type="date" id="offerDeadline" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Skills Required</label>
+                        <input type="text" id="offerSkills" placeholder="Video Editing, Design, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="offerStatus">
+                            <option value="open">Open</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="filled">Filled</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Create Offer</button>
                 </form>
             </div>
         </div>
@@ -300,6 +400,86 @@
             </div>
             <div class="modal-footer">
                 <button id="downloadReceiptBtn" class="btn-primary">Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Modal (CRM & Founder) -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="eventModalTitle">Create Event</h2>
+                <button class="modal-close closeEventModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="eventForm">
+                    <input type="hidden" id="editEventId">
+                    <div class="form-group">
+                        <label>Event Title</label>
+                        <input type="text" id="eventTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="eventDescription" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Date & Time</label>
+                        <input type="datetime-local" id="eventDateTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Venue/Location</label>
+                        <input type="text" id="eventLocation" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Attendees</label>
+                        <input type="number" id="eventMaxAttendees" value="0">
+                    </div>
+                    <button type="submit" class="btn-primary">Save Event</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Modal (CRM & Founder) -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Contact</h2>
+                <button class="modal-close closeContactModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="contactForm">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" id="contactName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="contactEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" id="contactPhone">
+                    </div>
+                    <div class="form-group">
+                        <label>Organization</label>
+                        <input type="text" id="contactOrganization">
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="contactType">
+                            <option value="student">Student</option>
+                            <option value="instructor">Instructor</option>
+                            <option value="partner">Partner</option>
+                            <option value="alumni">Alumni</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="contactNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Contact</button>
+                </form>
             </div>
         </div>
     </div>
