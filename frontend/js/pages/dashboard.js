@@ -94,7 +94,6 @@ const roleTabs = {
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ]
-    // admin role is NOT included here. They are redirected to /admin
 };
 
 // ============================================
@@ -103,7 +102,6 @@ const roleTabs = {
 async function checkAuth() {
     console.log('Checking authentication...');
     
-    // Prevent redirect loops
     if (sessionStorage.getItem('redirecting')) {
         console.log('Redirect already in progress, stopping');
         return false;
@@ -115,14 +113,12 @@ async function checkAuth() {
         currentRole = currentUser.role || 'student';
         console.log('User found in localStorage:', currentUser);
         
-        // --- NEW: Redirect Admin Users ---
         if (currentRole === 'admin') {
             console.log('Admin user detected. Redirecting to /admin');
             sessionStorage.setItem('redirecting', 'true');
             window.location.href = '/admin';
             return false;
         }
-        // ---------------------------------
         return true;
     }
     
@@ -136,14 +132,12 @@ async function checkAuth() {
     if (session) {
         await loadUserFromSupabase(session.user.id);
         
-        // --- NEW: Redirect Admin Users (after loading from Supabase) ---
         if (currentRole === 'admin') {
             console.log('Admin user detected. Redirecting to /admin');
             sessionStorage.setItem('redirecting', 'true');
             window.location.href = '/admin';
             return false;
         }
-        // ------------------------------------------------------------
         return true;
     }
     
@@ -231,7 +225,7 @@ async function loadUserFromSupabase(userId) {
 }
 
 // ============================================
-// FETCH LIBRARY ITEMS (for potential future use)
+// FETCH LIBRARY ITEMS
 // ============================================
 async function fetchLibraryItems() {
     try {
@@ -253,7 +247,7 @@ async function fetchLibraryItems() {
 }
 
 // ============================================
-// PAYMENT STORAGE FUNCTIONS
+// PAYMENT STORAGE FUNCTIONS - FIXED FOR ADMIN VISIBILITY
 // ============================================
 async function loadPaymentsFromStorage(forceRefresh = false) {
     if (!currentUser?.id) {
@@ -319,24 +313,13 @@ async function savePaymentToStorage(payment) {
     // Save to localStorage as backup
     localStorage.setItem(`glimu_payments_${currentUser.id}`, JSON.stringify(allPayments));
     
-    // Save to Supabase payment_requests table
+    // Save to Supabase payment_requests table for admin visibility
     try {
-        // Get current user's profile for name and email
-        const { data: profile, error: profileError } = await supabase
-            .from('users')
-            .select('name, email')
-            .eq('id', currentUser.id)
-            .single();
-        
-        if (profileError) {
-            console.error('Error fetching user profile:', profileError);
-        }
-        
         const paymentRequest = {
             id: payment.id,
             user_id: currentUser.id,
-            user_name: profile?.name || currentUser.name || 'User',
-            user_email: profile?.email || currentUser.email || '',
+            user_name: currentUser.name || 'User',
+            user_email: currentUser.email || '',
             amount: payment.amount,
             reference_code: payment.reference_code,
             bank: payment.bank,
@@ -349,7 +332,7 @@ async function savePaymentToStorage(payment) {
             .from('payment_requests')
             .select('id')
             .eq('reference_code', payment.reference_code)
-            .single();
+            .maybeSingle();
         
         if (checkError && checkError.code !== 'PGRST116') {
             console.error('Error checking existing payment:', checkError);
@@ -365,7 +348,7 @@ async function savePaymentToStorage(payment) {
                 showToast('Payment request saved locally only. Admin will be notified.', 'warning');
             } else {
                 console.log('Payment saved to Supabase successfully:', paymentRequest);
-                showToast('Payment request submitted successfully!', 'success');
+                showToast('Payment request submitted successfully! Admin will review and credit your wallet within 24 hours.', 'success');
             }
         } else {
             console.log('Payment already exists in Supabase');
@@ -376,6 +359,7 @@ async function savePaymentToStorage(payment) {
         showToast('Payment request saved locally. Please contact support if not processed.', 'warning');
     }
 }
+
 // ============================================
 // REAL-TIME WALLET UPDATES
 // ============================================
@@ -448,7 +432,7 @@ function updateUI() {
 // SIDEBAR NAVIGATION
 // ============================================
 function buildSidebar() {
-    const tabs = roleTabs[currentRole] || roleTabs.student; // Fallback to student tabs
+    const tabs = roleTabs[currentRole] || roleTabs.student;
     const sidebarNav = document.getElementById('sidebarNav');
     
     if (!sidebarNav) return;
@@ -499,7 +483,6 @@ function createContentSections() {
     const dashboardContent = document.getElementById('dashboardContent');
     if (!dashboardContent) return;
     
-    // Create all possible sections (some may not be used for certain roles)
     dashboardContent.innerHTML = `
         <div id="dashboard-section" class="dashboard-section active">
             <div class="loading-spinner">Loading dashboard...</div>
@@ -1019,53 +1002,41 @@ function openFundWalletModal(suggestedAmount = null) {
     }
     
     const confirmBtn = modal.querySelector('#confirmPaymentBtn');
-if (confirmBtn) {
-    confirmBtn.onclick = async () => {
-        if (!selectedAmount) {
-            showToast('Invalid amount', 'error');
-            return;
-        }
-        
-        const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        const paymentRequest = {
-            id: paymentId,
-            user_id: currentUser.id,
-            user_name: currentUser.name,
-            user_email: currentUser.email,
-            amount: selectedAmount,
-            reference_code: referenceCode,
-            bank: selectedBank.name,
-            status: 'pending',
-            submitted_at: new Date().toISOString()
-        };
-        
-        // Save to localStorage first
-        await savePaymentToStorage(paymentRequest);
-        
-        // Also try to save directly to Supabase (savePaymentToStorage already does this)
-        // But let's ensure it's saved by trying again directly
-        try {
-            const { error: directInsertError } = await supabase
-                .from('payment_requests')
-                .insert([paymentRequest]);
-            
-            if (directInsertError) {
-                console.error('Direct insert error:', directInsertError);
-            } else {
-                console.log('Payment inserted directly to Supabase');
+    if (confirmBtn) {
+        confirmBtn.onclick = async () => {
+            if (!selectedAmount) {
+                showToast('Invalid amount', 'error');
+                return;
             }
-        } catch (e) {
-            console.error('Direct insert failed:', e);
-        }
-        
-        showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-        
-        // Refresh wallet to show pending request
-        setTimeout(() => renderWallet(), 500);
-    };
+            
+            const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            const paymentRequest = {
+                id: paymentId,
+                user_id: currentUser.id,
+                user_name: currentUser.name,
+                user_email: currentUser.email,
+                amount: selectedAmount,
+                reference_code: referenceCode,
+                bank: selectedBank.name,
+                status: 'pending',
+                submitted_at: new Date().toISOString()
+            };
+            
+            // Save to localStorage and Supabase
+            await savePaymentToStorage(paymentRequest);
+            
+            showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            
+            // Refresh wallet to show pending request
+            setTimeout(() => renderWallet(), 500);
+        };
+    }
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 // ============================================
@@ -1272,7 +1243,6 @@ async function renderSettings() {
         </div>
     `;
     
-    // Theme selector
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const theme = btn.getAttribute('data-theme');
@@ -1284,7 +1254,6 @@ async function renderSettings() {
         });
     });
     
-    // Avatar upload
     document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
         document.getElementById('avatarUpload').click();
     });
@@ -1312,7 +1281,6 @@ async function renderSettings() {
         }
     });
     
-    // Portfolio URL
     document.getElementById('copyPortfolioUrlBtn')?.addEventListener('click', () => {
         const urlInput = document.getElementById('portfolioUrl');
         urlInput.select();
@@ -1324,7 +1292,6 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
-    // Save settings
     document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
         const newName = document.getElementById('fullNameInput').value;
         const newAddress = document.getElementById('addressInput').value;
@@ -1353,7 +1320,6 @@ async function renderSettings() {
         }
     });
     
-    // Change password
     document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const currentPassword = document.getElementById('currentPassword').value;
@@ -1387,7 +1353,6 @@ async function renderSettings() {
         }
     });
     
-    // Sign Out
     document.getElementById('signOutBtn')?.addEventListener('click', async () => {
         if (confirm('Are you sure you want to sign out?')) {
             await supabase.auth.signOut();
