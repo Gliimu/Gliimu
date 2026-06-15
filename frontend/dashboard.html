@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Gliimu</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Dashboard | Glimu</title>
     <link rel="stylesheet" href="/css/global.css">
     <link rel="stylesheet" href="/css/dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +32,7 @@
         <!-- Main Content -->
         <main class="dashboard-main">
             <div id="dashboardContent">
-                <div class="loading-spinner" style="text-align: center; padding: 40px;">
+                <div class="loading-spinner">
                     <i class="fas fa-spinner fa-spin"></i>
                     <p>Loading dashboard...</p>
                 </div>
@@ -43,79 +43,11 @@
     <!-- Mobile Sidebar Overlay -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- Notification Modal -->
-    <div id="notificationModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Notification Preferences</h2>
-                <button class="modal-close closeNotificationModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="notificationForm">
-                    <div class="form-group">
-                        <label>Email Address</label>
-                        <input type="email" id="notificationEmail" placeholder="your@email.com">
-                        <small>Receive updates, payment confirmations, and certificate alerts</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Phone Number</label>
-                        <input type="tel" id="notificationPhone" placeholder="08012345678">
-                        <small>Receive SMS notifications (optional)</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Notification Preferences</label>
-                        <div class="checkbox-group">
-                            <label><input type="checkbox" id="notifyPayment"> Payment confirmations</label>
-                            <label><input type="checkbox" id="notifyCertificate"> Certificate awards</label>
-                            <label><input type="checkbox" id="notifyPromo"> Promotions & updates</label>
-                            <label><input type="checkbox" id="notifyWithdrawal"> Withdrawal status</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-primary" id="saveNotificationSettings">Save Preferences</button>
-                <button class="btn-outline closeNotificationModalBtn">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Funds Modal -->
-    <div id="fundWalletModal" class="modal">
-        <div class="modal-content wallet-modal">
-            <div class="modal-header">
-                <h2>Add Funds to Wallet</h2>
-                <button class="modal-close closeFundModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="funding-options">
-                    <h3>Select Amount</h3>
-                    <div class="amount-buttons">
-                        <button class="amount-btn" data-amount="1000">₦1,000</button>
-                        <button class="amount-btn" data-amount="2000">₦2,000</button>
-                        <button class="amount-btn" data-amount="5000">₦5,000</button>
-                        <button class="amount-btn" data-amount="10000">₦10,000</button>
-                        <button class="amount-btn" data-amount="20000">₦20,000</button>
-                        <button class="amount-btn" data-amount="50000">₦50,000</button>
-                    </div>
-                    <div class="custom-amount">
-                        <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
-                    </div>
-                </div>
-                <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
-                    <p>You are about to add:</p>
-                    <div class="selected-amount-large" id="selectedAmountValue">₦0</div>
-                </div>
-                <button id="proceedToPaymentBtn" class="btn-success">Proceed to Payment</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Mobile Bottom Navigation -->
     <div class="mobile-bottom-nav" id="mobileBottomNav">
-        <button class="mobile-nav-item" data-tab="overview">
+        <button class="mobile-nav-item" data-tab="dashboard">
             <i class="fas fa-tachometer-alt"></i>
-            <span>Overview</span>
+            <span>Home</span>
         </button>
         <button class="mobile-nav-item" data-tab="question">
             <i class="fas fa-question-circle"></i>
@@ -124,6 +56,10 @@
         <button class="mobile-nav-item" data-tab="gotomenu">
             <i class="fas fa-door-open"></i>
             <span>Go To</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="store">
+            <i class="fas fa-store"></i>
+            <span>Store</span>
         </button>
         <button class="mobile-nav-item" data-tab="wallet">
             <i class="fas fa-wallet"></i>
@@ -135,6 +71,95 @@
         </button>
     </div>
 
-    <script type="module" src="/js/pages/dashboard.js"></script>
+    <!-- Modals -->
+    <div id="mvpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Submit MVP Proposal</h2>
+                <button class="modal-close closeMvpModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="mvpForm">
+                    <div class="form-group">
+                        <label>Project Title</label>
+                        <input type="text" id="mvpTitle" required placeholder="e.g., The Documentary Project">
+                    </div>
+                    <div class="form-group">
+                        <label>Project Type</label>
+                        <select id="mvpType" required>
+                            <option value="">Select type</option>
+                            <option value="book">Book</option>
+                            <option value="documentary">Documentary</option>
+                            <option value="movie">Movie</option>
+                            <option value="business">Business</option>
+                            <option value="movement">Movement</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Project Description</label>
+                        <textarea id="mvpDescription" rows="4" required placeholder="Describe your project in detail..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Proposal / Execution Plan</label>
+                        <textarea id="mvpProposal" rows="6" required placeholder="How do you plan to execute this project?"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Submit MVP Proposal</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="fundWalletModal" class="modal">
+        <div class="modal-content wallet-modal">
+            <div class="modal-header">
+                <h2>Add Funds to Wallet</h2>
+                <button class="modal-close closeFundWalletModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="funding-options">
+                    <h3>Select Amount</h3>
+                    <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
+                        <p>You are about to add:</p>
+                        <div class="selected-amount-large" id="selectedAmountLarge">₦0</div>
+                    </div>
+                    <div class="amount-buttons">
+                        <button class="amount-btn" data-amount="1000">₦1,000</button>
+                        <button class="amount-btn" data-amount="2500">₦2,500</button>
+                        <button class="amount-btn" data-amount="5000">₦5,000</button>
+                        <button class="amount-btn" data-amount="10000">₦10,000</button>
+                        <button class="amount-btn" data-amount="25000">₦25,000</button>
+                        <button class="amount-btn" data-amount="50000">₦50,000</button>
+                    </div>
+                    <div class="custom-amount">
+                        <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
+                    </div>
+                    <button id="continueToBankBtn" class="btn-primary" style="margin-top: 1rem; width: 100%;">Continue to Payment</button>
+                </div>
+                
+                <div class="bank-details" style="display: none;">
+                    <h3>Bank Transfer Details</h3>
+                    <div class="bank-info-card" id="bankInfoCard"></div>
+                    <div class="reference-code-box">
+                        <p>Your Reference Code:</p>
+                        <div class="reference-code" id="referenceCode"></div>
+                        <button id="copyRefCodeBtn" class="btn-outline">Copy Code</button>
+                    </div>
+                    <div class="payment-instructions">
+                        <p><i class="fas fa-info-circle"></i> Instructions:</p>
+                        <ol>
+                            <li>Send the exact amount to <strong>the account above</strong></li>
+                            <li>Use the <strong>Reference Code</strong> as your transaction narration</li>
+                            <li>After sending, click "I Have Made Payment" below</li>
+                            <li>Your wallet will be credited after admin verification, <strong>within 24 hours</strong></li>
+                        </ol>
+                    </div>
+                    <button id="confirmPaymentBtn" class="btn-success">✅ I Have Made Payment</button>
+                    <button id="backToAmountBtn" class="btn-outline">← Back</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/pages/dashboard.js" type="module"></script>
 </body>
 </html>
