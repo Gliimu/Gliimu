@@ -1,21 +1,18 @@
 // ============================================
-// GLIIMU DASHBOARD - COMPLETE STUDENT VERSION
-// Wallet Balance: ₦14,500 (NOT ₦25,000)
-// Tabs: Dashboard, Questions, Go To, Wallet, Settings
+// GLIIMU DASHBOARD - COMPLETE VERSION
+// Free access to all platforms
+// Tabs: Dashboard, Questions, Go To, Library Store, Settings
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 import { 
     getWalletBalance, 
-    getUserAccess, 
-    purchasePremium, 
-    purchaseStandard, 
-    purchasePlatform,
+    purchaseBook,
+    purchaseBundle,
     getTransactionHistory,
-    isPremium,
-    subscribeToWalletUpdates,
-    PRICING
+    getUserAccess,
+    subscribeToWalletUpdates
 } from '../modules/wallet.js';
 
 import {
@@ -45,6 +42,7 @@ let pendingPayments = [];
 let approvedPayments = [];
 let cancelledPayments = [];
 let allPayments = [];
+let allLibraryItems = [];
 let questionRenderer = null;
 let currentPaymentFilter = 'all';
 
@@ -54,8 +52,8 @@ let lastPaymentsFetch = 0;
 let cachedBalance = null;
 let cachedTransactions = null;
 let lastWalletUpdate = 0;
-const CACHE_DURATION = 30000; // 30 seconds
-const PAYMENTS_CACHE_DURATION = 60000; // 1 minute
+const CACHE_DURATION = 30000;
+const PAYMENTS_CACHE_DURATION = 60000;
 
 // ============================================
 // CHECK AUTHENTICATION
@@ -113,7 +111,7 @@ async function loadUserFromSupabase(userId) {
                     name: authUser.user.email?.split('@')[0] || 'User',
                     email: authUser.user.email,
                     role: 'student',
-                    wallet_balance: 14500  // ✅ CORRECT: ₦14,500
+                    wallet_balance: 14500
                 };
                 const { error: insertError } = await supabase
                     .from('users')
@@ -131,16 +129,16 @@ async function loadUserFromSupabase(userId) {
         }
         
         await loadPaymentsFromStorage();
+        await fetchLibraryItems();
         
         currentUserProfile = profile;
-        currentWalletBalance = profile.wallet_balance || 14500;  // ✅ CORRECT: ₦14,500
+        currentWalletBalance = profile.wallet_balance || 14500;
         currentUser = {
             id: userId,
             name: profile.name || profile.full_name || 'User',
             email: profile.email,
             role: profile.role || 'student',
-            subscriptionTier: profile.subscription_tier || 'premium',
-            walletBalance: profile.wallet_balance || 14500,  // ✅ CORRECT: ₦14,500
+            walletBalance: profile.wallet_balance || 14500,
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
         };
         currentRole = currentUser.role;
@@ -156,8 +154,7 @@ async function loadUserFromSupabase(userId) {
             name: 'Test User',
             email: 'test@example.com',
             role: 'student',
-            subscriptionTier: 'premium',
-            walletBalance: 14500,  // ✅ CORRECT: ₦14,500
+            walletBalance: 14500,
             avatar: 'https://ui-avatars.com/api/?name=Test+User&background=fbb040&color=fff'
         };
         currentRole = 'student';
@@ -166,7 +163,29 @@ async function loadUserFromSupabase(userId) {
 }
 
 // ============================================
-// OPTIMIZED PAYMENT STORAGE FUNCTIONS
+// FETCH LIBRARY ITEMS FOR STORE
+// ============================================
+async function fetchLibraryItems() {
+    try {
+        let response = await fetch('../../backend/data/library.json');
+        if (!response.ok) response = await fetch('../backend/data/library.json');
+        if (!response.ok) response = await fetch('/backend/data/library.json');
+        if (!response.ok) response = await fetch('https://raw.githubusercontent.com/Gliimu/Gliimu/main/backend/data/library.json');
+        
+        if (!response.ok) throw new Error('Failed to load library');
+        
+        const data = await response.json();
+        allLibraryItems = data.materials || [];
+        console.log('Loaded library items:', allLibraryItems.length);
+        
+    } catch (error) {
+        console.error('Error loading library items:', error);
+        allLibraryItems = [];
+    }
+}
+
+// ============================================
+// PAYMENT STORAGE FUNCTIONS
 // ============================================
 async function loadPaymentsFromStorage(forceRefresh = false) {
     if (!currentUser?.id) {
@@ -282,6 +301,7 @@ const roleTabs = {
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'question', name: 'Questions', icon: 'fas fa-question-circle' },
         { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
+        { id: 'store', name: 'Library Store', icon: 'fas fa-store' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
     ],
@@ -424,6 +444,9 @@ async function loadTabData(tabId) {
         case 'gotomenu':
             renderGoToMenu();
             break;
+        case 'store':
+            await renderStore();
+            break;
         case 'wallet':
             await renderWallet();
             break;
@@ -439,13 +462,12 @@ async function loadTabData(tabId) {
 }
 
 // ============================================
-// DASHBOARD RENDER - FIXED
+// DASHBOARD RENDER
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
     if (!container) return;
     
-    // Show loading
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
     
     try {
@@ -455,20 +477,21 @@ async function renderDashboard() {
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
         const leaderboardData = await getLeaderboard(10);
         const isAmbassador = (scoreData?.current_score || 0) >= 100;
+        const walletBalance = currentUser?.walletBalance || 14500;
         
         container.innerHTML = `
             <div class="progress-section">
                 ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
             </div>
             
-            <div class="leaderboard-section">
-                <div class="leaderboard-header">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Top Performers</h3>
-                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
-                </div>
-                <div class="leaderboard-list">
-                    ${renderLeaderboardList(leaderboardData)}
+            <div class="quick-stats">
+                <div class="quick-stat-card">
+                    <i class="fas fa-wallet"></i>
+                    <div>
+                        <span class="quick-stat-label">Wallet Balance</span>
+                        <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
+                    </div>
+                    <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
                 </div>
             </div>
             
@@ -496,9 +519,23 @@ async function renderDashboard() {
                     </div>
                 </div>
             `}
+            
+            <div class="leaderboard-section">
+                <div class="leaderboard-header">
+                    <i class="fas fa-trophy"></i>
+                    <h3>Top Performers</h3>
+                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
+                </div>
+                <div class="leaderboard-list">
+                    ${renderLeaderboardList(leaderboardData)}
+                </div>
+            </div>
         `;
         
-        // Event listeners
+        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
+            switchTab('wallet');
+        });
+        
         const openMvpBtn = document.getElementById('openMvpFormBtn');
         if (openMvpBtn) {
             openMvpBtn.addEventListener('click', () => {
@@ -618,190 +655,131 @@ function openMvpModal() {
 }
 
 // ============================================
-// QUESTIONS TAB
+// STORE TAB - Purchase books and bundles
 // ============================================
-async function renderQuestionBar() {
-    const container = document.getElementById('question-section');
+async function renderStore() {
+    const container = document.getElementById('store-section');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading store...</div>';
     
     try {
-        const nextQuestion = await getNextQuestion(currentUser.id);
-        
-        if (!nextQuestion) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>All Questions Complete!</h3>
-                    <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
-                </div>
-            `;
-            return;
+        if (allLibraryItems.length === 0) {
+            await fetchLibraryItems();
         }
         
-        questionRenderer = new QuestionRenderer(
-            'question-section',
-            currentUser.id,
-            async (result) => {
-                const scoreData = await getStudentScore(currentUser.id);
-                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-                const nextBadge = getNextBadge(scoreData?.current_score || 0);
-                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-                
-                const progressSection = document.querySelector('.progress-section');
-                if (progressSection) {
-                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
-                }
-                
-                setTimeout(() => renderQuestionBar(), 2000);
-            }
-        );
+        const books = allLibraryItems.filter(item => item.type === 'book');
+        const bundles = allLibraryItems.filter(item => item.type === 'bundle');
+        const balance = await getWalletBalance();
         
-        await questionRenderer.renderQuestion(nextQuestion);
+        container.innerHTML = `
+            <div class="section-header">
+                <div>
+                    <h2>Library Store</h2>
+                    <p>Purchase books and bundles to add to your collection</p>
+                </div>
+                <div class="wallet-balance-mini">
+                    <i class="fas fa-wallet"></i>
+                    <span>₦${balance.toLocaleString()}</span>
+                </div>
+            </div>
+            
+            <div class="store-tabs">
+                <button class="store-tab active" data-tab="books">📚 Books</button>
+                <button class="store-tab" data-tab="bundles">📦 Bundles</button>
+            </div>
+            
+            <div id="booksTab" class="store-tab-content active">
+                <div class="store-grid">
+                    ${books.map(book => `
+                        <div class="store-item" data-id="${book.id}" data-type="book" data-price="${book.price || 5000}">
+                            <div class="store-item-cover" style="background-image: url('${book.image}'); background-size: cover;"></div>
+                            <div class="store-item-info">
+                                <h4>${escapeHtml(book.title)}</h4>
+                                <p>${escapeHtml(book.description?.substring(0, 80) || '')}...</p>
+                                <div class="store-item-price">₦${(book.price || 5000).toLocaleString()}</div>
+                                <button class="btn-primary buy-btn" data-id="${book.id}" data-type="book" data-price="${book.price || 5000}">Purchase</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div id="bundlesTab" class="store-tab-content">
+                <div class="store-grid">
+                    ${bundles.map(bundle => `
+                        <div class="store-item" data-id="${bundle.id}" data-type="bundle" data-price="${bundle.price || 10000}">
+                            <div class="store-item-cover" style="background-image: url('${bundle.image}'); background-size: cover;"></div>
+                            <div class="store-item-info">
+                                <h4>${escapeHtml(bundle.title)}</h4>
+                                <p>${escapeHtml(bundle.description?.substring(0, 80) || '')}...</p>
+                                <div class="store-item-price">₦${(bundle.price || 10000).toLocaleString()}</div>
+                                <button class="btn-primary buy-btn" data-id="${bundle.id}" data-type="bundle" data-price="${bundle.price || 10000}">Purchase</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        // Tab switching
+        document.querySelectorAll('.store-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                document.querySelectorAll('.store-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                document.querySelectorAll('.store-tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`${tabName}Tab`).classList.add('active');
+            });
+        });
+        
+        // Buy buttons
+        document.querySelectorAll('.buy-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const itemId = btn.getAttribute('data-id');
+                const itemType = btn.getAttribute('data-type');
+                const price = parseInt(btn.getAttribute('data-price'));
+                const item = allLibraryItems.find(i => i.id === itemId);
+                
+                if (!item) return;
+                
+                if (confirm(`Purchase "${item.title}" for ₦${price.toLocaleString()}?`)) {
+                    const currentBalance = await getWalletBalance();
+                    
+                    if (currentBalance < price) {
+                        showToast(`Insufficient funds. Need ₦${(price - currentBalance).toLocaleString()} more.`, 'error');
+                        switchTab('wallet');
+                        return;
+                    }
+                    
+                    const result = await purchaseBook(itemId, price, item.title);
+                    if (result) {
+                        showToast(`Successfully purchased "${item.title}"!`, 'success');
+                        await renderStore();
+                        await renderWallet();
+                    }
+                }
+            });
+        });
         
     } catch (error) {
-        console.error('Error loading question:', error);
+        console.error('Error rendering store:', error);
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load question</h3>
-                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
+                <h3>Unable to load store</h3>
+                <button class="btn-primary" onclick="renderStore()">Try Again</button>
             </div>
         `;
     }
 }
 
 // ============================================
-// GO TO MENU TAB - WITH SUBSCRIPTION CARDS
-// ============================================
-function renderGoToMenu() {
-    const container = document.getElementById('gotomenu-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2><i class="fas fa-door-open"></i> Go To</h2>
-                <p>Quick access to all platform sections</p>
-            </div>
-        </div>
-        
-        <div class="go-to-grid">
-            <div class="go-to-card" onclick="window.location.href='/library.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-book"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Library</h3>
-                    <p>Access books, bundles, and learning materials</p>
-                </div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/hub.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-newspaper"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Hub</h3>
-                    <p>Events, insights, and latest updates</p>
-                </div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/chat.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-comments"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Community</h3>
-                    <p>Connect with fellow learners and instructors</p>
-                </div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/virtualroom.html'">
-                <div class="go-to-icon">
-                    <i class="fas fa-video"></i>
-                </div>
-                <div class="go-to-info">
-                    <h3>Virtual Classroom</h3>
-                    <p>Live classes and interactive sessions</p>
-                </div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-        </div>
-        
-        <div class="plans-section">
-            <h3>Subscription Plans</h3>
-            <div class="plans-grid">
-                <div class="plan-card basic">
-                    <div class="plan-icon">🌱</div>
-                    <h4>Basic</h4>
-                    <div class="plan-price">₦7,500<span>/month</span></div>
-                    <ul class="plan-features">
-                        <li>✓ Access to 1 platform</li>
-                        <li>✓ Choose Library, Hub, or Community</li>
-                        <li>✓ Basic support</li>
-                    </ul>
-                    <button class="btn-outline plan-select" data-plan="basic">Select Plan</button>
-                </div>
-                
-                <div class="plan-card standard">
-                    <div class="plan-icon">📦</div>
-                    <h4>Standard</h4>
-                    <div class="plan-price">₦13,000<span>/month</span></div>
-                    <ul class="plan-features">
-                        <li>✓ Access to any 2 platforms</li>
-                        <li>✓ Hub + Community (default)</li>
-                        <li>✓ Priority support</li>
-                    </ul>
-                    <button class="btn-outline plan-select" data-plan="standard">Select Plan</button>
-                </div>
-                
-                <div class="plan-card premium">
-                    <div class="plan-badge">Most Popular</div>
-                    <div class="plan-icon">👑</div>
-                    <h4>Premium</h4>
-                    <div class="plan-price">₦15,000<span>/month</span></div>
-                    <ul class="plan-features">
-                        <li>✓ Full access to all 3 platforms</li>
-                        <li>✓ Library + Hub + Community</li>
-                        <li>✓ 24/7 priority support</li>
-                        <li>✓ Monthly bonus rewards</li>
-                    </ul>
-                    <button class="btn-primary plan-select" data-plan="premium">Select Plan</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.querySelectorAll('.plan-select').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const plan = btn.getAttribute('data-plan');
-            if (plan === 'premium') {
-                const result = await purchasePremium();
-                if (result === true) {
-                    showToast('Premium activated!', 'success');
-                } else if (result?.needsTopUp) {
-                    openFundWalletModal(result.amount);
-                }
-            } else if (plan === 'standard') {
-                if (confirm('⚠️ WARNING: Standard plan gives Hub + Community access. You will forfeit remaining credit. Continue?')) {
-                    await purchaseStandard();
-                    showToast('Standard plan activated!', 'success');
-                }
-            } else {
-                showToast('Basic plan selection coming soon. Please contact support.', 'info');
-            }
-        });
-    });
-}
-
-// ============================================
-// WALLET TAB - WITHOUT RECENT TRANSACTIONS
+// WALLET TAB
 // ============================================
 async function renderWallet() {
     const container = document.getElementById('wallet-section');
@@ -832,72 +810,49 @@ async function renderWallet() {
                 <button id="addFundsBtn" class="btn-primary">Add Funds</button>
             </div>
             
-    <div class="payment-filters-wrapper">
-        <div class="payment-filters">
-            <button class="filter-btn ${currentPaymentFilter === 'all' ? 'active' : ''}" data-filter="all">All (${allPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'pending' ? 'active' : ''}" data-filter="pending">Pending (${pendingPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'approved' ? 'active' : ''}" data-filter="approved">Approved (${approvedPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'rejected' ? 'active' : ''}" data-filter="rejected">Rejected (${cancelledPayments.length})</button>
-            <button class="filter-btn ${currentPaymentFilter === 'transactions' ? 'active' : ''}" data-filter="transactions">Transactions (${transactions?.length || 0})</button>
-        </div>
-    </div>
+            <div class="transactions-section">
+                <h3>Recent Transactions</h3>
+                <div class="transactions-list">
+                    ${transactions.length === 0 ? '<p class="empty-transactions">No transactions yet</p>' : 
+                        transactions.slice(0, 10).map(t => `
+                            <div class="transaction-item">
+                                <div class="transaction-icon ${t.type === 'credit' ? 'credit' : 'debit'}">
+                                    <i class="fas ${t.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                                </div>
+                                <div class="transaction-info">
+                                    <div class="transaction-desc">${escapeHtml(t.description)}</div>
+                                    <div class="transaction-date">${new Date(t.created_at).toLocaleDateString()}</div>
+                                </div>
+                                <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
+                                    ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
             
             <div class="payments-section">
-                <h3>${currentPaymentFilter === 'transactions' ? 'Transaction History' : 'Payment Requests'}</h3>
+                <h3>Payment Requests</h3>
                 <div class="payments-list">
-                    ${renderPaymentList()}
+                    ${allPayments.length === 0 ? '<p class="empty-payments">No payment requests</p>' : 
+                        allPayments.slice(0, 5).map(p => `
+                            <div class="payment-item ${p.status}">
+                                <div class="payment-info">
+                                    <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                                    <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+                                    <div class="payment-ref">Ref: ${p.reference_code}</div>
+                                </div>
+                                <div class="payment-status-badge ${p.status}">${p.status}</div>
+                            </div>
+                        `).join('')
+                    }
                 </div>
             </div>
         `;
         
-        function renderPaymentList() {
-            if (currentPaymentFilter === 'transactions') {
-                if (!transactions || transactions.length === 0) {
-                    return '<p class="empty-payments">No transactions found</p>';
-                }
-                return transactions.map(t => `
-                    <div class="transaction-item-full">
-                        <div class="transaction-info">
-                            <div class="transaction-desc">${escapeHtml(t.description)}</div>
-                            <div class="transaction-date">${new Date(t.created_at).toLocaleString()}</div>
-                        </div>
-                        <div class="transaction-amount ${t.amount > 0 ? 'positive' : 'negative'}">
-                            ${t.amount > 0 ? '+' : ''}₦${Math.abs(t.amount).toLocaleString()}
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            let displayPayments = [];
-            if (currentPaymentFilter === 'pending') displayPayments = pendingPayments;
-            else if (currentPaymentFilter === 'approved') displayPayments = approvedPayments;
-            else if (currentPaymentFilter === 'rejected') displayPayments = cancelledPayments;
-            else displayPayments = allPayments;
-            
-            if (displayPayments.length === 0) {
-                return `<p class="empty-payments">No ${currentPaymentFilter !== 'all' ? currentPaymentFilter : ''} payments found</p>`;
-            }
-            
-            return displayPayments.map(p => `
-                <div class="payment-item ${p.status}">
-                    <div class="payment-info">
-                        <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
-                        <div class="payment-date">${new Date(p.submitted_at || p.date).toLocaleDateString()}</div>
-                        <div class="payment-ref">Ref: ${p.reference_code || p.reference}</div>
-                        ${p.status === 'rejected' ? `<div class="payment-reason">Reason: ${p.admin_notes || 'Contact support for details'}</div>` : ''}
-                    </div>
-                    <div class="payment-status-badge ${p.status}">${p.status}</div>
-                </div>
-            `).join('');
-        }
-        
-        document.getElementById('addFundsBtn')?.addEventListener('click', () => openFundWalletModal());
-        
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentPaymentFilter = btn.getAttribute('data-filter');
-                renderWallet();
-            });
+        document.getElementById('addFundsBtn')?.addEventListener('click', () => {
+            openFundWalletModal();
         });
         
     } catch (error) {
@@ -907,7 +862,7 @@ async function renderWallet() {
 }
 
 // ============================================
-// FUND WALLET MODAL - WITH RANDOM BANK
+// FUND WALLET MODAL
 // ============================================
 function openFundWalletModal(suggestedAmount = null) {
     let modal = document.getElementById('fundWalletModal');
@@ -943,9 +898,7 @@ function openFundWalletModal(suggestedAmount = null) {
                     
                     <div class="bank-details" style="display: none;">
                         <h3>Bank Transfer Details</h3>
-                        <div class="bank-info-card" id="bankInfoCard">
-                            <!-- Random bank will be inserted here -->
-                        </div>
+                        <div class="bank-info-card" id="bankInfoCard"></div>
                         <div class="reference-code-box">
                             <p>Your Reference Code:</p>
                             <div class="reference-code" id="referenceCode"></div>
@@ -967,11 +920,6 @@ function openFundWalletModal(suggestedAmount = null) {
             </div>
         `;
         document.body.appendChild(modal);
-        
-        document.getElementById('closeFundWalletModal').onclick = () => {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        };
     }
     
     let selectedAmount = suggestedAmount || 0;
@@ -983,7 +931,6 @@ function openFundWalletModal(suggestedAmount = null) {
         { name: 'Opay', accountNumber: '6142049426', accountName: 'Gliimu LTD', code: 'opay' }
     ];
     
-    // Randomly select a bank
     const randomBank = banks[Math.floor(Math.random() * banks.length)];
     selectedBank = randomBank;
     
@@ -1002,7 +949,6 @@ function openFundWalletModal(suggestedAmount = null) {
         selectedAmount = suggestedAmount;
     }
     
-    // Amount button handlers
     modal.querySelectorAll('.amount-btn').forEach(btn => {
         btn.onclick = () => {
             modal.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
@@ -1010,7 +956,6 @@ function openFundWalletModal(suggestedAmount = null) {
             selectedAmount = parseInt(btn.getAttribute('data-amount'));
             const customInput = modal.querySelector('#customAmount');
             if (customInput) customInput.value = '';
-            // Show selected amount
             selectedAmountDisplay.style.display = 'block';
             selectedAmountLarge.textContent = `₦${selectedAmount.toLocaleString()}`;
         };
@@ -1036,13 +981,11 @@ function openFundWalletModal(suggestedAmount = null) {
             return;
         }
         
-        // Generate short reference code
         const shortName = currentUser.name.substring(0, 8).replace(/\s/g, '');
         const randomNum = Math.floor(Math.random() * 9000) + 1000;
         referenceCode = `GLM-${shortName}-${randomNum}`;
         modal.querySelector('#referenceCode').textContent = referenceCode;
         
-        // Show the randomly selected bank
         const bankInfoCard = modal.querySelector('#bankInfoCard');
         bankInfoCard.innerHTML = `
             <div class="bank-option">
@@ -1121,7 +1064,106 @@ function openFundWalletModal(suggestedAmount = null) {
 }
 
 // ============================================
-// SETTINGS TAB - WITH CHANGE PASSWORD
+// GO TO MENU TAB
+// ============================================
+function renderGoToMenu() {
+    const container = document.getElementById('gotomenu-section');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2><i class="fas fa-door-open"></i> Go To</h2>
+                <p>Quick access to all platform sections</p>
+            </div>
+        </div>
+        
+        <div class="go-to-grid">
+            <div class="go-to-card" onclick="window.location.href='/library.html'">
+                <div class="go-to-icon"><i class="fas fa-book"></i></div>
+                <div class="go-to-info"><h3>Library</h3><p>Access books, bundles, and learning materials</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/virtualroom.html'">
+                <div class="go-to-icon"><i class="fas fa-video"></i></div>
+                <div class="go-to-info"><h3>Virtual Classroom</h3><p>Live classes and interactive sessions</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/hub.html'">
+                <div class="go-to-icon"><i class="fas fa-newspaper"></i></div>
+                <div class="go-to-info"><h3>Hub</h3><p>Events, insights, and latest updates</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/chat.html'">
+                <div class="go-to-icon"><i class="fas fa-comments"></i></div>
+                <div class="go-to-info"><h3>Community</h3><p>Connect with fellow learners and instructors</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================
+// QUESTIONS TAB
+// ============================================
+async function renderQuestionBar() {
+    const container = document.getElementById('question-section');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
+    
+    try {
+        const nextQuestion = await getNextQuestion(currentUser.id);
+        
+        if (!nextQuestion) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>All Questions Complete!</h3>
+                    <p>You've answered all available questions. Check back later for more.</p>
+                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
+                </div>
+            `;
+            return;
+        }
+        
+        questionRenderer = new QuestionRenderer(
+            'question-section',
+            currentUser.id,
+            async (result) => {
+                const scoreData = await getStudentScore(currentUser.id);
+                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+                const nextBadge = getNextBadge(scoreData?.current_score || 0);
+                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+                
+                const progressSection = document.querySelector('.progress-section');
+                if (progressSection) {
+                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
+                }
+                
+                setTimeout(() => renderQuestionBar(), 2000);
+            }
+        );
+        
+        await questionRenderer.renderQuestion(nextQuestion);
+        
+    } catch (error) {
+        console.error('Error loading question:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Unable to load question</h3>
+                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
+            </div>
+        `;
+    }
+}
+
+// ============================================
+// SETTINGS TAB
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
@@ -1277,35 +1319,34 @@ async function renderSettings() {
         window.open(portfolioUrl, '_blank');
     });
     
-// Save settings - Fixed version
-document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
-    const newName = document.getElementById('fullNameInput').value;
-    const newAddress = document.getElementById('addressInput').value;
-    
-    const updates = {};
-    if (newName !== currentUser.name) updates.name = newName;
-    if (newAddress !== (currentUser.address || '')) updates.address = newAddress;
-    
-    if (Object.keys(updates).length > 0) {
-        const { error } = await supabase
-            .from('users')
-            .update({ ...updates, full_name: newName, updated_at: new Date() })
-            .eq('id', currentUser.id);
+    // Save settings
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
+        const newName = document.getElementById('fullNameInput').value;
+        const newAddress = document.getElementById('addressInput').value;
         
-        if (error) {
-            console.error('Update error:', error);
-            showToast('Failed to update settings', 'error');
+        const updates = {};
+        if (newName !== currentUser.name) updates.name = newName;
+        if (newAddress !== (currentUser.address || '')) updates.address = newAddress;
+        
+        if (Object.keys(updates).length > 0) {
+            const { error } = await supabase
+                .from('users')
+                .update({ ...updates, full_name: newName, updated_at: new Date() })
+                .eq('id', currentUser.id);
+            
+            if (error) {
+                showToast('Failed to update settings', 'error');
+            } else {
+                currentUser.name = newName;
+                currentUser.address = newAddress;
+                localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+                document.getElementById('userName').textContent = newName;
+                showToast('Settings saved successfully!', 'success');
+            }
         } else {
-            currentUser.name = newName;
-            currentUser.address = newAddress;
-            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-            document.getElementById('userName').textContent = newName;
-            showToast('Settings saved successfully!', 'success');
+            showToast('No changes to save', 'info');
         }
-    } else {
-        showToast('No changes to save', 'info');
-    }
-});
+    });
     
     // Change password
     document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
@@ -1329,7 +1370,6 @@ document.getElementById('saveSettingsBtn')?.addEventListener('click', async () =
             return;
         }
         
-        // Update password via Supabase
         const { error } = await supabase.auth.updateUser({
             password: newPassword
         });
@@ -1352,18 +1392,12 @@ document.getElementById('saveSettingsBtn')?.addEventListener('click', async () =
     });
 }
 
-// ============================================
-// GRADE SUBMISSIONS TAB (Instructor)
-// ============================================
 function renderGradeSubmissions() {
     const container = document.getElementById('grade-section');
     if (!container) return;
     container.innerHTML = `<div class="section-header"><h2>Grade Submissions</h2></div><div class="empty-state"><i class="fas fa-check-circle"></i><h3>No pending submissions</h3></div>`;
 }
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -1376,28 +1410,20 @@ function escapeHtml(text) {
 // ============================================
 function initMobileNavigation() {
     const mobileNavItems = document.querySelectorAll('.mobile-nav-item');
-    
-    // Only proceed if we're on mobile and items exist
     if (mobileNavItems.length === 0) return;
     
     mobileNavItems.forEach(item => {
-        // Remove existing listeners to avoid duplicates
         const newItem = item.cloneNode(true);
         item.parentNode.replaceChild(newItem, item);
         
-        newItem.addEventListener('click', (e) => {
+        newItem.addEventListener('click', () => {
             const tabId = newItem.getAttribute('data-tab');
-            
-            // Update mobile nav active state
-            mobileNavItems.forEach(nav => nav.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-item').forEach(nav => nav.classList.remove('active'));
             newItem.classList.add('active');
-            
-            // Switch tab
             switchTab(tabId);
         });
     });
     
-    // Sync active state with current tab
     function syncMobileActiveState() {
         document.querySelectorAll('.mobile-nav-item').forEach(item => {
             const tabId = item.getAttribute('data-tab');
@@ -1409,7 +1435,6 @@ function initMobileNavigation() {
         });
     }
     
-    // Override switchTab to also update mobile nav
     const originalSwitchTab = window.switchTab;
     window.switchTab = function(tabId) {
         originalSwitchTab(tabId);
@@ -1435,15 +1460,13 @@ async function initDashboard() {
     await renderDashboard();
     
     setupRealtimeWallet();
-    initMobileNavigation();  // Call once here
+    initMobileNavigation();
     
     console.log('Dashboard initialized successfully');
 }
 
-// Start the dashboard
 initDashboard();
 
-// Make functions global
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
 window.renderQuestionBar = renderQuestionBar;
