@@ -319,40 +319,61 @@ async function savePaymentToStorage(payment) {
     // Save to localStorage as backup
     localStorage.setItem(`glimu_payments_${currentUser.id}`, JSON.stringify(allPayments));
     
-    // Save to Supabase - FIXED VERSION
+    // Save to Supabase payment_requests table
     try {
-        // Check if table exists first
-        const { error: tableCheck } = await supabase
+        // Get current user's profile for name and email
+        const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('name, email')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (profileError) {
+            console.error('Error fetching user profile:', profileError);
+        }
+        
+        const paymentRequest = {
+            id: payment.id,
+            user_id: currentUser.id,
+            user_name: profile?.name || currentUser.name || 'User',
+            user_email: profile?.email || currentUser.email || '',
+            amount: payment.amount,
+            reference_code: payment.reference_code,
+            bank: payment.bank,
+            status: payment.status,
+            submitted_at: payment.submitted_at || new Date().toISOString()
+        };
+        
+        // Check if payment already exists in Supabase
+        const { data: existing, error: checkError } = await supabase
             .from('payment_requests')
             .select('id')
-            .limit(1);
+            .eq('reference_code', payment.reference_code)
+            .single();
         
-        if (tableCheck && tableCheck.code === '42P01') {
-            console.warn('payment_requests table not found, using localStorage only');
-            return;
+        if (checkError && checkError.code !== 'PGRST116') {
+            console.error('Error checking existing payment:', checkError);
         }
         
-        const { error: insertError } = await supabase
-            .from('payment_requests')
-            .insert([{
-                id: payment.id,
-                user_id: currentUser.id,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                amount: payment.amount,
-                reference_code: payment.reference_code,
-                bank: payment.bank,
-                status: payment.status,
-                submitted_at: payment.submitted_at
-            }]);
-        
-        if (insertError) {
-            console.error('Error saving to Supabase:', insertError);
+        if (!existing) {
+            const { error: insertError } = await supabase
+                .from('payment_requests')
+                .insert([paymentRequest]);
+            
+            if (insertError) {
+                console.error('Error saving to Supabase:', insertError);
+                showToast('Payment request saved locally only. Admin will be notified.', 'warning');
+            } else {
+                console.log('Payment saved to Supabase successfully:', paymentRequest);
+                showToast('Payment request submitted successfully!', 'success');
+            }
         } else {
-            console.log('Payment saved to Supabase successfully');
+            console.log('Payment already exists in Supabase');
         }
+        
     } catch (e) {
         console.error('Supabase error:', e);
+        showToast('Payment request saved locally. Please contact support if not processed.', 'warning');
     }
 }
 // ============================================
