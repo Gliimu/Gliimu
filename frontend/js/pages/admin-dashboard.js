@@ -54,7 +54,6 @@ const roleTabs = {
     secretary: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'payments', name: 'Payments', icon: 'fas fa-cash-register' },
-        { id: 'library', name: 'Library Manager', icon: 'fas fa-book' },
         { id: 'sales', name: 'Store Sales', icon: 'fas fa-chart-simple' },
         { id: 'inventory', name: 'Inventory', icon: 'fas fa-boxes' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' }
