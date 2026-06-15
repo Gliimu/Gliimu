@@ -1019,36 +1019,53 @@ function openFundWalletModal(suggestedAmount = null) {
     }
     
     const confirmBtn = modal.querySelector('#confirmPaymentBtn');
-    if (confirmBtn) {
-        confirmBtn.onclick = async () => {
-            if (!selectedAmount) {
-                showToast('Invalid amount', 'error');
-                return;
-            }
-            
-            const paymentRequest = {
-                id: `pay_${Date.now()}`,
-                user_id: currentUser.id,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                amount: selectedAmount,
-                reference_code: referenceCode,
-                bank: selectedBank.name,
-                status: 'pending',
-                submitted_at: new Date().toISOString()
-            };
-            
-            await savePaymentToStorage(paymentRequest);
-            
-            showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-            setTimeout(() => renderWallet(), 500);
+if (confirmBtn) {
+    confirmBtn.onclick = async () => {
+        if (!selectedAmount) {
+            showToast('Invalid amount', 'error');
+            return;
+        }
+        
+        const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const paymentRequest = {
+            id: paymentId,
+            user_id: currentUser.id,
+            user_name: currentUser.name,
+            user_email: currentUser.email,
+            amount: selectedAmount,
+            reference_code: referenceCode,
+            bank: selectedBank.name,
+            status: 'pending',
+            submitted_at: new Date().toISOString()
         };
-    }
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+        
+        // Save to localStorage first
+        await savePaymentToStorage(paymentRequest);
+        
+        // Also try to save directly to Supabase (savePaymentToStorage already does this)
+        // But let's ensure it's saved by trying again directly
+        try {
+            const { error: directInsertError } = await supabase
+                .from('payment_requests')
+                .insert([paymentRequest]);
+            
+            if (directInsertError) {
+                console.error('Direct insert error:', directInsertError);
+            } else {
+                console.log('Payment inserted directly to Supabase');
+            }
+        } catch (e) {
+            console.error('Direct insert failed:', e);
+        }
+        
+        showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+        
+        // Refresh wallet to show pending request
+        setTimeout(() => renderWallet(), 500);
+    };
 }
 
 // ============================================
