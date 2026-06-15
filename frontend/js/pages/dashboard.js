@@ -963,62 +963,72 @@ function openFundWalletModal(suggestedAmount = null) {
         };
     }
     
-    const confirmBtn = modal.querySelector('#confirmPaymentBtn');
-    if (confirmBtn) {
-        confirmBtn.onclick = async () => {
-            if (!selectedAmount) {
-                showToast('Invalid amount', 'error');
-                return;
-            }
+   const confirmBtn = modal.querySelector('#confirmPaymentBtn');
+if (confirmBtn) {
+    confirmBtn.onclick = async () => {
+        if (!selectedAmount) {
+            showToast('Invalid amount', 'error');
+            return;
+        }
+        
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        
+        const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        
+        const paymentRequest = {
+            id: paymentId,
+            user_id: currentUser.id,
+            user_name: currentUser.name,
+            user_email: currentUser.email,
+            amount: selectedAmount,
+            reference_code: referenceCode,
+            bank: selectedBank.name,
+            status: 'pending',
+            submitted_at: new Date().toISOString()
+        };
+        
+        try {
+            console.log('Saving payment request:', paymentRequest);
             
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            // Try to save to Supabase
+            const { data, error } = await supabase
+                .from('payment_requests')
+                .insert([paymentRequest])
+                .select();
             
-            const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-            
-            const paymentRequest = {
-                id: paymentId,
-                user_id: currentUser.id,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                amount: selectedAmount,
-                reference_code: referenceCode,
-                bank: selectedBank.name,
-                status: 'pending',
-                submitted_at: new Date().toISOString()
-            };
-            
-            try {
-                // Save to Supabase directly
-                const { error } = await supabase
-                    .from('payment_requests')
-                    .insert([paymentRequest]);
+            if (error) {
+                console.error('Insert error details:', error);
                 
-                if (error) {
-                    console.error('Insert error:', error);
-                    showToast('Failed to submit payment request. Please try again.', 'error');
-                    confirmBtn.disabled = false;
-                    confirmBtn.innerHTML = '✅ I Have Made Payment';
-                    return;
+                // If permission denied, show instruction for admin
+                if (error.code === '42501') {
+                    showToast('Database permission issue. Please contact admin to fix RLS policies.', 'error');
+                } else {
+                    showToast(`Error: ${error.message}`, 'error');
                 }
                 
-                // Also save to localStorage
+                // Still save to localStorage as backup
                 await savePaymentToStorage(paymentRequest);
-                
+                showToast(`Payment request saved locally. Reference: ${referenceCode}`, 'warning');
+            } else {
+                console.log('Payment saved to Supabase:', data);
+                await savePaymentToStorage(paymentRequest);
                 showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-                
-                setTimeout(() => renderWallet(), 500);
-                
-            } catch (err) {
-                console.error('Error:', err);
-                showToast('Error submitting payment request', 'error');
-                confirmBtn.disabled = false;
-                confirmBtn.innerHTML = '✅ I Have Made Payment';
             }
-        };
-    }
+            
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            setTimeout(() => renderWallet(), 500);
+            
+        } catch (err) {
+            console.error('Submission error:', err);
+            showToast('Error submitting payment request', 'error');
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '✅ I Have Made Payment';
+        }
+    };
+}
     
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
