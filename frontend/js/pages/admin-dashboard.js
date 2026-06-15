@@ -377,7 +377,6 @@ async function renderPayments() {
     
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading payments...</div>';
     
-    // Refresh payments data
     allPayments = await loadPayments();
     
     const pendingCount = allPayments.filter(p => p.status === 'pending').length;
@@ -404,19 +403,19 @@ async function renderPayments() {
                     <i class="fas fa-user"></i> ${p.user_name || 'Unknown'} 
                     <span style="color: var(--text-secondary);">(${p.user_email || 'No email'})</span>
                 </div>
-                ${p.bank ? `<div class="payment-bank"><i class="fas fa-university"></i> Bank: ${p.bank}</div>` : ''}
+                ${p.bank ? `<div class="payment-bank"><i class="fas fa-university"></i> Bank: <strong>${p.bank}</strong></div>` : ''}
             </div>
             <div class="payment-status ${p.status}">${p.status.toUpperCase()}</div>
             <div class="payment-actions">
                 ${p.status === 'pending' ? `
-                    <button class="btn-approve" data-id="${p.id}" data-amount="${p.amount}" data-user="${p.user_name || p.user_email}">
+                    <button class="btn-approve" data-id="${p.id}" data-amount="${p.amount}" data-user="${p.user_name || p.user_email}" data-bank="${p.bank || ''}">
                         <i class="fas fa-check"></i> Approve
                     </button>
                     <button class="btn-reject" data-id="${p.id}" data-amount="${p.amount}" data-user="${p.user_name || p.user_email}">
                         <i class="fas fa-times"></i> Reject
                     </button>
                 ` : p.status === 'approved' ? `
-                    <span class="approved-label"><i class="fas fa-check-circle"></i> Approved on ${new Date(p.approved_at).toLocaleDateString()}</span>
+                    <span class="approved-label"><i class="fas fa-check-circle"></i> Approved</span>
                 ` : p.status === 'rejected' ? `
                     <span class="rejected-label"><i class="fas fa-ban"></i> Rejected</span>
                 ` : ''}
@@ -424,7 +423,7 @@ async function renderPayments() {
         </div>
     `).join('');
     
-    // Add event listeners for approve buttons
+    // Add event listeners with bank info
     document.querySelectorAll('.btn-approve').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -432,8 +431,9 @@ async function renderPayments() {
             const id = btn.getAttribute('data-id');
             const amount = parseInt(btn.getAttribute('data-amount'));
             const userName = btn.getAttribute('data-user');
+            const bank = btn.getAttribute('data-bank');
             
-            if (confirm(`Approve payment of ₦${amount.toLocaleString()} from ${userName}? This will credit their wallet.`)) {
+            if (confirm(`Approve payment of ₦${amount.toLocaleString()} from ${userName} via ${bank}? This will credit their wallet.`)) {
                 await approvePayment(id, amount, userName);
             }
         });
