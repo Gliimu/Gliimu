@@ -247,7 +247,7 @@ async function fetchLibraryItems() {
 }
 
 // ============================================
-// PAYMENT STORAGE FUNCTIONS - SIMPLIFIED WORKING VERSION
+// PAYMENT STORAGE FUNCTIONS - WORKING VERSION
 // ============================================
 async function loadPaymentsFromStorage(forceRefresh = false) {
     if (!currentUser?.id) {
@@ -267,7 +267,7 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
         return;
     }
     
-    // First try to load from Supabase
+    // Try to load from payment_requests table
     try {
         const { data, error } = await supabase
             .from('payment_requests')
@@ -282,11 +282,11 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
             pendingPayments = allPayments.filter(p => p.status === 'pending');
             approvedPayments = allPayments.filter(p => p.status === 'approved');
             cancelledPayments = allPayments.filter(p => p.status === 'rejected');
-            console.log(`Loaded ${data.length} payments from Supabase`);
+            console.log(`Loaded ${data.length} payments from payment_requests`);
             return;
         }
     } catch (e) {
-        console.log('Supabase not available, checking localStorage');
+        console.log('Error loading from payment_requests:', e);
     }
     
     // Fallback to localStorage
@@ -295,17 +295,18 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
         paymentsCache = JSON.parse(storedPayments);
         lastPaymentsFetch = now;
         allPayments = paymentsCache;
-        pendingPayments = allPayments.filter(p => p.status === 'pending');
-        approvedPayments = allPayments.filter(p => p.status === 'approved');
-        cancelledPayments = allPayments.filter(p => p.status === 'rejected');
     } else {
         allPayments = [];
     }
+    
+    pendingPayments = allPayments.filter(p => p.status === 'pending');
+    approvedPayments = allPayments.filter(p => p.status === 'approved');
+    cancelledPayments = allPayments.filter(p => p.status === 'rejected');
 }
 
-// SIMPLIFIED SAVE FUNCTION - Direct insert with minimal checks
+// Save payment to payment_requests table
 async function savePaymentToStorage(payment) {
-    console.log('Saving payment:', payment);
+    console.log('Saving payment request:', payment);
     
     // Always save to localStorage first (backup)
     allPayments.unshift(payment);
@@ -316,34 +317,52 @@ async function savePaymentToStorage(payment) {
     approvedPayments = allPayments.filter(p => p.status === 'approved');
     cancelledPayments = allPayments.filter(p => p.status === 'rejected');
     
-    // Try Supabase insert
+    // Save to payment_requests table in Supabase
     try {
-        const { error } = await supabase
-            .from('payment_requests')
-            .insert({
-                id: payment.id,
-                user_id: currentUser.id,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                amount: payment.amount,
-                reference_code: payment.reference_code,
-                bank: payment.bank,
-                status: 'pending',
-                submitted_at: new Date().toISOString()
-            });
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (error) {
-            console.error('Supabase insert error:', error.message);
-            // Don't show error toast to user - just use localStorage
-            console.log('Using localStorage only for payment');
+        if (!session) {
+            console.error('No active session');
+            showToast('Please login to submit payment request', 'error');
             return false;
         }
         
-        console.log('Payment saved to Supabase successfully');
+        const paymentData = {
+            id: payment.id,
+            user_id: currentUser.id,
+            user_name: currentUser.name || 'User',
+            user_email: currentUser.email || '',
+            amount: payment.amount,
+            reference_code: payment.reference_code,
+            bank: payment.bank,
+            status: 'pending',
+            submitted_at: new Date().toISOString()
+        };
+        
+        console.log('Inserting into payment_requests:', paymentData);
+        
+        const { data, error } = await supabase
+            .from('payment_requests')
+            .insert([paymentData])
+            .select();
+        
+        if (error) {
+            console.error('Supabase insert error:', error);
+            if (error.code === '42501') {
+                showToast('Permission denied. Please contact admin.', 'error');
+            } else {
+                showToast(`Payment saved locally only: ${error.message}`, 'warning');
+            }
+            return false;
+        }
+        
+        console.log('Payment saved to payment_requests successfully:', data);
+        showToast(`Payment request submitted! Reference: ${payment.reference_code}`, 'success');
         return true;
         
     } catch (err) {
-        console.error('Supabase error:', err);
+        console.error('Exception saving payment:', err);
+        showToast('Payment saved locally. Admin will be notified.', 'warning');
         return false;
     }
 }
@@ -965,7 +984,6 @@ function openFundWalletModal(suggestedAmount = null) {
     
     const confirmBtn = modal.querySelector('#confirmPaymentBtn');
     if (confirmBtn) {
-        // Remove old event listener by cloning
         const newConfirmBtn = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
         
@@ -993,7 +1011,7 @@ function openFundWalletModal(suggestedAmount = null) {
             };
             
             try {
-                // Try to save to Supabase
+                // Insert into payment_requests table
                 const { error } = await supabase
                     .from('payment_requests')
                     .insert({
@@ -1009,29 +1027,26 @@ function openFundWalletModal(suggestedAmount = null) {
                     });
                 
                 if (error) {
-                    console.error('Insert error:', error.message);
-                    // Still save to localStorage even if Supabase fails
-                    await savePaymentToStorage(paymentRequest);
-                    showToast(`Payment request saved locally! Reference: ${referenceCode}`, 'success');
-                } else {
-                    console.log('Payment inserted successfully');
-                    await savePaymentToStorage(paymentRequest);
-                    showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
+                    console.error('Insert error:', error);
+                    showToast(`Error: ${error.message}`, 'error');
+                    newConfirmBtn.disabled = false;
+                    newConfirmBtn.innerHTML = '✅ I Have Made Payment';
+                    return;
                 }
                 
+                console.log('Payment inserted into payment_requests successfully');
+                
+                // Also save to localStorage for backup
+                await savePaymentToStorage(paymentRequest);
+                
+                showToast(`Payment request submitted! Reference: ${referenceCode}`, 'success');
                 modal.classList.remove('active');
                 document.body.style.overflow = '';
                 setTimeout(() => renderWallet(), 500);
                 
             } catch (err) {
                 console.error('Submission error:', err);
-                // Last resort - save to localStorage only
-                await savePaymentToStorage(paymentRequest);
-                showToast(`Payment request saved locally! Reference: ${referenceCode}`, 'success');
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-                setTimeout(() => renderWallet(), 500);
-            } finally {
+                showToast('Error submitting payment request', 'error');
                 newConfirmBtn.disabled = false;
                 newConfirmBtn.innerHTML = '✅ I Have Made Payment';
             }
@@ -1465,6 +1480,49 @@ async function initDashboard() {
     
     console.log('Dashboard initialized successfully');
 }
+
+// Debug function to test payment insert
+window.testPaymentInsert = async function() {
+    console.log('=== TESTING PAYMENT INSERT ===');
+    
+    if (!currentUser) {
+        console.error('No user logged in');
+        alert('Please login first');
+        return;
+    }
+    
+    const testId = 'test_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const testRef = 'TEST-' + Date.now();
+    
+    const testData = {
+        id: testId,
+        user_id: currentUser.id,
+        user_name: currentUser.name,
+        user_email: currentUser.email,
+        amount: 100,
+        reference_code: testRef,
+        bank: 'Test Bank',
+        status: 'pending',
+        submitted_at: new Date().toISOString()
+    };
+    
+    console.log('Test data:', testData);
+    
+    const { data, error } = await supabase
+        .from('payment_requests')
+        .insert([testData])
+        .select();
+    
+    if (error) {
+        console.error('Insert failed:', error);
+        alert('Insert failed: ' + error.message);
+    } else {
+        console.log('Insert successful:', data);
+        alert('Payment inserted successfully! Check admin dashboard.');
+        await loadPaymentsFromStorage(true);
+        renderWallet();
+    }
+};
 
 // Start the dashboard
 initDashboard();
