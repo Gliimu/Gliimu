@@ -61,6 +61,12 @@ const PAYMENTS_CACHE_DURATION = 60000;
 async function checkAuth() {
     console.log('Checking authentication...');
     
+    // Prevent redirect loops
+    if (sessionStorage.getItem('redirecting')) {
+        console.log('Redirect already in progress, stopping');
+        return false;
+    }
+    
     const localUser = localStorage.getItem('glimu_user');
     if (localUser) {
         currentUser = JSON.parse(localUser);
@@ -82,9 +88,11 @@ async function checkAuth() {
     }
     
     console.log('No user found, redirecting to signin');
+    sessionStorage.setItem('redirecting', 'true');
     showToast('Please login to access your dashboard', 'info');
     
     setTimeout(() => {
+        sessionStorage.removeItem('redirecting');
         window.location.href = '/signin.html';
     }, 1500);
     
@@ -462,7 +470,7 @@ async function loadTabData(tabId) {
 }
 
 // ============================================
-// DASHBOARD RENDER
+// DASHBOARD RENDER - WITH FULL ERROR HANDLING
 // ============================================
 async function renderDashboard() {
     const container = document.getElementById('dashboard-section');
@@ -471,7 +479,11 @@ async function renderDashboard() {
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
     
     try {
+        console.log('Starting dashboard render...');
+        
         const scoreData = await getStudentScore(currentUser.id);
+        console.log('Score data:', scoreData);
+        
         const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
         const nextBadge = getNextBadge(scoreData?.current_score || 0);
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
@@ -532,9 +544,12 @@ async function renderDashboard() {
             </div>
         `;
         
-        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
-            switchTab('wallet');
-        });
+        const addFundsBtn = document.getElementById('quickAddFundsBtn');
+        if (addFundsBtn) {
+            addFundsBtn.addEventListener('click', () => {
+                switchTab('wallet');
+            });
+        }
         
         const openMvpBtn = document.getElementById('openMvpFormBtn');
         if (openMvpBtn) {
@@ -555,13 +570,16 @@ async function renderDashboard() {
             });
         }
         
+        console.log('Dashboard rendered successfully');
+        
     } catch (error) {
         console.error('Error rendering dashboard:', error);
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
                 <h3>Error Loading Dashboard</h3>
-                <button class="btn-primary" onclick="location.reload()">Refresh</button>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 8px 0;">${error.message || 'Unknown error'}</p>
+                <button class="btn-primary" onclick="location.reload()">Refresh Page</button>
             </div>
         `;
     }
@@ -580,7 +598,7 @@ function renderLeaderboardList(leaderboardData) {
             </div>
             <div class="leaderboard-info">
                 <div class="leaderboard-name">${entry.users?.name || 'Anonymous'}</div>
-                <div class="leaderboard-badge">${entry.current_badge}</div>
+                <div class="leaderboard-badge">${entry.current_badge || 'Starter'}</div>
             </div>
             <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
         </div>
@@ -691,7 +709,7 @@ async function renderStore() {
             
             <div id="booksTab" class="store-tab-content active">
                 <div class="store-grid">
-                    ${books.map(book => `
+                    ${books.length > 0 ? books.map(book => `
                         <div class="store-item" data-id="${book.id}" data-type="book" data-price="${book.price || 5000}">
                             <div class="store-item-cover" style="background-image: url('${book.image}'); background-size: cover;"></div>
                             <div class="store-item-info">
@@ -701,13 +719,13 @@ async function renderStore() {
                                 <button class="btn-primary buy-btn" data-id="${book.id}" data-type="book" data-price="${book.price || 5000}">Purchase</button>
                             </div>
                         </div>
-                    `).join('')}
+                    `).join('') : '<p class="empty-state">No books available</p>'}
                 </div>
             </div>
             
             <div id="bundlesTab" class="store-tab-content">
                 <div class="store-grid">
-                    ${bundles.map(bundle => `
+                    ${bundles.length > 0 ? bundles.map(bundle => `
                         <div class="store-item" data-id="${bundle.id}" data-type="bundle" data-price="${bundle.price || 10000}">
                             <div class="store-item-cover" style="background-image: url('${bundle.image}'); background-size: cover;"></div>
                             <div class="store-item-info">
@@ -717,7 +735,7 @@ async function renderStore() {
                                 <button class="btn-primary buy-btn" data-id="${bundle.id}" data-type="bundle" data-price="${bundle.price || 10000}">Purchase</button>
                             </div>
                         </div>
-                    `).join('')}
+                    `).join('') : '<p class="empty-state">No bundles available</p>'}
                 </div>
             </div>
         `;
@@ -772,7 +790,7 @@ async function renderStore() {
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
                 <h3>Unable to load store</h3>
-                <button class="btn-primary" onclick="renderStore()">Try Again</button>
+                <button class="btn-primary" onclick="location.reload()">Try Again</button>
             </div>
         `;
     }
@@ -857,7 +875,7 @@ async function renderWallet() {
         
     } catch (error) {
         console.error('Error rendering wallet:', error);
-        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="renderWallet()">Try Again</button></div>`;
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Wallet</h3><button class="btn-primary" onclick="location.reload()">Try Again</button></div>`;
     }
 }
 
@@ -894,6 +912,7 @@ function openFundWalletModal(suggestedAmount = null) {
                         <div class="custom-amount">
                             <input type="number" id="customAmount" placeholder="Or enter custom amount (₦)">
                         </div>
+                        <button id="continueToBankBtn" class="btn-primary" style="margin-top: 1rem; width: 100%;">Continue to Payment</button>
                     </div>
                     
                     <div class="bank-details" style="display: none;">
@@ -920,6 +939,11 @@ function openFundWalletModal(suggestedAmount = null) {
             </div>
         `;
         document.body.appendChild(modal);
+        
+        document.getElementById('closeFundWalletModal').onclick = () => {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        };
     }
     
     let selectedAmount = suggestedAmount || 0;
@@ -1156,7 +1180,7 @@ async function renderQuestionBar() {
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
                 <h3>Unable to load question</h3>
-                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
+                <button class="btn-primary" onclick="location.reload()">Try Again</button>
             </div>
         `;
     }
@@ -1387,6 +1411,7 @@ async function renderSettings() {
         if (confirm('Are you sure you want to sign out?')) {
             await supabase.auth.signOut();
             localStorage.clear();
+            sessionStorage.clear();
             window.location.href = '/signin.html';
         }
     });
@@ -1465,8 +1490,10 @@ async function initDashboard() {
     console.log('Dashboard initialized successfully');
 }
 
+// Start the dashboard
 initDashboard();
 
+// Expose functions globally
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
 window.renderQuestionBar = renderQuestionBar;
