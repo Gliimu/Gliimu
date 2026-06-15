@@ -1,5 +1,6 @@
 /* =========================================
-   ADMIN/SECRETARY DASHBOARD STYLES
+   ADMIN DASHBOARD - GLIIMU
+   Complete CSS with theme support
    ========================================= */
 
 :root {
@@ -20,6 +21,7 @@
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --sidebar-width: 280px;
 }
 
 body.dark-mode {
@@ -41,9 +43,12 @@ body {
     font-family: 'Space Grotesk', sans-serif;
     background: var(--bg-secondary);
     color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
 }
 
-/* Admin Header */
+/* =========================================
+   HEADER
+   ========================================= */
 .admin-header {
     position: fixed;
     top: 0;
@@ -86,10 +91,46 @@ body {
     gap: 1rem;
 }
 
+.admin-info {
+    text-align: right;
+}
+
 .admin-name {
     font-size: 0.85rem;
-    color: var(--text-secondary);
+    font-weight: 600;
+    display: block;
+    color: var(--text-primary);
 }
+
+.admin-role {
+    font-size: 0.7rem;
+    color: var(--brand-gold);
+}
+
+.theme-toggle {
+    background: transparent;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    color: var(--text-primary);
+}
+
+.theme-toggle:hover {
+    background: var(--border-color);
+}
+
+.icon-sun, .icon-moon {
+    width: 18px;
+    height: 18px;
+}
+
+.icon-sun { display: none; }
+.icon-moon { display: block; }
+
+body.dark-mode .icon-sun { display: block; }
+body.dark-mode .icon-moon { display: none; }
 
 .logout-btn {
     background: var(--danger);
@@ -99,29 +140,33 @@ body {
     border-radius: 6px;
     cursor: pointer;
     font-family: inherit;
+    transition: all 0.2s;
 }
 
 .logout-btn:hover {
     background: #dc2626;
 }
 
-/* Admin Container */
+/* =========================================
+   SIDEBAR
+   ========================================= */
 .admin-container {
     display: flex;
     min-height: 100vh;
     padding-top: 65px;
 }
 
-/* Sidebar */
 .admin-sidebar {
     position: fixed;
     left: 0;
     top: 65px;
-    width: 260px;
+    width: var(--sidebar-width);
     height: calc(100vh - 65px);
     background: var(--bg-primary);
     border-right: 1px solid var(--border-color);
     overflow-y: auto;
+    transition: transform 0.3s ease;
+    z-index: 90;
 }
 
 .admin-nav {
@@ -169,14 +214,16 @@ body {
     border-radius: 20px;
 }
 
-/* Main Content */
+/* =========================================
+   MAIN CONTENT
+   ========================================= */
 .admin-main {
     flex: 1;
-    margin-left: 260px;
+    margin-left: var(--sidebar-width);
     padding: 1.5rem;
+    overflow-x: auto;
 }
 
-/* Admin Tabs */
 .admin-tab {
     display: none;
     animation: fadeIn 0.3s ease;
@@ -187,14 +234,8 @@ body {
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Tab Headers */
@@ -215,7 +256,7 @@ body {
 /* Stats Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
 }
@@ -228,6 +269,11 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
 }
 
 .stat-icon {
@@ -254,19 +300,6 @@ body {
     font-weight: 700;
 }
 
-/* Recent Section */
-.recent-section h3 {
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
-}
-
-.recent-payments {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
 /* Payment Items */
 .payment-item {
     display: flex;
@@ -280,31 +313,9 @@ body {
     border-bottom: none;
 }
 
-.payment-item.pending {
-    border-left: 4px solid var(--warning);
-}
-
-.payment-item.approved {
-    border-left: 4px solid var(--success);
-}
-
-.payment-item.rejected {
-    border-left: 4px solid var(--danger);
-}
-
-.payment-info {
-    flex: 1;
-}
-
-.payment-amount {
-    font-weight: 700;
-    font-size: 1rem;
-}
-
-.payment-date, .payment-ref {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
+.payment-item.pending { border-left: 4px solid var(--warning); }
+.payment-item.approved { border-left: 4px solid var(--success); }
+.payment-item.rejected { border-left: 4px solid var(--danger); }
 
 .payment-status {
     padding: 4px 12px;
@@ -313,55 +324,29 @@ body {
     font-weight: 600;
 }
 
-.payment-status.pending {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--warning);
-}
-
-.payment-status.approved {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--success);
-}
-
-.payment-status.rejected {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--danger);
-}
+.payment-status.pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.payment-status.approved { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.payment-status.rejected { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
 
 .payment-actions {
     display: flex;
     gap: 0.5rem;
 }
 
-.btn-approve {
-    background: var(--success);
-    color: white;
-    border: none;
+.btn-approve, .btn-reject, .btn-view {
     padding: 0.3rem 0.8rem;
     border-radius: 4px;
     cursor: pointer;
-}
-
-.btn-reject {
-    background: var(--danger);
-    color: white;
     border: none;
-    padding: 0.3rem 0.8rem;
-    border-radius: 4px;
-    cursor: pointer;
+    font-size: 0.75rem;
 }
 
-.btn-view {
-    background: var(--info);
-    color: white;
-    border: none;
-    padding: 0.3rem 0.8rem;
-    border-radius: 4px;
-    cursor: pointer;
-}
+.btn-approve { background: var(--success); color: white; }
+.btn-reject { background: var(--danger); color: white; }
+.btn-view { background: var(--info); color: white; }
 
-/* Payment Filters */
-.payment-filters {
+/* Filters */
+.payment-filters, .submission-filters {
     display: flex;
     gap: 0.5rem;
 }
@@ -400,12 +385,55 @@ body {
     color: var(--text-secondary);
 }
 
+/* Library Admin Cards */
+.library-items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.library-admin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.library-admin-card img {
+    width: 80px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.library-admin-card .info {
+    flex: 1;
+}
+
+.library-admin-card .info h4 {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.library-admin-card .info p {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.library-admin-card .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
 /* Inventory Grid */
 .inventory-stats {
     display: flex;
     gap: 1rem;
     margin-bottom: 1.5rem;
-    flex-wrap: wrap;
 }
 
 .inv-stat {
@@ -413,7 +441,6 @@ body {
     padding: 0.75rem 1rem;
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    min-width: 150px;
 }
 
 .inv-stat span {
@@ -437,7 +464,6 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 1rem;
-    position: relative;
 }
 
 .inventory-card.low-stock {
@@ -447,7 +473,6 @@ body {
 .inventory-card-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
     margin-bottom: 0.5rem;
 }
 
@@ -464,12 +489,6 @@ body {
     font-size: 0.9rem;
     font-weight: 700;
     color: var(--brand-gold);
-}
-
-.inventory-actions {
-    margin-top: 0.75rem;
-    display: flex;
-    gap: 0.5rem;
 }
 
 /* Finance Stats */
@@ -504,32 +523,140 @@ body {
     color: var(--danger);
 }
 
-.revenue-breakdown {
+/* Posts List */
+.posts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.post-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 1rem;
 }
 
-.revenue-breakdown h3 {
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
+.post-card h4 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
 }
 
-.breakdown-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+.post-meta {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
 }
 
-.breakdown-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0;
+/* Partnerships Grid */
+.partnerships-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.partnership-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    margin-top: 0.5rem;
+}
+
+.status-badge.active { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.status-badge.pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.status-badge.expired { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+/* Offers Grid */
+.offers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.offer-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.offer-meta {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* Sales List */
+.sales-list {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.sale-item {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr 1fr;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border-color);
+    gap: 1rem;
 }
 
-/* Modals */
+.sale-item:last-child {
+    border-bottom: none;
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 40px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.btn-primary:hover {
+    background: var(--brand-gold-dark);
+    transform: translateY(-2px);
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.5rem 1rem;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-outline:hover {
+    border-color: var(--brand-gold);
+    color: var(--brand-gold);
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Modal */
 .modal {
     display: none;
     position: fixed;
@@ -551,7 +678,7 @@ body {
 .modal-content {
     background: var(--bg-primary);
     border-radius: 16px;
-    max-width: 500px;
+    max-width: 550px;
     width: 90%;
     max-height: 85vh;
     overflow-y: auto;
@@ -578,68 +705,62 @@ body {
     padding: 1.5rem;
 }
 
-.receipt-modal {
-    max-width: 400px;
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
 }
 
-.receipt-content {
-    text-align: center;
-    padding: 1rem;
-}
-
-.receipt-header {
-    border-bottom: 2px solid var(--brand-gold);
-    padding-bottom: 1rem;
+/* Form Groups */
+.form-group {
     margin-bottom: 1rem;
 }
 
-.receipt-logo {
-    height: 50px;
-    margin-bottom: 0.5rem;
+.form-group label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    color: var(--text-secondary);
 }
 
-.receipt-title {
-    font-size: 1.2rem;
-    font-weight: 700;
-}
-
-.receipt-details {
-    text-align: left;
-    margin: 1rem 0;
-}
-
-.receipt-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0;
-    border-bottom: 1px dashed var(--border-color);
-}
-
-/* Buttons */
-.btn-primary {
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.btn-outline {
-    background: transparent;
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
     border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
     color: var(--text-primary);
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
 }
 
-/* Loading & Empty States */
-.loading {
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--brand-gold);
+}
+
+/* Loading States */
+.loading, .loading-nav, .loading-container {
     text-align: center;
     padding: 2rem;
     color: var(--text-secondary);
+}
+
+.loading-spinner i {
+    font-size: 1.5rem;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .empty-state {
@@ -649,11 +770,16 @@ body {
     border-radius: 12px;
 }
 
+.empty-state i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .admin-sidebar {
         transform: translateX(-100%);
-        transition: transform 0.3s;
     }
     
     .admin-sidebar.mobile-open {
@@ -668,7 +794,35 @@ body {
         grid-template-columns: 1fr;
     }
     
-    .inventory-grid {
+    .library-items-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .sale-item {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+    }
+    
+    .header-container {
+        padding: 0.75rem 1rem;
+    }
+    
+    .admin-header {
+        padding: 0.75rem 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-main {
+        padding: 0.75rem;
+    }
+    
+    .tab-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .payment-filters, .submission-filters {
+        flex-wrap: wrap;
     }
 }
