@@ -109,7 +109,7 @@ async function checkAuth() {
     // Update UI
     const roleNames = {
         founder: 'Founder',
-        crm: 'CRM Manager',
+        crm: 'CRM',
         secretary: 'Secretary',
         manager: 'Operations Manager'
     };
