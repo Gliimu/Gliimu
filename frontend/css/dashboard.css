@@ -1,6 +1,6 @@
 /* =========================================
-   GLIIMU DASHBOARD STYLES - COMPLETE FIXED
-   5 Tabs: Dashboard, Questions, Go To, Wallet, Settings
+   GLIIMU DASHBOARD STYLES - COMPLETE
+   6 Tabs: Dashboard, Questions, Go To, Library Store, Wallet, Settings
    ========================================= */
 
 /* CSS Variables */
@@ -46,7 +46,6 @@ body {
     color: var(--text-primary);
     transition: background 0.3s, color 0.3s;
     overflow-x: hidden;
-    width: 100%;
 }
 
 /* Dashboard Container */
@@ -54,7 +53,6 @@ body {
     display: flex;
     min-height: 100vh;
     overflow-x: hidden;
-    width: 100%;
 }
 
 /* =========================================
@@ -153,15 +151,12 @@ body {
     padding: 1rem;
     overflow-x: hidden;
     width: calc(100% - var(--sidebar-width));
-    max-width: 100%;
 }
 
 /* Content Sections */
 .dashboard-section {
     display: none;
     animation: fadeIn 0.3s ease;
-    overflow-x: hidden;
-    width: 100%;
 }
 
 .dashboard-section.active {
@@ -181,7 +176,12 @@ body {
 
 /* Section Header */
 .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .section-header h2 {
@@ -206,10 +206,16 @@ body {
 .loading-spinner i {
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* =========================================
-   PROGRESS SECTION (Dashboard Tab)
+   PROGRESS SECTION
    ========================================= */
 
 .progress-section {
@@ -219,7 +225,6 @@ body {
     margin-bottom: 1.5rem;
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-md);
-    overflow-x: hidden;
 }
 
 .progress-header {
@@ -301,6 +306,50 @@ body {
     margin-top: 0.5rem;
 }
 
+/* Quick Stats */
+.quick-stats {
+    margin-bottom: 1.5rem;
+}
+
+.quick-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.quick-stat-card i {
+    font-size: 1.5rem;
+    color: var(--brand-gold);
+}
+
+.quick-stat-card div {
+    flex: 1;
+}
+
+.quick-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    display: block;
+}
+
+.quick-stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.quick-add-funds {
+    background: var(--brand-gold);
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
 /* MVP Section */
 .mvp-section, .mvp-locked-section {
     background: linear-gradient(135deg, var(--brand-purple) 0%, var(--brand-purple-dark) 100%);
@@ -344,7 +393,6 @@ body {
     padding: 1.5rem;
     border: 1px solid var(--border-color);
     margin-bottom: 1.5rem;
-    overflow-x: hidden;
 }
 
 .leaderboard-header {
@@ -427,271 +475,113 @@ body {
     font-size: 0.9rem;
 }
 
-/* MVP Section below Leaderboard */
-.mvp-section, .mvp-locked-section {
-    margin-top: 1.5rem;
-    margin-bottom: 0;
-}
-
 /* =========================================
-   WALLET SECTION (Wallet Tab)
+   STORE TAB
    ========================================= */
 
-.wallet-balance-card {
-    background: linear-gradient(135deg, var(--brand-purple-dark) 0%, var(--brand-purple) 100%);
-    border-radius: 16px;
-    padding: 1.5rem;
+.wallet-balance-mini {
+    background: var(--bg-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 40px;
     display: flex;
     align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+}
+
+.wallet-balance-mini i {
+    color: var(--brand-gold);
+}
+
+.store-tabs {
+    display: flex;
     gap: 1rem;
     margin-bottom: 1.5rem;
-    color: white;
-    flex-wrap: wrap;
-}
-
-.wallet-balance-icon {
-    width: 60px;
-    height: 60px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-}
-
-.wallet-balance-info {
-    flex: 1;
-}
-
-.wallet-label {
-    font-size: 0.7rem;
-    opacity: 0.8;
-    display: block;
-}
-
-.wallet-balance-large {
-    font-size: 1.8rem;
-    font-weight: 700;
-}
-
-/* =========================================
-   SCROLLABLE FILTER BUTTONS - FIXED
-   ========================================= */
-
-/* Wrapper - stays at 100% width, enables horizontal scroll */
-.payment-filters-wrapper {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    margin-bottom: 1rem;
-    -webkit-overflow-scrolling: touch;
-    position: relative;
-}
-
-/* Flex container - allows scrolling, prevents wrapping */
-.payment-filters {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 0.75rem;
-    width: auto;
-    min-width: min-content;
-}
-
-/* Individual buttons - prevent shrinking/wrapping */
-.payment-filters .filter-btn {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    padding: 0.5rem 1.25rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 40px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    font-family: inherit;
-}
-
-.payment-filters .filter-btn.active {
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    border-color: var(--brand-gold);
-}
-
-/* Custom scrollbar */
-.payment-filters-wrapper::-webkit-scrollbar {
-    height: 3px;
-}
-
-.payment-filters-wrapper::-webkit-scrollbar-track {
-    background: var(--border-color);
-    border-radius: 10px;
-}
-
-.payment-filters-wrapper::-webkit-scrollbar-thumb {
-    background: var(--brand-gold);
-    border-radius: 10px;
-}
-
-/* =========================================
-   PAYMENTS SECTION
-   ========================================= */
-
-.payments-section h3 {
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-color);
 }
 
-.payments-list {
+.store-tab {
+    padding: 0.5rem 1rem;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.store-tab.active {
+    color: var(--brand-gold);
+    border-bottom: 2px solid var(--brand-gold);
+}
+
+.store-tab-content {
+    display: none;
+}
+
+.store-tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.store-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.store-item {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     overflow: hidden;
+    transition: transform 0.2s;
 }
 
-.payment-item {
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.75rem 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+.store-item:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
 }
 
-.payment-item:last-child {
-    border-bottom: none;
-}
-
-.payment-item.pending {
-    border-left: 4px solid var(--warning);
-}
-
-.payment-item.approved {
-    border-left: 4px solid var(--success);
-}
-
-.payment-item.rejected {
-    border-left: 4px solid var(--danger);
-}
-
-.payment-amount {
-    font-size: 0.9rem;
-    font-weight: 700;
-}
-
-.payment-date, .payment-ref {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-}
-
-.payment-status-badge {
-    padding: 4px 8px;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.payment-status-badge.pending {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--warning);
-}
-
-.payment-status-badge.approved {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--success);
-}
-
-.payment-status-badge.rejected {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--danger);
-}
-
-.payment-reason {
-    font-size: 0.7rem;
-    color: var(--danger);
-    margin-top: 0.25rem;
+.store-item-cover {
     width: 100%;
+    aspect-ratio: 2 / 2.5;
+    background-size: cover;
+    background-position: center;
 }
 
-.empty-payments {
-    text-align: center;
-    padding: 1.5rem;
-    color: var(--text-secondary);
-}
-
-/* Transaction Item Full */
-.transaction-item-full {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.transaction-item-full:last-child {
-    border-bottom: none;
-}
-
-.transaction-info {
-    flex: 1;
-}
-
-.transaction-desc {
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.transaction-date {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-}
-
-.transaction-amount {
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.transaction-amount.positive {
-    color: var(--success);
-}
-
-.transaction-amount.negative {
-    color: var(--danger);
-}
-
-/* =========================================
-   SELECTED AMOUNT DISPLAY
-   ========================================= */
-
-.selected-amount-display {
-    text-align: center;
-    margin-bottom: 1rem;
+.store-item-info {
     padding: 1rem;
-    background: rgba(251, 176, 64, 0.1);
-    border-radius: 12px;
 }
 
-.selected-amount-display p {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+.store-item-info h4 {
+    font-size: 0.9rem;
     margin-bottom: 0.25rem;
 }
 
-.selected-amount-large {
-    font-size: 2rem;
-    font-weight: 800;
+.store-item-info p {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
+}
+
+.store-item-price {
+    font-size: 0.9rem;
+    font-weight: 700;
     color: var(--brand-gold);
+    margin-bottom: 0.75rem;
+}
+
+.store-item-info .btn-primary {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.75rem;
 }
 
 /* =========================================
-   GO-TO MENU GRID (Go To Tab)
+   GO-TO MENU GRID
    ========================================= */
 
 .go-to-grid {
@@ -747,6 +637,163 @@ body {
 .go-to-arrow {
     color: var(--text-secondary);
     font-size: 0.8rem;
+}
+
+/* =========================================
+   WALLET SECTION
+   ========================================= */
+
+.wallet-balance-card {
+    background: linear-gradient(135deg, var(--brand-purple-dark) 0%, var(--brand-purple) 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    color: white;
+}
+
+.wallet-balance-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.wallet-balance-info {
+    flex: 1;
+}
+
+.wallet-label {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    display: block;
+}
+
+.wallet-balance-large {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.transactions-section, .payments-section {
+    margin-bottom: 1.5rem;
+}
+
+.transactions-section h3, .payments-section h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transactions-list, .payments-list {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.transaction-item, .payment-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transaction-item:last-child, .payment-item:last-child {
+    border-bottom: none;
+}
+
+.transaction-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.transaction-icon.credit {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+}
+
+.transaction-icon.debit {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+.transaction-info {
+    flex: 1;
+}
+
+.transaction-desc {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.transaction-date {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.transaction-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.transaction-amount.positive {
+    color: var(--success);
+}
+
+.transaction-amount.negative {
+    color: var(--danger);
+}
+
+.payment-item.pending {
+    border-left: 4px solid var(--warning);
+}
+
+.payment-item.approved {
+    border-left: 4px solid var(--success);
+}
+
+.payment-item.rejected {
+    border-left: 4px solid var(--danger);
+}
+
+.payment-status-badge {
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.payment-status-badge.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+}
+
+.payment-status-badge.approved {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.payment-status-badge.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
+.empty-transactions, .empty-payments {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text-secondary);
 }
 
 /* =========================================
@@ -820,7 +867,6 @@ body {
     border-color: var(--brand-gold);
 }
 
-/* Theme Selector */
 .theme-selector {
     display: flex;
     gap: 0.5rem;
@@ -843,66 +889,6 @@ body {
     border-color: var(--brand-gold);
 }
 
-/* Toggle Switch */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 24px;
-}
-
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--border-color);
-    transition: 0.3s;
-    border-radius: 24px;
-}
-
-.toggle-slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: 0.3s;
-    border-radius: 50%;
-}
-
-input:checked + .toggle-slider {
-    background-color: var(--brand-gold);
-}
-
-input:checked + .toggle-slider:before {
-    transform: translateX(26px);
-}
-
-/* Portfolio Settings */
-.portfolio-settings p {
-    font-size: 0.8rem;
-    margin-bottom: 0.75rem;
-}
-
-.portfolio-stats {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
-
 .portfolio-url-display {
     display: flex;
     gap: 0.5rem;
@@ -918,7 +904,6 @@ input:checked + .toggle-slider:before {
     background: var(--bg-primary);
     font-size: 0.7rem;
     color: var(--text-primary);
-    min-width: 150px;
 }
 
 .settings-actions {
@@ -929,13 +914,16 @@ input:checked + .toggle-slider:before {
     flex-wrap: wrap;
 }
 
-/* Buttons */
+/* =========================================
+   BUTTONS
+   ========================================= */
+
 .btn-primary {
     background: var(--brand-gold);
     color: var(--brand-purple-dark);
     border: none;
     padding: 0.5rem 1rem;
-    border-radius: 6px;
+    border-radius: 40px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -944,7 +932,7 @@ input:checked + .toggle-slider:before {
 
 .btn-primary:hover {
     background: var(--brand-gold-dark);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
 }
 
 .btn-outline {
@@ -952,7 +940,7 @@ input:checked + .toggle-slider:before {
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     padding: 0.5rem 1rem;
-    border-radius: 6px;
+    border-radius: 40px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -969,7 +957,7 @@ input:checked + .toggle-slider:before {
     color: white;
     border: none;
     padding: 0.5rem 1rem;
-    border-radius: 6px;
+    border-radius: 40px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -981,11 +969,11 @@ input:checked + .toggle-slider:before {
 }
 
 .btn-success {
-    background: #10b981;
+    background: var(--success);
     color: white;
     border: none;
     padding: 0.75rem 1rem;
-    border-radius: 8px;
+    border-radius: 40px;
     font-weight: 600;
     cursor: pointer;
     width: 100%;
@@ -997,7 +985,10 @@ input:checked + .toggle-slider:before {
     background: #059669;
 }
 
-/* Modal */
+/* =========================================
+   MODAL STYLES
+   ========================================= */
+
 .modal {
     display: none;
     position: fixed;
@@ -1051,42 +1042,8 @@ input:checked + .toggle-slider:before {
     padding: 1.5rem;
 }
 
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 2rem;
-    background: var(--bg-card);
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
-}
-
-.empty-state i {
-    font-size: 2rem;
-    color: var(--brand-gold);
-    margin-bottom: 0.5rem;
-}
-
-.empty-state h3 {
-    font-size: 1rem;
-    margin-bottom: 0.25rem;
-}
-
-.empty-state p {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-/* =========================================
-   FUND WALLET MODAL STYLES
-   ========================================= */
-
 .wallet-modal {
     max-width: 550px;
-}
-
-.funding-options h3, .bank-details h3 {
-    font-size: 1rem;
-    margin-bottom: 1rem;
 }
 
 .amount-buttons {
@@ -1118,10 +1075,6 @@ input:checked + .toggle-slider:before {
     border-color: var(--brand-gold);
 }
 
-.custom-amount {
-    margin-bottom: 1rem;
-}
-
 .custom-amount input {
     width: 100%;
     padding: 0.75rem;
@@ -1133,35 +1086,11 @@ input:checked + .toggle-slider:before {
     font-size: 0.9rem;
 }
 
-.custom-amount input:focus {
-    outline: none;
-    border-color: var(--brand-gold);
-}
-
 .bank-info-card {
     background: var(--bg-secondary);
     border-radius: 12px;
     padding: 1rem;
     margin-bottom: 1rem;
-}
-
-.bank-option {
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.bank-option:last-child {
-    border-bottom: none;
-}
-
-.bank-name {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
-
-.bank-account {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
 }
 
 .reference-code-box {
@@ -1173,11 +1102,6 @@ input:checked + .toggle-slider:before {
     margin-bottom: 1rem;
 }
 
-.reference-code-box p {
-    font-size: 0.8rem;
-    margin-bottom: 0.5rem;
-}
-
 .reference-code {
     font-size: 1.2rem;
     font-weight: 700;
@@ -1185,7 +1109,6 @@ input:checked + .toggle-slider:before {
     color: var(--brand-gold);
     letter-spacing: 1px;
     word-break: break-all;
-    margin-bottom: 0.5rem;
 }
 
 .payment-instructions {
@@ -1195,25 +1118,203 @@ input:checked + .toggle-slider:before {
     margin-bottom: 1rem;
 }
 
-.payment-instructions p {
-    font-weight: 600;
+.selected-amount-display {
+    text-align: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 12px;
+}
+
+.selected-amount-large {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--brand-gold);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.empty-state i {
+    font-size: 2rem;
+    color: var(--brand-gold);
     margin-bottom: 0.5rem;
 }
 
-.payment-instructions ol {
-    padding-left: 1.2rem;
+.empty-state h3 {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
 }
 
-.payment-instructions li {
+.empty-state p {
     font-size: 0.8rem;
-    margin-bottom: 0.25rem;
     color: var(--text-secondary);
 }
 
 /* =========================================
-   DARK MODE FIXES
+   MOBILE BOTTOM NAVIGATION
    ========================================= */
 
+.mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .dashboard-sidebar {
+        transform: translateX(-100%);
+    }
+    
+    .dashboard-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    
+    .dashboard-main {
+        margin-left: 0;
+        padding: 0.75rem;
+        padding-bottom: 80px;
+    }
+    
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg-primary);
+        border-top: 1px solid var(--border-color);
+        padding: 8px 12px;
+        z-index: 100;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .mobile-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        flex: 1;
+        text-align: center;
+        background: transparent;
+        border: none;
+        font-family: inherit;
+    }
+    
+    .mobile-nav-item i {
+        font-size: 1.3rem;
+        color: var(--text-secondary);
+    }
+    
+    .mobile-nav-item span {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    
+    .mobile-nav-item.active i,
+    .mobile-nav-item.active span {
+        color: var(--brand-gold);
+    }
+    
+    .mobile-nav-item.active {
+        background: rgba(251, 176, 64, 0.1);
+    }
+    
+    .progress-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .badge-icon {
+        width: 55px;
+        height: 55px;
+        font-size: 1.8rem;
+    }
+    
+    .score-value {
+        font-size: 1.5rem;
+    }
+    
+    .go-to-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .wallet-balance-card {
+        flex-wrap: wrap;
+        text-align: center;
+        justify-content: center;
+    }
+    
+    .store-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+    
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .settings-actions {
+        flex-direction: column;
+    }
+    
+    .settings-actions button {
+        width: 100%;
+    }
+    
+    .portfolio-url-display {
+        flex-direction: column;
+    }
+    
+    .amount-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-main {
+        padding: 0.5rem;
+        padding-bottom: 75px;
+    }
+    
+    .progress-section, .mvp-section, .leaderboard-section {
+        padding: 1rem;
+    }
+    
+    .badge-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.5rem;
+    }
+    
+    .score-value {
+        font-size: 1.3rem;
+    }
+    
+    .wallet-balance-large {
+        font-size: 1.2rem;
+    }
+    
+    .store-item-info h4 {
+        font-size: 0.8rem;
+    }
+    
+    .store-item-price {
+        font-size: 0.8rem;
+    }
+}
+
+/* Dark mode fixes */
 body.dark-mode .amount-btn {
     background: var(--bg-secondary);
     color: var(--text-primary);
@@ -1242,802 +1343,4 @@ body.dark-mode .reference-code-box {
 
 body.dark-mode .payment-instructions {
     background: var(--bg-secondary);
-}
-
-/* =========================================
-   RESPONSIVE - MOBILE
-   ========================================= */
-
-@media (max-width: 992px) {
-    .dashboard-sidebar {
-        transform: translateX(-100%);
-    }
-    
-    .dashboard-sidebar.mobile-open {
-        transform: translateX(0);
-    }
-    
-    .dashboard-main {
-        margin-left: 0;
-        width: 100%;
-        padding: 0.75rem;
-    }
-    
-    .amount-buttons {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .wallet-modal {
-        width: 95%;
-    }
-}
-
-@media (max-width: 768px) {
-    .progress-header {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .badge-icon {
-        width: 55px;
-        height: 55px;
-        font-size: 1.8rem;
-    }
-    
-    .badge-info h4 {
-        font-size: 0.9rem;
-    }
-    
-    .score-value {
-        font-size: 1.5rem;
-    }
-    
-    .go-to-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .wallet-balance-card {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .payment-item {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .settings-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .settings-actions {
-        flex-direction: column;
-    }
-    
-    .settings-actions button {
-        width: 100%;
-    }
-    
-    .leaderboard-item {
-        flex-wrap: wrap;
-    }
-    
-    .portfolio-url-display {
-        flex-direction: column;
-    }
-    
-    .portfolio-url-display button {
-        width: 100%;
-    }
-    
-    .mobile-bottom-nav {
-        display: flex;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: var(--bg-primary);
-        border-top: 1px solid var(--border-color);
-        padding: 8px 12px;
-        z-index: 1000;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-    }
-    
-    .mobile-nav-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 8px 12px;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-        flex: 1;
-        text-align: center;
-        background: transparent;
-        border: none;
-        font-family: inherit;
-    }
-    
-    .mobile-nav-item i {
-        font-size: 1.3rem;
-        color: var(--text-secondary);
-    }
-    
-    .mobile-nav-item span {
-        font-size: 0.65rem;
-        color: var(--text-secondary);
-        font-weight: 500;
-    }
-    
-    .mobile-nav-item.active i,
-    .mobile-nav-item.active span {
-        color: var(--brand-gold);
-    }
-    
-    .mobile-nav-item.active {
-        background: rgba(251, 176, 64, 0.1);
-    }
-    
-    .mobile-nav-item:hover {
-        background: var(--border-color);
-    }
-}
-
-@media (max-width: 480px) {
-    .dashboard-main {
-        padding: 0.5rem;
-        padding-bottom: 70px;
-    }
-    
-    .progress-section, .mvp-section, .leaderboard-section {
-        padding: 1rem;
-    }
-    
-    .badge-icon {
-        width: 45px;
-        height: 45px;
-        font-size: 1.5rem;
-    }
-    
-    .score-value {
-        font-size: 1.3rem;
-    }
-    
-    .wallet-balance-large {
-        font-size: 1.2rem;
-    }
-    
-    .amount-buttons {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* =========================================
-   MOBILE BOTTOM NAVIGATION - FIXED
-   ========================================= */
-
-/* Default - hidden on desktop */
-.mobile-bottom-nav {
-    display: none;
-}
-
-/* Show on mobile devices */
-@media (max-width: 768px) {
-    .mobile-bottom-nav {
-        display: flex !important;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: var(--bg-primary);
-        border-top: 1px solid var(--border-color);
-        padding: 8px 12px;
-        z-index: 1000;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-    }
-    
-    .mobile-nav-item {
-        display: flex !important;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 8px 12px;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-        flex: 1;
-        text-align: center;
-        background: transparent;
-        border: none;
-        font-family: inherit;
-    }
-    
-    .mobile-nav-item i {
-        font-size: 1.3rem;
-        color: var(--text-secondary);
-    }
-    
-    .mobile-nav-item span {
-        font-size: 0.65rem;
-        color: var(--text-secondary);
-        font-weight: 500;
-    }
-    
-    .mobile-nav-item.active i,
-    .mobile-nav-item.active span {
-        color: var(--brand-gold);
-    }
-    
-    .mobile-nav-item.active {
-        background: rgba(251, 176, 64, 0.1);
-    }
-    
-    .mobile-nav-item:hover {
-        background: var(--border-color);
-    }
-    
-    /* Add padding to main content to prevent overlap with bottom nav */
-    .dashboard-main {
-        padding-bottom: 80px !important;
-    }
-}
-
-/* =========================================
-   SUBSCRIPTION PLANS SECTION (Go To Tab)
-   ========================================= */
-
-.plans-section {
-    margin-top: 2rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color);
-}
-
-.plans-section h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-}
-
-.plans-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-}
-
-.plan-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1.5rem;
-    position: relative;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.plan-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
-}
-
-/* Plan card variants */
-.plan-card.basic {
-    border-top: 4px solid var(--success);
-}
-
-.plan-card.standard {
-    border-top: 4px solid var(--info);
-}
-
-.plan-card.premium {
-    border-top: 4px solid var(--brand-gold);
-}
-
-/* Plan badge for premium */
-.plan-badge {
-    position: absolute;
-    top: -12px;
-    right: 20px;
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 700;
-}
-
-/* Plan icon */
-.plan-icon {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-}
-
-/* Plan title */
-.plan-card h4 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
-}
-
-/* Plan price */
-.plan-price {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--brand-gold);
-}
-
-.plan-price span {
-    font-size: 0.8rem;
-    font-weight: 400;
-    color: var(--text-secondary);
-}
-
-/* Plan features list */
-.plan-features {
-    list-style: none;
-    margin-bottom: 1.5rem;
-}
-
-.plan-features li {
-    padding: 0.5rem 0;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.plan-features li i {
-    color: var(--brand-gold);
-    font-size: 0.8rem;
-}
-
-/* Plan select button */
-.plan-select {
-    width: 100%;
-    padding: 0.75rem;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: inherit;
-    font-size: 0.85rem;
-}
-
-.plan-select.btn-outline {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-}
-
-.plan-select.btn-outline:hover {
-    background: var(--brand-gold);
-    border-color: var(--brand-gold);
-    color: var(--brand-purple-dark);
-}
-
-.plan-select.btn-primary {
-    background: var(--brand-gold);
-    border: none;
-    color: var(--brand-purple-dark);
-}
-
-.plan-select.btn-primary:hover {
-    background: var(--brand-gold-dark);
-    transform: translateY(-2px);
-}
-
-/* Responsive for plans grid */
-@media (max-width: 768px) {
-    .plans-grid {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-    
-    .plan-card {
-        padding: 1.25rem;
-    }
-    
-    .plan-price {
-        font-size: 1.3rem;
-    }
-}
-
-/* =========================================
-   ADDITIONAL DASHBOARD STYLES
-   ========================================= */
-
-/* Notification Section */
-.notification-section {
-    background: var(--bg-card);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border: 1px solid var(--border-color);
-}
-
-.notification-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.notification-header i {
-    font-size: 1.2rem;
-    color: var(--brand-gold);
-}
-
-.notification-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.notification-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    transition: all 0.2s;
-}
-
-.notification-item.unread {
-    background: rgba(251, 176, 64, 0.1);
-    border-left: 3px solid var(--brand-gold);
-}
-
-.notification-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-}
-
-.notification-icon.payment {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--success);
-}
-
-.notification-icon.certificate {
-    background: rgba(251, 176, 64, 0.15);
-    color: var(--brand-gold);
-}
-
-.notification-icon.system {
-    background: rgba(59, 130, 246, 0.15);
-    color: var(--info);
-}
-
-.notification-content {
-    flex: 1;
-}
-
-.notification-title {
-    font-weight: 600;
-    font-size: 0.85rem;
-    margin-bottom: 0.25rem;
-}
-
-.notification-message {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-.notification-time {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-}
-
-.notification-dot {
-    width: 8px;
-    height: 8px;
-    background: var(--brand-gold);
-    border-radius: 50%;
-}
-
-.mark-all-read {
-    background: none;
-    border: none;
-    color: var(--brand-gold);
-    font-size: 0.7rem;
-    cursor: pointer;
-}
-
-/* Courses Grid */
-.courses-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
-}
-
-.course-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1rem;
-    transition: all 0.2s;
-    cursor: pointer;
-}
-
-.course-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--brand-gold);
-    box-shadow: var(--shadow-md);
-}
-
-.course-icon {
-    width: 50px;
-    height: 50px;
-    background: rgba(251, 176, 64, 0.1);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.3rem;
-    margin-bottom: 0.75rem;
-    color: var(--brand-gold);
-}
-
-.course-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
-}
-
-.course-progress {
-    margin: 0.75rem 0;
-}
-
-.course-progress-bar {
-    height: 4px;
-    background: var(--border-color);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.course-progress-fill {
-    height: 100%;
-    background: var(--brand-gold);
-    border-radius: 2px;
-    transition: width 0.3s;
-}
-
-.course-progress-text {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-}
-
-.certificate-badge {
-    display: inline-block;
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--success);
-    padding: 0.25rem 0.5rem;
-    border-radius: 20px;
-    font-size: 0.65rem;
-    margin-top: 0.5rem;
-}
-
-/* Store Grid */
-.store-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1rem;
-}
-
-.store-item {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    overflow: hidden;
-    transition: all 0.2s;
-}
-
-.store-item:hover {
-    transform: translateY(-2px);
-    border-color: var(--brand-gold);
-}
-
-.store-image {
-    width: 100%;
-    height: 150px;
-    background: var(--bg-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-}
-
-.store-info {
-    padding: 1rem;
-}
-
-.store-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
-}
-
-.store-price {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--brand-gold);
-    margin: 0.5rem 0;
-}
-
-.store-stock {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.75rem;
-}
-
-.buy-btn {
-    width: 100%;
-    padding: 0.5rem;
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-/* Portfolios Directory */
-.portfolios-search {
-    margin-bottom: 1.5rem;
-}
-
-.portfolios-search input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 40px;
-    background: var(--bg-card);
-    color: var(--text-primary);
-    font-family: inherit;
-}
-
-.portfolios-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
-}
-
-.portfolio-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.portfolio-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--brand-gold);
-}
-
-.portfolio-avatar {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 0.75rem;
-}
-
-.portfolio-avatar i {
-    font-size: 1.5rem;
-    color: white;
-}
-
-.portfolio-name {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
-
-.portfolio-role {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-}
-
-.portfolio-stats {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
-
-/* Checkbox Group */
-.checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.checkbox-group label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-}
-
-/* Quick Stats */
-.quick-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.quick-stat-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.quick-stat-card i {
-    font-size: 1.5rem;
-    color: var(--brand-gold);
-}
-
-.quick-stat-label {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    display: block;
-}
-
-.quick-stat-value {
-    font-size: 1.1rem;
-    font-weight: 700;
-}
-
-.quick-add-funds {
-    margin-left: auto;
-    background: none;
-    border: 1px solid var(--brand-gold);
-    color: var(--brand-gold);
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 0.7rem;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .quick-stats {
-        grid-template-columns: 1fr;
-    }
-    
-    .courses-grid,
-    .store-grid,
-    .portfolios-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .notification-item {
-        flex-wrap: wrap;
-    }
 }
