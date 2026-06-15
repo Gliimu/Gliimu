@@ -304,11 +304,14 @@ async function loadPaymentsFromStorage(forceRefresh = false) {
     cancelledPayments = allPayments.filter(p => p.status === 'rejected');
 }
 
-// Save payment to payment_requests table
+// ============================================
+// PAYMENT STORAGE FUNCTIONS - WITH BANK COLUMN
+// ============================================
+
 async function savePaymentToStorage(payment) {
-    console.log('Saving payment request:', payment);
+    console.log('Saving payment request with bank:', payment);
     
-    // Always save to localStorage first (backup)
+    // Save to localStorage as backup
     allPayments.unshift(payment);
     paymentsCache = allPayments;
     localStorage.setItem(`glimu_payments_${currentUser.id}`, JSON.stringify(allPayments));
@@ -317,52 +320,35 @@ async function savePaymentToStorage(payment) {
     approvedPayments = allPayments.filter(p => p.status === 'approved');
     cancelledPayments = allPayments.filter(p => p.status === 'rejected');
     
-    // Save to payment_requests table in Supabase
+    // Save to payment_requests table with bank column
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-            console.error('No active session');
-            showToast('Please login to submit payment request', 'error');
-            return false;
-        }
-        
-        const paymentData = {
-            id: payment.id,
-            user_id: currentUser.id,
-            user_name: currentUser.name || 'User',
-            user_email: currentUser.email || '',
-            amount: payment.amount,
-            reference_code: payment.reference_code,
-            bank: payment.bank,
-            status: 'pending',
-            submitted_at: new Date().toISOString()
-        };
-        
-        console.log('Inserting into payment_requests:', paymentData);
-        
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('payment_requests')
-            .insert([paymentData])
-            .select();
+            .insert({
+                id: payment.id,
+                user_id: currentUser.id,
+                user_name: currentUser.name || 'User',
+                user_email: currentUser.email || '',
+                amount: payment.amount,
+                reference_code: payment.reference_code,
+                bank: payment.bank || 'Bank Transfer',
+                status: 'pending',
+                submitted_at: new Date().toISOString()
+            });
         
         if (error) {
             console.error('Supabase insert error:', error);
-            if (error.code === '42501') {
-                showToast('Permission denied. Please contact admin.', 'error');
-            } else {
-                showToast(`Payment saved locally only: ${error.message}`, 'warning');
-            }
+            showToast('Payment saved locally. Admin will be notified.', 'warning');
             return false;
         }
         
-        console.log('Payment saved to payment_requests successfully:', data);
+        console.log('Payment saved to Supabase with bank:', payment.bank);
         showToast(`Payment request submitted! Reference: ${payment.reference_code}`, 'success');
         return true;
         
     } catch (err) {
         console.error('Exception saving payment:', err);
-        showToast('Payment saved locally. Admin will be notified.', 'warning');
+        showToast('Payment saved locally. Please contact support.', 'warning');
         return false;
     }
 }
