@@ -10,19 +10,13 @@
     <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
-    <!-- Transparent Header with Search -->
+    <!-- Simple Header -->
     <header class="library-header" id="libraryHeader">
         <div class="header-container">
             <div class="header-left">
                 <a href="https://gliimu.com/hub" class="logo-link">
                     <img src="icons/logo.png" alt="Gliimu" class="logo-img" id="logoImg">
                 </a>
-            </div>
-            <div class="header-center">
-                <div class="search-bar-header">
-                    <input type="text" id="searchInput" placeholder="Search books, courses, or resources...">
-                    <button id="searchBtn"><i class="fas fa-search"></i></button>
-                </div>
             </div>
             <div class="header-right">
                 <div class="profile-dropdown" id="profileDropdown">
@@ -43,45 +37,36 @@
         </div>
     </header>
 
-    <!-- Fixed Hero Section -->
+    <!-- Hero Section with Search and Filters -->
     <section class="hero-section" id="heroSection">
         <div class="hero-overlay"></div>
         <div class="hero-container">
             <div class="hero-content">
-                <h1 class="hero-title">Be The Best<br><span class="highlight">Read the best</span></h1>
-                <p class="hero-subtitle">The best readers are the best leaders</p>
-                <div class="hero-stats">
-                    <div class="hero-stat">
-                        <span class="hero-stat-value" id="heroWallet">₦0</span>
-                        <span class="hero-stat-label">Wallet</span>
-                    </div>
-                    <div class="hero-stat-divider"></div>
-                    <div class="hero-stat">
-                        <span class="hero-stat-value" id="heroGP">0</span>
-                        <span class="hero-stat-label">GP Points</span>
-                    </div>
-                    <div class="hero-stat-divider"></div>
-                    <div class="hero-stat">
-                        <span class="hero-stat-value" id="heroLibrary">0</span>
-                        <span class="hero-stat-label">My Library</span>
+                <h1 class="hero-title">Discover Your Next Read</h1>
+                <p class="hero-subtitle">you are what you consume</p>
+                <div class="hero-search">
+                    <div class="search-bar-hero">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="searchInput" placeholder="Search books, courses, or resources...">
+                        <button id="searchBtn"><i class="fas fa-arrow-right"></i></button>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
+    <!-- Filter Chips - Inside Hero -->
+    <div class="filters-wrapper" id="filtersWrapper">
+        <div class="filters-container">
+            <div class="filters-scroll-wrapper" id="filtersScrollWrapper">
+                <div class="filters" id="filterChips"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="library-main" id="libraryMain">
         <div class="container">
-            <!-- Filter Chips - Fixed on scroll -->
-            <div class="filters-wrapper" id="filtersWrapper">
-                <div class="filters-container">
-                    <div class="filters-scroll-wrapper">
-                        <div class="filters" id="filterChips"></div>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Masonry Grid -->
             <div id="booksContainer" class="pinterest-grid">
                 <div class="loading">Loading library materials...</div>
