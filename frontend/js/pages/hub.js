@@ -1,510 +1,239 @@
 // ============================================
-// GLIIMU HUB - Complete
+// GLIIMU HUB - Complete JavaScript
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
-// Global variables
+// ============================================
+// STATE
+// ============================================
 let currentUser = null;
 let allItems = [];
-let currentSearch = '';
 let savedItems = new Set();
 let purchasedItems = new Set();
-let isLoading = false;
 let userGP = 0;
 let userWallet = 0;
-let userInterests = [];
 let isDropdownOpen = false;
-let isPurchaseDropdownOpen = false;
-let isSearchModalOpen = false;
+let isSearchOpen = false;
 
-// Categories - For internal use only (no filters displayed)
-const CATEGORIES = [
-    'books', 'talks', 'bundles', 'resources'
-];
-
-// GP Rewards
 const GP_REWARDS = {
     purchase_book: 5,
     purchase_bundle: 10,
     purchase_physical: 3,
     read_book: 2,
     watch_talk: 2,
-    share_content: 3,
-    daily_login: 1,
     save_item: 1
 };
 
 // ============================================
-// INITIALIZATION
+// DOM REFS
+// ============================================
+const $ = (id) => document.getElementById(id);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+const DOM = {
+    grid: $('contentGrid'),
+    gpValue: $('headerGP'),
+    avatar: $('profileAvatar'),
+    searchTrigger: $('searchTrigger'),
+    searchModal: $('searchModal'),
+    searchInput: $('searchModalInput'),
+    searchBtn: $('searchModalBtn'),
+    searchResults: $('searchResults'),
+    searchClose: $('searchModalClose'),
+    itemModal: $('itemModal'),
+    modalTitle: $('modalTitle'),
+    modalImage: $('modalImage'),
+    modalDesc: $('modalDescription'),
+    modalFooter: $('modalFooter'),
+    modalSaveBtn: $('modalSaveBtn'),
+    modalCloseBtn: $('modalCloseBtn'),
+    profileBtn: $('profileBtn'),
+    dropdown: $('dropdownMenu'),
+    savedLink: $('savedItemsLink'),
+    purchasedLink: $('purchasedItemsLink'),
+    merchLink: $('merchandiseLink'),
+    logo: $('logoImg'),
+    header: $('hubHeader')
+};
+
+// ============================================
+// INIT
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Hub initializing...');
-    
-    const container = document.getElementById('booksContainer');
-    if (container) container.innerHTML = '<div class="loading">Loading content...</div>';
-    
+    console.log('🚀 Hub initializing...');
+    DOM.grid.innerHTML = '<div class="loading">Loading content...</div>';
+
     try {
         currentUser = await getCurrentUser();
-        console.log('Current user:', currentUser?.email || 'Guest');
-        
+        console.log('👤 User:', currentUser?.email || 'Guest');
+
         if (currentUser) {
             await loadUserData();
             await loadSavedItems();
             await loadPurchasedItems();
-            await loadUserInterests();
             updateGPDisplay();
-            updateProfileAvatar();
-            console.log(`✅ Loaded ${purchasedItems.size} purchased items`);
-            console.log(`✅ GP: ${userGP} | Wallet: ₦${userWallet}`);
+            updateAvatar();
         }
-        
+
         await loadItems();
         setupEventListeners();
         applyTheme();
         setupScrollHeader();
         setupProfileDropdown();
         setupSearchModal();
-        
+
     } catch (error) {
-        console.error('Initialization error:', error);
-        if (container) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to Load Content</h3>
-                    <p>${error.message || 'Please refresh the page to try again.'}</p>
-                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 1rem;">Refresh</button>
-                </div>
-            `;
-        }
+        console.error('❌ Init error:', error);
+        DOM.grid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Failed to Load</h3>
+                <p>${error.message || 'Please refresh.'}</p>
+                <button onclick="location.reload()" class="modal-btn modal-btn-primary" style="margin-top:1rem;">Refresh</button>
+            </div>
+        `;
     }
 });
 
 // ============================================
-// LOAD USER DATA
+// DATA LOADING
 // ============================================
 async function loadUserData() {
     if (!currentUser) return;
-    
     try {
-        const { data: profile, error } = await supabase
+        const { data, error } = await supabase
             .from('users')
             .select('wallet_balance, gp_points, avatar_url')
             .eq('id', currentUser.id)
             .single();
-        
-        if (error) {
-            if (error.message.includes('gp_points')) {
-                const { data: walletData, error: walletError } = await supabase
-                    .from('users')
-                    .select('wallet_balance, avatar_url')
-                    .eq('id', currentUser.id)
-                    .single();
-                
-                if (!walletError) {
-                    userWallet = walletData?.wallet_balance || 0;
-                    userGP = 0;
-                    if (walletData?.avatar_url) {
-                        currentUser.avatar_url = walletData.avatar_url;
-                    }
-                }
-            }
-            throw error;
-        }
-        
-        userWallet = profile?.wallet_balance || 0;
-        userGP = profile?.gp_points || 0;
-        if (profile?.avatar_url) {
-            currentUser.avatar_url = profile.avatar_url;
-        }
-        
-        if (profile?.gp_points === undefined || profile?.gp_points === null) {
-            await supabase
-                .from('users')
-                .update({ gp_points: 0 })
-                .eq('id', currentUser.id);
-            userGP = 0;
-        }
-        
-    } catch (error) {
-        console.error('Error loading user data:', error);
-        if (userWallet === undefined) {
-            userWallet = 0;
-            userGP = 0;
-        }
+
+        if (error) throw error;
+        userWallet = data?.wallet_balance || 0;
+        userGP = data?.gp_points || 0;
+        if (data?.avatar_url) currentUser.avatar_url = data.avatar_url;
+    } catch (e) {
+        console.error('Error loading user data:', e);
     }
 }
 
-async function loadUserInterests() {
-    if (!currentUser) return;
-    try {
-        const { data: purchases } = await supabase
-            .from('user_purchases')
-            .select('item_id')
-            .eq('user_id', currentUser.id);
-        
-        if (purchases && purchases.length > 0) {
-            const itemIds = purchases.map(p => p.item_id);
-            const { data: items } = await supabase
-                .from('library_items')
-                .select('category')
-                .in('id', itemIds);
-            
-            if (items) {
-                const categoryCount = {};
-                items.forEach(item => {
-                    if (item.category) {
-                        categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
-                    }
-                });
-                userInterests = Object.keys(categoryCount).sort((a, b) => categoryCount[b] - categoryCount[a]);
-                console.log('User interests:', userInterests);
-            }
-        }
-    } catch (error) {
-        console.error('Error loading interests:', error);
-    }
-}
-
-// ============================================
-// UPDATE UI
-// ============================================
-function updateGPDisplay() {
-    const gpValue = document.getElementById('headerGP');
-    if (gpValue) gpValue.textContent = userGP;
-}
-
-function updateProfileAvatar() {
-    const avatarImg = document.getElementById('profileAvatar');
-    if (avatarImg) {
-        const avatarUrl = currentUser?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2c2f78&color=fff`;
-        avatarImg.src = avatarUrl;
-    }
-}
-
-// ============================================
-// LOAD DATA FROM SUPABASE
-// ============================================
 async function loadItems() {
-    const container = document.getElementById('booksContainer');
-    if (!container || isLoading) return;
-    isLoading = true;
-    
     try {
-        const { data: items, error } = await supabase
+        const { data, error } = await supabase
             .from('library_items')
             .select('*')
             .eq('is_active', true)
             .order('created_at', { ascending: false });
-        
-        if (error) {
-            console.error('Database error:', error);
-            throw error;
-        }
-        
-        if (!items || items.length === 0) {
-            container.innerHTML = `
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            DOM.grid.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-book-open"></i>
-                    <h3>No Content Found</h3>
-                    <p>The hub is being populated with content. Check back soon!</p>
+                    <h3>No Content Yet</h3>
+                    <p>Check back soon for new content.</p>
                 </div>
             `;
             return;
         }
-        
-        console.log(`✅ Loaded ${items.length} items`);
-        allItems = items;
+
+        allItems = data;
+        console.log(`✅ Loaded ${data.length} items`);
         renderItems();
-        
-    } catch (error) {
-        console.error('Error loading items:', error);
-        container.innerHTML = `
+
+    } catch (e) {
+        console.error('Error loading items:', e);
+        DOM.grid.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-database"></i>
                 <h3>Database Error</h3>
-                <p>${error.message || 'Unable to load content.'}</p>
-                <button onclick="loadItems()" class="btn-primary" style="margin-top: 1rem;">Retry</button>
+                <p>${e.message}</p>
+                <button onclick="loadItems()" class="modal-btn modal-btn-primary" style="margin-top:1rem;">Retry</button>
             </div>
         `;
-    } finally {
-        isLoading = false;
     }
 }
 
 async function loadSavedItems() {
     if (!currentUser) return;
     try {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('user_library_progress')
             .select('item_id')
             .eq('user_id', currentUser.id);
-        
-        if (error) throw error;
-        if (data) savedItems = new Set(data.map(item => item.item_id));
-        console.log(`✅ Loaded ${savedItems.size} saved items`);
-    } catch (error) {
-        console.error('Error loading saved items:', error);
-    }
+        if (data) savedItems = new Set(data.map(i => i.item_id));
+    } catch (e) { console.error('Error loading saved:', e); }
 }
 
 async function loadPurchasedItems() {
     if (!currentUser) return;
     try {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('user_purchases')
             .select('item_id')
             .eq('user_id', currentUser.id);
-        
-        if (error) throw error;
-        if (data) purchasedItems = new Set(data.map(item => item.item_id));
-        console.log(`✅ Loaded ${purchasedItems.size} purchased items`);
-    } catch (error) {
-        console.error('Error loading purchased items:', error);
-    }
+        if (data) purchasedItems = new Set(data.map(i => i.item_id));
+    } catch (e) { console.error('Error loading purchased:', e); }
 }
 
 // ============================================
-// THEME & SCROLL MANAGEMENT
-// ============================================
-function applyTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    const logoImg = document.getElementById('logoImg');
-    
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-mode');
-        if (logoImg) logoImg.style.filter = 'brightness(0) invert(1)';
-    } else if (savedTheme === 'light') {
-        document.body.classList.remove('dark-mode');
-        if (logoImg) logoImg.style.filter = 'none';
-    } else {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (prefersDark) {
-            document.body.classList.add('dark-mode');
-            if (logoImg) logoImg.style.filter = 'brightness(0) invert(1)';
-        }
-    }
-}
-
-function setupScrollHeader() {
-    const header = document.querySelector('.library-header');
-    window.addEventListener('scroll', () => {
-        const currentScroll = window.pageYOffset;
-        if (currentScroll > 50) {
-            header.classList.add('scrolled');
-        } else {
-            header.classList.remove('scrolled');
-        }
-    }, { passive: true });
-}
-
-function setupProfileDropdown() {
-    const profileBtn = document.getElementById('profileBtn');
-    const dropdownMenu = document.getElementById('dropdownMenu');
-    
-    if (!profileBtn || !dropdownMenu) return;
-    
-    profileBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isDropdownOpen = !isDropdownOpen;
-        dropdownMenu.classList.toggle('show', isDropdownOpen);
-    });
-    
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.profile-dropdown')) {
-            dropdownMenu.classList.remove('show');
-            isDropdownOpen = false;
-        }
-    });
-    
-    // Dropdown links
-    document.getElementById('savedItemsLink')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        // Filter to show saved items
-        const savedItemsList = allItems.filter(item => savedItems.has(item.id));
-        if (savedItemsList.length > 0) {
-            renderItems(savedItemsList);
-        } else {
-            showToast('No saved items yet', 'info');
-        }
-        dropdownMenu.classList.remove('show');
-        isDropdownOpen = false;
-    });
-    
-    document.getElementById('purchasedItemsLink')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        const purchasedItemsList = allItems.filter(item => purchasedItems.has(item.id));
-        if (purchasedItemsList.length > 0) {
-            renderItems(purchasedItemsList);
-        } else {
-            showToast('No purchased items yet', 'info');
-        }
-        dropdownMenu.classList.remove('show');
-        isDropdownOpen = false;
-    });
-    
-    document.getElementById('merchandiseLink')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        showToast('Merchandise store coming soon!', 'info');
-        dropdownMenu.classList.remove('show');
-        isDropdownOpen = false;
-    });
-}
-
-// ============================================
-// SEARCH MODAL
-// ============================================
-function setupSearchModal() {
-    const trigger = document.getElementById('searchTrigger');
-    const modal = document.getElementById('searchModal');
-    const closeBtn = document.getElementById('searchModalClose');
-    const input = document.getElementById('searchModalInput');
-    const searchBtn = document.getElementById('searchModalBtn');
-    const resultsContainer = document.getElementById('searchModalResults');
-    
-    if (!trigger || !modal) return;
-    
-    // Open modal
-    trigger.addEventListener('click', () => {
-        modal.classList.add('active');
-        isSearchModalOpen = true;
-        setTimeout(() => input.focus(), 100);
-    });
-    
-    // Close modal
-    const closeModal = () => {
-        modal.classList.remove('active');
-        isSearchModalOpen = false;
-        resultsContainer.innerHTML = '<p class="search-hint">Type to start searching...</p>';
-        input.value = '';
-    };
-    
-    closeBtn?.addEventListener('click', closeModal);
-    modal?.addEventListener('click', (e) => {
-        if (e.target === modal || e.target.classList.contains('search-modal-overlay')) {
-            closeModal();
-        }
-    });
-    
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && isSearchModalOpen) closeModal();
-    });
-    
-    // Search function
-    const performSearch = () => {
-        const query = input.value.trim();
-        if (!query) {
-            resultsContainer.innerHTML = '<p class="search-hint">Type to start searching...</p>';
-            return;
-        }
-        
-        const searchLower = query.toLowerCase();
-        const results = allItems.filter(item => 
-            (item.title?.toLowerCase().includes(searchLower)) ||
-            (item.description?.toLowerCase().includes(searchLower)) ||
-            (item.author?.toLowerCase().includes(searchLower)) ||
-            (item.category?.toLowerCase().includes(searchLower))
-        );
-        
-        if (results.length === 0) {
-            resultsContainer.innerHTML = `
-                <div class="search-no-results">
-                    <i class="fas fa-search"></i>
-                    <p>No results found for "${query}"</p>
-                </div>
-            `;
-        } else {
-            resultsContainer.innerHTML = results.map(item => `
-                <div class="search-result-item" onclick="window.viewItemDetails('${item.id}'); closeSearchModal();">
-                    <img src="${item.cover_url || 'https://placehold.co/50x70/2c2f78/white?text=Book'}" alt="${item.title}">
-                    <div class="result-info">
-                        <div class="result-title">${escapeHtml(item.title)}</div>
-                        <div class="result-meta">${escapeHtml(item.author || 'Gliimu Team')} • ${item.type || 'Book'}</div>
-                    </div>
-                    <div class="result-price">${item.price > 0 ? '₦' + item.price.toLocaleString() : 'Free'}</div>
-                </div>
-            `).join('');
-            
-            // Close modal after a delay when clicking a result
-            window.closeSearchModal = closeModal;
-        }
-    };
-    
-    searchBtn?.addEventListener('click', performSearch);
-    input?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            performSearch();
-            // Close modal after search
-            setTimeout(closeModal, 500);
-        }
-    });
-}
-
-// ============================================
-// RENDER FUNCTIONS
+// RENDER
 // ============================================
 function renderItems(items = null) {
-    const container = document.getElementById('booksContainer');
-    if (!container) return;
-    
-    const itemsToRender = items || allItems;
-    
-    if (itemsToRender.length === 0) {
-        container.innerHTML = `
+    const list = items || allItems;
+    if (!list.length) {
+        DOM.grid.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-search"></i>
-                <h3>No matching items</h3>
-                <p>Try a different search term or check back later.</p>
+                <h3>No Items Found</h3>
+                <p>Try a different search.</p>
             </div>
         `;
         return;
     }
-    
-    container.innerHTML = itemsToRender.map(item => createItemCard(item)).join('');
+    DOM.grid.innerHTML = list.map(item => createCard(item)).join('');
 }
 
-function createItemCard(item) {
+function createCard(item) {
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
-    const isBundle = item.type === 'bundle';
     const isTalk = item.type === 'talk' || item.type === 'course';
+    const isBundle = item.type === 'bundle';
     const hasPrice = (item.price || 0) > 0;
-    const coverUrl = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Item')}`;
-    
-    // Talks - double width, 16:9 aspect ratio
+    const cover = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Item')}`;
+
+    // --- Talk Card ---
     if (isTalk) {
         return `
-            <div class="grid-item item-talk" data-id="${item.id}" onclick="window.viewItemDetails('${item.id}')">
-                <div class="card-cover" style="background-image: url('${coverUrl}')">
-                    <div class="talk-play-btn">
-                        <i class="fas fa-play"></i>
-                    </div>
+            <div class="grid-item item-talk" data-id="${item.id}" onclick="window.viewDetails('${item.id}')">
+                <div class="card-cover" style="background-image: url('${cover}')">
+                    <div class="play-btn"><i class="fas fa-play"></i></div>
                     ${isPurchased ? '<div class="purchased-badge">✓ Purchased</div>' : ''}
                     ${isSaved && !isPurchased ? '<div class="saved-badge">★ Saved</div>' : ''}
                     ${hasPrice && !isPurchased ? `<div class="price-badge">₦${(item.price || 0).toLocaleString()}</div>` : ''}
                 </div>
-                <div class="card-title-bottom">
-                    <div class="title">${escapeHtml(item.title)}</div>
-                    <div class="author">${escapeHtml(item.author || 'Gliimu Team')}</div>
-                    ${item.duration ? `<div class="talk-duration"><i class="fas fa-clock"></i> ${item.duration}</div>` : ''}
+                <div class="card-footer">
+                    <div class="title">${escape(item.title)}</div>
+                    <div class="author">${escape(item.author || 'Gliimu Team')}</div>
+                    ${item.duration ? `<div class="duration"><i class="fas fa-clock"></i> ${item.duration}</div>` : ''}
                 </div>
             </div>
         `;
     }
-    
+
+    // --- Bundle Card ---
     if (isBundle) {
         return `
             <div class="grid-item item-bundle" data-id="${item.id}">
-                <div class="bundle-content" onclick="window.viewItemDetails('${item.id}')">
-                    <div class="bundle-title">${escapeHtml(item.title)}</div>
-                    <div class="bundle-meta">${escapeHtml(item.author || 'Gliimu Team')} • ${item.level || 'Beginner'}</div>
+                <div class="bundle-content" onclick="window.viewDetails('${item.id}')">
+                    <div class="bundle-title">${escape(item.title)}</div>
+                    <div class="bundle-meta">${escape(item.author || 'Gliimu Team')}</div>
                     ${hasPrice ? `<div class="bundle-price">₦${(item.price || 0).toLocaleString()}</div>` : '<div class="bundle-price free">Free</div>'}
                     ${isPurchased ? '<div class="purchased-tag">✓ Owned</div>' : ''}
                 </div>
                 <button class="bundle-download-btn" onclick="event.stopPropagation(); window.downloadBundle('${item.id}')" 
-                    ${!isPurchased && hasPrice ? 'disabled title="Purchase to download"' : ''}>
+                    ${!isPurchased && hasPrice ? 'disabled' : ''}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 3v12m0 0-3-3m3 3 3-3M5 21h14"/>
                     </svg>
@@ -512,11 +241,11 @@ function createItemCard(item) {
             </div>
         `;
     }
-    
-    // Regular book/resource card
+
+    // --- Book Card ---
     return `
-        <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewItemDetails('${item.id}')">
-            <div class="card-cover" style="background-image: url('${coverUrl}')">
+        <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewDetails('${item.id}')">
+            <div class="card-cover" style="background-image: url('${cover}')">
                 ${isPurchased ? '<div class="purchased-badge">✓ Purchased</div>' : ''}
                 ${isSaved && !isPurchased ? '<div class="saved-badge">★ Saved</div>' : ''}
                 ${hasPrice && !isPurchased ? `<div class="price-badge">₦${(item.price || 0).toLocaleString()}</div>` : ''}
@@ -528,521 +257,232 @@ function createItemCard(item) {
 // ============================================
 // GP MANAGEMENT
 // ============================================
-async function addGP(userId, amount, reason) {
+async function addGP(amount, reason) {
+    if (!currentUser) return null;
     try {
-        const { data: user, error: fetchError } = await supabase
+        const { data, error } = await supabase
             .from('users')
             .select('gp_points')
-            .eq('id', userId)
+            .eq('id', currentUser.id)
             .single();
-        
-        if (fetchError) {
-            if (fetchError.message.includes('gp_points')) {
-                console.warn('gp_points column not found, skipping GP addition');
-                return null;
-            }
-            throw fetchError;
-        }
-        
-        const currentGP = user?.gp_points || 0;
-        const newGP = currentGP + amount;
-        
-        const { error: updateError } = await supabase
+        if (error) throw error;
+
+        const current = data?.gp_points || 0;
+        const newGP = current + amount;
+
+        await supabase
             .from('users')
             .update({ gp_points: newGP })
-            .eq('id', userId);
-        
-        if (updateError) throw updateError;
-        
-        try {
-            await supabase
-                .from('gp_transactions')
-                .insert([{
-                    user_id: userId,
-                    amount: amount,
-                    reason: reason,
-                    created_at: new Date().toISOString()
-                }]);
-        } catch (logError) {
-            console.warn('Could not log GP transaction:', logError);
-        }
-        
+            .eq('id', currentUser.id);
+
         userGP = newGP;
         updateGPDisplay();
-        
-        if (newGP >= 100 && currentGP < 100) {
-            showToast('🎉 Congratulations! You\'ve reached Premium status with 100 GP!', 'success');
-            await grantPremiumAccess(userId);
+
+        if (newGP >= 100 && current < 100) {
+            showToast('🎉 Premium status unlocked at 100 GP!', 'success');
         }
-        
+
         return newGP;
-        
-    } catch (error) {
-        console.error('Error adding GP:', error);
+    } catch (e) {
+        console.error('GP error:', e);
         return null;
     }
 }
 
-async function grantPremiumAccess(userId) {
-    try {
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ 
-                is_premium: true,
-                premium_earned_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-        
-        if (updateError) {
-            if (updateError.message.includes('is_premium')) {
-                console.warn('is_premium column not found');
-                showToast('✨ You\'ve reached 100 GP! Contact support for premium benefits.', 'success');
-                return;
-            }
-            throw updateError;
-        }
-        
-        showToast('✨ Premium access granted! Download PDFs and access exclusive content!', 'success');
-        
-    } catch (error) {
-        console.error('Error granting premium:', error);
+// ============================================
+// UI UPDATES
+// ============================================
+function updateGPDisplay() {
+    if (DOM.gpValue) DOM.gpValue.textContent = userGP;
+}
+
+function updateAvatar() {
+    if (DOM.avatar) {
+        const url = currentUser?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2c2f78&color=fff`;
+        DOM.avatar.src = url;
     }
 }
 
 // ============================================
-// PURCHASE FLOW
+// THEME
 // ============================================
+function applyTheme() {
+    const theme = localStorage.getItem('theme');
+    const isDark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+        if (DOM.logo) DOM.logo.style.filter = 'brightness(0) invert(1)';
+    }
+}
 
-window.handlePurchase = async (itemId, type = 'digital') => {
-    if (!currentUser) {
-        showToast('Please login to purchase', 'error');
-        setTimeout(() => window.location.href = '/signin.html', 1500);
-        return;
-    }
-    
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) {
-        showToast('Item not found', 'error');
-        return;
-    }
-    
-    const price = type === 'physical' ? (item.physical_price || 0) : (item.price || 0);
-    const isPremium = userGP >= 100;
-    const isPurchased = purchasedItems.has(itemId);
-    
-    if (isPurchased) {
-        showToast('You already own this item!', 'info');
-        closeModal();
-        return;
-    }
-    
-    if (price <= 0) {
-        await handleFreeAccess(itemId);
-        return;
-    }
-    
-    if (isPremium && type === 'digital') {
-        showToast('✨ Premium access granted! You can download the PDF for free.', 'success');
-        await handleGrantAccess(itemId, 'premium');
-        return;
-    }
-    
-    try {
-        showToast('Processing purchase...', 'info');
-        
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('wallet_balance')
-            .eq('id', currentUser.id)
-            .single();
-        
-        if (userError) {
-            console.error('Error fetching wallet:', userError);
-            showToast('Error checking wallet balance', 'error');
+function setupScrollHeader() {
+    window.addEventListener('scroll', () => {
+        DOM.header.classList.toggle('scrolled', window.scrollY > 50);
+    }, { passive: true });
+}
+
+// ============================================
+// PROFILE DROPDOWN
+// ============================================
+function setupProfileDropdown() {
+    DOM.profileBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isDropdownOpen = !isDropdownOpen;
+        DOM.dropdown.classList.toggle('show', isDropdownOpen);
+    });
+
+    document.addEventListener('click', () => {
+        DOM.dropdown.classList.remove('show');
+        isDropdownOpen = false;
+    });
+
+    DOM.savedLink?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const saved = allItems.filter(i => savedItems.has(i.id));
+        renderItems(saved.length ? saved : null);
+        if (!saved.length) showToast('No saved items yet', 'info');
+        DOM.dropdown.classList.remove('show');
+        isDropdownOpen = false;
+    });
+
+    DOM.purchasedLink?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const purchased = allItems.filter(i => purchasedItems.has(i.id));
+        renderItems(purchased.length ? purchased : null);
+        if (!purchased.length) showToast('No purchased items yet', 'info');
+        DOM.dropdown.classList.remove('show');
+        isDropdownOpen = false;
+    });
+
+    DOM.merchLink?.addEventListener('click', (e) => {
+        e.preventDefault();
+        showToast('Merchandise coming soon!', 'info');
+        DOM.dropdown.classList.remove('show');
+        isDropdownOpen = false;
+    });
+}
+
+// ============================================
+// SEARCH MODAL
+// ============================================
+function setupSearchModal() {
+    const open = () => {
+        DOM.searchModal.classList.add('active');
+        isSearchOpen = true;
+        setTimeout(() => DOM.searchInput.focus(), 100);
+    };
+
+    const close = () => {
+        DOM.searchModal.classList.remove('active');
+        isSearchOpen = false;
+        DOM.searchResults.innerHTML = '<p class="search-hint">Type to start searching...</p>';
+        DOM.searchInput.value = '';
+    };
+
+    DOM.searchTrigger?.addEventListener('click', open);
+    DOM.searchClose?.addEventListener('click', close);
+    DOM.searchModal?.addEventListener('click', (e) => {
+        if (e.target === DOM.searchModal || e.target.classList.contains('search-modal-overlay')) close();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isSearchOpen) close();
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); open(); }
+    });
+
+    const search = () => {
+        const query = DOM.searchInput.value.trim();
+        if (!query) {
+            DOM.searchResults.innerHTML = '<p class="search-hint">Type to start searching...</p>';
             return;
         }
-        
-        const currentBalance = user?.wallet_balance || 0;
-        
-        if (currentBalance < price) {
-            showToast(`Insufficient funds. Need ₦${(price - currentBalance).toLocaleString()} more.`, 'error');
-            if (confirm(`You need ₦${(price - currentBalance).toLocaleString()} more. Would you like to add funds to your wallet?`)) {
-                window.location.href = '/dashboard.html?tab=wallet';
-            }
-            return;
-        }
-        
-        const newBalance = currentBalance - price;
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ wallet_balance: newBalance })
-            .eq('id', currentUser.id);
-        
-        if (updateError) {
-            console.error('Payment error:', updateError);
-            showToast('Payment failed. Please try again.', 'error');
-            return;
-        }
-        
-        const purchaseData = {
-            user_id: currentUser.id,
-            item_id: itemId,
-            purchase_type: type,
-            amount: price,
-            created_at: new Date().toISOString()
-        };
-        
-        const { error: purchaseError } = await supabase
-            .from('user_purchases')
-            .insert([purchaseData]);
-        
-        if (purchaseError) {
-            console.error('Purchase record error:', purchaseError);
-            await supabase
-                .from('users')
-                .update({ wallet_balance: currentBalance })
-                .eq('id', currentUser.id);
-            showToast('Purchase failed. Please contact support.', 'error');
-            return;
-        }
-        
-        const gpReward = item.type === 'bundle' ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
-        const gpEarned = await addGP(currentUser.id, gpReward, `Purchased: ${item.title} (${type})`);
-        
-        purchasedItems.add(itemId);
-        
-        if (gpEarned !== null) {
-            showToast(`🎉 Successfully purchased ${item.title}! Earned +${gpReward} GP!`, 'success');
+
+        const q = query.toLowerCase();
+        const results = allItems.filter(i =>
+            (i.title?.toLowerCase().includes(q)) ||
+            (i.description?.toLowerCase().includes(q)) ||
+            (i.author?.toLowerCase().includes(q)) ||
+            (i.category?.toLowerCase().includes(q))
+        );
+
+        if (!results.length) {
+            DOM.searchResults.innerHTML = `
+                <div class="search-no-results">
+                    <i class="fas fa-search"></i>
+                    <p>No results for "${query}"</p>
+                </div>
+            `;
         } else {
-            showToast(`🎉 Successfully purchased ${item.title}!`, 'success');
+            DOM.searchResults.innerHTML = results.map(i => `
+                <div class="search-result-item" onclick="window.viewDetails('${i.id}'); closeSearchModal();">
+                    <img src="${i.cover_url || 'https://placehold.co/50x70/2c2f78/white?text=Book'}" alt="${i.title}">
+                    <div class="result-info">
+                        <div class="result-title">${escape(i.title)}</div>
+                        <div class="result-meta">${escape(i.author || 'Gliimu Team')}</div>
+                    </div>
+                    <div class="result-price">${i.price > 0 ? '₦' + i.price.toLocaleString() : 'Free'}</div>
+                </div>
+            `).join('');
         }
-        
-        renderItems();
-        closeModal();
-        
-        if (type === 'digital' && item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Would you like to open "${item.title}" now?`)) {
-                    window.open(item.file_url, '_blank');
-                }
-            }, 1000);
-        }
-        
-        await logTransaction(currentUser.id, -price, `Purchase: ${item.title} (${type})`);
-        
-    } catch (error) {
-        console.error('Purchase error:', error);
-        showToast('Purchase failed. Please try again.', 'error');
-    }
-};
+    };
 
-async function handleGrantAccess(itemId, accessType = 'standard') {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
-    
-    try {
-        const purchaseData = {
-            user_id: currentUser.id,
-            item_id: itemId,
-            purchase_type: accessType === 'premium' ? 'premium' : 'digital',
-            amount: 0,
-            created_at: new Date().toISOString()
-        };
-        
-        const { error } = await supabase
-            .from('user_purchases')
-            .insert([purchaseData]);
-        
-        if (error) {
-            console.error('Access grant error:', error);
-            showToast('Error granting access. Please try again.', 'error');
-            return;
-        }
-        
-        purchasedItems.add(itemId);
-        showToast(`✅ Access granted to ${item.title}!`, 'success');
-        renderItems();
-        closeModal();
-        
-        if (item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Would you like to open "${item.title}" now?`)) {
-                    window.open(item.file_url, '_blank');
-                }
-            }, 500);
-        }
-        
-    } catch (error) {
-        console.error('Access grant error:', error);
-        showToast('Error granting access', 'error');
-    }
-}
+    DOM.searchBtn?.addEventListener('click', search);
+    DOM.searchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { search(); setTimeout(close, 400); }
+    });
 
-async function handleFreeAccess(itemId) {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
-    
-    try {
-        if (purchasedItems.has(itemId)) {
-            showToast('You already have access to this item!', 'info');
-            closeModal();
-            return;
-        }
-        
-        const purchaseData = {
-            user_id: currentUser.id,
-            item_id: itemId,
-            purchase_type: 'digital',
-            amount: 0,
-            created_at: new Date().toISOString()
-        };
-        
-        const { error } = await supabase
-            .from('user_purchases')
-            .insert([purchaseData]);
-        
-        if (error) {
-            console.error('Free access error:', error);
-            showToast('Error granting access. Please try again.', 'error');
-            return;
-        }
-        
-        const gpEarned = await addGP(currentUser.id, 1, `Accessed free item: ${item.title}`);
-        
-        purchasedItems.add(itemId);
-        if (gpEarned !== null) {
-            showToast(`✅ Free access granted to ${item.title}! +1 GP`, 'success');
-        } else {
-            showToast(`✅ Free access granted to ${item.title}!`, 'success');
-        }
-        renderItems();
-        closeModal();
-        
-        if (item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Would you like to open "${item.title}" now?`)) {
-                    window.open(item.file_url, '_blank');
-                }
-            }, 500);
-        }
-        
-    } catch (error) {
-        console.error('Free access error:', error);
-        showToast('Error granting access', 'error');
-    }
-}
-
-async function logTransaction(userId, amount, description) {
-    try {
-        await supabase
-            .from('transactions')
-            .insert([{
-                user_id: userId,
-                amount: amount,
-                type: amount < 0 ? 'debit' : 'credit',
-                description: description,
-                status: 'completed',
-                created_at: new Date().toISOString()
-            }]);
-    } catch (error) {
-        console.error('Error logging transaction:', error);
-    }
+    window.closeSearchModal = close;
 }
 
 // ============================================
-// READING & DOWNLOAD FUNCTIONS
+// ITEM DETAILS
 // ============================================
-
-window.startReading = (itemId) => {
+window.viewDetails = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
-    if (!item) {
-        showToast('Item not found', 'error');
-        return;
-    }
-    
-    const isOwned = purchasedItems.has(itemId) || item.price === 0;
-    const isPremium = userGP >= 100;
-    
-    if (!isOwned && !isPremium) {
-        showToast('Please purchase this item first', 'warning');
-        viewItemDetails(itemId);
-        return;
-    }
-    
-    if (item.file_url) {
-        addGP(currentUser.id, GP_REWARDS.read_book, `Read: ${item.title}`).then(gp => {
-            if (gp !== null) showToast(`📖 Reading ${item.title}... +${GP_REWARDS.read_book} GP`, 'info');
-        });
-        
-        window.open(item.file_url, '_blank');
-        showToast(`Opening ${item.title}...`, 'success');
-    } else {
-        showToast(`${item.title} - Content will be available soon.`, 'info');
-    }
-    closeModal();
-};
+    if (!item) return showToast('Item not found', 'error');
 
-window.downloadBundle = async (itemId) => {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) {
-        showToast('Item not found', 'error');
-        return;
-    }
-    
-    const isOwned = purchasedItems.has(itemId) || item.price === 0;
-    
-    if (!isOwned) {
-        showToast('Please purchase this bundle first', 'warning');
-        viewItemDetails(itemId);
-        return;
-    }
-    
-    if (item.download_url) {
-        const link = document.createElement('a');
-        link.href = item.download_url;
-        link.target = '_blank';
-        link.download = `${item.title.replace(/\s+/g, '_')}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        const gpEarned = await addGP(currentUser.id, 2, `Downloaded bundle: ${item.title}`);
-        
-        if (gpEarned !== null) {
-            showToast(`Downloading ${item.title}... +2 GP`, 'success');
-        } else {
-            showToast(`Downloading ${item.title}...`, 'success');
-        }
-    } else {
-        showToast('Download link not available yet.', 'info');
-    }
-    closeModal();
-};
-
-window.downloadPDF = (itemId) => {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
-    
-    if (item.file_url) {
-        const link = document.createElement('a');
-        link.href = item.file_url;
-        link.target = '_blank';
-        link.download = `${item.title.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast(`Downloading ${item.title} PDF...`, 'success');
-    } else {
-        showToast('PDF not available for this item.', 'info');
-    }
-    closeModal();
-};
-
-// ============================================
-// MODAL WITH PURCHASE OPTIONS
-// ============================================
-
-window.viewItemDetails = async (itemId) => {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) {
-        showToast('Item not found', 'error');
-        return;
-    }
-    
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
-    const isFree = (item.price === 0 || !item.price) && (item.physical_price === 0 || !item.physical_price);
+    const isFree = (item.price || 0) <= 0 && (item.physical_price || 0) <= 0;
     const hasDigital = (item.price || 0) > 0;
     const hasPhysical = (item.physical_price || 0) > 0;
     const isPremium = userGP >= 100;
-    const canReadOnline = item.file_url && (isPurchased || isFree || isPremium);
-    const canDownloadBundle = item.type === 'bundle' && item.download_url && (isPurchased || isFree);
     const gpReward = item.type === 'bundle' ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
-    
-    const modal = document.getElementById('itemModal');
-    if (!modal) {
-        console.error('Modal element not found');
-        return;
-    }
-    
-    const modalTitle = document.getElementById('modalTitle');
-    const modalImage = document.getElementById('modalImage');
-    const modalDescription = document.getElementById('modalDescription');
-    const modalFooter = document.getElementById('modalFooter');
-    const modalSaveBtn = document.getElementById('modalSaveBtn');
-    
-    modalTitle.textContent = item.title;
-    
-    // Update save button state
-    if (modalSaveBtn) {
-        modalSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
-        modalSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
-        modalSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
-        const newSaveBtn = modalSaveBtn.cloneNode(true);
-        modalSaveBtn.parentNode.replaceChild(newSaveBtn, modalSaveBtn);
-        newSaveBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            window.toggleSaveItem(itemId);
-        });
-    }
-    
-    const coverUrl = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
-    modalImage.src = coverUrl;
-    modalImage.alt = item.title;
-    
-    let descriptionHtml = `
+
+    DOM.modalTitle.textContent = item.title;
+    DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
+
+    // Update save button
+    const newSaveBtn = DOM.modalSaveBtn.cloneNode(true);
+    DOM.modalSaveBtn.parentNode.replaceChild(newSaveBtn, DOM.modalSaveBtn);
+    newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
+    newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
+    newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
+    newSaveBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSave(item.id);
+    });
+
+    DOM.modalDesc.innerHTML = `
         <div class="item-details">
-            <p><strong>Author:</strong> ${escapeHtml(item.author || 'Gliimu Team')}</p>
-            <p><strong>Type:</strong> ${item.type || 'Book'} | <strong>Level:</strong> ${item.level || 'Beginner'}</p>
+            <p><strong>Author:</strong> ${escape(item.author || 'Gliimu Team')}</p>
+            <p><strong>Type:</strong> ${item.type || 'Book'}</p>
             ${isPremium ? `<p><span class="premium-badge">⭐ Premium Access</span></p>` : ''}
-            ${isPurchased ? `<p><span class="owned-badge">✅ You own this item</span></p>` : ''}
-            
+            ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
             <div class="price-details">
-                ${hasDigital ? `
-                    <div class="price-row">
-                        <span class="label">📱 EPUB</span>
-                        <span class="value ${item.price === 0 ? 'free' : ''}">${item.price === 0 ? 'Free' : `₦${(item.price || 0).toLocaleString()}`}</span>
-                    </div>
-                ` : ''}
-                ${hasPhysical ? `
-                    <div class="price-row">
-                        <span class="label">📖 Hard Copy</span>
-                        <span class="value">₦${(item.physical_price || 0).toLocaleString()}</span>
-                    </div>
-                ` : ''}
-                ${item.file_url ? `
-                    <div class="price-row">
-                        <span class="label">📄 PDF Download</span>
-                        <span class="value ${isPurchased ? 'free' : ''}">${isPurchased ? 'Free' : '₦' + ((item.price || 0) * 0.8).toFixed(0)}</span>
-                    </div>
-                ` : ''}
-                ${!isPurchased ? `
-                    <div class="price-row">
-                        <span class="label">⭐ GP Earned</span>
-                        <span class="value" style="color: #8b5cf6;">+${gpReward} GP</span>
-                    </div>
-                ` : ''}
+                ${hasDigital ? `<div class="price-row"><span class="label">📱 Digital</span><span class="value ${item.price === 0 ? 'free' : ''}">${item.price === 0 ? 'Free' : '₦' + (item.price || 0).toLocaleString()}</span></div>` : ''}
+                ${hasPhysical ? `<div class="price-row"><span class="label">📖 Physical</span><span class="value">₦${(item.physical_price || 0).toLocaleString()}</span></div>` : ''}
+                ${!isPurchased ? `<div class="price-row"><span class="label">⭐ GP Earned</span><span class="value" style="color:#8b5cf6;">+${gpReward} GP</span></div>` : ''}
             </div>
-            
-            ${isPremium && hasDigital && !isPurchased ? `
-                <div class="premium-notice">
-                    <span>✨ Premium users get EPUB/PDF access for FREE!</span>
-                </div>
-            ` : ''}
-            
-            <div class="description-text">${escapeHtml(item.description || 'No description available.')}</div>
+            ${isPremium && hasDigital && !isPurchased ? `<div class="premium-notice">✨ Premium users get digital access FREE!</div>` : ''}
+            <div class="description-text">${escape(item.description || 'No description.')}</div>
         </div>
     `;
-    
-    modalDescription.innerHTML = descriptionHtml;
-    
+
     let footerHtml = '';
-    
     if (isPurchased) {
         footerHtml = `
-            ${canReadOnline ? `<button class="modal-btn modal-btn-primary" onclick="window.startReading('${item.id}')"><i class="fas fa-book-open"></i> Read Online</button>` : ''}
-            ${canDownloadBundle ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download Bundle</button>` : ''}
-            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadPDF('${item.id}')"><i class="fas fa-file-pdf"></i> Download PDF</button>` : ''}
+            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-book-open"></i> Read/View</button>` : ''}
+            ${item.type === 'bundle' && item.download_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download</button>` : ''}
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (isFree) {
@@ -1052,16 +492,12 @@ window.viewItemDetails = async (itemId) => {
         `;
     } else if (isPremium && hasDigital) {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.handleGrantAccess('${item.id}', 'premium')"><i class="fas fa-star"></i> Premium Access</button>
+            <button class="modal-btn modal-btn-success" onclick="window.handleGrantAccess('${item.id}')"><i class="fas fa-star"></i> Premium Free</button>
             <div class="modal-btn-dropdown">
-                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()">
-                    <i class="fas fa-shopping-cart"></i> Buy
-                    <i class="fas fa-chevron-down"></i>
-                </button>
+                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()"><i class="fas fa-shopping-cart"></i> Buy <i class="fas fa-chevron-down"></i></button>
                 <div class="dropdown-options" id="purchaseDropdown">
-                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}', 'digital')">📱 EPUB <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
-                    ${item.file_url ? `<button onclick="window.handlePurchase('${item.id}', 'pdf')">📄 PDF <span class="price">₦${((item.price || 0) * 0.8).toFixed(0)}</span></button>` : ''}
-                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}', 'physical')">📖 Hard Copy <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
+                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
                 </div>
             </div>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
@@ -1069,136 +505,225 @@ window.viewItemDetails = async (itemId) => {
     } else {
         footerHtml = `
             <div class="modal-btn-dropdown">
-                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()">
-                    <i class="fas fa-shopping-cart"></i> Buy
-                    <i class="fas fa-chevron-down"></i>
-                </button>
+                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()"><i class="fas fa-shopping-cart"></i> Buy <i class="fas fa-chevron-down"></i></button>
                 <div class="dropdown-options" id="purchaseDropdown">
-                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}', 'digital')">📱 EPUB <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
-                    ${item.file_url ? `<button onclick="window.handlePurchase('${item.id}', 'pdf')">📄 PDF <span class="price">₦${((item.price || 0) * 0.8).toFixed(0)}</span></button>` : ''}
-                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}', 'physical')">📖 Hard Copy <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
+                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
                 </div>
             </div>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     }
-    
-    modalFooter.innerHTML = footerHtml;
-    modal.classList.add('active');
+    DOM.modalFooter.innerHTML = footerHtml;
+    DOM.itemModal.classList.add('active');
 };
 
-// Toggle purchase dropdown
-window.togglePurchaseDropdown = () => {
-    const dropdown = document.getElementById('purchaseDropdown');
-    if (dropdown) {
-        const isOpen = dropdown.classList.contains('show');
-        document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
-        if (!isOpen) {
-            dropdown.classList.add('show');
+// ============================================
+// PURCHASE FUNCTIONS
+// ============================================
+window.handlePurchase = async (itemId, type) => {
+    if (!currentUser) return showToast('Please login', 'error');
+
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return showToast('Item not found', 'error');
+
+    const price = type === 'physical' ? (item.physical_price || 0) : (item.price || 0);
+    if (price <= 0) return handleFreeAccess(itemId);
+    if (purchasedItems.has(itemId)) return showToast('Already owned', 'info');
+
+    try {
+        const { data: user } = await supabase
+            .from('users')
+            .select('wallet_balance')
+            .eq('id', currentUser.id)
+            .single();
+
+        if ((user?.wallet_balance || 0) < price) {
+            showToast(`Need ₦${(price - (user?.wallet_balance || 0)).toLocaleString()} more`, 'error');
+            return;
         }
-        isPurchaseDropdownOpen = !isOpen;
+
+        await supabase
+            .from('users')
+            .update({ wallet_balance: (user?.wallet_balance || 0) - price })
+            .eq('id', currentUser.id);
+
+        await supabase
+            .from('user_purchases')
+            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: type, amount: price });
+
+        purchasedItems.add(itemId);
+        const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
+
+        showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        renderItems();
+        closeModal();
+
+        if (type === 'digital' && item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+            }, 800);
+        }
+    } catch (e) {
+        console.error('Purchase error:', e);
+        showToast('Purchase failed', 'error');
     }
 };
 
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.modal-btn-dropdown')) {
-        document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
-        isPurchaseDropdownOpen = false;
+window.handleGrantAccess = async (itemId) => {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    try {
+        await supabase
+            .from('user_purchases')
+            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: 'premium', amount: 0 });
+        purchasedItems.add(itemId);
+        showToast(`✅ Premium access: ${item.title}`, 'success');
+        renderItems();
+        closeModal();
+        if (item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+            }, 800);
+        }
+    } catch (e) {
+        showToast('Error granting access', 'error');
     }
-});
+};
+
+window.handleFreeAccess = async (itemId) => {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+    if (purchasedItems.has(itemId)) return showToast('Already owned', 'info');
+
+    try {
+        await supabase
+            .from('user_purchases')
+            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: 'digital', amount: 0 });
+        purchasedItems.add(itemId);
+        const gp = await addGP(1, `Free: ${item.title}`);
+        showToast(`✅ Free access: ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        renderItems();
+        closeModal();
+        if (item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+            }, 800);
+        }
+    } catch (e) {
+        showToast('Error granting access', 'error');
+    }
+};
+
+window.downloadBundle = async (itemId) => {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+    if (!purchasedItems.has(itemId) && item.price > 0) {
+        return showToast('Please purchase first', 'warning');
+    }
+    if (item.download_url) {
+        const link = document.createElement('a');
+        link.href = item.download_url;
+        link.download = `${item.title.replace(/\s+/g, '_')}.zip`;
+        link.click();
+        showToast(`Downloading ${item.title}...`, 'success');
+    } else {
+        showToast('Download not available', 'info');
+    }
+    closeModal();
+};
 
 // ============================================
-// SAVE/UNSAVE ITEM
+// SAVE / UNSAVE
 // ============================================
+async function toggleSave(itemId) {
+    if (!currentUser) return showToast('Please login', 'error');
 
-window.toggleSaveItem = async (itemId) => {
-    if (!currentUser) {
-        showToast('Please login to save items', 'error');
-        window.location.href = '/signin.html';
-        return;
-    }
-    
     const isSaved = savedItems.has(itemId);
-    
     try {
         if (isSaved) {
-            const { error } = await supabase
+            await supabase
                 .from('user_library_progress')
                 .delete()
                 .eq('user_id', currentUser.id)
                 .eq('item_id', itemId);
-            
-            if (error) throw error;
             savedItems.delete(itemId);
-            showToast('Removed from your saved items', 'info');
+            showToast('Removed from saved', 'info');
         } else {
-            const { error } = await supabase
+            await supabase
                 .from('user_library_progress')
-                .insert([{
-                    user_id: currentUser.id,
-                    item_id: itemId,
-                    progress: 0,
-                    completed: false,
-                    created_at: new Date().toISOString()
-                }]);
-            
-            if (error) throw error;
+                .insert({ user_id: currentUser.id, item_id: itemId, progress: 0 });
             savedItems.add(itemId);
-            showToast('Saved to your library!', 'success');
-            
-            await addGP(currentUser.id, GP_REWARDS.save_item, `Saved item: ${itemId}`);
+            await addGP(1, `Saved: ${itemId}`);
+            showToast('Saved to library!', 'success');
         }
-        
         renderItems();
-        
-        // Update modal save button if open
-        const modal = document.getElementById('itemModal');
-        if (modal && modal.classList.contains('active')) {
+        if (DOM.itemModal.classList.contains('active')) {
             const saveBtn = document.getElementById('modalSaveBtn');
             if (saveBtn) {
-                const isNowSaved = savedItems.has(itemId);
-                saveBtn.className = `modal-save-btn ${isNowSaved ? 'saved' : ''}`;
-                saveBtn.title = isNowSaved ? 'Remove from saved' : 'Save for later';
+                const nowSaved = savedItems.has(itemId);
+                saveBtn.className = `modal-save-btn ${nowSaved ? 'saved' : ''}`;
+                saveBtn.title = nowSaved ? 'Remove from saved' : 'Save for later';
             }
         }
-        
-    } catch (error) {
-        console.error('Error saving item:', error);
-        showToast('Error updating library', 'error');
-    }
-};
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-function setupEventListeners() {
-    const modal = document.getElementById('itemModal');
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('active')) {
-                closeModal();
-            }
-        });
+    } catch (e) {
+        showToast('Error saving item', 'error');
     }
 }
 
+// ============================================
+// DROPDOWN TOGGLE
+// ============================================
+window.togglePurchaseDropdown = () => {
+    const dd = document.getElementById('purchaseDropdown');
+    if (dd) {
+        const isOpen = dd.classList.contains('show');
+        document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
+        if (!isOpen) dd.classList.add('show');
+    }
+};
+
+document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
+});
+
+// ============================================
+// MODAL CONTROLS
+// ============================================
 window.closeModal = () => {
-    const modal = document.getElementById('itemModal');
-    if (modal) modal.classList.remove('active');
-    isPurchaseDropdownOpen = false;
+    DOM.itemModal.classList.remove('active');
     document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
 };
 
-window.handleFreeAccess = handleFreeAccess;
-window.handleGrantAccess = handleGrantAccess;
-window.handlePurchase = handlePurchase;
+DOM.modalCloseBtn?.addEventListener('click', closeModal);
+DOM.itemModal?.addEventListener('click', (e) => {
+    if (e.target === DOM.itemModal) closeModal();
+});
 
-function escapeHtml(text) {
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (DOM.itemModal.classList.contains('active')) closeModal();
+    }
+});
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+function setupEventListeners() {
+    // Keyboard shortcut: Ctrl+K for search
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            if (DOM.searchTrigger) DOM.searchTrigger.click();
+        }
+    });
+}
+
+// ============================================
+// UTILITY
+// ============================================
+function escape(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
@@ -1206,17 +731,14 @@ function escapeHtml(text) {
 }
 
 // ============================================
-// EXPOSE FUNCTIONS GLOBALLY
+// EXPOSE GLOBALS
 // ============================================
-window.viewItemDetails = viewItemDetails;
+window.viewDetails = viewDetails;
 window.handlePurchase = handlePurchase;
-window.startReading = startReading;
-window.downloadBundle = downloadBundle;
-window.toggleSaveItem = toggleSaveItem;
-window.closeModal = closeModal;
-window.handleFreeAccess = handleFreeAccess;
 window.handleGrantAccess = handleGrantAccess;
-window.downloadPDF = downloadPDF;
+window.handleFreeAccess = handleFreeAccess;
+window.downloadBundle = downloadBundle;
+window.closeModal = closeModal;
 window.togglePurchaseDropdown = togglePurchaseDropdown;
 
 console.log('✅ Hub loaded successfully');
