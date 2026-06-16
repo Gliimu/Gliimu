@@ -7,11 +7,14 @@
     <link rel="icon" type="image/png" href="icons/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/library.css">
+    <link rel="stylesheet" href="css/hub.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="library-header" id="libraryHeader">
+
+    <!-- ========================================= -->
+    <!-- HEADER -->
+    <!-- ========================================= -->
+    <header class="hub-header" id="hubHeader">
         <div class="header-container">
             <div class="header-left">
                 <a href="/hub.html" class="logo-link">
@@ -48,17 +51,20 @@
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="library-main" id="libraryMain">
+    <!-- ========================================= -->
+    <!-- MAIN CONTENT -->
+    <!-- ========================================= -->
+    <main class="hub-main">
         <div class="container">
-            <!-- Content Grid -->
-            <div id="booksContainer" class="content-grid">
+            <div id="contentGrid" class="content-grid">
                 <div class="loading">Loading content...</div>
             </div>
         </div>
     </main>
 
-    <!-- Search Modal -->
+    <!-- ========================================= -->
+    <!-- SEARCH MODAL -->
+    <!-- ========================================= -->
     <div id="searchModal" class="search-modal">
         <div class="search-modal-overlay"></div>
         <div class="search-modal-content">
@@ -67,19 +73,21 @@
                 <button class="search-modal-close" id="searchModalClose">&times;</button>
             </div>
             <div class="search-modal-body">
-                <div class="search-modal-input-wrapper">
-                    <i class="fas fa-search search-modal-icon"></i>
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search search-icon"></i>
                     <input type="text" id="searchModalInput" placeholder="Search books, talks, resources...">
                     <button id="searchModalBtn"><i class="fas fa-arrow-right"></i></button>
                 </div>
-                <div class="search-modal-results" id="searchModalResults">
+                <div class="search-results" id="searchResults">
                     <p class="search-hint">Type to start searching...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Item Detail Modal -->
+    <!-- ========================================= -->
+    <!-- ITEM DETAIL MODAL -->
+    <!-- ========================================= -->
     <div id="itemModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -99,7 +107,10 @@
         </div>
     </div>
 
-    <!-- JavaScript -->
-    <script type="module" src="js/pages/library.js"></script>
+    <!-- ========================================= -->
+    <!-- JAVASCRIPT -->
+    <!-- ========================================= -->
+    <script type="module" src="js/pages/hub.js"></script>
+
 </body>
 </html>
