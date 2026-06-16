@@ -28,6 +28,10 @@
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
     --radius-card: 16px;
     --radius-button: 40px;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
 }
 
 body.dark-mode {
@@ -49,7 +53,7 @@ body {
 }
 
 /* =========================================
-   HEADER STYLES
+   HEADER STYLES - Simplified
    ========================================= */
 
 .library-header {
@@ -68,14 +72,23 @@ body {
     margin: 0 auto;
     padding: 0.75rem 2rem;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    gap: 2rem;
 }
 
-.header-left {
+.logo {
     display: flex;
     align-items: center;
+}
+
+.logo-link {
+    display: inline-block;
+    transition: opacity 0.2s;
+    text-decoration: none;
+}
+
+.logo-link:hover {
+    opacity: 0.8;
 }
 
 .logo-img {
@@ -85,103 +98,13 @@ body {
     transition: filter 0.3s ease;
 }
 
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.back-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: transparent;
-    transition: all 0.2s;
-    cursor: pointer;
-    text-decoration: none;
-    color: var(--text-primary);
-}
-
-.back-arrow:hover {
-    background: var(--border-color);
-}
-
-.back-arrow svg {
-    width: 20px;
-    height: 20px;
-}
-
-.theme-toggle {
-    background: transparent;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    color: var(--text-primary);
-    border-radius: 4px;
-}
-
-.theme-toggle:hover {
-    background: var(--border-color);
-}
-
-.theme-toggle svg {
-    width: 18px;
-    height: 18px;
-}
-
-.icon-sun {
-    display: none;
-}
-
-.icon-moon {
-    display: block;
-}
-
-body.dark-mode .icon-sun {
-    display: block;
-}
-
-body.dark-mode .icon-moon {
-    display: none;
-}
-
-.download-app-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--text-primary);
-    border-radius: 4px;
-}
-
-.download-app-btn:hover {
-    background: var(--border-color);
-}
-
-.download-app-btn svg {
-    width: 18px;
-    height: 18px;
-    stroke: currentColor;
-}
-
 /* =========================================
    HERO SECTION
    ========================================= */
 
 .hero-section {
-    padding-top: 120px;
-    padding-bottom: 60px;
+    padding-top: 100px;
+    padding-bottom: 40px;
     text-align: left;
     background: transparent;
 }
@@ -243,6 +166,10 @@ body.dark-mode .icon-moon {
 
 .search-bar-large input:focus {
     border-color: var(--accent);
+}
+
+.search-bar-large input::placeholder {
+    color: var(--text-secondary);
 }
 
 .search-bar-large button {
@@ -400,6 +327,7 @@ body.dark-mode .icon-moon {
     box-shadow: var(--shadow-lg);
 }
 
+/* Badges */
 .saved-badge {
     position: absolute;
     top: 10px;
@@ -411,6 +339,33 @@ body.dark-mode .icon-moon {
     border-radius: 20px;
     font-size: 10px;
     font-weight: 500;
+    z-index: 2;
+}
+
+.purchased-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--success);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    z-index: 2;
+}
+
+.price-badge {
+    position: absolute;
+    bottom: 60px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    color: var(--brand-gold);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
     z-index: 2;
 }
 
@@ -478,7 +433,30 @@ body.dark-mode .icon-moon {
     font-weight: 600;
     font-size: 0.9rem;
     color: var(--text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+}
+
+.bundle-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.bundle-price {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand-gold);
+    margin-top: 4px;
+}
+
+.bundle-price.free {
+    color: var(--success);
+}
+
+.purchased-tag {
+    font-size: 10px;
+    color: var(--success);
+    font-weight: 600;
+    margin-top: 4px;
 }
 
 .bundle-download-btn {
@@ -492,12 +470,18 @@ body.dark-mode .icon-moon {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
-.bundle-download-btn:hover {
+.bundle-download-btn:hover:not(:disabled) {
     background: var(--accent);
     color: white;
     transform: scale(1.05);
+}
+
+.bundle-download-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .bundle-download-btn svg {
@@ -579,7 +563,7 @@ body.dark-mode .icon-moon {
 .modal-content {
     background: var(--bg-primary);
     border-radius: 20px;
-    max-width: 500px;
+    max-width: 520px;
     width: 90%;
     max-height: 85vh;
     overflow-y: auto;
@@ -639,7 +623,33 @@ body.dark-mode .icon-moon {
     margin-bottom: 1rem;
 }
 
-.modal-body p {
+.item-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.item-details p {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.item-details .owned-badge {
+    display: inline-block;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.description-text {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
     font-size: 0.9rem;
     line-height: 1.6;
     color: var(--text-secondary);
@@ -662,6 +672,9 @@ body.dark-mode .icon-moon {
     cursor: pointer;
     transition: all 0.2s;
     font-family: 'Space Grotesk', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .modal-btn-primary {
@@ -705,12 +718,17 @@ body.dark-mode .icon-moon {
     }
     
     .hero-section {
-        padding-top: 100px;
-        padding-bottom: 40px;
+        padding-top: 80px;
+        padding-bottom: 30px;
     }
     
     .search-bar-large input {
         max-width: 100%;
+    }
+    
+    .search-bar-large button {
+        padding: 12px 20px;
+        font-size: 0.8rem;
     }
     
     .filter-chip {
@@ -727,5 +745,46 @@ body.dark-mode .icon-moon {
     .modal-btn {
         width: 100%;
         text-align: center;
+        justify-content: center;
     }
+    
+    .modal-content {
+        max-width: 95%;
+    }
+    
+    .search-bar-large {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .search-bar-large input {
+        max-width: 100%;
+    }
+    
+    .search-bar-large button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* =========================================
+   SCROLLBAR STYLING
+   ========================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-dark);
 }
