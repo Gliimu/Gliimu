@@ -19,6 +19,7 @@ let userGP = 0;
 let userWallet = 0;
 let userInterests = [];
 let isDropdownOpen = false;
+let isPurchaseDropdownOpen = false;
 
 // Categories - Updated
 const CATEGORIES = [
@@ -326,7 +327,7 @@ function setupStickyFilters() {
     window.addEventListener('scroll', () => {
         const heroHeight = document.querySelector('.hero-section').offsetHeight;
         const scrollY = window.pageYOffset;
-        const shouldStick = scrollY > heroHeight - headerHeight;
+        const shouldStick = scrollY > heroHeight - headerHeight - 20;
         
         if (shouldStick && !isSticky) {
             filtersWrapper.classList.add('is-sticky');
@@ -376,11 +377,11 @@ function setupProfileDropdown() {
         isDropdownOpen = false;
     });
     
-    document.getElementById('logoutLink')?.addEventListener('click', async (e) => {
+    document.getElementById('merchandiseLink')?.addEventListener('click', (e) => {
         e.preventDefault();
-        await supabase.auth.signOut();
-        localStorage.clear();
-        window.location.href = '/signin.html';
+        showToast('Merchandise store coming soon!', 'info');
+        dropdownMenu.classList.remove('show');
+        isDropdownOpen = false;
     });
 }
 
@@ -517,7 +518,6 @@ function createItemCard(item) {
     const isCourse = item.type === 'course';
     const hasPrice = (item.price || 0) > 0;
     const coverUrl = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Book')}`;
-    const gpReward = isBundle ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
     
     // Courses - double width, half height
     if (isCourse) {
@@ -555,17 +555,13 @@ function createItemCard(item) {
         `;
     }
     
-    // Regular book/resource card
+    // Regular book/resource card - NO card-title-bottom
     return `
         <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewItemDetails('${item.id}')">
             <div class="card-cover" style="background-image: url('${coverUrl}')">
                 ${isPurchased ? '<div class="purchased-badge">✓ Purchased</div>' : ''}
                 ${isSaved && !isPurchased ? '<div class="saved-badge">★ Saved</div>' : ''}
                 ${hasPrice && !isPurchased ? `<div class="price-badge">₦${(item.price || 0).toLocaleString()}</div>` : ''}
-            </div>
-            <div class="card-title-bottom">
-                <div class="title">${escapeHtml(item.title)}</div>
-                <div class="author">${escapeHtml(item.author || 'Gliimu Team')}</div>
             </div>
         </div>
     `;
@@ -659,7 +655,7 @@ async function grantPremiumAccess(userId) {
 // PURCHASE FLOW
 // ============================================
 
-window.purchaseItem = async (itemId, type = 'digital') => {
+window.handlePurchase = async (itemId, type = 'digital') => {
     if (!currentUser) {
         showToast('Please login to purchase', 'error');
         setTimeout(() => window.location.href = '/signin.html', 1500);
@@ -674,21 +670,22 @@ window.purchaseItem = async (itemId, type = 'digital') => {
     
     const price = type === 'physical' ? (item.physical_price || 0) : (item.price || 0);
     const isPremium = userGP >= 100;
+    const isPurchased = purchasedItems.has(itemId);
     
-    if (price <= 0) {
-        await grantFreeAccess(itemId);
-        return;
-    }
-    
-    if (purchasedItems.has(itemId)) {
+    if (isPurchased) {
         showToast('You already own this item!', 'info');
         closeModal();
         return;
     }
     
+    if (price <= 0) {
+        await handleFreeAccess(itemId);
+        return;
+    }
+    
     if (isPremium && type === 'digital') {
         showToast('✨ Premium access granted! You can download the PDF for free.', 'success');
-        await grantAccess(itemId, 'premium');
+        await handleGrantAccess(itemId, 'premium');
         return;
     }
     
@@ -783,7 +780,7 @@ window.purchaseItem = async (itemId, type = 'digital') => {
     }
 };
 
-async function grantAccess(itemId, accessType = 'standard') {
+async function handleGrantAccess(itemId, accessType = 'standard') {
     const item = allItems.find(i => i.id === itemId);
     if (!item) return;
     
@@ -827,7 +824,7 @@ async function grantAccess(itemId, accessType = 'standard') {
     }
 }
 
-async function grantFreeAccess(itemId) {
+async function handleFreeAccess(itemId) {
     const item = allItems.find(i => i.id === itemId);
     if (!item) return;
     
@@ -982,6 +979,7 @@ window.viewItemDetails = async (itemId) => {
     }
     
     const isPurchased = purchasedItems.has(item.id);
+    const isSaved = savedItems.has(item.id);
     const isFree = (item.price === 0 || !item.price) && (item.physical_price === 0 || !item.physical_price);
     const hasDigital = (item.price || 0) > 0;
     const hasPhysical = (item.physical_price || 0) > 0;
@@ -1000,8 +998,35 @@ window.viewItemDetails = async (itemId) => {
     const modalImage = document.getElementById('modalImage');
     const modalDescription = document.getElementById('modalDescription');
     const modalFooter = document.getElementById('modalFooter');
+    const modalHeader = modal.querySelector('.modal-header');
     
     modalTitle.textContent = item.title;
+    
+    // Add save button to header
+    let headerActionsHtml = `
+        <div class="modal-header-actions">
+            <button class="modal-save-btn ${isSaved ? 'saved' : ''}" id="modalSaveBtn" title="${isSaved ? 'Remove from saved' : 'Save for later'}">
+                <i class="fas ${isSaved ? 'fa-bookmark' : 'fa-bookmark'}"></i>
+            </button>
+            <button class="modal-close" id="modalCloseBtn">&times;</button>
+        </div>
+    `;
+    
+    // Replace existing close button with header actions
+    const existingClose = modalHeader.querySelector('.modal-close');
+    if (existingClose) {
+        existingClose.remove();
+    }
+    modalHeader.appendChild(createElementFromHTML(headerActionsHtml));
+    
+    // Re-bind close button
+    document.getElementById('modalCloseBtn')?.addEventListener('click', closeModal);
+    
+    // Save button handler
+    document.getElementById('modalSaveBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.toggleSaveItem(itemId);
+    });
     
     const coverUrl = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
     modalImage.src = coverUrl;
@@ -1017,14 +1042,20 @@ window.viewItemDetails = async (itemId) => {
             <div class="price-details">
                 ${hasDigital ? `
                     <div class="price-row">
-                        <span class="label">📱 PDF/EPUB</span>
+                        <span class="label">📱 EPUB</span>
                         <span class="value ${item.price === 0 ? 'free' : ''}">${item.price === 0 ? 'Free' : `₦${(item.price || 0).toLocaleString()}`}</span>
                     </div>
                 ` : ''}
                 ${hasPhysical ? `
                     <div class="price-row">
-                        <span class="label">📖 Hard Copy (Shipping extra)</span>
+                        <span class="label">📖 Hard Copy</span>
                         <span class="value">₦${(item.physical_price || 0).toLocaleString()}</span>
+                    </div>
+                ` : ''}
+                ${item.file_url ? `
+                    <div class="price-row">
+                        <span class="label">📄 PDF Download</span>
+                        <span class="value ${isPurchased ? 'free' : ''}">${isPurchased ? 'Free' : '₦' + ((item.price || 0) * 0.8).toFixed(0)}</span>
                     </div>
                 ` : ''}
                 ${!isPurchased ? `
@@ -1037,7 +1068,7 @@ window.viewItemDetails = async (itemId) => {
             
             ${isPremium && hasDigital && !isPurchased ? `
                 <div class="premium-notice">
-                    <span>✨ Premium users get PDF/EPUB access for FREE!</span>
+                    <span>✨ Premium users get EPUB/PDF access for FREE!</span>
                 </div>
             ` : ''}
             
@@ -1053,29 +1084,96 @@ window.viewItemDetails = async (itemId) => {
         footerHtml = `
             ${canReadOnline ? `<button class="modal-btn modal-btn-primary" onclick="window.startReading('${item.id}')"><i class="fas fa-book-open"></i> Read Online</button>` : ''}
             ${canDownloadBundle ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download Bundle</button>` : ''}
+            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadPDF('${item.id}')"><i class="fas fa-file-pdf"></i> Download PDF</button>` : ''}
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (isFree) {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.grantFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Free Access</button>
+            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Free Access</button>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (isPremium && hasDigital) {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.grantAccess('${item.id}', 'premium')"><i class="fas fa-star"></i> Premium Access (Free PDF)</button>
-            ${hasPhysical ? `<button class="modal-btn modal-btn-primary" onclick="window.purchaseItem('${item.id}', 'physical')"><i class="fas fa-truck"></i> Buy Hard Copy (₦${(item.physical_price || 0).toLocaleString()})</button>` : ''}
+            <button class="modal-btn modal-btn-success" onclick="window.handleGrantAccess('${item.id}', 'premium')"><i class="fas fa-star"></i> Premium Access (Free)</button>
+            <div class="modal-btn-dropdown">
+                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()">
+                    <i class="fas fa-shopping-cart"></i> Buy
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-options" id="purchaseDropdown">
+                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}', 'digital')">📱 EPUB <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
+                    ${item.file_url ? `<button onclick="window.handlePurchase('${item.id}', 'pdf')">📄 PDF <span class="price">₦${((item.price || 0) * 0.8).toFixed(0)}</span></button>` : ''}
+                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}', 'physical')">📖 Hard Copy <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                </div>
+            </div>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else {
         footerHtml = `
-            ${hasDigital ? `<button class="modal-btn modal-btn-primary" onclick="window.purchaseItem('${item.id}', 'digital')"><i class="fas fa-shopping-cart"></i> Buy PDF/EPUB (₦${(item.price || 0).toLocaleString()})</button>` : ''}
-            ${hasPhysical ? `<button class="modal-btn modal-btn-primary" onclick="window.purchaseItem('${item.id}', 'physical')"><i class="fas fa-truck"></i> Buy Hard Copy (₦${(item.physical_price || 0).toLocaleString()})</button>` : ''}
+            <div class="modal-btn-dropdown">
+                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()">
+                    <i class="fas fa-shopping-cart"></i> Buy
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-options" id="purchaseDropdown">
+                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}', 'digital')">📱 EPUB <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
+                    ${item.file_url ? `<button onclick="window.handlePurchase('${item.id}', 'pdf')">📄 PDF <span class="price">₦${((item.price || 0) * 0.8).toFixed(0)}</span></button>` : ''}
+                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}', 'physical')">📖 Hard Copy <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                </div>
+            </div>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     }
     
     modalFooter.innerHTML = footerHtml;
     modal.classList.add('active');
+};
+
+// Helper function to create element from HTML
+function createElementFromHTML(htmlString) {
+    const div = document.createElement('div');
+    div.innerHTML = htmlString.trim();
+    return div.firstChild;
+}
+
+// Toggle purchase dropdown
+window.togglePurchaseDropdown = () => {
+    const dropdown = document.getElementById('purchaseDropdown');
+    if (dropdown) {
+        isPurchaseDropdownOpen = !isPurchaseDropdownOpen;
+        dropdown.classList.toggle('show', isPurchaseDropdownOpen);
+    }
+};
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.modal-btn-dropdown')) {
+        const dropdown = document.getElementById('purchaseDropdown');
+        if (dropdown) {
+            dropdown.classList.remove('show');
+            isPurchaseDropdownOpen = false;
+        }
+    }
+});
+
+// Download PDF
+window.downloadPDF = (itemId) => {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+    
+    if (item.file_url) {
+        const link = document.createElement('a');
+        link.href = item.file_url;
+        link.target = '_blank';
+        link.download = `${item.title.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast(`Downloading ${item.title} PDF...`, 'success');
+    } else {
+        showToast('PDF not available for this item.', 'info');
+    }
+    closeModal();
 };
 
 // ============================================
@@ -1123,6 +1221,14 @@ window.toggleSaveItem = async (itemId) => {
         renderItems();
         renderFilters();
         
+        // Update modal save button if open
+        const saveBtn = document.getElementById('modalSaveBtn');
+        if (saveBtn) {
+            saveBtn.classList.toggle('saved', savedItems.has(itemId));
+            saveBtn.innerHTML = `<i class="fas ${savedItems.has(itemId) ? 'fa-bookmark' : 'fa-bookmark'}"></i>`;
+            saveBtn.title = savedItems.has(itemId) ? 'Remove from saved' : 'Save for later';
+        }
+        
     } catch (error) {
         console.error('Error saving item:', error);
         showToast('Error updating library', 'error');
@@ -1158,11 +1264,6 @@ function setupEventListeners() {
         });
     }
     
-    const modalCloseBtn = document.getElementById('modalCloseBtn');
-    if (modalCloseBtn) {
-        modalCloseBtn.addEventListener('click', closeModal);
-    }
-    
     const modal = document.getElementById('itemModal');
     if (modal) {
         modal.addEventListener('click', (e) => {
@@ -1179,10 +1280,12 @@ function setupEventListeners() {
 window.closeModal = () => {
     const modal = document.getElementById('itemModal');
     if (modal) modal.classList.remove('active');
+    isPurchaseDropdownOpen = false;
 };
 
-window.grantFreeAccess = grantFreeAccess;
-window.grantAccess = grantAccess;
+window.handleFreeAccess = handleFreeAccess;
+window.handleGrantAccess = handleGrantAccess;
+window.handlePurchase = handlePurchase;
 
 function escapeHtml(text) {
     if (!text) return '';
@@ -1195,12 +1298,14 @@ function escapeHtml(text) {
 // EXPOSE FUNCTIONS GLOBALLY
 // ============================================
 window.viewItemDetails = viewItemDetails;
-window.purchaseItem = purchaseItem;
+window.handlePurchase = handlePurchase;
 window.startReading = startReading;
 window.downloadBundle = downloadBundle;
 window.toggleSaveItem = toggleSaveItem;
 window.closeModal = closeModal;
-window.grantFreeAccess = grantFreeAccess;
-window.grantAccess = grantAccess;
+window.handleFreeAccess = handleFreeAccess;
+window.handleGrantAccess = handleGrantAccess;
+window.downloadPDF = downloadPDF;
+window.togglePurchaseDropdown = togglePurchaseDropdown;
 
 console.log('✅ Library.js loaded successfully');
