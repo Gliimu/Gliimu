@@ -68,6 +68,10 @@ body {
     transition: background var(--transition-speed), border-color var(--transition-speed);
 }
 
+.library-header.scrolled {
+    box-shadow: var(--shadow-sm);
+}
+
 .header-container {
     max-width: 1600px;
     margin: 0 auto;
@@ -106,7 +110,13 @@ body {
     align-items: center;
     gap: 1rem;
     flex: 1;
-    justify-content: center;
+    justify-content: flex-end;
+}
+
+@media (min-width: 769px) {
+    .header-center {
+        justify-content: center;
+    }
 }
 
 /* GP Display */
@@ -280,7 +290,7 @@ body.dark-mode .gp-display {
 }
 
 /* =========================================
-   CONTENT GRID
+   CONTENT GRID - Masonry Style
    ========================================= */
 
 .content-grid {
@@ -351,15 +361,38 @@ body.dark-mode .gp-display {
     position: relative;
     background: var(--bg-card);
     box-shadow: var(--shadow-sm);
-    grid-column: span 2;
+    margin-bottom: 24px;
+}
+
+/* Talk cards span 2 columns in the grid */
+@media (min-width: 601px) {
+    .item-talk {
+        grid-column: span 2;
+        display: inline-block;
+        width: calc(200% + 24px);
+    }
+}
+
+/* For masonry, we need to handle talk cards differently */
+.content-grid .item-talk {
+    break-inside: avoid;
+    width: 100%;
+}
+
+@media (min-width: 601px) {
+    .content-grid .item-talk {
+        width: calc(200% + 24px);
+    }
 }
 
 .item-talk .card-cover {
-    aspect-ratio: 16 / 9;
     position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
     background-size: cover;
     background-position: center;
     background-color: var(--border-color);
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 .item-talk .talk-play-btn {
@@ -386,7 +419,9 @@ body.dark-mode .gp-display {
 }
 
 .item-talk .card-title-bottom {
-    padding: 8px 12px 12px;
+    padding: 12px 16px 16px;
+    background: var(--bg-card);
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
 .item-talk .card-title-bottom .title {
@@ -409,7 +444,7 @@ body.dark-mode .gp-display {
 .item-talk .card-title-bottom .talk-duration {
     font-size: 11px;
     color: var(--text-secondary);
-    margin-top: 2px;
+    margin-top: 4px;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -492,6 +527,7 @@ body.dark-mode .gp-display {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .bundle-download-btn:hover:not(:disabled) {
@@ -511,7 +547,10 @@ body.dark-mode .gp-display {
     stroke: currentColor;
 }
 
-/* Card badges */
+/* =========================================
+   CARD BADGES (Shared across all card types)
+   ========================================= */
+
 .purchased-badge {
     position: absolute;
     top: 10px;
@@ -838,7 +877,7 @@ body.dark-mode .gp-display {
 }
 
 /* =========================================
-   MODAL
+   ITEM DETAIL MODAL
    ========================================= */
 
 .modal {
@@ -1188,10 +1227,6 @@ body.dark-mode .gp-display {
         font-size: 0.85rem;
     }
     
-    .item-talk {
-        grid-column: span 1;
-    }
-    
     .item-talk .talk-play-btn {
         width: 45px;
         height: 45px;
@@ -1200,6 +1235,11 @@ body.dark-mode .gp-display {
     
     .library-main {
         padding-top: calc(var(--header-height) + 20px);
+    }
+    
+    .content-grid .item-talk {
+        width: 100%;
+        grid-column: span 1;
     }
 }
 
@@ -1257,6 +1297,17 @@ body.dark-mode .gp-display {
     .modal-btn-dropdown .dropdown-options {
         left: 50%;
         transform: translateX(-50%);
+    }
+    
+    .item-talk .talk-play-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+    
+    .content-grid .item-talk {
+        width: 100%;
+        grid-column: span 1;
     }
 }
 
