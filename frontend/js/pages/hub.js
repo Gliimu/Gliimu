@@ -16,6 +16,7 @@ let userGP = 0;
 let userWallet = 0;
 let isDropdownOpen = false;
 let isSearchOpen = false;
+let currentModalItemId = null;
 
 const GP_REWARDS = {
     purchase_book: 5,
@@ -365,7 +366,7 @@ function setupProfileDropdown() {
 }
 
 // ============================================
-// SEARCH MODAL - FIXED
+// SEARCH MODAL
 // ============================================
 function setupSearchModal() {
     const open = () => {
@@ -436,11 +437,13 @@ function setupSearchModal() {
 }
 
 // ============================================
-// ITEM DETAILS - ENHANCED
+// ITEM DETAILS - FIXED MODAL
 // ============================================
 window.viewDetails = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
     if (!item) return showToast('Item not found', 'error');
+
+    currentModalItemId = itemId;
 
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
@@ -453,16 +456,21 @@ window.viewDetails = async (itemId) => {
     DOM.modalTitle.textContent = item.title;
     DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
 
-    // Update save button
-    const newSaveBtn = DOM.modalSaveBtn.cloneNode(true);
-    DOM.modalSaveBtn.parentNode.replaceChild(newSaveBtn, DOM.modalSaveBtn);
-    newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
-    newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
-    newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
-    newSaveBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleSave(item.id);
-    });
+    // --- FIX: Update save button without breaking event listeners ---
+    const saveBtn = document.getElementById('modalSaveBtn');
+    if (saveBtn) {
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
+        newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
+        newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
+        newSaveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSave(item.id);
+        });
+        // Store reference back
+        document.getElementById('modalSaveBtn');
+    }
 
     let detailsHtml = `
         <div class="item-details">
