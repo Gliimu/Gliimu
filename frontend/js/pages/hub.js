@@ -27,6 +27,21 @@ const GP_REWARDS = {
     save_item: 1
 };
 
+// Delivery regions
+const DELIVERY_REGIONS = [
+    { id: 'abuja', name: 'Abuja', cities: ['Gwarinpa', 'Wuse', 'Maitama', 'Asokoro', 'Jabi', 'Utako', 'Garki', 'Kubwa', 'Bwari'] },
+    { id: 'lagos', name: 'Lagos', cities: ['Ikeja', 'Victoria Island', 'Lekki', 'Surulere', 'Yaba', 'Apapa', 'Maryland', 'Magodo'] },
+    { id: 'port-harcourt', name: 'Port Harcourt', cities: ['GRA', 'Rumuokwurushi', 'Ogbunabali', 'Borikiri', 'Elelenwo', 'Woji'] }
+];
+
+let currentPurchaseState = {
+    itemId: null,
+    selectedOption: null,
+    selectedLocation: null,
+    deliveryAddress: '',
+    deliveryPhone: ''
+};
+
 // ============================================
 // DOM REFS
 // ============================================
@@ -437,7 +452,7 @@ function setupSearchModal() {
 }
 
 // ============================================
-// ITEM DETAILS - FIXED MODAL
+// VIEW DETAILS - MAIN ENTRY POINT
 // ============================================
 window.viewDetails = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
@@ -445,92 +460,246 @@ window.viewDetails = async (itemId) => {
 
     currentModalItemId = itemId;
 
+    // Route to appropriate detail view based on type
+    if (item.type === 'book' || item.type === 'resource') {
+        await renderBookDetails(itemId);
+    } else if (item.type === 'talk' || item.type === 'course') {
+        await renderTalkDetails(itemId);
+    } else if (item.type === 'bundle') {
+        await renderBundleDetails(itemId);
+    } else {
+        await renderGenericDetails(itemId);
+    }
+};
+
+// ============================================
+// BOOK DETAILS - WIDE MODAL WITH CHAPTER PREVIEW
+// ============================================
+async function renderBookDetails(itemId) {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
-    const isFree = (item.price || 0) <= 0 && (item.physical_price || 0) <= 0;
     const isPremium = userGP >= 100;
-    const isTalk = item.type === 'talk' || item.type === 'course';
-    const isBundle = item.type === 'bundle';
-    const gpReward = isBundle ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
+
+    // Reset purchase state
+    currentPurchaseState.itemId = itemId;
+    currentPurchaseState.selectedOption = null;
+    currentPurchaseState.selectedLocation = null;
+
+    // Update modal to book layout - WIDE
+    const modal = DOM.itemModal;
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.classList.add('book-modal');
+
+    DOM.modalTitle.textContent = item.title;
+
+    // Update save button
+    updateSaveButton(item.id, isSaved);
+
+    // First chapter preview (mock - would come from database)
+    const firstChapter = item.first_chapter || `Chapter 1: The Beginning
+
+It was a quiet morning when everything changed. The sun rose over the horizon, painting the sky in hues of orange and gold. Little did anyone know that this day would mark the beginning of an extraordinary journey.
+
+Sarah had always dreamed of something more. She spent her days in the small town library, reading stories of adventure and discovery. The worn pages of books were her windows to worlds beyond her own.
+
+"You have to see this," her grandmother had told her years ago. "The world is bigger than you think, and you have a place in it."
+
+Those words echoed in her mind as she stood at the crossroads of her life. The choice was hers to make. The path ahead was uncertain, but one thing was clear: she was ready to take the first step...`;
+
+    const coverUrl = item.cover_url || `https://placehold.co/280x400/2c2f78/white?text=${encodeURIComponent(item.title)}`;
+    
+    let detailsHtml = `
+        <div class="book-layout">
+            <div class="book-cover-wrapper">
+                <img src="${coverUrl}" alt="${item.title}" class="book-cover-img">
+                ${!isPurchased ? `<div class="book-price-tag">₦${(item.price || 0).toLocaleString()}</div>` : ''}
+            </div>
+            <div class="book-info-wrapper">
+                <h2 class="book-title">${escape(item.title)}</h2>
+                <div class="book-author">by ${escape(item.author || 'Gliimu Team')}</div>
+                <div class="book-meta-tags">
+                    <span class="tag">📖 ${item.type || 'Book'}</span>
+                    <span class="tag">📚 ${item.category || 'General'}</span>
+                    <span class="tag">⭐ ${item.level || 'Beginner'}</span>
+                    ${isPremium ? '<span class="tag premium-tag">⭐ Premium</span>' : ''}
+                    ${isPurchased ? '<span class="tag owned-tag">✅ Owned</span>' : ''}
+                </div>
+                <div class="book-description">${escape(item.description || 'No description available.')}</div>
+                
+                <!-- First Chapter Preview - WIDE -->
+                <div class="chapter-preview-wide">
+                    <div class="chapter-header">
+                        <span class="chapter-icon">📖</span>
+                        <span class="chapter-label">First Chapter Preview</span>
+                    </div>
+                    <div class="chapter-content ${isPurchased ? '' : 'chapter-blur'}">
+                        ${escape(firstChapter)}
+                        ${!isPurchased ? '<div class="chapter-lock">🔒 Continue reading after purchase</div>' : ''}
+                    </div>
+                </div>
+    `;
+
+    // If not purchased, show purchase options
+    if (!isPurchased) {
+        const hasDigital = (item.price || 0) > 0;
+        const hasPhysical = (item.physical_price || 0) > 0;
+        const hasAudio = (item.audio_price || 0) > 0;
+        const digitalPrice = item.price || 0;
+        const physicalPrice = item.physical_price || 0;
+        const audioPrice = item.audio_price || 0;
+
+        detailsHtml += `
+                <div class="purchase-section">
+                    <div class="purchase-options-grid">
+                        ${hasDigital ? `
+                            <div class="purchase-option-card" data-type="digital" onclick="selectPurchaseOption('digital', ${digitalPrice})">
+                                <span class="option-icon">📱</span>
+                                <span class="option-name">Digital</span>
+                                <span class="option-price ${digitalPrice === 0 ? 'free' : ''}">${digitalPrice === 0 ? 'Free' : '₦' + digitalPrice.toLocaleString()}</span>
+                                <span class="option-desc">Read online</span>
+                                ${isPremium && digitalPrice > 0 ? '<span class="option-badge">⭐ Free with Premium</span>' : ''}
+                            </div>
+                        ` : ''}
+                        ${hasPhysical ? `
+                            <div class="purchase-option-card" data-type="physical" onclick="selectPurchaseOption('physical', ${physicalPrice})">
+                                <span class="option-icon">📖</span>
+                                <span class="option-name">Hard Copy</span>
+                                <span class="option-price">₦${physicalPrice.toLocaleString()}</span>
+                                <span class="option-desc">+ shipping</span>
+                            </div>
+                        ` : ''}
+                        ${hasAudio ? `
+                            <div class="purchase-option-card" data-type="audio" onclick="selectPurchaseOption('audio', ${audioPrice})">
+                                <span class="option-icon">🎧</span>
+                                <span class="option-name">Audio Book</span>
+                                <span class="option-price">₦${audioPrice.toLocaleString()}</span>
+                                <span class="option-desc">Listen anywhere</span>
+                            </div>
+                        ` : ''}
+                        ${isPremium && hasDigital ? `
+                            <div class="purchase-option-card premium-option" data-type="premium" onclick="selectPurchaseOption('premium', 0)">
+                                <span class="option-icon">⭐</span>
+                                <span class="option-name">Premium Access</span>
+                                <span class="option-price free">FREE</span>
+                                <span class="option-desc">Unlocked with GP</span>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Delivery Section -->
+                    <div class="delivery-section" id="deliverySection">
+                        <h4>📦 Delivery Options</h4>
+                        <div class="location-selector">
+                            <div class="location-option" data-location="pickup" onclick="selectLocation('pickup')">
+                                <span class="location-icon">🏢</span>
+                                <span class="location-name">Pickup at Office</span>
+                                <span class="location-desc">Gwarinpa, Abuja</span>
+                            </div>
+                            <div class="location-option" data-location="delivery" onclick="selectLocation('delivery')">
+                                <span class="location-icon">🚚</span>
+                                <span class="location-name">Home Delivery</span>
+                                <span class="location-desc">We deliver to your address</span>
+                            </div>
+                        </div>
+                        <div id="deliveryDetails">
+                            <div class="form-group">
+                                <label>Region</label>
+                                <select id="deliveryRegion" onchange="updateDeliveryCities()">
+                                    <option value="">Select your region</option>
+                                    ${DELIVERY_REGIONS.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>City</label>
+                                <select id="deliveryCity">
+                                    <option value="">Select your city</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Full Address</label>
+                                <input type="text" id="deliveryAddress" placeholder="House number, street, landmark">
+                            </div>
+                            <div class="form-group">
+                                <label>Phone Number</label>
+                                <input type="tel" id="deliveryPhone" placeholder="080XXXXXXXX">
+                            </div>
+                            <div class="delivery-note">
+                                📦 Delivery takes 3-5 business days. Shipping fees apply based on location.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Purchase Summary -->
+                    <div class="purchase-summary" id="purchaseSummary">
+                        <span class="summary-label">Total:</span>
+                        <span class="summary-total" id="summaryTotal">₦0</span>
+                    </div>
+                    <button class="purchase-btn" id="purchaseBtn" disabled>
+                        Select an option to purchase
+                    </button>
+                </div>
+        `;
+    } else {
+        // Already purchased
+        detailsHtml += `
+                <div class="purchase-section">
+                    <button class="purchase-btn primary" onclick="window.open('${item.file_url || '#'}','_blank')">
+                        <i class="fas fa-book-open"></i> Read Now
+                    </button>
+                </div>
+        `;
+    }
+
+    detailsHtml += `
+            </div>
+        </div>
+    `;
+
+    DOM.modalDesc.innerHTML = detailsHtml;
+    DOM.modalImage.style.display = 'none';
+
+    // Store purchase button references
+    DOM.purchaseBtn = document.getElementById('purchaseBtn');
+    DOM.purchaseSummary = document.getElementById('purchaseSummary');
+    DOM.summaryTotal = document.getElementById('summaryTotal');
+    DOM.deliverySection = document.getElementById('deliverySection');
+
+    modal.classList.add('active');
+}
+
+// ============================================
+// TALK DETAILS
+// ============================================
+async function renderTalkDetails(itemId) {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const isPurchased = purchasedItems.has(item.id);
+    const isSaved = savedItems.has(item.id);
+    const isPremium = userGP >= 100;
+
+    // Reset modal style
+    const modal = DOM.itemModal;
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.classList.remove('book-modal');
 
     DOM.modalTitle.textContent = item.title;
     DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
+    DOM.modalImage.style.display = 'block';
 
-    // --- FIX: Update save button without breaking event listeners ---
-    const saveBtn = document.getElementById('modalSaveBtn');
-    if (saveBtn) {
-        const newSaveBtn = saveBtn.cloneNode(true);
-        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-        newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
-        newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
-        newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
-        newSaveBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleSave(item.id);
-        });
-        // Store reference back
-        document.getElementById('modalSaveBtn');
-    }
+    updateSaveButton(item.id, isSaved);
 
     let detailsHtml = `
         <div class="item-details">
-            <p><strong>${isTalk ? 'Speaker' : 'Author'}:</strong> ${escape(item.author || 'Gliimu Team')}</p>
-            <p><strong>Type:</strong> ${isTalk ? '🎙️ Talk' : isBundle ? '📦 Bundle' : '📖 Book'}</p>
+            <p><strong>Speaker:</strong> ${escape(item.author || 'Gliimu Team')}</p>
+            <p><strong>Type:</strong> 🎙️ Talk</p>
+            ${item.duration ? `<p><strong>Duration:</strong> ${item.duration}</p>` : ''}
             ${isPremium ? `<p><span class="premium-badge">⭐ Premium Access</span></p>` : ''}
             ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
-    `;
-
-    // Price options grid
-    if (!isPurchased && !isFree && !isTalk) {
-        const hasDigital = (item.price || 0) > 0;
-        const hasPhysical = (item.physical_price || 0) > 0;
-        const hasAudio = item.audio_price || 0;
-
-        detailsHtml += `
-            <div class="price-options-grid">
-                ${hasDigital ? `
-                    <div class="price-option">
-                        <span class="format">📱 Digital</span>
-                        <span class="amount ${item.price === 0 ? 'free' : ''}">${item.price === 0 ? 'Free' : '₦' + (item.price || 0).toLocaleString()}</span>
-                    </div>
-                ` : ''}
-                ${hasPhysical ? `
-                    <div class="price-option">
-                        <span class="format">📖 Physical</span>
-                        <span class="amount">₦${(item.physical_price || 0).toLocaleString()}</span>
-                    </div>
-                ` : ''}
-                ${hasAudio ? `
-                    <div class="price-option">
-                        <span class="format">🎧 Audio</span>
-                        <span class="amount">₦${(item.audio_price || 0).toLocaleString()}</span>
-                    </div>
-                ` : ''}
-                ${isPremium && hasDigital ? `
-                    <div class="price-option" style="border-color:#8b5cf6;">
-                        <span class="format">⭐ Premium</span>
-                        <span class="amount premium">FREE</span>
-                    </div>
-                ` : ''}
-                ${!isPurchased ? `
-                    <div class="price-option" style="border-color:#8b5cf6;">
-                        <span class="format">⭐ GP Earned</span>
-                        <span class="amount premium">+${gpReward} GP</span>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    }
-
-    if (isPremium && !isPurchased && !isTalk && (item.price || 0) > 0) {
-        detailsHtml += `
-            <div class="premium-notice">✨ Premium users get digital access FREE!</div>
-        `;
-    }
-
-    // Talk engagement section
-    if (isTalk) {
-        detailsHtml += `
+            
             <div class="talk-engagement">
                 <button class="engagement-btn" onclick="window.likeTalk('${item.id}')">
                     <i class="far fa-heart"></i> <span class="count">${item.likes || 0}</span>
@@ -542,59 +711,442 @@ window.viewDetails = async (itemId) => {
                     <i class="far fa-comment"></i> <span class="count">${item.comments || 0}</span>
                 </button>
             </div>
-        `;
-    }
-
-    detailsHtml += `
+            
             <div class="description-text">${escape(item.description || 'No description available.')}</div>
         </div>
     `;
 
     DOM.modalDesc.innerHTML = detailsHtml;
 
-    // Build footer buttons
     let footerHtml = '';
     if (isPurchased) {
         footerHtml = `
-            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-${isTalk ? 'play' : 'book-open'}"></i> ${isTalk ? 'Watch' : 'Read'}</button>` : ''}
-            ${isBundle && item.download_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download</button>` : ''}
+            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-play"></i> Watch Now</button>` : ''}
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
-    } else if (isFree || isTalk) {
+    } else if (item.price === 0 || !item.price) {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-${isTalk ? 'play' : 'gift'}"></i> ${isTalk ? 'Watch Now' : 'Purchase'}</button>
+            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-play"></i> Watch Now</button>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
-    } else if (isPremium && (item.price || 0) > 0 && !isTalk) {
+    } else {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.handleGrantAccess('${item.id}')"><i class="fas fa-star"></i> Premium Free</button>
-            <div class="modal-btn-dropdown">
-                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()"><i class="fas fa-shopping-cart"></i> Buy <i class="fas fa-chevron-down"></i></button>
-                <div class="dropdown-options" id="purchaseDropdown">
-                    ${(item.price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
-                    ${(item.physical_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
-                    ${(item.audio_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','audio')">🎧 Audio <span class="price">₦${(item.audio_price || 0).toLocaleString()}</span></button>` : ''}
-                </div>
-            </div>
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
-        `;
-    } else if (!isTalk) {
-        footerHtml = `
-            <div class="modal-btn-dropdown">
-                <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()"><i class="fas fa-shopping-cart"></i> Buy <i class="fas fa-chevron-down"></i></button>
-                <div class="dropdown-options" id="purchaseDropdown">
-                    ${(item.price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
-                    ${(item.physical_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
-                    ${(item.audio_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','audio')">🎧 Audio <span class="price">₦${(item.audio_price || 0).toLocaleString()}</span></button>` : ''}
-                </div>
-            </div>
+            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','digital')"><i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})</button>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     }
 
     DOM.modalFooter.innerHTML = footerHtml;
-    DOM.itemModal.classList.add('active');
+    modal.classList.add('active');
+}
+
+// ============================================
+// BUNDLE DETAILS
+// ============================================
+async function renderBundleDetails(itemId) {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const isPurchased = purchasedItems.has(item.id);
+    const isSaved = savedItems.has(item.id);
+
+    // Reset modal style
+    const modal = DOM.itemModal;
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.classList.remove('book-modal');
+
+    DOM.modalTitle.textContent = item.title;
+    DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
+    DOM.modalImage.style.display = 'block';
+
+    updateSaveButton(item.id, isSaved);
+
+    let detailsHtml = `
+        <div class="item-details">
+            <p><strong>Author:</strong> ${escape(item.author || 'Gliimu Team')}</p>
+            <p><strong>Type:</strong> 📦 Bundle</p>
+            <p><strong>Includes:</strong> ${item.includes || 'Multiple resources'}</p>
+            ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
+            ${item.price > 0 ? `<p><strong>Price:</strong> ₦${(item.price || 0).toLocaleString()}</p>` : '<p><strong>Price:</strong> Free</p>'}
+            
+            <div class="description-text">${escape(item.description || 'No description available.')}</div>
+        </div>
+    `;
+
+    DOM.modalDesc.innerHTML = detailsHtml;
+
+    let footerHtml = '';
+    if (isPurchased) {
+        footerHtml = `
+            ${item.download_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download Bundle</button>` : ''}
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    } else if (item.price === 0 || !item.price) {
+        footerHtml = `
+            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Bundle</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    } else {
+        footerHtml = `
+            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','bundle')"><i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    }
+
+    DOM.modalFooter.innerHTML = footerHtml;
+    modal.classList.add('active');
+}
+
+// ============================================
+// GENERIC DETAILS (Fallback)
+// ============================================
+async function renderGenericDetails(itemId) {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const isPurchased = purchasedItems.has(item.id);
+    const isSaved = savedItems.has(item.id);
+
+    // Reset modal style
+    const modal = DOM.itemModal;
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.classList.remove('book-modal');
+
+    DOM.modalTitle.textContent = item.title;
+    DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
+    DOM.modalImage.style.display = 'block';
+
+    updateSaveButton(item.id, isSaved);
+
+    let detailsHtml = `
+        <div class="item-details">
+            <p><strong>Type:</strong> ${item.type || 'Resource'}</p>
+            ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
+            <div class="description-text">${escape(item.description || 'No description available.')}</div>
+        </div>
+    `;
+
+    DOM.modalDesc.innerHTML = detailsHtml;
+
+    let footerHtml = '';
+    if (isPurchased) {
+        footerHtml = `
+            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-eye"></i> View</button>` : ''}
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    } else if (item.price === 0 || !item.price) {
+        footerHtml = `
+            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Access</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    } else {
+        footerHtml = `
+            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','digital')"><i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
+        `;
+    }
+
+    DOM.modalFooter.innerHTML = footerHtml;
+    modal.classList.add('active');
+}
+
+// ============================================
+// SAVE BUTTON HELPER
+// ============================================
+function updateSaveButton(itemId, isSaved) {
+    const saveBtn = document.getElementById('modalSaveBtn');
+    if (saveBtn) {
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
+        newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
+        newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
+        newSaveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSave(itemId);
+        });
+        document.getElementById('modalSaveBtn');
+    }
+}
+
+// ============================================
+// PURCHASE OPTION SELECTION
+// ============================================
+window.selectPurchaseOption = (type, price) => {
+    // Deselect all
+    document.querySelectorAll('.purchase-option-card').forEach(el => el.classList.remove('selected'));
+    
+    // Select clicked option
+    const optionEl = document.querySelector(`.purchase-option-card[data-type="${type}"]`);
+    if (optionEl) optionEl.classList.add('selected');
+
+    currentPurchaseState.selectedOption = type;
+    
+    // Show/hide delivery section for physical
+    if (type === 'physical') {
+        DOM.deliverySection.classList.add('active');
+        document.querySelectorAll('.location-option').forEach(el => el.classList.remove('selected'));
+        currentPurchaseState.selectedLocation = null;
+        document.getElementById('deliveryDetails').style.display = 'none';
+    } else {
+        DOM.deliverySection.classList.remove('active');
+        currentPurchaseState.selectedLocation = null;
+    }
+
+    // Update summary
+    const isPremium = userGP >= 100;
+    let finalPrice = price;
+    if (isPremium && type === 'digital' && price > 0) {
+        finalPrice = 0;
+    }
+    
+    DOM.summaryTotal.textContent = `₦${finalPrice.toLocaleString()}`;
+    DOM.purchaseSummary.style.display = 'flex';
+    DOM.purchaseBtn.disabled = false;
+    DOM.purchaseBtn.textContent = type === 'premium' ? '⭐ Get Premium Access' : `Purchase ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    DOM.purchaseBtn.className = `purchase-btn ${type === 'premium' ? 'success' : 'gold'}`;
+    
+    currentPurchaseState.selectedPrice = finalPrice;
 };
+
+// ============================================
+// LOCATION SELECTION
+// ============================================
+window.selectLocation = (type) => {
+    document.querySelectorAll('.location-option').forEach(el => el.classList.remove('selected'));
+    const locationEl = document.querySelector(`.location-option[data-location="${type}"]`);
+    if (locationEl) locationEl.classList.add('selected');
+
+    currentPurchaseState.selectedLocation = type;
+
+    if (type === 'pickup') {
+        document.getElementById('deliveryDetails').style.display = 'none';
+        DOM.purchaseBtn.disabled = false;
+        DOM.purchaseBtn.textContent = 'Confirm Pickup & Purchase';
+    } else {
+        document.getElementById('deliveryDetails').style.display = 'block';
+        DOM.purchaseBtn.disabled = true;
+        DOM.purchaseBtn.textContent = 'Please fill in delivery details';
+    }
+};
+
+window.updateDeliveryCities = () => {
+    const region = document.getElementById('deliveryRegion').value;
+    const citySelect = document.getElementById('deliveryCity');
+    citySelect.innerHTML = '<option value="">Select your city</option>';
+    
+    if (region) {
+        const regionData = DELIVERY_REGIONS.find(r => r.id === region);
+        if (regionData) {
+            regionData.cities.forEach(city => {
+                citySelect.innerHTML += `<option value="${city}">${city}</option>`;
+            });
+        }
+    }
+    validateDeliveryForm();
+};
+
+function validateDeliveryForm() {
+    const region = document.getElementById('deliveryRegion').value;
+    const city = document.getElementById('deliveryCity').value;
+    const address = document.getElementById('deliveryAddress').value.trim();
+    const phone = document.getElementById('deliveryPhone').value.trim();
+    
+    const isValid = region && city && address && phone && phone.length >= 10;
+    
+    if (DOM.purchaseBtn) {
+        if (isValid) {
+            DOM.purchaseBtn.disabled = false;
+            DOM.purchaseBtn.textContent = '🚚 Confirm Delivery & Purchase';
+        } else {
+            DOM.purchaseBtn.disabled = true;
+            DOM.purchaseBtn.textContent = 'Please fill in all delivery details';
+        }
+    }
+}
+
+// ============================================
+// COMPLETE PURCHASE
+// ============================================
+document.addEventListener('click', async (e) => {
+    if (e.target.id === 'purchaseBtn' || e.target.closest('#purchaseBtn')) {
+        await completePurchase();
+    }
+});
+
+async function completePurchase() {
+    const item = allItems.find(i => i.id === currentPurchaseState.itemId);
+    if (!item) return showToast('Item not found', 'error');
+
+    const { selectedOption, selectedPrice, selectedLocation } = currentPurchaseState;
+
+    if (!selectedOption) {
+        showToast('Please select a purchase option', 'error');
+        return;
+    }
+
+    // Handle premium access
+    if (selectedOption === 'premium') {
+        await handleGrantAccess(item.id);
+        return;
+    }
+
+    // Handle physical with delivery
+    if (selectedOption === 'physical') {
+        if (!selectedLocation) {
+            showToast('Please select pickup or delivery', 'error');
+            return;
+        }
+
+        if (selectedLocation === 'delivery') {
+            const region = document.getElementById('deliveryRegion').value;
+            const city = document.getElementById('deliveryCity').value;
+            const address = document.getElementById('deliveryAddress').value.trim();
+            const phone = document.getElementById('deliveryPhone').value.trim();
+
+            if (!region || !city || !address || !phone) {
+                showToast('Please fill in all delivery details', 'error');
+                return;
+            }
+
+            // Check if we can deliver to this region
+            const regionData = DELIVERY_REGIONS.find(r => r.id === region);
+            if (!regionData) {
+                showToast('We are currently unable to ship to your chosen location', 'error');
+                return;
+            }
+
+            // Create delivery order
+            const deliveryData = {
+                item_id: item.id,
+                item_title: item.title,
+                user_id: currentUser.id,
+                user_name: currentUser.name,
+                user_email: currentUser.email,
+                type: 'physical',
+                amount: selectedPrice,
+                region: regionData.name,
+                city: city,
+                address: address,
+                phone: phone,
+                pickup: false,
+                status: 'pending',
+                created_at: new Date().toISOString()
+            };
+
+            const { error: deliveryError } = await supabase
+                .from('delivery_orders')
+                .insert([deliveryData]);
+
+            if (deliveryError) {
+                console.error('Delivery order error:', deliveryError);
+                showToast('Error processing delivery', 'error');
+                return;
+            }
+
+            await notifyAdmin('delivery_order', deliveryData);
+        } else {
+            // Pickup at office
+            const pickupData = {
+                item_id: item.id,
+                item_title: item.title,
+                user_id: currentUser.id,
+                user_name: currentUser.name,
+                user_email: currentUser.email,
+                type: 'physical',
+                amount: selectedPrice,
+                pickup: true,
+                pickup_location: 'Gliimu Office, Gwarinpa, Abuja',
+                status: 'pending',
+                created_at: new Date().toISOString()
+            };
+
+            const { error: pickupError } = await supabase
+                .from('delivery_orders')
+                .insert([pickupData]);
+
+            if (pickupError) {
+                console.error('Pickup order error:', pickupError);
+                showToast('Error processing pickup', 'error');
+                return;
+            }
+
+            await notifyAdmin('pickup_order', pickupData);
+        }
+
+        // Process payment
+        await processPayment(item.id, selectedOption, selectedPrice);
+        return;
+    }
+
+    // Digital or audio purchase
+    await processPayment(item.id, selectedOption, selectedPrice);
+}
+
+// ============================================
+// PROCESS PAYMENT
+// ============================================
+async function processPayment(itemId, type, price) {
+    if (!currentUser) return showToast('Please login', 'error');
+
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return showToast('Item not found', 'error');
+
+    // Check if premium and digital
+    const isPremium = userGP >= 100;
+    if (isPremium && type === 'digital' && price > 0) {
+        price = 0;
+    }
+
+    if (price <= 0) {
+        await handleFreeAccess(itemId);
+        return;
+    }
+
+    if (purchasedItems.has(itemId)) {
+        showToast('Already owned', 'info');
+        closeModal();
+        return;
+    }
+
+    try {
+        const { data: user } = await supabase
+            .from('users')
+            .select('wallet_balance')
+            .eq('id', currentUser.id)
+            .single();
+
+        if ((user?.wallet_balance || 0) < price) {
+            showToast(`Need ₦${(price - (user?.wallet_balance || 0)).toLocaleString()} more`, 'error');
+            return;
+        }
+
+        await supabase
+            .from('users')
+            .update({ wallet_balance: (user?.wallet_balance || 0) - price })
+            .eq('id', currentUser.id);
+
+        await supabase
+            .from('user_purchases')
+            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: type, amount: price });
+
+        purchasedItems.add(itemId);
+        const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
+
+        showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        renderItems();
+        closeModal();
+
+        if (type === 'digital' && item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+            }, 800);
+        }
+    } catch (e) {
+        console.error('Purchase error:', e);
+        showToast('Purchase failed', 'error');
+    }
+}
 
 // ============================================
 // PURCHASE FUNCTIONS
@@ -608,6 +1160,7 @@ window.handlePurchase = async (itemId, type) => {
     let price = 0;
     if (type === 'physical') price = item.physical_price || 0;
     else if (type === 'audio') price = item.audio_price || 0;
+    else if (type === 'bundle') price = item.price || 0;
     else price = item.price || 0;
 
     if (price <= 0) return handleFreeAccess(itemId);
@@ -710,7 +1263,6 @@ window.likeTalk = async (itemId) => {
     await supabase.from('library_items').update({ likes }).eq('id', itemId);
     item.likes = likes;
     showToast('❤️ Liked!', 'success');
-    // Refresh engagement display
     const countEl = document.querySelector('.engagement-btn .count');
     if (countEl) countEl.textContent = likes;
 };
@@ -795,560 +1347,10 @@ async function toggleSave(itemId) {
 }
 
 // ============================================
-// DROPDOWN TOGGLE
-// ============================================
-window.togglePurchaseDropdown = () => {
-    const dd = document.getElementById('purchaseDropdown');
-    if (dd) {
-        const isOpen = dd.classList.contains('show');
-        document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
-        if (!isOpen) dd.classList.add('show');
-    }
-};
-
-document.addEventListener('click', () => {
-    document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
-});
-
-// ============================================
-// MODAL CONTROLS
-// ============================================
-window.closeModal = () => {
-    DOM.itemModal.classList.remove('active');
-    document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
-};
-
-DOM.modalCloseBtn?.addEventListener('click', closeModal);
-DOM.itemModal?.addEventListener('click', (e) => {
-    if (e.target === DOM.itemModal) closeModal();
-});
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        if (DOM.itemModal.classList.contains('active')) closeModal();
-    }
-});
-
-// ============================================
-// BOOK DETAILS WITH PURCHASE FLOW
-// ============================================
-
-// Delivery regions we support
-const DELIVERY_REGIONS = [
-    { id: 'abuja', name: 'Abuja', cities: ['Gwarinpa', 'Wuse', 'Maitama', 'Asokoro', 'Jabi', 'Utako', 'Garki', 'Kubwa', 'Bwari'] },
-    { id: 'lagos', name: 'Lagos', cities: ['Ikeja', 'Victoria Island', 'Lekki', 'Surulere', 'Yaba', 'Apapa', 'Maryland', 'Magodo'] },
-    { id: 'port-harcourt', name: 'Port Harcourt', cities: ['GRA', 'Rumuokwurushi', 'Ogbunabali', 'Borikiri', 'Elelenwo', 'Woji'] }
-];
-
-// Store current purchase state
-let currentPurchaseState = {
-    itemId: null,
-    selectedOption: null,
-    selectedLocation: null,
-    deliveryAddress: '',
-    deliveryPhone: ''
-};
-
-// ============================================
-// BOOK DETAILS VIEW
-// ============================================
-window.viewBookDetails = async (itemId) => {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return showToast('Item not found', 'error');
-
-    currentModalItemId = itemId;
-    currentPurchaseState.itemId = itemId;
-    currentPurchaseState.selectedOption = null;
-    currentPurchaseState.selectedLocation = null;
-    currentPurchaseState.deliveryAddress = '';
-    currentPurchaseState.deliveryPhone = '';
-
-    const isPurchased = purchasedItems.has(item.id);
-    const isSaved = savedItems.has(item.id);
-    const isPremium = userGP >= 100;
-
-    // First chapter preview (mock - would come from database)
-    const firstChapter = item.first_chapter || `Chapter 1: The Beginning
-
-It was a quiet morning when everything changed. The sun rose over the horizon, painting the sky in hues of orange and gold. Little did anyone know that this day would mark the beginning of an extraordinary journey.
-
-Sarah had always dreamed of something more. She spent her days in the small town library, reading stories of adventure and discovery. The worn pages of books were her windows to worlds beyond her own.
-
-"You have to see this," her grandmother had told her years ago. "The world is bigger than you think, and you have a place in it."
-
-Those words echoed in her mind as she stood at the crossroads of her life. The choice was hers to make. The path ahead was uncertain, but one thing was clear: she was ready to take the first step...`;
-
-    // Determine pricing
-    const hasDigital = (item.price || 0) > 0;
-    const hasPhysical = (item.physical_price || 0) > 0;
-    const hasAudio = (item.audio_price || 0) > 0;
-    const digitalPrice = item.price || 0;
-    const physicalPrice = item.physical_price || 0;
-    const audioPrice = item.audio_price || 0;
-
-    // Update modal to book layout
-    const modal = DOM.itemModal;
-    const modalContent = modal.querySelector('.modal-content');
-    modalContent.classList.add('book-modal');
-
-    DOM.modalTitle.textContent = item.title;
-
-    // Update save button
-    const saveBtn = document.getElementById('modalSaveBtn');
-    if (saveBtn) {
-        const newSaveBtn = saveBtn.cloneNode(true);
-        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-        newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
-        newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
-        newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
-        newSaveBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleSave(item.id);
-        });
-        document.getElementById('modalSaveBtn');
-    }
-
-    // Build book details
-    const coverUrl = item.cover_url || `https://placehold.co/280x400/2c2f78/white?text=${encodeURIComponent(item.title)}`;
-    
-    let detailsHtml = `
-        <img src="${coverUrl}" alt="${item.title}" class="book-cover">
-        <div class="book-info">
-            <div class="book-title">${escape(item.title)}</div>
-            <div class="book-author">by ${escape(item.author || 'Gliimu Team')}</div>
-            <div class="book-meta">
-                <span>📖 ${item.type || 'Book'}</span>
-                <span>📚 ${item.category || 'General'}</span>
-                <span>⭐ ${item.level || 'Beginner'}</span>
-                ${isPremium ? '<span class="premium-badge">⭐ Premium</span>' : ''}
-                ${isPurchased ? '<span class="owned-badge">✅ Owned</span>' : ''}
-            </div>
-            <div class="book-description">${escape(item.description || 'No description available.')}</div>
-            
-            <!-- First Chapter Preview -->
-            <div class="chapter-preview">
-                <div class="chapter-title">📖 First Chapter Preview</div>
-                <div class="chapter-text ${isPurchased ? '' : 'chapter-blur'}">
-                    ${escape(firstChapter)}
-                </div>
-            </div>
-    `;
-
-    // If not purchased, show purchase options
-    if (!isPurchased) {
-        const hasOptions = hasDigital || hasPhysical || hasAudio || isPremium;
-        
-        if (hasOptions) {
-            detailsHtml += `
-                <div class="purchase-options" id="purchaseOptions">
-                    ${hasDigital ? `
-                        <div class="purchase-option" data-type="digital" data-price="${digitalPrice}" onclick="selectPurchaseOption('digital', ${digitalPrice})">
-                            <span class="option-format">📱 Digital (Read Online)</span>
-                            <span class="option-price ${digitalPrice === 0 ? 'free' : ''}">${digitalPrice === 0 ? 'Free' : '₦' + digitalPrice.toLocaleString()}</span>
-                            ${isPremium && digitalPrice > 0 ? '<span class="option-badge">⭐ Premium Free</span>' : ''}
-                        </div>
-                    ` : ''}
-                    ${hasPhysical ? `
-                        <div class="purchase-option" data-type="physical" data-price="${physicalPrice}" onclick="selectPurchaseOption('physical', ${physicalPrice})">
-                            <span class="option-format">📖 Hard Copy</span>
-                            <span class="option-price">₦${physicalPrice.toLocaleString()}</span>
-                            <span class="option-badge">+ Shipping</span>
-                        </div>
-                    ` : ''}
-                    ${hasAudio ? `
-                        <div class="purchase-option" data-type="audio" data-price="${audioPrice}" onclick="selectPurchaseOption('audio', ${audioPrice})">
-                            <span class="option-format">🎧 Audio Book</span>
-                            <span class="option-price">₦${audioPrice.toLocaleString()}</span>
-                        </div>
-                    ` : ''}
-                    ${isPremium && hasDigital ? `
-                        <div class="purchase-option" data-type="premium" data-price="0" onclick="selectPurchaseOption('premium', 0)" style="border-color:#8b5cf6;">
-                            <span class="option-format">⭐ Premium Access</span>
-                            <span class="option-price premium">FREE</span>
-                            <span class="option-badge">Unlocked with GP</span>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        }
-
-        // Delivery section (shown when physical is selected)
-        detailsHtml += `
-            <div class="delivery-section" id="deliverySection">
-                <h4 style="font-size:0.9rem; margin-bottom:0.75rem;">📦 Delivery Options</h4>
-                <div class="form-group">
-                    <label>Pickup Location</label>
-                    <div class="location-selector" id="locationSelector">
-                        <div class="location-option" data-location="pickup" onclick="selectLocation('pickup')">
-                            <span class="location-icon">🏢</span>
-                            <span class="location-name">Pickup at Office</span>
-                            <span class="location-desc">Gwarinpa, Abuja</span>
-                        </div>
-                        <div class="location-option" data-location="delivery" onclick="selectLocation('delivery')">
-                            <span class="location-icon">🚚</span>
-                            <span class="location-name">Home Delivery</span>
-                            <span class="location-desc">We deliver to your address</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="deliveryDetails" style="display:none;">
-                    <div class="form-group">
-                        <label>Region</label>
-                        <select id="deliveryRegion" onchange="updateDeliveryCities()">
-                            <option value="">Select your region</option>
-                            ${DELIVERY_REGIONS.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>City</label>
-                        <select id="deliveryCity">
-                            <option value="">Select your city</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Full Address</label>
-                        <input type="text" id="deliveryAddress" placeholder="House number, street, landmark">
-                    </div>
-                    <div class="form-group">
-                        <label>Phone Number</label>
-                        <input type="tel" id="deliveryPhone" placeholder="080XXXXXXXX">
-                    </div>
-                    <div class="delivery-note">
-                        📦 Delivery typically takes 3-5 business days. Shipping fees apply based on location.
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Purchase summary
-        detailsHtml += `
-            <div class="purchase-summary" id="purchaseSummary" style="display:none;">
-                <span class="summary-label">Total:</span>
-                <span class="summary-total" id="summaryTotal">₦0</span>
-            </div>
-            <button class="purchase-btn purchase-btn-gold" id="purchaseBtn" disabled>
-                Select an option to purchase
-            </button>
-        `;
-    } else {
-        // Already purchased - show read button
-        detailsHtml += `
-            <button class="purchase-btn purchase-btn-primary" onclick="window.open('${item.file_url || '#'}','_blank')">
-                <i class="fas fa-book-open"></i> Read Now
-            </button>
-        `;
-    }
-
-    detailsHtml += `</div>`; // Close book-info
-
-    DOM.modalDesc.innerHTML = detailsHtml;
-    DOM.modalImage.style.display = 'none'; // Hide default image, using book-cover instead
-
-    // If purchased, we're done
-    if (isPurchased) {
-        DOM.modalFooter.innerHTML = `
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
-        `;
-        modal.classList.add('active');
-        return;
-    }
-
-    // Store references to purchase elements
-    DOM.purchaseBtn = document.getElementById('purchaseBtn');
-    DOM.purchaseSummary = document.getElementById('purchaseSummary');
-    DOM.summaryTotal = document.getElementById('summaryTotal');
-    DOM.deliverySection = document.getElementById('deliverySection');
-
-    modal.classList.add('active');
-};
-
-// ============================================
-// PURCHASE OPTION SELECTION
-// ============================================
-window.selectPurchaseOption = (type, price) => {
-    // Deselect all
-    document.querySelectorAll('.purchase-option').forEach(el => el.classList.remove('selected'));
-    
-    // Select clicked option
-    const optionEl = document.querySelector(`.purchase-option[data-type="${type}"]`);
-    if (optionEl) optionEl.classList.add('selected');
-
-    currentPurchaseState.selectedOption = type;
-    
-    // Show/hide delivery section for physical
-    if (type === 'physical') {
-        DOM.deliverySection.classList.add('active');
-        // Reset location selection
-        document.querySelectorAll('.location-option').forEach(el => el.classList.remove('selected'));
-        currentPurchaseState.selectedLocation = null;
-        document.getElementById('deliveryDetails').style.display = 'none';
-    } else {
-        DOM.deliverySection.classList.remove('active');
-        currentPurchaseState.selectedLocation = null;
-    }
-
-    // Update summary
-    const isPremium = userGP >= 100;
-    let finalPrice = price;
-    if (isPremium && type === 'digital' && price > 0) {
-        finalPrice = 0;
-    }
-    
-    DOM.summaryTotal.textContent = `₦${finalPrice.toLocaleString()}`;
-    DOM.purchaseSummary.style.display = 'flex';
-    DOM.purchaseBtn.disabled = false;
-    DOM.purchaseBtn.textContent = type === 'premium' ? '⭐ Get Premium Access' : `Purchase ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-    DOM.purchaseBtn.className = `purchase-btn ${type === 'premium' ? 'purchase-btn-success' : 'purchase-btn-gold'}`;
-    
-    // Store price for purchase
-    currentPurchaseState.selectedPrice = finalPrice;
-};
-
-// ============================================
-// LOCATION SELECTION
-// ============================================
-window.selectLocation = (type) => {
-    document.querySelectorAll('.location-option').forEach(el => el.classList.remove('selected'));
-    const locationEl = document.querySelector(`.location-option[data-location="${type}"]`);
-    if (locationEl) locationEl.classList.add('selected');
-
-    currentPurchaseState.selectedLocation = type;
-
-    if (type === 'pickup') {
-        document.getElementById('deliveryDetails').style.display = 'none';
-        DOM.purchaseBtn.disabled = false;
-        DOM.purchaseBtn.textContent = 'Confirm Pickup & Purchase';
-    } else {
-        document.getElementById('deliveryDetails').style.display = 'block';
-        // Check if user can actually select delivery
-        DOM.purchaseBtn.disabled = true;
-        DOM.purchaseBtn.textContent = 'Please fill in delivery details';
-    }
-};
-
-window.updateDeliveryCities = () => {
-    const region = document.getElementById('deliveryRegion').value;
-    const citySelect = document.getElementById('deliveryCity');
-    citySelect.innerHTML = '<option value="">Select your city</option>';
-    
-    if (region) {
-        const regionData = DELIVERY_REGIONS.find(r => r.id === region);
-        if (regionData) {
-            regionData.cities.forEach(city => {
-                citySelect.innerHTML += `<option value="${city}">${city}</option>`;
-            });
-        }
-    }
-    validateDeliveryForm();
-};
-
-// Validate delivery form
-document.addEventListener('change', (e) => {
-    if (e.target.id === 'deliveryRegion' || e.target.id === 'deliveryCity' || 
-        e.target.id === 'deliveryAddress' || e.target.id === 'deliveryPhone') {
-        validateDeliveryForm();
-    }
-});
-
-function validateDeliveryForm() {
-    const region = document.getElementById('deliveryRegion').value;
-    const city = document.getElementById('deliveryCity').value;
-    const address = document.getElementById('deliveryAddress').value.trim();
-    const phone = document.getElementById('deliveryPhone').value.trim();
-    
-    const isValid = region && city && address && phone && phone.length >= 10;
-    
-    if (DOM.purchaseBtn) {
-        if (isValid) {
-            DOM.purchaseBtn.disabled = false;
-            DOM.purchaseBtn.textContent = '🚚 Confirm Delivery & Purchase';
-        } else {
-            DOM.purchaseBtn.disabled = true;
-            DOM.purchaseBtn.textContent = 'Please fill in all delivery details';
-        }
-    }
-}
-
-// ============================================
-// COMPLETE PURCHASE
-// ============================================
-DOM.purchaseBtn?.addEventListener('click', async () => {
-    const item = allItems.find(i => i.id === currentPurchaseState.itemId);
-    if (!item) return showToast('Item not found', 'error');
-
-    const { selectedOption, selectedPrice, selectedLocation } = currentPurchaseState;
-
-    // Handle premium access
-    if (selectedOption === 'premium') {
-        await handleGrantAccess(item.id);
-        return;
-    }
-
-    // Handle physical with delivery
-    if (selectedOption === 'physical') {
-        if (!selectedLocation) {
-            showToast('Please select pickup or delivery', 'error');
-            return;
-        }
-
-        if (selectedLocation === 'delivery') {
-            const region = document.getElementById('deliveryRegion').value;
-            const city = document.getElementById('deliveryCity').value;
-            const address = document.getElementById('deliveryAddress').value.trim();
-            const phone = document.getElementById('deliveryPhone').value.trim();
-
-            if (!region || !city || !address || !phone) {
-                showToast('Please fill in all delivery details', 'error');
-                return;
-            }
-
-            // Check if we can deliver to this region
-            const regionData = DELIVERY_REGIONS.find(r => r.id === region);
-            if (!regionData) {
-                showToast('We are currently unable to ship to your chosen location', 'error');
-                return;
-            }
-
-            // Create delivery order
-            const deliveryData = {
-                item_id: item.id,
-                item_title: item.title,
-                user_id: currentUser.id,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                type: 'physical',
-                amount: selectedPrice,
-                region: regionData.name,
-                city: city,
-                address: address,
-                phone: phone,
-                pickup: false,
-                status: 'pending',
-                created_at: new Date().toISOString()
-            };
-
-            // Save delivery order to database
-            const { error: deliveryError } = await supabase
-                .from('delivery_orders')
-                .insert([deliveryData]);
-
-            if (deliveryError) {
-                console.error('Delivery order error:', deliveryError);
-                showToast('Error processing delivery', 'error');
-                return;
-            }
-
-            // Notify admin
-            await notifyAdmin('delivery_order', deliveryData);
-        } else {
-            // Pickup at office
-            const pickupData = {
-                item_id: item.id,
-                item_title: item.title,
-                user_id: currentUser.id,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                type: 'physical',
-                amount: selectedPrice,
-                pickup: true,
-                pickup_location: 'Gliimu Office, Gwarinpa, Abuja',
-                status: 'pending',
-                created_at: new Date().toISOString()
-            };
-
-            const { error: pickupError } = await supabase
-                .from('delivery_orders')
-                .insert([pickupData]);
-
-            if (pickupError) {
-                console.error('Pickup order error:', pickupError);
-                showToast('Error processing pickup', 'error');
-                return;
-            }
-
-            await notifyAdmin('pickup_order', pickupData);
-        }
-
-        // Process payment
-        await processPayment(item.id, selectedOption, selectedPrice);
-        return;
-    }
-
-    // Digital purchase
-    await processPayment(item.id, selectedOption, selectedPrice);
-});
-
-// ============================================
-// PROCESS PAYMENT
-// ============================================
-async function processPayment(itemId, type, price) {
-    if (!currentUser) return showToast('Please login', 'error');
-
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return showToast('Item not found', 'error');
-
-    // Check if premium and digital
-    const isPremium = userGP >= 100;
-    if (isPremium && type === 'digital' && price > 0) {
-        price = 0;
-    }
-
-    if (price <= 0) {
-        await handleFreeAccess(itemId);
-        return;
-    }
-
-    if (purchasedItems.has(itemId)) {
-        showToast('Already owned', 'info');
-        closeModal();
-        return;
-    }
-
-    try {
-        const { data: user } = await supabase
-            .from('users')
-            .select('wallet_balance')
-            .eq('id', currentUser.id)
-            .single();
-
-        if ((user?.wallet_balance || 0) < price) {
-            showToast(`Need ₦${(price - (user?.wallet_balance || 0)).toLocaleString()} more`, 'error');
-            return;
-        }
-
-        await supabase
-            .from('users')
-            .update({ wallet_balance: (user?.wallet_balance || 0) - price })
-            .eq('id', currentUser.id);
-
-        await supabase
-            .from('user_purchases')
-            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: type, amount: price });
-
-        purchasedItems.add(itemId);
-        const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
-
-        showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
-        renderItems();
-        closeModal();
-
-        if (type === 'digital' && item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
-            }, 800);
-        }
-    } catch (e) {
-        console.error('Purchase error:', e);
-        showToast('Purchase failed', 'error');
-    }
-}
-
-// ============================================
 // NOTIFY ADMIN
 // ============================================
 async function notifyAdmin(type, data) {
     try {
-        // Get admin users (secretary and crm roles)
         const { data: admins, error } = await supabase
             .from('users')
             .select('id, email, name')
@@ -1356,7 +1358,6 @@ async function notifyAdmin(type, data) {
 
         if (error) throw error;
 
-        // Create notification for each admin
         const notifications = admins.map(admin => ({
             user_id: admin.id,
             type: type,
@@ -1379,35 +1380,41 @@ async function notifyAdmin(type, data) {
 }
 
 // ============================================
-// UPDATE VIEW DETAILS TO HANDLE BOOKS
+// DROPDOWN TOGGLE
 // ============================================
-// Replace the existing viewDetails function with this
-window.viewDetails = async (itemId) => {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return showToast('Item not found', 'error');
-
-    // If it's a book, use the book modal
-    if (item.type === 'book' || item.type === 'resource') {
-        await viewBookDetails(itemId);
-        return;
+window.togglePurchaseDropdown = () => {
+    const dd = document.getElementById('purchaseDropdown');
+    if (dd) {
+        const isOpen = dd.classList.contains('show');
+        document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
+        if (!isOpen) dd.classList.add('show');
     }
-
-    // Otherwise use the regular modal
-    await viewRegularDetails(itemId);
 };
 
-// ============================================
-// REGULAR DETAILS (Talks, Bundles)
-// ============================================
-async function viewRegularDetails(itemId) {
-    // Keep your existing viewDetails logic here but renamed
-    // This is the same as your original viewDetails function
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return showToast('Item not found', 'error');
+document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
+});
 
-    // ... rest of your existing viewDetails code ...
-    // (The code you already have for talks and bundles)
-}
+// ============================================
+// MODAL CONTROLS
+// ============================================
+window.closeModal = () => {
+    DOM.itemModal.classList.remove('active');
+    document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
+    const modalContent = DOM.itemModal.querySelector('.modal-content');
+    modalContent.classList.remove('book-modal');
+};
+
+DOM.modalCloseBtn?.addEventListener('click', closeModal);
+DOM.itemModal?.addEventListener('click', (e) => {
+    if (e.target === DOM.itemModal) closeModal();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (DOM.itemModal.classList.contains('active')) closeModal();
+    }
+});
 
 // ============================================
 // EVENT LISTENERS
@@ -1445,5 +1452,8 @@ window.commentTalk = commentTalk;
 window.closeModal = closeModal;
 window.togglePurchaseDropdown = togglePurchaseDropdown;
 window.closeSearchModal = () => {};
+window.selectPurchaseOption = selectPurchaseOption;
+window.selectLocation = selectLocation;
+window.updateDeliveryCities = updateDeliveryCities;
 
 console.log('✅ Hub loaded successfully');
