@@ -562,7 +562,7 @@ window.viewDetails = async (itemId) => {
         `;
     } else if (isFree || isTalk) {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-${isTalk ? 'play' : 'gift'}"></i> ${isTalk ? 'Watch Now' : 'Get Access'}</button>
+            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-${isTalk ? 'play' : 'gift'}"></i> ${isTalk ? 'Watch Now' : 'Purchase'}</button>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (isPremium && (item.price || 0) > 0 && !isTalk) {
