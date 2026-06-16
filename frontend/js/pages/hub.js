@@ -2,7 +2,7 @@
 // GLIIMU HUB - Complete JavaScript
 // ============================================
 
-import { supabase, getCurrentUser } from '../modules/supabase.js';
+import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ============================================
@@ -14,7 +14,6 @@ let savedItems = new Set();
 let purchasedItems = new Set();
 let userGP = 0;
 let userWallet = 0;
-let currentSection = 'for-you';
 let isDropdownOpen = false;
 let isSearchOpen = false;
 
@@ -56,8 +55,7 @@ const DOM = {
     purchasedLink: $('purchasedItemsLink'),
     merchLink: $('merchandiseLink'),
     logo: $('logoImg'),
-    header: $('hubHeader'),
-    sectionTabs: document.querySelectorAll('.section-tab')
+    header: $('hubHeader')
 };
 
 // ============================================
@@ -85,7 +83,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupScrollHeader();
         setupProfileDropdown();
         setupSearchModal();
-        setupSectionTabs();
 
     } catch (error) {
         console.error('❌ Init error:', error);
@@ -143,7 +140,7 @@ async function loadItems() {
 
         allItems = data;
         console.log(`✅ Loaded ${data.length} items`);
-        renderSection('for-you');
+        renderItems();
 
     } catch (e) {
         console.error('Error loading items:', e);
@@ -166,6 +163,7 @@ async function loadSavedItems() {
             .select('item_id')
             .eq('user_id', currentUser.id);
         if (data) savedItems = new Set(data.map(i => i.item_id));
+        console.log(`✅ Loaded ${savedItems.size} saved items`);
     } catch (e) { console.error('Error loading saved:', e); }
 }
 
@@ -177,51 +175,8 @@ async function loadPurchasedItems() {
             .select('item_id')
             .eq('user_id', currentUser.id);
         if (data) purchasedItems = new Set(data.map(i => i.item_id));
+        console.log(`✅ Loaded ${purchasedItems.size} purchased items`);
     } catch (e) { console.error('Error loading purchased:', e); }
-}
-
-// ============================================
-// SECTION TABS
-// ============================================
-function setupSectionTabs() {
-    DOM.sectionTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            DOM.sectionTabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            currentSection = tab.dataset.section;
-            renderSection(currentSection);
-        });
-    });
-}
-
-function renderSection(section) {
-    let filtered = [...allItems];
-
-    switch(section) {
-        case 'for-you':
-            // Show items based on user interests or random
-            if (userInterests.length > 0) {
-                filtered = filtered.filter(item => 
-                    userInterests.some(interest => 
-                        item.category?.toLowerCase().includes(interest.toLowerCase())
-                    )
-                );
-            }
-            if (filtered.length === 0) filtered = allItems.slice(0, 12);
-            break;
-        case 'trending':
-            // Sort by view count or purchase count
-            filtered = filtered.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 12);
-            break;
-        case 'new':
-            // Already sorted by created_at descending
-            filtered = filtered.slice(0, 12);
-            break;
-        default:
-            filtered = allItems;
-    }
-
-    renderItems(filtered);
 }
 
 // ============================================
@@ -234,7 +189,7 @@ function renderItems(items = null) {
             <div class="empty-state">
                 <i class="fas fa-search"></i>
                 <h3>No Items Found</h3>
-                <p>Try a different section or search.</p>
+                <p>Try a different search.</p>
             </div>
         `;
         return;
@@ -364,7 +319,7 @@ function applyTheme() {
 
 function setupScrollHeader() {
     window.addEventListener('scroll', () => {
-        DOM.header.classList.toggle('scrolled', window.scrollY > 20);
+        DOM.header.classList.toggle('scrolled', window.scrollY > 50);
     }, { passive: true });
 }
 
@@ -410,7 +365,7 @@ function setupProfileDropdown() {
 }
 
 // ============================================
-// SEARCH MODAL - FILTERS ITEMS
+// SEARCH MODAL - FIXED
 // ============================================
 function setupSearchModal() {
     const open = () => {
@@ -436,7 +391,7 @@ function setupSearchModal() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); open(); }
     });
 
-    const search = () => {
+    const performSearch = () => {
         const query = DOM.searchInput.value.trim();
         if (!query) {
             DOM.searchResults.innerHTML = '<p class="search-hint">Type to start searching...</p>';
@@ -444,7 +399,6 @@ function setupSearchModal() {
         }
 
         const q = query.toLowerCase();
-        // Filter all items by search query
         const results = allItems.filter(i =>
             (i.title?.toLowerCase().includes(q)) ||
             (i.description?.toLowerCase().includes(q)) ||
@@ -456,12 +410,12 @@ function setupSearchModal() {
             DOM.searchResults.innerHTML = `
                 <div class="search-no-results">
                     <i class="fas fa-search"></i>
-                    <p>No results for "<strong>${query}</strong>"</p>
+                    <p>No results for "${query}"</p>
                 </div>
             `;
         } else {
             DOM.searchResults.innerHTML = results.map(i => `
-                <div class="search-result-item" onclick="window.viewDetails('${i.id}'); closeSearchModal();">
+                <div class="search-result-item" onclick="window.viewDetails('${i.id}'); window.closeSearchModal();">
                     <img src="${i.cover_url || 'https://placehold.co/50x70/2c2f78/white?text=Book'}" alt="${i.title}">
                     <div class="result-info">
                         <div class="result-title">${escape(i.title)}</div>
@@ -470,22 +424,19 @@ function setupSearchModal() {
                     <div class="result-price">${i.price > 0 ? '₦' + i.price.toLocaleString() : 'Free'}</div>
                 </div>
             `).join('');
-
-            // Also update main grid with search results
-            renderItems(results);
         }
     };
 
-    DOM.searchBtn?.addEventListener('click', search);
+    DOM.searchBtn?.addEventListener('click', performSearch);
     DOM.searchInput?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { search(); setTimeout(close, 400); }
+        if (e.key === 'Enter') { performSearch(); }
     });
 
     window.closeSearchModal = close;
 }
 
 // ============================================
-// ITEM DETAILS
+// ITEM DETAILS - ENHANCED
 // ============================================
 window.viewDetails = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
@@ -494,10 +445,10 @@ window.viewDetails = async (itemId) => {
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
     const isFree = (item.price || 0) <= 0 && (item.physical_price || 0) <= 0;
-    const hasDigital = (item.price || 0) > 0;
-    const hasPhysical = (item.physical_price || 0) > 0;
     const isPremium = userGP >= 100;
-    const gpReward = item.type === 'bundle' ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
+    const isTalk = item.type === 'talk' || item.type === 'course';
+    const isBundle = item.type === 'bundle';
+    const gpReward = isBundle ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
 
     DOM.modalTitle.textContent = item.title;
     DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
@@ -513,58 +464,126 @@ window.viewDetails = async (itemId) => {
         toggleSave(item.id);
     });
 
-    DOM.modalDesc.innerHTML = `
+    let detailsHtml = `
         <div class="item-details">
-            <p><strong>Author:</strong> ${escape(item.author || 'Gliimu Team')}</p>
-            <p><strong>Type:</strong> ${item.type || 'Book'}</p>
+            <p><strong>${isTalk ? 'Speaker' : 'Author'}:</strong> ${escape(item.author || 'Gliimu Team')}</p>
+            <p><strong>Type:</strong> ${isTalk ? '🎙️ Talk' : isBundle ? '📦 Bundle' : '📖 Book'}</p>
             ${isPremium ? `<p><span class="premium-badge">⭐ Premium Access</span></p>` : ''}
             ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
-            <div class="price-details">
-                ${hasDigital ? `<div class="price-row"><span class="label">📱 Digital</span><span class="value ${item.price === 0 ? 'free' : ''}">${item.price === 0 ? 'Free' : '₦' + (item.price || 0).toLocaleString()}</span></div>` : ''}
-                ${hasPhysical ? `<div class="price-row"><span class="label">📖 Physical</span><span class="value">₦${(item.physical_price || 0).toLocaleString()}</span></div>` : ''}
-                ${!isPurchased ? `<div class="price-row"><span class="label">⭐ GP Earned</span><span class="value" style="color:#8b5cf6;">+${gpReward} GP</span></div>` : ''}
+    `;
+
+    // Price options grid
+    if (!isPurchased && !isFree && !isTalk) {
+        const hasDigital = (item.price || 0) > 0;
+        const hasPhysical = (item.physical_price || 0) > 0;
+        const hasAudio = item.audio_price || 0;
+
+        detailsHtml += `
+            <div class="price-options-grid">
+                ${hasDigital ? `
+                    <div class="price-option">
+                        <span class="format">📱 Digital</span>
+                        <span class="amount ${item.price === 0 ? 'free' : ''}">${item.price === 0 ? 'Free' : '₦' + (item.price || 0).toLocaleString()}</span>
+                    </div>
+                ` : ''}
+                ${hasPhysical ? `
+                    <div class="price-option">
+                        <span class="format">📖 Physical</span>
+                        <span class="amount">₦${(item.physical_price || 0).toLocaleString()}</span>
+                    </div>
+                ` : ''}
+                ${hasAudio ? `
+                    <div class="price-option">
+                        <span class="format">🎧 Audio</span>
+                        <span class="amount">₦${(item.audio_price || 0).toLocaleString()}</span>
+                    </div>
+                ` : ''}
+                ${isPremium && hasDigital ? `
+                    <div class="price-option" style="border-color:#8b5cf6;">
+                        <span class="format">⭐ Premium</span>
+                        <span class="amount premium">FREE</span>
+                    </div>
+                ` : ''}
+                ${!isPurchased ? `
+                    <div class="price-option" style="border-color:#8b5cf6;">
+                        <span class="format">⭐ GP Earned</span>
+                        <span class="amount premium">+${gpReward} GP</span>
+                    </div>
+                ` : ''}
             </div>
-            ${isPremium && hasDigital && !isPurchased ? `<div class="premium-notice">✨ Premium users get digital access FREE!</div>` : ''}
-            <div class="description-text">${escape(item.description || 'No description.')}</div>
+        `;
+    }
+
+    if (isPremium && !isPurchased && !isTalk && (item.price || 0) > 0) {
+        detailsHtml += `
+            <div class="premium-notice">✨ Premium users get digital access FREE!</div>
+        `;
+    }
+
+    // Talk engagement section
+    if (isTalk) {
+        detailsHtml += `
+            <div class="talk-engagement">
+                <button class="engagement-btn" onclick="window.likeTalk('${item.id}')">
+                    <i class="far fa-heart"></i> <span class="count">${item.likes || 0}</span>
+                </button>
+                <button class="engagement-btn" onclick="window.shareTalk('${item.id}')">
+                    <i class="far fa-share-alt"></i> <span class="count">${item.shares || 0}</span>
+                </button>
+                <button class="engagement-btn" onclick="window.commentTalk('${item.id}')">
+                    <i class="far fa-comment"></i> <span class="count">${item.comments || 0}</span>
+                </button>
+            </div>
+        `;
+    }
+
+    detailsHtml += `
+            <div class="description-text">${escape(item.description || 'No description available.')}</div>
         </div>
     `;
 
+    DOM.modalDesc.innerHTML = detailsHtml;
+
+    // Build footer buttons
     let footerHtml = '';
     if (isPurchased) {
         footerHtml = `
-            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-book-open"></i> Read/View</button>` : ''}
-            ${item.type === 'bundle' && item.download_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download</button>` : ''}
+            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-${isTalk ? 'play' : 'book-open'}"></i> ${isTalk ? 'Watch' : 'Read'}</button>` : ''}
+            ${isBundle && item.download_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download</button>` : ''}
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
-    } else if (isFree) {
+    } else if (isFree || isTalk) {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Access</button>
+            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-${isTalk ? 'play' : 'gift'}"></i> ${isTalk ? 'Watch Now' : 'Get Access'}</button>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
-    } else if (isPremium && hasDigital) {
+    } else if (isPremium && (item.price || 0) > 0 && !isTalk) {
         footerHtml = `
             <button class="modal-btn modal-btn-success" onclick="window.handleGrantAccess('${item.id}')"><i class="fas fa-star"></i> Premium Free</button>
             <div class="modal-btn-dropdown">
                 <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()"><i class="fas fa-shopping-cart"></i> Buy <i class="fas fa-chevron-down"></i></button>
                 <div class="dropdown-options" id="purchaseDropdown">
-                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
-                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                    ${(item.price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
+                    ${(item.physical_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                    ${(item.audio_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','audio')">🎧 Audio <span class="price">₦${(item.audio_price || 0).toLocaleString()}</span></button>` : ''}
                 </div>
             </div>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
-    } else {
+    } else if (!isTalk) {
         footerHtml = `
             <div class="modal-btn-dropdown">
                 <button class="modal-btn modal-btn-primary" onclick="togglePurchaseDropdown()"><i class="fas fa-shopping-cart"></i> Buy <i class="fas fa-chevron-down"></i></button>
                 <div class="dropdown-options" id="purchaseDropdown">
-                    ${hasDigital ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
-                    ${hasPhysical ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                    ${(item.price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','digital')">📱 Digital <span class="price">₦${(item.price || 0).toLocaleString()}</span></button>` : ''}
+                    ${(item.physical_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','physical')">📖 Physical <span class="price">₦${(item.physical_price || 0).toLocaleString()}</span></button>` : ''}
+                    ${(item.audio_price || 0) > 0 ? `<button onclick="window.handlePurchase('${item.id}','audio')">🎧 Audio <span class="price">₦${(item.audio_price || 0).toLocaleString()}</span></button>` : ''}
                 </div>
             </div>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     }
+
     DOM.modalFooter.innerHTML = footerHtml;
     DOM.itemModal.classList.add('active');
 };
@@ -578,7 +597,11 @@ window.handlePurchase = async (itemId, type) => {
     const item = allItems.find(i => i.id === itemId);
     if (!item) return showToast('Item not found', 'error');
 
-    const price = type === 'physical' ? (item.physical_price || 0) : (item.price || 0);
+    let price = 0;
+    if (type === 'physical') price = item.physical_price || 0;
+    else if (type === 'audio') price = item.audio_price || 0;
+    else price = item.price || 0;
+
     if (price <= 0) return handleFreeAccess(itemId);
     if (purchasedItems.has(itemId)) return showToast('Already owned', 'info');
 
@@ -607,7 +630,7 @@ window.handlePurchase = async (itemId, type) => {
         const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
 
         showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
-        renderSection(currentSection);
+        renderItems();
         closeModal();
 
         if (type === 'digital' && item.file_url) {
@@ -631,7 +654,7 @@ window.handleGrantAccess = async (itemId) => {
             .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: 'premium', amount: 0 });
         purchasedItems.add(itemId);
         showToast(`✅ Premium access: ${item.title}`, 'success');
-        renderSection(currentSection);
+        renderItems();
         closeModal();
         if (item.file_url) {
             setTimeout(() => {
@@ -654,8 +677,8 @@ window.handleFreeAccess = async (itemId) => {
             .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: 'digital', amount: 0 });
         purchasedItems.add(itemId);
         const gp = await addGP(1, `Free: ${item.title}`);
-        showToast(`✅ Free access: ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
-        renderSection(currentSection);
+        showToast(`✅ ${item.type === 'talk' ? 'Watching' : 'Access'} ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        renderItems();
         closeModal();
         if (item.file_url) {
             setTimeout(() => {
@@ -667,10 +690,50 @@ window.handleFreeAccess = async (itemId) => {
     }
 };
 
+// ============================================
+// TALK ENGAGEMENT
+// ============================================
+window.likeTalk = async (itemId) => {
+    if (!currentUser) return showToast('Please login', 'error');
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const likes = (item.likes || 0) + 1;
+    await supabase.from('library_items').update({ likes }).eq('id', itemId);
+    item.likes = likes;
+    showToast('❤️ Liked!', 'success');
+    // Refresh engagement display
+    const countEl = document.querySelector('.engagement-btn .count');
+    if (countEl) countEl.textContent = likes;
+};
+
+window.shareTalk = async (itemId) => {
+    const url = `${window.location.origin}/talk/${itemId}`;
+    if (navigator.share) {
+        try { await navigator.share({ title: 'Check this out!', url }); } catch (e) {}
+    } else {
+        navigator.clipboard.writeText(url);
+        showToast('📋 Link copied to clipboard!', 'success');
+    }
+    const item = allItems.find(i => i.id === itemId);
+    if (item) {
+        const shares = (item.shares || 0) + 1;
+        await supabase.from('library_items').update({ shares }).eq('id', itemId);
+        item.shares = shares;
+    }
+};
+
+window.commentTalk = (itemId) => {
+    showToast('💬 Comments feature coming soon!', 'info');
+};
+
+// ============================================
+// DOWNLOAD BUNDLE
+// ============================================
 window.downloadBundle = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
     if (!item) return;
-    if (!purchasedItems.has(itemId) && item.price > 0) {
+    if (!purchasedItems.has(item.id) && item.price > 0) {
         return showToast('Please purchase first', 'warning');
     }
     if (item.download_url) {
@@ -709,7 +772,7 @@ async function toggleSave(itemId) {
             await addGP(1, `Saved: ${itemId}`);
             showToast('Saved to library!', 'success');
         }
-        renderSection(currentSection);
+        renderItems();
         if (DOM.itemModal.classList.contains('active')) {
             const saveBtn = document.getElementById('modalSaveBtn');
             if (saveBtn) {
@@ -762,7 +825,6 @@ document.addEventListener('keydown', (e) => {
 // EVENT LISTENERS
 // ============================================
 function setupEventListeners() {
-    // Keyboard shortcut: Ctrl+K for search
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
@@ -789,7 +851,11 @@ window.handlePurchase = handlePurchase;
 window.handleGrantAccess = handleGrantAccess;
 window.handleFreeAccess = handleFreeAccess;
 window.downloadBundle = downloadBundle;
+window.likeTalk = likeTalk;
+window.shareTalk = shareTalk;
+window.commentTalk = commentTalk;
 window.closeModal = closeModal;
 window.togglePurchaseDropdown = togglePurchaseDropdown;
+window.closeSearchModal = () => {};
 
 console.log('✅ Hub loaded successfully');
