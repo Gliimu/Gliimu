@@ -21,7 +21,7 @@ let userInterests = [];
 let isDropdownOpen = false;
 let isPurchaseDropdownOpen = false;
 
-// Categories - Updated (no counts)
+// Categories
 const CATEGORIES = [
     { id: 'for-you', name: 'For You' },
     { id: 'design', name: 'Design' },
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadSavedItems();
             await loadPurchasedItems();
             await loadUserInterests();
-            updateHeroStats();
+            // Update hero stats removed - no stats in hero
             updateProfileAvatar();
             console.log(`✅ Loaded ${purchasedItems.size} purchased items`);
             console.log(`✅ GP: ${userGP} | Wallet: ₦${userWallet}`);
@@ -185,12 +185,6 @@ async function loadUserInterests() {
 // ============================================
 // UPDATE UI
 // ============================================
-function updateHeroStats() {
-    document.getElementById('heroWallet').textContent = `₦${userWallet.toLocaleString()}`;
-    document.getElementById('heroGP').textContent = userGP;
-    document.getElementById('heroLibrary').textContent = purchasedItems.size;
-}
-
 function updateProfileAvatar() {
     const avatarImg = document.getElementById('profileAvatar');
     if (avatarImg) {
@@ -602,7 +596,6 @@ async function addGP(userId, amount, reason) {
         }
         
         userGP = newGP;
-        updateHeroStats();
         
         if (newGP >= 100 && currentGP < 100) {
             showToast('🎉 Congratulations! You\'ve reached Premium status with 100 GP!', 'success');
@@ -753,7 +746,6 @@ window.handlePurchase = async (itemId, type = 'digital') => {
         
         renderItems();
         renderFilters();
-        updateHeroStats();
         closeModal();
         
         if (type === 'digital' && item.file_url) {
@@ -799,7 +791,6 @@ async function handleGrantAccess(itemId, accessType = 'standard') {
         showToast(`✅ Access granted to ${item.title}!`, 'success');
         renderItems();
         renderFilters();
-        updateHeroStats();
         closeModal();
         
         if (item.file_url) {
@@ -855,7 +846,6 @@ async function handleFreeAccess(itemId) {
         }
         renderItems();
         renderFilters();
-        updateHeroStats();
         closeModal();
         
         if (item.file_url) {
