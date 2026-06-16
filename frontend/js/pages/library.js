@@ -94,7 +94,22 @@ async function loadUserData() {
             .eq('id', currentUser.id)
             .single();
         
-        if (error) throw error;
+        if (error) {
+            // If gp_points column doesn't exist, just get wallet
+            if (error.message.includes('gp_points')) {
+                const { data: walletData, error: walletError } = await supabase
+                    .from('users')
+                    .select('wallet_balance')
+                    .eq('id', currentUser.id)
+                    .single();
+                
+                if (!walletError) {
+                    userWallet = walletData?.wallet_balance || 0;
+                    userGP = 0;
+                }
+            }
+            throw error;
+        }
         
         userWallet = profile?.wallet_balance || 0;
         userGP = profile?.gp_points || 0;
@@ -110,8 +125,11 @@ async function loadUserData() {
         
     } catch (error) {
         console.error('Error loading user data:', error);
-        userWallet = 0;
-        userGP = 0;
+        // Don't set to 0 if we already have wallet data
+        if (userWallet === undefined) {
+            userWallet = 0;
+            userGP = 0;
+        }
     }
 }
 
@@ -343,14 +361,21 @@ function createItemCard(item) {
 // ============================================
 async function addGP(userId, amount, reason) {
     try {
-        // Get current GP
+        // Check if gp_points column exists by trying to select it
         const { data: user, error: fetchError } = await supabase
             .from('users')
             .select('gp_points')
             .eq('id', userId)
             .single();
         
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+            // If column doesn't exist, try without it
+            if (fetchError.message.includes('gp_points')) {
+                console.warn('gp_points column not found, skipping GP addition');
+                return null;
+            }
+            throw fetchError;
+        }
         
         const currentGP = user?.gp_points || 0;
         const newGP = currentGP + amount;
@@ -363,15 +388,19 @@ async function addGP(userId, amount, reason) {
         
         if (updateError) throw updateError;
         
-        // Log GP transaction
-        await supabase
-            .from('gp_transactions')
-            .insert([{
-                user_id: userId,
-                amount: amount,
-                reason: reason,
-                created_at: new Date().toISOString()
-            }]);
+        // Log GP transaction (if table exists)
+        try {
+            await supabase
+                .from('gp_transactions')
+                .insert([{
+                    user_id: userId,
+                    amount: amount,
+                    reason: reason,
+                    created_at: new Date().toISOString()
+                }]);
+        } catch (logError) {
+            console.warn('Could not log GP transaction:', logError);
+        }
         
         // Update local state
         userGP = newGP;
@@ -392,13 +421,23 @@ async function addGP(userId, amount, reason) {
 
 async function grantPremiumAccess(userId) {
     try {
-        await supabase
+        // Check if is_premium column exists
+        const { error: updateError } = await supabase
             .from('users')
             .update({ 
                 is_premium: true,
                 premium_earned_at: new Date().toISOString()
             })
             .eq('id', userId);
+        
+        if (updateError) {
+            if (updateError.message.includes('is_premium')) {
+                console.warn('is_premium column not found');
+                showToast('✨ You\'ve reached 100 GP! Contact support for premium benefits.', 'success');
+                return;
+            }
+            throw updateError;
+        }
         
         showToast('✨ Premium access granted! Download PDFs and access exclusive content!', 'success');
         
@@ -522,7 +561,11 @@ window.purchaseItem = async (itemId, type = 'digital') => {
         purchasedItems.add(itemId);
         
         // Show success message with GP earned
-        showToast(`🎉 Successfully purchased ${item.title}! Earned +${gpReward} GP!`, 'success');
+        if (gpEarned !== null) {
+            showToast(`🎉 Successfully purchased ${item.title}! Earned +${gpReward} GP!`, 'success');
+        } else {
+            showToast(`🎉 Successfully purchased ${item.title}!`, 'success');
+        }
         
         // Update the UI
         renderItems();
@@ -624,7 +667,11 @@ async function grantFreeAccess(itemId) {
         const gpEarned = await addGP(currentUser.id, 1, `Accessed free item: ${item.title}`);
         
         purchasedItems.add(itemId);
-        showToast(`✅ Free access granted to ${item.title}! +1 GP`, 'success');
+        if (gpEarned !== null) {
+            showToast(`✅ Free access granted to ${item.title}! +1 GP`, 'success');
+        } else {
+            showToast(`✅ Free access granted to ${item.title}!`, 'success');
+        }
         renderItems();
         closeModal();
         
@@ -683,7 +730,7 @@ window.startReading = (itemId) => {
     if (item.file_url) {
         // Award GP for reading
         addGP(currentUser.id, GP_REWARDS.read_book, `Read: ${item.title}`).then(gp => {
-            if (gp) showToast(`📖 Reading ${item.title}... +${GP_REWARDS.read_book} GP`, 'info');
+            if (gp !== null) showToast(`📖 Reading ${item.title}... +${GP_REWARDS.read_book} GP`, 'info');
         });
         
         window.open(item.file_url, '_blank');
@@ -721,9 +768,13 @@ window.downloadBundle = async (itemId) => {
         document.body.removeChild(link);
         
         // Award GP for downloading
-        addGP(currentUser.id, 2, `Downloaded bundle: ${item.title}`);
+        const gpEarned = await addGP(currentUser.id, 2, `Downloaded bundle: ${item.title}`);
         
-        showToast(`Downloading ${item.title}... +2 GP`, 'success');
+        if (gpEarned !== null) {
+            showToast(`Downloading ${item.title}... +2 GP`, 'success');
+        } else {
+            showToast(`Downloading ${item.title}...`, 'success');
+        }
     } else {
         showToast('Download link not available yet.', 'info');
     }
