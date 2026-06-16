@@ -10,11 +10,11 @@
     <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
-    <!-- Header with Logo only -->
+    <!-- Custom Header -->
     <header class="library-header">
         <div class="header-container">
-            <div class="logo">
-                <a href="/hub.html" class="logo-link">
+            <div class="header-left">
+                <a href="https://gliimu.com/hub" class="logo-link">
                     <img src="icons/logo.png" alt="Gliimu" class="logo-img" id="logoImg">
                 </a>
             </div>
@@ -34,6 +34,29 @@
         <div class="search-bar-large">
             <input type="text" id="searchInput" placeholder="Search books, courses, or resources...">
             <button id="searchBtn">Search</button>
+        </div>
+    </div>
+
+    <!-- User Stats Bar -->
+    <div class="user-stats-bar" id="userStatsBar">
+        <div class="stats-container">
+            <div class="stat-item">
+                <span class="stat-icon">💰</span>
+                <span class="stat-label">Wallet</span>
+                <span class="stat-value" id="walletBalance">₦0</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <span class="stat-icon">⭐</span>
+                <span class="stat-label">GP Points</span>
+                <span class="stat-value" id="gpPoints">0</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <span class="stat-icon">📚</span>
+                <span class="stat-label">My Library</span>
+                <span class="stat-value" id="myLibraryCount">0</span>
+            </div>
         </div>
     </div>
 
@@ -69,16 +92,5 @@
 
     <!-- JavaScript -->
     <script type="module" src="js/pages/library.js"></script>
-    
-    <!-- Logo link handler -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const logoImg = document.getElementById('logoImg');
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark' && logoImg) {
-                logoImg.style.filter = 'brightness(0) invert(1)';
-            }
-        });
-    </script>
 </body>
 </html>
