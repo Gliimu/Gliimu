@@ -33,7 +33,6 @@
     --radius-button: 40px;
     --transition-speed: 0.3s;
     --header-height: 72px;
-    --filters-height: 60px;
 }
 
 body.dark-mode {
@@ -55,7 +54,7 @@ body {
 }
 
 /* =========================================
-   HEADER STYLES - Transparent with Search
+   HEADER STYLES
    ========================================= */
 
 .library-header {
@@ -63,16 +62,11 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    background: transparent;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
     z-index: 1000;
     padding: 0.75rem 0;
     transition: background var(--transition-speed), border-color var(--transition-speed);
-}
-
-.library-header.scrolled {
-    background: var(--bg-primary);
-    border-bottom: 1px solid var(--border-color);
-    backdrop-filter: blur(10px);
 }
 
 .header-container {
@@ -108,72 +102,6 @@ body {
     transition: filter var(--transition-speed);
 }
 
-.header-center {
-    flex: 1;
-    max-width: 500px;
-}
-
-.search-bar-header {
-    display: flex;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    border-radius: var(--radius-button);
-    padding: 4px 4px 4px 18px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all var(--transition-speed);
-}
-
-.scrolled .search-bar-header {
-    background: var(--bg-secondary);
-    border-color: var(--border-color);
-}
-
-.search-bar-header:focus-within {
-    border-color: var(--brand-gold);
-    background: rgba(255, 255, 255, 0.25);
-    box-shadow: 0 0 20px rgba(251, 176, 64, 0.1);
-}
-
-.scrolled .search-bar-header:focus-within {
-    background: var(--bg-primary);
-}
-
-.search-bar-header input {
-    flex: 1;
-    padding: 8px 12px;
-    background: transparent;
-    border: none;
-    font-size: 0.9rem;
-    font-family: 'Space Grotesk', sans-serif;
-    color: var(--text-primary);
-    outline: none;
-    min-width: 120px;
-}
-
-.search-bar-header input::placeholder {
-    color: rgba(255, 255, 255, 0.6);
-}
-
-.scrolled .search-bar-header input::placeholder {
-    color: var(--text-secondary);
-}
-
-.search-bar-header button {
-    padding: 8px 16px;
-    background: var(--brand-gold);
-    border: none;
-    border-radius: var(--radius-button);
-    cursor: pointer;
-    transition: all var(--transition-speed);
-    color: var(--brand-purple-dark);
-    font-size: 0.9rem;
-}
-
-.search-bar-header button:hover {
-    transform: scale(1.05);
-}
-
 .header-right {
     display: flex;
     align-items: center;
@@ -196,18 +124,10 @@ body {
     padding: 4px 8px;
     border-radius: 40px;
     transition: all var(--transition-speed);
-    color: #fff;
-}
-
-.scrolled .profile-btn {
     color: var(--text-primary);
 }
 
 .profile-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.scrolled .profile-btn:hover {
     background: var(--border-color);
 }
 
@@ -216,11 +136,7 @@ body {
     height: 36px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-}
-
-.scrolled .profile-btn img {
-    border-color: var(--border-color);
+    border: 2px solid var(--border-color);
 }
 
 .profile-btn i {
@@ -280,23 +196,19 @@ body {
 }
 
 /* =========================================
-   FIXED HERO SECTION - Left Aligned
+   HERO SECTION WITH SEARCH
    ========================================= */
 
 .hero-section {
-    position: fixed;
-    top: var(--header-height);
-    left: 0;
-    right: 0;
-    height: 42vh;
-    min-height: 300px;
-    max-height: 420px;
+    padding-top: calc(var(--header-height) + 40px);
+    padding-bottom: 20px;
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
+    position: relative;
+    overflow: hidden;
+    min-height: 320px;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-    overflow: hidden;
-    z-index: 1;
+    justify-content: center;
 }
 
 .hero-section::before {
@@ -327,149 +239,152 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.3) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.2) 100%);
     z-index: 1;
 }
 
 .hero-container {
     position: relative;
     z-index: 2;
-    max-width: 1600px;
+    max-width: 700px;
     width: 100%;
     margin: 0 auto;
-    padding: 0 2rem;
-    text-align: left;
+    padding: 0 20px;
+    text-align: center;
 }
 
 .hero-content {
-    max-width: 650px;
-    padding: 0.5rem 0;
+    width: 100%;
 }
 
 .hero-title {
     font-size: 2.8rem;
     font-weight: 700;
     color: #fff;
-    margin-bottom: 0;
-    letter-spacing: -1px;
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
     text-shadow: 0 2px 20px rgba(0,0,0,0.2);
-    line-height: 1.1;
-}
-
-.hero-title .highlight {
-    color: var(--brand-gold);
 }
 
 .hero-subtitle {
-    font-size: 1rem;
-    color: rgba(255,255,255,0.8);
-    font-weight: 400;
-    margin: 0.25rem 0 1rem 0;
-}
-
-.hero-stats {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 10px 20px;
-    border: 1px solid rgba(255,255,255,0.1);
-    width: fit-content;
-}
-
-.hero-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.hero-stat-value {
     font-size: 1.1rem;
-    font-weight: 700;
-    color: #fff;
+    color: rgba(255,255,255,0.7);
+    font-weight: 400;
+    margin-bottom: 24px;
+    letter-spacing: 1px;
+    text-transform: lowercase;
 }
 
-.hero-stat-label {
-    font-size: 0.6rem;
-    color: rgba(255,255,255,0.6);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.hero-stat-divider {
-    width: 1px;
-    height: 24px;
-    background: rgba(255,255,255,0.15);
-}
-
-/* =========================================
-   MAIN CONTENT - Slides over hero
-   ========================================= */
-
-.library-main {
-    position: relative;
-    margin-top: calc(42vh + 20px);
-    z-index: 2;
-    min-height: 70vh;
-    padding: 0 0 60px;
-    background: var(--bg-secondary);
-}
-
-.container {
-    max-width: 1600px;
+.hero-search {
+    max-width: 580px;
     margin: 0 auto;
-    padding: 0 20px;
 }
 
-/* =========================================
-   FILTERS - Fixed on scroll with horizontal scroll
-   ========================================= */
-
-.filters-wrapper {
-    position: sticky;
-    top: var(--header-height);
-    z-index: 100;
-    background: var(--bg-secondary);
-    padding: 16px 0 12px;
+.search-bar-hero {
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(10px);
+    border-radius: 60px;
+    padding: 4px 4px 4px 20px;
+    border: 1px solid rgba(255,255,255,0.2);
     transition: all var(--transition-speed);
 }
 
-.filters-wrapper.is-sticky {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+.search-bar-hero:focus-within {
+    border-color: var(--brand-gold);
+    background: rgba(255,255,255,0.2);
+    box-shadow: 0 0 40px rgba(251, 176, 64, 0.15);
 }
 
-body.dark-mode .filters-wrapper.is-sticky {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+.search-bar-hero .search-icon {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+
+.search-bar-hero input {
+    flex: 1;
+    padding: 14px 16px;
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    font-family: 'Space Grotesk', sans-serif;
+    color: #fff;
+    outline: none;
+}
+
+.search-bar-hero input::placeholder {
+    color: rgba(255,255,255,0.5);
+}
+
+.search-bar-hero button {
+    padding: 12px 24px;
+    background: var(--brand-gold);
+    border: none;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    color: var(--brand-purple-dark);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-bar-hero button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(251, 176, 64, 0.3);
+}
+
+/* =========================================
+   FILTERS - Inside Hero with custom scroll
+   ========================================= */
+
+.filters-wrapper {
+    background: transparent;
+    padding: 0 0 20px 0;
+    position: relative;
+    z-index: 3;
 }
 
 .filters-container {
     max-width: 1600px;
     margin: 0 auto;
-    padding: 0 2rem;
+    padding: 0 20px;
 }
 
 .filters-scroll-wrapper {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    scrollbar-width: none;
     padding: 4px 0;
 }
 
 .filters-scroll-wrapper::-webkit-scrollbar {
     height: 4px;
+    background: transparent;
 }
 
 .filters-scroll-wrapper::-webkit-scrollbar-track {
-    background: var(--border-color);
+    background: rgba(255,255,255,0.1);
     border-radius: 4px;
 }
 
 .filters-scroll-wrapper::-webkit-scrollbar-thumb {
-    background: var(--accent);
+    background: var(--brand-gold);
     border-radius: 4px;
+    transition: background var(--transition-speed);
+}
+
+.filters-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: var(--brand-gold-dark);
+}
+
+/* Firefox scrollbar styling */
+.filters-scroll-wrapper {
+    scrollbar-width: thin;
+    scrollbar-color: var(--brand-gold) rgba(255,255,255,0.1);
 }
 
 .filters {
@@ -481,14 +396,15 @@ body.dark-mode .filters-wrapper.is-sticky {
 }
 
 .filter-chip {
-    padding: 6px 18px;
-    background: transparent;
-    border: 1px solid var(--border-color);
+    padding: 8px 22px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.15);
     border-radius: var(--radius-button);
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: all var(--transition-speed);
-    color: var(--text-secondary);
+    color: rgba(255,255,255,0.7);
     font-weight: 500;
     font-family: 'Space Grotesk', sans-serif;
     white-space: nowrap;
@@ -496,15 +412,48 @@ body.dark-mode .filters-wrapper.is-sticky {
 }
 
 .filter-chip:hover {
-    background: var(--accent);
-    color: var(--brand-purple-dark);
-    border-color: var(--accent);
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
 }
 
 .filter-chip.active {
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-    color: white;
-    border-color: transparent;
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+    border-color: var(--brand-gold);
+}
+
+body.dark-mode .filter-chip {
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.6);
+}
+
+body.dark-mode .filter-chip:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+body.dark-mode .filter-chip.active {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+}
+
+/* =========================================
+   MAIN CONTENT
+   ========================================= */
+
+.library-main {
+    position: relative;
+    z-index: 2;
+    min-height: 70vh;
+    padding: 30px 0 60px;
+    background: var(--bg-secondary);
+}
+
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 20px;
 }
 
 /* =========================================
@@ -539,7 +488,7 @@ body.dark-mode .filters-wrapper.is-sticky {
 }
 
 /* =========================================
-   BOOK CARD - No overlay, no card-title-bottom
+   BOOK CARD
    ========================================= */
 
 .item-book {
@@ -1094,20 +1043,11 @@ body.dark-mode .filters-wrapper.is-sticky {
    ========================================= */
 
 @media (max-width: 992px) {
-    .header-center {
-        max-width: 300px;
-    }
-    
     .hero-title {
-        font-size: 2.5rem;
+        font-size: 2.2rem;
     }
     
-    .hero-stats {
-        gap: 1rem;
-        padding: 10px 16px;
-    }
-    
-    .hero-stat-value {
+    .hero-subtitle {
         font-size: 1rem;
     }
 }
@@ -1118,72 +1058,55 @@ body.dark-mode .filters-wrapper.is-sticky {
         gap: 0.75rem;
     }
     
-    .header-center {
-        max-width: 200px;
-    }
-    
-    .search-bar-header input {
-        font-size: 0.75rem;
-        padding: 6px 8px;
-        min-width: 80px;
-    }
-    
-    .search-bar-header button {
-        padding: 6px 12px;
-        font-size: 0.75rem;
-    }
-    
     .profile-btn img {
         width: 30px;
         height: 30px;
     }
     
     .hero-section {
-        height: 35vh;
+        padding-top: calc(var(--header-height) + 24px);
+        padding-bottom: 12px;
         min-height: 260px;
     }
     
     .hero-title {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
     
     .hero-subtitle {
         font-size: 0.85rem;
-        margin-bottom: 1rem;
+        margin-bottom: 16px;
     }
     
-    .hero-stats {
-        gap: 0.75rem;
-        padding: 8px 12px;
+    .search-bar-hero {
+        padding: 3px 3px 3px 16px;
     }
     
-    .hero-stat-value {
-        font-size: 0.9rem;
+    .search-bar-hero input {
+        padding: 10px 12px;
+        font-size: 0.85rem;
     }
     
-    .hero-stat-label {
-        font-size: 0.6rem;
-    }
-    
-    .hero-stat-divider {
-        height: 20px;
-    }
-    
-    .library-main {
-        margin-top: calc(35vh + 16px);
+    .search-bar-hero button {
+        padding: 10px 18px;
+        font-size: 0.85rem;
     }
     
     .filters-wrapper {
-        padding: 10px 0 8px;
+        padding: 0 0 12px 0;
     }
     
     .filters-container {
-        padding: 0 1rem;
+        padding: 0 12px;
     }
     
     .filter-chip {
-        padding: 4px 12px;
-        font-size: 0.65rem;
+        padding: 6px 16px;
+        font-size: 0.7rem;
+    }
+    
+    .library-main {
+        padding: 16px 0 40px;
     }
     
     .item-course {
@@ -1196,41 +1119,31 @@ body.dark-mode .filters-wrapper.is-sticky {
 }
 
 @media (max-width: 480px) {
-    .header-center {
-        max-width: 140px;
-    }
-    
-    .search-bar-header {
-        padding: 2px 2px 2px 10px;
-    }
-    
-    .search-bar-header input {
-        font-size: 0.65rem;
-        padding: 4px 6px;
-        min-width: 60px;
-    }
-    
-    .search-bar-header button {
-        padding: 4px 10px;
-        font-size: 0.65rem;
-    }
-    
     .hero-title {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
     }
     
     .hero-subtitle {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
     }
     
-    .hero-stats {
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        padding: 8px 12px;
+    .search-bar-hero {
+        padding: 2px 2px 2px 12px;
     }
     
-    .hero-stat-divider {
-        display: none;
+    .search-bar-hero input {
+        padding: 8px 10px;
+        font-size: 0.75rem;
+    }
+    
+    .search-bar-hero button {
+        padding: 8px 14px;
+        font-size: 0.75rem;
+    }
+    
+    .filter-chip {
+        padding: 4px 12px;
+        font-size: 0.65rem;
     }
     
     .modal-footer {
