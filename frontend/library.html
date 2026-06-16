@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
-    <!-- Custom Header -->
+    <!-- Transparent Header -->
     <header class="library-header">
         <div class="header-container">
             <div class="header-left">
@@ -21,21 +21,22 @@
         </div>
     </header>
 
-    <!-- Hero Section -->
+    <!-- Hero Section with Search -->
     <section class="hero-section">
+        <div class="hero-overlay"></div>
         <div class="hero-container">
-            <h1 class="hero-title">Be the best, Read the best</h1>
-            <p class="hero-subtitle">The best readers are the best leaders</p>
+            <div class="hero-content">
+                <h1 class="hero-title">Be the best, Read the best</h1>
+                <p class="hero-subtitle">The best readers are the best leaders</p>
+                <div class="hero-search">
+                    <div class="search-bar-large">
+                        <input type="text" id="searchInput" placeholder="Search books, courses, or resources...">
+                        <button id="searchBtn"><i class="fas fa-search"></i> Search</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
-
-    <!-- Search Bar Under Header -->
-    <div class="search-wrapper">
-        <div class="search-bar-large">
-            <input type="text" id="searchInput" placeholder="Search books, courses, or resources...">
-            <button id="searchBtn">Search</button>
-        </div>
-    </div>
 
     <!-- Main Content -->
     <main class="library-main">
