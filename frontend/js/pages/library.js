@@ -18,16 +18,23 @@ let isLoading = false;
 let userGP = 0;
 let userWallet = 0;
 let userInterests = [];
+let isDropdownOpen = false;
 
 // Categories - Updated
 const CATEGORIES = [
     { id: 'for-you', name: 'For You' },
-    { id: 'books', name: 'Books' },
+    { id: 'design', name: 'Design' },
+    { id: 'tech', name: 'Tech' },
+    { id: 'media', name: 'Media' },
+    { id: 'creativity', name: 'Creativity' },
+    { id: 'short-stories', name: 'Short Stories' },
+    { id: 'novel', name: 'Novel' },
+    { id: 'self-help', name: 'Self-Help' },
+    { id: 'guide', name: 'Guide' },
+    { id: 'bundles', name: 'Bundles' },
     { id: 'courses', name: 'Courses' },
-    { id: 'resources', name: 'Resources' },
-    { id: 'saved', name: 'Saved' },
-    { id: 'purchased', name: 'Purchased' },
-    { id: 'bundles', name: 'Bundles' }
+    { id: 'books', name: 'Books' },
+    { id: 'resources', name: 'Resources' }
 ];
 
 // GP Rewards for different actions
@@ -60,6 +67,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadSavedItems();
             await loadPurchasedItems();
             await loadUserInterests();
+            updateHeroStats();
+            updateProfileAvatar();
             console.log(`✅ Loaded ${purchasedItems.size} purchased items`);
             console.log(`✅ GP: ${userGP} | Wallet: ₦${userWallet}`);
         }
@@ -68,6 +77,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupEventListeners();
         applyTheme();
         setupScrollHeader();
+        setupStickyFilters();
+        setupProfileDropdown();
         
     } catch (error) {
         console.error('Initialization error:', error);
@@ -93,7 +104,7 @@ async function loadUserData() {
     try {
         const { data: profile, error } = await supabase
             .from('users')
-            .select('wallet_balance, gp_points')
+            .select('wallet_balance, gp_points, avatar_url')
             .eq('id', currentUser.id)
             .single();
         
@@ -101,13 +112,16 @@ async function loadUserData() {
             if (error.message.includes('gp_points')) {
                 const { data: walletData, error: walletError } = await supabase
                     .from('users')
-                    .select('wallet_balance')
+                    .select('wallet_balance, avatar_url')
                     .eq('id', currentUser.id)
                     .single();
                 
                 if (!walletError) {
                     userWallet = walletData?.wallet_balance || 0;
                     userGP = 0;
+                    if (walletData?.avatar_url) {
+                        currentUser.avatar_url = walletData.avatar_url;
+                    }
                 }
             }
             throw error;
@@ -115,6 +129,9 @@ async function loadUserData() {
         
         userWallet = profile?.wallet_balance || 0;
         userGP = profile?.gp_points || 0;
+        if (profile?.avatar_url) {
+            currentUser.avatar_url = profile.avatar_url;
+        }
         
         if (profile?.gp_points === undefined || profile?.gp_points === null) {
             await supabase
@@ -136,7 +153,6 @@ async function loadUserData() {
 async function loadUserInterests() {
     if (!currentUser) return;
     try {
-        // Get user's purchased items to determine interests
         const { data: purchases } = await supabase
             .from('user_purchases')
             .select('item_id')
@@ -150,20 +166,35 @@ async function loadUserInterests() {
                 .in('id', itemIds);
             
             if (items) {
-                // Count category frequencies
                 const categoryCount = {};
                 items.forEach(item => {
                     if (item.category) {
                         categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
                     }
                 });
-                // Sort by frequency
                 userInterests = Object.keys(categoryCount).sort((a, b) => categoryCount[b] - categoryCount[a]);
                 console.log('User interests:', userInterests);
             }
         }
     } catch (error) {
         console.error('Error loading interests:', error);
+    }
+}
+
+// ============================================
+// UPDATE UI
+// ============================================
+function updateHeroStats() {
+    document.getElementById('heroWallet').textContent = `₦${userWallet.toLocaleString()}`;
+    document.getElementById('heroGP').textContent = userGP;
+    document.getElementById('heroLibrary').textContent = purchasedItems.size;
+}
+
+function updateProfileAvatar() {
+    const avatarImg = document.getElementById('profileAvatar');
+    if (avatarImg) {
+        const avatarUrl = currentUser?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2c2f78&color=fff`;
+        avatarImg.src = avatarUrl;
     }
 }
 
@@ -251,7 +282,7 @@ async function loadPurchasedItems() {
 }
 
 // ============================================
-// THEME MANAGEMENT
+// THEME & SCROLL MANAGEMENT
 // ============================================
 function applyTheme() {
     const savedTheme = localStorage.getItem('theme');
@@ -284,6 +315,72 @@ function setupScrollHeader() {
             header.classList.remove('scrolled');
         }
         lastScroll = currentScroll;
+    }, { passive: true });
+}
+
+function setupStickyFilters() {
+    const filtersWrapper = document.getElementById('filtersWrapper');
+    const headerHeight = document.querySelector('.library-header').offsetHeight;
+    let isSticky = false;
+    
+    window.addEventListener('scroll', () => {
+        const heroHeight = document.querySelector('.hero-section').offsetHeight;
+        const scrollY = window.pageYOffset;
+        const shouldStick = scrollY > heroHeight - headerHeight;
+        
+        if (shouldStick && !isSticky) {
+            filtersWrapper.classList.add('is-sticky');
+            isSticky = true;
+        } else if (!shouldStick && isSticky) {
+            filtersWrapper.classList.remove('is-sticky');
+            isSticky = false;
+        }
+    }, { passive: true });
+}
+
+function setupProfileDropdown() {
+    const profileBtn = document.getElementById('profileBtn');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+    
+    if (!profileBtn || !dropdownMenu) return;
+    
+    profileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isDropdownOpen = !isDropdownOpen;
+        dropdownMenu.classList.toggle('show', isDropdownOpen);
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.profile-dropdown')) {
+            dropdownMenu.classList.remove('show');
+            isDropdownOpen = false;
+        }
+    });
+    
+    // Dropdown links
+    document.getElementById('savedItemsLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentFilter = 'saved';
+        renderFilters();
+        renderItems();
+        dropdownMenu.classList.remove('show');
+        isDropdownOpen = false;
+    });
+    
+    document.getElementById('purchasedItemsLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentFilter = 'purchased';
+        renderFilters();
+        renderItems();
+        dropdownMenu.classList.remove('show');
+        isDropdownOpen = false;
+    });
+    
+    document.getElementById('logoutLink')?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await supabase.auth.signOut();
+        localStorage.clear();
+        window.location.href = '/signin.html';
     });
 }
 
@@ -323,7 +420,6 @@ function getFilteredItems(filterId) {
     
     switch(filterId) {
         case 'for-you':
-            // Show items based on user interests
             if (userInterests.length > 0) {
                 filtered = filtered.filter(item => 
                     userInterests.some(interest => 
@@ -331,11 +427,23 @@ function getFilteredItems(filterId) {
                         item.type?.toLowerCase().includes(interest.toLowerCase())
                     )
                 );
-                // If no items match interests, show all
                 if (filtered.length === 0) {
                     filtered = [...allItems];
                 }
             }
+            break;
+        case 'design':
+        case 'tech':
+        case 'media':
+        case 'creativity':
+        case 'short-stories':
+        case 'novel':
+        case 'self-help':
+        case 'guide':
+            filtered = filtered.filter(item => 
+                item.category?.toLowerCase() === filterId.replace('-', ' ') ||
+                item.category?.toLowerCase().includes(filterId.replace('-', ' '))
+            );
             break;
         case 'books':
             filtered = filtered.filter(item => item.type === 'book' || item.type === 'resource');
@@ -376,7 +484,6 @@ function renderItems() {
     
     let filtered = getFilteredItems(currentFilter);
     
-    // Apply search
     if (currentSearch) {
         const searchLower = currentSearch.toLowerCase();
         filtered = filtered.filter(item => 
@@ -407,9 +514,27 @@ function createItemCard(item) {
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
     const isBundle = item.type === 'bundle';
+    const isCourse = item.type === 'course';
     const hasPrice = (item.price || 0) > 0;
     const coverUrl = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Book')}`;
     const gpReward = isBundle ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
+    
+    // Courses - double width, half height
+    if (isCourse) {
+        return `
+            <div class="grid-item item-course" data-id="${item.id}" onclick="window.viewItemDetails('${item.id}')">
+                <div class="card-cover" style="background-image: url('${coverUrl}')">
+                    ${isPurchased ? '<div class="purchased-badge">✓ Purchased</div>' : ''}
+                    ${isSaved && !isPurchased ? '<div class="saved-badge">★ Saved</div>' : ''}
+                    ${hasPrice && !isPurchased ? `<div class="price-badge">₦${(item.price || 0).toLocaleString()}</div>` : ''}
+                </div>
+                <div class="card-title-bottom">
+                    <div class="title">${escapeHtml(item.title)}</div>
+                    <div class="author">${escapeHtml(item.author || 'Gliimu Team')}</div>
+                </div>
+            </div>
+        `;
+    }
     
     if (isBundle) {
         return `
@@ -418,7 +543,7 @@ function createItemCard(item) {
                     <div class="bundle-title">${escapeHtml(item.title)}</div>
                     <div class="bundle-meta">${escapeHtml(item.author || 'Gliimu Team')} • ${item.level || 'Beginner'}</div>
                     ${hasPrice ? `<div class="bundle-price">₦${(item.price || 0).toLocaleString()}</div>` : '<div class="bundle-price free">Free</div>'}
-                    ${isPurchased ? '<div class="purchased-tag">✓ Owned</div>' : `<div class="gp-tag">+${gpReward} GP</div>`}
+                    ${isPurchased ? '<div class="purchased-tag">✓ Owned</div>' : ''}
                 </div>
                 <button class="bundle-download-btn" onclick="event.stopPropagation(); window.downloadBundle('${item.id}')" 
                     ${!isPurchased && hasPrice ? 'disabled title="Purchase to download"' : ''}>
@@ -430,24 +555,24 @@ function createItemCard(item) {
         `;
     }
     
+    // Regular book/resource card
     return `
         <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewItemDetails('${item.id}')">
             <div class="card-cover" style="background-image: url('${coverUrl}')">
                 ${isPurchased ? '<div class="purchased-badge">✓ Purchased</div>' : ''}
                 ${isSaved && !isPurchased ? '<div class="saved-badge">★ Saved</div>' : ''}
                 ${hasPrice && !isPurchased ? `<div class="price-badge">₦${(item.price || 0).toLocaleString()}</div>` : ''}
-                ${!isPurchased ? `<div class="gp-badge">+${gpReward} GP</div>` : ''}
-                <div class="card-info-overlay">
-                    <div class="card-title">${escapeHtml(item.title)}</div>
-                    <div class="card-author">${escapeHtml(item.author || 'Gliimu Team')}</div>
-                </div>
+            </div>
+            <div class="card-title-bottom">
+                <div class="title">${escapeHtml(item.title)}</div>
+                <div class="author">${escapeHtml(item.author || 'Gliimu Team')}</div>
             </div>
         </div>
     `;
 }
 
 // ============================================
-// GP (Gliimu Points) MANAGEMENT
+// GP MANAGEMENT
 // ============================================
 async function addGP(userId, amount, reason) {
     try {
@@ -489,6 +614,7 @@ async function addGP(userId, amount, reason) {
         }
         
         userGP = newGP;
+        updateHeroStats();
         
         if (newGP >= 100 && currentGP < 100) {
             showToast('🎉 Congratulations! You\'ve reached Premium status with 100 GP!', 'success');
@@ -530,7 +656,7 @@ async function grantPremiumAccess(userId) {
 }
 
 // ============================================
-// PURCHASE FLOW - COMPLETE
+// PURCHASE FLOW
 // ============================================
 
 window.purchaseItem = async (itemId, type = 'digital') => {
@@ -637,6 +763,8 @@ window.purchaseItem = async (itemId, type = 'digital') => {
         }
         
         renderItems();
+        renderFilters();
+        updateHeroStats();
         closeModal();
         
         if (type === 'digital' && item.file_url) {
@@ -681,6 +809,8 @@ async function grantAccess(itemId, accessType = 'standard') {
         purchasedItems.add(itemId);
         showToast(`✅ Access granted to ${item.title}!`, 'success');
         renderItems();
+        renderFilters();
+        updateHeroStats();
         closeModal();
         
         if (item.file_url) {
@@ -735,6 +865,8 @@ async function grantFreeAccess(itemId) {
             showToast(`✅ Free access granted to ${item.title}!`, 'success');
         }
         renderItems();
+        renderFilters();
+        updateHeroStats();
         closeModal();
         
         if (item.file_url) {
@@ -989,7 +1121,6 @@ window.toggleSaveItem = async (itemId) => {
         }
         
         renderItems();
-        // Refresh filter counts
         renderFilters();
         
     } catch (error) {
