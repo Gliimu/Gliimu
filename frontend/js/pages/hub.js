@@ -17,6 +17,12 @@ let userWallet = 0;
 let isDropdownOpen = false;
 let isSearchOpen = false;
 let currentModalItemId = null;
+let currentPurchaseState = {
+    itemId: null,
+    selectedOption: null,
+    selectedLocation: null,
+    selectedPrice: 0
+};
 
 const GP_REWARDS = {
     purchase_book: 5,
@@ -33,14 +39,6 @@ const DELIVERY_REGIONS = [
     { id: 'lagos', name: 'Lagos', cities: ['Ikeja', 'Victoria Island', 'Lekki', 'Surulere', 'Yaba', 'Apapa', 'Maryland', 'Magodo'] },
     { id: 'port-harcourt', name: 'Port Harcourt', cities: ['GRA', 'Rumuokwurushi', 'Ogbunabali', 'Borikiri', 'Elelenwo', 'Woji'] }
 ];
-
-let currentPurchaseState = {
-    itemId: null,
-    selectedOption: null,
-    selectedLocation: null,
-    deliveryAddress: '',
-    deliveryPhone: ''
-};
 
 // ============================================
 // DOM REFS
@@ -65,6 +63,7 @@ const DOM = {
     modalFooter: $('modalFooter'),
     modalSaveBtn: $('modalSaveBtn'),
     modalCloseBtn: $('modalCloseBtn'),
+    modalBody: $('modalBody'),
     profileBtn: $('profileBtn'),
     dropdown: $('dropdownMenu'),
     savedLink: $('savedItemsLink'),
@@ -452,6 +451,24 @@ function setupSearchModal() {
 }
 
 // ============================================
+// SAVE BUTTON HELPER
+// ============================================
+function updateSaveButton(itemId, isSaved) {
+    const saveBtn = document.getElementById('modalSaveBtn');
+    if (saveBtn) {
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
+        newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
+        newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
+        newSaveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSave(itemId);
+        });
+    }
+}
+
+// ============================================
 // VIEW DETAILS - MAIN ENTRY POINT
 // ============================================
 window.viewDetails = async (itemId) => {
@@ -459,6 +476,11 @@ window.viewDetails = async (itemId) => {
     if (!item) return showToast('Item not found', 'error');
 
     currentModalItemId = itemId;
+
+    // Reset modal styles
+    const modal = DOM.itemModal;
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.classList.remove('book-modal');
 
     // Route to appropriate detail view based on type
     if (item.type === 'book' || item.type === 'resource') {
@@ -473,7 +495,7 @@ window.viewDetails = async (itemId) => {
 };
 
 // ============================================
-// BOOK DETAILS - WIDE MODAL WITH CHAPTER PREVIEW
+// BOOK DETAILS - FULL WIDTH WATTPAD STYLE
 // ============================================
 async function renderBookDetails(itemId) {
     const item = allItems.find(i => i.id === itemId);
@@ -487,8 +509,9 @@ async function renderBookDetails(itemId) {
     currentPurchaseState.itemId = itemId;
     currentPurchaseState.selectedOption = null;
     currentPurchaseState.selectedLocation = null;
+    currentPurchaseState.selectedPrice = 0;
 
-    // Update modal to book layout - WIDE
+    // Update modal to book layout - FULL WIDTH
     const modal = DOM.itemModal;
     const modalContent = modal.querySelector('.modal-content');
     modalContent.classList.add('book-modal');
@@ -510,12 +533,18 @@ Sarah had always dreamed of something more. She spent her days in the small town
 Those words echoed in her mind as she stood at the crossroads of her life. The choice was hers to make. The path ahead was uncertain, but one thing was clear: she was ready to take the first step...`;
 
     const coverUrl = item.cover_url || `https://placehold.co/280x400/2c2f78/white?text=${encodeURIComponent(item.title)}`;
-    
+    const hasDigital = (item.price || 0) > 0;
+    const hasPhysical = (item.physical_price || 0) > 0;
+    const hasAudio = (item.audio_price || 0) > 0;
+    const digitalPrice = item.price || 0;
+    const physicalPrice = item.physical_price || 0;
+    const audioPrice = item.audio_price || 0;
+
     let detailsHtml = `
         <div class="book-layout">
             <div class="book-cover-wrapper">
                 <img src="${coverUrl}" alt="${item.title}" class="book-cover-img">
-                ${!isPurchased ? `<div class="book-price-tag">₦${(item.price || 0).toLocaleString()}</div>` : ''}
+                ${!isPurchased && hasDigital ? `<div class="book-price-tag">₦${digitalPrice.toLocaleString()}</div>` : ''}
             </div>
             <div class="book-info-wrapper">
                 <h2 class="book-title">${escape(item.title)}</h2>
@@ -529,7 +558,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                 </div>
                 <div class="book-description">${escape(item.description || 'No description available.')}</div>
                 
-                <!-- First Chapter Preview - WIDE -->
+                <!-- First Chapter Preview - Full Width -->
                 <div class="chapter-preview-wide">
                     <div class="chapter-header">
                         <span class="chapter-icon">📖</span>
@@ -537,20 +566,13 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                     </div>
                     <div class="chapter-content ${isPurchased ? '' : 'chapter-blur'}">
                         ${escape(firstChapter)}
-                        ${!isPurchased ? '<div class="chapter-lock">🔒 Continue reading after purchase</div>' : ''}
                     </div>
+                    ${!isPurchased ? '<div class="chapter-lock">🔒 Continue reading after purchase</div>' : ''}
                 </div>
     `;
 
     // If not purchased, show purchase options
     if (!isPurchased) {
-        const hasDigital = (item.price || 0) > 0;
-        const hasPhysical = (item.physical_price || 0) > 0;
-        const hasAudio = (item.audio_price || 0) > 0;
-        const digitalPrice = item.price || 0;
-        const physicalPrice = item.physical_price || 0;
-        const audioPrice = item.audio_price || 0;
-
         detailsHtml += `
                 <div class="purchase-section">
                     <div class="purchase-options-grid">
@@ -637,7 +659,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                         <span class="summary-label">Total:</span>
                         <span class="summary-total" id="summaryTotal">₦0</span>
                     </div>
-                    <button class="purchase-btn" id="purchaseBtn" disabled>
+                    <button class="purchase-btn gold" id="purchaseBtn" disabled>
                         Select an option to purchase
                     </button>
                 </div>
@@ -851,25 +873,6 @@ async function renderGenericDetails(itemId) {
 }
 
 // ============================================
-// SAVE BUTTON HELPER
-// ============================================
-function updateSaveButton(itemId, isSaved) {
-    const saveBtn = document.getElementById('modalSaveBtn');
-    if (saveBtn) {
-        const newSaveBtn = saveBtn.cloneNode(true);
-        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-        newSaveBtn.className = `modal-save-btn ${isSaved ? 'saved' : ''}`;
-        newSaveBtn.innerHTML = `<i class="fas fa-bookmark"></i>`;
-        newSaveBtn.title = isSaved ? 'Remove from saved' : 'Save for later';
-        newSaveBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleSave(itemId);
-        });
-        document.getElementById('modalSaveBtn');
-    }
-}
-
-// ============================================
 // PURCHASE OPTION SELECTION
 // ============================================
 window.selectPurchaseOption = (type, price) => {
@@ -881,15 +884,18 @@ window.selectPurchaseOption = (type, price) => {
     if (optionEl) optionEl.classList.add('selected');
 
     currentPurchaseState.selectedOption = type;
+    currentPurchaseState.selectedPrice = price;
     
     // Show/hide delivery section for physical
     if (type === 'physical') {
-        DOM.deliverySection.classList.add('active');
+        const deliverySection = document.getElementById('deliverySection');
+        if (deliverySection) deliverySection.classList.add('active');
         document.querySelectorAll('.location-option').forEach(el => el.classList.remove('selected'));
         currentPurchaseState.selectedLocation = null;
         document.getElementById('deliveryDetails').style.display = 'none';
     } else {
-        DOM.deliverySection.classList.remove('active');
+        const deliverySection = document.getElementById('deliverySection');
+        if (deliverySection) deliverySection.classList.remove('active');
         currentPurchaseState.selectedLocation = null;
     }
 
@@ -900,11 +906,17 @@ window.selectPurchaseOption = (type, price) => {
         finalPrice = 0;
     }
     
-    DOM.summaryTotal.textContent = `₦${finalPrice.toLocaleString()}`;
-    DOM.purchaseSummary.style.display = 'flex';
-    DOM.purchaseBtn.disabled = false;
-    DOM.purchaseBtn.textContent = type === 'premium' ? '⭐ Get Premium Access' : `Purchase ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-    DOM.purchaseBtn.className = `purchase-btn ${type === 'premium' ? 'success' : 'gold'}`;
+    const summaryTotal = document.getElementById('summaryTotal');
+    const purchaseSummary = document.getElementById('purchaseSummary');
+    const purchaseBtn = document.getElementById('purchaseBtn');
+    
+    if (summaryTotal) summaryTotal.textContent = `₦${finalPrice.toLocaleString()}`;
+    if (purchaseSummary) purchaseSummary.classList.add('show');
+    if (purchaseBtn) {
+        purchaseBtn.disabled = false;
+        purchaseBtn.textContent = type === 'premium' ? '⭐ Get Premium Access' : `Purchase ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+        purchaseBtn.className = `purchase-btn ${type === 'premium' ? 'success' : 'gold'}`;
+    }
     
     currentPurchaseState.selectedPrice = finalPrice;
 };
@@ -919,20 +931,29 @@ window.selectLocation = (type) => {
 
     currentPurchaseState.selectedLocation = type;
 
+    const deliveryDetails = document.getElementById('deliveryDetails');
+    const purchaseBtn = document.getElementById('purchaseBtn');
+
     if (type === 'pickup') {
-        document.getElementById('deliveryDetails').style.display = 'none';
-        DOM.purchaseBtn.disabled = false;
-        DOM.purchaseBtn.textContent = 'Confirm Pickup & Purchase';
+        if (deliveryDetails) deliveryDetails.style.display = 'none';
+        if (purchaseBtn) {
+            purchaseBtn.disabled = false;
+            purchaseBtn.textContent = 'Confirm Pickup & Purchase';
+        }
     } else {
-        document.getElementById('deliveryDetails').style.display = 'block';
-        DOM.purchaseBtn.disabled = true;
-        DOM.purchaseBtn.textContent = 'Please fill in delivery details';
+        if (deliveryDetails) deliveryDetails.style.display = 'block';
+        if (purchaseBtn) {
+            purchaseBtn.disabled = true;
+            purchaseBtn.textContent = 'Please fill in delivery details';
+        }
     }
 };
 
 window.updateDeliveryCities = () => {
     const region = document.getElementById('deliveryRegion').value;
     const citySelect = document.getElementById('deliveryCity');
+    if (!citySelect) return;
+    
     citySelect.innerHTML = '<option value="">Select your city</option>';
     
     if (region) {
@@ -947,23 +968,38 @@ window.updateDeliveryCities = () => {
 };
 
 function validateDeliveryForm() {
-    const region = document.getElementById('deliveryRegion').value;
-    const city = document.getElementById('deliveryCity').value;
-    const address = document.getElementById('deliveryAddress').value.trim();
-    const phone = document.getElementById('deliveryPhone').value.trim();
+    const region = document.getElementById('deliveryRegion');
+    const city = document.getElementById('deliveryCity');
+    const address = document.getElementById('deliveryAddress');
+    const phone = document.getElementById('deliveryPhone');
+    const purchaseBtn = document.getElementById('purchaseBtn');
     
-    const isValid = region && city && address && phone && phone.length >= 10;
+    if (!region || !city || !address || !phone || !purchaseBtn) return;
     
-    if (DOM.purchaseBtn) {
-        if (isValid) {
-            DOM.purchaseBtn.disabled = false;
-            DOM.purchaseBtn.textContent = '🚚 Confirm Delivery & Purchase';
-        } else {
-            DOM.purchaseBtn.disabled = true;
-            DOM.purchaseBtn.textContent = 'Please fill in all delivery details';
-        }
+    const isValid = region.value && city.value && address.value.trim() && phone.value.trim() && phone.value.trim().length >= 10;
+    
+    if (isValid) {
+        purchaseBtn.disabled = false;
+        purchaseBtn.textContent = '🚚 Confirm Delivery & Purchase';
+    } else {
+        purchaseBtn.disabled = true;
+        purchaseBtn.textContent = 'Please fill in all delivery details';
     }
 }
+
+// Add event listeners for delivery form validation
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'deliveryRegion' || e.target.id === 'deliveryCity' || 
+        e.target.id === 'deliveryAddress' || e.target.id === 'deliveryPhone') {
+        validateDeliveryForm();
+    }
+});
+
+document.addEventListener('input', (e) => {
+    if (e.target.id === 'deliveryAddress' || e.target.id === 'deliveryPhone') {
+        validateDeliveryForm();
+    }
+});
 
 // ============================================
 // COMPLETE PURCHASE
@@ -999,18 +1035,18 @@ async function completePurchase() {
         }
 
         if (selectedLocation === 'delivery') {
-            const region = document.getElementById('deliveryRegion').value;
-            const city = document.getElementById('deliveryCity').value;
-            const address = document.getElementById('deliveryAddress').value.trim();
-            const phone = document.getElementById('deliveryPhone').value.trim();
+            const region = document.getElementById('deliveryRegion');
+            const city = document.getElementById('deliveryCity');
+            const address = document.getElementById('deliveryAddress');
+            const phone = document.getElementById('deliveryPhone');
 
-            if (!region || !city || !address || !phone) {
+            if (!region.value || !city.value || !address.value.trim() || !phone.value.trim()) {
                 showToast('Please fill in all delivery details', 'error');
                 return;
             }
 
             // Check if we can deliver to this region
-            const regionData = DELIVERY_REGIONS.find(r => r.id === region);
+            const regionData = DELIVERY_REGIONS.find(r => r.id === region.value);
             if (!regionData) {
                 showToast('We are currently unable to ship to your chosen location', 'error');
                 return;
@@ -1026,9 +1062,9 @@ async function completePurchase() {
                 type: 'physical',
                 amount: selectedPrice,
                 region: regionData.name,
-                city: city,
-                address: address,
-                phone: phone,
+                city: city.value,
+                address: address.value.trim(),
+                phone: phone.value.trim(),
                 pickup: false,
                 status: 'pending',
                 created_at: new Date().toISOString()
@@ -1402,7 +1438,7 @@ window.closeModal = () => {
     DOM.itemModal.classList.remove('active');
     document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
     const modalContent = DOM.itemModal.querySelector('.modal-content');
-    modalContent.classList.remove('book-modal');
+    if (modalContent) modalContent.classList.remove('book-modal');
 };
 
 DOM.modalCloseBtn?.addEventListener('click', closeModal);
