@@ -1,365 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Creative Feed | Gliimu Institute</title>
-  <meta name="description" content="Discover creative content from the Gliimu community - short videos, design insights, and creative inspiration">
-  
-  <link rel="icon" type="image/png" href="icons/logoz.png">
-  
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
-  <!-- CSS Files -->
-  <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/hub.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub | Gliimu Institute</title>
+    <link rel="icon" type="image/png" href="icons/logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/library.css">
 </head>
 <body>
-
-  <div class="app-container">
-    
-    <!-- LEFT SIDEBAR - Navigation & Leaderboard -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <img src="icons/logo.png" alt="Gliimu" class="sidebar-logo" id="sidebarLogo">
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="dashboard.html" class="nav-item">
-          <i class="fas fa-th-large"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="hub.html" class="nav-item active">
-          <i class="fas fa-fire"></i>
-          <span>Creative Feed</span>
-        </a>
-        <a href="library.html" class="nav-item">
-          <i class="fas fa-book-open"></i>
-          <span>Library</span>
-        </a>
-        <a href="virtualroom.html" class="nav-item">
-          <i class="fas fa-video"></i>
-          <span>Studio</span>
-        </a>
-        <a href="chat.html" class="nav-item">
-          <i class="fas fa-comments"></i>
-          <span>Community</span>
-        </a>
-        <a href="portfolio.html" class="nav-item">
-          <i class="fas fa-user-tie"></i>
-          <span>Portfolio</span>
-        </a>
-      </nav>
-      
-      <!-- Leaderboard Section -->
-      <div class="leaderboard-section">
-        <div class="leaderboard-header">
-          <i class="fas fa-trophy"></i>
-          <h3>Top Creators</h3>
+    <!-- Header -->
+    <header class="library-header" id="libraryHeader">
+        <div class="header-container">
+            <div class="header-left">
+                <a href="/hub.html" class="logo-link">
+                    <img src="icons/logo.png" alt="Gliimu" class="logo-img" id="logoImg">
+                </a>
+            </div>
+            <div class="header-center">
+                <div class="gp-display" id="gpDisplay">
+                    <span class="gp-icon">⭐</span>
+                    <span class="gp-value" id="headerGP">0</span>
+                    <span class="gp-label">GP</span>
+                </div>
+                <button class="search-trigger" id="searchTrigger">
+                    <i class="fas fa-search"></i>
+                    <span>Search</span>
+                </button>
+            </div>
+            <div class="header-right">
+                <div class="profile-dropdown" id="profileDropdown">
+                    <button class="profile-btn" id="profileBtn">
+                        <img id="profileAvatar" src="https://ui-avatars.com/api/?name=User&background=2c2f78&color=fff" alt="Profile">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <a href="/dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                        <a href="/portfolio.html"><i class="fas fa-briefcase"></i> My Portfolio</a>
+                        <a href="#" id="savedItemsLink"><i class="fas fa-bookmark"></i> Saved Items</a>
+                        <a href="#" id="purchasedItemsLink"><i class="fas fa-shopping-bag"></i> Purchased Items</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" id="merchandiseLink"><i class="fas fa-tshirt"></i> Merchandise</a>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="leaderboard-list" id="leaderboardList">
-          <div class="loading-leaderboard">
-            <div class="loading-spinner-small"></div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="sidebar-footer">
-        <div class="user-info" id="userInfo">
-          <div class="user-avatar">
-            <i class="fas fa-user-circle"></i>
-          </div>
-          <div class="user-details">
-            <span class="user-name" id="userName">Guest User</span>
-            <span class="user-role" id="userRole">Join Us</span>
-          </div>
-        </div>
-      </div>
-    </aside>
+    </header>
 
-    <!-- MAIN CONTENT - Feed Area -->
-    <main class="main-content">
-      <!-- Feed Header -->
-      <div class="feed-header">
-        <div class="header-title">
-          <h1>Creative Feed</h1>
-          <p>Discover amazing content from the community</p>
+    <!-- Main Content -->
+    <main class="library-main" id="libraryMain">
+        <div class="container">
+            <!-- Content Grid -->
+            <div id="booksContainer" class="content-grid">
+                <div class="loading">Loading content...</div>
+            </div>
         </div>
-        <button class="create-post-btn" id="createPostBtn">
-          <i class="fas fa-plus"></i>
-          <span>Create Post</span>
-        </button>
-      </div>
-
-      <!-- Search Bar -->
-      <div class="search-wrapper">
-        <div class="search-bar">
-          <i class="fas fa-search"></i>
-          <input type="text" id="searchInput" placeholder="Search creators, content, or topics...">
-        </div>
-      </div>
-
-      <!-- Category Chips -->
-      <div class="category-chips">
-        <button class="chip active" data-filter="all">All</button>
-        <button class="chip" data-filter="video"><i class="fas fa-video"></i> Shorts</button>
-        <button class="chip" data-filter="insight"><i class="fas fa-lightbulb"></i> Insights</button>
-        <button class="chip" data-filter="design"><i class="fas fa-palette"></i> Design</button>
-        <button class="chip" data-filter="project"><i class="fas fa-code"></i> Projects</button>
-      </div>
-
-      <!-- Feed Container -->
-      <div class="feed-container" id="feedContainer">
-        <!-- Posts will be loaded here -->
-      </div>
     </main>
 
-    <!-- RIGHT SIDEBAR - Ads, Sponsorships, Announcements -->
-    <aside class="right-sidebar">
-      <!-- Premium Banner -->
-      <div class="premium-card">
-        <div class="premium-badge">
-          <i class="fas fa-crown"></i> Premium
-        </div>
-        <h3>Become a Media Architect</h3>
-        <p>Master video production, design, AND code</p>
-        <div class="premium-features">
-          <span><i class="fas fa-check"></i> Unlimited Access</span>
-          <span><i class="fas fa-check"></i> Live Mentorship</span>
-          <span><i class="fas fa-check"></i> Portfolio Review</span>
-        </div>
-        <button class="upgrade-btn">Upgrade Now</button>
-      </div>
-
-      <!-- Sponsor Spotlight -->
-      <div class="sponsor-card">
-        <div class="card-header">
-          <i class="fas fa-star"></i>
-          <span>Sponsor Spotlight</span>
-        </div>
-        <div class="sponsor-content">
-          <img src="https://placehold.co/400x200/2c2f78/white?text=ADOBE" alt="Sponsor" class="sponsor-logo">
-          <h4>Adobe Creative Cloud</h4>
-          <p>Get 40% off student subscription. Limited offer for Gliimu members!</p>
-          <a href="#" class="sponsor-link">Claim Offer →</a>
-        </div>
-      </div>
-
-      <!-- Upcoming Events -->
-      <div class="events-card">
-        <div class="card-header">
-          <i class="fas fa-calendar-alt"></i>
-          <span>Upcoming Events</span>
-        </div>
-        <div class="event-item">
-          <div class="event-date">
-            <span class="event-day">15</span>
-            <span class="event-month">MAR</span>
-          </div>
-          <div class="event-info">
-            <h4>Portfolio Review Workshop</h4>
-            <p>Get expert feedback on your work</p>
-          </div>
-        </div>
-        <div class="event-item">
-          <div class="event-date">
-            <span class="event-day">22</span>
-            <span class="event-month">MAR</span>
-          </div>
-          <div class="event-info">
-            <h4>Motion Graphics Masterclass</h4>
-            <p>Learn advanced animation techniques</p>
-          </div>
-        </div>
-        <div class="event-item">
-          <div class="event-date">
-            <span class="event-day">30</span>
-            <span class="event-month">MAR</span>
-          </div>
-          <div class="event-info">
-            <h4>Scholarship Deadline</h4>
-            <p>Apply for creative excellence scholarship</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Announcement Card -->
-      <div class="announcement-card">
-        <div class="card-header">
-          <i class="fas fa-bullhorn"></i>
-          <span>Announcement</span>
-        </div>
-        <div class="announcement-content">
-          <i class="fas fa-graduation-cap announcement-icon"></i>
-          <h4>New Course Launch!</h4>
-          <p>Advanced UI/UX Design with Figma - Enroll now and get 30% off</p>
-          <a href="#" class="learn-more">Learn More →</a>
-        </div>
-      </div>
-
-      <!-- Community Stats -->
-      <div class="stats-card">
-        <div class="stat-item">
-          <i class="fas fa-users"></i>
-          <div>
-            <span class="stat-number">12,847</span>
-            <span class="stat-label">Active Members</span>
-          </div>
-        </div>
-        <div class="stat-item">
-          <i class="fas fa-heart"></i>
-          <div>
-            <span class="stat-number">45.2K</span>
-            <span class="stat-label">Total Likes</span>
-          </div>
-        </div>
-        <div class="stat-item">
-          <i class="fas fa-chart-line"></i>
-          <div>
-            <span class="stat-number">1,234</span>
-            <span class="stat-label">Posts This Week</span>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Create Post Modal -->
-    <div class="modal-overlay" id="createPostModal">
-      <div class="modal-content modal-create">
-        <div class="modal-header">
-          <h3><i class="fas fa-pen-alt"></i> Share Your Creative Journey</h3>
-          <button class="modal-close" id="closeModalBtn">&times;</button>
-        </div>
-        
-        <form id="postForm">
-          <div class="form-group">
-            <label>Content Type</label>
-            <div class="type-buttons">
-              <button type="button" class="type-btn active" data-type="insight">
-                <i class="fas fa-lightbulb"></i> Insight
-              </button>
-              <button type="button" class="type-btn" data-type="video">
-                <i class="fas fa-video"></i> Short
-              </button>
-              <button type="button" class="type-btn" data-type="design">
-                <i class="fas fa-palette"></i> Design
-              </button>
-              <button type="button" class="type-btn" data-type="project">
-                <i class="fas fa-code"></i> Project
-              </button>
+    <!-- Search Modal -->
+    <div id="searchModal" class="search-modal">
+        <div class="search-modal-overlay"></div>
+        <div class="search-modal-content">
+            <div class="search-modal-header">
+                <h2>Search</h2>
+                <button class="search-modal-close" id="searchModalClose">&times;</button>
             </div>
-            <input type="hidden" id="postType" value="insight">
-          </div>
-          
-          <div class="form-group">
-            <input type="text" id="postTitle" placeholder="Caption / Title..." class="caption-input" required>
-          </div>
-          
-          <div class="form-group">
-            <textarea id="postDescription" rows="3" placeholder="Tell your story or share insights..."></textarea>
-          </div>
-          
-          <div class="form-group">
-            <label class="upload-btn">
-              <i class="fas fa-image"></i> Add Thumbnail
-              <input type="file" id="postImage" accept="image/*" style="display: none;">
-            </label>
-            <div class="image-preview" id="imagePreview" style="display: none;">
-              <img id="previewImg" src="" alt="Preview">
-              <button type="button" class="remove-preview" onclick="removeImage()">
-                <i class="fas fa-times-circle"></i>
-              </button>
+            <div class="search-modal-body">
+                <div class="search-modal-input-wrapper">
+                    <i class="fas fa-search search-modal-icon"></i>
+                    <input type="text" id="searchModalInput" placeholder="Search books, talks, resources...">
+                    <button id="searchModalBtn"><i class="fas fa-arrow-right"></i></button>
+                </div>
+                <div class="search-modal-results" id="searchModalResults">
+                    <p class="search-hint">Type to start searching...</p>
+                </div>
             </div>
-          </div>
-          
-          <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeCreatePostModal()">Cancel</button>
-            <button type="button" class="btn-publish" onclick="submitPost()">
-              <i class="fas fa-paper-plane"></i> Publish
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
     </div>
 
-    <!-- Post Detail Modal -->
-    <div class="modal-overlay" id="postDetailModal">
-      <div class="modal-content modal-detail">
-        <button class="detail-close" id="closeDetailModal">
-          <i class="fas fa-times"></i>
-        </button>
-        <div id="postDetailContent"></div>
-      </div>
+    <!-- Item Detail Modal -->
+    <div id="itemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle"></h2>
+                <div class="modal-header-actions">
+                    <button class="modal-save-btn" id="modalSaveBtn" title="Save for later">
+                        <i class="fas fa-bookmark"></i>
+                    </button>
+                    <button class="modal-close" id="modalCloseBtn">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <img id="modalImage" src="" alt="">
+                <div id="modalDescription"></div>
+            </div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
     </div>
 
-  </div>
-
-  <!-- JS File -->
-  <script type="module" src="js/pages/hub.js"></script>
-  
-  <script>
-    window.closeCreatePostModal = function() {
-      document.getElementById('createPostModal').classList.remove('active');
-    };
-    
-    window.removeImage = function() {
-      document.getElementById('imagePreview').style.display = 'none';
-      document.getElementById('previewImg').src = '';
-      document.getElementById('postImage').value = '';
-    };
-    
-    window.submitPost = function() {
-      const event = new CustomEvent('submitPost', {
-        detail: {
-          title: document.getElementById('postTitle').value,
-          type: document.getElementById('postType').value,
-          description: document.getElementById('postDescription').value,
-          imageFile: document.getElementById('postImage').files[0]
-        }
-      });
-      window.dispatchEvent(event);
-    };
-    
-    // Initialize
-    document.addEventListener('DOMContentLoaded', function() {
-      // Type selector
-      const typeBtns = document.querySelectorAll('.type-btn');
-      typeBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-          typeBtns.forEach(b => b.classList.remove('active'));
-          this.classList.add('active');
-          document.getElementById('postType').value = this.dataset.type;
-        });
-      });
-      
-      // Image preview
-      const imageInput = document.getElementById('postImage');
-      if (imageInput) {
-        imageInput.addEventListener('change', function(e) {
-          const preview = document.getElementById('imagePreview');
-          const previewImg = document.getElementById('previewImg');
-          if (this.files && this.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-              previewImg.src = e.target.result;
-              preview.style.display = 'block';
-            };
-            reader.readAsDataURL(this.files[0]);
-          }
-        });
-      }
-      
-      // Load user from localStorage
-      const user = JSON.parse(localStorage.getItem('gliimu_user') || 'null');
-      if (user) {
-        document.getElementById('userName').textContent = user.name || user.username;
-        document.getElementById('userRole').textContent = user.role || 'Student';
-      }
-    });
-  </script>
+    <!-- JavaScript -->
+    <script type="module" src="js/pages/library.js"></script>
 </body>
 </html>
