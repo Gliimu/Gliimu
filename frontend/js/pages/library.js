@@ -10,23 +10,24 @@ import { showToast } from '../modules/toast.js';
 // Global variables
 let currentUser = null;
 let allItems = [];
-let currentFilter = 'all';
+let currentFilter = 'for-you';
 let currentSearch = '';
 let savedItems = new Set();
 let purchasedItems = new Set();
 let isLoading = false;
 let userGP = 0;
 let userWallet = 0;
+let userInterests = [];
 
-// Categories
+// Categories - Updated
 const CATEGORIES = [
-    { id: 'all', name: 'All', icon: '📚' },
-    { id: 'Video Production', name: 'Video Production', icon: '🎬' },
-    { id: 'Motion Graphics', name: 'Motion Graphics', icon: '✨' },
-    { id: 'Design', name: 'Design', icon: '🎨' },
-    { id: 'Development', name: 'Development', icon: '💻' },
-    { id: 'Animation', name: 'Animation', icon: '🎮' },
-    { id: 'Bundle', name: 'Bundles', icon: '📦' }
+    { id: 'for-you', name: 'For You' },
+    { id: 'books', name: 'Books' },
+    { id: 'courses', name: 'Courses' },
+    { id: 'resources', name: 'Resources' },
+    { id: 'saved', name: 'Saved' },
+    { id: 'purchased', name: 'Purchased' },
+    { id: 'bundles', name: 'Bundles' }
 ];
 
 // GP Rewards for different actions
@@ -37,7 +38,8 @@ const GP_REWARDS = {
     read_book: 2,
     complete_course: 15,
     share_content: 3,
-    daily_login: 1
+    daily_login: 1,
+    save_item: 1
 };
 
 // ============================================
@@ -57,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadUserData();
             await loadSavedItems();
             await loadPurchasedItems();
+            await loadUserInterests();
             console.log(`✅ Loaded ${purchasedItems.size} purchased items`);
             console.log(`✅ GP: ${userGP} | Wallet: ₦${userWallet}`);
         }
@@ -64,6 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadLibraryItems();
         setupEventListeners();
         applyTheme();
+        setupScrollHeader();
         
     } catch (error) {
         console.error('Initialization error:', error);
@@ -81,13 +85,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
-// LOAD USER DATA (Wallet & GP)
+// LOAD USER DATA
 // ============================================
 async function loadUserData() {
     if (!currentUser) return;
     
     try {
-        // Get user profile with wallet and GP
         const { data: profile, error } = await supabase
             .from('users')
             .select('wallet_balance, gp_points')
@@ -95,7 +98,6 @@ async function loadUserData() {
             .single();
         
         if (error) {
-            // If gp_points column doesn't exist, just get wallet
             if (error.message.includes('gp_points')) {
                 const { data: walletData, error: walletError } = await supabase
                     .from('users')
@@ -114,7 +116,6 @@ async function loadUserData() {
         userWallet = profile?.wallet_balance || 0;
         userGP = profile?.gp_points || 0;
         
-        // If user doesn't have gp_points column, initialize it
         if (profile?.gp_points === undefined || profile?.gp_points === null) {
             await supabase
                 .from('users')
@@ -125,11 +126,44 @@ async function loadUserData() {
         
     } catch (error) {
         console.error('Error loading user data:', error);
-        // Don't set to 0 if we already have wallet data
         if (userWallet === undefined) {
             userWallet = 0;
             userGP = 0;
         }
+    }
+}
+
+async function loadUserInterests() {
+    if (!currentUser) return;
+    try {
+        // Get user's purchased items to determine interests
+        const { data: purchases } = await supabase
+            .from('user_purchases')
+            .select('item_id')
+            .eq('user_id', currentUser.id);
+        
+        if (purchases && purchases.length > 0) {
+            const itemIds = purchases.map(p => p.item_id);
+            const { data: items } = await supabase
+                .from('library_items')
+                .select('category')
+                .in('id', itemIds);
+            
+            if (items) {
+                // Count category frequencies
+                const categoryCount = {};
+                items.forEach(item => {
+                    if (item.category) {
+                        categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
+                    }
+                });
+                // Sort by frequency
+                userInterests = Object.keys(categoryCount).sort((a, b) => categoryCount[b] - categoryCount[a]);
+                console.log('User interests:', userInterests);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading interests:', error);
     }
 }
 
@@ -230,25 +264,26 @@ function applyTheme() {
         document.body.classList.remove('dark-mode');
         if (logoImg) logoImg.style.filter = 'none';
     } else {
-        // Check system preference
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (prefersDark) {
             document.body.classList.add('dark-mode');
             if (logoImg) logoImg.style.filter = 'brightness(0) invert(1)';
         }
     }
+}
+
+function setupScrollHeader() {
+    const header = document.querySelector('.library-header');
+    let lastScroll = 0;
     
-    // Listen for system theme changes
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (!localStorage.getItem('theme')) {
-            if (e.matches) {
-                document.body.classList.add('dark-mode');
-                if (logoImg) logoImg.style.filter = 'brightness(0) invert(1)';
-            } else {
-                document.body.classList.remove('dark-mode');
-                if (logoImg) logoImg.style.filter = 'none';
-            }
+    window.addEventListener('scroll', () => {
+        const currentScroll = window.pageYOffset;
+        if (currentScroll > 50) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
         }
+        lastScroll = currentScroll;
     });
 }
 
@@ -259,9 +294,17 @@ function renderFilters() {
     const filterContainer = document.getElementById('filterChips');
     if (!filterContainer) return;
     
+    // Count items for each category
+    const counts = {};
+    CATEGORIES.forEach(cat => {
+        const filtered = getFilteredItems(cat.id);
+        counts[cat.id] = filtered.length;
+    });
+    
     filterContainer.innerHTML = CATEGORIES.map(cat => `
         <button class="filter-chip ${currentFilter === cat.id ? 'active' : ''}" data-filter="${cat.id}">
-            ${cat.icon} ${cat.name}
+            ${cat.name}
+            ${cat.id !== 'for-you' ? `<span class="count">${counts[cat.id]}</span>` : ''}
         </button>
     `).join('');
     
@@ -275,19 +318,63 @@ function renderFilters() {
     });
 }
 
+function getFilteredItems(filterId) {
+    let filtered = [...allItems];
+    
+    switch(filterId) {
+        case 'for-you':
+            // Show items based on user interests
+            if (userInterests.length > 0) {
+                filtered = filtered.filter(item => 
+                    userInterests.some(interest => 
+                        item.category?.toLowerCase().includes(interest.toLowerCase()) ||
+                        item.type?.toLowerCase().includes(interest.toLowerCase())
+                    )
+                );
+                // If no items match interests, show all
+                if (filtered.length === 0) {
+                    filtered = [...allItems];
+                }
+            }
+            break;
+        case 'books':
+            filtered = filtered.filter(item => item.type === 'book' || item.type === 'resource');
+            break;
+        case 'courses':
+            filtered = filtered.filter(item => item.type === 'course');
+            break;
+        case 'resources':
+            filtered = filtered.filter(item => item.type === 'resource' || item.type === 'guide');
+            break;
+        case 'saved':
+            if (currentUser) {
+                filtered = filtered.filter(item => savedItems.has(item.id));
+            } else {
+                filtered = [];
+            }
+            break;
+        case 'purchased':
+            if (currentUser) {
+                filtered = filtered.filter(item => purchasedItems.has(item.id));
+            } else {
+                filtered = [];
+            }
+            break;
+        case 'bundles':
+            filtered = filtered.filter(item => item.type === 'bundle');
+            break;
+        default:
+            break;
+    }
+    
+    return filtered;
+}
+
 function renderItems() {
     const container = document.getElementById('booksContainer');
     if (!container) return;
     
-    let filtered = [...allItems];
-    
-    // Apply category filter
-    if (currentFilter !== 'all') {
-        filtered = filtered.filter(item => 
-            item.category === currentFilter || 
-            (currentFilter === 'Bundle' && item.type === 'bundle')
-        );
-    }
+    let filtered = getFilteredItems(currentFilter);
     
     // Apply search
     if (currentSearch) {
@@ -300,11 +387,14 @@ function renderItems() {
     }
     
     if (filtered.length === 0) {
+        const message = currentFilter === 'saved' ? 'No saved items yet. Start saving books you want to purchase later!' :
+                        currentFilter === 'purchased' ? 'You haven\'t purchased any items yet. Browse the library to find your next read!' :
+                        'No matching items found. Try a different search term or category.';
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-search"></i>
-                <h3>No matching items</h3>
-                <p>Try a different search term or category</p>
+                <h3>${currentFilter === 'saved' ? '📚 Your Saved Items' : currentFilter === 'purchased' ? '📖 Your Purchased Items' : 'No matching items'}</h3>
+                <p>${message}</p>
             </div>
         `;
         return;
@@ -315,6 +405,7 @@ function renderItems() {
 
 function createItemCard(item) {
     const isPurchased = purchasedItems.has(item.id);
+    const isSaved = savedItems.has(item.id);
     const isBundle = item.type === 'bundle';
     const hasPrice = (item.price || 0) > 0;
     const coverUrl = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Book')}`;
@@ -339,12 +430,11 @@ function createItemCard(item) {
         `;
     }
     
-    // Book/Resource card
     return `
         <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewItemDetails('${item.id}')">
             <div class="card-cover" style="background-image: url('${coverUrl}')">
-                ${isPurchased ? '<div class="purchased-badge">✓ Purchased</div>' : 
-                    (savedItems.has(item.id) ? '<div class="saved-badge">★ Saved</div>' : '')}
+                ${isPurchased ? '<div class="purchased-badge">✓ Purchased</div>' : ''}
+                ${isSaved && !isPurchased ? '<div class="saved-badge">★ Saved</div>' : ''}
                 ${hasPrice && !isPurchased ? `<div class="price-badge">₦${(item.price || 0).toLocaleString()}</div>` : ''}
                 ${!isPurchased ? `<div class="gp-badge">+${gpReward} GP</div>` : ''}
                 <div class="card-info-overlay">
@@ -361,7 +451,6 @@ function createItemCard(item) {
 // ============================================
 async function addGP(userId, amount, reason) {
     try {
-        // Check if gp_points column exists by trying to select it
         const { data: user, error: fetchError } = await supabase
             .from('users')
             .select('gp_points')
@@ -369,7 +458,6 @@ async function addGP(userId, amount, reason) {
             .single();
         
         if (fetchError) {
-            // If column doesn't exist, try without it
             if (fetchError.message.includes('gp_points')) {
                 console.warn('gp_points column not found, skipping GP addition');
                 return null;
@@ -380,7 +468,6 @@ async function addGP(userId, amount, reason) {
         const currentGP = user?.gp_points || 0;
         const newGP = currentGP + amount;
         
-        // Update GP
         const { error: updateError } = await supabase
             .from('users')
             .update({ gp_points: newGP })
@@ -388,7 +475,6 @@ async function addGP(userId, amount, reason) {
         
         if (updateError) throw updateError;
         
-        // Log GP transaction (if table exists)
         try {
             await supabase
                 .from('gp_transactions')
@@ -402,10 +488,8 @@ async function addGP(userId, amount, reason) {
             console.warn('Could not log GP transaction:', logError);
         }
         
-        // Update local state
         userGP = newGP;
         
-        // Check if user reached Premium (100 GP)
         if (newGP >= 100 && currentGP < 100) {
             showToast('🎉 Congratulations! You\'ve reached Premium status with 100 GP!', 'success');
             await grantPremiumAccess(userId);
@@ -421,7 +505,6 @@ async function addGP(userId, amount, reason) {
 
 async function grantPremiumAccess(userId) {
     try {
-        // Check if is_premium column exists
         const { error: updateError } = await supabase
             .from('users')
             .update({ 
@@ -463,24 +546,20 @@ window.purchaseItem = async (itemId, type = 'digital') => {
         return;
     }
     
-    // Determine price based on type
     const price = type === 'physical' ? (item.physical_price || 0) : (item.price || 0);
     const isPremium = userGP >= 100;
     
-    // Free item - grant access directly
     if (price <= 0) {
         await grantFreeAccess(itemId);
         return;
     }
     
-    // Check if already purchased
     if (purchasedItems.has(itemId)) {
         showToast('You already own this item!', 'info');
         closeModal();
         return;
     }
     
-    // Premium users get PDF download access for free (digital only)
     if (isPremium && type === 'digital') {
         showToast('✨ Premium access granted! You can download the PDF for free.', 'success');
         await grantAccess(itemId, 'premium');
@@ -488,10 +567,8 @@ window.purchaseItem = async (itemId, type = 'digital') => {
     }
     
     try {
-        // Show loading state
         showToast('Processing purchase...', 'info');
         
-        // Get current wallet balance
         const { data: user, error: userError } = await supabase
             .from('users')
             .select('wallet_balance')
@@ -508,15 +585,12 @@ window.purchaseItem = async (itemId, type = 'digital') => {
         
         if (currentBalance < price) {
             showToast(`Insufficient funds. Need ₦${(price - currentBalance).toLocaleString()} more.`, 'error');
-            
-            // Show option to add funds
             if (confirm(`You need ₦${(price - currentBalance).toLocaleString()} more. Would you like to add funds to your wallet?`)) {
                 window.location.href = '/dashboard.html?tab=wallet';
             }
             return;
         }
         
-        // Process payment - deduct from wallet
         const newBalance = currentBalance - price;
         const { error: updateError } = await supabase
             .from('users')
@@ -529,7 +603,6 @@ window.purchaseItem = async (itemId, type = 'digital') => {
             return;
         }
         
-        // Record purchase in user_purchases table
         const purchaseData = {
             user_id: currentUser.id,
             item_id: itemId,
@@ -544,7 +617,6 @@ window.purchaseItem = async (itemId, type = 'digital') => {
         
         if (purchaseError) {
             console.error('Purchase record error:', purchaseError);
-            // Refund the user if purchase recording fails
             await supabase
                 .from('users')
                 .update({ wallet_balance: currentBalance })
@@ -553,25 +625,20 @@ window.purchaseItem = async (itemId, type = 'digital') => {
             return;
         }
         
-        // Award GP for purchase
         const gpReward = item.type === 'bundle' ? GP_REWARDS.purchase_bundle : GP_REWARDS.purchase_book;
         const gpEarned = await addGP(currentUser.id, gpReward, `Purchased: ${item.title} (${type})`);
         
-        // Add to purchased items
         purchasedItems.add(itemId);
         
-        // Show success message with GP earned
         if (gpEarned !== null) {
             showToast(`🎉 Successfully purchased ${item.title}! Earned +${gpReward} GP!`, 'success');
         } else {
             showToast(`🎉 Successfully purchased ${item.title}!`, 'success');
         }
         
-        // Update the UI
         renderItems();
         closeModal();
         
-        // Open content if digital purchase
         if (type === 'digital' && item.file_url) {
             setTimeout(() => {
                 if (confirm(`Would you like to open "${item.title}" now?`)) {
@@ -580,7 +647,6 @@ window.purchaseItem = async (itemId, type = 'digital') => {
             }, 1000);
         }
         
-        // Log transaction
         await logTransaction(currentUser.id, -price, `Purchase: ${item.title} (${type})`);
         
     } catch (error) {
@@ -594,7 +660,6 @@ async function grantAccess(itemId, accessType = 'standard') {
     if (!item) return;
     
     try {
-        // Record purchase (free/premium)
         const purchaseData = {
             user_id: currentUser.id,
             item_id: itemId,
@@ -637,14 +702,12 @@ async function grantFreeAccess(itemId) {
     if (!item) return;
     
     try {
-        // Check if already purchased
         if (purchasedItems.has(itemId)) {
             showToast('You already have access to this item!', 'info');
             closeModal();
             return;
         }
         
-        // Record free purchase
         const purchaseData = {
             user_id: currentUser.id,
             item_id: itemId,
@@ -663,7 +726,6 @@ async function grantFreeAccess(itemId) {
             return;
         }
         
-        // Award small GP for free items
         const gpEarned = await addGP(currentUser.id, 1, `Accessed free item: ${item.title}`);
         
         purchasedItems.add(itemId);
@@ -717,7 +779,6 @@ window.startReading = (itemId) => {
         return;
     }
     
-    // Check if purchased or free
     const isOwned = purchasedItems.has(itemId) || item.price === 0;
     const isPremium = userGP >= 100;
     
@@ -728,7 +789,6 @@ window.startReading = (itemId) => {
     }
     
     if (item.file_url) {
-        // Award GP for reading
         addGP(currentUser.id, GP_REWARDS.read_book, `Read: ${item.title}`).then(gp => {
             if (gp !== null) showToast(`📖 Reading ${item.title}... +${GP_REWARDS.read_book} GP`, 'info');
         });
@@ -748,7 +808,6 @@ window.downloadBundle = async (itemId) => {
         return;
     }
     
-    // Check if purchased or free
     const isOwned = purchasedItems.has(itemId) || item.price === 0;
     
     if (!isOwned) {
@@ -758,7 +817,6 @@ window.downloadBundle = async (itemId) => {
     }
     
     if (item.download_url) {
-        // Create a download link
         const link = document.createElement('a');
         link.href = item.download_url;
         link.target = '_blank';
@@ -767,7 +825,6 @@ window.downloadBundle = async (itemId) => {
         link.click();
         document.body.removeChild(link);
         
-        // Award GP for downloading
         const gpEarned = await addGP(currentUser.id, 2, `Downloaded bundle: ${item.title}`);
         
         if (gpEarned !== null) {
@@ -812,14 +869,12 @@ window.viewItemDetails = async (itemId) => {
     const modalDescription = document.getElementById('modalDescription');
     const modalFooter = document.getElementById('modalFooter');
     
-    // Set modal content
     modalTitle.textContent = item.title;
     
     const coverUrl = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
     modalImage.src = coverUrl;
     modalImage.alt = item.title;
     
-    // Build description
     let descriptionHtml = `
         <div class="item-details">
             <p><strong>Author:</strong> ${escapeHtml(item.author || 'Gliimu Team')}</p>
@@ -860,31 +915,26 @@ window.viewItemDetails = async (itemId) => {
     
     modalDescription.innerHTML = descriptionHtml;
     
-    // Build footer buttons
     let footerHtml = '';
     
     if (isPurchased) {
-        // Already purchased
         footerHtml = `
             ${canReadOnline ? `<button class="modal-btn modal-btn-primary" onclick="window.startReading('${item.id}')"><i class="fas fa-book-open"></i> Read Online</button>` : ''}
             ${canDownloadBundle ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download Bundle</button>` : ''}
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (isFree) {
-        // Free item
         footerHtml = `
             <button class="modal-btn modal-btn-success" onclick="window.grantFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Free Access</button>
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (isPremium && hasDigital) {
-        // Premium user - digital access free
         footerHtml = `
             <button class="modal-btn modal-btn-success" onclick="window.grantAccess('${item.id}', 'premium')"><i class="fas fa-star"></i> Premium Access (Free PDF)</button>
             ${hasPhysical ? `<button class="modal-btn modal-btn-primary" onclick="window.purchaseItem('${item.id}', 'physical')"><i class="fas fa-truck"></i> Buy Hard Copy (₦${(item.physical_price || 0).toLocaleString()})</button>` : ''}
             <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else {
-        // Paid item - regular purchase options
         footerHtml = `
             ${hasDigital ? `<button class="modal-btn modal-btn-primary" onclick="window.purchaseItem('${item.id}', 'digital')"><i class="fas fa-shopping-cart"></i> Buy PDF/EPUB (₦${(item.price || 0).toLocaleString()})</button>` : ''}
             ${hasPhysical ? `<button class="modal-btn modal-btn-primary" onclick="window.purchaseItem('${item.id}', 'physical')"><i class="fas fa-truck"></i> Buy Hard Copy (₦${(item.physical_price || 0).toLocaleString()})</button>` : ''}
@@ -919,7 +969,7 @@ window.toggleSaveItem = async (itemId) => {
             
             if (error) throw error;
             savedItems.delete(itemId);
-            showToast('Removed from your library', 'info');
+            showToast('Removed from your saved items', 'info');
         } else {
             const { error } = await supabase
                 .from('user_library_progress')
@@ -935,11 +985,12 @@ window.toggleSaveItem = async (itemId) => {
             savedItems.add(itemId);
             showToast('Saved to your library!', 'success');
             
-            // Award GP for saving
-            await addGP(currentUser.id, 1, `Saved item: ${itemId}`);
+            await addGP(currentUser.id, GP_REWARDS.save_item, `Saved item: ${itemId}`);
         }
         
         renderItems();
+        // Refresh filter counts
+        renderFilters();
         
     } catch (error) {
         console.error('Error saving item:', error);
@@ -952,7 +1003,6 @@ window.toggleSaveItem = async (itemId) => {
 // ============================================
 
 function setupEventListeners() {
-    // Search
     const searchBtn = document.getElementById('searchBtn');
     if (searchBtn) {
         searchBtn.addEventListener('click', () => {
@@ -977,7 +1027,6 @@ function setupEventListeners() {
         });
     }
     
-    // Modal close
     const modalCloseBtn = document.getElementById('modalCloseBtn');
     if (modalCloseBtn) {
         modalCloseBtn.addEventListener('click', closeModal);
