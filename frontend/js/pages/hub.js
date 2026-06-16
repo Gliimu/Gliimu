@@ -2,7 +2,7 @@
 // GLIIMU HUB - Complete JavaScript
 // ============================================
 
-import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
+import { supabase, getCurrentUser } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ============================================
@@ -14,6 +14,7 @@ let savedItems = new Set();
 let purchasedItems = new Set();
 let userGP = 0;
 let userWallet = 0;
+let currentSection = 'for-you';
 let isDropdownOpen = false;
 let isSearchOpen = false;
 
@@ -55,7 +56,8 @@ const DOM = {
     purchasedLink: $('purchasedItemsLink'),
     merchLink: $('merchandiseLink'),
     logo: $('logoImg'),
-    header: $('hubHeader')
+    header: $('hubHeader'),
+    sectionTabs: document.querySelectorAll('.section-tab')
 };
 
 // ============================================
@@ -83,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupScrollHeader();
         setupProfileDropdown();
         setupSearchModal();
+        setupSectionTabs();
 
     } catch (error) {
         console.error('❌ Init error:', error);
@@ -140,7 +143,7 @@ async function loadItems() {
 
         allItems = data;
         console.log(`✅ Loaded ${data.length} items`);
-        renderItems();
+        renderSection('for-you');
 
     } catch (e) {
         console.error('Error loading items:', e);
@@ -178,6 +181,50 @@ async function loadPurchasedItems() {
 }
 
 // ============================================
+// SECTION TABS
+// ============================================
+function setupSectionTabs() {
+    DOM.sectionTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            DOM.sectionTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentSection = tab.dataset.section;
+            renderSection(currentSection);
+        });
+    });
+}
+
+function renderSection(section) {
+    let filtered = [...allItems];
+
+    switch(section) {
+        case 'for-you':
+            // Show items based on user interests or random
+            if (userInterests.length > 0) {
+                filtered = filtered.filter(item => 
+                    userInterests.some(interest => 
+                        item.category?.toLowerCase().includes(interest.toLowerCase())
+                    )
+                );
+            }
+            if (filtered.length === 0) filtered = allItems.slice(0, 12);
+            break;
+        case 'trending':
+            // Sort by view count or purchase count
+            filtered = filtered.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 12);
+            break;
+        case 'new':
+            // Already sorted by created_at descending
+            filtered = filtered.slice(0, 12);
+            break;
+        default:
+            filtered = allItems;
+    }
+
+    renderItems(filtered);
+}
+
+// ============================================
 // RENDER
 // ============================================
 function renderItems(items = null) {
@@ -187,7 +234,7 @@ function renderItems(items = null) {
             <div class="empty-state">
                 <i class="fas fa-search"></i>
                 <h3>No Items Found</h3>
-                <p>Try a different search.</p>
+                <p>Try a different section or search.</p>
             </div>
         `;
         return;
@@ -317,7 +364,7 @@ function applyTheme() {
 
 function setupScrollHeader() {
     window.addEventListener('scroll', () => {
-        DOM.header.classList.toggle('scrolled', window.scrollY > 50);
+        DOM.header.classList.toggle('scrolled', window.scrollY > 20);
     }, { passive: true });
 }
 
@@ -363,7 +410,7 @@ function setupProfileDropdown() {
 }
 
 // ============================================
-// SEARCH MODAL
+// SEARCH MODAL - FILTERS ITEMS
 // ============================================
 function setupSearchModal() {
     const open = () => {
@@ -397,6 +444,7 @@ function setupSearchModal() {
         }
 
         const q = query.toLowerCase();
+        // Filter all items by search query
         const results = allItems.filter(i =>
             (i.title?.toLowerCase().includes(q)) ||
             (i.description?.toLowerCase().includes(q)) ||
@@ -408,7 +456,7 @@ function setupSearchModal() {
             DOM.searchResults.innerHTML = `
                 <div class="search-no-results">
                     <i class="fas fa-search"></i>
-                    <p>No results for "${query}"</p>
+                    <p>No results for "<strong>${query}</strong>"</p>
                 </div>
             `;
         } else {
@@ -422,6 +470,9 @@ function setupSearchModal() {
                     <div class="result-price">${i.price > 0 ? '₦' + i.price.toLocaleString() : 'Free'}</div>
                 </div>
             `).join('');
+
+            // Also update main grid with search results
+            renderItems(results);
         }
     };
 
@@ -556,7 +607,7 @@ window.handlePurchase = async (itemId, type) => {
         const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
 
         showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
-        renderItems();
+        renderSection(currentSection);
         closeModal();
 
         if (type === 'digital' && item.file_url) {
@@ -580,7 +631,7 @@ window.handleGrantAccess = async (itemId) => {
             .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: 'premium', amount: 0 });
         purchasedItems.add(itemId);
         showToast(`✅ Premium access: ${item.title}`, 'success');
-        renderItems();
+        renderSection(currentSection);
         closeModal();
         if (item.file_url) {
             setTimeout(() => {
@@ -604,7 +655,7 @@ window.handleFreeAccess = async (itemId) => {
         purchasedItems.add(itemId);
         const gp = await addGP(1, `Free: ${item.title}`);
         showToast(`✅ Free access: ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
-        renderItems();
+        renderSection(currentSection);
         closeModal();
         if (item.file_url) {
             setTimeout(() => {
@@ -658,7 +709,7 @@ async function toggleSave(itemId) {
             await addGP(1, `Saved: ${itemId}`);
             showToast('Saved to library!', 'success');
         }
-        renderItems();
+        renderSection(currentSection);
         if (DOM.itemModal.classList.contains('active')) {
             const saveBtn = document.getElementById('modalSaveBtn');
             if (saveBtn) {
