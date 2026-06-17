@@ -285,6 +285,86 @@ async function renderDashboard() {
 }
 
 // ============================================
+// UPLOAD FILE TO SUPABASE STORAGE - WITH FOLDER STRUCTURE
+// ============================================
+
+async function uploadFileToStorage(file, contentType, folder = null) {
+    if (!file) return null;
+    
+    const fileExt = file.name.split('.').pop();
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const fileName = `${timestamp}_${randomStr}.${fileExt}`;
+    
+    // Determine folder path based on content type
+    let path = '';
+    if (contentType === 'book') {
+        path = `book/${fileName}`;
+    } else if (contentType === 'talk') {
+        path = `talk/${fileName}`;
+    } else if (contentType === 'bundle') {
+        path = `bundle/${fileName}`;
+    } else if (contentType === 'cover') {
+        path = `covers/${fileName}`;
+    } else if (contentType === 'hero') {
+        path = `hero/${fileName}`;
+    } else if (folder) {
+        path = `${folder}/${fileName}`;
+    } else {
+        path = `general/${fileName}`;
+    }
+    
+    console.log('📤 Uploading file to:', path);
+    
+    const { data, error } = await supabase.storage
+        .from('hub_content')
+        .upload(path, file, {
+            cacheControl: '3600',
+            upsert: false
+        });
+    
+    if (error) {
+        console.error('Upload error:', error);
+        showToast(`Error uploading ${file.name}`, 'error');
+        return null;
+    }
+    
+    const { data: urlData } = supabase.storage
+        .from('hub_content')
+        .getPublicUrl(path);
+    
+    console.log('✅ Upload successful:', urlData.publicUrl);
+    return urlData.publicUrl;
+}
+
+// Delete file from storage
+async function deleteFileFromStorage(fileUrl) {
+    if (!fileUrl) return;
+    
+    try {
+        // Extract path from URL
+        const urlParts = fileUrl.split('/');
+        const pathIndex = urlParts.indexOf('hub_content') + 1;
+        if (pathIndex > 0 && pathIndex < urlParts.length) {
+            const path = urlParts.slice(pathIndex).join('/');
+            if (path) {
+                const { error } = await supabase.storage
+                    .from('hub_content')
+                    .remove([path]);
+                
+                if (error) {
+                    console.error('Delete error:', error);
+                } else {
+                    console.log('✅ File deleted:', path);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error deleting file:', e);
+    }
+}
+
+// ============================================
 // POSTS MANAGER - Combined Update Website Tab
 // ============================================
 async function renderPostsManager() {
@@ -411,7 +491,7 @@ async function renderPostsManager() {
 }
 
 // ============================================
-// LIBRARY MODAL (WITH FILE UPLOAD)
+// LIBRARY MODAL FUNCTIONS
 // ============================================
 function openLibraryModal(itemId = null) {
     const modal = document.getElementById('libraryItemModal');
@@ -432,6 +512,9 @@ function openLibraryModal(itemId = null) {
     title.textContent = 'Add New Content';
     editingItemId = null;
     
+    // Update folder hint
+    updateFolderHint();
+    
     if (itemId) {
         title.textContent = 'Edit Content';
         document.getElementById('editItemId').value = itemId;
@@ -446,6 +529,22 @@ function closeLibraryModal() {
     const modal = document.getElementById('libraryItemModal');
     if (modal) modal.classList.remove('active');
 }
+
+function updateFolderHint() {
+    const typeSelect = document.getElementById('itemType');
+    const folderHint = document.getElementById('uploadFolderHint');
+    if (typeSelect && folderHint) {
+        folderHint.textContent = typeSelect.value;
+    }
+}
+
+// Update folder hint when type changes
+document.addEventListener('DOMContentLoaded', function() {
+    const typeSelect = document.getElementById('itemType');
+    if (typeSelect) {
+        typeSelect.addEventListener('change', updateFolderHint);
+    }
+});
 
 async function loadItemData(itemId) {
     const { data: item, error } = await supabase
@@ -474,6 +573,9 @@ async function loadItemData(itemId) {
     document.getElementById('itemStatus').value = item.is_active ? 'active' : 'inactive';
     document.getElementById('itemFirstChapter').value = item.first_chapter || '';
     
+    // Update folder hint
+    updateFolderHint();
+    
     // Show existing cover
     if (item.cover_url) {
         const preview = document.getElementById('coverPreview');
@@ -487,7 +589,7 @@ async function loadItemData(itemId) {
         const preview = document.getElementById('contentFilePreview');
         const link = document.getElementById('contentFileLink');
         link.href = item.file_url;
-        link.textContent = 'Current file: ' + item.file_url.split('/').pop();
+        link.textContent = '📎 ' + item.file_url.split('/').pop();
         preview.style.display = 'block';
     }
 }
@@ -515,52 +617,34 @@ function handleContentUpload(file) {
     preview.style.display = 'block';
 }
 
-async function uploadFileToStorage(file, path) {
-    if (!file) return null;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${path}/${Date.now()}.${fileExt}`;
-    
-    const { data, error } = await supabase.storage
-        .from('hub_content')
-        .upload(fileName, file);
-    
-    if (error) {
-        console.error('Upload error:', error);
-        showToast('Error uploading file', 'error');
-        return null;
-    }
-    
-    const { data: urlData } = supabase.storage
-        .from('hub_content')
-        .getPublicUrl(fileName);
-    
-    return urlData.publicUrl;
-}
-
+// ============================================
+// SAVE LIBRARY ITEM - WITH FOLDER STRUCTURE
+// ============================================
 async function saveLibraryItem(e) {
     e.preventDefault();
     
     const itemId = document.getElementById('editItemId').value;
+    const contentType = document.getElementById('itemType').value;
     const coverFile = document.getElementById('coverFileInput').files[0];
     const contentFile = document.getElementById('contentFileInput').files[0];
     
     // Upload cover image if provided
     let coverUrl = document.getElementById('itemCoverUrl').value;
     if (coverFile) {
-        const uploaded = await uploadFileToStorage(coverFile, 'covers');
+        const uploaded = await uploadFileToStorage(coverFile, 'cover');
         if (uploaded) coverUrl = uploaded;
     }
     
-    // Upload content file if provided
+    // Upload content file if provided (goes to appropriate folder: book/talk/bundle)
     let fileUrl = document.getElementById('itemFileUrl').value;
     if (contentFile) {
-        const uploaded = await uploadFileToStorage(contentFile, 'content');
+        const uploaded = await uploadFileToStorage(contentFile, contentType);
         if (uploaded) fileUrl = uploaded;
     }
     
     const data = {
         title: document.getElementById('itemTitle').value.trim(),
-        type: document.getElementById('itemType').value,
+        type: contentType,
         category: document.getElementById('itemCategory').value.trim(),
         author: document.getElementById('itemAuthor').value.trim(),
         description: document.getElementById('itemDescription').value.trim(),
@@ -584,6 +668,24 @@ async function saveLibraryItem(e) {
     
     let result;
     if (itemId) {
+        // If updating, delete old files if new ones are uploaded
+        if (coverFile || contentFile) {
+            const { data: oldItem } = await supabase
+                .from('hub_contents')
+                .select('cover_url, file_url')
+                .eq('id', itemId)
+                .single();
+            
+            if (oldItem) {
+                if (coverFile && oldItem.cover_url) {
+                    await deleteFileFromStorage(oldItem.cover_url);
+                }
+                if (contentFile && oldItem.file_url) {
+                    await deleteFileFromStorage(oldItem.file_url);
+                }
+            }
+        }
+        
         result = await supabase
             .from('hub_contents')
             .update(data)
@@ -605,8 +707,24 @@ async function saveLibraryItem(e) {
     }
 }
 
+// ============================================
+// DELETE LIBRARY ITEM - WITH FILE CLEANUP
+// ============================================
 async function deleteLibraryItem(itemId) {
     if (!confirm('Delete this content permanently? This cannot be undone.')) return;
+    
+    // Get the item to delete its files
+    const { data: item } = await supabase
+        .from('hub_contents')
+        .select('cover_url, file_url')
+        .eq('id', itemId)
+        .single();
+    
+    // Delete files from storage
+    if (item) {
+        if (item.cover_url) await deleteFileFromStorage(item.cover_url);
+        if (item.file_url) await deleteFileFromStorage(item.file_url);
+    }
     
     const { error } = await supabase
         .from('hub_contents')
@@ -770,6 +888,19 @@ async function saveIndexItem(e) {
     if (imageFile) {
         const uploaded = await uploadFileToStorage(imageFile, 'hero');
         if (uploaded) imageUrl = uploaded;
+    }
+    
+    // If image was removed, delete old one
+    if (!imageUrl && document.getElementById('indexHeroImage').value === '') {
+        // Check if there was an old image
+        const { data: oldData } = await supabase
+            .from('index_content')
+            .select('hero_image')
+            .eq('id', indexId)
+            .single();
+        if (oldData?.hero_image) {
+            await deleteFileFromStorage(oldData.hero_image);
+        }
     }
     
     const data = {
