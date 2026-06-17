@@ -118,7 +118,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 function hideLoader() {
     if (DOM.loader) {
         DOM.loader.classList.add('hidden');
-        // Pause video when hidden
         if (DOM.loaderVideo) {
             DOM.loaderVideo.pause();
         }
@@ -517,10 +516,15 @@ window.viewDetails = async (itemId) => {
 
     currentModalItemId = itemId;
 
-    // Reset modal styles
+    // Reset modal styles and footer
     const modal = DOM.itemModal;
     const modalContent = modal.querySelector('.modal-content');
     modalContent.classList.remove('book-modal');
+    
+    // Reset footer
+    DOM.modalFooter.innerHTML = '';
+    DOM.modalFooter.style.display = 'flex';
+    DOM.modalImage.style.display = 'block';
 
     // Route to appropriate detail view based on type
     if (item.type === 'book' || item.type === 'resource') {
@@ -535,7 +539,7 @@ window.viewDetails = async (itemId) => {
 };
 
 // ============================================
-// TALK DETAILS - Video Player
+// TALK DETAILS - Custom Video Player
 // ============================================
 async function renderTalkDetails(itemId) {
     const item = allItems.find(i => i.id === itemId);
@@ -555,19 +559,57 @@ async function renderTalkDetails(itemId) {
 
     updateSaveButton(item.id, isSaved);
 
-    // Video player with Gliimu branding
-    const videoSrc = item.file_url || 'videos/pnp.mp4';
+    // Video source
+    const videoSrc = item.file_url || '/video/pnp.mp4';
     
     let detailsHtml = `
         <div class="item-details talk-details">
-            <div class="video-player-container">
-                <video id="talkVideo" controls playsinline poster="${item.cover_url || ''}">
+            <div class="gliimu-video-player" id="gliimuVideoPlayer">
+                <video id="talkVideo" playsinline poster="${item.cover_url || ''}">
                     <source src="${videoSrc}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
+                
+                <!-- Branding -->
                 <div class="video-branding">
                     <span class="brand-icon">📺</span>
-                    <span class="brand-text">Gliimu Talks</span>
+                    <span class="brand-text">Gliimu <span style="color:white;">Talks</span></span>
+                </div>
+                
+                <!-- Big Play Button -->
+                <button class="big-play-btn" id="bigPlayBtn">
+                    <i class="fas fa-play"></i>
+                </button>
+                
+                <!-- Loading Spinner -->
+                <div class="video-loading" id="videoLoading">
+                    <div class="spinner"></div>
+                </div>
+                
+                <!-- Custom Controls -->
+                <div class="video-controls" id="videoControls">
+                    <div class="controls-row">
+                        <button class="ctrl-btn" id="playPauseBtn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        
+                        <div class="progress-container" id="progressContainer">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        
+                        <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+                        
+                        <div class="volume-control">
+                            <button class="ctrl-btn" id="volumeBtn">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                            <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
+                        </div>
+                        
+                        <button class="ctrl-btn fullscreen-btn" id="fullscreenBtn">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -602,6 +644,178 @@ async function renderTalkDetails(itemId) {
     DOM.modalFooter.style.display = 'none';
 
     modal.classList.add('active');
+
+    // Initialize custom video player
+    setTimeout(() => {
+        initCustomVideoPlayer();
+    }, 100);
+}
+
+// ============================================
+// CUSTOM VIDEO PLAYER
+// ============================================
+function initCustomVideoPlayer() {
+    const player = document.getElementById('gliimuVideoPlayer');
+    if (!player) return;
+
+    const video = player.querySelector('video');
+    const playPauseBtn = player.querySelector('#playPauseBtn');
+    const bigPlayBtn = player.querySelector('#bigPlayBtn');
+    const progressFill = player.querySelector('#progressFill');
+    const progressContainer = player.querySelector('#progressContainer');
+    const timeDisplay = player.querySelector('#timeDisplay');
+    const volumeSlider = player.querySelector('#volumeSlider');
+    const volumeBtn = player.querySelector('#volumeBtn');
+    const fullscreenBtn = player.querySelector('#fullscreenBtn');
+    const controls = player.querySelector('#videoControls');
+    const loading = player.querySelector('#videoLoading');
+
+    let controlsTimeout = null;
+    let isControlsVisible = true;
+
+    // Show/hide controls
+    function showControls() {
+        controls.classList.add('show');
+        isControlsVisible = true;
+        clearTimeout(controlsTimeout);
+        controlsTimeout = setTimeout(() => {
+            if (!video.paused) {
+                controls.classList.remove('show');
+                isControlsVisible = false;
+            }
+        }, 3000);
+    }
+
+    function hideControls() {
+        if (!video.paused) {
+            controls.classList.remove('show');
+            isControlsVisible = false;
+        }
+    }
+
+    // Toggle play/pause
+    function togglePlay() {
+        if (video.paused) {
+            video.play();
+            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            bigPlayBtn.classList.add('hidden');
+            showControls();
+        } else {
+            video.pause();
+            playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+            bigPlayBtn.classList.remove('hidden');
+            showControls();
+        }
+    }
+
+    // Update progress
+    function updateProgress() {
+        const percent = (video.currentTime / video.duration) * 100;
+        progressFill.style.width = percent + '%';
+        
+        const currentMinutes = Math.floor(video.currentTime / 60);
+        const currentSeconds = Math.floor(video.currentTime % 60);
+        const totalMinutes = Math.floor(video.duration / 60);
+        const totalSeconds = Math.floor(video.duration % 60);
+        
+        timeDisplay.textContent = 
+            `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+    }
+
+    // Event listeners
+    playPauseBtn.addEventListener('click', togglePlay);
+    bigPlayBtn.addEventListener('click', togglePlay);
+    
+    video.addEventListener('click', togglePlay);
+    video.addEventListener('play', () => {
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        bigPlayBtn.classList.add('hidden');
+        showControls();
+    });
+    video.addEventListener('pause', () => {
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        bigPlayBtn.classList.remove('hidden');
+        showControls();
+    });
+    video.addEventListener('timeupdate', updateProgress);
+    video.addEventListener('loadedmetadata', updateProgress);
+    
+    // Loading state
+    video.addEventListener('waiting', () => {
+        loading.classList.add('show');
+    });
+    video.addEventListener('canplay', () => {
+        loading.classList.remove('show');
+    });
+
+    // Progress bar click
+    progressContainer.addEventListener('click', (e) => {
+        const rect = progressContainer.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        video.currentTime = pos * video.duration;
+    });
+
+    // Volume
+    volumeSlider.addEventListener('input', () => {
+        video.volume = volumeSlider.value;
+        if (video.volume === 0) {
+            volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+        } else if (video.volume < 0.5) {
+            volumeBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+        } else {
+            volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        }
+    });
+
+    volumeBtn.addEventListener('click', () => {
+        if (video.volume > 0) {
+            video.volume = 0;
+            volumeSlider.value = 0;
+            volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+        } else {
+            video.volume = 1;
+            volumeSlider.value = 1;
+            volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        }
+    });
+
+    // Fullscreen
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            player.requestFullscreen();
+            fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+        } else {
+            document.exitFullscreen();
+            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+        }
+    });
+
+    // Keyboard shortcuts
+    video.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'k') {
+            e.preventDefault();
+            togglePlay();
+        }
+        if (e.key === 'f') {
+            fullscreenBtn.click();
+        }
+        if (e.key === 'm') {
+            volumeBtn.click();
+        }
+    });
+
+    // Mouse move to show controls
+    player.addEventListener('mousemove', showControls);
+    player.addEventListener('mouseleave', hideControls);
+
+    // Start with controls visible
+    showControls();
 }
 
 // ============================================
@@ -820,7 +1034,41 @@ async function renderBundleDetails(itemId) {
     DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
     DOM.modalImage.style.display = 'block';
 
+    // Update save button
     updateSaveButton(item.id, isSaved);
+
+    // Add download icon to header (before save button)
+    const headerActions = document.querySelector('.modal-header-actions');
+    if (headerActions) {
+        // Remove existing download icon if present
+        const existingDownloadIcon = headerActions.querySelector('.bundle-download-icon');
+        if (existingDownloadIcon) {
+            existingDownloadIcon.remove();
+        }
+        
+        // Create download icon
+        const downloadIcon = document.createElement('button');
+        downloadIcon.className = 'bundle-download-icon';
+        downloadIcon.title = isPurchased ? 'Download Bundle' : 'Purchase to download';
+        downloadIcon.innerHTML = `<i class="fas fa-download"></i>`;
+        downloadIcon.disabled = !isPurchased && item.price > 0;
+        downloadIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isPurchased || item.price === 0) {
+                window.downloadBundle(item.id);
+            } else {
+                showToast('Please purchase this bundle first', 'warning');
+            }
+        });
+        
+        // Insert before save button
+        const saveBtn = headerActions.querySelector('.modal-save-btn');
+        if (saveBtn) {
+            headerActions.insertBefore(downloadIcon, saveBtn);
+        } else {
+            headerActions.appendChild(downloadIcon);
+        }
+    }
 
     let detailsHtml = `
         <div class="item-details">
@@ -836,6 +1084,7 @@ async function renderBundleDetails(itemId) {
 
     DOM.modalDesc.innerHTML = detailsHtml;
 
+    // Footer - only show if not purchased or if purchased with download
     let footerHtml = '';
     if (isPurchased) {
         footerHtml = `
@@ -1462,8 +1711,23 @@ window.closeModal = () => {
     document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
     const modalContent = DOM.itemModal.querySelector('.modal-content');
     if (modalContent) modalContent.classList.remove('book-modal');
-    // Reset footer display
-    if (DOM.modalFooter) DOM.modalFooter.style.display = 'flex';
+    // Reset footer
+    if (DOM.modalFooter) {
+        DOM.modalFooter.innerHTML = '';
+        DOM.modalFooter.style.display = 'flex';
+    }
+    // Reset image display
+    if (DOM.modalImage) {
+        DOM.modalImage.style.display = 'block';
+    }
+    // Remove bundle download icon from header
+    const headerActions = document.querySelector('.modal-header-actions');
+    if (headerActions) {
+        const downloadIcon = headerActions.querySelector('.bundle-download-icon');
+        if (downloadIcon) {
+            downloadIcon.remove();
+        }
+    }
 };
 
 DOM.modalCloseBtn?.addEventListener('click', closeModal);
