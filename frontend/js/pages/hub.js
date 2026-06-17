@@ -1157,7 +1157,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
 }
 
 // ============================================
-// BUNDLE DETAILS
+// BUNDLE DETAILS - With Download Button
 // ============================================
 async function renderBundleDetails(itemId) {
     const item = allItems.find(i => i.id === itemId);
@@ -1175,41 +1175,16 @@ async function renderBundleDetails(itemId) {
     DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
     DOM.modalImage.style.display = 'block';
 
-    // Update save button
-    updateSaveButton(item.id, isSaved);
-
-    // Add download icon to header (before save button)
+    // Remove any existing download icon from header
     const headerActions = document.querySelector('.modal-header-actions');
     if (headerActions) {
-        // Remove existing download icon if present
         const existingDownloadIcon = headerActions.querySelector('.bundle-download-icon');
         if (existingDownloadIcon) {
             existingDownloadIcon.remove();
         }
-        
-        // Create download icon
-        const downloadIcon = document.createElement('button');
-        downloadIcon.className = 'bundle-download-icon';
-        downloadIcon.title = isPurchased ? 'Download Bundle' : 'Purchase to download';
-        downloadIcon.innerHTML = `<i class="fas fa-download"></i>`;
-        downloadIcon.disabled = !isPurchased && item.price > 0;
-        downloadIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (isPurchased || item.price === 0) {
-                window.downloadBundle(item.id);
-            } else {
-                showToast('Please purchase this bundle first', 'warning');
-            }
-        });
-        
-        // Insert before save button
-        const saveBtn = headerActions.querySelector('.modal-save-btn');
-        if (saveBtn) {
-            headerActions.insertBefore(downloadIcon, saveBtn);
-        } else {
-            headerActions.appendChild(downloadIcon);
-        }
     }
+
+    updateSaveButton(item.id, isSaved);
 
     let detailsHtml = `
         <div class="item-details">
@@ -1225,19 +1200,25 @@ async function renderBundleDetails(itemId) {
 
     DOM.modalDesc.innerHTML = detailsHtml;
 
-    // Footer - only show if not purchased or if purchased with download
+    // Footer - Button only (no header icon)
     let footerHtml = '';
     if (isPurchased) {
         footerHtml = `
-            ${item.download_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download Bundle</button>` : ''}
+            <button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')" style="width:100%; justify-content:center;">
+                <i class="fas fa-download"></i> Download Bundle
+            </button>
         `;
     } else if (item.price === 0 || !item.price) {
         footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Bundle</button>
+            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')" style="width:100%; justify-content:center;">
+                <i class="fas fa-gift"></i> Download Bundle
+            </button>
         `;
     } else {
         footerHtml = `
-            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','bundle')"><i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})</button>
+            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','bundle')" style="width:100%; justify-content:center;">
+                <i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})
+            </button>
         `;
     }
 
