@@ -1700,13 +1700,15 @@ async function processPayment(itemId, type, price) {
 }
 
 // ============================================
-// PURCHASE FUNCTIONS
+// PURCHASE FUNCTIONS - COMPLETE & ROBUST
 // ============================================
+
 window.handlePurchase = async (itemId, type) => {
     console.log('🛒 handlePurchase called:', { itemId, type });
     
     if (!currentUser) {
         showToast('Please login to purchase', 'error');
+        window.location.href = '/signin.html';
         return;
     }
 
@@ -1716,6 +1718,7 @@ window.handlePurchase = async (itemId, type) => {
         return;
     }
 
+    // Determine price based on type
     let price = 0;
     if (type === 'physical') price = item.physical_price || 0;
     else if (type === 'audio') price = item.audio_price || 0;
@@ -1724,17 +1727,20 @@ window.handlePurchase = async (itemId, type) => {
 
     console.log('Price determined:', price);
 
+    // Free item - handle free access
     if (price <= 0) {
         await handleFreeAccess(itemId);
         return;
     }
     
+    // Check if already purchased
     if (purchasedItems.has(itemId)) {
-        showToast('Already owned', 'info');
+        showToast('You already own this item!', 'info');
         return;
     }
 
     try {
+        // Get current wallet balance
         const { data: user, error: userError } = await supabase
             .from('users')
             .select('wallet_balance')
@@ -1743,103 +1749,225 @@ window.handlePurchase = async (itemId, type) => {
 
         if (userError) {
             console.error('Wallet fetch error:', userError);
-            showToast('Error checking wallet', 'error');
+            showToast('Error checking wallet balance', 'error');
             return;
         }
 
         const currentBalance = user?.wallet_balance || 0;
         console.log('Current balance:', currentBalance, 'Price:', price);
 
+        // Check if user has sufficient funds
         if (currentBalance < price) {
             const shortfall = (price - currentBalance).toLocaleString();
-            showToast(`Need ₦${shortfall} more`, 'error');
+            showToast(`Need ₦${shortfall} more to purchase this item.`, 'error');
             showInsufficientFunds(shortfall, currentBalance, price);
             return;
         }
 
-        // Process payment
+        // Process payment - deduct from wallet
         const newBalance = currentBalance - price;
-        await supabase
+        const { error: updateError } = await supabase
             .from('users')
             .update({ wallet_balance: newBalance })
             .eq('id', currentUser.id);
 
-        await supabase
+        if (updateError) {
+            console.error('Wallet update error:', updateError);
+            showToast('Payment failed. Please try again.', 'error');
+            return;
+        }
+
+        // Record the purchase
+        const purchaseData = {
+            user_id: currentUser.id,
+            item_id: itemId,
+            purchase_type: type,
+            amount: price,
+            created_at: new Date().toISOString()
+        };
+
+        const { error: purchaseError } = await supabase
             .from('user_purchases')
-            .insert({ 
-                user_id: currentUser.id, 
-                item_id: itemId, 
-                purchase_type: type, 
-                amount: price 
-            });
+            .insert([purchaseData]);
 
+        if (purchaseError) {
+            console.error('Purchase record error:', purchaseError);
+            // Refund the user
+            await supabase
+                .from('users')
+                .update({ wallet_balance: currentBalance })
+                .eq('id', currentUser.id);
+            showToast(`Purchase failed: ${purchaseError.message}`, 'error');
+            return;
+        }
+
+        // Add to purchased items
         purchasedItems.add(itemId);
-        const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
+        
+        // Award GP
+        const gpReward = item.type === 'bundle' ? 10 : 5;
+        const gp = await addGP(gpReward, `Purchased: ${item.title}`);
 
-        showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        // Update local wallet
         userWallet = newBalance;
+
+        showToast(`✅ Successfully purchased "${item.title}"${gp ? ` +${gp} GP` : ''}`, 'success');
+        
+        // Refresh UI
         renderItems();
         closeModal();
 
+        // Open digital content if available
         if (type === 'digital' && item.file_url) {
             setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) {
+                if (confirm(`Would you like to open "${item.title}" now?`)) {
                     window.open(item.file_url, '_blank');
                 }
             }, 800);
         }
+        
     } catch (e) {
         console.error('Purchase error:', e);
-        showToast('Purchase failed', 'error');
+        showToast('Purchase failed. Please try again.', 'error');
     }
 };
 
+// ============================================
+// GRANT PREMIUM ACCESS
+// ============================================
 window.handleGrantAccess = async (itemId) => {
+    console.log('⭐ handleGrantAccess called:', { itemId });
+    
+    if (!currentUser) {
+        showToast('Please login to access this feature', 'error');
+        window.location.href = '/signin.html';
+        return;
+    }
+
     const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
+
+    // Check if user has premium status (100+ GP)
+    const isPremium = userGP >= 100;
+    if (!isPremium) {
+        showToast('You need 100 GP to unlock premium access.', 'error');
+        return;
+    }
+
+    // Check if already purchased
+    if (purchasedItems.has(itemId)) {
+        showToast('You already own this item!', 'info');
+        return;
+    }
 
     try {
-        await supabase
+        // Record premium purchase
+        const purchaseData = {
+            user_id: currentUser.id,
+            item_id: itemId,
+            purchase_type: 'premium',
+            amount: 0,
+            created_at: new Date().toISOString()
+        };
+
+        const { error: purchaseError } = await supabase
             .from('user_purchases')
-            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: 'premium', amount: 0 });
+            .insert([purchaseData]);
+
+        if (purchaseError) {
+            console.error('Premium purchase error:', purchaseError);
+            showToast('Error granting premium access', 'error');
+            return;
+        }
+
         purchasedItems.add(itemId);
-        showToast(`✅ Premium access: ${item.title}`, 'success');
+        showToast(`✅ Premium access granted for "${item.title}"!`, 'success');
+        
         renderItems();
         closeModal();
+        
         if (item.file_url) {
             setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) {
+                if (confirm(`Would you like to open "${item.title}" now?`)) {
                     window.open(item.file_url, '_blank');
                 }
             }, 800);
         }
+        
     } catch (e) {
+        console.error('Grant access error:', e);
         showToast('Error granting access', 'error');
     }
 };
 
+// ============================================
+// HANDLE FREE ACCESS
+// ============================================
 window.handleFreeAccess = async (itemId) => {
+    console.log('🎁 handleFreeAccess called:', { itemId });
+    
+    if (!currentUser) {
+        showToast('Please login to access this feature', 'error');
+        window.location.href = '/signin.html';
+        return;
+    }
+
     const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
-    if (purchasedItems.has(itemId)) return showToast('Already owned', 'info');
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
+
+    // Check if already purchased
+    if (purchasedItems.has(itemId)) {
+        showToast('You already have access to this item!', 'info');
+        return;
+    }
 
     try {
-        await supabase
+        // Record free purchase
+        const purchaseData = {
+            user_id: currentUser.id,
+            item_id: itemId,
+            purchase_type: 'free',
+            amount: 0,
+            created_at: new Date().toISOString()
+        };
+
+        const { error: purchaseError } = await supabase
             .from('user_purchases')
-            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: 'digital', amount: 0 });
+            .insert([purchaseData]);
+
+        if (purchaseError) {
+            console.error('Free access error:', purchaseError);
+            showToast('Error granting access', 'error');
+            return;
+        }
+
         purchasedItems.add(itemId);
-        const gp = await addGP(1, `Free: ${item.title}`);
-        showToast(`✅ ${item.type === 'talk' ? 'Watching' : 'Access'} ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        
+        // Award 1 GP for taking action
+        const gp = await addGP(1, `Accessed free item: ${item.title}`);
+
+        const actionType = item.type === 'talk' ? 'Watching' : 'Access';
+        showToast(`✅ ${actionType} "${item.title}" granted${gp ? ` +${gp} GP` : ''}`, 'success');
+        
         renderItems();
         closeModal();
+        
         if (item.file_url) {
             setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) {
+                if (confirm(`Would you like to open "${item.title}" now?`)) {
                     window.open(item.file_url, '_blank');
                 }
             }, 800);
         }
+        
     } catch (e) {
+        console.error('Free access error:', e);
         showToast('Error granting access', 'error');
     }
 };
