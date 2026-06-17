@@ -157,7 +157,7 @@ async function loadUserData() {
 
 async function loadItems() {
     try {
-        // Use hub_contents table instead of library_items
+        // Use hub_contents table
         const { data, error } = await supabase
             .from('hub_contents')
             .select('*')
@@ -1464,7 +1464,7 @@ window.closeModal = () => {
 
 DOM.modalCloseBtn?.addEventListener('click', closeModal);
 DOM.itemModal?.addEventListener('click', (e) => {
-    if (e.target === DOM.itemModal) closeModal());
+    if (e.target === DOM.itemModal) closeModal();
 });
 
 document.addEventListener('keydown', (e) => {
