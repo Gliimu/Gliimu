@@ -22,6 +22,7 @@ let allContacts = [];
 let allPartnerships = [];
 let allOffers = [];
 let refreshInterval = null;
+let editingItemId = null;
 
 // ============================================
 // ROLE-BASED TAB CONFIGURATION
@@ -32,6 +33,7 @@ const roleTabs = {
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'payments', name: 'Payments', icon: 'fas fa-wallet' },
         { id: 'users', name: 'Users', icon: 'fas fa-users' },
+        { id: 'library', name: 'Library Manager', icon: 'fas fa-book' },
         { id: 'inventory', name: 'Inventory', icon: 'fas fa-boxes' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
@@ -46,6 +48,7 @@ const roleTabs = {
     ],
     crm: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+        { id: 'library', name: 'Library Manager', icon: 'fas fa-book' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
         { id: 'submissions', name: 'User Submissions', icon: 'fas fa-briefcase' },
         { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar' },
@@ -75,7 +78,6 @@ const roleTabs = {
 // ============================================
 
 function initTheme() {
-    // Check for saved theme or system preference
     const savedTheme = localStorage.getItem('admin_theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
@@ -126,7 +128,6 @@ async function checkAuth() {
         return false;
     }
     
-    // Get user profile with role
     const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('role, name')
@@ -141,7 +142,6 @@ async function checkAuth() {
     currentRole = userRole;
     currentUser = user;
     
-    // Update UI
     const roleNames = {
         founder: 'Founder',
         crm: 'CRM',
@@ -164,7 +164,7 @@ async function checkAuth() {
 }
 
 // ============================================
-// BUILD SIDEBAR BASED ON ROLE
+// BUILD SIDEBAR
 // ============================================
 function buildSidebar() {
     const tabs = roleTabs[currentRole] || roleTabs.secretary;
@@ -188,7 +188,7 @@ function buildSidebar() {
 }
 
 // ============================================
-// CREATE CONTENT SECTIONS FOR ALL TABS
+// CREATE CONTENT SECTIONS
 // ============================================
 function createContentSections() {
     const dashboardContent = document.getElementById('dashboardContent');
@@ -198,6 +198,7 @@ function createContentSections() {
         <div id="dashboard-section" class="admin-tab active"><div class="loading">Loading dashboard...</div></div>
         <div id="payments-section" class="admin-tab"><div class="loading">Loading payments...</div></div>
         <div id="users-section" class="admin-tab"><div class="loading">Loading users...</div></div>
+        <div id="library-section" class="admin-tab"><div class="loading">Loading library...</div></div>
         <div id="inventory-section" class="admin-tab"><div class="loading">Loading inventory...</div></div>
         <div id="finance-section" class="admin-tab"><div class="loading">Loading finance...</div></div>
         <div id="posts-section" class="admin-tab"><div class="loading">Loading posts...</div></div>
@@ -243,6 +244,7 @@ async function loadTabData(tabId) {
         case 'dashboard': await renderDashboard(); break;
         case 'payments': await renderPayments(); break;
         case 'users': await renderUsers(); break;
+        case 'library': await renderLibraryManager(); break;
         case 'inventory': await renderInventory(); break;
         case 'finance': await renderFinance(); break;
         case 'posts': await renderPostsManager(); break;
@@ -285,7 +287,213 @@ async function renderDashboard() {
 }
 
 // ============================================
-// SETTINGS TAB WITH THEME
+// LIBRARY MANAGER - COMPLETE CRUD
+// ============================================
+async function renderLibraryManager() {
+    const container = document.getElementById('library-section');
+    if (!container) return;
+    
+    const { data: items, error } = await supabase
+        .from('hub_contents')
+        .select('*')
+        .order('created_at', { ascending: false });
+    
+    if (error) {
+        showToast('Error loading library items', 'error');
+        console.error(error);
+    }
+    
+    container.innerHTML = `
+        <div class="tab-header">
+            <h2><i class="fas fa-book"></i> Library Manager</h2>
+            <div class="tab-actions">
+                <button id="addLibraryItemBtn" class="btn-primary">
+                    <i class="fas fa-plus"></i> Add New Content
+                </button>
+            </div>
+        </div>
+        
+        <!-- Stats -->
+        <div class="library-stats">
+            <div class="stat-card"><span class="stat-value">${items?.filter(i => i.type === 'book').length || 0}</span><span class="stat-label">Books</span></div>
+            <div class="stat-card"><span class="stat-value">${items?.filter(i => i.type === 'talk').length || 0}</span><span class="stat-label">Talks</span></div>
+            <div class="stat-card"><span class="stat-value">${items?.filter(i => i.type === 'bundle').length || 0}</span><span class="stat-label">Bundles</span></div>
+            <div class="stat-card"><span class="stat-value">${items?.length || 0}</span><span class="stat-label">Total Items</span></div>
+        </div>
+        
+        <!-- Items Grid -->
+        <div class="library-items-grid">
+            ${items?.map(item => `
+                <div class="library-admin-card" data-id="${item.id}">
+                    <img src="${item.cover_url || 'https://placehold.co/80x100/2c2f78/white?text=No+Image'}" alt="${item.title}" onerror="this.src='https://placehold.co/80x100/2c2f78/white?text=No+Image'">
+                    <div class="info">
+                        <h4>${escapeHtml(item.title)}</h4>
+                        <p class="meta">${item.type || 'Book'} • ${item.category || 'Uncategorized'} • ${item.level || 'Beginner'}</p>
+                        <p class="pricing">Digital: ₦${item.price || 0} | Physical: ₦${item.physical_price || 0}</p>
+                        <span class="status-badge ${item.is_active ? 'active' : 'inactive'}">${item.is_active ? 'Active' : 'Inactive'}</span>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-outline edit-item" data-id="${item.id}"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn-danger delete-item" data-id="${item.id}"><i class="fas fa-trash"></i> Delete</button>
+                        <button class="btn-outline toggle-item" data-id="${item.id}" data-active="${item.is_active}">
+                            ${item.is_active ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>'}
+                        </button>
+                    </div>
+                </div>
+            `).join('') || '<div class="empty-state">No library items found. Add your first content!</div>'}
+        </div>
+    `;
+    
+    // Event Listeners
+    document.getElementById('addLibraryItemBtn')?.addEventListener('click', () => openLibraryModal());
+    document.querySelectorAll('.edit-item').forEach(btn => btn.addEventListener('click', () => openLibraryModal(btn.dataset.id)));
+    document.querySelectorAll('.delete-item').forEach(btn => btn.addEventListener('click', () => deleteLibraryItem(btn.dataset.id)));
+    document.querySelectorAll('.toggle-item').forEach(btn => btn.addEventListener('click', () => toggleLibraryItem(btn.dataset.id, btn.dataset.active === 'true')));
+}
+
+// ============================================
+// LIBRARY MODAL FUNCTIONS
+// ============================================
+function openLibraryModal(itemId = null) {
+    const modal = document.getElementById('libraryItemModal');
+    const form = document.getElementById('libraryItemForm');
+    const title = document.getElementById('libraryModalTitle');
+    
+    if (!modal) {
+        showToast('Modal not found', 'error');
+        return;
+    }
+    
+    form.reset();
+    document.getElementById('editItemId').value = '';
+    title.textContent = 'Add New Content';
+    editingItemId = null;
+    
+    if (itemId) {
+        title.textContent = 'Edit Content';
+        document.getElementById('editItemId').value = itemId;
+        editingItemId = itemId;
+        loadItemData(itemId);
+    }
+    
+    modal.classList.add('active');
+}
+
+function closeLibraryModal() {
+    const modal = document.getElementById('libraryItemModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function loadItemData(itemId) {
+    const { data: item, error } = await supabase
+        .from('hub_contents')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+    
+    if (error) {
+        showToast('Error loading item', 'error');
+        return;
+    }
+    
+    document.getElementById('itemTitle').value = item.title || '';
+    document.getElementById('itemType').value = item.type || 'book';
+    document.getElementById('itemCategory').value = item.category || '';
+    document.getElementById('itemAuthor').value = item.author || '';
+    document.getElementById('itemDescription').value = item.description || '';
+    document.getElementById('itemCoverUrl').value = item.cover_url || '';
+    document.getElementById('itemPrice').value = item.price || 0;
+    document.getElementById('itemPhysicalPrice').value = item.physical_price || 0;
+    document.getElementById('itemAudioPrice').value = item.audio_price || 0;
+    document.getElementById('itemFileUrl').value = item.file_url || '';
+    document.getElementById('itemDownloadUrl').value = item.download_url || '';
+    document.getElementById('itemLevel').value = item.level || 'Beginner';
+    document.getElementById('itemDuration').value = item.duration || '';
+    document.getElementById('itemStatus').value = item.is_active ? 'active' : 'inactive';
+}
+
+async function saveLibraryItem(e) {
+    e.preventDefault();
+    
+    const itemId = document.getElementById('editItemId').value;
+    const data = {
+        title: document.getElementById('itemTitle').value.trim(),
+        type: document.getElementById('itemType').value,
+        category: document.getElementById('itemCategory').value.trim(),
+        author: document.getElementById('itemAuthor').value.trim(),
+        description: document.getElementById('itemDescription').value.trim(),
+        cover_url: document.getElementById('itemCoverUrl').value.trim(),
+        price: parseFloat(document.getElementById('itemPrice').value) || 0,
+        physical_price: parseFloat(document.getElementById('itemPhysicalPrice').value) || 0,
+        audio_price: parseFloat(document.getElementById('itemAudioPrice').value) || 0,
+        file_url: document.getElementById('itemFileUrl').value.trim(),
+        download_url: document.getElementById('itemDownloadUrl').value.trim(),
+        level: document.getElementById('itemLevel').value,
+        duration: document.getElementById('itemDuration').value.trim(),
+        is_active: document.getElementById('itemStatus').value === 'active',
+        updated_at: new Date().toISOString()
+    };
+    
+    if (!data.title) {
+        showToast('Title is required', 'error');
+        return;
+    }
+    
+    let result;
+    if (itemId) {
+        result = await supabase
+            .from('hub_contents')
+            .update(data)
+            .eq('id', itemId);
+    } else {
+        data.created_at = new Date().toISOString();
+        result = await supabase
+            .from('hub_contents')
+            .insert([data]);
+    }
+    
+    if (result.error) {
+        showToast(`Error: ${result.error.message}`, 'error');
+        console.error(result.error);
+    } else {
+        showToast(`Content ${itemId ? 'updated' : 'added'} successfully!`, 'success');
+        closeLibraryModal();
+        renderLibraryManager();
+    }
+}
+
+async function deleteLibraryItem(itemId) {
+    if (!confirm('Delete this content permanently? This cannot be undone.')) return;
+    
+    const { error } = await supabase
+        .from('hub_contents')
+        .delete()
+        .eq('id', itemId);
+    
+    if (error) {
+        showToast('Error deleting item', 'error');
+    } else {
+        showToast('Content deleted', 'success');
+        renderLibraryManager();
+    }
+}
+
+async function toggleLibraryItem(itemId, currentState) {
+    const { error } = await supabase
+        .from('hub_contents')
+        .update({ is_active: !currentState })
+        .eq('id', itemId);
+    
+    if (error) {
+        showToast('Error toggling item', 'error');
+    } else {
+        showToast(`Content ${!currentState ? 'activated' : 'deactivated'}`, 'success');
+        renderLibraryManager();
+    }
+}
+
+// ============================================
+// SETTINGS TAB
 // ============================================
 async function renderSettings() {
     const container = document.getElementById('settings-section');
@@ -385,7 +593,6 @@ async function renderSettings() {
                 localStorage.setItem('admin_theme', 'light');
             }
             
-            // Update active state
             document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
@@ -416,34 +623,6 @@ async function renderSettings() {
         showToast('Cache cleared! Refreshing data...', 'success');
         setTimeout(() => refreshAllData(), 1000);
     });
-}
-
-async function exportAllData() {
-    try {
-        const payments = await loadPayments();
-        const students = await loadStudents();
-        
-        let csvContent = "Data Type,ID,Name,Amount,Status,Date\n";
-        payments.forEach(p => {
-            csvContent += `Payment,${p.id},${p.user_name},${p.amount},${p.status},${new Date(p.submitted_at).toLocaleDateString()}\n`;
-        });
-        students.forEach(s => {
-            csvContent += `Student,${s.id},${s.name},${s.wallet_balance},Active,${new Date(s.created_at).toLocaleDateString()}\n`;
-        });
-        
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `admin_export_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        showToast('Data exported successfully!', 'success');
-    } catch (error) {
-        console.error('Export error:', error);
-        showToast('Error exporting data', 'error');
-    }
 }
 
 // ============================================
@@ -500,7 +679,6 @@ async function renderPayments() {
         </div>
     `;
     
-    // Filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             currentPaymentFilter = btn.getAttribute('data-filter');
@@ -508,7 +686,6 @@ async function renderPayments() {
         });
     });
     
-    // Approve/Reject buttons
     document.querySelectorAll('.btn-approve').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = btn.getAttribute('data-id');
@@ -565,7 +742,7 @@ async function renderUsers() {
 }
 
 // ============================================
-// INVENTORY RENDER
+// OTHER RENDER FUNCTIONS
 // ============================================
 async function renderInventory() {
     const container = document.getElementById('inventory-section');
@@ -576,16 +753,12 @@ async function renderInventory() {
     container.innerHTML = `
         <div class="tab-header"><h2><i class="fas fa-boxes"></i> Inventory Management</h2><button id="addProductBtn" class="btn-primary"><i class="fas fa-plus"></i> Add Product</button></div>
         <div class="inventory-stats"><div class="inv-stat"><span>Total Products</span><strong>${products?.length || 0}</strong></div><div class="inv-stat"><span>Low Stock Alerts</span><strong>${products?.filter(p => p.stock_quantity < 10).length || 0}</strong></div></div>
-        <div class="inventory-grid">${products?.map(p => `<div class="inventory-card ${p.stock_quantity < 10 ? 'low-stock' : ''}"><div class="inventory-card-header"><h4>${escapeHtml(p.name)}</h4><span>${p.category}</span></div><div class="inventory-stock">Stock: ${p.stock_quantity || 0} units</div><div class="inventory-price">₦${(p.price || 0).toLocaleString()}</div><div class="inventory-actions"><button class="btn-outline edit-product" data-id="${p.id}">Edit</button><button class="btn-danger delete-product" data-id="${p.id}">Delete</button></div></div>`).join('') || '<div class="empty-state">No products found</div>'}</div>
+        <div class="inventory-grid">${products?.map(p => `<div class="inventory-card ${p.stock_quantity < 10 ? 'low-stock' : ''}"><div class="inventory-card-header"><h4>${escapeHtml(p.name)}</h4><span>${p.category}</span></div><div class="inventory-stock">Stock: ${p.stock_quantity || 0} units</div><div class="inventory-price">₦${(p.price || 0).toLocaleString()}</div></div>`).join('') || '<div class="empty-state">No products found</div>'}</div>
     `;
     
     document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
-    document.querySelectorAll('.edit-product').forEach(btn => btn.addEventListener('click', () => openProductModal(btn.dataset.id)));
 }
 
-// ============================================
-// FINANCE RENDER
-// ============================================
 async function renderFinance() {
     const container = document.getElementById('finance-section');
     if (!container) return;
@@ -601,9 +774,6 @@ async function renderFinance() {
     `;
 }
 
-// ============================================
-// OTHER RENDER FUNCTIONS (Placeholders)
-// ============================================
 async function renderPostsManager() {
     const container = document.getElementById('posts-section');
     if (!container) return;
@@ -729,6 +899,34 @@ function openProductModal(productId = null) {
     showToast('Product management coming soon', 'info');
 }
 
+async function exportAllData() {
+    try {
+        const payments = await loadPayments();
+        const students = await loadStudents();
+        
+        let csvContent = "Data Type,ID,Name,Amount,Status,Date\n";
+        payments.forEach(p => {
+            csvContent += `Payment,${p.id},${p.user_name},${p.amount},${p.status},${new Date(p.submitted_at).toLocaleDateString()}\n`;
+        });
+        students.forEach(s => {
+            csvContent += `Student,${s.id},${s.name},${s.wallet_balance},Active,${new Date(s.created_at).toLocaleDateString()}\n`;
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `admin_export_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showToast('Data exported successfully!', 'success');
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Error exporting data', 'error');
+    }
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -742,7 +940,6 @@ function escapeHtml(text) {
 async function initAdminDashboard() {
     console.log('Initializing admin dashboard...');
     
-    // Initialize theme first
     initTheme();
     
     const isAuth = await checkAuth();
@@ -763,3 +960,7 @@ async function initAdminDashboard() {
 
 // Start the dashboard
 initAdminDashboard();
+
+// Make functions available globally
+window.closeLibraryModal = closeLibraryModal;
+window.saveLibraryItem = saveLibraryItem;
