@@ -294,22 +294,22 @@
 </div>
 
 <!-- ============================================ -->
-<!-- UPDATED LIBRARY MODAL WITH FILE UPLOAD -->
+<!-- LIBRARY MODAL WITH DIRECT FILE UPLOAD -->
 <!-- ============================================ -->
 <div id="libraryItemModal" class="modal">
     <div class="modal-content" style="max-width:650px;">
         <div class="modal-header">
-            <h2 id="libraryModalTitle">Add Library Item</h2>
-            <button class="modal-close closeLibraryModal">&times;</button>
+            <h2 id="libraryModalTitle">Add New Content</h2>
+            <button class="modal-close" id="closeLibraryModalBtn">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="libraryItemForm" onsubmit="window.saveLibraryItem(event)">
+            <form id="libraryItemForm">
                 <input type="hidden" id="editItemId">
                 
                 <div class="form-row">
                     <div class="form-group">
                         <label>Title *</label>
-                        <input type="text" id="itemTitle" required>
+                        <input type="text" id="itemTitle" required placeholder="Enter title">
                     </div>
                     <div class="form-group">
                         <label>Type</label>
@@ -328,13 +328,13 @@
                     </div>
                     <div class="form-group">
                         <label>Author/Speaker</label>
-                        <input type="text" id="itemAuthor">
+                        <input type="text" id="itemAuthor" placeholder="Author name">
                     </div>
                 </div>
                 
                 <div class="form-group">
                     <label>Description</label>
-                    <textarea id="itemDescription" rows="2"></textarea>
+                    <textarea id="itemDescription" rows="2" placeholder="Brief description..."></textarea>
                 </div>
                 
                 <div class="form-row">
@@ -352,49 +352,46 @@
                     </div>
                 </div>
                 
-                <!-- Cover Image Upload -->
+                <!-- Cover Image Upload - Direct file picker -->
                 <div class="form-group">
                     <label>Cover Image</label>
                     <div class="upload-field" onclick="document.getElementById('coverFileInput').click()">
                         <span class="upload-icon">🖼️</span>
                         <span class="upload-text">Click to upload cover image</span>
-                        <small style="display:block; margin-top:4px; color:var(--text-secondary);">Files go to: hub_content/covers/</small>
+                        <small>Files go to: hub_content/covers/</small>
                         <input type="file" id="coverFileInput" accept="image/*" onchange="window.handleCoverUpload(this.files[0])">
                     </div>
                     <div class="file-preview" id="coverPreview">
                         <img id="coverPreviewImg" src="">
+                        <button type="button" class="btn-remove-file" onclick="removeCoverFile()">✕ Remove</button>
                     </div>
-                    <small>Or paste URL below</small>
-                    <input type="url" id="itemCoverUrl" placeholder="https://example.com/cover.jpg" style="margin-top:0.5rem;">
                 </div>
                 
-                <!-- Content File Upload -->
+                <!-- Content File Upload - Direct file picker -->
                 <div class="form-group">
                     <label>Content File (PDF, EPUB, Video, etc.)</label>
                     <div class="upload-field" onclick="document.getElementById('contentFileInput').click()">
                         <span class="upload-icon">📁</span>
                         <span class="upload-text">Click to upload content file</span>
-                        <small style="display:block; margin-top:4px; color:var(--text-secondary);"> 
-                            Files go to: hub_content/<strong id="uploadFolderHint">book</strong>/
-                        </small>
+                        <small>Files go to: hub_content/<strong id="uploadFolderHint">book</strong>/</small>
                         <input type="file" id="contentFileInput" onchange="window.handleContentUpload(this.files[0])">
                     </div>
                     <div class="file-preview" id="contentFilePreview">
                         <a id="contentFileLink" target="_blank" class="file-link">📎 Current file</a>
+                        <button type="button" class="btn-remove-file" onclick="removeContentFile()">✕ Remove</button>
                     </div>
-                    <small>Or paste URL below</small>
-                    <input type="url" id="itemFileUrl" placeholder="https://example.com/content.pdf" style="margin-top:0.5rem;">
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Download URL (for bundles)</label>
-                        <input type="url" id="itemDownloadUrl" placeholder="https://example.com/bundle.zip">
-                    </div>
-                    <div class="form-group">
-                        <label>Duration (for talks)</label>
-                        <input type="text" id="itemDuration" placeholder="e.g., 12:34">
-                    </div>
+                <!-- Bundle Download URL (only for bundles) -->
+                <div class="form-group" id="bundleDownloadGroup" style="display:none;">
+                    <label>Bundle Download URL (optional)</label>
+                    <input type="url" id="itemDownloadUrl" placeholder="https://example.com/bundle.zip">
+                </div>
+                
+                <!-- Duration (only for talks) -->
+                <div class="form-group" id="talkDurationGroup" style="display:none;">
+                    <label>Duration (for talks)</label>
+                    <input type="text" id="itemDuration" placeholder="e.g., 12:34">
                 </div>
                 
                 <div class="form-group">
