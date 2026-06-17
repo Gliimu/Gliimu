@@ -285,7 +285,7 @@ async function renderDashboard() {
 }
 
 // ============================================
-// UPLOAD FILE TO SUPABASE STORAGE - WITH FOLDER STRUCTURE
+// UPLOAD FILE TO SUPABASE STORAGE
 // ============================================
 
 async function uploadFileToStorage(file, contentType, folder = null) {
@@ -342,7 +342,6 @@ async function deleteFileFromStorage(fileUrl) {
     if (!fileUrl) return;
     
     try {
-        // Extract path from URL
         const urlParts = fileUrl.split('/');
         const pathIndex = urlParts.indexOf('hub_content') + 1;
         if (pathIndex > 0 && pathIndex < urlParts.length) {
@@ -491,7 +490,7 @@ async function renderPostsManager() {
 }
 
 // ============================================
-// LIBRARY MODAL FUNCTIONS
+// LIBRARY MODAL FUNCTIONS - FIXED
 // ============================================
 function openLibraryModal(itemId = null) {
     const modal = document.getElementById('libraryItemModal');
@@ -509,6 +508,8 @@ function openLibraryModal(itemId = null) {
     document.getElementById('contentFileInput').value = '';
     document.getElementById('coverPreview').style.display = 'none';
     document.getElementById('contentFilePreview').style.display = 'none';
+    document.getElementById('bundleDownloadGroup').style.display = 'none';
+    document.getElementById('talkDurationGroup').style.display = 'none';
     title.textContent = 'Add New Content';
     editingItemId = null;
     
@@ -525,26 +526,44 @@ function openLibraryModal(itemId = null) {
     modal.classList.add('active');
 }
 
+// CLOSE LIBRARY MODAL - FIXED
 function closeLibraryModal() {
     const modal = document.getElementById('libraryItemModal');
-    if (modal) modal.classList.remove('active');
+    if (modal) {
+        modal.classList.remove('active');
+        // Reset form
+        document.getElementById('libraryItemForm').reset();
+        document.getElementById('coverPreview').style.display = 'none';
+        document.getElementById('contentFilePreview').style.display = 'none';
+        document.getElementById('editItemId').value = '';
+        document.getElementById('coverFileInput').value = '';
+        document.getElementById('contentFileInput').value = '';
+        document.getElementById('bundleDownloadGroup').style.display = 'none';
+        document.getElementById('talkDurationGroup').style.display = 'none';
+        // Remove any lingering errors
+        const errorElements = document.querySelectorAll('.form-error');
+        errorElements.forEach(el => el.remove());
+    }
 }
 
 function updateFolderHint() {
     const typeSelect = document.getElementById('itemType');
     const folderHint = document.getElementById('uploadFolderHint');
+    const bundleGroup = document.getElementById('bundleDownloadGroup');
+    const durationGroup = document.getElementById('talkDurationGroup');
+    
     if (typeSelect && folderHint) {
-        folderHint.textContent = typeSelect.value;
+        const type = typeSelect.value;
+        folderHint.textContent = type;
+        
+        if (bundleGroup) {
+            bundleGroup.style.display = type === 'bundle' ? 'block' : 'none';
+        }
+        if (durationGroup) {
+            durationGroup.style.display = type === 'talk' ? 'block' : 'none';
+        }
     }
 }
-
-// Update folder hint when type changes
-document.addEventListener('DOMContentLoaded', function() {
-    const typeSelect = document.getElementById('itemType');
-    if (typeSelect) {
-        typeSelect.addEventListener('change', updateFolderHint);
-    }
-});
 
 async function loadItemData(itemId) {
     const { data: item, error } = await supabase
@@ -566,7 +585,6 @@ async function loadItemData(itemId) {
     document.getElementById('itemPrice').value = item.price || 0;
     document.getElementById('itemPhysicalPrice').value = item.physical_price || 0;
     document.getElementById('itemAudioPrice').value = item.audio_price || 0;
-    document.getElementById('itemFileUrl').value = item.file_url || '';
     document.getElementById('itemDownloadUrl').value = item.download_url || '';
     document.getElementById('itemLevel').value = item.level || 'Beginner';
     document.getElementById('itemDuration').value = item.duration || '';
@@ -617,8 +635,23 @@ function handleContentUpload(file) {
     preview.style.display = 'block';
 }
 
+// Remove cover file
+function removeCoverFile() {
+    document.getElementById('coverPreview').style.display = 'none';
+    document.getElementById('coverPreviewImg').src = '';
+    document.getElementById('coverFileInput').value = '';
+}
+
+// Remove content file
+function removeContentFile() {
+    document.getElementById('contentFilePreview').style.display = 'none';
+    document.getElementById('contentFileLink').href = '#';
+    document.getElementById('contentFileLink').textContent = 'No file selected';
+    document.getElementById('contentFileInput').value = '';
+}
+
 // ============================================
-// SAVE LIBRARY ITEM - WITH FOLDER STRUCTURE
+// SAVE LIBRARY ITEM
 // ============================================
 async function saveLibraryItem(e) {
     e.preventDefault();
@@ -629,17 +662,29 @@ async function saveLibraryItem(e) {
     const contentFile = document.getElementById('contentFileInput').files[0];
     
     // Upload cover image if provided
-    let coverUrl = document.getElementById('itemCoverUrl').value;
+    let coverUrl = '';
     if (coverFile) {
         const uploaded = await uploadFileToStorage(coverFile, 'cover');
         if (uploaded) coverUrl = uploaded;
+    } else if (document.getElementById('coverPreview').style.display === 'block') {
+        // Keep existing cover if already uploaded
+        const existingImg = document.getElementById('coverPreviewImg');
+        if (existingImg.src && !existingImg.src.includes('blob:')) {
+            coverUrl = existingImg.src;
+        }
     }
     
-    // Upload content file if provided (goes to appropriate folder: book/talk/bundle)
-    let fileUrl = document.getElementById('itemFileUrl').value;
+    // Upload content file if provided
+    let fileUrl = '';
     if (contentFile) {
         const uploaded = await uploadFileToStorage(contentFile, contentType);
         if (uploaded) fileUrl = uploaded;
+    } else if (document.getElementById('contentFilePreview').style.display === 'block') {
+        // Keep existing file if already uploaded
+        const existingLink = document.getElementById('contentFileLink');
+        if (existingLink.href && !existingLink.href.includes('blob:')) {
+            fileUrl = existingLink.href;
+        }
     }
     
     const data = {
@@ -708,7 +753,7 @@ async function saveLibraryItem(e) {
 }
 
 // ============================================
-// DELETE LIBRARY ITEM - WITH FILE CLEANUP
+// DELETE LIBRARY ITEM
 // ============================================
 async function deleteLibraryItem(itemId) {
     if (!confirm('Delete this content permanently? This cannot be undone.')) return;
@@ -892,7 +937,6 @@ async function saveIndexItem(e) {
     
     // If image was removed, delete old one
     if (!imageUrl && document.getElementById('indexHeroImage').value === '') {
-        // Check if there was an old image
         const { data: oldData } = await supabase
             .from('index_content')
             .select('hero_image')
@@ -1386,6 +1430,78 @@ async function initAdminDashboard() {
     console.log(`Admin dashboard initialized for role: ${currentRole}`);
 }
 
+// ============================================
+// EVENT LISTENERS FOR MODAL CLOSING
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Type change handler
+    const typeSelect = document.getElementById('itemType');
+    if (typeSelect) {
+        typeSelect.addEventListener('change', updateFolderHint);
+    }
+    
+    // Library modal close button
+    const closeLibraryBtn = document.getElementById('closeLibraryModalBtn');
+    if (closeLibraryBtn) {
+        closeLibraryBtn.addEventListener('click', closeLibraryModal);
+    }
+    
+    // Close library modal on overlay click
+    const libraryModal = document.getElementById('libraryItemModal');
+    if (libraryModal) {
+        libraryModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeLibraryModal();
+            }
+        });
+    }
+    
+    // FAQ modal close
+    const closeFaqBtn = document.getElementById('closeFaqModalBtn');
+    if (closeFaqBtn) {
+        closeFaqBtn.addEventListener('click', closeFaqModal);
+    }
+    
+    const faqModal = document.getElementById('faqModal');
+    if (faqModal) {
+        faqModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFaqModal();
+            }
+        });
+    }
+    
+    // Index modal close
+    const closeIndexBtn = document.getElementById('closeIndexModalBtn');
+    if (closeIndexBtn) {
+        closeIndexBtn.addEventListener('click', closeIndexModal);
+    }
+    
+    const indexModal = document.getElementById('indexModal');
+    if (indexModal) {
+        indexModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeIndexModal();
+            }
+        });
+    }
+    
+    // Escape key to close modals
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (document.getElementById('libraryItemModal')?.classList.contains('active')) {
+                closeLibraryModal();
+            }
+            if (document.getElementById('faqModal')?.classList.contains('active')) {
+                closeFaqModal();
+            }
+            if (document.getElementById('indexModal')?.classList.contains('active')) {
+                closeIndexModal();
+            }
+        }
+    });
+});
+
 // Start the dashboard
 initAdminDashboard();
 
@@ -1398,3 +1514,9 @@ window.closeIndexModal = closeIndexModal;
 window.saveIndexItem = saveIndexItem;
 window.handleCoverUpload = handleCoverUpload;
 window.handleContentUpload = handleContentUpload;
+window.removeCoverFile = removeCoverFile;
+window.removeContentFile = removeContentFile;
+window.updateFolderHint = updateFolderHint;
+window.openLibraryModal = openLibraryModal;
+window.openFaqModal = openFaqModal;
+window.openIndexModal = openIndexModal;
