@@ -539,7 +539,7 @@ window.viewDetails = async (itemId) => {
 };
 
 // ============================================
-// TALK DETAILS - Custom Video Player
+// TALK DETAILS - Social Media Style
 // ============================================
 async function renderTalkDetails(itemId) {
     const item = allItems.find(i => i.id === itemId);
@@ -556,16 +556,43 @@ async function renderTalkDetails(itemId) {
 
     DOM.modalTitle.textContent = item.title;
     DOM.modalImage.style.display = 'none';
+    DOM.modalFooter.style.display = 'none';
+    DOM.modalFooter.innerHTML = '';
 
     updateSaveButton(item.id, isSaved);
 
     // Video source
     const videoSrc = item.file_url || '/video/pnp.mp4';
-    
+    const speakerAvatar = item.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.author || 'Speaker')}&background=2c2f78&color=fff`;
+    const timestamp = item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently';
+
     let detailsHtml = `
-        <div class="item-details talk-details">
-            <div class="gliimu-video-player" id="gliimuVideoPlayer">
-                <video id="talkVideo" playsinline poster="${item.cover_url || ''}">
+        <div class="talk-details">
+            <!-- Social Media Header -->
+            <div class="social-header">
+                <img src="${speakerAvatar}" alt="${escape(item.author || 'Speaker')}" class="speaker-avatar">
+                <div class="speaker-info">
+                    <div class="speaker-name">${escape(item.author || 'Gliimu Team')}</div>
+                    <div class="speaker-handle">@${escape((item.author || 'gliimu').toLowerCase().replace(/\s/g, ''))}</div>
+                </div>
+                <span class="talk-timestamp">${timestamp}</span>
+            </div>
+            
+            <!-- Badges -->
+            <div class="badge-row">
+                ${isPremium ? '<span class="badge premium">⭐ Premium Access</span>' : ''}
+                ${isPurchased ? '<span class="badge owned">✅ You own this</span>' : ''}
+            </div>
+            
+            <!-- Talk Title -->
+            <div class="talk-title-social">${escape(item.title)}</div>
+            
+            <!-- Talk Description -->
+            <div class="talk-description-social">${escape(item.description || 'No description available.')}</div>
+            
+            <!-- Video Player -->
+            <div class="video-wrapper" id="gliimuVideoPlayer">
+                <video id="talkVideo" playsinline poster="${item.cover_url || ''}" preload="metadata">
                     <source src="${videoSrc}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -599,13 +626,6 @@ async function renderTalkDetails(itemId) {
                         
                         <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
                         
-                        <div class="volume-control">
-                            <button class="ctrl-btn" id="volumeBtn">
-                                <i class="fas fa-volume-up"></i>
-                            </button>
-                            <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
-                        </div>
-                        
                         <button class="ctrl-btn fullscreen-btn" id="fullscreenBtn">
                             <i class="fas fa-expand"></i>
                         </button>
@@ -613,25 +633,24 @@ async function renderTalkDetails(itemId) {
                 </div>
             </div>
             
-            <div class="talk-info">
-                <h3 class="talk-title">${escape(item.title)}</h3>
-                <p class="talk-speaker">🎤 ${escape(item.author || 'Gliimu Team')}</p>
-                ${item.duration ? `<p class="talk-duration">⏱️ ${item.duration}</p>` : ''}
-                ${isPremium ? `<p><span class="premium-badge">⭐ Premium Access</span></p>` : ''}
-                ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
-                
-                <div class="talk-description">${escape(item.description || 'No description available.')}</div>
-                
-                <div class="talk-engagement">
-                    <button class="engagement-btn" onclick="window.likeTalk('${item.id}')">
-                        <i class="far fa-heart"></i> <span class="count">${item.likes || 0}</span>
-                    </button>
-                    <button class="engagement-btn" onclick="window.shareTalk('${item.id}')">
-                        <i class="far fa-share-alt"></i> <span class="count">${item.shares || 0}</span>
-                    </button>
-                    <button class="engagement-btn" onclick="window.commentTalk('${item.id}')">
-                        <i class="far fa-comment"></i> <span class="count">${item.comments || 0}</span>
-                    </button>
+            <!-- Social Engagement Bar -->
+            <div class="social-engagement">
+                <button class="social-btn" onclick="window.likeTalk('${item.id}')" id="likeBtn">
+                    <i class="far fa-heart"></i> <span class="count" id="likeCount">${item.likes || 0}</span>
+                </button>
+                <button class="social-btn" onclick="window.shareTalk('${item.id}')">
+                    <i class="fas fa-share-alt share-icon"></i> <span class="count">${item.shares || 0}</span>
+                </button>
+                <button class="social-btn" onclick="window.commentTalk('${item.id}')">
+                    <i class="far fa-comment"></i> <span class="count">${item.comments || 0}</span>
+                </button>
+            </div>
+            
+            <!-- Comments Placeholder -->
+            <div class="comments-placeholder">
+                <div class="comment-input">
+                    <input type="text" placeholder="Write a comment..." id="commentInput">
+                    <button onclick="window.postComment('${item.id}')">Post</button>
                 </div>
             </div>
         </div>
@@ -639,17 +658,139 @@ async function renderTalkDetails(itemId) {
 
     DOM.modalDesc.innerHTML = detailsHtml;
 
-    // No footer buttons - only the close X
-    DOM.modalFooter.innerHTML = '';
-    DOM.modalFooter.style.display = 'none';
-
     modal.classList.add('active');
 
     // Initialize custom video player
     setTimeout(() => {
         initCustomVideoPlayer();
-    }, 100);
+    }, 150);
+
+    // Update like button state if already liked
+    checkIfLiked(item.id);
 }
+
+// ============================================
+// CHECK IF TALK WAS LIKED
+// ============================================
+async function checkIfLiked(itemId) {
+    if (!currentUser) return;
+    try {
+        const { data } = await supabase
+            .from('user_likes')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .eq('item_id', itemId)
+            .single();
+        
+        if (data) {
+            const likeBtn = document.querySelector('#likeBtn');
+            if (likeBtn) {
+                likeBtn.classList.add('liked');
+                likeBtn.querySelector('i').className = 'fas fa-heart';
+            }
+        }
+    } catch (e) {
+        // User hasn't liked this item
+    }
+}
+
+// ============================================
+// POST COMMENT
+// ============================================
+window.postComment = async (itemId) => {
+    if (!currentUser) {
+        showToast('Please login to comment', 'error');
+        return;
+    }
+    
+    const input = document.getElementById('commentInput');
+    if (!input || !input.value.trim()) {
+        showToast('Please write a comment', 'error');
+        return;
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('talk_comments')
+            .insert({
+                item_id: itemId,
+                user_id: currentUser.id,
+                user_name: currentUser.name,
+                content: input.value.trim(),
+                created_at: new Date().toISOString()
+            });
+        
+        if (error) throw error;
+        
+        showToast('💬 Comment posted!', 'success');
+        input.value = '';
+    } catch (e) {
+        console.error('Comment error:', e);
+        showToast('Error posting comment', 'error');
+    }
+};
+
+// ============================================
+// UPDATE LIKE TALK FUNCTION
+// ============================================
+window.likeTalk = async (itemId) => {
+    if (!currentUser) {
+        showToast('Please login to like', 'error');
+        return;
+    }
+    
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const likeBtn = document.querySelector('#likeBtn');
+    const countEl = document.querySelector('#likeCount');
+    const isLiked = likeBtn?.classList.contains('liked');
+    
+    try {
+        if (isLiked) {
+            // Unlike
+            await supabase
+                .from('user_likes')
+                .delete()
+                .eq('user_id', currentUser.id)
+                .eq('item_id', itemId);
+            
+            const newLikes = (item.likes || 0) - 1;
+            await supabase.from('hub_contents').update({ likes: newLikes }).eq('id', itemId);
+            item.likes = newLikes;
+            
+            if (likeBtn) {
+                likeBtn.classList.remove('liked');
+                likeBtn.querySelector('i').className = 'far fa-heart';
+            }
+            if (countEl) countEl.textContent = newLikes;
+        } else {
+            // Like
+            await supabase
+                .from('user_likes')
+                .insert({
+                    user_id: currentUser.id,
+                    item_id: itemId,
+                    created_at: new Date().toISOString()
+                });
+            
+            const newLikes = (item.likes || 0) + 1;
+            await supabase.from('hub_contents').update({ likes: newLikes }).eq('id', itemId);
+            item.likes = newLikes;
+            
+            if (likeBtn) {
+                likeBtn.classList.add('liked');
+                likeBtn.querySelector('i').className = 'fas fa-heart';
+            }
+            if (countEl) countEl.textContent = newLikes;
+            
+            showToast('❤️ Liked!', 'success');
+        }
+    } catch (e) {
+        console.error('Like error:', e);
+        showToast('Error updating like', 'error');
+    }
+};
 
 // ============================================
 // CUSTOM VIDEO PLAYER
