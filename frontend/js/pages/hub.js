@@ -1570,7 +1570,7 @@ async function completePurchase() {
 }
 
 // ============================================
-// PROCESS PAYMENT - WITH WALLET CHECK
+// PROCESS PAYMENT - FIXED
 // ============================================
 async function processPayment(itemId, type, price) {
     console.log('💰 processPayment called:', { itemId, type, price });
@@ -1643,26 +1643,36 @@ async function processPayment(itemId, type, price) {
             return;
         }
 
-        // Record purchase
-        const { error: purchaseError } = await supabase
+        // --- FIXED: Record purchase with correct columns ---
+        const purchaseData = {
+            user_id: currentUser.id,
+            item_id: itemId,
+            purchase_type: type,
+            amount: price,
+            created_at: new Date().toISOString()
+        };
+        
+        console.log('Inserting purchase:', purchaseData);
+
+        const { data: purchaseResult, error: purchaseError } = await supabase
             .from('user_purchases')
-            .insert({ 
-                user_id: currentUser.id, 
-                item_id: itemId, 
-                purchase_type: type, 
-                amount: price 
-            });
+            .insert([purchaseData])
+            .select();
 
         if (purchaseError) {
             console.error('Purchase record error:', purchaseError);
+            
             // Refund the user if purchase recording fails
             await supabase
                 .from('users')
                 .update({ wallet_balance: currentBalance })
                 .eq('id', currentUser.id);
-            showToast('Purchase failed. Please contact support.', 'error');
+                
+            showToast(`Purchase failed: ${purchaseError.message}`, 'error');
             return;
         }
+
+        console.log('Purchase recorded successfully:', purchaseResult);
 
         purchasedItems.add(itemId);
         const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
