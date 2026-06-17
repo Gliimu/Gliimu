@@ -83,10 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Hub initializing...');
 
     try {
-        // Hide loader when content is ready
-        setTimeout(() => {
-            hideLoader();
-        }, 2000);
+        setTimeout(() => { hideLoader(); }, 2000);
 
         currentUser = await getCurrentUser();
         console.log('👤 User:', currentUser?.email || 'Guest');
@@ -140,7 +137,6 @@ function showCenteredError(message) {
 }
 
 function showInsufficientFunds(shortfall, currentBalance, required) {
-    // Create a custom modal for insufficient funds
     const modalHtml = `
         <div id="insufficientFundsModal" class="modal" style="display:flex; z-index:2000;">
             <div class="modal-content" style="max-width:400px; text-align:center; padding:2rem;">
@@ -167,11 +163,8 @@ function showInsufficientFunds(shortfall, currentBalance, required) {
         </div>
     `;
     
-    // Remove existing modal if any
     const existing = document.getElementById('insufficientFundsModal');
     if (existing) existing.remove();
-    
-    // Add new modal
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
@@ -179,8 +172,6 @@ function closeInsufficientFundsModal() {
     const modal = document.getElementById('insufficientFundsModal');
     if (modal) modal.remove();
 }
-
-// Make it globally accessible
 window.closeInsufficientFundsModal = closeInsufficientFundsModal;
 
 // ============================================
@@ -300,7 +291,6 @@ function createCard(item) {
     const hasPrice = (item.price || 0) > 0;
     const cover = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title || 'Item')}`;
 
-    // --- Talk Card ---
     if (isTalk) {
         return `
             <div class="grid-item item-talk" data-id="${item.id}" onclick="window.viewDetails('${item.id}')">
@@ -319,7 +309,6 @@ function createCard(item) {
         `;
     }
 
-    // --- Bundle Card ---
     if (isBundle) {
         return `
             <div class="grid-item item-bundle" data-id="${item.id}">
@@ -339,7 +328,6 @@ function createCard(item) {
         `;
     }
 
-    // --- Book Card ---
     return `
         <div class="grid-item item-book" data-id="${item.id}" onclick="window.viewDetails('${item.id}')">
             <div class="card-cover" style="background-image: url('${cover}')">
@@ -405,7 +393,7 @@ function updateAvatar() {
 }
 
 // ============================================
-// THEME
+// THEME & SCROLL
 // ============================================
 function applyTheme() {
     const theme = localStorage.getItem('theme');
@@ -561,20 +549,16 @@ window.viewDetails = async (itemId) => {
 
     currentModalItemId = itemId;
 
-    // Reset modal styles and footer
     const modal = DOM.itemModal;
     const modalContent = modal.querySelector('.modal-content');
     modalContent.classList.remove('book-modal');
     
-    // Reset footer
     DOM.modalFooter.innerHTML = '';
     DOM.modalFooter.style.display = 'flex';
     DOM.modalImage.style.display = 'block';
 
-    // Clean up any existing video player
     cleanupVideoPlayer();
 
-    // Route to appropriate detail view based on type
     if (item.type === 'book' || item.type === 'resource') {
         await renderBookDetails(itemId);
     } else if (item.type === 'talk' || item.type === 'course') {
@@ -612,7 +596,6 @@ async function renderTalkDetails(itemId) {
     const isSaved = savedItems.has(item.id);
     const isPremium = userGP >= 100;
 
-    // Reset modal style
     const modal = DOM.itemModal;
     const modalContent = modal.querySelector('.modal-content');
     modalContent.classList.remove('book-modal');
@@ -624,14 +607,12 @@ async function renderTalkDetails(itemId) {
 
     updateSaveButton(item.id, isSaved);
 
-    // Video source
     const videoSrc = item.file_url || '/video/pnp.mp4';
     const speakerAvatar = item.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.author || 'Speaker')}&background=2c2f78&color=fff`;
     const timestamp = item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently';
 
     let detailsHtml = `
         <div class="talk-details">
-            <!-- Social Media Header -->
             <div class="social-header">
                 <img src="${speakerAvatar}" alt="${escape(item.author || 'Speaker')}" class="speaker-avatar">
                 <div class="speaker-info">
@@ -641,42 +622,33 @@ async function renderTalkDetails(itemId) {
                 <span class="talk-timestamp">${timestamp}</span>
             </div>
             
-            <!-- Badges -->
             <div class="badge-row">
                 ${isPremium ? '<span class="badge premium">⭐ Premium Access</span>' : ''}
                 ${isPurchased ? '<span class="badge owned">✅ You own this</span>' : ''}
             </div>
             
-            <!-- Talk Title -->
             <div class="talk-title-social">${escape(item.title)}</div>
-            
-            <!-- Talk Description -->
             <div class="talk-description-social">${escape(item.description || 'No description available.')}</div>
             
-            <!-- Video Player -->
             <div class="video-wrapper" id="gliimuVideoPlayer">
                 <video id="talkVideo" playsinline poster="${item.cover_url || ''}" preload="metadata">
                     <source src="${videoSrc}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
                 
-                <!-- Branding -->
                 <div class="video-branding">
                     <span class="brand-icon">📺</span>
                     <span class="brand-text">Gliimu <span style="color:white;">Talks</span></span>
                 </div>
                 
-                <!-- Big Play Button -->
                 <button class="big-play-btn" id="bigPlayBtn">
                     <i class="fas fa-play"></i>
                 </button>
                 
-                <!-- Loading Spinner -->
                 <div class="video-loading" id="videoLoading">
                     <div class="spinner"></div>
                 </div>
                 
-                <!-- Custom Controls -->
                 <div class="video-controls" id="videoControls">
                     <div class="controls-row">
                         <button class="ctrl-btn" id="playPauseBtn">
@@ -696,7 +668,6 @@ async function renderTalkDetails(itemId) {
                 </div>
             </div>
             
-            <!-- Social Engagement Bar -->
             <div class="social-engagement">
                 <button class="social-btn" onclick="window.likeTalkSocial('${item.id}')" id="likeBtn">
                     <i class="far fa-heart"></i> <span class="count" id="likeCount">${item.likes || 0}</span>
@@ -709,7 +680,6 @@ async function renderTalkDetails(itemId) {
                 </button>
             </div>
             
-            <!-- Comments Placeholder -->
             <div class="comments-placeholder">
                 <div class="comment-input">
                     <input type="text" placeholder="Write a comment..." id="commentInput">
@@ -723,18 +693,13 @@ async function renderTalkDetails(itemId) {
 
     modal.classList.add('active');
 
-    // Initialize custom video player
     setTimeout(() => {
         initCustomVideoPlayer();
     }, 150);
 
-    // Update like button state if already liked
     checkIfLiked(item.id);
 }
 
-// ============================================
-// CHECK IF TALK WAS LIKED
-// ============================================
 async function checkIfLiked(itemId) {
     if (!currentUser) return;
     try {
@@ -752,14 +717,9 @@ async function checkIfLiked(itemId) {
                 likeBtn.querySelector('i').className = 'fas fa-heart';
             }
         }
-    } catch (e) {
-        // User hasn't liked this item
-    }
+    } catch (e) {}
 }
 
-// ============================================
-// POST COMMENT
-// ============================================
 window.postComment = async (itemId) => {
     if (!currentUser) {
         showToast('Please login to comment', 'error');
@@ -793,9 +753,6 @@ window.postComment = async (itemId) => {
     }
 };
 
-// ============================================
-// LIKE TALK - SOCIAL STYLE
-// ============================================
 window.likeTalkSocial = async (itemId) => {
     if (!currentUser) {
         showToast('Please login to like', 'error');
@@ -811,7 +768,6 @@ window.likeTalkSocial = async (itemId) => {
     
     try {
         if (isLiked) {
-            // Unlike
             await supabase
                 .from('user_likes')
                 .delete()
@@ -828,7 +784,6 @@ window.likeTalkSocial = async (itemId) => {
             }
             if (countEl) countEl.textContent = newLikes;
         } else {
-            // Like
             await supabase
                 .from('user_likes')
                 .insert({
@@ -855,9 +810,6 @@ window.likeTalkSocial = async (itemId) => {
     }
 };
 
-// ============================================
-// SHARE TALK
-// ============================================
 window.shareTalk = async (itemId) => {
     const url = `${window.location.origin}/talk/${itemId}`;
     if (navigator.share) {
@@ -874,9 +826,6 @@ window.shareTalk = async (itemId) => {
     }
 };
 
-// ============================================
-// COMMENT TALK
-// ============================================
 window.commentTalk = (itemId) => {
     const input = document.getElementById('commentInput');
     if (input) {
@@ -893,7 +842,6 @@ function initCustomVideoPlayer() {
     const player = document.getElementById('gliimuVideoPlayer');
     if (!player) return;
 
-    // Store reference for cleanup
     currentVideoPlayer = player;
 
     const video = player.querySelector('video');
@@ -910,7 +858,6 @@ function initCustomVideoPlayer() {
 
     let controlsTimeout = null;
 
-    // Show/hide controls
     function showControls() {
         controls.classList.add('show');
         clearTimeout(controlsTimeout);
@@ -921,11 +868,9 @@ function initCustomVideoPlayer() {
         }, 3000);
     }
 
-    // Toggle play/pause
     function togglePlay() {
         if (video.paused) {
             video.play().catch(() => {
-                // Handle autoplay restrictions
                 showToast('Click play to start video', 'info');
             });
             playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -939,7 +884,6 @@ function initCustomVideoPlayer() {
         }
     }
 
-    // Update progress
     function updateProgress() {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
@@ -955,7 +899,6 @@ function initCustomVideoPlayer() {
         }
     }
 
-    // Event listeners
     playPauseBtn.addEventListener('click', togglePlay);
     bigPlayBtn.addEventListener('click', togglePlay);
     
@@ -978,7 +921,6 @@ function initCustomVideoPlayer() {
         progressFill.style.width = '100%';
     });
     
-    // Loading state
     video.addEventListener('waiting', () => {
         loading.classList.add('show');
     });
@@ -986,7 +928,6 @@ function initCustomVideoPlayer() {
         loading.classList.remove('show');
     });
 
-    // Progress bar click
     progressContainer.addEventListener('click', (e) => {
         const rect = progressContainer.getBoundingClientRect();
         const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -995,7 +936,6 @@ function initCustomVideoPlayer() {
         }
     });
 
-    // Volume
     volumeSlider.addEventListener('input', () => {
         video.volume = parseFloat(volumeSlider.value);
         updateVolumeIcon();
@@ -1023,7 +963,6 @@ function initCustomVideoPlayer() {
         }
     });
 
-    // Fullscreen
     fullscreenBtn.addEventListener('click', () => {
         if (!document.fullscreenElement) {
             if (player.requestFullscreen) {
@@ -1044,7 +983,6 @@ function initCustomVideoPlayer() {
         }
     });
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if (DOM.itemModal.classList.contains('active') && !e.target.closest('input, textarea')) {
             if (e.key === ' ' || e.key === 'k') {
@@ -1060,7 +998,6 @@ function initCustomVideoPlayer() {
         }
     });
 
-    // Mouse move to show controls
     player.addEventListener('mousemove', showControls);
     player.addEventListener('mouseleave', () => {
         if (!video.paused) {
@@ -1068,12 +1005,11 @@ function initCustomVideoPlayer() {
         }
     });
 
-    // Start with controls visible
     showControls();
 }
 
 // ============================================
-// BOOK DETAILS - Full Width Wattpad Style
+// BOOK DETAILS - WITH FULL PURCHASE FLOW
 // ============================================
 async function renderBookDetails(itemId) {
     const item = allItems.find(i => i.id === itemId);
@@ -1089,14 +1025,12 @@ async function renderBookDetails(itemId) {
     currentPurchaseState.selectedLocation = null;
     currentPurchaseState.selectedPrice = 0;
 
-    // Update modal to book layout - FULL WIDTH
     const modal = DOM.itemModal;
     const modalContent = modal.querySelector('.modal-content');
     modalContent.classList.add('book-modal');
 
     DOM.modalTitle.textContent = item.title;
 
-    // Update save button
     updateSaveButton(item.id, isSaved);
 
     const firstChapter = item.first_chapter || `Chapter 1: The Beginning
@@ -1135,7 +1069,6 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                 </div>
                 <div class="book-description">${escape(item.description || 'No description available.')}</div>
                 
-                <!-- First Chapter Preview - Full Width with Scroll -->
                 <div class="chapter-preview-wide">
                     <div class="chapter-header">
                         <span class="chapter-icon">📖</span>
@@ -1148,7 +1081,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                 </div>
     `;
 
-    // If not purchased, show purchase options
+    // --- PURCHASE OPTIONS ---
     if (!isPurchased) {
         detailsHtml += `
                 <div class="purchase-section">
@@ -1188,7 +1121,6 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                         ` : ''}
                     </div>
 
-                    <!-- Delivery Section -->
                     <div class="delivery-section" id="deliverySection">
                         <h4>📦 Delivery Options</h4>
                         <div class="location-selector">
@@ -1231,7 +1163,6 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                         </div>
                     </div>
 
-                    <!-- Purchase Summary -->
                     <div class="purchase-summary" id="purchaseSummary" style="display:none;">
                         <span class="summary-label">Total:</span>
                         <span class="summary-total" id="summaryTotal">₦0</span>
@@ -1242,7 +1173,6 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                 </div>
         `;
     } else {
-        // Already purchased
         detailsHtml += `
                 <div class="purchase-section">
                     <button class="purchase-btn primary" onclick="window.open('${item.file_url || '#'}','_blank')">
@@ -1266,11 +1196,24 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
     DOM.summaryTotal = document.getElementById('summaryTotal');
     DOM.deliverySection = document.getElementById('deliverySection');
 
+    // --- CRITICAL: Bind purchase button click event ---
+    if (DOM.purchaseBtn && !isPurchased) {
+        // Remove any existing listeners by cloning
+        const newBtn = DOM.purchaseBtn.cloneNode(true);
+        DOM.purchaseBtn.parentNode.replaceChild(newBtn, DOM.purchaseBtn);
+        DOM.purchaseBtn = newBtn;
+        
+        DOM.purchaseBtn.addEventListener('click', async function() {
+            console.log('Purchase button clicked!');
+            await completePurchase();
+        });
+    }
+
     modal.classList.add('active');
 }
 
 // ============================================
-// BUNDLE DETAILS - With Download Button
+// BUNDLE DETAILS
 // ============================================
 async function renderBundleDetails(itemId) {
     const item = allItems.find(i => i.id === itemId);
@@ -1279,7 +1222,6 @@ async function renderBundleDetails(itemId) {
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
 
-    // Reset modal style
     const modal = DOM.itemModal;
     const modalContent = modal.querySelector('.modal-content');
     modalContent.classList.remove('book-modal');
@@ -1288,7 +1230,6 @@ async function renderBundleDetails(itemId) {
     DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
     DOM.modalImage.style.display = 'block';
 
-    // Remove any existing download icon from header
     const headerActions = document.querySelector('.modal-header-actions');
     if (headerActions) {
         const existingDownloadIcon = headerActions.querySelector('.bundle-download-icon');
@@ -1313,7 +1254,6 @@ async function renderBundleDetails(itemId) {
 
     DOM.modalDesc.innerHTML = detailsHtml;
 
-    // Footer - Button only (no header icon)
     let footerHtml = '';
     if (isPurchased) {
         footerHtml = `
@@ -1350,7 +1290,6 @@ async function renderGenericDetails(itemId) {
     const isPurchased = purchasedItems.has(item.id);
     const isSaved = savedItems.has(item.id);
 
-    // Reset modal style
     const modal = DOM.itemModal;
     const modalContent = modal.querySelector('.modal-content');
     modalContent.classList.remove('book-modal');
@@ -1395,17 +1334,14 @@ async function renderGenericDetails(itemId) {
 // PURCHASE OPTION SELECTION
 // ============================================
 window.selectPurchaseOption = (type, price) => {
-    // Deselect all
     document.querySelectorAll('.purchase-option-card').forEach(el => el.classList.remove('selected'));
     
-    // Select clicked option
     const optionEl = document.querySelector(`.purchase-option-card[data-type="${type}"]`);
     if (optionEl) optionEl.classList.add('selected');
 
     currentPurchaseState.selectedOption = type;
     currentPurchaseState.selectedPrice = price;
     
-    // Show/hide delivery section for physical
     if (type === 'physical') {
         const deliverySection = document.getElementById('deliverySection');
         if (deliverySection) deliverySection.classList.add('active');
@@ -1418,7 +1354,6 @@ window.selectPurchaseOption = (type, price) => {
         currentPurchaseState.selectedLocation = null;
     }
 
-    // Update summary
     const isPremium = userGP >= 100;
     let finalPrice = price;
     if (isPremium && type === 'digital' && price > 0) {
@@ -1506,7 +1441,6 @@ function validateDeliveryForm() {
     }
 }
 
-// Add event listeners for delivery form validation
 document.addEventListener('change', (e) => {
     if (e.target.id === 'deliveryRegion' || e.target.id === 'deliveryCity' || 
         e.target.id === 'deliveryAddress' || e.target.id === 'deliveryPhone') {
@@ -1521,13 +1455,20 @@ document.addEventListener('input', (e) => {
 });
 
 // ============================================
-// COMPLETE PURCHASE
+// COMPLETE PURCHASE - FIXED
 // ============================================
 async function completePurchase() {
+    console.log('🛒 completePurchase called');
+    
     const item = allItems.find(i => i.id === currentPurchaseState.itemId);
-    if (!item) return showToast('Item not found', 'error');
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
 
     const { selectedOption, selectedPrice, selectedLocation } = currentPurchaseState;
+
+    console.log('Purchase state:', { selectedOption, selectedPrice, selectedLocation, item: item.title });
 
     if (!selectedOption) {
         showToast('Please select a purchase option', 'error');
@@ -1624,6 +1565,7 @@ async function completePurchase() {
         return;
     }
 
+    // Digital or audio purchase
     await processPayment(item.id, selectedOption, selectedPrice);
 }
 
@@ -1631,6 +1573,8 @@ async function completePurchase() {
 // PROCESS PAYMENT - WITH WALLET CHECK
 // ============================================
 async function processPayment(itemId, type, price) {
+    console.log('💰 processPayment called:', { itemId, type, price });
+    
     if (!currentUser) {
         showToast('Please login to purchase', 'error');
         return;
@@ -1660,6 +1604,7 @@ async function processPayment(itemId, type, price) {
     }
 
     try {
+        // Get user's wallet balance
         const { data: user, error: userError } = await supabase
             .from('users')
             .select('wallet_balance')
@@ -1673,19 +1618,20 @@ async function processPayment(itemId, type, price) {
         }
 
         const currentBalance = user?.wallet_balance || 0;
+        console.log('Current wallet balance:', currentBalance, 'Price:', price);
 
         // --- WALLET CHECK ---
         if (currentBalance < price) {
             const shortfall = (price - currentBalance).toLocaleString();
-            
-            // Show custom popup asking to fund wallet
+            console.log('Insufficient funds. Shortfall:', shortfall);
             showInsufficientFunds(shortfall, currentBalance, price);
             return;
         }
-        // --- END WALLET CHECK ---
 
-        // Process payment
+        // Process payment - deduct from wallet
         const newBalance = currentBalance - price;
+        console.log('New balance:', newBalance);
+        
         const { error: updateError } = await supabase
             .from('users')
             .update({ wallet_balance: newBalance })
@@ -1698,7 +1644,7 @@ async function processPayment(itemId, type, price) {
         }
 
         // Record purchase
-        await supabase
+        const { error: purchaseError } = await supabase
             .from('user_purchases')
             .insert({ 
                 user_id: currentUser.id, 
@@ -1707,13 +1653,29 @@ async function processPayment(itemId, type, price) {
                 amount: price 
             });
 
+        if (purchaseError) {
+            console.error('Purchase record error:', purchaseError);
+            // Refund the user if purchase recording fails
+            await supabase
+                .from('users')
+                .update({ wallet_balance: currentBalance })
+                .eq('id', currentUser.id);
+            showToast('Purchase failed. Please contact support.', 'error');
+            return;
+        }
+
         purchasedItems.add(itemId);
         const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
 
         showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        
+        // Update wallet display
+        userWallet = newBalance;
+        
         renderItems();
         closeModal();
 
+        // Open content if digital
         if (type === 'digital' && item.file_url) {
             setTimeout(() => {
                 if (confirm(`Open "${item.title}" now?`)) {
@@ -1731,10 +1693,18 @@ async function processPayment(itemId, type, price) {
 // PURCHASE FUNCTIONS
 // ============================================
 window.handlePurchase = async (itemId, type) => {
-    if (!currentUser) return showToast('Please login', 'error');
+    console.log('🛒 handlePurchase called:', { itemId, type });
+    
+    if (!currentUser) {
+        showToast('Please login to purchase', 'error');
+        return;
+    }
 
     const item = allItems.find(i => i.id === itemId);
-    if (!item) return showToast('Item not found', 'error');
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
 
     let price = 0;
     if (type === 'physical') price = item.physical_price || 0;
@@ -1742,40 +1712,70 @@ window.handlePurchase = async (itemId, type) => {
     else if (type === 'bundle') price = item.price || 0;
     else price = item.price || 0;
 
-    if (price <= 0) return handleFreeAccess(itemId);
-    if (purchasedItems.has(itemId)) return showToast('Already owned', 'info');
+    console.log('Price determined:', price);
+
+    if (price <= 0) {
+        await handleFreeAccess(itemId);
+        return;
+    }
+    
+    if (purchasedItems.has(itemId)) {
+        showToast('Already owned', 'info');
+        return;
+    }
 
     try {
-        const { data: user } = await supabase
+        const { data: user, error: userError } = await supabase
             .from('users')
             .select('wallet_balance')
             .eq('id', currentUser.id)
             .single();
 
-        if (!user || (user?.wallet_balance || 0) < price) {
-            showToast(`Need ₦${(price - (user?.wallet_balance || 0)).toLocaleString()} more`, 'error');
+        if (userError) {
+            console.error('Wallet fetch error:', userError);
+            showToast('Error checking wallet', 'error');
             return;
         }
 
+        const currentBalance = user?.wallet_balance || 0;
+        console.log('Current balance:', currentBalance, 'Price:', price);
+
+        if (currentBalance < price) {
+            const shortfall = (price - currentBalance).toLocaleString();
+            showToast(`Need ₦${shortfall} more`, 'error');
+            showInsufficientFunds(shortfall, currentBalance, price);
+            return;
+        }
+
+        // Process payment
+        const newBalance = currentBalance - price;
         await supabase
             .from('users')
-            .update({ wallet_balance: (user?.wallet_balance || 0) - price })
+            .update({ wallet_balance: newBalance })
             .eq('id', currentUser.id);
 
         await supabase
             .from('user_purchases')
-            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: type, amount: price });
+            .insert({ 
+                user_id: currentUser.id, 
+                item_id: itemId, 
+                purchase_type: type, 
+                amount: price 
+            });
 
         purchasedItems.add(itemId);
         const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
 
         showToast(`✅ Purchased ${item.title}${gp ? ` +${gp} GP` : ''}`, 'success');
+        userWallet = newBalance;
         renderItems();
         closeModal();
 
         if (type === 'digital' && item.file_url) {
             setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+                if (confirm(`Open "${item.title}" now?`)) {
+                    window.open(item.file_url, '_blank');
+                }
             }, 800);
         }
     } catch (e) {
@@ -1798,7 +1798,9 @@ window.handleGrantAccess = async (itemId) => {
         closeModal();
         if (item.file_url) {
             setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+                if (confirm(`Open "${item.title}" now?`)) {
+                    window.open(item.file_url, '_blank');
+                }
             }, 800);
         }
     } catch (e) {
@@ -1822,7 +1824,9 @@ window.handleFreeAccess = async (itemId) => {
         closeModal();
         if (item.file_url) {
             setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+                if (confirm(`Open "${item.title}" now?`)) {
+                    window.open(item.file_url, '_blank');
+                }
             }, 800);
         }
     } catch (e) {
@@ -1906,7 +1910,7 @@ async function notifyAdmin(type, data) {
             type: type,
             title: type === 'delivery_order' ? 'New Delivery Order' : 
                    type === 'pickup_order' ? 'New Pickup Order' : 'New Purchase',
-            message: `${data.user_name} purchased "${data.item_title}" (${type === 'physical' ? 'Physical' : 'Digital'})`,
+            message: `${data.user_name} purchased "${data.item_title}"`,
             data: data,
             read: false,
             created_at: new Date().toISOString()
@@ -1916,27 +1920,11 @@ async function notifyAdmin(type, data) {
             .from('admin_notifications')
             .insert(notifications);
 
-        console.log('📧 Admin notified:', notifications.length);
+        console.log('📧 Admin notified');
     } catch (e) {
         console.error('Error notifying admin:', e);
     }
 }
-
-// ============================================
-// DROPDOWN TOGGLE
-// ============================================
-window.togglePurchaseDropdown = () => {
-    const dd = document.getElementById('purchaseDropdown');
-    if (dd) {
-        const isOpen = dd.classList.contains('show');
-        document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
-        if (!isOpen) dd.classList.add('show');
-    }
-};
-
-document.addEventListener('click', () => {
-    document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
-});
 
 // ============================================
 // MODAL CONTROLS
@@ -1946,16 +1934,13 @@ window.closeModal = () => {
     document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
     const modalContent = DOM.itemModal.querySelector('.modal-content');
     if (modalContent) modalContent.classList.remove('book-modal');
-    // Reset footer
     if (DOM.modalFooter) {
         DOM.modalFooter.innerHTML = '';
         DOM.modalFooter.style.display = 'flex';
     }
-    // Reset image display
     if (DOM.modalImage) {
         DOM.modalImage.style.display = 'block';
     }
-    // Remove bundle download icon from header
     const headerActions = document.querySelector('.modal-header-actions');
     if (headerActions) {
         const downloadIcon = headerActions.querySelector('.bundle-download-icon');
@@ -1963,9 +1948,7 @@ window.closeModal = () => {
             downloadIcon.remove();
         }
     }
-    // Clean up video player
     cleanupVideoPlayer();
-    // Close insufficient funds modal if open
     closeInsufficientFundsModal();
 };
 
@@ -2015,7 +1998,7 @@ window.shareTalk = shareTalk;
 window.commentTalk = commentTalk;
 window.postComment = postComment;
 window.closeModal = closeModal;
-window.togglePurchaseDropdown = togglePurchaseDropdown;
+window.togglePurchaseDropdown = () => {};
 window.closeSearchModal = () => {};
 window.selectPurchaseOption = selectPurchaseOption;
 window.selectLocation = selectLocation;
