@@ -23,6 +23,8 @@ let allPartnerships = [];
 let allOffers = [];
 let refreshInterval = null;
 let editingItemId = null;
+let editingFaqId = null;
+let editingIndexId = null;
 
 // ============================================
 // ROLE-BASED TAB CONFIGURATION
@@ -33,7 +35,6 @@ const roleTabs = {
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
         { id: 'payments', name: 'Payments', icon: 'fas fa-wallet' },
         { id: 'users', name: 'Users', icon: 'fas fa-users' },
-        { id: 'library', name: 'Library Manager', icon: 'fas fa-book' },
         { id: 'inventory', name: 'Inventory', icon: 'fas fa-boxes' },
         { id: 'finance', name: 'Finance', icon: 'fas fa-chart-line' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
@@ -48,7 +49,6 @@ const roleTabs = {
     ],
     crm: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'library', name: 'Library Manager', icon: 'fas fa-book' },
         { id: 'posts', name: 'Update Website', icon: 'fas fa-pen' },
         { id: 'submissions', name: 'User Submissions', icon: 'fas fa-briefcase' },
         { id: 'events', name: 'Hosted Events', icon: 'fas fa-calendar' },
@@ -198,7 +198,6 @@ function createContentSections() {
         <div id="dashboard-section" class="admin-tab active"><div class="loading">Loading dashboard...</div></div>
         <div id="payments-section" class="admin-tab"><div class="loading">Loading payments...</div></div>
         <div id="users-section" class="admin-tab"><div class="loading">Loading users...</div></div>
-        <div id="library-section" class="admin-tab"><div class="loading">Loading library...</div></div>
         <div id="inventory-section" class="admin-tab"><div class="loading">Loading inventory...</div></div>
         <div id="finance-section" class="admin-tab"><div class="loading">Loading finance...</div></div>
         <div id="posts-section" class="admin-tab"><div class="loading">Loading posts...</div></div>
@@ -244,7 +243,6 @@ async function loadTabData(tabId) {
         case 'dashboard': await renderDashboard(); break;
         case 'payments': await renderPayments(); break;
         case 'users': await renderUsers(); break;
-        case 'library': await renderLibraryManager(); break;
         case 'inventory': await renderInventory(); break;
         case 'finance': await renderFinance(); break;
         case 'posts': await renderPostsManager(); break;
@@ -287,72 +285,133 @@ async function renderDashboard() {
 }
 
 // ============================================
-// LIBRARY MANAGER - COMPLETE CRUD
+// POSTS MANAGER - Combined Update Website Tab
 // ============================================
-async function renderLibraryManager() {
-    const container = document.getElementById('library-section');
+async function renderPostsManager() {
+    const container = document.getElementById('posts-section');
     if (!container) return;
     
-    const { data: items, error } = await supabase
-        .from('hub_contents')
-        .select('*')
-        .order('created_at', { ascending: false });
+    // Load all data
+    const [libraryItems, faqItems, indexData] = await Promise.all([
+        supabase.from('hub_contents').select('*').order('created_at', { ascending: false }),
+        supabase.from('faq_items').select('*').order('order', { ascending: true }),
+        supabase.from('index_content').select('*').maybeSingle()
+    ]);
     
-    if (error) {
-        showToast('Error loading library items', 'error');
-        console.error(error);
-    }
+    const items = libraryItems.data || [];
+    const faqs = faqItems.data || [];
+    const index = indexData.data || { hero_title: 'Be The Best', hero_subtitle: 'Read the best' };
     
     container.innerHTML = `
         <div class="tab-header">
-            <h2><i class="fas fa-book"></i> Library Manager</h2>
-            <div class="tab-actions">
-                <button id="addLibraryItemBtn" class="btn-primary">
-                    <i class="fas fa-plus"></i> Add New Content
-                </button>
-            </div>
+            <h2><i class="fas fa-pen"></i> Update Website</h2>
+            <p>Manage all website content from one place</p>
         </div>
         
-        <!-- Stats -->
-        <div class="library-stats">
-            <div class="stat-card"><span class="stat-value">${items?.filter(i => i.type === 'book').length || 0}</span><span class="stat-label">Books</span></div>
-            <div class="stat-card"><span class="stat-value">${items?.filter(i => i.type === 'talk').length || 0}</span><span class="stat-label">Talks</span></div>
-            <div class="stat-card"><span class="stat-value">${items?.filter(i => i.type === 'bundle').length || 0}</span><span class="stat-label">Bundles</span></div>
-            <div class="stat-card"><span class="stat-value">${items?.length || 0}</span><span class="stat-label">Total Items</span></div>
-        </div>
-        
-        <!-- Items Grid -->
-        <div class="library-items-grid">
-            ${items?.map(item => `
-                <div class="library-admin-card" data-id="${item.id}">
-                    <img src="${item.cover_url || 'https://placehold.co/80x100/2c2f78/white?text=No+Image'}" alt="${item.title}" onerror="this.src='https://placehold.co/80x100/2c2f78/white?text=No+Image'">
-                    <div class="info">
-                        <h4>${escapeHtml(item.title)}</h4>
-                        <p class="meta">${item.type || 'Book'} • ${item.category || 'Uncategorized'} • ${item.level || 'Beginner'}</p>
-                        <p class="pricing">Digital: ₦${item.price || 0} | Physical: ₦${item.physical_price || 0}</p>
-                        <span class="status-badge ${item.is_active ? 'active' : 'inactive'}">${item.is_active ? 'Active' : 'Inactive'}</span>
+        <!-- Website Sections -->
+        <div class="website-sections">
+            <!-- Library Manager Section -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i class="fas fa-book"></i> Library Content</h3>
+                    <button class="btn-primary add-library-item"><i class="fas fa-plus"></i> Add Content</button>
+                </div>
+                <div class="section-card-body">
+                    <div class="library-stats">
+                        <div class="stat-chip"><span class="stat-value">${items.filter(i => i.type === 'book').length}</span> Books</div>
+                        <div class="stat-chip"><span class="stat-value">${items.filter(i => i.type === 'talk').length}</span> Talks</div>
+                        <div class="stat-chip"><span class="stat-value">${items.filter(i => i.type === 'bundle').length}</span> Bundles</div>
+                        <div class="stat-chip"><span class="stat-value">${items.length}</span> Total</div>
                     </div>
-                    <div class="actions">
-                        <button class="btn-outline edit-item" data-id="${item.id}"><i class="fas fa-edit"></i> Edit</button>
-                        <button class="btn-danger delete-item" data-id="${item.id}"><i class="fas fa-trash"></i> Delete</button>
-                        <button class="btn-outline toggle-item" data-id="${item.id}" data-active="${item.is_active}">
-                            ${item.is_active ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>'}
-                        </button>
+                    <div class="library-items-grid">
+                        ${items.map(item => `
+                            <div class="library-admin-card" data-id="${item.id}">
+                                <img src="${item.cover_url || 'https://placehold.co/70x90/2c2f78/white?text=No+Image'}" alt="${item.title}" onerror="this.src='https://placehold.co/70x90/2c2f78/white?text=No+Image'">
+                                <div class="info">
+                                    <h4>${escapeHtml(item.title)}</h4>
+                                    <p class="meta">${item.type || 'Book'} • ${item.category || 'Uncategorized'}</p>
+                                    <span class="status-badge ${item.is_active ? 'active' : 'inactive'}">${item.is_active ? 'Active' : 'Inactive'}</span>
+                                </div>
+                                <div class="actions">
+                                    <button class="btn-outline edit-item" data-id="${item.id}"><i class="fas fa-edit"></i></button>
+                                    <button class="btn-danger delete-item" data-id="${item.id}"><i class="fas fa-trash"></i></button>
+                                    <button class="btn-outline toggle-item" data-id="${item.id}" data-active="${item.is_active}">
+                                        ${item.is_active ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>'}
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('') || '<div class="empty-state">No library items</div>'}
                     </div>
                 </div>
-            `).join('') || '<div class="empty-state">No library items found. Add your first content!</div>'}
+            </div>
+            
+            <!-- FAQ Section -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i class="fas fa-question-circle"></i> FAQ Management</h3>
+                    <button class="btn-primary add-faq-btn"><i class="fas fa-plus"></i> Add FAQ</button>
+                </div>
+                <div class="section-card-body">
+                    ${faqs.length === 0 ? '<div class="empty-state">No FAQs yet</div>' : `
+                        <div class="faq-list">
+                            ${faqs.map(faq => `
+                                <div class="faq-item" data-id="${faq.id}">
+                                    <div class="faq-question">${escapeHtml(faq.question)}</div>
+                                    <div class="faq-answer">${escapeHtml(faq.answer)}</div>
+                                    <div class="faq-actions">
+                                        <button class="btn-outline edit-faq" data-id="${faq.id}"><i class="fas fa-edit"></i></button>
+                                        <button class="btn-danger delete-faq" data-id="${faq.id}"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>
+            </div>
+            
+            <!-- Index/Hero Section -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3><i class="fas fa-home"></i> Homepage / Index</h3>
+                    <button class="btn-primary edit-index-btn"><i class="fas fa-edit"></i> Edit Hero</button>
+                </div>
+                <div class="section-card-body">
+                    <div class="index-preview">
+                        <div class="index-field">
+                            <label>Hero Title</label>
+                            <div class="index-value">${escapeHtml(index.hero_title || 'Be The Best')}</div>
+                        </div>
+                        <div class="index-field">
+                            <label>Hero Subtitle</label>
+                            <div class="index-value">${escapeHtml(index.hero_subtitle || 'Read the best')}</div>
+                        </div>
+                        ${index.hero_image ? `
+                            <div class="index-field">
+                                <label>Hero Image</label>
+                                <img src="${index.hero_image}" alt="Hero" style="max-width:200px; border-radius:8px;">
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
         </div>
     `;
     
     // Event Listeners
-    document.getElementById('addLibraryItemBtn')?.addEventListener('click', () => openLibraryModal());
+    document.querySelector('.add-library-item')?.addEventListener('click', () => openLibraryModal());
+    document.querySelector('.add-faq-btn')?.addEventListener('click', () => openFaqModal());
+    document.querySelector('.edit-index-btn')?.addEventListener('click', () => openIndexModal());
+    
     document.querySelectorAll('.edit-item').forEach(btn => btn.addEventListener('click', () => openLibraryModal(btn.dataset.id)));
     document.querySelectorAll('.delete-item').forEach(btn => btn.addEventListener('click', () => deleteLibraryItem(btn.dataset.id)));
     document.querySelectorAll('.toggle-item').forEach(btn => btn.addEventListener('click', () => toggleLibraryItem(btn.dataset.id, btn.dataset.active === 'true')));
+    
+    document.querySelectorAll('.edit-faq').forEach(btn => btn.addEventListener('click', () => openFaqModal(btn.dataset.id)));
+    document.querySelectorAll('.delete-faq').forEach(btn => btn.addEventListener('click', () => deleteFaqItem(btn.dataset.id)));
 }
 
 // ============================================
-// LIBRARY MODAL FUNCTIONS
+// LIBRARY MODAL (WITH FILE UPLOAD)
 // ============================================
 function openLibraryModal(itemId = null) {
     const modal = document.getElementById('libraryItemModal');
@@ -366,6 +425,10 @@ function openLibraryModal(itemId = null) {
     
     form.reset();
     document.getElementById('editItemId').value = '';
+    document.getElementById('coverFileInput').value = '';
+    document.getElementById('contentFileInput').value = '';
+    document.getElementById('coverPreview').style.display = 'none';
+    document.getElementById('contentFilePreview').style.display = 'none';
     title.textContent = 'Add New Content';
     editingItemId = null;
     
@@ -401,7 +464,6 @@ async function loadItemData(itemId) {
     document.getElementById('itemCategory').value = item.category || '';
     document.getElementById('itemAuthor').value = item.author || '';
     document.getElementById('itemDescription').value = item.description || '';
-    document.getElementById('itemCoverUrl').value = item.cover_url || '';
     document.getElementById('itemPrice').value = item.price || 0;
     document.getElementById('itemPhysicalPrice').value = item.physical_price || 0;
     document.getElementById('itemAudioPrice').value = item.audio_price || 0;
@@ -410,26 +472,107 @@ async function loadItemData(itemId) {
     document.getElementById('itemLevel').value = item.level || 'Beginner';
     document.getElementById('itemDuration').value = item.duration || '';
     document.getElementById('itemStatus').value = item.is_active ? 'active' : 'inactive';
+    document.getElementById('itemFirstChapter').value = item.first_chapter || '';
+    
+    // Show existing cover
+    if (item.cover_url) {
+        const preview = document.getElementById('coverPreview');
+        const img = document.getElementById('coverPreviewImg');
+        img.src = item.cover_url;
+        preview.style.display = 'block';
+    }
+    
+    // Show existing file
+    if (item.file_url) {
+        const preview = document.getElementById('contentFilePreview');
+        const link = document.getElementById('contentFileLink');
+        link.href = item.file_url;
+        link.textContent = 'Current file: ' + item.file_url.split('/').pop();
+        preview.style.display = 'block';
+    }
+}
+
+// Handle cover image upload
+function handleCoverUpload(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('coverPreview');
+        const img = document.getElementById('coverPreviewImg');
+        img.src = e.target.result;
+        preview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+}
+
+// Handle content file upload
+function handleContentUpload(file) {
+    if (!file) return;
+    const preview = document.getElementById('contentFilePreview');
+    const link = document.getElementById('contentFileLink');
+    link.href = URL.createObjectURL(file);
+    link.textContent = '📎 ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+    preview.style.display = 'block';
+}
+
+async function uploadFileToStorage(file, path) {
+    if (!file) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${path}/${Date.now()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+        .from('hub_content')
+        .upload(fileName, file);
+    
+    if (error) {
+        console.error('Upload error:', error);
+        showToast('Error uploading file', 'error');
+        return null;
+    }
+    
+    const { data: urlData } = supabase.storage
+        .from('hub_content')
+        .getPublicUrl(fileName);
+    
+    return urlData.publicUrl;
 }
 
 async function saveLibraryItem(e) {
     e.preventDefault();
     
     const itemId = document.getElementById('editItemId').value;
+    const coverFile = document.getElementById('coverFileInput').files[0];
+    const contentFile = document.getElementById('contentFileInput').files[0];
+    
+    // Upload cover image if provided
+    let coverUrl = document.getElementById('itemCoverUrl').value;
+    if (coverFile) {
+        const uploaded = await uploadFileToStorage(coverFile, 'covers');
+        if (uploaded) coverUrl = uploaded;
+    }
+    
+    // Upload content file if provided
+    let fileUrl = document.getElementById('itemFileUrl').value;
+    if (contentFile) {
+        const uploaded = await uploadFileToStorage(contentFile, 'content');
+        if (uploaded) fileUrl = uploaded;
+    }
+    
     const data = {
         title: document.getElementById('itemTitle').value.trim(),
         type: document.getElementById('itemType').value,
         category: document.getElementById('itemCategory').value.trim(),
         author: document.getElementById('itemAuthor').value.trim(),
         description: document.getElementById('itemDescription').value.trim(),
-        cover_url: document.getElementById('itemCoverUrl').value.trim(),
+        cover_url: coverUrl,
         price: parseFloat(document.getElementById('itemPrice').value) || 0,
         physical_price: parseFloat(document.getElementById('itemPhysicalPrice').value) || 0,
         audio_price: parseFloat(document.getElementById('itemAudioPrice').value) || 0,
-        file_url: document.getElementById('itemFileUrl').value.trim(),
+        file_url: fileUrl,
         download_url: document.getElementById('itemDownloadUrl').value.trim(),
         level: document.getElementById('itemLevel').value,
         duration: document.getElementById('itemDuration').value.trim(),
+        first_chapter: document.getElementById('itemFirstChapter').value.trim(),
         is_active: document.getElementById('itemStatus').value === 'active',
         updated_at: new Date().toISOString()
     };
@@ -458,7 +601,7 @@ async function saveLibraryItem(e) {
     } else {
         showToast(`Content ${itemId ? 'updated' : 'added'} successfully!`, 'success');
         closeLibraryModal();
-        renderLibraryManager();
+        renderPostsManager();
     }
 }
 
@@ -474,7 +617,7 @@ async function deleteLibraryItem(itemId) {
         showToast('Error deleting item', 'error');
     } else {
         showToast('Content deleted', 'success');
-        renderLibraryManager();
+        renderPostsManager();
     }
 }
 
@@ -488,7 +631,173 @@ async function toggleLibraryItem(itemId, currentState) {
         showToast('Error toggling item', 'error');
     } else {
         showToast(`Content ${!currentState ? 'activated' : 'deactivated'}`, 'success');
-        renderLibraryManager();
+        renderPostsManager();
+    }
+}
+
+// ============================================
+// FAQ FUNCTIONS
+// ============================================
+function openFaqModal(faqId = null) {
+    const modal = document.getElementById('faqModal');
+    const form = document.getElementById('faqForm');
+    const title = document.getElementById('faqModalTitle');
+    
+    if (!modal) return;
+    
+    form.reset();
+    document.getElementById('editFaqId').value = '';
+    title.textContent = 'Add FAQ';
+    editingFaqId = null;
+    
+    if (faqId) {
+        title.textContent = 'Edit FAQ';
+        document.getElementById('editFaqId').value = faqId;
+        editingFaqId = faqId;
+        loadFaqData(faqId);
+    }
+    
+    modal.classList.add('active');
+}
+
+function closeFaqModal() {
+    const modal = document.getElementById('faqModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function loadFaqData(faqId) {
+    const { data, error } = await supabase
+        .from('faq_items')
+        .select('*')
+        .eq('id', faqId)
+        .single();
+    
+    if (error) {
+        showToast('Error loading FAQ', 'error');
+        return;
+    }
+    
+    document.getElementById('faqQuestion').value = data.question || '';
+    document.getElementById('faqAnswer').value = data.answer || '';
+    document.getElementById('faqOrder').value = data.order || 0;
+}
+
+async function saveFaqItem(e) {
+    e.preventDefault();
+    
+    const faqId = document.getElementById('editFaqId').value;
+    const data = {
+        question: document.getElementById('faqQuestion').value.trim(),
+        answer: document.getElementById('faqAnswer').value.trim(),
+        order: parseInt(document.getElementById('faqOrder').value) || 0,
+        updated_at: new Date().toISOString()
+    };
+    
+    if (!data.question || !data.answer) {
+        showToast('Question and answer are required', 'error');
+        return;
+    }
+    
+    let result;
+    if (faqId) {
+        result = await supabase
+            .from('faq_items')
+            .update(data)
+            .eq('id', faqId);
+    } else {
+        data.created_at = new Date().toISOString();
+        result = await supabase
+            .from('faq_items')
+            .insert([data]);
+    }
+    
+    if (result.error) {
+        showToast(`Error: ${result.error.message}`, 'error');
+    } else {
+        showToast(`FAQ ${faqId ? 'updated' : 'added'} successfully!`, 'success');
+        closeFaqModal();
+        renderPostsManager();
+    }
+}
+
+async function deleteFaqItem(faqId) {
+    if (!confirm('Delete this FAQ?')) return;
+    
+    const { error } = await supabase
+        .from('faq_items')
+        .delete()
+        .eq('id', faqId);
+    
+    if (error) {
+        showToast('Error deleting FAQ', 'error');
+    } else {
+        showToast('FAQ deleted', 'success');
+        renderPostsManager();
+    }
+}
+
+// ============================================
+// INDEX/HERO FUNCTIONS
+// ============================================
+function openIndexModal() {
+    const modal = document.getElementById('indexModal');
+    if (!modal) return;
+    
+    // Load current index data
+    supabase.from('index_content').select('*').maybeSingle()
+        .then(({ data }) => {
+            document.getElementById('indexHeroTitle').value = data?.hero_title || 'Be The Best';
+            document.getElementById('indexHeroSubtitle').value = data?.hero_subtitle || 'Read the best';
+            document.getElementById('indexHeroImage').value = data?.hero_image || '';
+            document.getElementById('editIndexId').value = data?.id || '';
+        });
+    
+    modal.classList.add('active');
+}
+
+function closeIndexModal() {
+    const modal = document.getElementById('indexModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function saveIndexItem(e) {
+    e.preventDefault();
+    
+    const indexId = document.getElementById('editIndexId').value;
+    const imageFile = document.getElementById('indexImageInput').files[0];
+    
+    let imageUrl = document.getElementById('indexHeroImage').value;
+    if (imageFile) {
+        const uploaded = await uploadFileToStorage(imageFile, 'hero');
+        if (uploaded) imageUrl = uploaded;
+    }
+    
+    const data = {
+        hero_title: document.getElementById('indexHeroTitle').value.trim(),
+        hero_subtitle: document.getElementById('indexHeroSubtitle').value.trim(),
+        hero_image: imageUrl,
+        updated_at: new Date().toISOString()
+    };
+    
+    let result;
+    if (indexId) {
+        result = await supabase
+            .from('index_content')
+            .update(data)
+            .eq('id', indexId);
+    } else {
+        data.created_at = new Date().toISOString();
+        result = await supabase
+            .from('index_content')
+            .insert([data]);
+    }
+    
+    if (result.error) {
+        showToast(`Error: ${result.error.message}`, 'error');
+    } else {
+        showToast('Hero content updated successfully!', 'success');
+        closeIndexModal();
+        renderPostsManager();
     }
 }
 
@@ -626,7 +935,7 @@ async function renderSettings() {
 }
 
 // ============================================
-// PAYMENTS RENDER
+// OTHER RENDER FUNCTIONS
 // ============================================
 async function renderPayments() {
     const container = document.getElementById('payments-section');
@@ -709,9 +1018,6 @@ async function renderPayments() {
     });
 }
 
-// ============================================
-// USERS RENDER
-// ============================================
 async function renderUsers() {
     const container = document.getElementById('users-section');
     if (!container) return;
@@ -741,9 +1047,6 @@ async function renderUsers() {
     });
 }
 
-// ============================================
-// OTHER RENDER FUNCTIONS
-// ============================================
 async function renderInventory() {
     const container = document.getElementById('inventory-section');
     if (!container) return;
@@ -772,12 +1075,6 @@ async function renderFinance() {
         <div class="finance-stats"><div class="finance-card"><h4>Total Revenue</h4><div class="amount">₦${totalRevenue.toLocaleString()}</div></div><div class="finance-card"><h4>Total Transactions</h4><div class="amount">${payments.length}</div></div></div>
         <div class="revenue-breakdown"><h3>Recent Transactions</h3><div class="breakdown-list">${approvedPayments.slice(0, 10).map(p => `<div class="breakdown-item"><span>${p.user_name || p.user_email}</span><strong>₦${p.amount.toLocaleString()}</strong></div>`).join('') || '<div class="empty-state">No transactions yet</div>'}</div></div>
     `;
-}
-
-async function renderPostsManager() {
-    const container = document.getElementById('posts-section');
-    if (!container) return;
-    container.innerHTML = `<div class="tab-header"><h2><i class="fas fa-pen"></i> Website Content Manager</h2><button id="addPostBtn" class="btn-primary">New Post</button></div><div class="empty-state">Posts manager - Coming soon</div>`;
 }
 
 async function renderSubmissions() {
@@ -964,3 +1261,9 @@ initAdminDashboard();
 // Make functions available globally
 window.closeLibraryModal = closeLibraryModal;
 window.saveLibraryItem = saveLibraryItem;
+window.closeFaqModal = closeFaqModal;
+window.saveFaqItem = saveFaqItem;
+window.closeIndexModal = closeIndexModal;
+window.saveIndexItem = saveIndexItem;
+window.handleCoverUpload = handleCoverUpload;
+window.handleContentUpload = handleContentUpload;
