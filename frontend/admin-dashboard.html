@@ -358,6 +358,7 @@
                     <div class="upload-field" onclick="document.getElementById('coverFileInput').click()">
                         <span class="upload-icon">🖼️</span>
                         <span class="upload-text">Click to upload cover image</span>
+                        <small style="display:block; margin-top:4px; color:var(--text-secondary);">Files go to: hub_content/covers/</small>
                         <input type="file" id="coverFileInput" accept="image/*" onchange="window.handleCoverUpload(this.files[0])">
                     </div>
                     <div class="file-preview" id="coverPreview">
@@ -373,6 +374,9 @@
                     <div class="upload-field" onclick="document.getElementById('contentFileInput').click()">
                         <span class="upload-icon">📁</span>
                         <span class="upload-text">Click to upload content file</span>
+                        <small style="display:block; margin-top:4px; color:var(--text-secondary);"> 
+                            Files go to: hub_content/<strong id="uploadFolderHint">book</strong>/
+                        </small>
                         <input type="file" id="contentFileInput" onchange="window.handleContentUpload(this.files[0])">
                     </div>
                     <div class="file-preview" id="contentFilePreview">
