@@ -1210,7 +1210,11 @@ body.dark-mode .gp-display {
     padding: 0 0.5rem;
 }
 
-/* Chapter Preview - FIXED SCROLLING */
+/* =========================================
+   CHAPTER PREVIEW - COMPLETE FIX
+   ========================================= */
+
+/* Chapter Preview Container */
 .book-modal .chapter-preview-wide {
     background: var(--bg-secondary);
     border-radius: 16px;
@@ -1218,16 +1222,21 @@ body.dark-mode .gp-display {
     margin: 1rem 0;
     border-left: 4px solid var(--brand-gold);
     min-height: 200px;
+    max-height: 450px;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
+/* Chapter Header - Fixed */
 .book-modal .chapter-header {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     flex-shrink: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .book-modal .chapter-header .chapter-icon {
@@ -1240,18 +1249,22 @@ body.dark-mode .gp-display {
     color: var(--text-primary);
 }
 
+/* Chapter Content - SCROLLABLE */
 .book-modal .chapter-content {
     font-size: 1rem;
     line-height: 2;
     color: var(--text-primary);
     white-space: pre-wrap;
     font-family: 'Georgia', 'Times New Roman', serif;
-    max-height: 400px;
+    max-height: 320px;
+    min-height: 120px;
     overflow-y: auto;
     padding-right: 0.5rem;
     flex: 1;
+    scroll-behavior: smooth;
 }
 
+/* Scrollbar Styles - WebKit (Chrome, Safari, Edge) */
 .book-modal .chapter-content::-webkit-scrollbar {
     width: 6px;
 }
@@ -1270,8 +1283,15 @@ body.dark-mode .gp-display {
     background: var(--brand-gold-dark);
 }
 
+/* Scrollbar Styles - Firefox */
+.book-modal .chapter-content {
+    scrollbar-width: thin;
+    scrollbar-color: var(--brand-gold) var(--bg-secondary);
+}
+
+/* Blur Effect for Locked Chapters */
 .book-modal .chapter-content.chapter-blur {
-    max-height: 300px;
+    max-height: 200px;
     overflow: hidden;
     position: relative;
 }
@@ -1287,10 +1307,11 @@ body.dark-mode .gp-display {
     pointer-events: none;
 }
 
+/* Lock Overlay */
 .book-modal .chapter-lock {
     display: block;
     text-align: center;
-    padding: 1rem 0;
+    padding: 0.75rem 0;
     color: var(--brand-gold);
     font-weight: 600;
     font-size: 0.9rem;
@@ -1298,262 +1319,73 @@ body.dark-mode .gp-display {
     background: var(--bg-secondary);
     border-radius: 0 0 16px 16px;
     margin: 0 -2rem -1.5rem;
-    padding: 1rem;
+    padding: 0.75rem;
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
 }
 
-/* Purchase Section */
-.book-modal .purchase-section {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border-color);
-}
-
-.book-modal .purchase-options-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-}
-
-.book-modal .purchase-option-card {
+/* Dark Mode Support */
+body.dark-mode .book-modal .chapter-preview-wide {
     background: var(--bg-secondary);
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1rem;
-    cursor: pointer;
-    transition: all var(--transition-speed);
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
 }
 
-.book-modal .purchase-option-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
+body.dark-mode .book-modal .chapter-content.chapter-blur::after {
+    background: linear-gradient(to bottom, transparent, var(--bg-secondary));
 }
 
-.book-modal .purchase-option-card.selected {
-    border-color: var(--brand-gold);
-    background: rgba(251, 176, 64, 0.08);
-}
-
-.book-modal .purchase-option-card.premium-option {
-    border-color: #8b5cf6;
-    background: rgba(139, 92, 246, 0.05);
-}
-
-.book-modal .purchase-option-card .option-icon {
-    font-size: 1.5rem;
-}
-
-.book-modal .purchase-option-card .option-name {
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--text-primary);
-}
-
-.book-modal .purchase-option-card .option-price {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.book-modal .purchase-option-card .option-price.free {
-    color: var(--success);
-}
-
-.book-modal .purchase-option-card .option-desc {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
-
-.book-modal .purchase-option-card .option-badge {
-    font-size: 0.6rem;
-    padding: 1px 8px;
-    border-radius: 12px;
-    background: rgba(251, 176, 64, 0.15);
-    color: var(--brand-gold);
-}
-
-/* Delivery Section */
-.book-modal .delivery-section {
+body.dark-mode .book-modal .chapter-content::-webkit-scrollbar-track {
     background: var(--bg-secondary);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    margin: 0.75rem 0;
-    display: none;
 }
 
-.book-modal .delivery-section.active {
-    display: block;
-    animation: fadeIn 0.3s ease;
-}
-
-.book-modal .delivery-section h4 {
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-}
-
-.book-modal .delivery-section .form-group {
-    margin-bottom: 0.75rem;
-}
-
-.book-modal .delivery-section .form-group label {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    margin-bottom: 0.25rem;
-}
-
-.book-modal .delivery-section .form-group input,
-.book-modal .delivery-section .form-group select {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 0.85rem;
-}
-
-.book-modal .delivery-section .form-group input:focus,
-.book-modal .delivery-section .form-group select:focus {
-    outline: none;
-    border-color: var(--brand-gold);
-}
-
-.book-modal .delivery-section .delivery-note {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-    padding: 0.5rem;
-    background: rgba(251, 176, 64, 0.08);
-    border-radius: 8px;
-    border-left: 3px solid var(--brand-gold);
-}
-
-.book-modal .location-selector {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.book-modal .location-option {
-    padding: 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    cursor: pointer;
-    text-align: center;
-    transition: all var(--transition-speed);
-    font-size: 0.8rem;
-}
-
-.book-modal .location-option:hover {
-    border-color: var(--accent);
-}
-
-.book-modal .location-option.selected {
-    border-color: var(--brand-gold);
-    background: rgba(251, 176, 64, 0.08);
-}
-
-.book-modal .location-option .location-icon {
-    font-size: 1.2rem;
-    display: block;
-}
-
-.book-modal .location-option .location-name {
-    font-weight: 500;
-    display: block;
-    margin-top: 2px;
-}
-
-.book-modal .location-option .location-desc {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-}
-
-/* Purchase Summary */
-.book-modal .purchase-summary {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 0.75rem 1rem;
-    margin: 0.75rem 0;
-    display: none;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.book-modal .purchase-summary .summary-label {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.book-modal .purchase-summary .summary-total {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--brand-gold);
-}
-
-.book-modal .purchase-summary.show {
-    display: flex;
-}
-
-/* Purchase Button */
-.book-modal .purchase-btn {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: none;
-    border-radius: var(--radius-button);
-    font-weight: 600;
-    font-size: 0.95rem;
-    cursor: pointer;
-    transition: all var(--transition-speed);
-    font-family: inherit;
-}
-
-.book-modal .purchase-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.book-modal .purchase-btn.gold {
+body.dark-mode .book-modal .chapter-content::-webkit-scrollbar-thumb {
     background: var(--brand-gold);
-    color: var(--brand-purple-dark);
 }
 
-.book-modal .purchase-btn.gold:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+/* Responsive */
+@media (max-width: 768px) {
+    .book-modal .chapter-preview-wide {
+        padding: 1rem 1.25rem;
+        max-height: 350px;
+    }
+    
+    .book-modal .chapter-content {
+        max-height: 250px;
+        font-size: 0.9rem;
+        line-height: 1.8;
+    }
+    
+    .book-modal .chapter-content.chapter-blur {
+        max-height: 150px;
+    }
+    
+    .book-modal .chapter-lock {
+        font-size: 0.8rem;
+        padding: 0.5rem;
+        margin: 0 -1.25rem -1rem;
+    }
 }
 
-.book-modal .purchase-btn.success {
-    background: var(--success);
-    color: white;
-}
-
-.book-modal .purchase-btn.success:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.book-modal .purchase-btn.primary {
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-    color: white;
-}
-
-.book-modal .purchase-btn.primary:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+@media (max-width: 480px) {
+    .book-modal .chapter-preview-wide {
+        padding: 0.75rem 1rem;
+        max-height: 300px;
+    }
+    
+    .book-modal .chapter-content {
+        max-height: 200px;
+        font-size: 0.85rem;
+        line-height: 1.7;
+    }
+    
+    .book-modal .chapter-content.chapter-blur {
+        max-height: 120px;
+    }
+    
+    .book-modal .chapter-lock {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+        margin: 0 -1rem -0.75rem;
+    }
 }
 
 /* ------------------------------------------
