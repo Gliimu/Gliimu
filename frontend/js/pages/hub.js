@@ -70,7 +70,9 @@ const DOM = {
     purchasedLink: $('purchasedItemsLink'),
     merchLink: $('merchandiseLink'),
     logo: $('logoImg'),
-    header: $('hubHeader')
+    header: $('hubHeader'),
+    loader: $('loaderOverlay'),
+    loaderVideo: $('loaderVideo')
 };
 
 // ============================================
@@ -78,11 +80,13 @@ const DOM = {
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Hub initializing...');
-    
-    // Show centered loading
-    showCenteredLoading();
 
     try {
+        // Hide loader when content is ready
+        setTimeout(() => {
+            hideLoader();
+        }, 2000);
+
         currentUser = await getCurrentUser();
         console.log('👤 User:', currentUser?.email || 'Guest');
 
@@ -103,29 +107,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('❌ Init error:', error);
+        hideLoader();
         showCenteredError(error.message || 'Failed to load content. Please refresh.');
     }
 });
 
 // ============================================
-// UI HELPERS
+// LOADER
 // ============================================
-function showCenteredLoading() {
-    DOM.grid.innerHTML = `
-        <div class="centered-message">
-            <div class="loading-spinner"></div>
-            <p>Loading content...</p>
-        </div>
-    `;
+function hideLoader() {
+    if (DOM.loader) {
+        DOM.loader.classList.add('hidden');
+        // Pause video when hidden
+        if (DOM.loaderVideo) {
+            DOM.loaderVideo.pause();
+        }
+    }
 }
 
+// ============================================
+// UI HELPERS
+// ============================================
 function showCenteredError(message) {
     DOM.grid.innerHTML = `
         <div class="centered-message error">
             <i class="fas fa-exclamation-triangle"></i>
             <h3>Something went wrong</h3>
             <p>${escape(message)}</p>
-            <button onclick="location.reload()" class="btn-primary" style="margin-top:1rem; padding:0.75rem 2rem; border-radius:40px; background:var(--brand-gold); color:var(--brand-purple-dark); border:none; font-weight:600; cursor:pointer;">Refresh</button>
+            <button onclick="location.reload()" class="btn-primary">Refresh</button>
         </div>
     `;
 }
@@ -136,7 +145,6 @@ function showCenteredError(message) {
 async function loadUserData() {
     if (!currentUser) return;
     try {
-        // Try to get user data with all fields
         const { data, error } = await supabase
             .from('users')
             .select('*')
@@ -145,7 +153,6 @@ async function loadUserData() {
 
         if (error) {
             console.error('Error loading user data:', error);
-            // Set default values if error
             userWallet = 0;
             userGP = 0;
             return;
@@ -167,7 +174,6 @@ async function loadUserData() {
 
 async function loadItems() {
     try {
-        // Use hub_contents table
         const { data, error } = await supabase
             .from('hub_contents')
             .select('*')
@@ -182,7 +188,7 @@ async function loadItems() {
         if (!data || data.length === 0) {
             DOM.grid.innerHTML = `
                 <div class="centered-message">
-                    <i class="fas fa-book-open" style="font-size:2.5rem; opacity:0.5; margin-bottom:1rem;"></i>
+                    <i class="fas fa-book-open"></i>
                     <h3>No Content Yet</h3>
                     <p>Check back soon for new content.</p>
                 </div>
@@ -232,7 +238,7 @@ function renderItems(items = null) {
     if (!list.length) {
         DOM.grid.innerHTML = `
             <div class="centered-message">
-                <i class="fas fa-search" style="font-size:2.5rem; opacity:0.5; margin-bottom:1rem;"></i>
+                <i class="fas fa-search"></i>
                 <h3>No Items Found</h3>
                 <p>Try a different search.</p>
             </div>
@@ -529,7 +535,77 @@ window.viewDetails = async (itemId) => {
 };
 
 // ============================================
-// BOOK DETAILS - FULL WIDTH WATTPAD STYLE
+// TALK DETAILS - Video Player
+// ============================================
+async function renderTalkDetails(itemId) {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const isPurchased = purchasedItems.has(item.id);
+    const isSaved = savedItems.has(item.id);
+    const isPremium = userGP >= 100;
+
+    // Reset modal style
+    const modal = DOM.itemModal;
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.classList.remove('book-modal');
+
+    DOM.modalTitle.textContent = item.title;
+    DOM.modalImage.style.display = 'none';
+
+    updateSaveButton(item.id, isSaved);
+
+    // Video player with Gliimu branding
+    const videoSrc = item.file_url || '/video/pnp.mp4';
+    
+    let detailsHtml = `
+        <div class="item-details talk-details">
+            <div class="video-player-container">
+                <video id="talkVideo" controls playsinline poster="${item.cover_url || ''}">
+                    <source src="${videoSrc}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="video-branding">
+                    <span class="brand-icon">📺</span>
+                    <span class="brand-text">Gliimu Talks</span>
+                </div>
+            </div>
+            
+            <div class="talk-info">
+                <h3 class="talk-title">${escape(item.title)}</h3>
+                <p class="talk-speaker">🎤 ${escape(item.author || 'Gliimu Team')}</p>
+                ${item.duration ? `<p class="talk-duration">⏱️ ${item.duration}</p>` : ''}
+                ${isPremium ? `<p><span class="premium-badge">⭐ Premium Access</span></p>` : ''}
+                ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
+                
+                <div class="talk-description">${escape(item.description || 'No description available.')}</div>
+                
+                <div class="talk-engagement">
+                    <button class="engagement-btn" onclick="window.likeTalk('${item.id}')">
+                        <i class="far fa-heart"></i> <span class="count">${item.likes || 0}</span>
+                    </button>
+                    <button class="engagement-btn" onclick="window.shareTalk('${item.id}')">
+                        <i class="far fa-share-alt"></i> <span class="count">${item.shares || 0}</span>
+                    </button>
+                    <button class="engagement-btn" onclick="window.commentTalk('${item.id}')">
+                        <i class="far fa-comment"></i> <span class="count">${item.comments || 0}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    DOM.modalDesc.innerHTML = detailsHtml;
+
+    // No footer buttons - only the close X
+    DOM.modalFooter.innerHTML = '';
+    DOM.modalFooter.style.display = 'none';
+
+    modal.classList.add('active');
+}
+
+// ============================================
+// BOOK DETAILS - Full Width Wattpad Style
 // ============================================
 async function renderBookDetails(itemId) {
     const item = allItems.find(i => i.id === itemId);
@@ -555,7 +631,6 @@ async function renderBookDetails(itemId) {
     // Update save button
     updateSaveButton(item.id, isSaved);
 
-    // First chapter preview (mock - would come from database)
     const firstChapter = item.first_chapter || `Chapter 1: The Beginning
 
 It was a quiet morning when everything changed. The sun rose over the horizon, painting the sky in hues of orange and gold. Little did anyone know that this day would mark the beginning of an extraordinary journey.
@@ -573,23 +648,6 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
     const digitalPrice = item.price || 0;
     const physicalPrice = item.physical_price || 0;
     const audioPrice = item.audio_price || 0;
-
-    // Determine which option to auto-select (first available)
-    let defaultOption = null;
-    let defaultPrice = 0;
-    if (isPremium && hasDigital) {
-        defaultOption = 'premium';
-        defaultPrice = 0;
-    } else if (hasDigital) {
-        defaultOption = 'digital';
-        defaultPrice = digitalPrice;
-    } else if (hasPhysical) {
-        defaultOption = 'physical';
-        defaultPrice = physicalPrice;
-    } else if (hasAudio) {
-        defaultOption = 'audio';
-        defaultPrice = audioPrice;
-    }
 
     let detailsHtml = `
         <div class="book-layout">
@@ -628,7 +686,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                 <div class="purchase-section">
                     <div class="purchase-options-grid">
                         ${hasDigital ? `
-                            <div class="purchase-option-card ${defaultOption === 'digital' ? 'selected' : ''}" data-type="digital" onclick="selectPurchaseOption('digital', ${digitalPrice})">
+                            <div class="purchase-option-card" data-type="digital" onclick="selectPurchaseOption('digital', ${digitalPrice})">
                                 <span class="option-icon">📱</span>
                                 <span class="option-name">Digital</span>
                                 <span class="option-price ${digitalPrice === 0 ? 'free' : ''}">${digitalPrice === 0 ? 'Free' : '₦' + digitalPrice.toLocaleString()}</span>
@@ -637,7 +695,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                             </div>
                         ` : ''}
                         ${hasPhysical ? `
-                            <div class="purchase-option-card ${defaultOption === 'physical' ? 'selected' : ''}" data-type="physical" onclick="selectPurchaseOption('physical', ${physicalPrice})">
+                            <div class="purchase-option-card" data-type="physical" onclick="selectPurchaseOption('physical', ${physicalPrice})">
                                 <span class="option-icon">📖</span>
                                 <span class="option-name">Hard Copy</span>
                                 <span class="option-price">₦${physicalPrice.toLocaleString()}</span>
@@ -645,7 +703,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                             </div>
                         ` : ''}
                         ${hasAudio ? `
-                            <div class="purchase-option-card ${defaultOption === 'audio' ? 'selected' : ''}" data-type="audio" onclick="selectPurchaseOption('audio', ${audioPrice})">
+                            <div class="purchase-option-card" data-type="audio" onclick="selectPurchaseOption('audio', ${audioPrice})">
                                 <span class="option-icon">🎧</span>
                                 <span class="option-name">Audio Book</span>
                                 <span class="option-price">₦${audioPrice.toLocaleString()}</span>
@@ -653,7 +711,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                             </div>
                         ` : ''}
                         ${isPremium && hasDigital ? `
-                            <div class="purchase-option-card premium-option ${defaultOption === 'premium' ? 'selected' : ''}" data-type="premium" onclick="selectPurchaseOption('premium', 0)">
+                            <div class="purchase-option-card premium-option" data-type="premium" onclick="selectPurchaseOption('premium', 0)">
                                 <span class="option-icon">⭐</span>
                                 <span class="option-name">Premium Access</span>
                                 <span class="option-price free">FREE</span>
@@ -706,25 +764,15 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                     </div>
 
                     <!-- Purchase Summary -->
-                    <div class="purchase-summary show" id="purchaseSummary">
+                    <div class="purchase-summary" id="purchaseSummary" style="display:none;">
                         <span class="summary-label">Total:</span>
-                        <span class="summary-total" id="summaryTotal">₦${defaultOption === 'premium' ? '0' : (defaultPrice || 0).toLocaleString()}</span>
+                        <span class="summary-total" id="summaryTotal">₦0</span>
                     </div>
-                    <button class="purchase-btn gold" id="purchaseBtn">
-                        ${defaultOption === 'premium' ? '⭐ Get Premium Access' : `Purchase ${defaultOption ? defaultOption.charAt(0).toUpperCase() + defaultOption.slice(1) : 'Option'}`}
+                    <button class="purchase-btn gold" id="purchaseBtn" disabled>
+                        Select an option to purchase
                     </button>
                 </div>
         `;
-        
-        // Set initial state
-        if (defaultOption) {
-            currentPurchaseState.selectedOption = defaultOption;
-            currentPurchaseState.selectedPrice = defaultPrice;
-            // If physical, don't auto-select location
-            if (defaultOption === 'physical') {
-                // Don't auto-select location
-            }
-        }
     } else {
         // Already purchased
         detailsHtml += `
@@ -750,83 +798,6 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
     DOM.summaryTotal = document.getElementById('summaryTotal');
     DOM.deliverySection = document.getElementById('deliverySection');
 
-    // Re-bind purchase button click event
-    if (DOM.purchaseBtn && !isPurchased) {
-        DOM.purchaseBtn.onclick = async function() {
-            await completePurchase();
-        };
-    }
-
-    modal.classList.add('active');
-}
-
-// ============================================
-// TALK DETAILS
-// ============================================
-async function renderTalkDetails(itemId) {
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
-
-    const isPurchased = purchasedItems.has(item.id);
-    const isSaved = savedItems.has(item.id);
-    const isPremium = userGP >= 100;
-
-    // Reset modal style
-    const modal = DOM.itemModal;
-    const modalContent = modal.querySelector('.modal-content');
-    modalContent.classList.remove('book-modal');
-
-    DOM.modalTitle.textContent = item.title;
-    DOM.modalImage.src = item.cover_url || `https://placehold.co/300x450/2c2f78/white?text=${encodeURIComponent(item.title)}`;
-    DOM.modalImage.style.display = 'block';
-
-    updateSaveButton(item.id, isSaved);
-
-    let detailsHtml = `
-        <div class="item-details">
-            <p><strong>Speaker:</strong> ${escape(item.author || 'Gliimu Team')}</p>
-            <p><strong>Type:</strong> 🎙️ Talk</p>
-            ${item.duration ? `<p><strong>Duration:</strong> ${item.duration}</p>` : ''}
-            ${isPremium ? `<p><span class="premium-badge">⭐ Premium Access</span></p>` : ''}
-            ${isPurchased ? `<p><span class="owned-badge">✅ You own this</span></p>` : ''}
-            
-            <div class="talk-engagement">
-                <button class="engagement-btn" onclick="window.likeTalk('${item.id}')">
-                    <i class="far fa-heart"></i> <span class="count">${item.likes || 0}</span>
-                </button>
-                <button class="engagement-btn" onclick="window.shareTalk('${item.id}')">
-                    <i class="far fa-share-alt"></i> <span class="count">${item.shares || 0}</span>
-                </button>
-                <button class="engagement-btn" onclick="window.commentTalk('${item.id}')">
-                    <i class="far fa-comment"></i> <span class="count">${item.comments || 0}</span>
-                </button>
-            </div>
-            
-            <div class="description-text">${escape(item.description || 'No description available.')}</div>
-        </div>
-    `;
-
-    DOM.modalDesc.innerHTML = detailsHtml;
-
-    let footerHtml = '';
-    if (isPurchased) {
-        footerHtml = `
-            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-play"></i> Watch Now</button>` : ''}
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
-        `;
-    } else if (item.price === 0 || !item.price) {
-        footerHtml = `
-            <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-play"></i> Watch Now</button>
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
-        `;
-    } else {
-        footerHtml = `
-            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','digital')"><i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})</button>
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
-        `;
-    }
-
-    DOM.modalFooter.innerHTML = footerHtml;
     modal.classList.add('active');
 }
 
@@ -869,21 +840,19 @@ async function renderBundleDetails(itemId) {
     if (isPurchased) {
         footerHtml = `
             ${item.download_url ? `<button class="modal-btn modal-btn-primary" onclick="window.downloadBundle('${item.id}')"><i class="fas fa-download"></i> Download Bundle</button>` : ''}
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (item.price === 0 || !item.price) {
         footerHtml = `
             <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Bundle</button>
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else {
         footerHtml = `
             <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','bundle')"><i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})</button>
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     }
 
     DOM.modalFooter.innerHTML = footerHtml;
+    DOM.modalFooter.style.display = 'flex';
     modal.classList.add('active');
 }
 
@@ -922,21 +891,19 @@ async function renderGenericDetails(itemId) {
     if (isPurchased) {
         footerHtml = `
             ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-eye"></i> View</button>` : ''}
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else if (item.price === 0 || !item.price) {
         footerHtml = `
             <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')"><i class="fas fa-gift"></i> Get Access</button>
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     } else {
         footerHtml = `
             <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','digital')"><i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})</button>
-            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
         `;
     }
 
     DOM.modalFooter.innerHTML = footerHtml;
+    DOM.modalFooter.style.display = 'flex';
     modal.classList.add('active');
 }
 
@@ -979,7 +946,7 @@ window.selectPurchaseOption = (type, price) => {
     const purchaseBtn = document.getElementById('purchaseBtn');
     
     if (summaryTotal) summaryTotal.textContent = `₦${finalPrice.toLocaleString()}`;
-    if (purchaseSummary) purchaseSummary.classList.add('show');
+    if (purchaseSummary) purchaseSummary.style.display = 'flex';
     if (purchaseBtn) {
         purchaseBtn.disabled = false;
         purchaseBtn.textContent = type === 'premium' ? '⭐ Get Premium Access' : `Purchase ${type.charAt(0).toUpperCase() + type.slice(1)}`;
@@ -1107,14 +1074,12 @@ async function completePurchase() {
                 return;
             }
 
-            // Check if we can deliver to this region
             const regionData = DELIVERY_REGIONS.find(r => r.id === region.value);
             if (!regionData) {
                 showToast('We are currently unable to ship to your chosen location', 'error');
                 return;
             }
 
-            // Create delivery order
             const deliveryData = {
                 item_id: item.id,
                 item_title: item.title,
@@ -1144,7 +1109,6 @@ async function completePurchase() {
 
             await notifyAdmin('delivery_order', deliveryData);
         } else {
-            // Pickup at office
             const pickupData = {
                 item_id: item.id,
                 item_title: item.title,
@@ -1172,12 +1136,10 @@ async function completePurchase() {
             await notifyAdmin('pickup_order', pickupData);
         }
 
-        // Process payment
         await processPayment(item.id, selectedOption, selectedPrice);
         return;
     }
 
-    // Digital or audio purchase
     await processPayment(item.id, selectedOption, selectedPrice);
 }
 
@@ -1190,7 +1152,6 @@ async function processPayment(itemId, type, price) {
     const item = allItems.find(i => i.id === itemId);
     if (!item) return showToast('Item not found', 'error');
 
-    // Check if premium and digital
     const isPremium = userGP >= 100;
     if (isPremium && type === 'digital' && price > 0) {
         price = 0;
@@ -1501,6 +1462,8 @@ window.closeModal = () => {
     document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
     const modalContent = DOM.itemModal.querySelector('.modal-content');
     if (modalContent) modalContent.classList.remove('book-modal');
+    // Reset footer display
+    if (DOM.modalFooter) DOM.modalFooter.style.display = 'flex';
 };
 
 DOM.modalCloseBtn?.addEventListener('click', closeModal);
