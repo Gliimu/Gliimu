@@ -1210,7 +1210,11 @@ body.dark-mode .gp-display {
     padding: 0 0.5rem;
 }
 
-/* Chapter Preview - FIXED SCROLLING */
+/* =========================================
+   CHAPTER PREVIEW - COMPLETE FIX
+   ========================================= */
+
+/* Chapter Preview Container */
 .book-modal .chapter-preview-wide {
     background: var(--bg-secondary);
     border-radius: 16px;
@@ -1220,14 +1224,18 @@ body.dark-mode .gp-display {
     min-height: 200px;
     display: flex;
     flex-direction: column;
+    max-height: 600px; /* Increased to show more content */
 }
 
+/* Chapter Header */
 .book-modal .chapter-header {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     flex-shrink: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .book-modal .chapter-header .chapter-icon {
@@ -1240,18 +1248,22 @@ body.dark-mode .gp-display {
     color: var(--text-primary);
 }
 
+/* Chapter Content - FULLY SCROLLABLE */
 .book-modal .chapter-content {
     font-size: 1rem;
     line-height: 2;
     color: var(--text-primary);
     white-space: pre-wrap;
     font-family: 'Georgia', 'Times New Roman', serif;
-    max-height: 400px;
-    overflow-y: auto;
+    max-height: 450px; /* Enough to show substantial content */
+    min-height: 150px;
+    overflow-y: auto; /* THIS ENABLES SCROLLING */
     padding-right: 0.5rem;
     flex: 1;
+    scroll-behavior: smooth;
 }
 
+/* Scrollbar Styling */
 .book-modal .chapter-content::-webkit-scrollbar {
     width: 6px;
 }
@@ -1270,9 +1282,16 @@ body.dark-mode .gp-display {
     background: var(--brand-gold-dark);
 }
 
+/* Firefox Scrollbar */
+.book-modal .chapter-content {
+    scrollbar-width: thin;
+    scrollbar-color: var(--brand-gold) var(--bg-secondary);
+}
+
+/* BLUR EFFECT - Only for locked chapters, but STILL SCROLLABLE */
 .book-modal .chapter-content.chapter-blur {
-    max-height: 300px;
-    overflow: hidden;
+    max-height: 350px;
+    overflow-y: auto; /* ← Changed from hidden to auto */
     position: relative;
 }
 
@@ -1287,10 +1306,11 @@ body.dark-mode .gp-display {
     pointer-events: none;
 }
 
+/* Lock Message */
 .book-modal .chapter-lock {
     display: block;
     text-align: center;
-    padding: 1rem 0;
+    padding: 0.75rem;
     color: var(--brand-gold);
     font-weight: 600;
     font-size: 0.9rem;
@@ -1298,9 +1318,52 @@ body.dark-mode .gp-display {
     background: var(--bg-secondary);
     border-radius: 0 0 16px 16px;
     margin: 0 -2rem -1.5rem;
-    padding: 1rem;
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
+}
+
+/* Dark Mode */
+body.dark-mode .book-modal .chapter-preview-wide {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .book-modal .chapter-content.chapter-blur::after {
+    background: linear-gradient(to bottom, transparent, var(--bg-secondary));
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .book-modal .chapter-preview-wide {
+        padding: 1rem 1.25rem;
+        max-height: 500px;
+    }
+    
+    .book-modal .chapter-content {
+        max-height: 350px;
+        font-size: 0.9rem;
+        line-height: 1.8;
+    }
+    
+    .book-modal .chapter-content.chapter-blur {
+        max-height: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .book-modal .chapter-preview-wide {
+        padding: 0.75rem 1rem;
+        max-height: 400px;
+    }
+    
+    .book-modal .chapter-content {
+        max-height: 250px;
+        font-size: 0.85rem;
+        line-height: 1.7;
+    }
+    
+    .book-modal .chapter-content.chapter-blur {
+        max-height: 200px;
+    }
 }
 
 /* Purchase Section */
