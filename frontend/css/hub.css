@@ -1568,6 +1568,44 @@ body.dark-mode .gp-display {
     border-left: 4px solid var(--brand-gold);
     min-height: 200px;
     position: relative;
+    max-height: 500px; /* Increased from default */
+    overflow: hidden; /* Changed from auto to hidden to control scroll */
+}
+
+.book-modal .chapter-content {
+    font-size: 1rem;
+    line-height: 2;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    max-height: 400px; /* Increased from 250px */
+    overflow-y: auto; /* Changed from hidden to auto for scrolling */
+    padding-right: 0.5rem;
+}
+
+.book-modal .chapter-content.chapter-blur {
+    max-height: 350px; /* Increased from 250px */
+    overflow: hidden;
+    position: relative;
+}
+
+/* Better scrollbar for chapter content */
+.book-modal .chapter-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.book-modal .chapter-content::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+.book-modal .chapter-content::-webkit-scrollbar-thumb {
+    background: var(--brand-gold);
+    border-radius: 4px;
+}
+
+.book-modal .chapter-content::-webkit-scrollbar-thumb:hover {
+    background: var(--brand-gold-dark);
 }
 
 .book-modal .chapter-header {
