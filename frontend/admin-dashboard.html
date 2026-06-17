@@ -221,5 +221,207 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module" src="/js/pages/admin-dashboard.js"></script>
+<!-- ============================================ -->
+<!-- FAQ MODAL -->
+<!-- ============================================ -->
+<div id="faqModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="faqModalTitle">Add FAQ</h2>
+            <button class="modal-close closeFaqModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="faqForm" onsubmit="window.saveFaqItem(event)">
+                <input type="hidden" id="editFaqId">
+                <div class="form-group">
+                    <label>Question</label>
+                    <input type="text" id="faqQuestion" required placeholder="e.g., What is Gliimu?">
+                </div>
+                <div class="form-group">
+                    <label>Answer</label>
+                    <textarea id="faqAnswer" rows="3" required placeholder="Write the answer..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Display Order</label>
+                    <input type="number" id="faqOrder" value="0" placeholder="0, 1, 2...">
+                    <small>Lower numbers appear first</small>
+                </div>
+                <button type="submit" class="btn-primary">Save FAQ</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- INDEX/HERO MODAL -->
+<!-- ============================================ -->
+<div id="indexModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Homepage Hero</h2>
+            <button class="modal-close closeIndexModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="indexForm" onsubmit="window.saveIndexItem(event)">
+                <input type="hidden" id="editIndexId">
+                <div class="form-group">
+                    <label>Hero Title</label>
+                    <input type="text" id="indexHeroTitle" required placeholder="e.g., Be The Best">
+                </div>
+                <div class="form-group">
+                    <label>Hero Subtitle</label>
+                    <input type="text" id="indexHeroSubtitle" placeholder="e.g., Read the best">
+                </div>
+                <div class="form-group">
+                    <label>Hero Image URL</label>
+                    <input type="url" id="indexHeroImage" placeholder="https://example.com/hero.jpg">
+                </div>
+                <div class="form-group">
+                    <label>Or Upload Image</label>
+                    <div class="upload-field" onclick="document.getElementById('indexImageInput').click()">
+                        <span class="upload-icon">📤</span>
+                        <span class="upload-text">Click to upload hero image</span>
+                        <input type="file" id="indexImageInput" accept="image/*">
+                    </div>
+                    <div class="file-preview" id="indexImagePreview">
+                        <img id="indexImagePreviewImg" src="">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Save Hero</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- UPDATED LIBRARY MODAL WITH FILE UPLOAD -->
+<!-- ============================================ -->
+<div id="libraryItemModal" class="modal">
+    <div class="modal-content" style="max-width:650px;">
+        <div class="modal-header">
+            <h2 id="libraryModalTitle">Add Library Item</h2>
+            <button class="modal-close closeLibraryModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="libraryItemForm" onsubmit="window.saveLibraryItem(event)">
+                <input type="hidden" id="editItemId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" id="itemTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="itemType">
+                            <option value="book">📖 Book</option>
+                            <option value="talk">🎙️ Talk</option>
+                            <option value="bundle">📦 Bundle</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="itemCategory" placeholder="Video Production, Design, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label>Author/Speaker</label>
+                        <input type="text" id="itemAuthor">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="itemDescription" rows="2"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Digital Price (₦)</label>
+                        <input type="number" id="itemPrice" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Physical Price (₦)</label>
+                        <input type="number" id="itemPhysicalPrice" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Audio Price (₦)</label>
+                        <input type="number" id="itemAudioPrice" value="0" min="0">
+                    </div>
+                </div>
+                
+                <!-- Cover Image Upload -->
+                <div class="form-group">
+                    <label>Cover Image</label>
+                    <div class="upload-field" onclick="document.getElementById('coverFileInput').click()">
+                        <span class="upload-icon">🖼️</span>
+                        <span class="upload-text">Click to upload cover image</span>
+                        <input type="file" id="coverFileInput" accept="image/*" onchange="window.handleCoverUpload(this.files[0])">
+                    </div>
+                    <div class="file-preview" id="coverPreview">
+                        <img id="coverPreviewImg" src="">
+                    </div>
+                    <small>Or paste URL below</small>
+                    <input type="url" id="itemCoverUrl" placeholder="https://example.com/cover.jpg" style="margin-top:0.5rem;">
+                </div>
+                
+                <!-- Content File Upload -->
+                <div class="form-group">
+                    <label>Content File (PDF, EPUB, Video, etc.)</label>
+                    <div class="upload-field" onclick="document.getElementById('contentFileInput').click()">
+                        <span class="upload-icon">📁</span>
+                        <span class="upload-text">Click to upload content file</span>
+                        <input type="file" id="contentFileInput" onchange="window.handleContentUpload(this.files[0])">
+                    </div>
+                    <div class="file-preview" id="contentFilePreview">
+                        <a id="contentFileLink" target="_blank" class="file-link">📎 Current file</a>
+                    </div>
+                    <small>Or paste URL below</small>
+                    <input type="url" id="itemFileUrl" placeholder="https://example.com/content.pdf" style="margin-top:0.5rem;">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Download URL (for bundles)</label>
+                        <input type="url" id="itemDownloadUrl" placeholder="https://example.com/bundle.zip">
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (for talks)</label>
+                        <input type="text" id="itemDuration" placeholder="e.g., 12:34">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>First Chapter Preview</label>
+                    <textarea id="itemFirstChapter" rows="4" placeholder="Paste the first chapter here..."></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Level</label>
+                        <select id="itemLevel">
+                            <option value="Beginner">Beginner</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Advanced">Advanced</option>
+                            <option value="All Levels">All Levels</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="itemStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-primary" style="width:100%;">Save Content</button>
+            </form>
+        </div>
+    </div>
+</div>
+    
 </body>
 </html>
