@@ -1,30 +1,10 @@
 // ============================================
-// GLIIMU WALLET MODULE - COMPLETE
+// GLIIMU WALLET MODULE - UPDATED
 // Free access to everything. Users pay only for what they value.
 // ============================================
 
 import { supabase } from './supabase.js';
 import { showToast } from './toast.js';
-
-// Platform pricing (locked - for backward compatibility)
-const PRICING = {
-    library: 7500,
-    virtualroom: 7500,
-    chat: 7500,
-    premium: 15000,
-    standard: 13000,
-    basic: 7500
-};
-
-// Platform display names and icons
-const PLATFORM_INFO = {
-    library: { name: 'Digital Library', icon: '📚', description: 'Access books, bundles, and learning materials' },
-    virtualroom: { name: 'Virtual Classroom', icon: '🎥', description: 'Live classes, whiteboard, screen sharing' },
-    chat: { name: 'Community Chat', icon: '💬', description: 'Connect with peers and instructors' }
-};
-
-const PAID_PLATFORMS = ['library', 'virtualroom', 'chat'];
-const FREE_PLATFORMS = ['hub'];
 
 // ============================================
 // CORE WALLET FUNCTIONS
@@ -34,7 +14,7 @@ const FREE_PLATFORMS = ['hub'];
 export async function getWalletBalance() {
     try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return 14500;
+        if (!user) return 0;
         
         const { data, error } = await supabase
             .from('users')
@@ -44,13 +24,13 @@ export async function getWalletBalance() {
         
         if (error) {
             console.error('Error fetching wallet:', error);
-            return 14500;
+            return 0;
         }
         
-        return data?.wallet_balance || 14500;
+        return data?.wallet_balance || 0;
     } catch (error) {
         console.error('Error in getWalletBalance:', error);
-        return 14500;
+        return 0;
     }
 }
 
@@ -58,7 +38,10 @@ export async function getWalletBalance() {
 async function updateWalletBalance(userId, newBalance) {
     const { error } = await supabase
         .from('users')
-        .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
+        .update({ 
+            wallet_balance: newBalance, 
+            updated_at: new Date().toISOString() 
+        })
         .eq('id', userId);
     
     if (error) console.error('Error updating wallet:', error);
@@ -85,10 +68,11 @@ async function addTransaction(userId, amount, type, description, reference = nul
 }
 
 // ============================================
-// NEW: PURCHASE BOOK FROM LIBRARY
+// PURCHASE FUNCTIONS
 // ============================================
 
-export async function purchaseBook(bookId, price, bookTitle) {
+// Purchase a book (digital or physical)
+export async function purchaseBook(bookId, price, bookTitle, type = 'digital') {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -111,18 +95,21 @@ export async function purchaseBook(bookId, price, bookTitle) {
             .from('user_purchases')
             .insert([{
                 user_id: user.id,
-                item_type: 'library_book',
                 item_id: bookId,
+                purchase_type: type,
                 amount: price,
                 created_at: new Date().toISOString()
             }]);
         
         if (purchaseError) {
             console.error('Error recording purchase:', purchaseError);
-            // Still consider it successful since wallet was debited
+            // Refund if purchase recording fails
+            await updateWalletBalance(user.id, currentBalance);
+            showToast('Purchase failed. Please try again.', 'error');
+            return false;
         }
         
-        await addTransaction(user.id, -price, 'debit', `Book Purchase: ${bookTitle}`);
+        await addTransaction(user.id, -price, 'debit', `${type === 'physical' ? 'Physical' : 'Digital'} Book: ${bookTitle}`);
         
         showToast(`Successfully purchased "${bookTitle}" for ₦${price.toLocaleString()}!`, 'success');
         return true;
@@ -134,10 +121,7 @@ export async function purchaseBook(bookId, price, bookTitle) {
     }
 }
 
-// ============================================
-// NEW: PURCHASE BUNDLE FROM LIBRARY
-// ============================================
-
+// Purchase a bundle
 export async function purchaseBundle(bundleId, price, bundleTitle) {
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -161,17 +145,20 @@ export async function purchaseBundle(bundleId, price, bundleTitle) {
             .from('user_purchases')
             .insert([{
                 user_id: user.id,
-                item_type: 'bundle',
                 item_id: bundleId,
+                purchase_type: 'bundle',
                 amount: price,
                 created_at: new Date().toISOString()
             }]);
         
         if (purchaseError) {
             console.error('Error recording purchase:', purchaseError);
+            await updateWalletBalance(user.id, currentBalance);
+            showToast('Purchase failed. Please try again.', 'error');
+            return false;
         }
         
-        await addTransaction(user.id, -price, 'debit', `Bundle Purchase: ${bundleTitle}`);
+        await addTransaction(user.id, -price, 'debit', `Bundle: ${bundleTitle}`);
         
         showToast(`Successfully purchased bundle "${bundleTitle}" for ₦${price.toLocaleString()}!`, 'success');
         return true;
@@ -183,10 +170,7 @@ export async function purchaseBundle(bundleId, price, bundleTitle) {
     }
 }
 
-// ============================================
-// NEW: PURCHASE PRODUCT (Uniforms, Gadgets, Merch)
-// ============================================
-
+// Purchase a product (uniforms, gadgets, merchandise)
 export async function purchaseProduct(productId, price, productName) {
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -234,17 +218,20 @@ export async function purchaseProduct(productId, price, productName) {
             .from('user_purchases')
             .insert([{
                 user_id: user.id,
-                item_type: 'product',
                 item_id: productId,
+                purchase_type: 'product',
                 amount: price,
                 created_at: new Date().toISOString()
             }]);
         
         if (purchaseError) {
             console.error('Error recording purchase:', purchaseError);
+            await updateWalletBalance(user.id, currentBalance);
+            showToast('Purchase failed. Please try again.', 'error');
+            return false;
         }
         
-        await addTransaction(user.id, -price, 'debit', `Product Purchase: ${productName}`);
+        await addTransaction(user.id, -price, 'debit', `Product: ${productName}`);
         
         showToast(`Successfully purchased "${productName}" for ₦${price.toLocaleString()}!`, 'success');
         return true;
@@ -311,10 +298,14 @@ export async function tipCreator(receiverId, amount, entityType, entityId, messa
         }
         
         // Update receiver's total tips received
-        await supabase.rpc('increment_user_tips', { 
+        const { error: rpcError } = await supabase.rpc('increment_user_tips', { 
             p_user_id: receiverId, 
             p_amount: amount 
         });
+        
+        if (rpcError) {
+            console.warn('Could not update tips count:', rpcError);
+        }
         
         await addTransaction(user.id, -amount, 'debit', `Tip to ${receiverId}: ${message || 'Thanks!'}`);
         
@@ -329,24 +320,8 @@ export async function tipCreator(receiverId, amount, entityType, entityId, messa
 }
 
 // ============================================
-// LEGACY FUNCTIONS (for backward compatibility)
+// TRANSACTION HISTORY
 // ============================================
-
-// Get user's current access (legacy)
-export async function getUserAccess() {
-    const balance = await getWalletBalance();
-    return {
-        plan: 'free',
-        selectedPlatforms: [],
-        walletBalance: balance
-    };
-}
-
-// Check if user can access a platform (legacy - always true for free access)
-export async function canAccess(platform) {
-    // Hub is always free, other platforms are also free in the new model
-    return true;
-}
 
 // Get transaction history
 export async function getTransactionHistory(limit = 20) {
@@ -373,6 +348,10 @@ export async function getTransactionHistory(limit = 20) {
     }
 }
 
+// ============================================
+// REAL-TIME WALLET UPDATES
+// ============================================
+
 // Subscribe to real-time wallet updates
 export function subscribeToWalletUpdates(userId, callback) {
     return supabase
@@ -394,10 +373,17 @@ export function subscribeToWalletUpdates(userId, callback) {
         .subscribe();
 }
 
-// Add funds request
+// ============================================
+// ADD FUNDS REQUEST
+// ============================================
+
+// Request to add funds to wallet (admin approval required)
 export async function requestAddFunds(amount, bank, referenceCode) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    if (!user) {
+        showToast('Please login first', 'error');
+        return false;
+    }
     
     const { data: profile } = await supabase
         .from('users')
@@ -406,7 +392,7 @@ export async function requestAddFunds(amount, bank, referenceCode) {
         .single();
     
     const paymentRequest = {
-        id: `pay_${Date.now()}`,
+        id: `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         user_id: user.id,
         user_name: profile?.name || 'User',
         user_email: profile?.email || '',
@@ -431,6 +417,25 @@ export async function requestAddFunds(amount, bank, referenceCode) {
     return true;
 }
 
+// ============================================
+// LEGACY FUNCTIONS (Backward Compatibility)
+// ============================================
+
+// Get user's current access (legacy - always free)
+export async function getUserAccess() {
+    const balance = await getWalletBalance();
+    return {
+        plan: 'free',
+        selectedPlatforms: [],
+        walletBalance: balance
+    };
+}
+
+// Check if user can access a platform (legacy - always true for free access)
+export async function canAccess(platform) {
+    return true;
+}
+
 // Legacy functions for backward compatibility
 export async function purchaseBasic() { return true; }
 export async function purchaseStandard() { return true; }
@@ -439,5 +444,12 @@ export async function isPremium() { return false; }
 export function getAvailablePlatforms() { return []; }
 export function getPlanDetails() { return {}; }
 
-// Export constants
-export { PRICING, PLATFORM_INFO, PAID_PLATFORMS, FREE_PLATFORMS };
+// ============================================
+// EXPORTS
+// ============================================
+
+// Export constants (kept for compatibility)
+export const PRICING = {};
+export const PLATFORM_INFO = {};
+export const PAID_PLATFORMS = [];
+export const FREE_PLATFORMS = ['hub'];
