@@ -1255,7 +1255,7 @@ body.dark-mode .gp-display {
     color: var(--text-primary);
     white-space: pre-wrap;
     font-family: 'Georgia', 'Times New Roman', serif;
-    max-height: 450px; /* Enough to show substantial content */
+    max-height: 500px; /* Enough to show substantial content */
     min-height: 150px;
     overflow-y: auto; /* THIS ENABLES SCROLLING */
     padding-right: 0.5rem;
@@ -1290,7 +1290,7 @@ body.dark-mode .gp-display {
 
 /* BLUR EFFECT - Only for locked chapters, but STILL SCROLLABLE */
 .book-modal .chapter-content.chapter-blur {
-    max-height: 350px;
+    max-height: 500px;
     overflow-y: auto; /* ← Changed from hidden to auto */
     position: relative;
 }
