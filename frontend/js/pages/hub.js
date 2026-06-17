@@ -136,22 +136,32 @@ function showCenteredError(message) {
 async function loadUserData() {
     if (!currentUser) return;
     try {
+        // Try to get user data with all fields
         const { data, error } = await supabase
             .from('users')
-            .select('wallet_balance, gp_points, avatar_url')
+            .select('*')
             .eq('id', currentUser.id)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Error loading user data:', error);
+            // Set default values if error
+            userWallet = 0;
+            userGP = 0;
+            return;
+        }
+        
         userWallet = data?.wallet_balance || 0;
         userGP = data?.gp_points || 0;
         if (data?.avatar_url) {
             currentUser.avatar_url = data.avatar_url;
-            // Update avatar immediately
             updateAvatar();
         }
+        console.log('✅ User data loaded:', { wallet: userWallet, gp: userGP });
     } catch (e) {
         console.error('Error loading user data:', e);
+        userWallet = 0;
+        userGP = 0;
     }
 }
 
@@ -302,7 +312,10 @@ async function addGP(amount, reason) {
             .select('gp_points')
             .eq('id', currentUser.id)
             .single();
-        if (error) throw error;
+        if (error) {
+            console.warn('Could not get GP points:', error);
+            return null;
+        }
 
         const current = data?.gp_points || 0;
         const newGP = current + amount;
@@ -561,6 +574,23 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
     const physicalPrice = item.physical_price || 0;
     const audioPrice = item.audio_price || 0;
 
+    // Determine which option to auto-select (first available)
+    let defaultOption = null;
+    let defaultPrice = 0;
+    if (isPremium && hasDigital) {
+        defaultOption = 'premium';
+        defaultPrice = 0;
+    } else if (hasDigital) {
+        defaultOption = 'digital';
+        defaultPrice = digitalPrice;
+    } else if (hasPhysical) {
+        defaultOption = 'physical';
+        defaultPrice = physicalPrice;
+    } else if (hasAudio) {
+        defaultOption = 'audio';
+        defaultPrice = audioPrice;
+    }
+
     let detailsHtml = `
         <div class="book-layout">
             <div class="book-cover-wrapper">
@@ -598,7 +628,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                 <div class="purchase-section">
                     <div class="purchase-options-grid">
                         ${hasDigital ? `
-                            <div class="purchase-option-card" data-type="digital" onclick="selectPurchaseOption('digital', ${digitalPrice})">
+                            <div class="purchase-option-card ${defaultOption === 'digital' ? 'selected' : ''}" data-type="digital" onclick="selectPurchaseOption('digital', ${digitalPrice})">
                                 <span class="option-icon">📱</span>
                                 <span class="option-name">Digital</span>
                                 <span class="option-price ${digitalPrice === 0 ? 'free' : ''}">${digitalPrice === 0 ? 'Free' : '₦' + digitalPrice.toLocaleString()}</span>
@@ -607,7 +637,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                             </div>
                         ` : ''}
                         ${hasPhysical ? `
-                            <div class="purchase-option-card" data-type="physical" onclick="selectPurchaseOption('physical', ${physicalPrice})">
+                            <div class="purchase-option-card ${defaultOption === 'physical' ? 'selected' : ''}" data-type="physical" onclick="selectPurchaseOption('physical', ${physicalPrice})">
                                 <span class="option-icon">📖</span>
                                 <span class="option-name">Hard Copy</span>
                                 <span class="option-price">₦${physicalPrice.toLocaleString()}</span>
@@ -615,7 +645,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                             </div>
                         ` : ''}
                         ${hasAudio ? `
-                            <div class="purchase-option-card" data-type="audio" onclick="selectPurchaseOption('audio', ${audioPrice})">
+                            <div class="purchase-option-card ${defaultOption === 'audio' ? 'selected' : ''}" data-type="audio" onclick="selectPurchaseOption('audio', ${audioPrice})">
                                 <span class="option-icon">🎧</span>
                                 <span class="option-name">Audio Book</span>
                                 <span class="option-price">₦${audioPrice.toLocaleString()}</span>
@@ -623,7 +653,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                             </div>
                         ` : ''}
                         ${isPremium && hasDigital ? `
-                            <div class="purchase-option-card premium-option" data-type="premium" onclick="selectPurchaseOption('premium', 0)">
+                            <div class="purchase-option-card premium-option ${defaultOption === 'premium' ? 'selected' : ''}" data-type="premium" onclick="selectPurchaseOption('premium', 0)">
                                 <span class="option-icon">⭐</span>
                                 <span class="option-name">Premium Access</span>
                                 <span class="option-price free">FREE</span>
@@ -676,15 +706,25 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                     </div>
 
                     <!-- Purchase Summary -->
-                    <div class="purchase-summary" id="purchaseSummary">
+                    <div class="purchase-summary show" id="purchaseSummary">
                         <span class="summary-label">Total:</span>
-                        <span class="summary-total" id="summaryTotal">₦0</span>
+                        <span class="summary-total" id="summaryTotal">₦${defaultOption === 'premium' ? '0' : (defaultPrice || 0).toLocaleString()}</span>
                     </div>
-                    <button class="purchase-btn gold" id="purchaseBtn" disabled>
-                        Select an option to purchase
+                    <button class="purchase-btn gold" id="purchaseBtn">
+                        ${defaultOption === 'premium' ? '⭐ Get Premium Access' : `Purchase ${defaultOption ? defaultOption.charAt(0).toUpperCase() + defaultOption.slice(1) : 'Option'}`}
                     </button>
                 </div>
         `;
+        
+        // Set initial state
+        if (defaultOption) {
+            currentPurchaseState.selectedOption = defaultOption;
+            currentPurchaseState.selectedPrice = defaultPrice;
+            // If physical, don't auto-select location
+            if (defaultOption === 'physical') {
+                // Don't auto-select location
+            }
+        }
     } else {
         // Already purchased
         detailsHtml += `
@@ -709,6 +749,13 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
     DOM.purchaseSummary = document.getElementById('purchaseSummary');
     DOM.summaryTotal = document.getElementById('summaryTotal');
     DOM.deliverySection = document.getElementById('deliverySection');
+
+    // Re-bind purchase button click event
+    if (DOM.purchaseBtn && !isPurchased) {
+        DOM.purchaseBtn.onclick = async function() {
+            await completePurchase();
+        };
+    }
 
     modal.classList.add('active');
 }
@@ -1025,12 +1072,6 @@ document.addEventListener('input', (e) => {
 // ============================================
 // COMPLETE PURCHASE
 // ============================================
-document.addEventListener('click', async (e) => {
-    if (e.target.id === 'purchaseBtn' || e.target.closest('#purchaseBtn')) {
-        await completePurchase();
-    }
-});
-
 async function completePurchase() {
     const item = allItems.find(i => i.id === currentPurchaseState.itemId);
     if (!item) return showToast('Item not found', 'error');
@@ -1173,7 +1214,7 @@ async function processPayment(itemId, type, price) {
             .eq('id', currentUser.id)
             .single();
 
-        if ((user?.wallet_balance || 0) < price) {
+        if (!user || (user?.wallet_balance || 0) < price) {
             showToast(`Need ₦${(price - (user?.wallet_balance || 0)).toLocaleString()} more`, 'error');
             return;
         }
@@ -1230,7 +1271,7 @@ window.handlePurchase = async (itemId, type) => {
             .eq('id', currentUser.id)
             .single();
 
-        if ((user?.wallet_balance || 0) < price) {
+        if (!user || (user?.wallet_balance || 0) < price) {
             showToast(`Need ₦${(price - (user?.wallet_balance || 0)).toLocaleString()} more`, 'error');
             return;
         }
