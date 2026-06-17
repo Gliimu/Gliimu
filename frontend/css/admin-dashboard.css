@@ -826,3 +826,131 @@ body.dark-mode .icon-moon { display: none; }
         flex-wrap: wrap;
     }
 }
+
+/* =========================================
+   LIBRARY MANAGER STYLES
+   ========================================= */
+
+.library-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.library-stats .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.library-stats .stat-card .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--brand-gold);
+}
+
+.library-stats .stat-card .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.library-items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.library-admin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.library-admin-card img {
+    width: 70px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.library-admin-card .info {
+    flex: 1;
+}
+
+.library-admin-card .info h4 {
+    font-size: 0.9rem;
+    margin-bottom: 2px;
+    color: var(--text-primary);
+}
+
+.library-admin-card .info .meta {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.library-admin-card .info .pricing {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--brand-gold);
+}
+
+.library-admin-card .info .status-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 12px;
+    font-size: 0.65rem;
+    font-weight: 600;
+}
+
+.library-admin-card .info .status-badge.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.library-admin-card .info .status-badge.inactive {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
+.library-admin-card .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.library-admin-card .actions button {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.tab-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .library-items-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .library-admin-card {
+        flex-wrap: wrap;
+    }
+    
+    .library-admin-card img {
+        width: 60px;
+        height: 80px;
+    }
+}
