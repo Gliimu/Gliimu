@@ -556,7 +556,7 @@ async function renderTalkDetails(itemId) {
     updateSaveButton(item.id, isSaved);
 
     // Video player with Gliimu branding
-    const videoSrc = item.file_url || '/video/pnp.mp4';
+    const videoSrc = item.file_url || 'videos/pnp.mp4';
     
     let detailsHtml = `
         <div class="item-details talk-details">
