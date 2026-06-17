@@ -78,7 +78,9 @@ const DOM = {
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Hub initializing...');
-    DOM.grid.innerHTML = '<div class="loading">Loading content...</div>';
+    
+    // Show centered loading
+    showCenteredLoading();
 
     try {
         currentUser = await getCurrentUser();
@@ -101,16 +103,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('❌ Init error:', error);
-        DOM.grid.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Failed to Load</h3>
-                <p>${error.message || 'Please refresh.'}</p>
-                <button onclick="location.reload()" class="modal-btn modal-btn-primary" style="margin-top:1rem;">Refresh</button>
-            </div>
-        `;
+        showCenteredError(error.message || 'Failed to load content. Please refresh.');
     }
 });
+
+// ============================================
+// UI HELPERS
+// ============================================
+function showCenteredLoading() {
+    DOM.grid.innerHTML = `
+        <div class="centered-message">
+            <div class="loading-spinner"></div>
+            <p>Loading content...</p>
+        </div>
+    `;
+}
+
+function showCenteredError(message) {
+    DOM.grid.innerHTML = `
+        <div class="centered-message error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Something went wrong</h3>
+            <p>${escape(message)}</p>
+            <button onclick="location.reload()" class="btn-primary" style="margin-top:1rem; padding:0.75rem 2rem; border-radius:40px; background:var(--brand-gold); color:var(--brand-purple-dark); border:none; font-weight:600; cursor:pointer;">Refresh</button>
+        </div>
+    `;
+}
 
 // ============================================
 // DATA LOADING
@@ -127,7 +145,11 @@ async function loadUserData() {
         if (error) throw error;
         userWallet = data?.wallet_balance || 0;
         userGP = data?.gp_points || 0;
-        if (data?.avatar_url) currentUser.avatar_url = data.avatar_url;
+        if (data?.avatar_url) {
+            currentUser.avatar_url = data.avatar_url;
+            // Update avatar immediately
+            updateAvatar();
+        }
     } catch (e) {
         console.error('Error loading user data:', e);
     }
@@ -135,17 +157,22 @@ async function loadUserData() {
 
 async function loadItems() {
     try {
+        // Use hub_contents table instead of library_items
         const { data, error } = await supabase
-            .from('library_items')
+            .from('hub_contents')
             .select('*')
             .eq('is_active', true)
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database error:', error);
+            throw error;
+        }
+        
         if (!data || data.length === 0) {
             DOM.grid.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-book-open"></i>
+                <div class="centered-message">
+                    <i class="fas fa-book-open" style="font-size:2.5rem; opacity:0.5; margin-bottom:1rem;"></i>
                     <h3>No Content Yet</h3>
                     <p>Check back soon for new content.</p>
                 </div>
@@ -154,19 +181,12 @@ async function loadItems() {
         }
 
         allItems = data;
-        console.log(`✅ Loaded ${data.length} items`);
+        console.log(`✅ Loaded ${data.length} items from hub_contents`);
         renderItems();
 
     } catch (e) {
         console.error('Error loading items:', e);
-        DOM.grid.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-database"></i>
-                <h3>Database Error</h3>
-                <p>${e.message}</p>
-                <button onclick="loadItems()" class="modal-btn modal-btn-primary" style="margin-top:1rem;">Retry</button>
-            </div>
-        `;
+        showCenteredError(e.message || 'Unable to load content. Please refresh.');
     }
 }
 
@@ -201,8 +221,8 @@ function renderItems(items = null) {
     const list = items || allItems;
     if (!list.length) {
         DOM.grid.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-search"></i>
+            <div class="centered-message">
+                <i class="fas fa-search" style="font-size:2.5rem; opacity:0.5; margin-bottom:1rem;"></i>
                 <h3>No Items Found</h3>
                 <p>Try a different search.</p>
             </div>
@@ -315,8 +335,9 @@ function updateGPDisplay() {
 
 function updateAvatar() {
     if (DOM.avatar) {
-        const url = currentUser?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2c2f78&color=fff`;
-        DOM.avatar.src = url;
+        const avatarUrl = currentUser?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2c2f78&color=fff`;
+        DOM.avatar.src = avatarUrl;
+        DOM.avatar.alt = currentUser?.name || 'User';
     }
 }
 
@@ -1296,7 +1317,7 @@ window.likeTalk = async (itemId) => {
     if (!item) return;
 
     const likes = (item.likes || 0) + 1;
-    await supabase.from('library_items').update({ likes }).eq('id', itemId);
+    await supabase.from('hub_contents').update({ likes }).eq('id', itemId);
     item.likes = likes;
     showToast('❤️ Liked!', 'success');
     const countEl = document.querySelector('.engagement-btn .count');
@@ -1314,7 +1335,7 @@ window.shareTalk = async (itemId) => {
     const item = allItems.find(i => i.id === itemId);
     if (item) {
         const shares = (item.shares || 0) + 1;
-        await supabase.from('library_items').update({ shares }).eq('id', itemId);
+        await supabase.from('hub_contents').update({ shares }).eq('id', itemId);
         item.shares = shares;
     }
 };
@@ -1443,7 +1464,7 @@ window.closeModal = () => {
 
 DOM.modalCloseBtn?.addEventListener('click', closeModal);
 DOM.itemModal?.addEventListener('click', (e) => {
-    if (e.target === DOM.itemModal) closeModal();
+    if (e.target === DOM.itemModal) closeModal());
 });
 
 document.addEventListener('keydown', (e) => {
