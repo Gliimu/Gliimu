@@ -23,6 +23,7 @@ let currentPurchaseState = {
     selectedLocation: null,
     selectedPrice: 0
 };
+let currentVideoPlayer = null;
 
 const GP_REWARDS = {
     purchase_book: 5,
@@ -137,6 +138,50 @@ function showCenteredError(message) {
         </div>
     `;
 }
+
+function showInsufficientFunds(shortfall, currentBalance, required) {
+    // Create a custom modal for insufficient funds
+    const modalHtml = `
+        <div id="insufficientFundsModal" class="modal" style="display:flex; z-index:2000;">
+            <div class="modal-content" style="max-width:400px; text-align:center; padding:2rem;">
+                <div style="font-size:3rem; margin-bottom:1rem;">⚠️</div>
+                <h2 style="margin-bottom:0.5rem;">Insufficient Funds</h2>
+                <p style="color:var(--text-secondary); margin-bottom:0.5rem;">
+                    You need <strong style="color:var(--brand-gold);">₦${shortfall}</strong> more to complete this purchase.
+                </p>
+                <p style="color:var(--text-secondary); margin-bottom:1.5rem; font-size:0.85rem;">
+                    Current Balance: <strong>₦${currentBalance.toLocaleString()}</strong><br>
+                    Required: <strong>₦${required.toLocaleString()}</strong>
+                </p>
+                <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
+                    <button onclick="window.location.href='/dashboard.html?tab=wallet'" 
+                            style="padding:0.75rem 2rem; border-radius:40px; border:none; background:var(--brand-gold); color:var(--brand-purple-dark); font-weight:600; cursor:pointer;">
+                        💰 Add Funds
+                    </button>
+                    <button onclick="closeInsufficientFundsModal()" 
+                            style="padding:0.75rem 2rem; border-radius:40px; border:1px solid var(--border-color); background:transparent; color:var(--text-primary); cursor:pointer;">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existing = document.getElementById('insufficientFundsModal');
+    if (existing) existing.remove();
+    
+    // Add new modal
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeInsufficientFundsModal() {
+    const modal = document.getElementById('insufficientFundsModal');
+    if (modal) modal.remove();
+}
+
+// Make it globally accessible
+window.closeInsufficientFundsModal = closeInsufficientFundsModal;
 
 // ============================================
 // DATA LOADING
@@ -526,6 +571,9 @@ window.viewDetails = async (itemId) => {
     DOM.modalFooter.style.display = 'flex';
     DOM.modalImage.style.display = 'block';
 
+    // Clean up any existing video player
+    cleanupVideoPlayer();
+
     // Route to appropriate detail view based on type
     if (item.type === 'book' || item.type === 'resource') {
         await renderBookDetails(itemId);
@@ -537,6 +585,21 @@ window.viewDetails = async (itemId) => {
         await renderGenericDetails(itemId);
     }
 };
+
+// ============================================
+// CLEANUP VIDEO PLAYER
+// ============================================
+function cleanupVideoPlayer() {
+    if (currentVideoPlayer) {
+        const video = currentVideoPlayer.querySelector('video');
+        if (video) {
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+        }
+        currentVideoPlayer = null;
+    }
+}
 
 // ============================================
 // TALK DETAILS - Social Media Style
@@ -635,7 +698,7 @@ async function renderTalkDetails(itemId) {
             
             <!-- Social Engagement Bar -->
             <div class="social-engagement">
-                <button class="social-btn" onclick="window.likeTalk('${item.id}')" id="likeBtn">
+                <button class="social-btn" onclick="window.likeTalkSocial('${item.id}')" id="likeBtn">
                     <i class="far fa-heart"></i> <span class="count" id="likeCount">${item.likes || 0}</span>
                 </button>
                 <button class="social-btn" onclick="window.shareTalk('${item.id}')">
@@ -731,9 +794,9 @@ window.postComment = async (itemId) => {
 };
 
 // ============================================
-// UPDATE LIKE TALK FUNCTION
+// LIKE TALK - SOCIAL STYLE
 // ============================================
-window.likeTalk = async (itemId) => {
+window.likeTalkSocial = async (itemId) => {
     if (!currentUser) {
         showToast('Please login to like', 'error');
         return;
@@ -755,7 +818,7 @@ window.likeTalk = async (itemId) => {
                 .eq('user_id', currentUser.id)
                 .eq('item_id', itemId);
             
-            const newLikes = (item.likes || 0) - 1;
+            const newLikes = Math.max(0, (item.likes || 0) - 1);
             await supabase.from('hub_contents').update({ likes: newLikes }).eq('id', itemId);
             item.likes = newLikes;
             
@@ -793,11 +856,45 @@ window.likeTalk = async (itemId) => {
 };
 
 // ============================================
+// SHARE TALK
+// ============================================
+window.shareTalk = async (itemId) => {
+    const url = `${window.location.origin}/talk/${itemId}`;
+    if (navigator.share) {
+        try { await navigator.share({ title: 'Check this out!', url }); } catch (e) {}
+    } else {
+        navigator.clipboard.writeText(url);
+        showToast('📋 Link copied to clipboard!', 'success');
+    }
+    const item = allItems.find(i => i.id === itemId);
+    if (item) {
+        const shares = (item.shares || 0) + 1;
+        await supabase.from('hub_contents').update({ shares }).eq('id', itemId);
+        item.shares = shares;
+    }
+};
+
+// ============================================
+// COMMENT TALK
+// ============================================
+window.commentTalk = (itemId) => {
+    const input = document.getElementById('commentInput');
+    if (input) {
+        input.focus();
+    } else {
+        showToast('💬 Type your comment above', 'info');
+    }
+};
+
+// ============================================
 // CUSTOM VIDEO PLAYER
 // ============================================
 function initCustomVideoPlayer() {
     const player = document.getElementById('gliimuVideoPlayer');
     if (!player) return;
+
+    // Store reference for cleanup
+    currentVideoPlayer = player;
 
     const video = player.querySelector('video');
     const playPauseBtn = player.querySelector('#playPauseBtn');
@@ -812,32 +909,25 @@ function initCustomVideoPlayer() {
     const loading = player.querySelector('#videoLoading');
 
     let controlsTimeout = null;
-    let isControlsVisible = true;
 
     // Show/hide controls
     function showControls() {
         controls.classList.add('show');
-        isControlsVisible = true;
         clearTimeout(controlsTimeout);
         controlsTimeout = setTimeout(() => {
             if (!video.paused) {
                 controls.classList.remove('show');
-                isControlsVisible = false;
             }
         }, 3000);
-    }
-
-    function hideControls() {
-        if (!video.paused) {
-            controls.classList.remove('show');
-            isControlsVisible = false;
-        }
     }
 
     // Toggle play/pause
     function togglePlay() {
         if (video.paused) {
-            video.play();
+            video.play().catch(() => {
+                // Handle autoplay restrictions
+                showToast('Click play to start video', 'info');
+            });
             playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
             bigPlayBtn.classList.add('hidden');
             showControls();
@@ -851,16 +941,18 @@ function initCustomVideoPlayer() {
 
     // Update progress
     function updateProgress() {
-        const percent = (video.currentTime / video.duration) * 100;
-        progressFill.style.width = percent + '%';
-        
-        const currentMinutes = Math.floor(video.currentTime / 60);
-        const currentSeconds = Math.floor(video.currentTime % 60);
-        const totalMinutes = Math.floor(video.duration / 60);
-        const totalSeconds = Math.floor(video.duration % 60);
-        
-        timeDisplay.textContent = 
-            `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+        if (video.duration) {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressFill.style.width = percent + '%';
+            
+            const currentMinutes = Math.floor(video.currentTime / 60);
+            const currentSeconds = Math.floor(video.currentTime % 60);
+            const totalMinutes = Math.floor(video.duration / 60);
+            const totalSeconds = Math.floor(video.duration % 60);
+            
+            timeDisplay.textContent = 
+                `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+        }
     }
 
     // Event listeners
@@ -880,6 +972,11 @@ function initCustomVideoPlayer() {
     });
     video.addEventListener('timeupdate', updateProgress);
     video.addEventListener('loadedmetadata', updateProgress);
+    video.addEventListener('ended', () => {
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        bigPlayBtn.classList.remove('hidden');
+        progressFill.style.width = '100%';
+    });
     
     // Loading state
     video.addEventListener('waiting', () => {
@@ -892,13 +989,19 @@ function initCustomVideoPlayer() {
     // Progress bar click
     progressContainer.addEventListener('click', (e) => {
         const rect = progressContainer.getBoundingClientRect();
-        const pos = (e.clientX - rect.left) / rect.width;
-        video.currentTime = pos * video.duration;
+        const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        if (video.duration) {
+            video.currentTime = pos * video.duration;
+        }
     });
 
     // Volume
     volumeSlider.addEventListener('input', () => {
-        video.volume = volumeSlider.value;
+        video.volume = parseFloat(volumeSlider.value);
+        updateVolumeIcon();
+    });
+
+    function updateVolumeIcon() {
         if (video.volume === 0) {
             volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
         } else if (video.volume < 0.5) {
@@ -906,7 +1009,7 @@ function initCustomVideoPlayer() {
         } else {
             volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
         }
-    });
+    }
 
     volumeBtn.addEventListener('click', () => {
         if (video.volume > 0) {
@@ -916,18 +1019,22 @@ function initCustomVideoPlayer() {
         } else {
             video.volume = 1;
             volumeSlider.value = 1;
-            volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            updateVolumeIcon();
         }
     });
 
     // Fullscreen
     fullscreenBtn.addEventListener('click', () => {
         if (!document.fullscreenElement) {
-            player.requestFullscreen();
-            fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+            if (player.requestFullscreen) {
+                player.requestFullscreen();
+                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+            }
         } else {
-            document.exitFullscreen();
-            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            }
         }
     });
 
@@ -938,22 +1045,28 @@ function initCustomVideoPlayer() {
     });
 
     // Keyboard shortcuts
-    video.addEventListener('keydown', (e) => {
-        if (e.key === ' ' || e.key === 'k') {
-            e.preventDefault();
-            togglePlay();
-        }
-        if (e.key === 'f') {
-            fullscreenBtn.click();
-        }
-        if (e.key === 'm') {
-            volumeBtn.click();
+    document.addEventListener('keydown', (e) => {
+        if (DOM.itemModal.classList.contains('active') && !e.target.closest('input, textarea')) {
+            if (e.key === ' ' || e.key === 'k') {
+                e.preventDefault();
+                togglePlay();
+            }
+            if (e.key === 'f') {
+                fullscreenBtn.click();
+            }
+            if (e.key === 'm') {
+                volumeBtn.click();
+            }
         }
     });
 
     // Mouse move to show controls
     player.addEventListener('mousemove', showControls);
-    player.addEventListener('mouseleave', hideControls);
+    player.addEventListener('mouseleave', () => {
+        if (!video.paused) {
+            controls.classList.remove('show');
+        }
+    });
 
     // Start with controls visible
     showControls();
@@ -1022,7 +1135,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                 </div>
                 <div class="book-description">${escape(item.description || 'No description available.')}</div>
                 
-                <!-- First Chapter Preview - Full Width -->
+                <!-- First Chapter Preview - Full Width with Scroll -->
                 <div class="chapter-preview-wide">
                     <div class="chapter-header">
                         <span class="chapter-icon">📖</span>
@@ -1566,18 +1679,7 @@ async function processPayment(itemId, type, price) {
             const shortfall = (price - currentBalance).toLocaleString();
             
             // Show custom popup asking to fund wallet
-            const shouldFund = confirm(
-                `⚠️ Insufficient Funds\n\n` +
-                `You need ₦${shortfall} more to complete this purchase.\n` +
-                `Current Balance: ₦${currentBalance.toLocaleString()}\n` +
-                `Required: ₦${price.toLocaleString()}\n\n` +
-                `Would you like to add funds to your wallet?`
-            );
-            
-            if (shouldFund) {
-                // Redirect to dashboard wallet tab
-                window.location.href = '/dashboard.html?tab=wallet';
-            }
+            showInsufficientFunds(shortfall, currentBalance, price);
             return;
         }
         // --- END WALLET CHECK ---
@@ -1729,42 +1831,6 @@ window.handleFreeAccess = async (itemId) => {
 };
 
 // ============================================
-// TALK ENGAGEMENT
-// ============================================
-window.likeTalk = async (itemId) => {
-    if (!currentUser) return showToast('Please login', 'error');
-    const item = allItems.find(i => i.id === itemId);
-    if (!item) return;
-
-    const likes = (item.likes || 0) + 1;
-    await supabase.from('hub_contents').update({ likes }).eq('id', itemId);
-    item.likes = likes;
-    showToast('❤️ Liked!', 'success');
-    const countEl = document.querySelector('.engagement-btn .count');
-    if (countEl) countEl.textContent = likes;
-};
-
-window.shareTalk = async (itemId) => {
-    const url = `${window.location.origin}/talk/${itemId}`;
-    if (navigator.share) {
-        try { await navigator.share({ title: 'Check this out!', url }); } catch (e) {}
-    } else {
-        navigator.clipboard.writeText(url);
-        showToast('📋 Link copied to clipboard!', 'success');
-    }
-    const item = allItems.find(i => i.id === itemId);
-    if (item) {
-        const shares = (item.shares || 0) + 1;
-        await supabase.from('hub_contents').update({ shares }).eq('id', itemId);
-        item.shares = shares;
-    }
-};
-
-window.commentTalk = (itemId) => {
-    showToast('💬 Comments feature coming soon!', 'info');
-};
-
-// ============================================
 // DOWNLOAD BUNDLE
 // ============================================
 window.downloadBundle = async (itemId) => {
@@ -1897,6 +1963,10 @@ window.closeModal = () => {
             downloadIcon.remove();
         }
     }
+    // Clean up video player
+    cleanupVideoPlayer();
+    // Close insufficient funds modal if open
+    closeInsufficientFundsModal();
 };
 
 DOM.modalCloseBtn?.addEventListener('click', closeModal);
@@ -1940,14 +2010,16 @@ window.handlePurchase = handlePurchase;
 window.handleGrantAccess = handleGrantAccess;
 window.handleFreeAccess = handleFreeAccess;
 window.downloadBundle = downloadBundle;
-window.likeTalk = likeTalk;
+window.likeTalkSocial = likeTalkSocial;
 window.shareTalk = shareTalk;
 window.commentTalk = commentTalk;
+window.postComment = postComment;
 window.closeModal = closeModal;
 window.togglePurchaseDropdown = togglePurchaseDropdown;
 window.closeSearchModal = () => {};
 window.selectPurchaseOption = selectPurchaseOption;
 window.selectLocation = selectLocation;
 window.updateDeliveryCities = updateDeliveryCities;
+window.closeInsufficientFundsModal = closeInsufficientFundsModal;
 
 console.log('✅ Hub loaded successfully');
