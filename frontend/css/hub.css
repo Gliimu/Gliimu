@@ -1093,40 +1093,228 @@ body.dark-mode .gp-display {
 }
 
 /* ------------------------------------------
-   VIDEO PLAYER - TALK MODAL
+   CUSTOM VIDEO PLAYER - GLIIMU BRANDED
    ------------------------------------------ */
-.video-player-container {
+.gliimu-video-player {
     width: 100%;
     border-radius: 12px;
     overflow: hidden;
-    background: #000;
+    background: #0a0a0a;
     position: relative;
-    margin-bottom: 1rem;
 }
 
-.video-player-container video {
+.gliimu-video-player video {
     width: 100%;
     display: block;
 }
 
-.video-player-container .video-branding {
+/* Video Branding */
+.gliimu-video-player .video-branding {
     position: absolute;
     top: 1rem;
     left: 1rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
     padding: 0.4rem 0.8rem;
     border-radius: 20px;
     color: white;
     font-size: 0.75rem;
     font-weight: 500;
+    z-index: 10;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.video-player-container .video-branding .brand-icon {
+.gliimu-video-player .video-branding .brand-icon {
     font-size: 0.9rem;
+}
+
+.gliimu-video-player .video-branding .brand-text {
+    color: var(--brand-gold);
+}
+
+/* Custom Controls */
+.gliimu-video-player .video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+    padding: 1.5rem 1rem 0.75rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+}
+
+.gliimu-video-player:hover .video-controls,
+.gliimu-video-player .video-controls.show {
+    opacity: 1;
+}
+
+.gliimu-video-player .controls-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.gliimu-video-player .controls-row .ctrl-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    transition: all var(--transition-speed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gliimu-video-player .controls-row .ctrl-btn:hover {
+    color: var(--brand-gold);
+    transform: scale(1.1);
+}
+
+.gliimu-video-player .controls-row .progress-container {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+    transition: height 0.2s ease;
+}
+
+.gliimu-video-player .controls-row .progress-container:hover {
+    height: 6px;
+}
+
+.gliimu-video-player .controls-row .progress-fill {
+    height: 100%;
+    background: var(--brand-gold);
+    border-radius: 2px;
+    width: 0%;
+    position: relative;
+}
+
+.gliimu-video-player .controls-row .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: -4px;
+    width: 12px;
+    height: 12px;
+    background: var(--brand-gold);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.gliimu-video-player .controls-row .progress-container:hover .progress-fill::after {
+    opacity: 1;
+}
+
+.gliimu-video-player .controls-row .time-display {
+    color: white;
+    font-size: 0.7rem;
+    font-family: 'Space Grotesk', sans-serif;
+    min-width: 70px;
+    opacity: 0.8;
+}
+
+.gliimu-video-player .controls-row .volume-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.gliimu-video-player .controls-row .volume-control input[type="range"] {
+    width: 50px;
+    height: 3px;
+    -webkit-appearance: none;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    outline: none;
+}
+
+.gliimu-video-player .controls-row .volume-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    background: var(--brand-gold);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.gliimu-video-player .controls-row .volume-control input[type="range"]::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    background: var(--brand-gold);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+/* Fullscreen button */
+.gliimu-video-player .controls-row .ctrl-btn.fullscreen-btn {
+    font-size: 0.9rem;
+}
+
+/* Big Play Button (centered) */
+.gliimu-video-player .big-play-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70px;
+    height: 70px;
+    background: rgba(251, 176, 64, 0.9);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 1.8rem;
+    color: var(--brand-purple-dark);
+    transition: all var(--transition-speed);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.gliimu-video-player .big-play-btn:hover {
+    transform: translate(-50%, -50%) scale(1.1);
+    background: var(--brand-gold);
+}
+
+.gliimu-video-player .big-play-btn.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Loading spinner on video */
+.gliimu-video-player .video-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    display: none;
+}
+
+.gliimu-video-player .video-loading.show {
+    display: block;
+}
+
+.gliimu-video-player .video-loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: var(--brand-gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
 
 /* Talk Details */
@@ -1214,6 +1402,26 @@ body.dark-mode .gp-display {
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 600;
+}
+
+/* Bundle download icon in modal header */
+.bundle-download-icon {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color var(--transition-speed);
+    padding: 0 4px;
+}
+
+.bundle-download-icon:hover {
+    color: var(--brand-gold);
+}
+
+.bundle-download-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 /* ------------------------------------------
@@ -1707,6 +1915,12 @@ body.dark-mode .gp-display {
     }
 }
 
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* Responsive Book Modal */
 @media (max-width: 768px) {
     .book-modal .modal-header {
@@ -1752,6 +1966,10 @@ body.dark-mode .gp-display {
     .book-modal .book-meta-tags .tag {
         font-size: 0.65rem;
         padding: 0.15rem 0.5rem;
+    }
+
+    .gliimu-video-player .controls-row .volume-control input[type="range"] {
+        width: 30px;
     }
 }
 
@@ -1822,6 +2040,21 @@ body.dark-mode .gp-display {
     .book-modal .modal-footer {
         padding: 0.75rem 1rem;
     }
+
+    .gliimu-video-player .big-play-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+
+    .gliimu-video-player .controls-row .volume-control input[type="range"] {
+        width: 20px;
+    }
+
+    .gliimu-video-player .controls-row .time-display {
+        font-size: 0.6rem;
+        min-width: 50px;
+    }
 }
 
 /* ------------------------------------------
@@ -1884,6 +2117,11 @@ body.dark-mode .gp-display {
     .hub-main {
         padding-top: calc(var(--header-height) + 20px);
     }
+
+    .gliimu-video-player .video-branding {
+        font-size: 0.65rem;
+        padding: 0.3rem 0.6rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1942,6 +2180,11 @@ body.dark-mode .gp-display {
         width: 36px;
         height: 36px;
         font-size: 0.9rem;
+    }
+
+    .talk-details .talk-engagement {
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
 }
 
