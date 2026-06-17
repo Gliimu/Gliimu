@@ -1515,14 +1515,21 @@ async function completePurchase() {
 }
 
 // ============================================
-// PROCESS PAYMENT
+// PROCESS PAYMENT - WITH WALLET CHECK
 // ============================================
 async function processPayment(itemId, type, price) {
-    if (!currentUser) return showToast('Please login', 'error');
+    if (!currentUser) {
+        showToast('Please login to purchase', 'error');
+        return;
+    }
 
     const item = allItems.find(i => i.id === itemId);
-    if (!item) return showToast('Item not found', 'error');
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
 
+    // Check if premium and digital
     const isPremium = userGP >= 100;
     if (isPremium && type === 'digital' && price > 0) {
         price = 0;
@@ -1540,25 +1547,63 @@ async function processPayment(itemId, type, price) {
     }
 
     try {
-        const { data: user } = await supabase
+        const { data: user, error: userError } = await supabase
             .from('users')
             .select('wallet_balance')
             .eq('id', currentUser.id)
             .single();
 
-        if (!user || (user?.wallet_balance || 0) < price) {
-            showToast(`Need ₦${(price - (user?.wallet_balance || 0)).toLocaleString()} more`, 'error');
+        if (userError) {
+            console.error('Error fetching wallet:', userError);
+            showToast('Error checking wallet balance', 'error');
             return;
         }
 
-        await supabase
+        const currentBalance = user?.wallet_balance || 0;
+
+        // --- WALLET CHECK ---
+        if (currentBalance < price) {
+            const shortfall = (price - currentBalance).toLocaleString();
+            
+            // Show custom popup asking to fund wallet
+            const shouldFund = confirm(
+                `⚠️ Insufficient Funds\n\n` +
+                `You need ₦${shortfall} more to complete this purchase.\n` +
+                `Current Balance: ₦${currentBalance.toLocaleString()}\n` +
+                `Required: ₦${price.toLocaleString()}\n\n` +
+                `Would you like to add funds to your wallet?`
+            );
+            
+            if (shouldFund) {
+                // Redirect to dashboard wallet tab
+                window.location.href = '/dashboard.html?tab=wallet';
+            }
+            return;
+        }
+        // --- END WALLET CHECK ---
+
+        // Process payment
+        const newBalance = currentBalance - price;
+        const { error: updateError } = await supabase
             .from('users')
-            .update({ wallet_balance: (user?.wallet_balance || 0) - price })
+            .update({ wallet_balance: newBalance })
             .eq('id', currentUser.id);
 
+        if (updateError) {
+            console.error('Payment error:', updateError);
+            showToast('Payment failed. Please try again.', 'error');
+            return;
+        }
+
+        // Record purchase
         await supabase
             .from('user_purchases')
-            .insert({ user_id: currentUser.id, item_id: itemId, purchase_type: type, amount: price });
+            .insert({ 
+                user_id: currentUser.id, 
+                item_id: itemId, 
+                purchase_type: type, 
+                amount: price 
+            });
 
         purchasedItems.add(itemId);
         const gp = await addGP(item.type === 'bundle' ? 10 : 5, `Purchased: ${item.title}`);
@@ -1569,7 +1614,9 @@ async function processPayment(itemId, type, price) {
 
         if (type === 'digital' && item.file_url) {
             setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) window.open(item.file_url, '_blank');
+                if (confirm(`Open "${item.title}" now?`)) {
+                    window.open(item.file_url, '_blank');
+                }
             }, 800);
         }
     } catch (e) {
