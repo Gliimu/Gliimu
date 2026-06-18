@@ -170,6 +170,26 @@
             position: relative;
         }
 
+        .progress-bar-container .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255,255,255,0.3) 50%, 
+                transparent 100%);
+            animation: shimmer 2s infinite;
+            background-size: 200% 100%;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
         /* ============================================
            READER CONTAINER
            ============================================ */
@@ -227,6 +247,50 @@
         }
 
         /* ============================================
+           NAVIGATION OVERLAY (Mobile)
+           ============================================ */
+        .nav-overlay {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 25%;
+            z-index: 2;
+            cursor: pointer;
+            touch-action: none;
+            display: none;
+        }
+
+        .nav-overlay.left {
+            left: 0;
+        }
+
+        .nav-overlay.right {
+            right: 0;
+        }
+
+        .nav-overlay .nav-hint {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            opacity: 0.2;
+            transition: opacity 0.3s;
+        }
+
+        .nav-overlay.left .nav-hint {
+            left: 15px;
+        }
+
+        .nav-overlay.right .nav-hint {
+            right: 15px;
+        }
+
+        .nav-overlay:active .nav-hint {
+            opacity: 0.6;
+        }
+
+        /* ============================================
            AUTH REQUIRED OVERLAY
            ============================================ */
         .auth-overlay {
@@ -236,7 +300,7 @@
             width: 100%;
             height: 100%;
             background: var(--reader-bg);
-            display: flex;
+            display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -360,6 +424,107 @@
         }
 
         /* ============================================
+           COMPLETED OVERLAY
+           ============================================ */
+        .completed-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--reader-bg);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .completed-overlay .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .completed-overlay h2 {
+            font-size: 1.5rem;
+            color: var(--brand-gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .completed-overlay p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            max-width: 400px;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .completed-overlay .gp-reward {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--brand-gold);
+            margin-bottom: 1.5rem;
+        }
+
+        .completed-overlay .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .completed-overlay .btn-group button {
+            padding: 0.6rem 1.5rem;
+            border-radius: 40px;
+            border: none;
+            font-weight: 600;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: all 0.2s;
+        }
+
+        .completed-overlay .btn-group button:active {
+            transform: scale(0.95);
+        }
+
+        .completed-overlay .btn-group .btn-primary {
+            background: var(--brand-gold);
+            color: var(--brand-purple);
+        }
+
+        .completed-overlay .btn-group .btn-primary:hover {
+            background: var(--brand-gold-dark);
+        }
+
+        .completed-overlay .btn-group .btn-secondary {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .completed-overlay .btn-group .btn-secondary:hover {
+            border-color: var(--brand-gold);
+            color: var(--brand-gold);
+        }
+
+        /* ============================================
+           CONFETTI CANVAS
+           ============================================ */
+        #confettiCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* ============================================
            TOAST
            ============================================ */
         .reader-toast {
@@ -463,6 +628,18 @@
             border-color: var(--brand-gold-dark);
         }
 
+        .reader-footer .actions button.completed-btn {
+            background: var(--success-color, #10b981);
+            border-color: var(--success-color, #10b981);
+            color: white;
+            font-weight: 600;
+        }
+
+        .reader-footer .actions button.completed-btn:hover {
+            background: #059669;
+            border-color: #059669;
+        }
+
         /* ============================================
            RESPONSIVE
            ============================================ */
@@ -516,6 +693,10 @@
             .auth-overlay .icon {
                 font-size: 3rem;
             }
+
+            .nav-overlay {
+                display: block;
+            }
         }
 
         @media (max-width: 480px) {
@@ -560,6 +741,21 @@
             .auth-overlay .btn-group button {
                 padding: 0.4rem 1rem;
                 font-size: 0.75rem;
+            }
+
+            .nav-overlay {
+                width: 20%;
+            }
+        }
+
+        @media (max-width: 375px) {
+            .reader-header .book-title {
+                max-width: 60px;
+                font-size: 0.5rem;
+            }
+            
+            .reader-header .logo span {
+                font-size: 0.6rem;
             }
         }
 
@@ -611,7 +807,7 @@
         </div>
 
         <!-- Auth Required Overlay -->
-        <div class="auth-overlay" id="authOverlay" style="display:none;">
+        <div class="auth-overlay" id="authOverlay">
             <div class="icon">🔒</div>
             <h2 id="authTitle">Access Restricted</h2>
             <p id="authMessage">You need to be signed in and have purchased this content to view it.</p>
@@ -625,11 +821,38 @@
             </div>
         </div>
 
+        <!-- Completed Overlay -->
+        <div class="completed-overlay" id="completedOverlay">
+            <div class="icon">🎉</div>
+            <h2>Congratulations!</h2>
+            <p id="completedMessage">You've completed reading this book!</p>
+            <div class="gp-reward" id="gpRewardDisplay">+5 GP</div>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="closeReader()">
+                    <i class="fas fa-check"></i> Done
+                </button>
+                <button class="btn-secondary" onclick="goToHub()">
+                    <i class="fas fa-home"></i> Browse More
+                </button>
+            </div>
+        </div>
+
         <!-- Page Wrapper for PDF Content -->
         <div class="page-wrapper" id="pageWrapper" style="display:none;">
             <!-- Canvas will be rendered here -->
         </div>
+
+        <!-- Navigation overlays for mobile -->
+        <div class="nav-overlay left" id="navLeft" onclick="prevPage()">
+            <div class="nav-hint"><i class="fas fa-chevron-left"></i></div>
+        </div>
+        <div class="nav-overlay right" id="navRight" onclick="nextPage()">
+            <div class="nav-hint"><i class="fas fa-chevron-right"></i></div>
+        </div>
     </div>
+
+    <!-- Confetti Canvas -->
+    <canvas id="confettiCanvas"></canvas>
 
     <!-- Footer -->
     <footer class="reader-footer">
@@ -658,7 +881,7 @@
         const SUPABASE_URL = 'https://vsgvscemqtqgolrindcx.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzZ3ZzY2VtcXRxZ29scmluZGN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3OTk1NDksImV4cCI6MjA5NjM3NTU0OX0.IUNvIleBOKGTIjTg-vx-v0wNLZEk9IVWGouvVIDlo40';
 
-        const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+        let supabaseClient = null;
 
         // ============================================
         // DETECT DEVICE
@@ -670,7 +893,6 @@
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
         console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
-        console.log('🌐 Browser:', isSafari ? 'Safari' : 'Other');
 
         // ============================================
         // STATE
@@ -688,6 +910,10 @@
         let pageCache = {};
         let usingGoogleDocs = false;
         let fileUrl = null;
+        let isCompleted = false;
+        let hasClaimedGP = false;
+        let currentItemData = null;
+        let userId = null;
 
         // ============================================
         // DOM REFS
@@ -701,12 +927,16 @@
         const authOverlay = document.getElementById('authOverlay');
         const authTitle = document.getElementById('authTitle');
         const authMessage = document.getElementById('authMessage');
+        const completedOverlay = document.getElementById('completedOverlay');
+        const completedMessage = document.getElementById('completedMessage');
+        const gpRewardDisplay = document.getElementById('gpRewardDisplay');
         const pageInfo = document.getElementById('pageInfo');
         const progressFill = document.getElementById('progressFill');
         const progressContainer = document.getElementById('progressContainer');
         const themeBtn = document.getElementById('themeBtn');
         const themeIcon = document.getElementById('themeIcon');
         const readerContainer = document.getElementById('readerContainer');
+        const confettiCanvas = document.getElementById('confettiCanvas');
 
         // ============================================
         // GET URL PARAMETERS
@@ -723,13 +953,40 @@
         console.log('📚 Item ID:', currentItemId);
 
         // ============================================
+        // LOAD SUPABASE
+        // ============================================
+        function loadSupabase() {
+            return new Promise(function(resolve, reject) {
+                if (typeof supabase !== 'undefined' && supabase) {
+                    supabaseClient = supabase;
+                    resolve();
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js';
+                script.onload = function() {
+                    if (window.supabase) {
+                        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                        resolve();
+                    } else {
+                        reject(new Error('Supabase failed to load'));
+                    }
+                };
+                script.onerror = function() {
+                    reject(new Error('Supabase library could not be loaded'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // ============================================
         // AUTHENTICATION & AUTHORIZATION
         // ============================================
 
-        // Get current user from Supabase
         async function getCurrentUser() {
             try {
-                const { data: { user }, error } = await supabase.auth.getUser();
+                const { data: { user }, error } = await supabaseClient.auth.getUser();
                 if (error) {
                     console.error('Auth error:', error);
                     return null;
@@ -741,15 +998,14 @@
             }
         }
 
-        // Check if user has purchased this item
         async function checkPurchase(userId, itemId) {
             if (!userId || !itemId) return false;
 
             try {
-                // Check if user has purchased this specific item
-                const { data, error } = await supabase
+                // Check if user has purchased this item
+                const { data, error } = await supabaseClient
                     .from('user_purchases')
-                    .select('id, purchase_type')
+                    .select('id, purchase_type, amount')
                     .eq('user_id', userId)
                     .eq('item_id', itemId)
                     .maybeSingle();
@@ -759,40 +1015,55 @@
                     return false;
                 }
 
-                // Check if the item is free (no purchase needed)
-                if (!data) {
-                    // Check if the item is free in hub_contents
-                    const { data: item, error: itemError } = await supabase
-                        .from('hub_contents')
-                        .select('price, physical_price, audio_price')
-                        .eq('id', itemId)
-                        .single();
-
-                    if (itemError) {
-                        console.error('Item fetch error:', itemError);
-                        return false;
-                    }
-
-                    // If all prices are 0 or null, it's free
-                    const isFree = (item.price === 0 || item.price === null) &&
-                                   (item.physical_price === 0 || item.physical_price === null) &&
-                                   (item.audio_price === 0 || item.audio_price === null);
-
-                    return isFree;
+                if (data) {
+                    return true;
                 }
 
-                return true;
+                // Check if the item is free
+                const { data: item, error: itemError } = await supabaseClient
+                    .from('hub_contents')
+                    .select('price, physical_price, audio_price')
+                    .eq('id', itemId)
+                    .single();
+
+                if (itemError) {
+                    console.error('Item fetch error:', itemError);
+                    return false;
+                }
+
+                const isFree = (item.price === 0 || item.price === null) &&
+                               (item.physical_price === 0 || item.physical_price === null) &&
+                               (item.audio_price === 0 || item.audio_price === null);
+
+                return isFree;
             } catch (e) {
                 console.error('Error checking purchase:', e);
                 return false;
             }
         }
 
-        // Main auth check
+        async function getItemData(itemId) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('hub_contents')
+                    .select('*')
+                    .eq('id', itemId)
+                    .single();
+
+                if (error) {
+                    console.error('Item fetch error:', error);
+                    return null;
+                }
+                return data;
+            } catch (e) {
+                console.error('Error fetching item:', e);
+                return null;
+            }
+        }
+
         async function checkAuthorization() {
             console.log('🔐 Checking authorization...');
 
-            // Show loading state
             showLoading('Checking access...', 'Verifying your account');
 
             // 1. Check if user is signed in
@@ -807,10 +1078,14 @@
                 return false;
             }
 
+            userId = currentUser.id;
             console.log('✅ User signed in:', currentUser.email);
 
             // 2. Check if user has purchased this item
             const hasPurchased = await checkPurchase(currentUser.id, currentItemId);
+
+            // 3. Get item data for completed check
+            currentItemData = await getItemData(currentItemId);
 
             if (!hasPurchased) {
                 console.log('❌ User has not purchased this content');
@@ -836,7 +1111,6 @@
             loadingOverlay.classList.add('hidden');
             pageWrapper.style.display = 'none';
             
-            // Update footer
             pageInfo.textContent = '🔒 Access Denied';
             progressFill.style.width = '0%';
         }
@@ -850,6 +1124,165 @@
         }
 
         // ============================================
+        // COMPLETED / GP CLAIM
+        // ============================================
+        async function claimCompletionGP() {
+            if (hasClaimedGP) return;
+            if (!currentUser || !currentItemId) return;
+
+            try {
+                // Check if already claimed
+                const { data: existing } = await supabaseClient
+                    .from('user_activities')
+                    .select('id')
+                    .eq('user_id', currentUser.id)
+                    .eq('item_id', currentItemId)
+                    .eq('activity_type', 'completed_book')
+                    .maybeSingle();
+
+                if (existing) {
+                    hasClaimedGP = true;
+                    showToast('✅ GP already claimed for this book!', 'info');
+                    return;
+                }
+
+                // Award GP (5 GP for completing a book)
+                const gpAmount = 5;
+                
+                // Get current GP
+                const { data: userData } = await supabaseClient
+                    .from('users')
+                    .select('gp_points')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                const newGP = (userData?.gp_points || 0) + gpAmount;
+
+                // Update user GP
+                await supabaseClient
+                    .from('users')
+                    .update({ gp_points: newGP })
+                    .eq('id', currentUser.id);
+
+                // Record activity
+                await supabaseClient
+                    .from('user_activities')
+                    .insert({
+                        user_id: currentUser.id,
+                        item_id: currentItemId,
+                        activity_type: 'completed_book',
+                        gp_earned: gpAmount,
+                        created_at: new Date().toISOString()
+                    });
+
+                hasClaimedGP = true;
+                showToast(`🎉 +${gpAmount} GP earned for completing this book!`, 'success');
+
+                // Show celebration
+                showCompletionCelebration(gpAmount);
+
+            } catch (e) {
+                console.error('Error claiming GP:', e);
+                showToast('Error claiming GP. Please try again.', 'error');
+            }
+        }
+
+        function showCompletionCelebration(gpAmount) {
+            // Show completed overlay
+            completedOverlay.style.display = 'flex';
+            completedMessage.textContent = `You've completed "${bookTitle.textContent}"!`;
+            gpRewardDisplay.textContent = `+${gpAmount} GP`;
+
+            // Start confetti
+            startConfetti();
+
+            // Hide loading
+            loadingOverlay.classList.add('hidden');
+            pageWrapper.style.display = 'none';
+        }
+
+        function markAsCompleted() {
+            if (isCompleted) return;
+            isCompleted = true;
+            
+            // Claim GP
+            claimCompletionGP();
+        }
+
+        // ============================================
+        // CONFETTI ANIMATION
+        // ============================================
+        let confettiPieces = [];
+        let confettiAnimationId = null;
+
+        function startConfetti() {
+            const ctx = confettiCanvas.getContext('2d');
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+
+            const colors = ['#fbb040', '#2c2f78', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
+            
+            for (let i = 0; i < 150; i++) {
+                confettiPieces.push({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                    w: Math.random() * 10 + 5,
+                    h: Math.random() * 6 + 3,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    speed: Math.random() * 3 + 1,
+                    drift: Math.random() * 2 - 1,
+                    opacity: Math.random() * 0.8 + 0.2
+                });
+            }
+
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            const ctx = confettiCanvas.getContext('2d');
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+            let active = false;
+
+            for (const piece of confettiPieces) {
+                piece.y += piece.speed;
+                piece.x += piece.drift;
+                piece.rotation += 2;
+
+                if (piece.y < confettiCanvas.height + 20) {
+                    active = true;
+                }
+
+                ctx.save();
+                ctx.translate(piece.x, piece.y);
+                ctx.rotate((piece.rotation * Math.PI) / 180);
+                ctx.globalAlpha = piece.opacity;
+                ctx.fillStyle = piece.color;
+                ctx.fillRect(-piece.w / 2, -piece.h / 2, piece.w, piece.h);
+                ctx.restore();
+            }
+
+            if (active) {
+                confettiAnimationId = requestAnimationFrame(animateConfetti);
+            } else {
+                // Reset if all confetti has fallen
+                confettiPieces = [];
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            }
+        }
+
+        function stopConfetti() {
+            if (confettiAnimationId) {
+                cancelAnimationFrame(confettiAnimationId);
+                confettiAnimationId = null;
+            }
+            const ctx = confettiCanvas.getContext('2d');
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            confettiPieces = [];
+        }
+
+        // ============================================
         // SHOW/HIDE LOADING
         // ============================================
         function showLoading(message, sub) {
@@ -858,6 +1291,8 @@
             loadingText.textContent = message || 'Loading...';
             loadingSub.textContent = sub || 'This may take a moment';
             authOverlay.style.display = 'none';
+            completedOverlay.style.display = 'none';
+            pageWrapper.style.display = 'none';
         }
 
         function hideLoading() {
@@ -963,6 +1398,7 @@
                         currentPage = pageNum;
                         updateProgress();
                         saveProgress();
+                        checkIfCompleted();
                         isRendering = false;
                         return;
                     }
@@ -1007,12 +1443,36 @@
                 updateProgress();
                 saveProgress();
                 readerContainer.scrollTop = 0;
+                checkIfCompleted();
 
             } catch (error) {
                 console.error('Render error:', error);
                 showToast('Error rendering page', 'error');
             } finally {
                 isRendering = false;
+            }
+        }
+
+        // ============================================
+        // CHECK IF COMPLETED
+        // ============================================
+        function checkIfCompleted() {
+            if (isCompleted) return;
+            if (usingGoogleDocs) return;
+            if (currentPage >= totalPages && totalPages > 0) {
+                // User has reached the last page
+                isCompleted = true;
+                
+                // Show completion button in footer
+                const actions = document.querySelector('.reader-footer .actions');
+                const existingBtn = actions.querySelector('.completed-btn');
+                if (!existingBtn) {
+                    const btn = document.createElement('button');
+                    btn.className = 'completed-btn';
+                    btn.innerHTML = '<i class="fas fa-star"></i> Completed! Claim GP';
+                    btn.onclick = markAsCompleted;
+                    actions.appendChild(btn);
+                }
             }
         }
 
@@ -1028,6 +1488,19 @@
                 renderPage(currentPage + 1);
             } else {
                 showToast("You're on the last page", 'info');
+                // Check if completed
+                if (!isCompleted) {
+                    isCompleted = true;
+                    const actions = document.querySelector('.reader-footer .actions');
+                    const existingBtn = actions.querySelector('.completed-btn');
+                    if (!existingBtn) {
+                        const btn = document.createElement('button');
+                        btn.className = 'completed-btn';
+                        btn.innerHTML = '<i class="fas fa-star"></i> Completed! Claim GP';
+                        btn.onclick = markAsCompleted;
+                        actions.appendChild(btn);
+                    }
+                }
             }
         }
 
@@ -1067,7 +1540,8 @@
                     totalPages: totalPages,
                     progress: (currentPage / totalPages) * 100,
                     lastRead: new Date().toISOString(),
-                    usingGoogleDocs: usingGoogleDocs
+                    usingGoogleDocs: usingGoogleDocs,
+                    isCompleted: isCompleted
                 };
 
                 localStorage.setItem('reader_progress_' + (currentItemId || title), JSON.stringify(progressData));
@@ -1081,6 +1555,9 @@
                     const data = JSON.parse(saved);
                     if (data.currentPage && data.currentPage <= totalPages) {
                         currentPage = data.currentPage;
+                        if (data.isCompleted) {
+                            isCompleted = true;
+                        }
                         return true;
                     }
                 }
@@ -1113,11 +1590,12 @@
         function closeReader() {
             saveProgress();
             if (autoSaveTimer) clearInterval(autoSaveTimer);
+            stopConfetti();
             try { window.close(); } catch (e) { window.location.href = '/hub.html'; }
         }
 
         function reportIssue() {
-            if (confirm('Report an issue with this book?')) {
+            if (confirm('Report an issue with this book? Our team will investigate.')) {
                 showToast('Thank you for reporting!', 'success');
             }
         }
@@ -1143,7 +1621,7 @@
         }
 
         // ============================================
-        // MAIN INIT - With Auth Check
+        // MAIN INIT
         // ============================================
         async function initReader() {
             if (!fileUrl) {
@@ -1155,7 +1633,7 @@
             const authorized = await checkAuthorization();
             if (!authorized) return;
 
-            // 2. Load PDF (Authorized)
+            // 2. Load PDF
             showLoading('Loading PDF library...');
 
             try {
@@ -1194,6 +1672,19 @@
 
                 showToast('✅ Book loaded successfully!', 'success');
 
+                // If already completed, show the button
+                if (isCompleted) {
+                    const actions = document.querySelector('.reader-footer .actions');
+                    const existingBtn = actions.querySelector('.completed-btn');
+                    if (!existingBtn) {
+                        const btn = document.createElement('button');
+                        btn.className = 'completed-btn';
+                        btn.innerHTML = '<i class="fas fa-star"></i> Completed! Claim GP';
+                        btn.onclick = markAsCompleted;
+                        actions.appendChild(btn);
+                    }
+                }
+
             } catch (error) {
                 console.error('PDF loading error:', error);
                 
@@ -1219,49 +1710,26 @@
         }
 
         // ============================================
-        // LOAD SUPABASE SCRIPT
-        // ============================================
-        function loadSupabase() {
-            return new Promise(function(resolve, reject) {
-                if (typeof supabase !== 'undefined' && supabase) {
-                    resolve();
-                    return;
-                }
-
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js';
-                script.onload = function() {
-                    if (window.supabase) {
-                        resolve();
-                    } else {
-                        reject(new Error('Supabase failed to load'));
-                    }
-                };
-                script.onerror = function() {
-                    reject(new Error('Supabase library could not be loaded'));
-                };
-                document.head.appendChild(script);
-            });
-        }
-
-        // ============================================
         // START
         // ============================================
         window.addEventListener('beforeunload', saveProgress);
+        window.addEventListener('resize', function() {
+            // Resize confetti canvas
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        });
 
         async function start() {
             try {
                 await loadSupabase();
-                // Reassign supabase
-                const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                window.supabase = supabaseClient;
-                // Override the global supabase
-                Object.assign(supabase, supabaseClient);
             } catch (e) {
                 console.warn('Supabase load warning:', e);
+                // Try to use existing supabase if available
+                if (typeof supabase !== 'undefined') {
+                    supabaseClient = supabase;
+                }
             }
             
-            // Start the reader
             setTimeout(initReader, 200);
         }
 
@@ -1278,8 +1746,9 @@
         window.showToast = showToast;
         window.goToLogin = goToLogin;
         window.goToHub = goToHub;
+        window.markAsCompleted = markAsCompleted;
 
-        console.log('📚 Gliimu Professional Reader with Auth');
+        console.log('📚 Gliimu Professional Reader with Auth + Completion');
     </script>
 </body>
 </html>
