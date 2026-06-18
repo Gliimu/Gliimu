@@ -2146,8 +2146,8 @@ window.openReader = (itemId) => {
         return;
     }
     
-    // Open the custom reader
-    const readerUrl = `/reader.html?url=${encodeURIComponent(item.file_url)}&title=${encodeURIComponent(item.title)}`;
+    // Open the custom reader with itemId for progress tracking
+    const readerUrl = `/reader.html?url=${encodeURIComponent(item.file_url)}&title=${encodeURIComponent(item.title)}&itemId=${encodeURIComponent(itemId)}`;
     window.open(readerUrl, '_blank', 'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no');
     
     // Track reading activity
