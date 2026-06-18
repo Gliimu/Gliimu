@@ -103,12 +103,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupProfileDropdown();
         setupSearchModal();
 
+        // Check for auto-open after everything is loaded
+        setTimeout(checkForAutoOpen, 500);
+
     } catch (error) {
         console.error('❌ Init error:', error);
         hideLoader();
         showCenteredError(error.message || 'Failed to load content. Please refresh.');
     }
 });
+
+// ============================================
+// AUTO-OPEN FROM URL
+// ============================================
+function checkForAutoOpen() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const openItemId = urlParams.get('open');
+    
+    if (openItemId && allItems.length > 0) {
+        console.log('🔓 Auto-opening item from URL:', openItemId);
+        
+        const item = allItems.find(i => i.id === openItemId);
+        if (item) {
+            console.log('✅ Found item, opening modal:', item.title);
+            setTimeout(() => {
+                window.viewDetails(openItemId);
+            }, 300);
+            
+            // Clean URL without reload
+            const newUrl = window.location.pathname + window.location.search.replace(/[?&]open=[^&]+/, '').replace(/^[?&]/, '');
+            window.history.replaceState({}, '', newUrl || window.location.pathname);
+        } else {
+            console.warn('⚠️ Item not found in loaded items:', openItemId);
+            showToast('Content not found. Please browse the library.', 'warning');
+        }
+    }
+}
 
 // ============================================
 // LOADER
@@ -1197,7 +1227,6 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
 
     // --- CRITICAL: Bind purchase button click event ---
     if (DOM.purchaseBtn && !isPurchased) {
-        // Remove any existing listeners by cloning
         const newBtn = DOM.purchaseBtn.cloneNode(true);
         DOM.purchaseBtn.parentNode.replaceChild(newBtn, DOM.purchaseBtn);
         DOM.purchaseBtn = newBtn;
