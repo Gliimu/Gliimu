@@ -52,7 +52,7 @@
         }
 
         /* ============================================
-           HEADER - Compact
+           HEADER
            ============================================ */
         .reader-header {
             background: var(--bg-card);
@@ -153,27 +153,6 @@
             background: linear-gradient(90deg, var(--brand-purple), var(--brand-gold), var(--brand-gold-dark));
             width: 0%;
             transition: width 0.3s ease;
-            position: relative;
-        }
-
-        .progress-bar-container .progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255,255,255,0.3) 50%, 
-                transparent 100%);
-            animation: shimmer 2s infinite;
-            background-size: 200% 100%;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
         }
 
         /* ============================================
@@ -181,33 +160,51 @@
            ============================================ */
         .reader-container {
             flex: 1;
-            overflow: auto;
+            overflow: hidden;
             background: var(--reader-bg);
             position: relative;
-            -webkit-overflow-scrolling: touch;
             height: 100%;
             min-height: 0;
         }
 
-        .reader-container .page-wrapper {
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
+        /* ============================================
+           NATIVE PDF VIEWER (iOS/Android)
+           ============================================ */
+        .reader-container iframe,
+        .reader-container object,
+        .reader-container embed {
             width: 100%;
-            min-height: 100%;
-            padding: 8px 10px 20px;
+            height: 100%;
+            border: none;
+            background: var(--reader-bg);
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
-        .reader-container canvas {
+        /* ============================================
+           PDF.JS VIEWER (Desktop)
+           ============================================ */
+        .reader-container .pdfjs-viewer {
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .reader-container .pdfjs-viewer canvas {
             box-shadow: 0 2px 12px var(--shadow-color);
             border-radius: 4px;
             background: var(--reader-bg);
             max-width: 100%;
             height: auto;
-            touch-action: none;
         }
 
-        body.dark-mode .reader-container canvas {
+        body.dark-mode .reader-container .pdfjs-viewer canvas {
             filter: invert(0.85) hue-rotate(180deg) brightness(1.2) contrast(1.1) !important;
         }
 
@@ -225,7 +222,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 5;
+            z-index: 20;
             transition: opacity 0.5s ease;
             padding: 2rem;
             text-align: center;
@@ -270,6 +267,13 @@
             transform: scale(0.95);
         }
 
+        .loading-overlay .native-hint {
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -308,7 +312,7 @@
         }
 
         /* ============================================
-           FOOTER - Compact
+           FOOTER
            ============================================ */
         .reader-footer {
             background: var(--bg-card);
@@ -370,7 +374,6 @@
             .reader-header .logo span { font-size: 0.6rem; }
             .reader-header .book-title { max-width: 60px; font-size: 0.5rem; }
             .reader-header .controls button { font-size: 0.65rem; padding: 2px 4px; }
-            .reader-container .page-wrapper { padding: 5px 5px 15px; }
         }
 
         @supports (padding: max(0px)) {
@@ -416,20 +419,19 @@
         <div class="loading-overlay" id="loadingOverlay">
             <div class="spinner" id="loadingSpinner"></div>
             <p id="loadingText">Loading your book...</p>
+            <p id="loadingDetail" style="font-size:0.7rem;opacity:0.6;margin-top:0.2rem;"></p>
             <button class="retry-btn" id="retryBtn" style="display:none;" onclick="retryLoad()">
                 <i class="fas fa-redo"></i> Retry
             </button>
         </div>
-        <div class="page-wrapper" id="pageWrapper">
-            <!-- Canvas will be rendered here -->
-        </div>
+        <!-- Content will be inserted here -->
     </div>
 
     <!-- Footer -->
     <footer class="reader-footer">
         <span class="page-info">
             <span class="page-icon">📖</span>
-            <span id="pageInfo">Page 0 of 0</span>
+            <span id="pageInfo">Loading...</span>
         </span>
         <div class="actions">
             <button onclick="reportIssue()">
@@ -443,107 +445,158 @@
 
     <script>
         // ============================================
-        // GLIIMU READER - iPhone Safari Optimized
+        // GLIIMU READER - Native iOS + Desktop PDF.js
         // ============================================
 
         // ============================================
-        // DETECT iOS
+        // DETECT DEVICE
         // ============================================
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        const isMobile = isIOS || isAndroid || /Mobi/.test(navigator.userAgent);
 
-        console.log('📱 iOS:', isIOS);
+        console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
 
         // ============================================
         // STATE
         // ============================================
-        let pdfDoc = null;
         let currentPage = 1;
         let totalPages = 0;
         let isDarkMode = false;
-        let autoSaveTimer = null;
         let currentItemId = null;
-        let isRendering = false;
-        let isLoading = false;
-        let pageCache = {};
+        let currentTitle = '';
 
         // ============================================
         // DOM REFS
         // ============================================
-        const pageWrapper = document.getElementById('pageWrapper');
+        const readerContainer = document.getElementById('readerContainer');
         const bookTitle = document.getElementById('bookTitle');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
+        const loadingDetail = document.getElementById('loadingDetail');
         const loadingSpinner = document.getElementById('loadingSpinner');
         const retryBtn = document.getElementById('retryBtn');
         const pageInfo = document.getElementById('pageInfo');
         const progressFill = document.getElementById('progressFill');
         const themeBtn = document.getElementById('themeBtn');
         const themeIcon = document.getElementById('themeIcon');
-        const readerContainer = document.getElementById('readerContainer');
 
         // ============================================
         // GET URL PARAMETERS
         // ============================================
         const urlParams = new URLSearchParams(window.location.search);
-        const pdfUrl = urlParams.get('url');
+        const fileUrl = urlParams.get('url');
         const title = urlParams.get('title') || 'Book';
         const itemId = urlParams.get('itemId') || '';
 
         bookTitle.textContent = title;
         currentItemId = itemId;
+        currentTitle = title;
 
         // ============================================
         // SHOW/HIDE LOADING
         // ============================================
-        function showLoading(message) {
-            isLoading = true;
+        function showLoading(message, detail) {
             loadingOverlay.classList.remove('hidden');
             loadingSpinner.style.display = 'block';
             loadingText.textContent = message || 'Loading...';
+            loadingDetail.textContent = detail || '';
             retryBtn.style.display = 'none';
         }
 
         function hideLoading() {
-            isLoading = false;
             loadingOverlay.classList.add('hidden');
         }
 
-        function showError(message) {
-            isLoading = false;
+        function showError(message, detail) {
             loadingOverlay.classList.remove('hidden');
             loadingSpinner.style.display = 'none';
             loadingText.textContent = message || 'Failed to load the book.';
+            loadingDetail.textContent = detail || 'Please try again.';
             retryBtn.style.display = 'block';
         }
 
         function retryLoad() {
             showLoading('Retrying...');
-            setTimeout(initPDF, 500);
+            setTimeout(initReader, 500);
         }
 
         // ============================================
-        // LOAD PDF.JS
+        // NATIVE iOS PDF VIEWER (MOST RELIABLE)
         // ============================================
+        function loadNativeViewer() {
+            showLoading('Opening book...', 'Using native PDF viewer');
+
+            // Clear any existing content
+            readerContainer.innerHTML = '';
+
+            // Create a container for the native viewer
+            const viewerDiv = document.createElement('div');
+            viewerDiv.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;';
+
+            // Use <object> tag for iOS native PDF rendering
+            const object = document.createElement('object');
+            object.type = 'application/pdf';
+            object.data = fileUrl;
+            object.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+
+            // Also add an iframe as fallback
+            const iframe = document.createElement('iframe');
+            iframe.src = fileUrl;
+            iframe.style.cssText = 'width:100%;height:100%;border:none;display:none;';
+
+            object.onerror = function() {
+                console.log('Object failed, trying iframe...');
+                object.style.display = 'none';
+                iframe.style.display = 'block';
+            };
+
+            viewerDiv.appendChild(object);
+            viewerDiv.appendChild(iframe);
+            readerContainer.appendChild(viewerDiv);
+
+            // Update UI
+            pageInfo.textContent = '📄 Native Viewer';
+            progressFill.style.width = '0%';
+            hideLoading();
+
+            // Show hint for users
+            setTimeout(function() {
+                showToast('📄 Swipe up/down to scroll', 'info');
+            }, 1000);
+
+            // Save progress
+            saveProgress();
+        }
+
+        // ============================================
+        // DESKTOP PDF.JS VIEWER
+        // ============================================
+        let pdfDoc = null;
+        let pdfjsLoaded = false;
+        let pageCache = {};
+        let isRendering = false;
+
         function loadPDFJS() {
             return new Promise(function(resolve, reject) {
                 if (typeof pdfjsLib !== 'undefined' && pdfjsLib.version) {
+                    pdfjsLoaded = true;
                     resolve();
                     return;
                 }
 
                 const script = document.createElement('script');
-                // Use older version for better iOS compatibility
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
                 script.crossOrigin = 'anonymous';
                 
                 script.onload = function() {
                     if (typeof pdfjsLib !== 'undefined') {
                         try {
-                            // Disable workers for iOS
                             pdfjsLib.GlobalWorkerOptions.workerSrc = null;
                             pdfjsLib.GlobalWorkerOptions.useWorkerFetch = false;
                         } catch (e) {}
+                        pdfjsLoaded = true;
                         resolve();
                     } else {
                         reject(new Error('PDF.js failed to initialize'));
@@ -558,46 +611,49 @@
             });
         }
 
-        // ============================================
-        // RENDER PAGE - Simple, Reliable
-        // ============================================
-        async function renderPage(pageNum) {
+        async function renderPDFPage(pageNum) {
             if (!pdfDoc || isRendering) return;
-
             isRendering = true;
 
             try {
                 // Check cache
                 if (pageCache[pageNum]) {
-                    const canvas = pageWrapper.querySelector('canvas');
-                    if (canvas) {
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = pageCache[pageNum].width;
-                        canvas.height = pageCache[pageNum].height;
-                        canvas.style.width = pageCache[pageNum].width + 'px';
-                        canvas.style.height = pageCache[pageNum].height + 'px';
-                        ctx.putImageData(pageCache[pageNum].imageData, 0, 0);
-                        currentPage = pageNum;
-                        updateProgress();
-                        saveProgress();
-                        isRendering = false;
-                        return;
+                    const container = document.querySelector('.pdfjs-viewer');
+                    if (container) {
+                        const canvas = container.querySelector('canvas');
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            canvas.width = pageCache[pageNum].width;
+                            canvas.height = pageCache[pageNum].height;
+                            canvas.style.width = pageCache[pageNum].width + 'px';
+                            canvas.style.height = pageCache[pageNum].height + 'px';
+                            ctx.putImageData(pageCache[pageNum].imageData, 0, 0);
+                            currentPage = pageNum;
+                            updateProgress();
+                            saveProgress();
+                            isRendering = false;
+                            return;
+                        }
                     }
                 }
 
                 const page = await pdfDoc.getPage(pageNum);
                 
-                // Calculate scale - fit width
-                const containerWidth = readerContainer.clientWidth - 20;
+                const container = document.querySelector('.pdfjs-viewer');
+                if (!container) {
+                    isRendering = false;
+                    return;
+                }
+
+                const containerWidth = container.clientWidth - 20;
                 const viewport = page.getViewport({ scale: 1 });
                 const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
-                
                 const scaledViewport = page.getViewport({ scale: scale });
 
-                let canvas = pageWrapper.querySelector('canvas');
+                let canvas = container.querySelector('canvas');
                 if (!canvas) {
                     canvas = document.createElement('canvas');
-                    pageWrapper.appendChild(canvas);
+                    container.appendChild(canvas);
                 }
 
                 const context = canvas.getContext('2d');
@@ -615,7 +671,7 @@
 
                 await page.render(renderContext).promise;
 
-                // Cache the page
+                // Cache
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                 pageCache[pageNum] = {
                     width: canvas.width,
@@ -626,7 +682,6 @@
                 currentPage = pageNum;
                 updateProgress();
                 saveProgress();
-                readerContainer.scrollTop = 0;
 
             } catch (error) {
                 console.error('Render error:', error);
@@ -636,62 +691,150 @@
             }
         }
 
-        // ============================================
-        // NAVIGATION
-        // ============================================
         function nextPage() {
+            if (isIOS || isAndroid) {
+                // On mobile, the native viewer handles this
+                showToast('Use touch to scroll', 'info');
+                return;
+            }
             if (currentPage < totalPages) {
-                renderPage(currentPage + 1);
+                renderPDFPage(currentPage + 1);
             } else {
                 showToast("You're on the last page", 'info');
             }
         }
 
         function prevPage() {
+            if (isIOS || isAndroid) {
+                showToast('Use touch to scroll', 'info');
+                return;
+            }
             if (currentPage > 1) {
-                renderPage(currentPage - 1);
+                renderPDFPage(currentPage - 1);
             } else {
                 showToast("You're on the first page", 'info');
             }
         }
 
-        // ============================================
-        // PROGRESS
-        // ============================================
-        function updateProgress() {
-            const progress = (currentPage / totalPages) * 100;
-            progressFill.style.width = progress + '%';
-            pageInfo.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+        async function loadDesktopPDF() {
+            try {
+                showLoading('Loading PDF library...');
+
+                await loadPDFJS();
+
+                showLoading('Opening book...');
+
+                // Load PDF
+                const response = await fetch(fileUrl);
+                const pdfData = await response.arrayBuffer();
+
+                const loadingTask = pdfjsLib.getDocument({
+                    data: pdfData,
+                    useSystemFonts: true,
+                    disableFontFace: false,
+                    disableRange: true,
+                    disableStream: true,
+                    disableAutoFetch: true,
+                    useWorkerFetch: false,
+                    isEvalSupported: false
+                });
+
+                pdfDoc = await loadingTask.promise;
+                totalPages = pdfDoc.numPages;
+
+                // Create viewer container
+                readerContainer.innerHTML = '';
+                const viewer = document.createElement('div');
+                viewer.className = 'pdfjs-viewer';
+                readerContainer.appendChild(viewer);
+
+                // Load saved progress
+                const saved = loadSavedProgress();
+                if (saved) {
+                    currentPage = saved;
+                }
+
+                pageInfo.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+                await renderPDFPage(currentPage);
+                hideLoading();
+
+                // Auto-save
+                setInterval(saveProgress, 5000);
+
+                // Keyboard events
+                document.addEventListener('keydown', function(e) {
+                    if (e.target.tagName === 'INPUT') return;
+                    switch(e.key) {
+                        case 'ArrowRight':
+                        case 'ArrowDown':
+                        case ' ':
+                            e.preventDefault();
+                            nextPage();
+                            break;
+                        case 'ArrowLeft':
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            prevPage();
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            renderPDFPage(1);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            renderPDFPage(totalPages);
+                            break;
+                    }
+                });
+
+                showToast('✅ Book loaded!', 'success');
+
+            } catch (error) {
+                console.error('Desktop PDF error:', error);
+                // Fallback to native viewer
+                showLoading('PDF.js failed, trying native viewer...', 'Please wait');
+                setTimeout(loadNativeViewer, 500);
+            }
         }
 
         // ============================================
-        // SAVE/Load
+        // SAVE/LOAD PROGRESS
         // ============================================
         function saveProgress() {
             try {
                 const data = {
                     itemId: currentItemId,
-                    title: title,
+                    title: currentTitle,
                     currentPage: currentPage,
                     totalPages: totalPages,
                     lastRead: new Date().toISOString()
                 };
-                localStorage.setItem('reader_progress_' + (currentItemId || title), JSON.stringify(data));
+                localStorage.setItem('reader_progress_' + (currentItemId || currentTitle), JSON.stringify(data));
             } catch (e) {}
         }
 
         function loadSavedProgress() {
             try {
-                const saved = localStorage.getItem('reader_progress_' + (currentItemId || title));
+                const saved = localStorage.getItem('reader_progress_' + (currentItemId || currentTitle));
                 if (saved) {
                     const data = JSON.parse(saved);
                     if (data.currentPage && data.currentPage <= totalPages) {
-                        currentPage = data.currentPage;
-                        return true;
+                        return data.currentPage;
                     }
                 }
             } catch (e) {}
-            return false;
+            return null;
+        }
+
+        // ============================================
+        // UPDATE UI
+        // ============================================
+        function updateProgress() {
+            if (totalPages > 0) {
+                const progress = (currentPage / totalPages) * 100;
+                progressFill.style.width = progress + '%';
+                pageInfo.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+            }
         }
 
         // ============================================
@@ -703,11 +846,10 @@
             themeIcon.className = isDarkMode ? 'fas fa-sun' : 'fas fa-moon';
             localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
             
-            // Re-render for dark mode
-            if (pdfDoc && currentPage) {
-                // Clear cache for re-render
+            // Re-render for dark mode (desktop only)
+            if (!isIOS && !isAndroid && pdfDoc && currentPage) {
                 pageCache = {};
-                renderPage(currentPage);
+                renderPDFPage(currentPage);
             }
             
             showToast(isDarkMode ? '🌙 Dark mode' : '☀️ Light mode', 'success');
@@ -718,7 +860,6 @@
         // ============================================
         function closeReader() {
             saveProgress();
-            if (autoSaveTimer) clearInterval(autoSaveTimer);
             try { window.close(); } catch(e) { window.location.href = '/hub.html'; }
         }
 
@@ -749,137 +890,31 @@
         }
 
         // ============================================
-        // EVENT LISTENERS - Simple
+        // MAIN INIT
         // ============================================
-        function setupEventListeners() {
-            // Keyboard
-            document.addEventListener('keydown', function(e) {
-                if (e.target.tagName === 'INPUT') return;
-                switch(e.key) {
-                    case 'ArrowRight':
-                    case 'ArrowDown':
-                    case ' ':
-                        e.preventDefault();
-                        nextPage();
-                        break;
-                    case 'ArrowLeft':
-                    case 'ArrowUp':
-                        e.preventDefault();
-                        prevPage();
-                        break;
-                    case 'Home':
-                        e.preventDefault();
-                        renderPage(1);
-                        break;
-                    case 'End':
-                        e.preventDefault();
-                        renderPage(totalPages);
-                        break;
-                }
-            });
-
-            // Touch swipe
-            let startX = 0, startY = 0;
-            
-            readerContainer.addEventListener('touchstart', function(e) {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            }, { passive: true });
-
-            readerContainer.addEventListener('touchend', function(e) {
-                if (!startX) return;
-                const endX = e.changedTouches[0].clientX;
-                const endY = e.changedTouches[0].clientY;
-                const diffX = startX - endX;
-                const diffY = startY - endY;
-                
-                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-                    if (diffX > 0) nextPage();
-                    else prevPage();
-                }
-                startX = 0;
-                startY = 0;
-            }, { passive: true });
-
-            // Resize
-            let resizeTimer;
-            window.addEventListener('resize', function() {
-                clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(function() {
-                    if (pdfDoc && currentPage) {
-                        pageCache = {};
-                        renderPage(currentPage);
-                    }
-                }, 500);
-            });
-        }
-
-        // ============================================
-        // MAIN INIT - SIMPLIFIED
-        // ============================================
-        async function initPDF() {
-            if (!pdfUrl) {
+        function initReader() {
+            if (!fileUrl) {
                 showError('No book found');
                 return;
             }
 
-            try {
-                showLoading('Loading...');
-
-                // Load PDF.js
-                await loadPDFJS();
-
-                // Load PDF - simple approach for iOS
-                let pdfData;
-                
-                try {
-                    const response = await fetch(pdfUrl);
-                    pdfData = await response.arrayBuffer();
-                } catch (fetchError) {
-                    console.error('Fetch error:', fetchError);
-                    showError('Could not download the book. Please check your connection.');
-                    return;
-                }
-
-                // Load PDF document
-                const loadingTask = pdfjsLib.getDocument({
-                    data: pdfData,
-                    useSystemFonts: true,
-                    disableFontFace: false,
-                    disableRange: true,
-                    disableStream: true,
-                    disableAutoFetch: true,
-                    useWorkerFetch: false,
-                    isEvalSupported: false
-                });
-
-                pdfDoc = await loadingTask.promise;
-                totalPages = pdfDoc.numPages;
-                pageInfo.textContent = 'Page 1 of ' + totalPages;
-
-                console.log('📚 Loaded: ' + totalPages + ' pages');
-
-                // Load saved progress
-                const hasProgress = loadSavedProgress();
-                if (!hasProgress) {
-                    currentPage = 1;
-                }
-
-                // Render
-                await renderPage(currentPage);
-                hideLoading();
-
-                // Auto-save
-                if (autoSaveTimer) clearInterval(autoSaveTimer);
-                autoSaveTimer = setInterval(saveProgress, 5000);
-
-                setupEventListeners();
-                showToast('✅ Book loaded!', 'success');
-
-            } catch (error) {
-                console.error('Error:', error);
-                showError('Could not load the book. Please try again.');
+            // ----- iOS: Native Viewer (RELIABLE) -----
+            if (isIOS) {
+                console.log('📱 iOS detected - using native viewer');
+                loadNativeViewer();
+                return;
             }
+
+            // ----- Android: Native Viewer -----
+            if (isAndroid) {
+                console.log('📱 Android detected - using native viewer');
+                loadNativeViewer();
+                return;
+            }
+
+            // ----- Desktop: PDF.js -----
+            console.log('💻 Desktop detected - using PDF.js');
+            loadDesktopPDF();
         }
 
         // ============================================
@@ -896,9 +931,7 @@
         // START
         // ============================================
         window.addEventListener('beforeunload', saveProgress);
-        
-        // Small delay to ensure DOM is ready
-        setTimeout(initPDF, 100);
+        setTimeout(initReader, 100);
 
         // ============================================
         // EXPOSE
@@ -911,7 +944,7 @@
         window.showToast = showToast;
         window.retryLoad = retryLoad;
 
-        console.log('📚 Gliimu Reader - iPhone Optimized');
+        console.log('📚 Gliimu Reader - Native iOS + Desktop PDF.js');
     </script>
 </body>
 </html>
