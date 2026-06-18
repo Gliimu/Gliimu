@@ -291,18 +291,21 @@ async function renderDashboard() {
 }
 
 // ============================================
-// UPLOAD FILE TO SUPABASE STORAGE
+// FIXED UPLOAD FUNCTION - WITH PROPER URL
 // ============================================
 
 async function uploadFileToStorage(file, contentType, folder = null) {
-    if (!file) return null;
-    
+    if (!file) {
+        console.warn('⚠️ No file provided for upload');
+        return null;
+    }
+
     const fileExt = file.name.split('.').pop();
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
     const fileName = `${timestamp}_${randomStr}.${fileExt}`;
     
-    // Determine folder path - DON'T start with /
+    // Determine folder path
     let path = '';
     if (contentType === 'cover') {
         path = `covers/${fileName}`;
@@ -316,34 +319,58 @@ async function uploadFileToStorage(file, contentType, folder = null) {
         path = `hero/${fileName}`;
     } else if (contentType === 'product') {
         path = `products/${fileName}`;
+    } else if (folder) {
+        path = `${folder}/${fileName}`;
     } else {
         path = `general/${fileName}`;
     }
     
-    console.log('📤 Uploading to:', path);
-    
-    // UPLOAD
-    const { data, error } = await supabase.storage
-        .from('hub_content')  // ← Make sure this is 'hub_content'
-        .upload(path, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: file.type
-        });
-    
-    if (error) {
-        console.error('Upload error:', error);
-        showToast(`Error: ${error.message}`, 'error');
+    console.log('📤 Uploading file to:', path);
+    console.log('📁 File details:', { name: file.name, size: file.size, type: file.type });
+
+    try {
+        // UPLOAD THE FILE
+        const { data, error } = await supabase.storage
+            .from('hub_content')
+            .upload(path, file, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: file.type || 'application/octet-stream'
+            });
+
+        if (error) {
+            console.error('❌ Upload error:', error);
+            showToast(`Upload failed: ${error.message}`, 'error');
+            return null;
+        }
+
+        console.log('✅ Upload successful:', data);
+
+        // GET THE PUBLIC URL - FIXED
+        // THIS IS THE CRITICAL PART
+        const { data: urlData } = supabase.storage
+            .from('hub_content')
+            .getPublicUrl(path);
+
+        // The URL will be:
+        // https://[project-id].supabase.co/storage/v1/object/public/hub_content/[path]
+        const publicUrl = urlData.publicUrl;
+        
+        console.log('🔗 Public URL:', publicUrl);
+
+        if (!publicUrl) {
+            console.error('❌ Failed to get public URL');
+            showToast('Upload succeeded but URL generation failed', 'error');
+            return null;
+        }
+
+        return publicUrl;
+        
+    } catch (error) {
+        console.error('❌ Upload exception:', error);
+        showToast(`Upload error: ${error.message || 'Unknown error'}`, 'error');
         return null;
     }
-    
-    // GET PUBLIC URL
-    const { data: urlData } = supabase.storage
-        .from('hub_content')
-        .getPublicUrl(path);
-    
-    console.log('✅ Public URL:', urlData.publicUrl);
-    return urlData.publicUrl;
 }
 
 // Delete file from storage
