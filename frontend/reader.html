@@ -22,10 +22,10 @@
             --border-color: #e2e8f0;
             --shadow-color: rgba(0,0,0,0.1);
             --reader-bg: #ffffff;
-            --reader-text: #1a1a2e;
             --progress-track: #e2e8f0;
             --success: #10b981;
             --success-dark: #059669;
+            --danger: #ef4444;
         }
 
         body.dark-mode {
@@ -36,7 +36,6 @@
             --border-color: #1e293b;
             --shadow-color: rgba(0,0,0,0.4);
             --reader-bg: #1a1a2e;
-            --reader-text: #e0e0e0;
             --progress-track: #2d2d44;
         }
 
@@ -288,9 +287,9 @@
         }
 
         /* ============================================
-           AUTH REQUIRED OVERLAY
+           STATUS OVERLAYS
            ============================================ */
-        .auth-required-overlay {
+        .status-overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -306,38 +305,49 @@
             text-align: center;
         }
 
-        .auth-required-overlay.active {
+        .status-overlay.active {
             display: flex;
         }
 
-        .auth-required-overlay .icon {
-            font-size: 3rem;
-            color: var(--brand-gold);
+        .status-overlay .icon {
+            font-size: 3.5rem;
             margin-bottom: 1rem;
         }
 
-        .auth-required-overlay h2 {
+        .status-overlay .icon.locked {
+            color: var(--danger);
+        }
+
+        .status-overlay .icon.unlocked {
+            color: var(--success);
+        }
+
+        .status-overlay .icon.purchase {
+            color: var(--brand-gold);
+        }
+
+        .status-overlay h2 {
             font-size: 1.3rem;
             color: var(--text-primary);
             margin-bottom: 0.5rem;
         }
 
-        .auth-required-overlay p {
+        .status-overlay p {
             color: var(--text-secondary);
             font-size: 0.9rem;
-            max-width: 350px;
+            max-width: 400px;
             margin-bottom: 1.5rem;
             line-height: 1.6;
         }
 
-        .auth-required-overlay .btn-group {
+        .status-overlay .btn-group {
             display: flex;
             gap: 0.75rem;
             flex-wrap: wrap;
             justify-content: center;
         }
 
-        .auth-required-overlay .btn-group button {
+        .status-overlay .btn-group button {
             padding: 0.6rem 1.5rem;
             border-radius: 40px;
             border: none;
@@ -349,29 +359,49 @@
             touch-action: manipulation;
         }
 
-        .auth-required-overlay .btn-group button:active {
+        .status-overlay .btn-group button:active {
             transform: scale(0.95);
         }
 
-        .auth-required-overlay .btn-group .btn-primary {
+        .status-overlay .btn-group .btn-primary {
             background: var(--brand-gold);
             color: var(--brand-purple);
         }
 
-        .auth-required-overlay .btn-group .btn-primary:hover {
+        .status-overlay .btn-group .btn-primary:hover {
             background: var(--brand-gold-dark);
             transform: translateY(-2px);
         }
 
-        .auth-required-overlay .btn-group .btn-secondary {
+        .status-overlay .btn-group .btn-secondary {
             background: var(--bg-primary);
             color: var(--text-primary);
             border: 1px solid var(--border-color);
         }
 
-        .auth-required-overlay .btn-group .btn-secondary:hover {
+        .status-overlay .btn-group .btn-secondary:hover {
             border-color: var(--brand-gold);
             color: var(--brand-gold);
+        }
+
+        .status-overlay .btn-group .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-overlay .btn-group .btn-success:hover {
+            background: var(--success-dark);
+            transform: translateY(-2px);
+        }
+
+        .status-overlay .btn-group .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .status-overlay .btn-group .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
         }
 
         /* ============================================
@@ -782,12 +812,17 @@
                 font-size: 0.75rem;
             }
 
-            .auth-required-overlay h2 {
+            .status-overlay h2 {
                 font-size: 1.1rem;
             }
 
-            .auth-required-overlay p {
+            .status-overlay p {
                 font-size: 0.8rem;
+            }
+
+            .status-overlay .btn-group button {
+                padding: 0.4rem 1rem;
+                font-size: 0.7rem;
             }
         }
 
@@ -861,9 +896,9 @@
                 font-size: 0.65rem;
             }
 
-            .auth-required-overlay .btn-group button {
-                padding: 0.4rem 1rem;
-                font-size: 0.7rem;
+            .status-overlay .btn-group button {
+                padding: 0.3rem 0.8rem;
+                font-size: 0.65rem;
             }
         }
 
@@ -924,14 +959,29 @@
 
     <!-- Reader Container -->
     <div class="reader-container vertical-scroll" id="readerContainer">
-        <!-- Auth Required Overlay -->
-        <div class="auth-required-overlay" id="authOverlay">
-            <div class="icon">🔒</div>
+        <!-- Status Overlay: Not Logged In -->
+        <div class="status-overlay" id="notLoggedInOverlay">
+            <div class="icon locked">🔒</div>
             <h2>Sign in to Read</h2>
             <p>You need to be signed in to access this book. Sign in or create an account to continue reading.</p>
             <div class="btn-group">
                 <button class="btn-primary" onclick="goToSignIn()">
                     <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+                <button class="btn-secondary" onclick="goToHub()">
+                    <i class="fas fa-arrow-left"></i> Back to Hub
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Overlay: Not Purchased -->
+        <div class="status-overlay" id="notPurchasedOverlay">
+            <div class="icon purchase">📚</div>
+            <h2>Purchase to Read</h2>
+            <p id="notPurchasedMessage">You haven't purchased this book yet. Visit the Hub to purchase and start reading.</p>
+            <div class="btn-group">
+                <button class="btn-success" onclick="goToHub()">
+                    <i class="fas fa-shopping-cart"></i> Go to Hub
                 </button>
                 <button class="btn-secondary" onclick="goToHub()">
                     <i class="fas fa-arrow-left"></i> Back to Hub
@@ -1000,99 +1050,41 @@
 
     <script>
         // ============================================
-        // GLIIMU READER - Professional with All Features
+        // GLIIMU READER - Secure with Purchase Verification
         // ============================================
 
         // ============================================
-        // AUTH CHECK - FIXED
+        // SUPABASE CLIENT
         // ============================================
-        let currentUser = null;
-        let isAuthenticated = false;
+        // We need to use Supabase to verify purchase
+        // Import from your modules or use global
+        let supabaseClient = null;
 
-        function checkAuth() {
-            // Check multiple sources for user authentication
-            const user = localStorage.getItem('gliimu_user');
-            const session = sessionStorage.getItem('gliimu_session');
-            const supabaseUser = localStorage.getItem('supabase_user');
-            
-            // Check if any auth exists
-            if (user || session || supabaseUser) {
-                try {
-                    // Try to parse the user data
-                    let userData = null;
-                    if (user) {
-                        try { userData = JSON.parse(user); } catch(e) {}
-                    }
-                    if (!userData && session) {
-                        try { userData = JSON.parse(session); } catch(e) {}
-                    }
-                    if (!userData && supabaseUser) {
-                        try { userData = JSON.parse(supabaseUser); } catch(e) {}
-                    }
-                    
-                    if (userData && userData.id) {
-                        currentUser = userData;
-                        isAuthenticated = true;
-                        console.log('✅ User authenticated:', userData.name || userData.email);
-                        return true;
-                    }
-                } catch (e) {
-                    console.warn('Could not parse user data:', e);
-                }
-            }
-            
-            // Also check if we're in a Supabase session
-            if (typeof supabase !== 'undefined' && supabase.auth) {
-                // Supabase might be loaded - check session
-                supabase.auth.getSession().then(({ data, error }) => {
-                    if (!error && data.session) {
-                        isAuthenticated = true;
-                        currentUser = data.session.user;
-                        console.log('✅ Supabase user authenticated');
-                        // Hide auth overlay if shown
-                        document.getElementById('authOverlay').classList.remove('active');
-                        // Continue loading
-                        initPDF();
-                    }
+        // Try to get Supabase from the page or modules
+        try {
+            if (typeof supabase !== 'undefined') {
+                supabaseClient = supabase;
+                console.log('✅ Supabase client found');
+            } else {
+                // Try to import from module
+                import('../modules/supabase.js').then(module => {
+                    supabaseClient = module.supabase;
+                    console.log('✅ Supabase client loaded from module');
                 }).catch(() => {
-                    // Supabase auth check failed, show overlay
+                    console.warn('⚠️ Supabase client not found, using localStorage fallback');
                 });
             }
-            
-            return isAuthenticated;
+        } catch (e) {
+            console.warn('⚠️ Could not load Supabase client:', e);
         }
-
-        // ============================================
-        // AUTH UI FUNCTIONS
-        // ============================================
-        function showAuthRequired() {
-            document.getElementById('authOverlay').classList.add('active');
-            document.getElementById('loadingOverlay').classList.add('hidden');
-        }
-
-        function goToSignIn() {
-            const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = '/signin.html?redirect=' + redirect;
-        }
-
-        function goToHub() {
-            window.location.href = '/hub.html';
-        }
-
-        // ============================================
-        // DETECT DEVICE
-        // ============================================
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const isAndroid = /Android/.test(navigator.userAgent);
-        const isMobile = isIOS || isAndroid || /Mobi/.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-        console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
 
         // ============================================
         // STATE
         // ============================================
+        let currentUser = null;
+        let isAuthenticated = false;
+        let hasPurchased = false;
+        let purchaseVerified = false;
         let pdfDoc = null;
         let currentPage = 1;
         let totalPages = 0;
@@ -1129,7 +1121,9 @@
         const confettiContainer = document.getElementById('confettiContainer');
         const verticalBtn = document.getElementById('verticalBtn');
         const horizontalBtn = document.getElementById('horizontalBtn');
-        const authOverlay = document.getElementById('authOverlay');
+        const notLoggedInOverlay = document.getElementById('notLoggedInOverlay');
+        const notPurchasedOverlay = document.getElementById('notPurchasedOverlay');
+        const notPurchasedMessage = document.getElementById('notPurchasedMessage');
 
         // ============================================
         // GET URL PARAMETERS
@@ -1143,6 +1137,142 @@
         bookTitle.textContent = title;
         currentItemId = itemId;
         currentItemTitle = title;
+
+        // ============================================
+        // AUTH & PURCHASE VERIFICATION
+        // ============================================
+        function checkAuth() {
+            // Check multiple sources for user authentication
+            const user = localStorage.getItem('gliimu_user');
+            const session = sessionStorage.getItem('gliimu_session');
+            const supabaseUser = localStorage.getItem('supabase_user');
+            
+            if (user || session || supabaseUser) {
+                try {
+                    let userData = null;
+                    if (user) {
+                        try { userData = JSON.parse(user); } catch(e) {}
+                    }
+                    if (!userData && session) {
+                        try { userData = JSON.parse(session); } catch(e) {}
+                    }
+                    if (!userData && supabaseUser) {
+                        try { userData = JSON.parse(supabaseUser); } catch(e) {}
+                    }
+                    
+                    if (userData && userData.id) {
+                        currentUser = userData;
+                        isAuthenticated = true;
+                        console.log('✅ User authenticated:', userData.name || userData.email);
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('Could not parse user data:', e);
+                }
+            }
+            
+            return false;
+        }
+
+        async function verifyPurchase(itemId, userId) {
+            if (!itemId || !userId) {
+                console.warn('Missing itemId or userId for purchase verification');
+                return false;
+            }
+
+            console.log('🔍 Verifying purchase for:', { itemId, userId });
+
+            try {
+                // Try Supabase first
+                if (supabaseClient) {
+                    const { data, error } = await supabaseClient
+                        .from('user_purchases')
+                        .select('id, purchase_type')
+                        .eq('user_id', userId)
+                        .eq('item_id', itemId)
+                        .maybeSingle();
+
+                    if (!error && data) {
+                        console.log('✅ Purchase verified via Supabase:', data);
+                        hasPurchased = true;
+                        purchaseVerified = true;
+                        return true;
+                    } else if (error) {
+                        console.warn('Supabase purchase check error:', error);
+                    }
+                }
+
+                // Fallback: Check localStorage
+                const purchased = JSON.parse(localStorage.getItem('gliimu_purchased') || '{}');
+                if (purchased[itemId]) {
+                    console.log('✅ Purchase verified via localStorage');
+                    hasPurchased = true;
+                    purchaseVerified = true;
+                    return true;
+                }
+
+                // Check local storage for user purchases
+                const userPurchases = JSON.parse(localStorage.getItem('user_purchases_' + userId) || '[]');
+                if (userPurchases.includes(itemId)) {
+                    console.log('✅ Purchase verified via user_purchases localStorage');
+                    hasPurchased = true;
+                    purchaseVerified = true;
+                    return true;
+                }
+
+                console.log('❌ Purchase not found');
+                hasPurchased = false;
+                purchaseVerified = false;
+                return false;
+
+            } catch (e) {
+                console.error('Purchase verification error:', e);
+                return false;
+            }
+        }
+
+        // ============================================
+        // AUTH UI FUNCTIONS
+        // ============================================
+        function showNotLoggedIn() {
+            notLoggedInOverlay.classList.add('active');
+            notPurchasedOverlay.classList.remove('active');
+            loadingOverlay.classList.add('hidden');
+        }
+
+        function showNotPurchased(message) {
+            notLoggedInOverlay.classList.remove('active');
+            notPurchasedOverlay.classList.add('active');
+            if (message) {
+                notPurchasedMessage.textContent = message;
+            }
+            loadingOverlay.classList.add('hidden');
+        }
+
+        function hideAllOverlays() {
+            notLoggedInOverlay.classList.remove('active');
+            notPurchasedOverlay.classList.remove('active');
+        }
+
+        function goToSignIn() {
+            const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = '/signin.html?redirect=' + redirect;
+        }
+
+        function goToHub() {
+            window.location.href = '/hub.html';
+        }
+
+        // ============================================
+        // DETECT DEVICE
+        // ============================================
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        const isMobile = isIOS || isAndroid || /Mobi/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
 
         // ============================================
         // VIEW MODE
@@ -1742,26 +1872,46 @@
         }
 
         // ============================================
-        // MAIN INIT
+        // MAIN INIT - SECURE
         // ============================================
-        async function initPDF() {
+        async function initSecureReader() {
             if (!fileUrl) {
                 showError('No book found to read');
                 pageInfo.textContent = '❌ No book';
                 return;
             }
 
-            // Check authentication first
-            const authCheck = checkAuth();
-            
-            if (!isAuthenticated) {
-                showAuthRequired();
+            // STEP 1: Check if user is logged in
+            const isLoggedIn = checkAuth();
+
+            if (!isLoggedIn) {
+                showNotLoggedIn();
                 return;
             }
 
-            try {
-                showLoading('Loading PDF library...');
+            // STEP 2: Verify purchase
+            if (!currentItemId) {
+                // If no itemId, we can't verify purchase
+                // Show error but allow access for testing (or block)
+                console.warn('No itemId provided for purchase verification');
+                // For production, you might want to block access here
+                // showNotPurchased('This content is not available.');
+                // return;
+            } else {
+                const verified = await verifyPurchase(currentItemId, currentUser.id);
+                
+                if (!verified) {
+                    showNotPurchased('You haven\'t purchased "' + currentItemTitle + '" yet. Visit the Hub to purchase and start reading.');
+                    return;
+                }
+            }
 
+            // STEP 3: User is authenticated and has purchased the content
+            hideAllOverlays();
+            showLoading('Loading your book...', 'Verifying access...');
+
+            // STEP 4: Load the PDF
+            try {
                 await loadPDFJS();
 
                 showLoading('Opening book...', 'Loading the PDF file');
@@ -1838,32 +1988,10 @@
         });
 
         // ============================================
-        // START - Check auth first
+        // START - Secure
         // ============================================
-        // First check if user is authenticated
-        const authCheck = checkAuth();
-        
-        if (isAuthenticated) {
-            // User is logged in, start loading
-            setTimeout(initPDF, 200);
-        } else {
-            // Show auth required overlay
-            showAuthRequired();
-            
-            // Also try to check for Supabase session after a delay
-            setTimeout(function() {
-                if (typeof supabase !== 'undefined' && supabase.auth) {
-                    supabase.auth.getSession().then(({ data, error }) => {
-                        if (!error && data.session) {
-                            isAuthenticated = true;
-                            currentUser = data.session.user;
-                            authOverlay.classList.remove('active');
-                            initPDF();
-                        }
-                    });
-                }
-            }, 1000);
-        }
+        // Initialize with security checks
+        setTimeout(initSecureReader, 200);
 
         // ============================================
         // EXPOSE GLOBALLY
@@ -1881,7 +2009,9 @@
         window.shareCompletion = shareCompletion;
         window.goToSignIn = goToSignIn;
 
-        console.log('📚 Gliimu Professional Reader initialized');
+        console.log('📚 Secure Gliimu Reader initialized');
+        console.log('🔒 Security: User authenticated =', isAuthenticated);
+        console.log('🔒 Security: Purchase verified =', purchaseVerified);
     </script>
 </body>
 </html>
