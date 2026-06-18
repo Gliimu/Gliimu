@@ -221,7 +221,6 @@
             min-height: 0;
         }
 
-        /* Scroll modes */
         .reader-container.vertical-scroll .page-wrapper {
             flex-direction: column;
             align-items: center;
@@ -275,34 +274,6 @@
             filter: invert(0.85) hue-rotate(180deg) brightness(1.2) contrast(1.1) !important;
         }
 
-        /* Horizontal scroll hint */
-        .reader-container.horizontal-scroll .scroll-hint {
-            display: flex;
-        }
-
-        .scroll-hint {
-            display: none;
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            padding: 0.3rem 1rem;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
-            font-size: 0.65rem;
-            box-shadow: var(--shadow-color) 0 4px 12px;
-            animation: pulse 2s infinite;
-            z-index: 15;
-            pointer-events: none;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
-            50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
-        }
-
         /* ============================================
            GOOGLE DOCS VIEWER (Fallback)
            ============================================ */
@@ -314,6 +285,93 @@
             position: absolute;
             top: 0;
             left: 0;
+        }
+
+        /* ============================================
+           AUTH REQUIRED OVERLAY
+           ============================================ */
+        .auth-required-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--reader-bg);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .auth-required-overlay.active {
+            display: flex;
+        }
+
+        .auth-required-overlay .icon {
+            font-size: 3rem;
+            color: var(--brand-gold);
+            margin-bottom: 1rem;
+        }
+
+        .auth-required-overlay h2 {
+            font-size: 1.3rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-required-overlay p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            max-width: 350px;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .auth-required-overlay .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .auth-required-overlay .btn-group button {
+            padding: 0.6rem 1.5rem;
+            border-radius: 40px;
+            border: none;
+            font-weight: 600;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            touch-action: manipulation;
+        }
+
+        .auth-required-overlay .btn-group button:active {
+            transform: scale(0.95);
+        }
+
+        .auth-required-overlay .btn-group .btn-primary {
+            background: var(--brand-gold);
+            color: var(--brand-purple);
+        }
+
+        .auth-required-overlay .btn-group .btn-primary:hover {
+            background: var(--brand-gold-dark);
+            transform: translateY(-2px);
+        }
+
+        .auth-required-overlay .btn-group .btn-secondary {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .auth-required-overlay .btn-group .btn-secondary:hover {
+            border-color: var(--brand-gold);
+            color: var(--brand-gold);
         }
 
         /* ============================================
@@ -723,6 +781,14 @@
                 padding: 0.4rem 1rem;
                 font-size: 0.75rem;
             }
+
+            .auth-required-overlay h2 {
+                font-size: 1.1rem;
+            }
+
+            .auth-required-overlay p {
+                font-size: 0.8rem;
+            }
         }
 
         @media (max-width: 480px) {
@@ -794,10 +860,14 @@
                 padding: 0.3rem 0.8rem;
                 font-size: 0.65rem;
             }
+
+            .auth-required-overlay .btn-group button {
+                padding: 0.4rem 1rem;
+                font-size: 0.7rem;
+            }
         }
 
         @media (min-width: 1024px) {
-            /* On larger screens, show 2 pages side by side in horizontal mode */
             .reader-container.horizontal-scroll .page-wrapper .page-item {
                 max-width: 50%;
             }
@@ -854,17 +924,31 @@
 
     <!-- Reader Container -->
     <div class="reader-container vertical-scroll" id="readerContainer">
+        <!-- Auth Required Overlay -->
+        <div class="auth-required-overlay" id="authOverlay">
+            <div class="icon">🔒</div>
+            <h2>Sign in to Read</h2>
+            <p>You need to be signed in to access this book. Sign in or create an account to continue reading.</p>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="goToSignIn()">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+                <button class="btn-secondary" onclick="goToHub()">
+                    <i class="fas fa-arrow-left"></i> Back to Hub
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
         <div class="loading-overlay" id="loadingOverlay">
             <div class="spinner" id="loadingSpinner"></div>
             <p id="loadingText">Loading your book...</p>
             <p class="loading-sub" id="loadingSub">This may take a moment</p>
         </div>
+
+        <!-- Page Wrapper -->
         <div class="page-wrapper" id="pageWrapper">
             <!-- Pages will be rendered here -->
-        </div>
-        <!-- Scroll hint for horizontal mode -->
-        <div class="scroll-hint" id="scrollHint">
-            <i class="fas fa-arrows-alt-h"></i> Scroll left/right to read
         </div>
     </div>
 
@@ -920,21 +1004,80 @@
         // ============================================
 
         // ============================================
-        // AUTH CHECK
+        // AUTH CHECK - FIXED
         // ============================================
-        // Check if user is logged in - redirect to signin if not
-        (function checkAuth() {
+        let currentUser = null;
+        let isAuthenticated = false;
+
+        function checkAuth() {
+            // Check multiple sources for user authentication
             const user = localStorage.getItem('gliimu_user');
             const session = sessionStorage.getItem('gliimu_session');
+            const supabaseUser = localStorage.getItem('supabase_user');
             
-            if (!user && !session) {
-                // Redirect to signin page
-                window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
-                return;
+            // Check if any auth exists
+            if (user || session || supabaseUser) {
+                try {
+                    // Try to parse the user data
+                    let userData = null;
+                    if (user) {
+                        try { userData = JSON.parse(user); } catch(e) {}
+                    }
+                    if (!userData && session) {
+                        try { userData = JSON.parse(session); } catch(e) {}
+                    }
+                    if (!userData && supabaseUser) {
+                        try { userData = JSON.parse(supabaseUser); } catch(e) {}
+                    }
+                    
+                    if (userData && userData.id) {
+                        currentUser = userData;
+                        isAuthenticated = true;
+                        console.log('✅ User authenticated:', userData.name || userData.email);
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('Could not parse user data:', e);
+                }
             }
             
-            console.log('✅ User authenticated');
-        })();
+            // Also check if we're in a Supabase session
+            if (typeof supabase !== 'undefined' && supabase.auth) {
+                // Supabase might be loaded - check session
+                supabase.auth.getSession().then(({ data, error }) => {
+                    if (!error && data.session) {
+                        isAuthenticated = true;
+                        currentUser = data.session.user;
+                        console.log('✅ Supabase user authenticated');
+                        // Hide auth overlay if shown
+                        document.getElementById('authOverlay').classList.remove('active');
+                        // Continue loading
+                        initPDF();
+                    }
+                }).catch(() => {
+                    // Supabase auth check failed, show overlay
+                });
+            }
+            
+            return isAuthenticated;
+        }
+
+        // ============================================
+        // AUTH UI FUNCTIONS
+        // ============================================
+        function showAuthRequired() {
+            document.getElementById('authOverlay').classList.add('active');
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        function goToSignIn() {
+            const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = '/signin.html?redirect=' + redirect;
+        }
+
+        function goToHub() {
+            window.location.href = '/hub.html';
+        }
 
         // ============================================
         // DETECT DEVICE
@@ -944,10 +1087,8 @@
         const isAndroid = /Android/.test(navigator.userAgent);
         const isMobile = isIOS || isAndroid || /Mobi/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        const isLargeScreen = window.innerWidth >= 1024;
 
         console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
-        console.log('📐 Screen:', window.innerWidth + 'x' + window.innerHeight);
 
         // ============================================
         // STATE
@@ -962,9 +1103,10 @@
         let isRendering = false;
         let pageCache = {};
         let usingGoogleDocs = false;
-        let viewMode = 'vertical'; // 'vertical' or 'horizontal'
+        let viewMode = 'vertical';
         let isCompleted = false;
         let pagesPerView = 1;
+        let hasLoaded = false;
 
         // ============================================
         // DOM REFS
@@ -985,9 +1127,9 @@
         const celebrationOverlay = document.getElementById('celebrationOverlay');
         const celebrationMessage = document.getElementById('celebrationMessage');
         const confettiContainer = document.getElementById('confettiContainer');
-        const scrollHint = document.getElementById('scrollHint');
         const verticalBtn = document.getElementById('verticalBtn');
         const horizontalBtn = document.getElementById('horizontalBtn');
+        const authOverlay = document.getElementById('authOverlay');
 
         // ============================================
         // GET URL PARAMETERS
@@ -1008,22 +1150,15 @@
         function setViewMode(mode) {
             viewMode = mode;
             
-            // Update buttons
             verticalBtn.classList.toggle('active', mode === 'vertical');
             horizontalBtn.classList.toggle('active', mode === 'horizontal');
             
-            // Update container
             readerContainer.classList.remove('vertical-scroll', 'horizontal-scroll');
             readerContainer.classList.add(mode + '-scroll');
             
-            // Show/hide scroll hint
-            scrollHint.style.display = mode === 'horizontal' ? 'block' : 'none';
-            
-            // Store preference
             localStorage.setItem('reader_view_mode', mode);
             
-            // Re-render current page with new layout
-            if (pdfDoc && currentPage && !usingGoogleDocs) {
+            if (pdfDoc && currentPage && !usingGoogleDocs && hasLoaded) {
                 pageCache = {};
                 renderPages(currentPage);
             }
@@ -1040,24 +1175,18 @@
                 return;
             }
             
-            // Horizontal mode - show multiple pages based on screen width
             const width = window.innerWidth;
             if (width >= 1400) {
                 pagesPerView = 3;
             } else if (width >= 1024) {
                 pagesPerView = 2;
-            } else if (width >= 768) {
-                pagesPerView = 1;
             } else {
                 pagesPerView = 1;
             }
             
-            // Don't show more pages than total
             if (pagesPerView > totalPages) {
                 pagesPerView = totalPages;
             }
-            
-            console.log('📐 Pages per view:', pagesPerView);
         }
 
         // ============================================
@@ -1103,7 +1232,6 @@
             progressFill.style.width = '0%';
             hideLoading();
             
-            // Hide mark complete for Google Docs
             markCompleteBtn.style.display = 'none';
             
             showToast('📄 Using Google Docs viewer', 'info');
@@ -1161,7 +1289,7 @@
         }
 
         // ============================================
-        // RENDER PAGES (Multiple pages in view)
+        // RENDER PAGES
         // ============================================
         async function renderPages(startPage) {
             if (!pdfDoc || isRendering || usingGoogleDocs) return;
@@ -1171,38 +1299,27 @@
             try {
                 calculatePagesPerView();
                 
-                // Clear wrapper
                 pageWrapper.innerHTML = '';
                 
                 const endPage = Math.min(startPage + pagesPerView - 1, totalPages);
-                const pagesToRender = [];
                 
                 for (let p = startPage; p <= endPage; p++) {
-                    pagesToRender.push(p);
-                }
-                
-                // Render each page
-                for (const pageNum of pagesToRender) {
                     const pageItem = document.createElement('div');
                     pageItem.className = 'page-item';
                     
-                    // Check cache first
                     let canvas;
-                    let cached = false;
                     
-                    if (pageCache[pageNum]) {
+                    if (pageCache[p]) {
                         canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
-                        canvas.width = pageCache[pageNum].width;
-                        canvas.height = pageCache[pageNum].height;
-                        canvas.style.width = pageCache[pageNum].width + 'px';
-                        canvas.style.height = pageCache[pageNum].height + 'px';
-                        ctx.putImageData(pageCache[pageNum].imageData, 0, 0);
-                        cached = true;
+                        canvas.width = pageCache[p].width;
+                        canvas.height = pageCache[p].height;
+                        canvas.style.width = pageCache[p].width + 'px';
+                        canvas.style.height = pageCache[p].height + 'px';
+                        ctx.putImageData(pageCache[p].imageData, 0, 0);
                     } else {
-                        const page = await pdfDoc.getPage(pageNum);
+                        const page = await pdfDoc.getPage(p);
                         
-                        // Calculate scale - fit width
                         const containerWidth = readerContainer.clientWidth - 40;
                         const viewport = page.getViewport({ scale: 1 });
                         const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
@@ -1222,9 +1339,8 @@
                         
                         await page.render(renderContext).promise;
                         
-                        // Cache
                         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                        pageCache[pageNum] = {
+                        pageCache[p] = {
                             width: canvas.width,
                             height: canvas.height,
                             imageData: imageData
@@ -1233,10 +1349,9 @@
                     
                     pageItem.appendChild(canvas);
                     
-                    // Page number
                     const pageNumLabel = document.createElement('span');
                     pageNumLabel.className = 'page-number';
-                    pageNumLabel.textContent = 'Page ' + pageNum + ' of ' + totalPages;
+                    pageNumLabel.textContent = 'Page ' + p + ' of ' + totalPages;
                     pageItem.appendChild(pageNumLabel);
                     
                     pageWrapper.appendChild(pageItem);
@@ -1245,11 +1360,8 @@
                 currentPage = startPage;
                 updateProgress();
                 saveProgress();
-                
-                // Check if completed
                 checkCompletion();
                 
-                // Scroll to top
                 if (viewMode === 'vertical') {
                     readerContainer.scrollTop = 0;
                 } else {
@@ -1299,21 +1411,15 @@
         // COMPLETION CHECK
         // ============================================
         function checkCompletion() {
-            if (usingGoogleDocs) return;
+            if (usingGoogleDocs || isCompleted) return;
             
-            const lastPageStart = Math.floor((totalPages - 1) / pagesPerView) * pagesPerView + 1;
-            const isLastPage = currentPage >= lastPageStart;
-            
-            // Also check if we're showing the last actual pages
             const endPage = Math.min(currentPage + pagesPerView - 1, totalPages);
             const isAtEnd = endPage === totalPages;
             
-            if (isAtEnd && !isCompleted) {
+            if (isAtEnd) {
                 markCompleteBtn.style.display = 'inline-flex';
-                // Auto-mark complete after a moment
                 setTimeout(function() {
                     if (!isCompleted) {
-                        // Don't auto-mark, let user click
                         showToast('📚 You\'ve reached the end! Click "Mark Complete" to earn GP.', 'success');
                     }
                 }, 2000);
@@ -1331,23 +1437,14 @@
             isCompleted = true;
             markCompleteBtn.style.display = 'none';
             
-            // Award GP
             const gpReward = isBundle ? 50 : 25;
             awardGP(gpReward);
-            
-            // Show celebration
             showCelebration(gpReward);
-            
-            // Save completion status
             saveCompletionStatus();
         }
 
         function awardGP(amount) {
-            // This would call your Supabase function to award GP
-            // For now, we'll show it in the celebration
             console.log('🏆 Awarding ' + amount + ' GP');
-            
-            // Update local storage for demo
             const currentGP = parseInt(localStorage.getItem('gliimu_gp') || '0');
             localStorage.setItem('gliimu_gp', String(currentGP + amount));
         }
@@ -1373,12 +1470,9 @@
                 'You\'ve completed this bundle! Great job mastering all the content!' :
                 'You\'ve completed reading this book! Keep up the great work!';
             
-            // Generate confetti
             generateConfetti();
-            
             celebrationOverlay.classList.add('active');
             
-            // Show GP reward
             const gpSpan = celebrationOverlay.querySelector('.gp-reward');
             gpSpan.innerHTML = '+' + gpAmount + ' <span>GP</span>';
         }
@@ -1425,11 +1519,9 @@
                     url: window.location.origin + '/hub.html'
                 }).catch(function() {});
             } else {
-                // Copy to clipboard
                 navigator.clipboard.writeText(text + ' ' + window.location.origin + '/hub.html').then(function() {
                     showToast('📋 Copied to clipboard! Share with your friends.', 'success');
                 }).catch(function() {
-                    // Fallback
                     const input = document.createElement('input');
                     input.value = text + ' ' + window.location.origin + '/hub.html';
                     document.body.appendChild(input);
@@ -1476,14 +1568,7 @@
                 };
 
                 localStorage.setItem('reader_progress_' + (currentItemId || currentItemTitle), JSON.stringify(progressData));
-
-                const allProgress = JSON.parse(localStorage.getItem('reader_progress_all') || '{}');
-                allProgress[currentItemId || currentItemTitle] = progressData;
-                localStorage.setItem('reader_progress_all', JSON.stringify(allProgress));
-
-            } catch (e) {
-                console.warn('Could not save progress:', e);
-            }
+            } catch (e) {}
         }
 
         function loadSavedProgress() {
@@ -1500,21 +1585,7 @@
                         return true;
                     }
                 }
-
-                const allProgress = JSON.parse(localStorage.getItem('reader_progress_all') || '{}');
-                const globalData = allProgress[currentItemId || currentItemTitle];
-                if (globalData && globalData.currentPage <= totalPages) {
-                    currentPage = globalData.currentPage;
-                    isCompleted = globalData.isCompleted || false;
-                    if (globalData.viewMode) {
-                        viewMode = globalData.viewMode;
-                    }
-                    return true;
-                }
-
-            } catch (e) {
-                console.warn('Could not load saved progress:', e);
-            }
+            } catch (e) {}
             return false;
         }
 
@@ -1529,8 +1600,7 @@
             
             localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
             
-            // Re-render for dark mode
-            if (pdfDoc && currentPage && !usingGoogleDocs) {
+            if (pdfDoc && currentPage && !usingGoogleDocs && hasLoaded) {
                 pageCache = {};
                 renderPages(currentPage);
             }
@@ -1589,20 +1659,15 @@
         // EVENT LISTENERS
         // ============================================
         function setupEventListeners() {
-            // Progress bar click
             progressContainer.addEventListener('click', function(e) {
-                if (usingGoogleDocs) {
-                    showToast('Page navigation not available in Google Docs view', 'info');
-                    return;
-                }
+                if (usingGoogleDocs || !pdfDoc) return;
+                
                 const rect = progressContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
                 const targetPage = Math.max(1, Math.min(totalPages - pagesPerView + 1, Math.round(pos * totalPages / pagesPerView) * pagesPerView + 1));
-                const startPage = Math.min(targetPage, totalPages - pagesPerView + 1);
-                renderPages(Math.max(1, startPage));
+                renderPages(Math.max(1, targetPage));
             });
 
-            // Touch swipe
             let touchStartX = 0;
             let touchStartY = 0;
             
@@ -1612,7 +1677,7 @@
             }, { passive: true });
 
             readerContainer.addEventListener('touchend', function(e) {
-                if (!touchStartX || usingGoogleDocs) return;
+                if (!touchStartX || usingGoogleDocs || !pdfDoc) return;
                 
                 const touchEndX = e.changedTouches[0].clientX;
                 const touchEndY = e.changedTouches[0].clientY;
@@ -1631,9 +1696,9 @@
                 touchStartY = 0;
             }, { passive: true });
 
-            // Keyboard shortcuts
             document.addEventListener('keydown', function(e) {
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                if (!pdfDoc || usingGoogleDocs) return;
 
                 switch(e.key) {
                     case 'ArrowRight':
@@ -1649,32 +1714,27 @@
                         break;
                     case 'Home':
                         e.preventDefault();
-                        if (!usingGoogleDocs) renderPages(1);
+                        renderPages(1);
                         break;
                     case 'End':
                         e.preventDefault();
-                        if (!usingGoogleDocs) {
-                            const lastStart = Math.floor((totalPages - 1) / pagesPerView) * pagesPerView + 1;
-                            renderPages(lastStart);
-                        }
+                        const lastStart = Math.floor((totalPages - 1) / pagesPerView) * pagesPerView + 1;
+                        renderPages(lastStart);
                         break;
                 }
             });
 
-            // Resize handler
             let resizeTimeout;
             window.addEventListener('resize', function() {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(function() {
-                    if (pdfDoc && currentPage && !usingGoogleDocs) {
-                        // Recalculate pages per view and re-render
+                    if (pdfDoc && currentPage && !usingGoogleDocs && hasLoaded) {
                         pageCache = {};
                         renderPages(currentPage);
                     }
                 }, 500);
             });
 
-            // Load saved view mode
             const savedMode = localStorage.getItem('reader_view_mode');
             if (savedMode) {
                 setViewMode(savedMode);
@@ -1688,6 +1748,14 @@
             if (!fileUrl) {
                 showError('No book found to read');
                 pageInfo.textContent = '❌ No book';
+                return;
+            }
+
+            // Check authentication first
+            const authCheck = checkAuth();
+            
+            if (!isAuthenticated) {
+                showAuthRequired();
                 return;
             }
 
@@ -1718,22 +1786,19 @@
 
                 console.log('📚 PDF loaded: ' + totalPages + ' pages');
 
-                // Load saved progress
                 const hasProgress = loadSavedProgress();
                 if (!hasProgress) {
                     currentPage = 1;
                 }
 
-                // If already completed, show mark complete button
                 if (isCompleted) {
                     markCompleteBtn.style.display = 'none';
                 }
 
-                // Render first page(s)
                 await renderPages(currentPage);
                 hideLoading();
+                hasLoaded = true;
 
-                // Start auto-save
                 if (autoSaveTimer) clearInterval(autoSaveTimer);
                 autoSaveTimer = setInterval(saveProgress, 5000);
 
@@ -1773,9 +1838,32 @@
         });
 
         // ============================================
-        // START
+        // START - Check auth first
         // ============================================
-        setTimeout(initPDF, 200);
+        // First check if user is authenticated
+        const authCheck = checkAuth();
+        
+        if (isAuthenticated) {
+            // User is logged in, start loading
+            setTimeout(initPDF, 200);
+        } else {
+            // Show auth required overlay
+            showAuthRequired();
+            
+            // Also try to check for Supabase session after a delay
+            setTimeout(function() {
+                if (typeof supabase !== 'undefined' && supabase.auth) {
+                    supabase.auth.getSession().then(({ data, error }) => {
+                        if (!error && data.session) {
+                            isAuthenticated = true;
+                            currentUser = data.session.user;
+                            authOverlay.classList.remove('active');
+                            initPDF();
+                        }
+                    });
+                }
+            }, 1000);
+        }
 
         // ============================================
         // EXPOSE GLOBALLY
@@ -1791,11 +1879,9 @@
         window.closeCelebration = closeCelebration;
         window.goToHub = goToHub;
         window.shareCompletion = shareCompletion;
-        window.renderPages = renderPages;
+        window.goToSignIn = goToSignIn;
 
         console.log('📚 Gliimu Professional Reader initialized');
-        console.log('📐 Pages per view:', pagesPerView);
-        console.log('📖 View mode:', viewMode);
     </script>
 </body>
 </html>
