@@ -1171,15 +1171,15 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                     </button>
                 </div>
         `;
-    } else {
-        detailsHtml += `
-                <div class="purchase-section">
-                    <button class="purchase-btn primary" onclick="window.open('${item.file_url || '#'}','_blank')">
-                        <i class="fas fa-book-open"></i> Read Now
-                    </button>
-                </div>
-        `;
-    }
+} else {
+    detailsHtml += `
+        <div class="purchase-section">
+            <button class="purchase-btn primary" onclick="window.openReader('${item.id}')">
+                <i class="fas fa-book-open"></i> Read Now
+            </button>
+        </div>
+    `;
+}
 
     detailsHtml += `
             </div>
@@ -1267,12 +1267,12 @@ async function renderBundleDetails(itemId) {
             </button>
         `;
     } else {
-        footerHtml = `
-            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','bundle')" style="width:100%; justify-content:center;">
-                <i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})
-            </button>
-        `;
-    }
+let footerHtml = '';
+if (isPurchased) {
+    footerHtml = `
+        ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.openReader('${item.id}')"><i class="fas fa-eye"></i> View</button>` : ''}
+    `;
+}
 
     DOM.modalFooter.innerHTML = footerHtml;
     DOM.modalFooter.style.display = 'flex';
@@ -1684,14 +1684,14 @@ async function processPayment(itemId, type, price) {
         renderItems();
         closeModal();
 
-        // Open content if digital
-        if (type === 'digital' && item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Open "${item.title}" now?`)) {
-                    window.open(item.file_url, '_blank');
-                }
-            }, 800);
+// Open content if digital
+if (type === 'digital' && item.file_url) {
+    setTimeout(() => {
+        if (confirm(`Open "${item.title}" now?`)) {
+            window.openReader(item.id);
         }
+    }, 800);
+}
     } catch (e) {
         console.error('Purchase error:', e);
         showToast('Purchase failed', 'error');
@@ -1816,14 +1816,14 @@ window.handlePurchase = async (itemId, type) => {
         renderItems();
         closeModal();
 
-        // Open digital content if available
-        if (type === 'digital' && item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Would you like to open "${item.title}" now?`)) {
-                    window.open(item.file_url, '_blank');
-                }
-            }, 800);
+// Open digital content if available
+if (type === 'digital' && item.file_url) {
+    setTimeout(() => {
+        if (confirm(`Would you like to open "${item.title}" now?`)) {
+            window.openReader(item.id);
         }
+    }, 800);
+}
         
     } catch (e) {
         console.error('Purchase error:', e);
@@ -1888,13 +1888,13 @@ window.handleGrantAccess = async (itemId) => {
         renderItems();
         closeModal();
         
-        if (item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Would you like to open "${item.title}" now?`)) {
-                    window.open(item.file_url, '_blank');
-                }
-            }, 800);
+if (item.file_url) {
+    setTimeout(() => {
+        if (confirm(`Would you like to open "${item.title}" now?`)) {
+            window.openReader(item.id);
         }
+    }, 800);
+}
         
     } catch (e) {
         console.error('Grant access error:', e);
@@ -1957,13 +1957,13 @@ window.handleFreeAccess = async (itemId) => {
         renderItems();
         closeModal();
         
-        if (item.file_url) {
-            setTimeout(() => {
-                if (confirm(`Would you like to open "${item.title}" now?`)) {
-                    window.open(item.file_url, '_blank');
-                }
-            }, 800);
+if (item.file_url) {
+    setTimeout(() => {
+        if (confirm(`Would you like to open "${item.title}" now?`)) {
+            window.openReader(item.id);
         }
+    }, 800);
+}
         
     } catch (e) {
         console.error('Free access error:', e);
@@ -2121,6 +2121,103 @@ function escape(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+    // ============================================
+// OPEN READER - Custom PDF Viewer
+// ============================================
+window.openReader = (itemId) => {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
+    
+    if (!item.file_url) {
+        showToast('No content available to read', 'error');
+        return;
+    }
+    
+    // Check if user has purchased or has premium access
+    const isPurchased = purchasedItems.has(itemId);
+    const isPremium = userGP >= 100;
+    
+    if (!isPurchased && !isPremium && item.price > 0) {
+        showToast('Please purchase this book first', 'warning');
+        return;
+    }
+    
+    // Open the custom reader
+    const readerUrl = `/reader.html?url=${encodeURIComponent(item.file_url)}&title=${encodeURIComponent(item.title)}`;
+    window.open(readerUrl, '_blank', 'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no');
+    
+    // Track reading activity
+    trackReading(itemId);
+};
+
+// ============================================
+// TRACK READING ACTIVITY
+// ============================================
+async function trackReading(itemId) {
+    if (!currentUser) return;
+    
+    try {
+        // Check if already tracking
+        const { data: existing } = await supabase
+            .from('user_library_progress')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .eq('item_id', itemId)
+            .single();
+        
+        if (existing) {
+            // Update last viewed
+            await supabase
+                .from('user_library_progress')
+                .update({ last_viewed: new Date().toISOString() })
+                .eq('id', existing.id);
+        } else {
+            // Create new tracking record
+            await supabase
+                .from('user_library_progress')
+                .insert({
+                    user_id: currentUser.id,
+                    item_id: itemId,
+                    progress: 0,
+                    last_viewed: new Date().toISOString()
+                });
+        }
+        
+        // Award GP for reading (once per book)
+        // Check if already awarded
+        const { data: readAward } = await supabase
+            .from('user_activities')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .eq('item_id', itemId)
+            .eq('activity_type', 'read_book')
+            .single();
+        
+        if (!readAward) {
+            await addGP(2, `Read: ${allItems.find(i => i.id === itemId)?.title || 'Book'}`);
+            
+            // Record activity to prevent duplicate GP
+            await supabase
+                .from('user_activities')
+                .insert({
+                    user_id: currentUser.id,
+                    item_id: itemId,
+                    activity_type: 'read_book',
+                    created_at: new Date().toISOString()
+                });
+        }
+        
+    } catch (e) {
+        console.log('Reading tracking note:', e.message);
+    }
+}
+
+// Also export the function globally
+window.openReader = openReader;
 
 // ============================================
 // EXPOSE GLOBALS
