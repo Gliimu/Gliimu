@@ -1,0 +1,554 @@
+/* ============================================
+   GLIIMU READER - Complete Styles
+   ============================================ */
+
+:root {
+    --brand-purple: #2c2f78;
+    --brand-gold: #fbb040;
+    --brand-gold-dark: #cc8a2a;
+    --bg-primary: #f8fafc;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --shadow-color: rgba(0,0,0,0.1);
+    --reader-bg: #ffffff;
+    --progress-track: #e2e8f0;
+    --success-color: #10b981;
+}
+
+body.dark-mode {
+    --bg-primary: #0f172a;
+    --bg-card: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: #1e293b;
+    --shadow-color: rgba(0,0,0,0.4);
+    --reader-bg: #1a1a2e;
+    --progress-track: #2d2d44;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.reader-header {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.5rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    z-index: 10;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    box-shadow: 0 1px 4px var(--shadow-color);
+    min-height: 56px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.reader-header .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.reader-header .logo img {
+    height: 28px;
+    width: auto;
+}
+
+.reader-header .logo span {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.reader-header .logo span .gold {
+    color: var(--brand-gold);
+}
+
+.reader-header .book-title {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    text-align: center;
+}
+
+.reader-header .controls {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.reader-header .controls button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    touch-action: manipulation;
+}
+
+.reader-header .controls button:hover {
+    background: var(--border-color);
+    color: var(--brand-gold);
+}
+
+.reader-header .controls button:active {
+    transform: scale(0.92);
+}
+
+.reader-header .controls .close-btn {
+    font-size: 1.1rem;
+    padding: 6px 10px;
+}
+
+.reader-header .controls .close-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* ============================================
+   PROGRESS BAR
+   ============================================ */
+.progress-bar-container {
+    flex-shrink: 0;
+    height: 4px;
+    background: var(--progress-track);
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar-container .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-purple), var(--brand-gold), var(--brand-gold-dark));
+    width: 0%;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.progress-bar-container .progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255,255,255,0.3) 50%, 
+        transparent 100%);
+    animation: shimmer 2s infinite;
+    background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   READER CONTAINER
+   ============================================ */
+.reader-container {
+    flex: 1;
+    overflow: auto;
+    background: var(--reader-bg);
+    position: relative;
+    transition: background 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0;
+    -webkit-overflow-scrolling: touch;
+    height: 100%;
+    min-height: 0;
+}
+
+.reader-container .page-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+    min-height: 100%;
+    padding: 15px 20px 30px;
+    transition: transform 0.3s ease;
+}
+
+.reader-container canvas {
+    box-shadow: 0 2px 16px var(--shadow-color);
+    border-radius: 6px;
+    background: var(--reader-bg);
+    transition: transform 0.3s ease, filter 0.3s ease;
+    max-width: 100%;
+    height: auto;
+    touch-action: none;
+}
+
+body.dark-mode .reader-container canvas {
+    filter: invert(0.85) hue-rotate(180deg) brightness(1.2) contrast(1.1) !important;
+}
+
+/* Google Docs Fallback */
+.reader-container .google-docs-viewer {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--reader-bg);
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* ============================================
+   NAVIGATION OVERLAY (Mobile)
+   ============================================ */
+.nav-overlay {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 25%;
+    z-index: 2;
+    cursor: pointer;
+    touch-action: none;
+    display: none;
+}
+
+.nav-overlay.left { left: 0; }
+.nav-overlay.right { right: 0; }
+
+.nav-overlay .nav-hint {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    opacity: 0.2;
+    transition: opacity 0.3s;
+}
+
+.nav-overlay.left .nav-hint { left: 15px; }
+.nav-overlay.right .nav-hint { right: 15px; }
+.nav-overlay:active .nav-hint { opacity: 0.6; }
+
+/* ============================================
+   AUTH REQUIRED OVERLAY
+   ============================================ */
+.auth-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--reader-bg);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    padding: 2rem;
+    text-align: center;
+}
+
+.auth-overlay .icon { font-size: 4rem; color: var(--brand-gold); margin-bottom: 1rem; }
+.auth-overlay h2 { font-size: 1.3rem; color: var(--text-primary); margin-bottom: 0.5rem; }
+.auth-overlay p { color: var(--text-secondary); font-size: 0.9rem; max-width: 400px; line-height: 1.6; margin-bottom: 1.5rem; }
+
+.auth-overlay .btn-group {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.auth-overlay .btn-group button {
+    padding: 0.6rem 1.5rem;
+    border-radius: 40px;
+    border: none;
+    font-weight: 600;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.2s;
+}
+
+.auth-overlay .btn-group button:active { transform: scale(0.95); }
+.auth-overlay .btn-group .btn-primary { background: var(--brand-gold); color: var(--brand-purple); }
+.auth-overlay .btn-group .btn-primary:hover { background: var(--brand-gold-dark); }
+.auth-overlay .btn-group .btn-secondary { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); }
+.auth-overlay .btn-group .btn-secondary:hover { border-color: var(--brand-gold); color: var(--brand-gold); }
+
+/* ============================================
+   COMPLETED OVERLAY
+   ============================================ */
+.completed-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--reader-bg);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 25;
+    padding: 2rem;
+    text-align: center;
+}
+
+.completed-overlay .icon { font-size: 4rem; margin-bottom: 1rem; }
+.completed-overlay h2 { font-size: 1.5rem; color: var(--brand-gold); margin-bottom: 0.5rem; }
+.completed-overlay p { color: var(--text-secondary); font-size: 0.9rem; max-width: 400px; line-height: 1.6; margin-bottom: 1rem; }
+.completed-overlay .gp-reward { font-size: 2rem; font-weight: 700; color: var(--brand-gold); margin-bottom: 1.5rem; }
+
+.completed-overlay .btn-group {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.completed-overlay .btn-group button {
+    padding: 0.6rem 1.5rem;
+    border-radius: 40px;
+    border: none;
+    font-weight: 600;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.2s;
+}
+
+.completed-overlay .btn-group button:active { transform: scale(0.95); }
+.completed-overlay .btn-group .btn-primary { background: var(--brand-gold); color: var(--brand-purple); }
+.completed-overlay .btn-group .btn-primary:hover { background: var(--brand-gold-dark); }
+.completed-overlay .btn-group .btn-secondary { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); }
+.completed-overlay .btn-group .btn-secondary:hover { border-color: var(--brand-gold); color: var(--brand-gold); }
+
+/* ============================================
+   LOADING OVERLAY
+   ============================================ */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--reader-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    transition: opacity 0.5s ease;
+    padding: 2rem;
+    text-align: center;
+}
+
+.loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+.loading-overlay .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--brand-gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.loading-overlay p { margin-top: 0.75rem; color: var(--text-secondary); font-size: 0.85rem; max-width: 300px; }
+.loading-overlay .loading-sub { font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; }
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   CONFETTI
+   ============================================ */
+#confettiCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* ============================================
+   TOAST
+   ============================================ */
+.reader-toast {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    padding: 0.5rem 1.2rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    z-index: 999;
+    font-size: 0.75rem;
+    animation: slideUp 0.3s ease;
+    max-width: 90%;
+    border-left: 4px solid var(--brand-gold);
+    font-family: 'Space Grotesk', sans-serif;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.reader-toast.warning { border-left-color: #f59e0b; }
+.reader-toast.success { border-left-color: #10b981; }
+.reader-toast.error { border-left-color: #ef4444; }
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+.reader-footer {
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    padding: 0.4rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    min-height: 40px;
+}
+
+.reader-footer .page-info {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
+.reader-footer .page-info .page-icon { color: var(--brand-gold); font-size: 0.8rem; }
+
+.reader-footer .actions {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: nowrap;
+}
+
+.reader-footer .actions button {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    padding: 0.2rem 0.6rem;
+    border-radius: 16px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.65rem;
+    font-family: inherit;
+    transition: all 0.2s;
+    touch-action: manipulation;
+}
+
+.reader-footer .actions button:hover { border-color: var(--brand-gold); color: var(--brand-gold); }
+.reader-footer .actions button:active { transform: scale(0.95); }
+.reader-footer .actions button.primary { background: var(--brand-gold); border-color: var(--brand-gold); color: var(--brand-purple); font-weight: 600; }
+.reader-footer .actions button.primary:hover { background: var(--brand-gold-dark); border-color: var(--brand-gold-dark); }
+.reader-footer .actions button.completed-btn {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
+    font-weight: 600;
+}
+.reader-footer .actions button.completed-btn:hover { background: #059669; border-color: #059669; }
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+    .reader-header { padding: 0.4rem 0.8rem; min-height: 48px; }
+    .reader-header .logo img { height: 24px; }
+    .reader-header .logo span { font-size: 0.75rem; }
+    .reader-header .book-title { max-width: 120px; font-size: 0.65rem; }
+    .reader-header .controls button { font-size: 0.8rem; padding: 4px 8px; }
+    .reader-footer { padding: 0.3rem 0.8rem; font-size: 0.6rem; min-height: 36px; }
+    .reader-footer .actions button { font-size: 0.55rem; padding: 0.15rem 0.5rem; }
+    .reader-container .page-wrapper { padding: 10px 12px 20px; }
+    .auth-overlay h2 { font-size: 1.1rem; }
+    .auth-overlay p { font-size: 0.8rem; }
+    .auth-overlay .icon { font-size: 3rem; }
+    .nav-overlay { display: block; }
+}
+
+@media (max-width: 480px) {
+    .reader-header { padding: 0.3rem 0.6rem; min-height: 44px; }
+    .reader-header .logo img { height: 20px; }
+    .reader-header .logo span { font-size: 0.65rem; }
+    .reader-header .book-title { max-width: 80px; font-size: 0.55rem; }
+    .reader-header .controls button { font-size: 0.7rem; padding: 3px 6px; }
+    .reader-footer { padding: 0.25rem 0.6rem; font-size: 0.55rem; min-height: 32px; }
+    .reader-footer .actions button { font-size: 0.5rem; padding: 0.1rem 0.4rem; }
+    .reader-container .page-wrapper { padding: 5px 8px 15px; }
+    .auth-overlay .btn-group button { padding: 0.4rem 1rem; font-size: 0.75rem; }
+    .nav-overlay { width: 20%; }
+}
+
+@media (max-width: 375px) {
+    .reader-header .book-title { max-width: 60px; font-size: 0.5rem; }
+    .reader-header .logo span { font-size: 0.6rem; }
+}
+
+@supports (padding: max(0px)) {
+    .reader-header {
+        padding-top: max(0.4rem, env(safe-area-inset-top));
+        padding-left: max(0.8rem, env(safe-area-inset-left));
+        padding-right: max(0.8rem, env(safe-area-inset-right));
+    }
+    .reader-footer {
+        padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+        padding-left: max(0.8rem, env(safe-area-inset-left));
+        padding-right: max(0.8rem, env(safe-area-inset-right));
+    }
+}
