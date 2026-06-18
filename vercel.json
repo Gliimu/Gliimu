@@ -7,6 +7,10 @@
     {
       "source": "/",
       "destination": "/frontend/index.html"
+    },    
+    {
+      "source": "/display",
+      "destination": "/frontend/reader.html"
     },
     {
       "source": "/index",
@@ -76,8 +80,8 @@
       "permanent": true
     },
     {
-      "source": "/library.html",
-      "destination": "/library",
+      "source": "/reader.html",
+      "destination": "/display",
       "permanent": true
     },
     {
