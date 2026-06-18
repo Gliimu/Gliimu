@@ -52,6 +52,8 @@
 
     <!-- ============================================ -->
     <!-- LIBRARY ITEM MODAL - WITH FILE UPLOAD -->
+    <!-- REMOVED: Description field -->
+    <!-- RENAMED: First Chapter → Book Teaser -->
     <!-- ============================================ -->
     <div id="libraryItemModal" class="modal">
         <div class="modal-content" style="max-width:700px;">
@@ -90,10 +92,7 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea id="itemDescription" rows="2" placeholder="Brief description..."></textarea>
-                    </div>
+                    <!-- REMOVED: Description field -->
                     
                     <!-- Pricing -->
                     <div class="form-row">
@@ -158,10 +157,11 @@
                         <input type="text" id="itemDuration" placeholder="e.g., 12:34">
                     </div>
                     
-                    <!-- First Chapter Preview -->
+                    <!-- RENAMED: First Chapter → Book Teaser -->
                     <div class="form-group">
-                        <label>First Chapter Preview</label>
-                        <textarea id="itemFirstChapter" rows="4" placeholder="Paste the first chapter here..."></textarea>
+                        <label>Book Teaser</label>
+                        <textarea id="itemFirstChapter" rows="4" placeholder="Paste the teaser content here..."></textarea>
+                        <small>This will be displayed as a preview in the book modal</small>
                     </div>
                     
                     <!-- Level & Status -->
