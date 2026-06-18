@@ -1,12 +1,15 @@
 // ============================================
 // ADMIN DASHBOARD - COMPLETE ROLE-BASED SYSTEM
 // Roles: Founder, CRM, Secretary, Manager
+// FULLY FUNCTIONAL WITH FILE UPLOAD FIXES
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
-// Global state
+// ============================================
+// GLOBAL STATE
+// ============================================
 let currentUser = null;
 let currentRole = null;
 let currentTab = 'dashboard';
@@ -291,8 +294,9 @@ async function renderDashboard() {
 }
 
 // ============================================
-// UPLOAD FILE TO STORAGE - RETURNS PUBLIC URL
+// UPLOAD FILE TO SUPABASE STORAGE
 // ============================================
+
 async function uploadFileToStorage(file, contentType, folder = null) {
     if (!file) {
         console.warn('⚠️ No file provided for upload');
@@ -325,9 +329,10 @@ async function uploadFileToStorage(file, contentType, folder = null) {
     }
     
     console.log('📤 Uploading to:', path);
+    console.log('📁 File details:', { name: file.name, size: file.size, type: file.type });
 
     try {
-        // 1. Upload the file
+        // Upload the file
         const { data, error } = await supabase.storage
             .from('hub_content')
             .upload(path, file, {
@@ -344,7 +349,7 @@ async function uploadFileToStorage(file, contentType, folder = null) {
 
         console.log('✅ File uploaded successfully:', data);
 
-        // 2. Get the public URL - THIS IS CRITICAL
+        // Get the public URL
         const { data: urlData } = supabase.storage
             .from('hub_content')
             .getPublicUrl(path);
@@ -358,7 +363,6 @@ async function uploadFileToStorage(file, contentType, folder = null) {
         const publicUrl = urlData.publicUrl;
         console.log('🔗 Public URL generated:', publicUrl);
 
-        // 3. Return the URL so it can be saved to database
         return publicUrl;
 
     } catch (error) {
@@ -402,7 +406,6 @@ async function deleteFileFromStorage(fileUrl) {
 function handleCoverUpload(file) {
     if (!file) return;
     
-    // Validate file type
     if (!file.type.startsWith('image/')) {
         showToast('Please select an image file', 'error');
         return;
@@ -426,14 +429,19 @@ function handleCoverUpload(file) {
         fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
     }
     
-    preview.style.display = 'flex';
+    if (preview) {
+        preview.style.display = 'flex';
+    }
     showToast(`📸 ${file.name} selected`, 'success');
 }
 
 function removeCoverFile() {
     coverFileData = null;
     document.getElementById('coverFileInput').value = '';
-    document.getElementById('coverPreview').style.display = 'none';
+    const preview = document.getElementById('coverPreview');
+    if (preview) {
+        preview.style.display = 'none';
+    }
     document.getElementById('coverPreviewImg').src = '';
     document.getElementById('coverFileName').textContent = 'No file selected';
 }
@@ -451,14 +459,19 @@ function handleContentUpload(file) {
         fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
     }
     
-    preview.style.display = 'flex';
+    if (preview) {
+        preview.style.display = 'flex';
+    }
     showToast(`📁 ${file.name} selected`, 'success');
 }
 
 function removeContentFile() {
     contentFileData = null;
     document.getElementById('contentFileInput').value = '';
-    document.getElementById('contentFilePreview').style.display = 'none';
+    const preview = document.getElementById('contentFilePreview');
+    if (preview) {
+        preview.style.display = 'none';
+    }
     document.getElementById('contentFileName').textContent = 'No file selected';
 }
 
@@ -489,14 +502,19 @@ function handleIndexImageUpload(file) {
         fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
     }
     
-    preview.style.display = 'flex';
+    if (preview) {
+        preview.style.display = 'flex';
+    }
     showToast(`🏞️ ${file.name} selected`, 'success');
 }
 
 function removeIndexImage() {
     indexImageFileData = null;
     document.getElementById('indexImageInput').value = '';
-    document.getElementById('indexImagePreview').style.display = 'none';
+    const preview = document.getElementById('indexImagePreview');
+    if (preview) {
+        preview.style.display = 'none';
+    }
     document.getElementById('indexImagePreviewImg').src = '';
     document.getElementById('indexFileName').textContent = 'No file selected';
 }
@@ -528,14 +546,19 @@ function handleProductImageUpload(file) {
         fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
     }
     
-    preview.style.display = 'flex';
+    if (preview) {
+        preview.style.display = 'flex';
+    }
     showToast(`🛍️ ${file.name} selected`, 'success');
 }
 
 function removeProductImage() {
     productImageFileData = null;
     document.getElementById('productImageInput').value = '';
-    document.getElementById('productImagePreview').style.display = 'none';
+    const preview = document.getElementById('productImagePreview');
+    if (preview) {
+        preview.style.display = 'none';
+    }
     document.getElementById('productImagePreviewImg').src = '';
     document.getElementById('productFileName').textContent = 'No file selected';
 }
@@ -697,6 +720,11 @@ function openLibraryModal(itemId = null) {
     document.getElementById('coverFileName').textContent = 'No file selected';
     document.getElementById('contentFileName').textContent = 'No file selected';
     
+    // Reset file previews
+    document.getElementById('coverPreview').style.display = 'none';
+    document.getElementById('contentFilePreview').style.display = 'none';
+    document.getElementById('coverPreviewImg').src = '';
+    
     title.textContent = 'Add New Content';
     editingItemId = null;
     
@@ -786,9 +814,9 @@ async function loadItemData(itemId) {
         const preview = document.getElementById('coverPreview');
         const img = document.getElementById('coverPreviewImg');
         const fileName = document.getElementById('coverFileName');
-        img.src = item.cover_url;
-        fileName.textContent = 'Current cover image';
-        preview.style.display = 'flex';
+        if (img) img.src = item.cover_url;
+        if (fileName) fileName.textContent = 'Current cover image';
+        if (preview) preview.style.display = 'flex';
     }
     
     // Show existing file
@@ -796,13 +824,13 @@ async function loadItemData(itemId) {
         const preview = document.getElementById('contentFilePreview');
         const fileName = document.getElementById('contentFileName');
         const fileParts = item.file_url.split('/');
-        fileName.textContent = '📎 ' + fileParts[fileParts.length - 1];
-        preview.style.display = 'flex';
+        if (fileName) fileName.textContent = '📎 ' + fileParts[fileParts.length - 1];
+        if (preview) preview.style.display = 'flex';
     }
 }
 
 // ============================================
-// SAVE LIBRARY ITEM - CORRECTED COLUMN NAMES
+// SAVE LIBRARY ITEM - WITH AUTO URL STORAGE
 // ============================================
 async function saveLibraryItem(e) {
     e.preventDefault();
@@ -812,9 +840,62 @@ async function saveLibraryItem(e) {
     const coverFile = coverFileData;
     const contentFile = contentFileData;
     
-    // ... upload logic (same as before) ...
+    // Get existing file URLs if editing
+    let existingCoverUrl = '';
+    let existingFileUrl = '';
+    if (itemId) {
+        const { data: oldItem } = await supabase
+            .from('hub_contents')
+            .select('cover_url, file_url')
+            .eq('id', itemId)
+            .single();
+        if (oldItem) {
+            existingCoverUrl = oldItem.cover_url || '';
+            existingFileUrl = oldItem.file_url || '';
+        }
+    }
     
-    // --- Build data object with CORRECT column names ---
+    // Upload cover image if new file selected
+    let coverUrl = existingCoverUrl;
+    if (coverFile) {
+        console.log('📤 Uploading cover image...', coverFile.name);
+        const uploadedUrl = await uploadFileToStorage(coverFile, 'cover');
+        console.log('📤 Upload result URL:', uploadedUrl);
+        
+        if (uploadedUrl) {
+            // Delete old cover if exists
+            if (existingCoverUrl) {
+                await deleteFileFromStorage(existingCoverUrl);
+            }
+            coverUrl = uploadedUrl;
+            console.log('✅ Cover URL saved:', coverUrl);
+        } else {
+            showToast('Cover upload failed', 'error');
+            return;
+        }
+    }
+    
+    // Upload content file if new file selected
+    let fileUrl = existingFileUrl;
+    if (contentFile) {
+        console.log('📤 Uploading content file...', contentFile.name);
+        const uploadedUrl = await uploadFileToStorage(contentFile, contentType);
+        console.log('📤 Upload result URL:', uploadedUrl);
+        
+        if (uploadedUrl) {
+            // Delete old file if exists
+            if (existingFileUrl) {
+                await deleteFileFromStorage(existingFileUrl);
+            }
+            fileUrl = uploadedUrl;
+            console.log('✅ Content URL saved:', fileUrl);
+        } else {
+            showToast('Content file upload failed', 'error');
+            return;
+        }
+    }
+    
+    // Build the data object with the URLs
     const data = {
         title: document.getElementById('itemTitle').value.trim(),
         type: contentType,
@@ -823,7 +904,7 @@ async function saveLibraryItem(e) {
         description: document.getElementById('itemDescription').value.trim(),
         cover_url: coverUrl,
         file_url: fileUrl,
-        download_url: document.getElementById('itemDownloadUrl').value.trim() || null, // ← This column now exists!
+        download_url: document.getElementById('itemDownloadUrl').value.trim() || null,
         price: parseFloat(document.getElementById('itemPrice').value) || 0,
         physical_price: parseFloat(document.getElementById('itemPhysicalPrice').value) || 0,
         audio_price: parseFloat(document.getElementById('itemAudioPrice').value) || 0,
@@ -837,7 +918,8 @@ async function saveLibraryItem(e) {
     console.log('📦 Saving to database:', { 
         title: data.title, 
         cover_url: data.cover_url, 
-        file_url: data.file_url 
+        file_url: data.file_url,
+        download_url: data.download_url
     });
     
     if (!data.title) {
@@ -845,7 +927,7 @@ async function saveLibraryItem(e) {
         return;
     }
     
-    // --- Save to database ---
+    // Save to database
     let result;
     if (itemId) {
         result = await supabase
@@ -1042,9 +1124,9 @@ function openIndexModal() {
                 const preview = document.getElementById('indexImagePreview');
                 const img = document.getElementById('indexImagePreviewImg');
                 const fileName = document.getElementById('indexFileName');
-                img.src = data.hero_image;
-                fileName.textContent = 'Current hero image';
-                preview.style.display = 'flex';
+                if (img) img.src = data.hero_image;
+                if (fileName) fileName.textContent = 'Current hero image';
+                if (preview) preview.style.display = 'flex';
             }
         });
     
@@ -1058,9 +1140,6 @@ function closeIndexModal() {
     document.getElementById('indexImageInput').value = '';
 }
 
-// ============================================
-// SAVE INDEX ITEM - WITH AUTO URL STORAGE
-// ============================================
 async function saveIndexItem(e) {
     e.preventDefault();
     
@@ -1090,7 +1169,7 @@ async function saveIndexItem(e) {
             if (existingImageUrl) {
                 await deleteFileFromStorage(existingImageUrl);
             }
-            imageUrl = uploadedUrl;  // ✅ Store the uploaded URL
+            imageUrl = uploadedUrl;
             console.log('✅ Hero image URL saved:', imageUrl);
         } else {
             showToast('Image upload failed', 'error');
@@ -1101,7 +1180,7 @@ async function saveIndexItem(e) {
     const data = {
         hero_title: document.getElementById('indexHeroTitle').value.trim(),
         hero_subtitle: document.getElementById('indexHeroSubtitle').value.trim(),
-        hero_image: imageUrl,  // ✅ This now has the uploaded URL
+        hero_image: imageUrl,
         updated_at: new Date().toISOString()
     };
     
@@ -1185,15 +1264,12 @@ async function loadProductData(productId) {
         const preview = document.getElementById('productImagePreview');
         const img = document.getElementById('productImagePreviewImg');
         const fileName = document.getElementById('productFileName');
-        img.src = data.image_url;
-        fileName.textContent = 'Current product image';
-        preview.style.display = 'flex';
+        if (img) img.src = data.image_url;
+        if (fileName) fileName.textContent = 'Current product image';
+        if (preview) preview.style.display = 'flex';
     }
 }
 
-// ============================================
-// SAVE PRODUCT - WITH AUTO URL STORAGE
-// ============================================
 async function saveProductItem(e) {
     e.preventDefault();
     
@@ -1222,7 +1298,7 @@ async function saveProductItem(e) {
             if (existingImageUrl) {
                 await deleteFileFromStorage(existingImageUrl);
             }
-            imageUrl = uploadedUrl;  // ✅ Store the uploaded URL
+            imageUrl = uploadedUrl;
             console.log('✅ Product image URL saved:', imageUrl);
         } else {
             showToast('Image upload failed', 'error');
@@ -1235,7 +1311,7 @@ async function saveProductItem(e) {
         category: document.getElementById('productCategory').value,
         price: parseFloat(document.getElementById('productPrice').value) || 0,
         stock_quantity: parseInt(document.getElementById('productStock').value) || 0,
-        image_url: imageUrl,  // ✅ This now has the uploaded URL
+        image_url: imageUrl,
         updated_at: new Date().toISOString()
     };
     
@@ -1269,6 +1345,7 @@ async function saveProductItem(e) {
         renderInventory();
     }
 }
+
 // ============================================
 // SETTINGS TAB
 // ============================================
@@ -1809,10 +1886,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Start the dashboard
-initAdminDashboard();
-
-// Make functions available globally
+// ============================================
+// MAKE FUNCTIONS GLOBALLY AVAILABLE
+// ============================================
 window.closeLibraryModal = closeLibraryModal;
 window.saveLibraryItem = saveLibraryItem;
 window.closeFaqModal = closeFaqModal;
@@ -1834,3 +1910,10 @@ window.updateFolderHint = updateFolderHint;
 window.openLibraryModal = openLibraryModal;
 window.openFaqModal = openFaqModal;
 window.openIndexModal = openIndexModal;
+
+// ============================================
+// START THE DASHBOARD
+// ============================================
+initAdminDashboard();
+
+console.log('✅ Admin dashboard loaded successfully');
