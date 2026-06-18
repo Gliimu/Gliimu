@@ -1289,13 +1289,13 @@ body.dark-mode .gp-display {
 }
 
 /* BLUR EFFECT - Only for locked chapters, but STILL SCROLLABLE */
-.book-modal .chapter-content.chapter-blur {
+.book-modal .chapter-content {
     max-height: 500px;
     overflow-y: auto; /* ← Changed from hidden to auto */
     position: relative;
 }
 
-.book-modal .chapter-content.chapter-blur::after {
+.book-modal .chapter-content::after {
     content: '';
     position: absolute;
     bottom: 0;
@@ -1327,7 +1327,7 @@ body.dark-mode .book-modal .chapter-preview-wide {
     background: var(--bg-secondary);
 }
 
-body.dark-mode .book-modal .chapter-content.chapter-blur::after {
+body.dark-mode .book-modal .chapter-content::after {
     background: linear-gradient(to bottom, transparent, var(--bg-secondary));
 }
 
@@ -1344,7 +1344,7 @@ body.dark-mode .book-modal .chapter-content.chapter-blur::after {
         line-height: 1.8;
     }
     
-    .book-modal .chapter-content.chapter-blur {
+    .book-modal .chapter-content {
         max-height: 250px;
     }
 }
@@ -1361,7 +1361,7 @@ body.dark-mode .book-modal .chapter-content.chapter-blur::after {
         line-height: 1.7;
     }
     
-    .book-modal .chapter-content.chapter-blur {
+    .book-modal .chapter-content {
         max-height: 200px;
     }
 }
