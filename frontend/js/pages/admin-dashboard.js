@@ -302,46 +302,47 @@ async function uploadFileToStorage(file, contentType, folder = null) {
     const randomStr = Math.random().toString(36).substring(2, 8);
     const fileName = `${timestamp}_${randomStr}.${fileExt}`;
     
-    // Determine folder path based on content type
+    // Determine folder path - DON'T start with /
     let path = '';
-    if (contentType === 'book') {
+    if (contentType === 'cover') {
+        path = `covers/${fileName}`;
+    } else if (contentType === 'book') {
         path = `book/${fileName}`;
     } else if (contentType === 'talk') {
         path = `talk/${fileName}`;
     } else if (contentType === 'bundle') {
         path = `bundle/${fileName}`;
-    } else if (contentType === 'cover') {
-        path = `covers/${fileName}`;
     } else if (contentType === 'hero') {
         path = `hero/${fileName}`;
     } else if (contentType === 'product') {
         path = `products/${fileName}`;
-    } else if (folder) {
-        path = `${folder}/${fileName}`;
     } else {
         path = `general/${fileName}`;
     }
     
-    console.log('📤 Uploading file to:', path);
+    console.log('📤 Uploading to:', path);
     
+    // UPLOAD
     const { data, error } = await supabase.storage
-        .from('hub_content')
+        .from('hub_content')  // ← Make sure this is 'hub_content'
         .upload(path, file, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            contentType: file.type
         });
     
     if (error) {
         console.error('Upload error:', error);
-        showToast(`Error uploading ${file.name}`, 'error');
+        showToast(`Error: ${error.message}`, 'error');
         return null;
     }
     
+    // GET PUBLIC URL
     const { data: urlData } = supabase.storage
         .from('hub_content')
         .getPublicUrl(path);
     
-    console.log('✅ Upload successful:', urlData.publicUrl);
+    console.log('✅ Public URL:', urlData.publicUrl);
     return urlData.publicUrl;
 }
 
