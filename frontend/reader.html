@@ -184,6 +184,111 @@
         }
 
         /* ============================================
+           SAFARI FALLBACK - Open in New Tab
+           ============================================ */
+        .safari-fallback {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 2rem;
+            text-align: center;
+            background: var(--reader-bg);
+        }
+
+        .safari-fallback .icon {
+            font-size: 3rem;
+            color: var(--brand-gold);
+            margin-bottom: 1rem;
+        }
+
+        .safari-fallback h2 {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .safari-fallback p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            max-width: 400px;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .safari-fallback .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .safari-fallback .btn-group button {
+            padding: 0.6rem 1.5rem;
+            border-radius: 40px;
+            border: none;
+            font-weight: 600;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: all 0.2s;
+        }
+
+        .safari-fallback .btn-group button:active {
+            transform: scale(0.95);
+        }
+
+        .safari-fallback .btn-group .btn-primary {
+            background: var(--brand-gold);
+            color: var(--brand-purple);
+        }
+
+        .safari-fallback .btn-group .btn-primary:hover {
+            background: var(--brand-gold-dark);
+        }
+
+        .safari-fallback .btn-group .btn-secondary {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .safari-fallback .btn-group .btn-secondary:hover {
+            border-color: var(--brand-gold);
+            color: var(--brand-gold);
+        }
+
+        .safari-fallback .browser-list {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .safari-fallback .browser-list .browser {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .safari-fallback .browser-list .browser i {
+            font-size: 1.5rem;
+        }
+
+        .safari-fallback .browser-list .browser span {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+        }
+
+        /* ============================================
            PDF.JS VIEWER (Desktop)
            ============================================ */
         .reader-container .pdfjs-viewer {
@@ -265,13 +370,6 @@
 
         .loading-overlay .retry-btn:active {
             transform: scale(0.95);
-        }
-
-        .loading-overlay .native-hint {
-            margin-top: 0.5rem;
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            opacity: 0.7;
         }
 
         @keyframes spin {
@@ -374,6 +472,9 @@
             .reader-header .logo span { font-size: 0.6rem; }
             .reader-header .book-title { max-width: 60px; font-size: 0.5rem; }
             .reader-header .controls button { font-size: 0.65rem; padding: 2px 4px; }
+            .safari-fallback .btn-group button { padding: 0.5rem 1rem; font-size: 0.75rem; }
+            .safari-fallback h2 { font-size: 1rem; }
+            .safari-fallback p { font-size: 0.8rem; }
         }
 
         @supports (padding: max(0px)) {
@@ -445,18 +546,28 @@
 
     <script>
         // ============================================
-        // GLIIMU READER - Native iOS + Desktop PDF.js
+        // GLIIMU READER - Smart Browser Detection
         // ============================================
 
         // ============================================
-        // DETECT DEVICE
+        // BROWSER DETECTION
         // ============================================
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        const isFirefox = /Firefox/.test(navigator.userAgent);
+        const isEdge = /Edg/.test(navigator.userAgent);
         const isAndroid = /Android/.test(navigator.userAgent);
         const isMobile = isIOS || isAndroid || /Mobi/.test(navigator.userAgent);
 
+        // Detect if it's Safari on iOS (the problematic one)
+        const isSafariIOS = isIOS && isSafari;
+
         console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
+        console.log('🌐 Browser:', isSafari ? 'Safari' : isChrome ? 'Chrome' : isFirefox ? 'Firefox' : 'Other');
+        console.log('⚠️ Safari on iOS:', isSafariIOS ? 'YES - Using fallback' : 'NO');
 
         // ============================================
         // STATE
@@ -523,7 +634,85 @@
         }
 
         // ============================================
-        // NATIVE iOS PDF VIEWER (MOST RELIABLE)
+        // SAFARI IOS FALLBACK - Open in New Tab
+        // ============================================
+        function showSafariFallback() {
+            loadingOverlay.classList.add('hidden');
+            
+            // Clear container
+            readerContainer.innerHTML = '';
+            
+            // Create fallback UI
+            const fallback = document.createElement('div');
+            fallback.className = 'safari-fallback';
+            fallback.innerHTML = `
+                <div class="icon">📱</div>
+                <h2>Safari on iOS Has Limited PDF Support</h2>
+                <p>
+                    Safari on iPhone only shows the first page of PDFs. 
+                    For the best reading experience, please use one of these options:
+                </p>
+                <div class="btn-group">
+                    <button class="btn-primary" onclick="openInNewTab()">
+                        <i class="fas fa-external-link-alt"></i> Open in New Tab
+                    </button>
+                    <button class="btn-secondary" onclick="copyLink()">
+                        <i class="fas fa-copy"></i> Copy Link
+                    </button>
+                </div>
+                <div class="browser-list">
+                    <div class="browser">
+                        <i class="fab fa-chrome" style="color:#4285F4;"></i>
+                        <span>Chrome</span>
+                    </div>
+                    <div class="browser">
+                        <i class="fab fa-firefox" style="color:#FF7139;"></i>
+                        <span>Firefox</span>
+                    </div>
+                    <div class="browser">
+                        <i class="fab fa-edge" style="color:#0078D7;"></i>
+                        <span>Edge</span>
+                    </div>
+                </div>
+                <p style="margin-top:1rem;font-size:0.8rem;opacity:0.6;">
+                    💡 Tip: Install Chrome or Firefox from the App Store
+                </p>
+            `;
+            
+            readerContainer.appendChild(fallback);
+            
+            // Update footer
+            pageInfo.textContent = '📄 Safari - Open in New Tab';
+            progressFill.style.width = '0%';
+        }
+
+        function openInNewTab() {
+            if (fileUrl) {
+                // Open in new tab - Safari will show the PDF natively
+                window.open(fileUrl, '_blank');
+                showToast('📄 Opening PDF in new tab...', 'success');
+            }
+        }
+
+        function copyLink() {
+            if (fileUrl) {
+                navigator.clipboard.writeText(fileUrl).then(function() {
+                    showToast('📋 Link copied! Open in Chrome or Firefox.', 'success');
+                }).catch(function() {
+                    // Fallback
+                    const input = document.createElement('input');
+                    input.value = fileUrl;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    showToast('📋 Link copied!', 'success');
+                });
+            }
+        }
+
+        // ============================================
+        // NATIVE VIEWER (Android / Non-Safari iOS)
         // ============================================
         function loadNativeViewer() {
             showLoading('Opening book...', 'Using native PDF viewer');
@@ -535,7 +724,7 @@
             const viewerDiv = document.createElement('div');
             viewerDiv.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;';
 
-            // Use <object> tag for iOS native PDF rendering
+            // Use <object> tag for native PDF rendering
             const object = document.createElement('object');
             object.type = 'application/pdf';
             object.data = fileUrl;
@@ -563,7 +752,7 @@
 
             // Show hint for users
             setTimeout(function() {
-                showToast('📄 Swipe up/down to scroll', 'info');
+                showToast('📄 Swipe to scroll through pages', 'info');
             }, 1000);
 
             // Save progress
@@ -692,8 +881,11 @@
         }
 
         function nextPage() {
-            if (isIOS || isAndroid) {
-                // On mobile, the native viewer handles this
+            if (isSafariIOS) {
+                showToast('Safari only shows first page - open in new tab', 'warning');
+                return;
+            }
+            if (isMobile) {
                 showToast('Use touch to scroll', 'info');
                 return;
             }
@@ -705,7 +897,11 @@
         }
 
         function prevPage() {
-            if (isIOS || isAndroid) {
+            if (isSafariIOS) {
+                showToast('Safari only shows first page - open in new tab', 'warning');
+                return;
+            }
+            if (isMobile) {
                 showToast('Use touch to scroll', 'info');
                 return;
             }
@@ -847,7 +1043,7 @@
             localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
             
             // Re-render for dark mode (desktop only)
-            if (!isIOS && !isAndroid && pdfDoc && currentPage) {
+            if (!isSafariIOS && !isMobile && pdfDoc && currentPage) {
                 pageCache = {};
                 renderPDFPage(currentPage);
             }
@@ -890,7 +1086,7 @@
         }
 
         // ============================================
-        // MAIN INIT
+        // MAIN INIT - Smart Browser Detection
         // ============================================
         function initReader() {
             if (!fileUrl) {
@@ -898,16 +1094,16 @@
                 return;
             }
 
-            // ----- iOS: Native Viewer (RELIABLE) -----
-            if (isIOS) {
-                console.log('📱 iOS detected - using native viewer');
-                loadNativeViewer();
+            // ----- SAFARI ON iOS: Show Fallback (Only Shows First Page) -----
+            if (isSafariIOS) {
+                console.log('⚠️ Safari on iOS detected - showing fallback');
+                showSafariFallback();
                 return;
             }
 
-            // ----- Android: Native Viewer -----
-            if (isAndroid) {
-                console.log('📱 Android detected - using native viewer');
+            // ----- Android / Non-Safari iOS: Native Viewer -----
+            if (isMobile) {
+                console.log('📱 Mobile detected - using native viewer');
                 loadNativeViewer();
                 return;
             }
@@ -943,8 +1139,10 @@
         window.reportIssue = reportIssue;
         window.showToast = showToast;
         window.retryLoad = retryLoad;
+        window.openInNewTab = openInNewTab;
+        window.copyLink = copyLink;
 
-        console.log('📚 Gliimu Reader - Native iOS + Desktop PDF.js');
+        console.log('📚 Gliimu Reader - Smart Browser Detection');
     </script>
 </body>
 </html>
