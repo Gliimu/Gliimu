@@ -26,6 +26,12 @@ let editingItemId = null;
 let editingFaqId = null;
 let editingIndexId = null;
 
+// File tracking for uploads
+let coverFileData = null;
+let contentFileData = null;
+let indexImageFileData = null;
+let productImageFileData = null;
+
 // ============================================
 // ROLE-BASED TAB CONFIGURATION
 // ============================================
@@ -308,6 +314,8 @@ async function uploadFileToStorage(file, contentType, folder = null) {
         path = `covers/${fileName}`;
     } else if (contentType === 'hero') {
         path = `hero/${fileName}`;
+    } else if (contentType === 'product') {
+        path = `products/${fileName}`;
     } else if (folder) {
         path = `${folder}/${fileName}`;
     } else {
@@ -361,6 +369,152 @@ async function deleteFileFromStorage(fileUrl) {
     } catch (e) {
         console.error('Error deleting file:', e);
     }
+}
+
+// ============================================
+// FILE UPLOAD HANDLERS - DIRECT FROM COMPUTER
+// ============================================
+
+// Cover image handlers
+function handleCoverUpload(file) {
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+    }
+    
+    coverFileData = file;
+    
+    const preview = document.getElementById('coverPreview');
+    const img = document.getElementById('coverPreviewImg');
+    const fileName = document.getElementById('coverFileName');
+    
+    if (img) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    if (fileName) {
+        fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+    }
+    
+    preview.style.display = 'flex';
+    showToast(`📸 ${file.name} selected`, 'success');
+}
+
+function removeCoverFile() {
+    coverFileData = null;
+    document.getElementById('coverFileInput').value = '';
+    document.getElementById('coverPreview').style.display = 'none';
+    document.getElementById('coverPreviewImg').src = '';
+    document.getElementById('coverFileName').textContent = 'No file selected';
+}
+
+// Content file handlers
+function handleContentUpload(file) {
+    if (!file) return;
+    
+    contentFileData = file;
+    
+    const preview = document.getElementById('contentFilePreview');
+    const fileName = document.getElementById('contentFileName');
+    
+    if (fileName) {
+        fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+    }
+    
+    preview.style.display = 'flex';
+    showToast(`📁 ${file.name} selected`, 'success');
+}
+
+function removeContentFile() {
+    contentFileData = null;
+    document.getElementById('contentFileInput').value = '';
+    document.getElementById('contentFilePreview').style.display = 'none';
+    document.getElementById('contentFileName').textContent = 'No file selected';
+}
+
+// Index image handlers
+function handleIndexImageUpload(file) {
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+    }
+    
+    indexImageFileData = file;
+    
+    const preview = document.getElementById('indexImagePreview');
+    const img = document.getElementById('indexImagePreviewImg');
+    const fileName = document.getElementById('indexFileName');
+    
+    if (img) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    if (fileName) {
+        fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+    }
+    
+    preview.style.display = 'flex';
+    showToast(`🏞️ ${file.name} selected`, 'success');
+}
+
+function removeIndexImage() {
+    indexImageFileData = null;
+    document.getElementById('indexImageInput').value = '';
+    document.getElementById('indexImagePreview').style.display = 'none';
+    document.getElementById('indexImagePreviewImg').src = '';
+    document.getElementById('indexFileName').textContent = 'No file selected';
+}
+
+// Product image handlers
+function handleProductImageUpload(file) {
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+    }
+    
+    productImageFileData = file;
+    
+    const preview = document.getElementById('productImagePreview');
+    const img = document.getElementById('productImagePreviewImg');
+    const fileName = document.getElementById('productFileName');
+    
+    if (img) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    if (fileName) {
+        fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+    }
+    
+    preview.style.display = 'flex';
+    showToast(`🛍️ ${file.name} selected`, 'success');
+}
+
+function removeProductImage() {
+    productImageFileData = null;
+    document.getElementById('productImageInput').value = '';
+    document.getElementById('productImagePreview').style.display = 'none';
+    document.getElementById('productImagePreviewImg').src = '';
+    document.getElementById('productFileName').textContent = 'No file selected';
 }
 
 // ============================================
@@ -465,9 +619,9 @@ async function renderPostsManager() {
                             <div class="index-value">${escapeHtml(index.hero_subtitle || 'Read the best')}</div>
                         </div>
                         ${index.hero_image ? `
-                            <div class="index-field">
+                            <div class="index-field" style="grid-column: 1 / -1;">
                                 <label>Hero Image</label>
-                                <img src="${index.hero_image}" alt="Hero" style="max-width:200px; border-radius:8px;">
+                                <img src="${index.hero_image}" alt="Hero" style="max-width:300px; border-radius:8px;">
                             </div>
                         ` : ''}
                     </div>
@@ -490,7 +644,7 @@ async function renderPostsManager() {
 }
 
 // ============================================
-// LIBRARY MODAL FUNCTIONS - FIXED
+// LIBRARY MODAL FUNCTIONS - WITH FILE UPLOAD
 // ============================================
 function openLibraryModal(itemId = null) {
     const modal = document.getElementById('libraryItemModal');
@@ -502,14 +656,24 @@ function openLibraryModal(itemId = null) {
         return;
     }
     
+    // Reset form
     form.reset();
     document.getElementById('editItemId').value = '';
-    document.getElementById('coverFileInput').value = '';
-    document.getElementById('contentFileInput').value = '';
     document.getElementById('coverPreview').style.display = 'none';
     document.getElementById('contentFilePreview').style.display = 'none';
     document.getElementById('bundleDownloadGroup').style.display = 'none';
     document.getElementById('talkDurationGroup').style.display = 'none';
+    
+    // Reset file data
+    coverFileData = null;
+    contentFileData = null;
+    
+    // Reset file inputs
+    document.getElementById('coverFileInput').value = '';
+    document.getElementById('contentFileInput').value = '';
+    document.getElementById('coverFileName').textContent = 'No file selected';
+    document.getElementById('contentFileName').textContent = 'No file selected';
+    
     title.textContent = 'Add New Content';
     editingItemId = null;
     
@@ -526,7 +690,6 @@ function openLibraryModal(itemId = null) {
     modal.classList.add('active');
 }
 
-// CLOSE LIBRARY MODAL - FIXED
 function closeLibraryModal() {
     const modal = document.getElementById('libraryItemModal');
     if (modal) {
@@ -540,9 +703,10 @@ function closeLibraryModal() {
         document.getElementById('contentFileInput').value = '';
         document.getElementById('bundleDownloadGroup').style.display = 'none';
         document.getElementById('talkDurationGroup').style.display = 'none';
-        // Remove any lingering errors
-        const errorElements = document.querySelectorAll('.form-error');
-        errorElements.forEach(el => el.remove());
+        document.getElementById('coverFileName').textContent = 'No file selected';
+        document.getElementById('contentFileName').textContent = 'No file selected';
+        coverFileData = null;
+        contentFileData = null;
     }
 }
 
@@ -598,93 +762,68 @@ async function loadItemData(itemId) {
     if (item.cover_url) {
         const preview = document.getElementById('coverPreview');
         const img = document.getElementById('coverPreviewImg');
+        const fileName = document.getElementById('coverFileName');
         img.src = item.cover_url;
-        preview.style.display = 'block';
+        fileName.textContent = 'Current cover image';
+        preview.style.display = 'flex';
     }
     
     // Show existing file
     if (item.file_url) {
         const preview = document.getElementById('contentFilePreview');
-        const link = document.getElementById('contentFileLink');
-        link.href = item.file_url;
-        link.textContent = '📎 ' + item.file_url.split('/').pop();
-        preview.style.display = 'block';
+        const fileName = document.getElementById('contentFileName');
+        const fileParts = item.file_url.split('/');
+        fileName.textContent = '📎 ' + fileParts[fileParts.length - 1];
+        preview.style.display = 'flex';
     }
 }
 
-// Handle cover image upload
-function handleCoverUpload(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const preview = document.getElementById('coverPreview');
-        const img = document.getElementById('coverPreviewImg');
-        img.src = e.target.result;
-        preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-}
-
-// Handle content file upload
-function handleContentUpload(file) {
-    if (!file) return;
-    const preview = document.getElementById('contentFilePreview');
-    const link = document.getElementById('contentFileLink');
-    link.href = URL.createObjectURL(file);
-    link.textContent = '📎 ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
-    preview.style.display = 'block';
-}
-
-// Remove cover file
-function removeCoverFile() {
-    document.getElementById('coverPreview').style.display = 'none';
-    document.getElementById('coverPreviewImg').src = '';
-    document.getElementById('coverFileInput').value = '';
-}
-
-// Remove content file
-function removeContentFile() {
-    document.getElementById('contentFilePreview').style.display = 'none';
-    document.getElementById('contentFileLink').href = '#';
-    document.getElementById('contentFileLink').textContent = 'No file selected';
-    document.getElementById('contentFileInput').value = '';
-}
-
 // ============================================
-// SAVE LIBRARY ITEM
+// SAVE LIBRARY ITEM - WITH FILE UPLOAD
 // ============================================
 async function saveLibraryItem(e) {
     e.preventDefault();
     
     const itemId = document.getElementById('editItemId').value;
     const contentType = document.getElementById('itemType').value;
-    const coverFile = document.getElementById('coverFileInput').files[0];
-    const contentFile = document.getElementById('contentFileInput').files[0];
+    const coverFile = coverFileData;
+    const contentFile = contentFileData;
     
-    // Upload cover image if provided
-    let coverUrl = '';
-    if (coverFile) {
-        const uploaded = await uploadFileToStorage(coverFile, 'cover');
-        if (uploaded) coverUrl = uploaded;
-    } else if (document.getElementById('coverPreview').style.display === 'block') {
-        // Keep existing cover if already uploaded
-        const existingImg = document.getElementById('coverPreviewImg');
-        if (existingImg.src && !existingImg.src.includes('blob:')) {
-            coverUrl = existingImg.src;
+    // Get existing file URLs if editing
+    let existingCoverUrl = '';
+    let existingFileUrl = '';
+    if (itemId) {
+        const { data: oldItem } = await supabase
+            .from('hub_contents')
+            .select('cover_url, file_url')
+            .eq('id', itemId)
+            .single();
+        if (oldItem) {
+            existingCoverUrl = oldItem.cover_url || '';
+            existingFileUrl = oldItem.file_url || '';
         }
     }
     
-    // Upload content file if provided
-    let fileUrl = '';
+    // Upload cover image if new file selected
+    let coverUrl = existingCoverUrl;
+    if (coverFile) {
+        // Delete old cover if exists
+        if (existingCoverUrl) {
+            await deleteFileFromStorage(existingCoverUrl);
+        }
+        const uploaded = await uploadFileToStorage(coverFile, 'cover');
+        if (uploaded) coverUrl = uploaded;
+    }
+    
+    // Upload content file if new file selected
+    let fileUrl = existingFileUrl;
     if (contentFile) {
+        // Delete old file if exists
+        if (existingFileUrl) {
+            await deleteFileFromStorage(existingFileUrl);
+        }
         const uploaded = await uploadFileToStorage(contentFile, contentType);
         if (uploaded) fileUrl = uploaded;
-    } else if (document.getElementById('contentFilePreview').style.display === 'block') {
-        // Keep existing file if already uploaded
-        const existingLink = document.getElementById('contentFileLink');
-        if (existingLink.href && !existingLink.href.includes('blob:')) {
-            fileUrl = existingLink.href;
-        }
     }
     
     const data = {
@@ -713,24 +852,6 @@ async function saveLibraryItem(e) {
     
     let result;
     if (itemId) {
-        // If updating, delete old files if new ones are uploaded
-        if (coverFile || contentFile) {
-            const { data: oldItem } = await supabase
-                .from('hub_contents')
-                .select('cover_url, file_url')
-                .eq('id', itemId)
-                .single();
-            
-            if (oldItem) {
-                if (coverFile && oldItem.cover_url) {
-                    await deleteFileFromStorage(oldItem.cover_url);
-                }
-                if (contentFile && oldItem.file_url) {
-                    await deleteFileFromStorage(oldItem.file_url);
-                }
-            }
-        }
-        
         result = await supabase
             .from('hub_contents')
             .update(data)
@@ -900,19 +1021,34 @@ async function deleteFaqItem(faqId) {
 }
 
 // ============================================
-// INDEX/HERO FUNCTIONS
+// INDEX/HERO FUNCTIONS - WITH FILE UPLOAD
 // ============================================
 function openIndexModal() {
     const modal = document.getElementById('indexModal');
     if (!modal) return;
+    
+    // Reset file data
+    indexImageFileData = null;
+    document.getElementById('indexImageInput').value = '';
+    document.getElementById('indexImagePreview').style.display = 'none';
+    document.getElementById('indexFileName').textContent = 'No file selected';
     
     // Load current index data
     supabase.from('index_content').select('*').maybeSingle()
         .then(({ data }) => {
             document.getElementById('indexHeroTitle').value = data?.hero_title || 'Be The Best';
             document.getElementById('indexHeroSubtitle').value = data?.hero_subtitle || 'Read the best';
-            document.getElementById('indexHeroImage').value = data?.hero_image || '';
             document.getElementById('editIndexId').value = data?.id || '';
+            
+            // Show existing image if any
+            if (data?.hero_image) {
+                const preview = document.getElementById('indexImagePreview');
+                const img = document.getElementById('indexImagePreviewImg');
+                const fileName = document.getElementById('indexFileName');
+                img.src = data.hero_image;
+                fileName.textContent = 'Current hero image';
+                preview.style.display = 'flex';
+            }
         });
     
     modal.classList.add('active');
@@ -921,30 +1057,37 @@ function openIndexModal() {
 function closeIndexModal() {
     const modal = document.getElementById('indexModal');
     if (modal) modal.classList.remove('active');
+    indexImageFileData = null;
+    document.getElementById('indexImageInput').value = '';
 }
 
 async function saveIndexItem(e) {
     e.preventDefault();
     
     const indexId = document.getElementById('editIndexId').value;
-    const imageFile = document.getElementById('indexImageInput').files[0];
+    const imageFile = indexImageFileData;
     
-    let imageUrl = document.getElementById('indexHeroImage').value;
-    if (imageFile) {
-        const uploaded = await uploadFileToStorage(imageFile, 'hero');
-        if (uploaded) imageUrl = uploaded;
-    }
-    
-    // If image was removed, delete old one
-    if (!imageUrl && document.getElementById('indexHeroImage').value === '') {
+    // Get existing image URL if editing
+    let existingImageUrl = '';
+    if (indexId) {
         const { data: oldData } = await supabase
             .from('index_content')
             .select('hero_image')
             .eq('id', indexId)
             .single();
-        if (oldData?.hero_image) {
-            await deleteFileFromStorage(oldData.hero_image);
+        if (oldData) {
+            existingImageUrl = oldData.hero_image || '';
         }
+    }
+    
+    let imageUrl = existingImageUrl;
+    if (imageFile) {
+        // Delete old image if exists
+        if (existingImageUrl) {
+            await deleteFileFromStorage(existingImageUrl);
+        }
+        const uploaded = await uploadFileToStorage(imageFile, 'hero');
+        if (uploaded) imageUrl = uploaded;
     }
     
     const data = {
@@ -973,6 +1116,130 @@ async function saveIndexItem(e) {
         showToast('Hero content updated successfully!', 'success');
         closeIndexModal();
         renderPostsManager();
+    }
+}
+
+// ============================================
+// PRODUCT FUNCTIONS - WITH FILE UPLOAD
+// ============================================
+function openProductModal(productId = null) {
+    const modal = document.getElementById('productModal');
+    if (!modal) return;
+    
+    // Reset form
+    document.getElementById('productForm').reset();
+    document.getElementById('editProductId').value = '';
+    productImageFileData = null;
+    document.getElementById('productImageInput').value = '';
+    document.getElementById('productImagePreview').style.display = 'none';
+    document.getElementById('productFileName').textContent = 'No file selected';
+    
+    if (productId) {
+        document.getElementById('productModalTitle').textContent = 'Edit Product';
+        document.getElementById('editProductId').value = productId;
+        loadProductData(productId);
+    } else {
+        document.getElementById('productModalTitle').textContent = 'Add Product';
+    }
+    
+    modal.classList.add('active');
+}
+
+function closeProductModal() {
+    const modal = document.getElementById('productModal');
+    if (modal) modal.classList.remove('active');
+    productImageFileData = null;
+    document.getElementById('productImageInput').value = '';
+}
+
+async function loadProductData(productId) {
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .single();
+    
+    if (error) {
+        showToast('Error loading product', 'error');
+        return;
+    }
+    
+    document.getElementById('productName').value = data.name || '';
+    document.getElementById('productCategory').value = data.category || 'uniform';
+    document.getElementById('productPrice').value = data.price || 0;
+    document.getElementById('productStock').value = data.stock_quantity || 0;
+    
+    if (data.image_url) {
+        const preview = document.getElementById('productImagePreview');
+        const img = document.getElementById('productImagePreviewImg');
+        const fileName = document.getElementById('productFileName');
+        img.src = data.image_url;
+        fileName.textContent = 'Current product image';
+        preview.style.display = 'flex';
+    }
+}
+
+async function saveProductItem(e) {
+    e.preventDefault();
+    
+    const productId = document.getElementById('editProductId').value;
+    const imageFile = productImageFileData;
+    
+    // Get existing image URL if editing
+    let existingImageUrl = '';
+    if (productId) {
+        const { data: oldData } = await supabase
+            .from('products')
+            .select('image_url')
+            .eq('id', productId)
+            .single();
+        if (oldData) {
+            existingImageUrl = oldData.image_url || '';
+        }
+    }
+    
+    let imageUrl = existingImageUrl;
+    if (imageFile) {
+        if (existingImageUrl) {
+            await deleteFileFromStorage(existingImageUrl);
+        }
+        const uploaded = await uploadFileToStorage(imageFile, 'product');
+        if (uploaded) imageUrl = uploaded;
+    }
+    
+    const data = {
+        name: document.getElementById('productName').value.trim(),
+        category: document.getElementById('productCategory').value,
+        price: parseFloat(document.getElementById('productPrice').value) || 0,
+        stock_quantity: parseInt(document.getElementById('productStock').value) || 0,
+        image_url: imageUrl,
+        updated_at: new Date().toISOString()
+    };
+    
+    if (!data.name) {
+        showToast('Product name is required', 'error');
+        return;
+    }
+    
+    let result;
+    if (productId) {
+        result = await supabase
+            .from('products')
+            .update(data)
+            .eq('id', productId);
+    } else {
+        data.created_at = new Date().toISOString();
+        result = await supabase
+            .from('products')
+            .insert([data]);
+    }
+    
+    if (result.error) {
+        showToast(`Error: ${result.error.message}`, 'error');
+    } else {
+        showToast(`Product ${productId ? 'updated' : 'added'} successfully!`, 'success');
+        closeProductModal();
+        renderInventory();
     }
 }
 
@@ -1367,10 +1634,6 @@ async function refreshAllData() {
     await renderDashboard();
 }
 
-function openProductModal(productId = null) {
-    showToast('Product management coming soon', 'info');
-}
-
 async function exportAllData() {
     try {
         const payments = await loadPayments();
@@ -1486,6 +1749,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Product modal close
+    const closeProductBtn = document.getElementById('closeProductModalBtn');
+    if (closeProductBtn) {
+        closeProductBtn.addEventListener('click', closeProductModal);
+    }
+    
+    const productModal = document.getElementById('productModal');
+    if (productModal) {
+        productModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeProductModal();
+            }
+        });
+    }
+    
     // Escape key to close modals
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
@@ -1497,6 +1775,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (document.getElementById('indexModal')?.classList.contains('active')) {
                 closeIndexModal();
+            }
+            if (document.getElementById('productModal')?.classList.contains('active')) {
+                closeProductModal();
             }
         }
     });
@@ -1512,10 +1793,17 @@ window.closeFaqModal = closeFaqModal;
 window.saveFaqItem = saveFaqItem;
 window.closeIndexModal = closeIndexModal;
 window.saveIndexItem = saveIndexItem;
+window.closeProductModal = closeProductModal;
+window.saveProductItem = saveProductItem;
+window.openProductModal = openProductModal;
 window.handleCoverUpload = handleCoverUpload;
 window.handleContentUpload = handleContentUpload;
 window.removeCoverFile = removeCoverFile;
 window.removeContentFile = removeContentFile;
+window.handleIndexImageUpload = handleIndexImageUpload;
+window.removeIndexImage = removeIndexImage;
+window.handleProductImageUpload = handleProductImageUpload;
+window.removeProductImage = removeProductImage;
 window.updateFolderHint = updateFolderHint;
 window.openLibraryModal = openLibraryModal;
 window.openFaqModal = openFaqModal;
