@@ -252,6 +252,17 @@
         }
 
         /* ============================================
+           IFRAME VIEWER (Fallback for iOS)
+           ============================================ */
+        .reader-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: var(--reader-bg);
+            min-height: 100%;
+        }
+
+        /* ============================================
            LOADING OVERLAY
            ============================================ */
         .loading-overlay {
@@ -597,8 +608,7 @@
 
     <script>
         // ============================================
-        // GLIIMU READER - iOS Compatible
-        // FIXED: Worker error by using inline worker
+        // GLIIMU READER - iOS Compatible with Fallback
         // ============================================
 
         // ============================================
@@ -606,8 +616,10 @@
         // ============================================
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
         console.log('📱 Device:', isIOS ? 'iOS' : 'Not iOS');
+        console.log('🌐 Browser:', isSafari ? 'Safari' : 'Other');
 
         // ============================================
         // CONFIGURATION
@@ -630,6 +642,7 @@
         let currentZoom = 1.0;
         let isRendering = false;
         let isLoading = false;
+        let useFallback = false;
 
         // ============================================
         // DOM REFS
@@ -677,7 +690,7 @@
 
         function applyZoom() {
             const canvas = pageWrapper.querySelector('canvas');
-            if (canvas) {
+            if (canvas && !useFallback) {
                 canvas.style.transform = 'scale(' + currentZoom + ')';
                 canvas.style.transformOrigin = 'top center';
                 updateZoomDisplay();
@@ -736,90 +749,38 @@
         }
 
         // ============================================
-        // INITIALIZE PDF - FIXED FOR iOS
+        // FALLBACK: Google Docs Viewer (iOS)
         // ============================================
-        async function initPDF() {
-            if (!pdfUrl) {
-                showError('No book found to read');
-                pageInfo.textContent = '❌ No book';
-                return;
-            }
-
-            try {
-                showLoading('Loading PDF library...');
-                
-                // Load PDF.js with a different approach for iOS
-                await loadPDFJS();
-
-                showLoading('Opening book...');
-
-                // iOS Safari specific options
-                const options = {
-                    url: pdfUrl,
-                    withCredentials: false,
-                    useSystemFonts: true,
-                    disableFontFace: false,
-                    disableRange: true,
-                    disableStream: true,
-                    disableAutoFetch: true,
-                    // Important for iOS: Use the main thread instead of workers
-                    useWorkerFetch: false,
-                    isEvalSupported: false
-                };
-
-                // For iOS, we need to use a different loading approach
-                let loadingTask;
-                
-                if (isIOS) {
-                    // iOS: Use fetch to get the PDF data first
-                    const response = await fetch(pdfUrl);
-                    const arrayBuffer = await response.arrayBuffer();
-                    
-                    // Load from array buffer (no worker needed)
-                    loadingTask = pdfjsLib.getDocument({
-                        data: arrayBuffer,
-                        useSystemFonts: true,
-                        disableFontFace: false,
-                        disableRange: true,
-                        disableStream: true,
-                        disableAutoFetch: true,
-                        useWorkerFetch: false,
-                        isEvalSupported: false
-                    });
-                } else {
-                    loadingTask = pdfjsLib.getDocument(options);
-                }
-
-                pdfDoc = await loadingTask.promise;
-                totalPages = pdfDoc.numPages;
-                pageInfo.textContent = 'Page 1 of ' + totalPages;
-
-                console.log('📚 PDF loaded: ' + totalPages + ' pages');
-
-                // Load saved progress
-                await loadSavedProgress();
-
-                // Render first page
-                await renderPage(currentPage);
-
-                // Hide loading
-                hideLoading();
-
-                // Start auto-save
-                startAutoSave();
-
-                // Setup event listeners
-                setupEventListeners();
-
-            } catch (error) {
-                console.error('PDF loading error:', error);
-                showError('Could not load the book. Please try again.');
-                showToast('Failed to load book: ' + (error.message || 'Unknown error'), 'error');
-            }
+        function loadWithGoogleDocs() {
+            useFallback = true;
+            
+            // Hide canvas wrapper
+            pageWrapper.style.display = 'none';
+            
+            // Create iframe
+            const iframe = document.createElement('iframe');
+            iframe.id = 'googleDocsViewer';
+            iframe.src = 'https://docs.google.com/viewer?url=' + encodeURIComponent(pdfUrl) + '&embedded=true';
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.minHeight = '100%';
+            
+            readerContainer.appendChild(iframe);
+            
+            // Update page info
+            pageInfo.textContent = '📄 Google Docs Viewer';
+            progressFill.style.width = '0%';
+            
+            hideLoading();
+            showToast('📄 Opening in Google Docs Viewer', 'info');
+            
+            // Save progress
+            saveProgress();
         }
 
         // ============================================
-        // LOAD PDF.JS - iOS Compatible
+        // LOAD PDF.JS
         // ============================================
         function loadPDFJS() {
             return new Promise(function(resolve, reject) {
@@ -830,41 +791,41 @@
                     return;
                 }
 
-                // Use the main thread version for iOS
+                // Try loading from CDN
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
                 script.crossOrigin = 'anonymous';
+                script.integrity = 'sha512-M8vb1E9V6M8rZvJpL3NW6GFI+iibhFdH2mZNA9J1E8Gj3h4StwbNSZfbg1+j9yRjhGAxNcMh/sdSO8/5LZOylw==';
                 
                 script.onload = function() {
-                    // Set worker source - but don't use worker for iOS
                     if (typeof pdfjsLib !== 'undefined') {
-                        // For iOS, use an inline worker or disable workers
+                        // Set worker to null for iOS compatibility
                         try {
-                            // Try to set worker, but don't fail if it doesn't work
                             pdfjsLib.GlobalWorkerOptions.workerSrc = null;
-                            // Use main thread only
                             pdfjsLib.GlobalWorkerOptions.useWorkerFetch = false;
-                            console.log('PDF.js loaded with main thread only');
                         } catch (e) {
-                            console.warn('Worker setup failed, using main thread:', e);
+                            console.warn('Worker setup failed:', e);
                         }
                         resolve();
                     } else {
-                        reject(new Error('PDF.js failed to load'));
+                        reject(new Error('PDF.js failed to initialize'));
                     }
                 };
                 
                 script.onerror = function() {
-                    // Try alternative CDN
+                    // Try jsdelivr as fallback
                     const fallbackScript = document.createElement('script');
                     fallbackScript.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js';
                     fallbackScript.crossOrigin = 'anonymous';
                     fallbackScript.onload = function() {
                         if (typeof pdfjsLib !== 'undefined') {
-                            pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+                            try {
+                                pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+                                pdfjsLib.GlobalWorkerOptions.useWorkerFetch = false;
+                            } catch (e) {}
                             resolve();
                         } else {
-                            reject(new Error('PDF.js failed to load from both CDNs'));
+                            reject(new Error('PDF.js failed to load from fallback CDN'));
                         }
                     };
                     fallbackScript.onerror = function() {
@@ -878,24 +839,131 @@
         }
 
         // ============================================
-        // RENDER PAGE - iOS Compatible
+        // INITIALIZE PDF
+        // ============================================
+        async function initPDF() {
+            if (!pdfUrl) {
+                showError('No book found to read');
+                pageInfo.textContent = '❌ No book';
+                return;
+            }
+
+            // For iOS, try Google Docs first if PDF.js fails
+            if (isIOS || isSafari) {
+                try {
+                    showLoading('Loading book...');
+                    
+                    // Try PDF.js first
+                    try {
+                        await loadPDFJS();
+                        showLoading('Opening book...');
+                        
+                        // Load PDF
+                        const response = await fetch(pdfUrl);
+                        const arrayBuffer = await response.arrayBuffer();
+                        
+                        const loadingTask = pdfjsLib.getDocument({
+                            data: arrayBuffer,
+                            useSystemFonts: true,
+                            disableFontFace: false,
+                            disableRange: true,
+                            disableStream: true,
+                            disableAutoFetch: true,
+                            useWorkerFetch: false,
+                            isEvalSupported: false
+                        });
+
+                        pdfDoc = await loadingTask.promise;
+                        totalPages = pdfDoc.numPages;
+                        pageInfo.textContent = 'Page 1 of ' + totalPages;
+
+                        console.log('📚 PDF loaded: ' + totalPages + ' pages');
+
+                        await loadSavedProgress();
+                        await renderPage(currentPage);
+                        hideLoading();
+                        startAutoSave();
+                        setupEventListeners();
+                        return;
+                        
+                    } catch (pdfError) {
+                        console.warn('PDF.js failed, falling back to Google Docs:', pdfError);
+                        // Fallback to Google Docs
+                        loadWithGoogleDocs();
+                        return;
+                    }
+                    
+                } catch (error) {
+                    console.error('iOS load error:', error);
+                    // Fallback to Google Docs
+                    loadWithGoogleDocs();
+                    return;
+                }
+            }
+
+            // Desktop: Use PDF.js normally
+            try {
+                showLoading('Loading PDF library...');
+                await loadPDFJS();
+
+                showLoading('Opening book...');
+
+                const loadingTask = pdfjsLib.getDocument({
+                    url: pdfUrl,
+                    withCredentials: false,
+                    useSystemFonts: true,
+                    disableFontFace: false,
+                    disableRange: true,
+                    disableStream: true,
+                    disableAutoFetch: true,
+                    useWorkerFetch: false,
+                    isEvalSupported: false
+                });
+
+                pdfDoc = await loadingTask.promise;
+                totalPages = pdfDoc.numPages;
+                pageInfo.textContent = 'Page 1 of ' + totalPages;
+
+                console.log('📚 PDF loaded: ' + totalPages + ' pages');
+
+                await loadSavedProgress();
+                await renderPage(currentPage);
+                hideLoading();
+                startAutoSave();
+                setupEventListeners();
+
+            } catch (error) {
+                console.error('PDF loading error:', error);
+                
+                // If desktop fails, try Google Docs as last resort
+                if (!useFallback) {
+                    showError('Could not load with PDF.js. Trying Google Docs...');
+                    setTimeout(function() {
+                        loadWithGoogleDocs();
+                    }, 1000);
+                } else {
+                    showError('Could not load the book. Please try again.');
+                }
+            }
+        }
+
+        // ============================================
+        // RENDER PAGE
         // ============================================
         async function renderPage(pageNum) {
-            if (!pdfDoc || isRendering) return;
+            if (!pdfDoc || isRendering || useFallback) return;
 
             isRendering = true;
 
             try {
                 const page = await pdfDoc.getPage(pageNum);
                 
-                // Calculate scale
                 const containerWidth = readerContainer.clientWidth - 20;
                 const viewport = page.getViewport({ scale: 1 });
                 const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
                 
                 const scaledViewport = page.getViewport({ scale: scale });
 
-                // Create or get canvas
                 let canvas = pageWrapper.querySelector('canvas');
                 if (!canvas) {
                     canvas = document.createElement('canvas');
@@ -908,10 +976,8 @@
                 canvas.style.width = scaledViewport.width + 'px';
                 canvas.style.height = scaledViewport.height + 'px';
 
-                // Clear
                 context.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Render
                 const renderContext = {
                     canvasContext: context,
                     viewport: scaledViewport,
@@ -921,14 +987,8 @@
 
                 currentPage = pageNum;
                 updateProgress();
-
-                // Apply zoom
                 applyZoom();
-
-                // Save progress
                 saveProgress();
-
-                // Scroll to top
                 readerContainer.scrollTop = 0;
 
             } catch (error) {
@@ -943,6 +1003,10 @@
         // NAVIGATION
         // ============================================
         function nextPage() {
+            if (useFallback) {
+                showToast('Page navigation not available in Google Docs view', 'info');
+                return;
+            }
             if (currentPage < totalPages) {
                 renderPage(currentPage + 1);
             } else {
@@ -951,6 +1015,10 @@
         }
 
         function prevPage() {
+            if (useFallback) {
+                showToast('Page navigation not available in Google Docs view', 'info');
+                return;
+            }
             if (currentPage > 1) {
                 renderPage(currentPage - 1);
             } else {
@@ -962,6 +1030,7 @@
         // PROGRESS TRACKING
         // ============================================
         function updateProgress() {
+            if (useFallback) return;
             const progress = (currentPage / totalPages) * 100;
             progressFill.style.width = progress + '%';
             
@@ -981,7 +1050,8 @@
                     totalPages: totalPages,
                     progress: (currentPage / totalPages) * 100,
                     lastRead: new Date().toISOString(),
-                    url: pdfUrl
+                    url: pdfUrl,
+                    useFallback: useFallback
                 };
 
                 localStorage.setItem(STORAGE_KEY + '_' + (currentItemId || title), JSON.stringify(progressData));
@@ -1098,6 +1168,10 @@
         function setupEventListeners() {
             // Progress bar click
             progressContainer.addEventListener('click', function(e) {
+                if (useFallback) {
+                    showToast('Page navigation not available', 'info');
+                    return;
+                }
                 const rect = progressContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
                 const targetPage = Math.max(1, Math.min(totalPages, Math.round(pos * totalPages)));
@@ -1115,7 +1189,7 @@
             }, { passive: true });
 
             readerContainer.addEventListener('touchend', function(e) {
-                if (!touchStartX) return;
+                if (useFallback || !touchStartX) return;
                 
                 const touchEndX = e.changedTouches[0].clientX;
                 const touchEndY = e.changedTouches[0].clientY;
@@ -1171,21 +1245,20 @@
                         break;
                     case 'Home':
                         e.preventDefault();
-                        renderPage(1);
+                        if (!useFallback) renderPage(1);
                         break;
                     case 'End':
                         e.preventDefault();
-                        renderPage(totalPages);
+                        if (!useFallback) renderPage(totalPages);
                         break;
                 }
             });
 
-            // Resize
             let resizeTimeout;
             window.addEventListener('resize', function() {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(function() {
-                    if (pdfDoc && currentPage) {
+                    if (pdfDoc && currentPage && !useFallback) {
                         renderPage(currentPage);
                     }
                 }, 500);
@@ -1228,7 +1301,7 @@
         window.resetZoom = resetZoom;
         window.retryLoad = retryLoad;
 
-        console.log('📚 Gliimu Reader initialized for iOS');
+        console.log('📚 Gliimu Reader initialized');
     </script>
 </body>
 </html>
