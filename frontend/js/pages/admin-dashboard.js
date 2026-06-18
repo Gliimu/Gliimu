@@ -691,6 +691,8 @@ async function renderPostsManager() {
 
 // ============================================
 // LIBRARY MODAL FUNCTIONS - WITH FILE UPLOAD
+// MODIFIED: Removed description, renamed Book Teaser
+// MODIFIED: Only 'X' closes modal (no overlay click)
 // ============================================
 function openLibraryModal(itemId = null) {
     const modal = document.getElementById('libraryItemModal');
@@ -761,6 +763,9 @@ function closeLibraryModal() {
     }
 }
 
+// REMOVED: Overlay click listener for library modal
+// Only the 'X' button closes the modal now
+
 function updateFolderHint() {
     const typeSelect = document.getElementById('itemType');
     const folderHint = document.getElementById('uploadFolderHint');
@@ -796,7 +801,7 @@ async function loadItemData(itemId) {
     document.getElementById('itemType').value = item.type || 'book';
     document.getElementById('itemCategory').value = item.category || '';
     document.getElementById('itemAuthor').value = item.author || '';
-    document.getElementById('itemDescription').value = item.description || '';
+    // REMOVED: Description field
     document.getElementById('itemPrice').value = item.price || 0;
     document.getElementById('itemPhysicalPrice').value = item.physical_price || 0;
     document.getElementById('itemAudioPrice').value = item.audio_price || 0;
@@ -831,6 +836,7 @@ async function loadItemData(itemId) {
 
 // ============================================
 // SAVE LIBRARY ITEM - WITH AUTO URL STORAGE
+// MODIFIED: Removed description field
 // ============================================
 async function saveLibraryItem(e) {
     e.preventDefault();
@@ -895,13 +901,12 @@ async function saveLibraryItem(e) {
         }
     }
     
-    // Build the data object with the URLs
+    // Build the data object - REMOVED description field
     const data = {
         title: document.getElementById('itemTitle').value.trim(),
         type: contentType,
         category: document.getElementById('itemCategory').value.trim(),
         author: document.getElementById('itemAuthor').value.trim(),
-        description: document.getElementById('itemDescription').value.trim(),
         cover_url: coverUrl,
         file_url: fileUrl,
         download_url: document.getElementById('itemDownloadUrl').value.trim() || null,
@@ -1798,6 +1803,7 @@ async function initAdminDashboard() {
 
 // ============================================
 // EVENT LISTENERS FOR MODAL CLOSING
+// MODIFIED: Only 'X' button closes modals
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     // Type change handler
@@ -1806,68 +1812,39 @@ document.addEventListener('DOMContentLoaded', function() {
         typeSelect.addEventListener('change', updateFolderHint);
     }
     
-    // Library modal close button
+    // Library modal - ONLY the close button closes it
     const closeLibraryBtn = document.getElementById('closeLibraryModalBtn');
     if (closeLibraryBtn) {
         closeLibraryBtn.addEventListener('click', closeLibraryModal);
     }
     
-    // Close library modal on overlay click
-    const libraryModal = document.getElementById('libraryItemModal');
-    if (libraryModal) {
-        libraryModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeLibraryModal();
-            }
-        });
-    }
+    // REMOVED: Overlay click listener for library modal
     
-    // FAQ modal close
+    // FAQ modal - ONLY the close button closes it
     const closeFaqBtn = document.getElementById('closeFaqModalBtn');
     if (closeFaqBtn) {
         closeFaqBtn.addEventListener('click', closeFaqModal);
     }
     
-    const faqModal = document.getElementById('faqModal');
-    if (faqModal) {
-        faqModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeFaqModal();
-            }
-        });
-    }
+    // REMOVED: Overlay click listener for FAQ modal
     
-    // Index modal close
+    // Index modal - ONLY the close button closes it
     const closeIndexBtn = document.getElementById('closeIndexModalBtn');
     if (closeIndexBtn) {
         closeIndexBtn.addEventListener('click', closeIndexModal);
     }
     
-    const indexModal = document.getElementById('indexModal');
-    if (indexModal) {
-        indexModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeIndexModal();
-            }
-        });
-    }
+    // REMOVED: Overlay click listener for Index modal
     
-    // Product modal close
+    // Product modal - ONLY the close button closes it
     const closeProductBtn = document.getElementById('closeProductModalBtn');
     if (closeProductBtn) {
         closeProductBtn.addEventListener('click', closeProductModal);
     }
     
-    const productModal = document.getElementById('productModal');
-    if (productModal) {
-        productModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeProductModal();
-            }
-        });
-    }
+    // REMOVED: Overlay click listener for Product modal
     
-    // Escape key to close modals
+    // Escape key to close modals (still works)
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             if (document.getElementById('libraryItemModal')?.classList.contains('active')) {
