@@ -1073,9 +1073,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                         <span class="chapter-icon">📖</span>
                         <span class="chapter-label">Book Teaser</span>
                     </div>
-                    <div class="chapter-content ${isPurchased ? '' : 'chapter-blur'}">
-                        ${escape(firstChapter)}
-                    </div>
+                    
                     ${!isPurchased ? '<div class="chapter-lock">🔒 Continue reading after purchase</div>' : ''}
                 </div>
     `;
