@@ -1073,7 +1073,7 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                         <span class="chapter-icon">📖</span>
                         <span class="chapter-label">Book Teaser</span>
                     </div>
-                    <div class="chapter-content ${isPurchased ? '' : ''}">
+                    <div class="chapter-content">
                         ${escape(firstChapter)}
                     </div>
                     ${!isPurchased ? '<div class="chapter-lock">🔒 Continue reading after purchase</div>' : ''}
@@ -1171,15 +1171,15 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                     </button>
                 </div>
         `;
-} else {
-    detailsHtml += `
-        <div class="purchase-section">
-            <button class="purchase-btn primary" onclick="window.openReader('${item.id}')">
-                <i class="fas fa-book-open"></i> Read Now
-            </button>
-        </div>
-    `;
-}
+    } else {
+        detailsHtml += `
+                <div class="purchase-section">
+                    <button class="purchase-btn primary" onclick="window.openReader('${item.id}')">
+                        <i class="fas fa-book-open"></i> Read Now
+                    </button>
+                </div>
+        `;
+    }
 
     detailsHtml += `
             </div>
@@ -1263,16 +1263,16 @@ async function renderBundleDetails(itemId) {
     } else if (item.price === 0 || !item.price) {
         footerHtml = `
             <button class="modal-btn modal-btn-success" onclick="window.handleFreeAccess('${item.id}')" style="width:100%; justify-content:center;">
-                <i class="fas fa-gift"></i> Download Bundle
+                <i class="fas fa-gift"></i> Get Bundle
             </button>
         `;
     } else {
-let footerHtml = '';
-if (isPurchased) {
-    footerHtml = `
-        ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.openReader('${item.id}')"><i class="fas fa-eye"></i> View</button>` : ''}
-    `;
-}
+        footerHtml = `
+            <button class="modal-btn modal-btn-primary" onclick="window.handlePurchase('${item.id}','bundle')" style="width:100%; justify-content:center;">
+                <i class="fas fa-shopping-cart"></i> Purchase (₦${(item.price || 0).toLocaleString()})
+            </button>
+        `;
+    }
 
     DOM.modalFooter.innerHTML = footerHtml;
     DOM.modalFooter.style.display = 'flex';
@@ -1312,7 +1312,7 @@ async function renderGenericDetails(itemId) {
     let footerHtml = '';
     if (isPurchased) {
         footerHtml = `
-            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.open('${item.file_url}','_blank')"><i class="fas fa-eye"></i> View</button>` : ''}
+            ${item.file_url ? `<button class="modal-btn modal-btn-primary" onclick="window.openReader('${item.id}')"><i class="fas fa-eye"></i> View</button>` : ''}
         `;
     } else if (item.price === 0 || !item.price) {
         footerHtml = `
@@ -1684,14 +1684,14 @@ async function processPayment(itemId, type, price) {
         renderItems();
         closeModal();
 
-// Open content if digital
-if (type === 'digital' && item.file_url) {
-    setTimeout(() => {
-        if (confirm(`Open "${item.title}" now?`)) {
-            window.openReader(item.id);
+        // Open content if digital
+        if (type === 'digital' && item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Open "${item.title}" now?`)) {
+                    window.openReader(item.id);
+                }
+            }, 800);
         }
-    }, 800);
-}
     } catch (e) {
         console.error('Purchase error:', e);
         showToast('Purchase failed', 'error');
@@ -1816,14 +1816,14 @@ window.handlePurchase = async (itemId, type) => {
         renderItems();
         closeModal();
 
-// Open digital content if available
-if (type === 'digital' && item.file_url) {
-    setTimeout(() => {
-        if (confirm(`Would you like to open "${item.title}" now?`)) {
-            window.openReader(item.id);
+        // Open digital content if available
+        if (type === 'digital' && item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Would you like to open "${item.title}" now?`)) {
+                    window.openReader(item.id);
+                }
+            }, 800);
         }
-    }, 800);
-}
         
     } catch (e) {
         console.error('Purchase error:', e);
@@ -1888,13 +1888,13 @@ window.handleGrantAccess = async (itemId) => {
         renderItems();
         closeModal();
         
-if (item.file_url) {
-    setTimeout(() => {
-        if (confirm(`Would you like to open "${item.title}" now?`)) {
-            window.openReader(item.id);
+        if (item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Would you like to open "${item.title}" now?`)) {
+                    window.openReader(item.id);
+                }
+            }, 800);
         }
-    }, 800);
-}
         
     } catch (e) {
         console.error('Grant access error:', e);
@@ -1957,13 +1957,13 @@ window.handleFreeAccess = async (itemId) => {
         renderItems();
         closeModal();
         
-if (item.file_url) {
-    setTimeout(() => {
-        if (confirm(`Would you like to open "${item.title}" now?`)) {
-            window.openReader(item.id);
+        if (item.file_url) {
+            setTimeout(() => {
+                if (confirm(`Would you like to open "${item.title}" now?`)) {
+                    window.openReader(item.id);
+                }
+            }, 800);
         }
-    }, 800);
-}
         
     } catch (e) {
         console.error('Free access error:', e);
@@ -2122,7 +2122,7 @@ function escape(text) {
     return div.innerHTML;
 }
 
-    // ============================================
+// ============================================
 // OPEN READER - Custom PDF Viewer
 // ============================================
 window.openReader = (itemId) => {
