@@ -12,7 +12,6 @@
            ============================================ */
         :root {
             --brand-purple: #2c2f78;
-            --brand-purple-light: #4a4d9e;
             --brand-gold: #fbb040;
             --brand-gold-dark: #cc8a2a;
             --bg-primary: #f8fafc;
@@ -22,10 +21,9 @@
             --border-color: #e2e8f0;
             --shadow-color: rgba(0,0,0,0.1);
             --reader-bg: #ffffff;
+            --reader-text: #1a1a2e;
             --progress-track: #e2e8f0;
-            --success: #10b981;
-            --success-dark: #059669;
-            --danger: #ef4444;
+            --watermark-color: rgba(44, 47, 120, 0.05);
         }
 
         body.dark-mode {
@@ -36,7 +34,9 @@
             --border-color: #1e293b;
             --shadow-color: rgba(0,0,0,0.4);
             --reader-bg: #1a1a2e;
+            --reader-text: #e0e0e0;
             --progress-track: #2d2d44;
+            --watermark-color: rgba(251, 176, 64, 0.05);
         }
 
         * {
@@ -65,35 +65,35 @@
         .reader-header {
             background: var(--bg-card);
             border-bottom: 1px solid var(--border-color);
-            padding: 0.4rem 1rem;
+            padding: 0.5rem 1.2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
             z-index: 10;
+            flex-wrap: nowrap;
             gap: 0.5rem;
             box-shadow: 0 1px 4px var(--shadow-color);
-            min-height: 52px;
+            min-height: 56px;
             -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
-            flex-wrap: wrap;
         }
 
         .reader-header .logo {
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.5rem;
             flex-shrink: 0;
         }
 
         .reader-header .logo img {
-            height: 26px;
+            height: 28px;
             width: auto;
         }
 
         .reader-header .logo span {
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: var(--text-primary);
             white-space: nowrap;
         }
@@ -103,9 +103,9 @@
         }
 
         .reader-header .book-title {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
-            max-width: 150px;
+            max-width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -116,9 +116,8 @@
         .reader-header .controls {
             display: flex;
             align-items: center;
-            gap: 0.2rem;
+            gap: 0.3rem;
             flex-shrink: 0;
-            flex-wrap: wrap;
         }
 
         .reader-header .controls button {
@@ -126,9 +125,9 @@
             border: none;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 0.8rem;
-            padding: 4px 8px;
-            border-radius: 6px;
+            font-size: 0.9rem;
+            padding: 6px 10px;
+            border-radius: 8px;
             transition: all 0.2s;
             touch-action: manipulation;
         }
@@ -143,26 +142,13 @@
         }
 
         .reader-header .controls .close-btn {
-            font-size: 1rem;
-            padding: 4px 8px;
+            font-size: 1.1rem;
+            padding: 6px 10px;
         }
 
         .reader-header .controls .close-btn:hover {
             color: #ef4444;
             background: rgba(239, 68, 68, 0.1);
-        }
-
-        .reader-header .controls .view-mode-btn {
-            font-size: 0.7rem;
-            padding: 3px 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-        }
-
-        .reader-header .controls .view-mode-btn.active {
-            border-color: var(--brand-gold);
-            color: var(--brand-gold);
-            background: rgba(251, 176, 64, 0.1);
         }
 
         /* ============================================
@@ -174,8 +160,6 @@
             background: var(--progress-track);
             position: relative;
             overflow: hidden;
-            cursor: pointer;
-            touch-action: none;
         }
 
         .progress-bar-container .progress-fill {
@@ -184,26 +168,6 @@
             width: 0%;
             transition: width 0.3s ease;
             position: relative;
-        }
-
-        .progress-bar-container .progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255,255,255,0.3) 50%, 
-                transparent 100%);
-            animation: shimmer 2s infinite;
-            background-size: 200% 100%;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
         }
 
         /* ============================================
@@ -215,58 +179,34 @@
             background: var(--reader-bg);
             position: relative;
             transition: background 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 0;
             -webkit-overflow-scrolling: touch;
             height: 100%;
             min-height: 0;
         }
 
-        .reader-container.vertical-scroll .page-wrapper {
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .reader-container.horizontal-scroll .page-wrapper {
-            flex-direction: row;
-            align-items: flex-start;
-            gap: 20px;
-            overflow-x: auto;
-            padding: 15px 20px 30px;
-            justify-content: flex-start;
-        }
-
         .reader-container .page-wrapper {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
             width: 100%;
             min-height: 100%;
             padding: 15px 20px 30px;
-            transition: flex-direction 0.3s ease;
-        }
-
-        .reader-container .page-wrapper .page-item {
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .reader-container .page-wrapper .page-item .page-number {
-            font-size: 0.6rem;
-            color: var(--text-secondary);
-            margin-top: 6px;
-            opacity: 0.6;
+            transition: transform 0.3s ease;
         }
 
         .reader-container canvas {
             box-shadow: 0 2px 16px var(--shadow-color);
             border-radius: 6px;
             background: var(--reader-bg);
-            transition: filter 0.3s ease;
+            transition: transform 0.3s ease, filter 0.3s ease;
             max-width: 100%;
             height: auto;
             touch-action: none;
-            display: block;
         }
 
         body.dark-mode .reader-container canvas {
@@ -287,16 +227,16 @@
         }
 
         /* ============================================
-           STATUS OVERLAYS
+           AUTH REQUIRED OVERLAY
            ============================================ */
-        .status-overlay {
+        .auth-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background: var(--reader-bg);
-            display: none;
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -305,49 +245,34 @@
             text-align: center;
         }
 
-        .status-overlay.active {
-            display: flex;
-        }
-
-        .status-overlay .icon {
-            font-size: 3.5rem;
+        .auth-overlay .icon {
+            font-size: 4rem;
+            color: var(--brand-gold);
             margin-bottom: 1rem;
         }
 
-        .status-overlay .icon.locked {
-            color: var(--danger);
-        }
-
-        .status-overlay .icon.unlocked {
-            color: var(--success);
-        }
-
-        .status-overlay .icon.purchase {
-            color: var(--brand-gold);
-        }
-
-        .status-overlay h2 {
+        .auth-overlay h2 {
             font-size: 1.3rem;
             color: var(--text-primary);
             margin-bottom: 0.5rem;
         }
 
-        .status-overlay p {
+        .auth-overlay p {
             color: var(--text-secondary);
             font-size: 0.9rem;
             max-width: 400px;
-            margin-bottom: 1.5rem;
             line-height: 1.6;
+            margin-bottom: 1.5rem;
         }
 
-        .status-overlay .btn-group {
+        .auth-overlay .btn-group {
             display: flex;
             gap: 0.75rem;
             flex-wrap: wrap;
             justify-content: center;
         }
 
-        .status-overlay .btn-group button {
+        .auth-overlay .btn-group button {
             padding: 0.6rem 1.5rem;
             border-radius: 40px;
             border: none;
@@ -355,53 +280,32 @@
             font-family: inherit;
             font-size: 0.85rem;
             cursor: pointer;
-            transition: all 0.2s;
             touch-action: manipulation;
+            transition: all 0.2s;
         }
 
-        .status-overlay .btn-group button:active {
+        .auth-overlay .btn-group button:active {
             transform: scale(0.95);
         }
 
-        .status-overlay .btn-group .btn-primary {
+        .auth-overlay .btn-group .btn-primary {
             background: var(--brand-gold);
             color: var(--brand-purple);
         }
 
-        .status-overlay .btn-group .btn-primary:hover {
+        .auth-overlay .btn-group .btn-primary:hover {
             background: var(--brand-gold-dark);
-            transform: translateY(-2px);
         }
 
-        .status-overlay .btn-group .btn-secondary {
+        .auth-overlay .btn-group .btn-secondary {
             background: var(--bg-primary);
             color: var(--text-primary);
             border: 1px solid var(--border-color);
         }
 
-        .status-overlay .btn-group .btn-secondary:hover {
+        .auth-overlay .btn-group .btn-secondary:hover {
             border-color: var(--brand-gold);
             color: var(--brand-gold);
-        }
-
-        .status-overlay .btn-group .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .status-overlay .btn-group .btn-success:hover {
-            background: var(--success-dark);
-            transform: translateY(-2px);
-        }
-
-        .status-overlay .btn-group .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .status-overlay .btn-group .btn-danger:hover {
-            background: #dc2626;
-            transform: translateY(-2px);
         }
 
         /* ============================================
@@ -456,167 +360,6 @@
         }
 
         /* ============================================
-           COMPLETION CELEBRATION OVERLAY
-           ============================================ */
-        .celebration-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            padding: 2rem;
-            animation: fadeIn 0.5s ease;
-        }
-
-        .celebration-overlay.active {
-            display: flex;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        .celebration-overlay .celebration-content {
-            max-width: 500px;
-            width: 100%;
-            background: var(--bg-card);
-            border-radius: 20px;
-            padding: 2.5rem 2rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            animation: bounceIn 0.6s ease;
-        }
-
-        @keyframes bounceIn {
-            0% { opacity: 0; transform: scale(0.5) rotate(-5deg); }
-            60% { opacity: 1; transform: scale(1.05) rotate(1deg); }
-            100% { opacity: 1; transform: scale(1) rotate(0); }
-        }
-
-        .celebration-overlay .confetti-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .celebration-overlay .confetti-piece {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            opacity: 0;
-            animation: confettiFall 3s ease-in forwards;
-        }
-
-        @keyframes confettiFall {
-            0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
-            100% { opacity: 0; transform: translateY(calc(100vh)) rotate(720deg) scale(0.5); }
-        }
-
-        .celebration-overlay .celebration-icon {
-            font-size: 4rem;
-            margin-bottom: 0.5rem;
-            animation: celebPulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes celebPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
-        .celebration-overlay h2 {
-            font-size: 1.8rem;
-            color: var(--brand-gold);
-            margin-bottom: 0.5rem;
-        }
-
-        .celebration-overlay .gp-reward {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--brand-gold);
-            margin: 0.5rem 0;
-        }
-
-        .celebration-overlay .gp-reward span {
-            font-size: 1rem;
-            font-weight: 400;
-            color: var(--text-secondary);
-        }
-
-        .celebration-overlay .message {
-            color: var(--text-secondary);
-            line-height: 1.6;
-            margin: 0.5rem 0 1.5rem;
-        }
-
-        .celebration-overlay .btn-group {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .celebration-overlay .btn-group button {
-            padding: 0.6rem 1.5rem;
-            border-radius: 40px;
-            border: none;
-            font-weight: 600;
-            font-family: inherit;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            touch-action: manipulation;
-        }
-
-        .celebration-overlay .btn-group button:active {
-            transform: scale(0.95);
-        }
-
-        .celebration-overlay .btn-group .btn-primary {
-            background: var(--brand-gold);
-            color: var(--brand-purple);
-        }
-
-        .celebration-overlay .btn-group .btn-primary:hover {
-            background: var(--brand-gold-dark);
-            transform: translateY(-2px);
-        }
-
-        .celebration-overlay .btn-group .btn-secondary {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        .celebration-overlay .btn-group .btn-secondary:hover {
-            border-color: var(--brand-gold);
-            color: var(--brand-gold);
-        }
-
-        .celebration-overlay .btn-group .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .celebration-overlay .btn-group .btn-success:hover {
-            background: var(--success-dark);
-            transform: translateY(-2px);
-        }
-
-        /* ============================================
            TOAST
            ============================================ */
         .reader-toast {
@@ -655,16 +398,16 @@
         .reader-footer {
             background: var(--bg-card);
             border-top: 1px solid var(--border-color);
-            padding: 0.35rem 1rem;
+            padding: 0.4rem 1.2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             color: var(--text-secondary);
+            flex-wrap: nowrap;
             gap: 0.5rem;
-            min-height: 38px;
-            flex-wrap: wrap;
+            min-height: 40px;
         }
 
         .reader-footer .page-info {
@@ -677,23 +420,23 @@
 
         .reader-footer .page-info .page-icon {
             color: var(--brand-gold);
-            font-size: 0.75rem;
+            font-size: 0.8rem;
         }
 
         .reader-footer .actions {
             display: flex;
             gap: 0.3rem;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .reader-footer .actions button {
             background: transparent;
             border: 1px solid var(--border-color);
-            padding: 0.15rem 0.6rem;
-            border-radius: 14px;
+            padding: 0.2rem 0.6rem;
+            border-radius: 16px;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 0.6rem;
+            font-size: 0.65rem;
             font-family: inherit;
             transition: all 0.2s;
             touch-action: manipulation;
@@ -720,33 +463,62 @@
             border-color: var(--brand-gold-dark);
         }
 
-        .reader-footer .actions button.success {
-            background: var(--success);
-            border-color: var(--success);
-            color: white;
-        }
-
-        .reader-footer .actions button.success:hover {
-            background: var(--success-dark);
-            border-color: var(--success-dark);
-        }
-
-        .reader-footer .actions button.completed {
-            background: var(--brand-purple);
-            border-color: var(--brand-purple);
-            color: white;
-            font-weight: 600;
-        }
-
-        .reader-footer .actions button.completed:hover {
-            background: var(--brand-purple-light);
-            border-color: var(--brand-purple-light);
-        }
-
         /* ============================================
            RESPONSIVE
            ============================================ */
         @media (max-width: 768px) {
+            .reader-header {
+                padding: 0.4rem 0.8rem;
+                min-height: 48px;
+            }
+            
+            .reader-header .logo img {
+                height: 24px;
+            }
+            
+            .reader-header .logo span {
+                font-size: 0.75rem;
+            }
+            
+            .reader-header .book-title {
+                max-width: 120px;
+                font-size: 0.65rem;
+            }
+            
+            .reader-header .controls button {
+                font-size: 0.8rem;
+                padding: 4px 8px;
+            }
+            
+            .reader-footer {
+                padding: 0.3rem 0.8rem;
+                font-size: 0.6rem;
+                min-height: 36px;
+            }
+            
+            .reader-footer .actions button {
+                font-size: 0.55rem;
+                padding: 0.15rem 0.5rem;
+            }
+            
+            .reader-container .page-wrapper {
+                padding: 10px 12px 20px;
+            }
+
+            .auth-overlay h2 {
+                font-size: 1.1rem;
+            }
+
+            .auth-overlay p {
+                font-size: 0.8rem;
+            }
+
+            .auth-overlay .icon {
+                font-size: 3rem;
+            }
+        }
+
+        @media (max-width: 480px) {
             .reader-header {
                 padding: 0.3rem 0.6rem;
                 min-height: 44px;
@@ -757,28 +529,23 @@
             }
             
             .reader-header .logo span {
-                font-size: 0.7rem;
+                font-size: 0.65rem;
             }
             
             .reader-header .book-title {
-                max-width: 100px;
-                font-size: 0.6rem;
+                max-width: 80px;
+                font-size: 0.55rem;
             }
             
             .reader-header .controls button {
                 font-size: 0.7rem;
                 padding: 3px 6px;
             }
-
-            .reader-header .controls .view-mode-btn {
-                font-size: 0.6rem;
-                padding: 2px 6px;
-            }
             
             .reader-footer {
                 padding: 0.25rem 0.6rem;
                 font-size: 0.55rem;
-                min-height: 34px;
+                min-height: 32px;
             }
             
             .reader-footer .actions button {
@@ -787,142 +554,25 @@
             }
             
             .reader-container .page-wrapper {
-                padding: 10px 12px 20px;
+                padding: 5px 8px 15px;
             }
 
-            .reader-container.horizontal-scroll .page-wrapper {
-                padding: 10px 12px 20px;
-                gap: 12px;
-            }
-
-            .celebration-overlay .celebration-content {
-                padding: 1.5rem 1rem;
-            }
-
-            .celebration-overlay h2 {
-                font-size: 1.3rem;
-            }
-
-            .celebration-overlay .gp-reward {
-                font-size: 2rem;
-            }
-
-            .celebration-overlay .btn-group button {
+            .auth-overlay .btn-group button {
                 padding: 0.4rem 1rem;
                 font-size: 0.75rem;
-            }
-
-            .status-overlay h2 {
-                font-size: 1.1rem;
-            }
-
-            .status-overlay p {
-                font-size: 0.8rem;
-            }
-
-            .status-overlay .btn-group button {
-                padding: 0.4rem 1rem;
-                font-size: 0.7rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .reader-header {
-                padding: 0.25rem 0.4rem;
-                min-height: 40px;
-            }
-            
-            .reader-header .logo img {
-                height: 18px;
-            }
-            
-            .reader-header .logo span {
-                font-size: 0.6rem;
-            }
-            
-            .reader-header .book-title {
-                max-width: 70px;
-                font-size: 0.5rem;
-            }
-            
-            .reader-header .controls button {
-                font-size: 0.6rem;
-                padding: 2px 4px;
-            }
-
-            .reader-header .controls .view-mode-btn {
-                font-size: 0.5rem;
-                padding: 1px 4px;
-            }
-            
-            .reader-footer {
-                padding: 0.2rem 0.4rem;
-                font-size: 0.5rem;
-                min-height: 30px;
-            }
-            
-            .reader-footer .actions button {
-                font-size: 0.45rem;
-                padding: 0.05rem 0.3rem;
-            }
-            
-            .reader-container .page-wrapper {
-                padding: 5px 6px 15px;
-            }
-
-            .reader-container.horizontal-scroll .page-wrapper {
-                padding: 5px 6px 15px;
-                gap: 8px;
-            }
-
-            .celebration-overlay .celebration-content {
-                padding: 1rem 0.8rem;
-            }
-
-            .celebration-overlay h2 {
-                font-size: 1.1rem;
-            }
-
-            .celebration-overlay .gp-reward {
-                font-size: 1.5rem;
-            }
-
-            .celebration-overlay .message {
-                font-size: 0.8rem;
-            }
-
-            .celebration-overlay .btn-group button {
-                padding: 0.3rem 0.8rem;
-                font-size: 0.65rem;
-            }
-
-            .status-overlay .btn-group button {
-                padding: 0.3rem 0.8rem;
-                font-size: 0.65rem;
-            }
-        }
-
-        @media (min-width: 1024px) {
-            .reader-container.horizontal-scroll .page-wrapper .page-item {
-                max-width: 50%;
-            }
-            
-            .reader-container.horizontal-scroll .page-wrapper .page-item canvas {
-                max-width: 100%;
-                height: auto;
             }
         }
 
         @supports (padding: max(0px)) {
             .reader-header {
-                padding-top: max(0.3rem, env(safe-area-inset-top));
-                padding-left: max(0.6rem, env(safe-area-inset-left));
-                padding-right: max(0.6rem, env(safe-area-inset-right));
+                padding-top: max(0.4rem, env(safe-area-inset-top));
+                padding-left: max(0.8rem, env(safe-area-inset-left));
+                padding-right: max(0.8rem, env(safe-area-inset-right));
             }
             .reader-footer {
-                padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
-                padding-left: max(0.6rem, env(safe-area-inset-left));
-                padding-right: max(0.6rem, env(safe-area-inset-right));
+                padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+                padding-left: max(0.8rem, env(safe-area-inset-left));
+                padding-right: max(0.8rem, env(safe-area-inset-right));
             }
         }
     </style>
@@ -937,12 +587,6 @@
         </div>
         <div class="book-title" id="bookTitle">Loading...</div>
         <div class="controls">
-            <button class="view-mode-btn active" id="verticalBtn" onclick="setViewMode('vertical')" title="Vertical Scroll">
-                <i class="fas fa-arrows-alt-v"></i>
-            </button>
-            <button class="view-mode-btn" id="horizontalBtn" onclick="setViewMode('horizontal')" title="Horizontal Scroll">
-                <i class="fas fa-arrows-alt-h"></i>
-            </button>
             <button onclick="toggleTheme()" title="Toggle Theme" id="themeBtn">
                 <i class="fas fa-moon" id="themeIcon"></i>
             </button>
@@ -958,37 +602,7 @@
     </div>
 
     <!-- Reader Container -->
-    <div class="reader-container vertical-scroll" id="readerContainer">
-        <!-- Status Overlay: Not Logged In -->
-        <div class="status-overlay" id="notLoggedInOverlay">
-            <div class="icon locked">🔒</div>
-            <h2>Sign in to Read</h2>
-            <p>You need to be signed in to access this book. Sign in or create an account to continue reading.</p>
-            <div class="btn-group">
-                <button class="btn-primary" onclick="goToSignIn()">
-                    <i class="fas fa-sign-in-alt"></i> Sign In
-                </button>
-                <button class="btn-secondary" onclick="goToHub()">
-                    <i class="fas fa-arrow-left"></i> Back to Hub
-                </button>
-            </div>
-        </div>
-
-        <!-- Status Overlay: Not Purchased -->
-        <div class="status-overlay" id="notPurchasedOverlay">
-            <div class="icon purchase">📚</div>
-            <h2>Purchase to Read</h2>
-            <p id="notPurchasedMessage">You haven't purchased this book yet. Visit the Hub to purchase and start reading.</p>
-            <div class="btn-group">
-                <button class="btn-success" onclick="goToHub()">
-                    <i class="fas fa-shopping-cart"></i> Go to Hub
-                </button>
-                <button class="btn-secondary" onclick="goToHub()">
-                    <i class="fas fa-arrow-left"></i> Back to Hub
-                </button>
-            </div>
-        </div>
-
+    <div class="reader-container" id="readerContainer">
         <!-- Loading Overlay -->
         <div class="loading-overlay" id="loadingOverlay">
             <div class="spinner" id="loadingSpinner"></div>
@@ -996,36 +610,24 @@
             <p class="loading-sub" id="loadingSub">This may take a moment</p>
         </div>
 
-        <!-- Page Wrapper -->
-        <div class="page-wrapper" id="pageWrapper">
-            <!-- Pages will be rendered here -->
-        </div>
-    </div>
-
-    <!-- Celebration Overlay -->
-    <div class="celebration-overlay" id="celebrationOverlay">
-        <div class="confetti-container" id="confettiContainer"></div>
-        <div class="celebration-content">
-            <div class="celebration-icon">🎉</div>
-            <h2>Congratulations!</h2>
-            <p class="message" id="celebrationMessage">You've completed reading this book!</p>
-            <div class="gp-reward">
-                +25 <span>GP</span>
-            </div>
-            <p class="message" style="font-size:0.8rem;">
-                Share your thoughts with the community!
-            </p>
+        <!-- Auth Required Overlay -->
+        <div class="auth-overlay" id="authOverlay" style="display:none;">
+            <div class="icon">🔒</div>
+            <h2 id="authTitle">Access Restricted</h2>
+            <p id="authMessage">You need to be signed in and have purchased this content to view it.</p>
             <div class="btn-group">
-                <button class="btn-success" onclick="goToHub()">
-                    <i class="fas fa-comment"></i> Go to Hub
+                <button class="btn-primary" onclick="goToLogin()">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
                 </button>
-                <button class="btn-primary" onclick="shareCompletion()">
-                    <i class="fas fa-share-alt"></i> Share
-                </button>
-                <button class="btn-secondary" onclick="closeCelebration()">
-                    <i class="fas fa-times"></i> Close
+                <button class="btn-secondary" onclick="goToHub()">
+                    <i class="fas fa-home"></i> Browse Library
                 </button>
             </div>
+        </div>
+
+        <!-- Page Wrapper for PDF Content -->
+        <div class="page-wrapper" id="pageWrapper" style="display:none;">
+            <!-- Canvas will be rendered here -->
         </div>
     </div>
 
@@ -1039,9 +641,6 @@
             <button onclick="reportIssue()">
                 <i class="fas fa-flag"></i>
             </button>
-            <button class="success" id="markCompleteBtn" onclick="markComplete()" style="display:none;">
-                <i class="fas fa-check-circle"></i> Mark Complete
-            </button>
             <button class="primary" onclick="closeReader()">
                 <i class="fas fa-check"></i> Done
             </button>
@@ -1050,218 +649,16 @@
 
     <script>
         // ============================================
-        // GLIIMU READER - Secure with Purchase Verification
+        // GLIIMU READER - Professional PDF.js + Auth
         // ============================================
 
         // ============================================
         // SUPABASE CLIENT
         // ============================================
-        // We need to use Supabase to verify purchase
-        // Import from your modules or use global
-        let supabaseClient = null;
+        const SUPABASE_URL = 'https://vsgvscemqtqgolrindcx.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzZ3ZzY2VtcXRxZ29scmluZGN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3OTk1NDksImV4cCI6MjA5NjM3NTU0OX0.IUNvIleBOKGTIjTg-vx-v0wNLZEk9IVWGouvVIDlo40';
 
-        // Try to get Supabase from the page or modules
-        try {
-            if (typeof supabase !== 'undefined') {
-                supabaseClient = supabase;
-                console.log('✅ Supabase client found');
-            } else {
-                // Try to import from module
-                import('../modules/supabase.js').then(module => {
-                    supabaseClient = module.supabase;
-                    console.log('✅ Supabase client loaded from module');
-                }).catch(() => {
-                    console.warn('⚠️ Supabase client not found, using localStorage fallback');
-                });
-            }
-        } catch (e) {
-            console.warn('⚠️ Could not load Supabase client:', e);
-        }
-
-        // ============================================
-        // STATE
-        // ============================================
-        let currentUser = null;
-        let isAuthenticated = false;
-        let hasPurchased = false;
-        let purchaseVerified = false;
-        let pdfDoc = null;
-        let currentPage = 1;
-        let totalPages = 0;
-        let isDarkMode = false;
-        let autoSaveTimer = null;
-        let currentItemId = null;
-        let currentItemTitle = '';
-        let isRendering = false;
-        let pageCache = {};
-        let usingGoogleDocs = false;
-        let viewMode = 'vertical';
-        let isCompleted = false;
-        let pagesPerView = 1;
-        let hasLoaded = false;
-
-        // ============================================
-        // DOM REFS
-        // ============================================
-        const pageWrapper = document.getElementById('pageWrapper');
-        const bookTitle = document.getElementById('bookTitle');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const loadingText = document.getElementById('loadingText');
-        const loadingSub = document.getElementById('loadingSub');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const pageInfo = document.getElementById('pageInfo');
-        const progressFill = document.getElementById('progressFill');
-        const progressContainer = document.getElementById('progressContainer');
-        const themeBtn = document.getElementById('themeBtn');
-        const themeIcon = document.getElementById('themeIcon');
-        const readerContainer = document.getElementById('readerContainer');
-        const markCompleteBtn = document.getElementById('markCompleteBtn');
-        const celebrationOverlay = document.getElementById('celebrationOverlay');
-        const celebrationMessage = document.getElementById('celebrationMessage');
-        const confettiContainer = document.getElementById('confettiContainer');
-        const verticalBtn = document.getElementById('verticalBtn');
-        const horizontalBtn = document.getElementById('horizontalBtn');
-        const notLoggedInOverlay = document.getElementById('notLoggedInOverlay');
-        const notPurchasedOverlay = document.getElementById('notPurchasedOverlay');
-        const notPurchasedMessage = document.getElementById('notPurchasedMessage');
-
-        // ============================================
-        // GET URL PARAMETERS
-        // ============================================
-        const urlParams = new URLSearchParams(window.location.search);
-        const fileUrl = urlParams.get('url');
-        const title = urlParams.get('title') || 'Book';
-        const itemId = urlParams.get('itemId') || '';
-        const isBundle = urlParams.get('type') === 'bundle';
-
-        bookTitle.textContent = title;
-        currentItemId = itemId;
-        currentItemTitle = title;
-
-        // ============================================
-        // AUTH & PURCHASE VERIFICATION
-        // ============================================
-        function checkAuth() {
-            // Check multiple sources for user authentication
-            const user = localStorage.getItem('gliimu_user');
-            const session = sessionStorage.getItem('gliimu_session');
-            const supabaseUser = localStorage.getItem('supabase_user');
-            
-            if (user || session || supabaseUser) {
-                try {
-                    let userData = null;
-                    if (user) {
-                        try { userData = JSON.parse(user); } catch(e) {}
-                    }
-                    if (!userData && session) {
-                        try { userData = JSON.parse(session); } catch(e) {}
-                    }
-                    if (!userData && supabaseUser) {
-                        try { userData = JSON.parse(supabaseUser); } catch(e) {}
-                    }
-                    
-                    if (userData && userData.id) {
-                        currentUser = userData;
-                        isAuthenticated = true;
-                        console.log('✅ User authenticated:', userData.name || userData.email);
-                        return true;
-                    }
-                } catch (e) {
-                    console.warn('Could not parse user data:', e);
-                }
-            }
-            
-            return false;
-        }
-
-        async function verifyPurchase(itemId, userId) {
-            if (!itemId || !userId) {
-                console.warn('Missing itemId or userId for purchase verification');
-                return false;
-            }
-
-            console.log('🔍 Verifying purchase for:', { itemId, userId });
-
-            try {
-                // Try Supabase first
-                if (supabaseClient) {
-                    const { data, error } = await supabaseClient
-                        .from('user_purchases')
-                        .select('id, purchase_type')
-                        .eq('user_id', userId)
-                        .eq('item_id', itemId)
-                        .maybeSingle();
-
-                    if (!error && data) {
-                        console.log('✅ Purchase verified via Supabase:', data);
-                        hasPurchased = true;
-                        purchaseVerified = true;
-                        return true;
-                    } else if (error) {
-                        console.warn('Supabase purchase check error:', error);
-                    }
-                }
-
-                // Fallback: Check localStorage
-                const purchased = JSON.parse(localStorage.getItem('gliimu_purchased') || '{}');
-                if (purchased[itemId]) {
-                    console.log('✅ Purchase verified via localStorage');
-                    hasPurchased = true;
-                    purchaseVerified = true;
-                    return true;
-                }
-
-                // Check local storage for user purchases
-                const userPurchases = JSON.parse(localStorage.getItem('user_purchases_' + userId) || '[]');
-                if (userPurchases.includes(itemId)) {
-                    console.log('✅ Purchase verified via user_purchases localStorage');
-                    hasPurchased = true;
-                    purchaseVerified = true;
-                    return true;
-                }
-
-                console.log('❌ Purchase not found');
-                hasPurchased = false;
-                purchaseVerified = false;
-                return false;
-
-            } catch (e) {
-                console.error('Purchase verification error:', e);
-                return false;
-            }
-        }
-
-        // ============================================
-        // AUTH UI FUNCTIONS
-        // ============================================
-        function showNotLoggedIn() {
-            notLoggedInOverlay.classList.add('active');
-            notPurchasedOverlay.classList.remove('active');
-            loadingOverlay.classList.add('hidden');
-        }
-
-        function showNotPurchased(message) {
-            notLoggedInOverlay.classList.remove('active');
-            notPurchasedOverlay.classList.add('active');
-            if (message) {
-                notPurchasedMessage.textContent = message;
-            }
-            loadingOverlay.classList.add('hidden');
-        }
-
-        function hideAllOverlays() {
-            notLoggedInOverlay.classList.remove('active');
-            notPurchasedOverlay.classList.remove('active');
-        }
-
-        function goToSignIn() {
-            const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = '/signin.html?redirect=' + redirect;
-        }
-
-        function goToHub() {
-            window.location.href = '/hub.html';
-        }
+        const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
         // ============================================
         // DETECT DEVICE
@@ -1273,50 +670,183 @@
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
         console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
+        console.log('🌐 Browser:', isSafari ? 'Safari' : 'Other');
 
         // ============================================
-        // VIEW MODE
+        // STATE
         // ============================================
-        function setViewMode(mode) {
-            viewMode = mode;
-            
-            verticalBtn.classList.toggle('active', mode === 'vertical');
-            horizontalBtn.classList.toggle('active', mode === 'horizontal');
-            
-            readerContainer.classList.remove('vertical-scroll', 'horizontal-scroll');
-            readerContainer.classList.add(mode + '-scroll');
-            
-            localStorage.setItem('reader_view_mode', mode);
-            
-            if (pdfDoc && currentPage && !usingGoogleDocs && hasLoaded) {
-                pageCache = {};
-                renderPages(currentPage);
+        let currentUser = null;
+        let isAuthorized = false;
+        let pdfDoc = null;
+        let currentPage = 1;
+        let totalPages = 0;
+        let isDarkMode = false;
+        let autoSaveTimer = null;
+        let currentItemId = null;
+        let currentZoom = 1.0;
+        let isRendering = false;
+        let pageCache = {};
+        let usingGoogleDocs = false;
+        let fileUrl = null;
+
+        // ============================================
+        // DOM REFS
+        // ============================================
+        const pageWrapper = document.getElementById('pageWrapper');
+        const bookTitle = document.getElementById('bookTitle');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const loadingSub = document.getElementById('loadingSub');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const authOverlay = document.getElementById('authOverlay');
+        const authTitle = document.getElementById('authTitle');
+        const authMessage = document.getElementById('authMessage');
+        const pageInfo = document.getElementById('pageInfo');
+        const progressFill = document.getElementById('progressFill');
+        const progressContainer = document.getElementById('progressContainer');
+        const themeBtn = document.getElementById('themeBtn');
+        const themeIcon = document.getElementById('themeIcon');
+        const readerContainer = document.getElementById('readerContainer');
+
+        // ============================================
+        // GET URL PARAMETERS
+        // ============================================
+        const urlParams = new URLSearchParams(window.location.search);
+        fileUrl = urlParams.get('url');
+        const title = urlParams.get('title') || 'Book';
+        const itemId = urlParams.get('itemId') || '';
+
+        bookTitle.textContent = title;
+        currentItemId = itemId;
+
+        console.log('📄 File URL:', fileUrl);
+        console.log('📚 Item ID:', currentItemId);
+
+        // ============================================
+        // AUTHENTICATION & AUTHORIZATION
+        // ============================================
+
+        // Get current user from Supabase
+        async function getCurrentUser() {
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                if (error) {
+                    console.error('Auth error:', error);
+                    return null;
+                }
+                return user;
+            } catch (e) {
+                console.error('Error getting user:', e);
+                return null;
             }
-            
-            showToast('📖 ' + mode.charAt(0).toUpperCase() + mode.slice(1) + ' mode', 'info');
+        }
+
+        // Check if user has purchased this item
+        async function checkPurchase(userId, itemId) {
+            if (!userId || !itemId) return false;
+
+            try {
+                // Check if user has purchased this specific item
+                const { data, error } = await supabase
+                    .from('user_purchases')
+                    .select('id, purchase_type')
+                    .eq('user_id', userId)
+                    .eq('item_id', itemId)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error('Purchase check error:', error);
+                    return false;
+                }
+
+                // Check if the item is free (no purchase needed)
+                if (!data) {
+                    // Check if the item is free in hub_contents
+                    const { data: item, error: itemError } = await supabase
+                        .from('hub_contents')
+                        .select('price, physical_price, audio_price')
+                        .eq('id', itemId)
+                        .single();
+
+                    if (itemError) {
+                        console.error('Item fetch error:', itemError);
+                        return false;
+                    }
+
+                    // If all prices are 0 or null, it's free
+                    const isFree = (item.price === 0 || item.price === null) &&
+                                   (item.physical_price === 0 || item.physical_price === null) &&
+                                   (item.audio_price === 0 || item.audio_price === null);
+
+                    return isFree;
+                }
+
+                return true;
+            } catch (e) {
+                console.error('Error checking purchase:', e);
+                return false;
+            }
+        }
+
+        // Main auth check
+        async function checkAuthorization() {
+            console.log('🔐 Checking authorization...');
+
+            // Show loading state
+            showLoading('Checking access...', 'Verifying your account');
+
+            // 1. Check if user is signed in
+            currentUser = await getCurrentUser();
+
+            if (!currentUser) {
+                console.log('❌ User not signed in');
+                showAuthRequired(
+                    'Sign In Required',
+                    'Please sign in to access this content. You need to have purchased this book to read it.'
+                );
+                return false;
+            }
+
+            console.log('✅ User signed in:', currentUser.email);
+
+            // 2. Check if user has purchased this item
+            const hasPurchased = await checkPurchase(currentUser.id, currentItemId);
+
+            if (!hasPurchased) {
+                console.log('❌ User has not purchased this content');
+                showAuthRequired(
+                    'Purchase Required',
+                    'You need to purchase this content to read it. Visit the library to buy your copy.'
+                );
+                return false;
+            }
+
+            console.log('✅ User has purchased this content');
+            isAuthorized = true;
+            return true;
         }
 
         // ============================================
-        // CALCULATE PAGES PER VIEW
+        // AUTH OVERLAY
         // ============================================
-        function calculatePagesPerView() {
-            if (viewMode === 'vertical') {
-                pagesPerView = 1;
-                return;
-            }
+        function showAuthRequired(title, message) {
+            authOverlay.style.display = 'flex';
+            authTitle.textContent = title;
+            authMessage.textContent = message;
+            loadingOverlay.classList.add('hidden');
+            pageWrapper.style.display = 'none';
             
-            const width = window.innerWidth;
-            if (width >= 1400) {
-                pagesPerView = 3;
-            } else if (width >= 1024) {
-                pagesPerView = 2;
-            } else {
-                pagesPerView = 1;
-            }
-            
-            if (pagesPerView > totalPages) {
-                pagesPerView = totalPages;
-            }
+            // Update footer
+            pageInfo.textContent = '🔒 Access Denied';
+            progressFill.style.width = '0%';
+        }
+
+        function goToLogin() {
+            window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.href);
+        }
+
+        function goToHub() {
+            window.location.href = '/hub.html';
         }
 
         // ============================================
@@ -1327,17 +857,12 @@
             loadingSpinner.style.display = 'block';
             loadingText.textContent = message || 'Loading...';
             loadingSub.textContent = sub || 'This may take a moment';
+            authOverlay.style.display = 'none';
         }
 
         function hideLoading() {
             loadingOverlay.classList.add('hidden');
-        }
-
-        function showError(message, sub) {
-            loadingOverlay.classList.remove('hidden');
-            loadingSpinner.style.display = 'none';
-            loadingText.textContent = message || 'Failed to load the book.';
-            loadingSub.textContent = sub || 'Please try again or use the fallback viewer.';
+            pageWrapper.style.display = 'flex';
         }
 
         // ============================================
@@ -1362,9 +887,8 @@
             progressFill.style.width = '0%';
             hideLoading();
             
-            markCompleteBtn.style.display = 'none';
-            
             showToast('📄 Using Google Docs viewer', 'info');
+            saveProgress();
         }
 
         // ============================================
@@ -1419,88 +943,74 @@
         }
 
         // ============================================
-        // RENDER PAGES
+        // RENDER PAGE
         // ============================================
-        async function renderPages(startPage) {
+        async function renderPage(pageNum) {
             if (!pdfDoc || isRendering || usingGoogleDocs) return;
-            
+
             isRendering = true;
-            
+
             try {
-                calculatePagesPerView();
-                
-                pageWrapper.innerHTML = '';
-                
-                const endPage = Math.min(startPage + pagesPerView - 1, totalPages);
-                
-                for (let p = startPage; p <= endPage; p++) {
-                    const pageItem = document.createElement('div');
-                    pageItem.className = 'page-item';
-                    
-                    let canvas;
-                    
-                    if (pageCache[p]) {
-                        canvas = document.createElement('canvas');
+                if (pageCache[pageNum]) {
+                    const canvas = pageWrapper.querySelector('canvas');
+                    if (canvas) {
                         const ctx = canvas.getContext('2d');
-                        canvas.width = pageCache[p].width;
-                        canvas.height = pageCache[p].height;
-                        canvas.style.width = pageCache[p].width + 'px';
-                        canvas.style.height = pageCache[p].height + 'px';
-                        ctx.putImageData(pageCache[p].imageData, 0, 0);
-                    } else {
-                        const page = await pdfDoc.getPage(p);
-                        
-                        const containerWidth = readerContainer.clientWidth - 40;
-                        const viewport = page.getViewport({ scale: 1 });
-                        const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
-                        const scaledViewport = page.getViewport({ scale: scale });
-                        
-                        canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.width = scaledViewport.width;
-                        canvas.height = scaledViewport.height;
-                        canvas.style.width = scaledViewport.width + 'px';
-                        canvas.style.height = scaledViewport.height + 'px';
-                        
-                        const renderContext = {
-                            canvasContext: context,
-                            viewport: scaledViewport,
-                        };
-                        
-                        await page.render(renderContext).promise;
-                        
-                        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                        pageCache[p] = {
-                            width: canvas.width,
-                            height: canvas.height,
-                            imageData: imageData
-                        };
+                        canvas.width = pageCache[pageNum].width;
+                        canvas.height = pageCache[pageNum].height;
+                        canvas.style.width = pageCache[pageNum].width + 'px';
+                        canvas.style.height = pageCache[pageNum].height + 'px';
+                        ctx.putImageData(pageCache[pageNum].imageData, 0, 0);
+                        currentPage = pageNum;
+                        updateProgress();
+                        saveProgress();
+                        isRendering = false;
+                        return;
                     }
-                    
-                    pageItem.appendChild(canvas);
-                    
-                    const pageNumLabel = document.createElement('span');
-                    pageNumLabel.className = 'page-number';
-                    pageNumLabel.textContent = 'Page ' + p + ' of ' + totalPages;
-                    pageItem.appendChild(pageNumLabel);
-                    
-                    pageWrapper.appendChild(pageItem);
                 }
+
+                const page = await pdfDoc.getPage(pageNum);
                 
-                currentPage = startPage;
+                const containerWidth = readerContainer.clientWidth - 30;
+                const viewport = page.getViewport({ scale: 1 });
+                const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
+                const scaledViewport = page.getViewport({ scale: scale });
+
+                let canvas = pageWrapper.querySelector('canvas');
+                if (!canvas) {
+                    canvas = document.createElement('canvas');
+                    pageWrapper.appendChild(canvas);
+                }
+
+                const context = canvas.getContext('2d');
+                canvas.width = scaledViewport.width;
+                canvas.height = scaledViewport.height;
+                canvas.style.width = scaledViewport.width + 'px';
+                canvas.style.height = scaledViewport.height + 'px';
+
+                context.clearRect(0, 0, canvas.width, canvas.height);
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: scaledViewport,
+                };
+
+                await page.render(renderContext).promise;
+
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                pageCache[pageNum] = {
+                    width: canvas.width,
+                    height: canvas.height,
+                    imageData: imageData
+                };
+
+                currentPage = pageNum;
                 updateProgress();
                 saveProgress();
-                checkCompletion();
-                
-                if (viewMode === 'vertical') {
-                    readerContainer.scrollTop = 0;
-                } else {
-                    readerContainer.scrollLeft = 0;
-                }
-                
+                readerContainer.scrollTop = 0;
+
             } catch (error) {
                 console.error('Render error:', error);
-                showToast('Error rendering pages', 'error');
+                showToast('Error rendering page', 'error');
             } finally {
                 isRendering = false;
             }
@@ -1514,10 +1024,8 @@
                 showToast('Page navigation not available in Google Docs view', 'info');
                 return;
             }
-            
-            const nextStart = currentPage + pagesPerView;
-            if (nextStart <= totalPages) {
-                renderPages(nextStart);
+            if (currentPage < totalPages) {
+                renderPage(currentPage + 1);
             } else {
                 showToast("You're on the last page", 'info');
             }
@@ -1528,141 +1036,11 @@
                 showToast('Page navigation not available in Google Docs view', 'info');
                 return;
             }
-            
-            const prevStart = Math.max(1, currentPage - pagesPerView);
-            if (prevStart < currentPage) {
-                renderPages(prevStart);
+            if (currentPage > 1) {
+                renderPage(currentPage - 1);
             } else {
                 showToast("You're on the first page", 'info');
             }
-        }
-
-        // ============================================
-        // COMPLETION CHECK
-        // ============================================
-        function checkCompletion() {
-            if (usingGoogleDocs || isCompleted) return;
-            
-            const endPage = Math.min(currentPage + pagesPerView - 1, totalPages);
-            const isAtEnd = endPage === totalPages;
-            
-            if (isAtEnd) {
-                markCompleteBtn.style.display = 'inline-flex';
-                setTimeout(function() {
-                    if (!isCompleted) {
-                        showToast('📚 You\'ve reached the end! Click "Mark Complete" to earn GP.', 'success');
-                    }
-                }, 2000);
-            } else {
-                markCompleteBtn.style.display = 'none';
-            }
-        }
-
-        // ============================================
-        // MARK COMPLETE
-        // ============================================
-        function markComplete() {
-            if (isCompleted) return;
-            
-            isCompleted = true;
-            markCompleteBtn.style.display = 'none';
-            
-            const gpReward = isBundle ? 50 : 25;
-            awardGP(gpReward);
-            showCelebration(gpReward);
-            saveCompletionStatus();
-        }
-
-        function awardGP(amount) {
-            console.log('🏆 Awarding ' + amount + ' GP');
-            const currentGP = parseInt(localStorage.getItem('gliimu_gp') || '0');
-            localStorage.setItem('gliimu_gp', String(currentGP + amount));
-        }
-
-        function saveCompletionStatus() {
-            try {
-                const completed = JSON.parse(localStorage.getItem('reader_completed') || '{}');
-                completed[currentItemId || currentItemTitle] = {
-                    completed: true,
-                    date: new Date().toISOString(),
-                    title: currentItemTitle
-                };
-                localStorage.setItem('reader_completed', JSON.stringify(completed));
-            } catch (e) {}
-        }
-
-        // ============================================
-        // CELEBRATION
-        // ============================================
-        function showCelebration(gpAmount) {
-            celebrationMessage.textContent = 
-                isBundle ? 
-                'You\'ve completed this bundle! Great job mastering all the content!' :
-                'You\'ve completed reading this book! Keep up the great work!';
-            
-            generateConfetti();
-            celebrationOverlay.classList.add('active');
-            
-            const gpSpan = celebrationOverlay.querySelector('.gp-reward');
-            gpSpan.innerHTML = '+' + gpAmount + ' <span>GP</span>';
-        }
-
-        function generateConfetti() {
-            confettiContainer.innerHTML = '';
-            const colors = ['#fbb040', '#2c2f78', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
-            const shapes = ['■', '●', '▲', '★', '♦', '♥'];
-            
-            for (let i = 0; i < 80; i++) {
-                const piece = document.createElement('div');
-                piece.className = 'confetti-piece';
-                piece.textContent = shapes[Math.floor(Math.random() * shapes.length)];
-                piece.style.color = colors[Math.floor(Math.random() * colors.length)];
-                piece.style.fontSize = (Math.random() * 20 + 10) + 'px';
-                piece.style.left = (Math.random() * 100) + '%';
-                piece.style.top = '-20px';
-                piece.style.animationDuration = (Math.random() * 2 + 2) + 's';
-                piece.style.animationDelay = (Math.random() * 1.5) + 's';
-                piece.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
-                confettiContainer.appendChild(piece);
-            }
-        }
-
-        function closeCelebration() {
-            celebrationOverlay.classList.remove('active');
-            confettiContainer.innerHTML = '';
-        }
-
-        function goToHub() {
-            closeCelebration();
-            window.location.href = '/hub.html';
-        }
-
-        function shareCompletion() {
-            const text = isBundle ?
-                '🎉 I just completed the bundle "' + currentItemTitle + '" on Gliimu! You should check it out too! 📚✨' :
-                '🎉 I just finished reading "' + currentItemTitle + '" on Gliimu! What a great read! 📖✨';
-            
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Gliimu - ' + currentItemTitle,
-                    text: text,
-                    url: window.location.origin + '/hub.html'
-                }).catch(function() {});
-            } else {
-                navigator.clipboard.writeText(text + ' ' + window.location.origin + '/hub.html').then(function() {
-                    showToast('📋 Copied to clipboard! Share with your friends.', 'success');
-                }).catch(function() {
-                    const input = document.createElement('input');
-                    input.value = text + ' ' + window.location.origin + '/hub.html';
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(input);
-                    showToast('📋 Copied to clipboard!', 'success');
-                });
-            }
-            
-            closeCelebration();
         }
 
         // ============================================
@@ -1670,13 +1048,11 @@
         // ============================================
         function updateProgress() {
             if (usingGoogleDocs) return;
-            
-            const endPage = Math.min(currentPage + pagesPerView - 1, totalPages);
-            const progress = (endPage / totalPages) * 100;
-            progressFill.style.width = Math.min(progress, 100) + '%';
+            const progress = (currentPage / totalPages) * 100;
+            progressFill.style.width = progress + '%';
             
             const icon = progress >= 90 ? '🎯' : progress >= 50 ? '📖' : '📚';
-            pageInfo.innerHTML = icon + ' Page ' + endPage + ' of ' + totalPages;
+            pageInfo.innerHTML = icon + ' Page ' + currentPage + ' of ' + totalPages;
         }
 
         // ============================================
@@ -1686,32 +1062,25 @@
             try {
                 const progressData = {
                     itemId: currentItemId,
-                    title: currentItemTitle,
+                    title: title,
                     currentPage: currentPage,
                     totalPages: totalPages,
-                    pagesPerView: pagesPerView,
-                    progress: Math.min(((currentPage + pagesPerView - 1) / totalPages) * 100, 100),
+                    progress: (currentPage / totalPages) * 100,
                     lastRead: new Date().toISOString(),
-                    usingGoogleDocs: usingGoogleDocs,
-                    isCompleted: isCompleted,
-                    viewMode: viewMode
+                    usingGoogleDocs: usingGoogleDocs
                 };
 
-                localStorage.setItem('reader_progress_' + (currentItemId || currentItemTitle), JSON.stringify(progressData));
+                localStorage.setItem('reader_progress_' + (currentItemId || title), JSON.stringify(progressData));
             } catch (e) {}
         }
 
         function loadSavedProgress() {
             try {
-                const saved = localStorage.getItem('reader_progress_' + (currentItemId || currentItemTitle));
+                const saved = localStorage.getItem('reader_progress_' + (currentItemId || title));
                 if (saved) {
                     const data = JSON.parse(saved);
                     if (data.currentPage && data.currentPage <= totalPages) {
                         currentPage = data.currentPage;
-                        isCompleted = data.isCompleted || false;
-                        if (data.viewMode) {
-                            viewMode = data.viewMode;
-                        }
                         return true;
                     }
                 }
@@ -1730,9 +1099,9 @@
             
             localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
             
-            if (pdfDoc && currentPage && !usingGoogleDocs && hasLoaded) {
+            if (pdfDoc && currentPage && !usingGoogleDocs) {
                 pageCache = {};
-                renderPages(currentPage);
+                renderPage(currentPage);
             }
 
             showToast(isDarkMode ? '🌙 Dark mode activated' : '☀️ Light mode activated', 'success');
@@ -1743,30 +1112,18 @@
         // ============================================
         function closeReader() {
             saveProgress();
-            
-            if (autoSaveTimer) {
-                clearInterval(autoSaveTimer);
-                autoSaveTimer = null;
-            }
-
-            try {
-                window.close();
-            } catch (e) {
-                window.location.href = '/hub.html';
-            }
+            if (autoSaveTimer) clearInterval(autoSaveTimer);
+            try { window.close(); } catch (e) { window.location.href = '/hub.html'; }
         }
 
-        // ============================================
-        // REPORT ISSUE
-        // ============================================
         function reportIssue() {
-            if (confirm('Report an issue with this book? Our team will investigate.')) {
+            if (confirm('Report an issue with this book?')) {
                 showToast('Thank you for reporting!', 'success');
             }
         }
 
         // ============================================
-        // TOAST SYSTEM
+        // TOAST
         // ============================================
         function showToast(message, type) {
             type = type || 'info';
@@ -1786,131 +1143,21 @@
         }
 
         // ============================================
-        // EVENT LISTENERS
+        // MAIN INIT - With Auth Check
         // ============================================
-        function setupEventListeners() {
-            progressContainer.addEventListener('click', function(e) {
-                if (usingGoogleDocs || !pdfDoc) return;
-                
-                const rect = progressContainer.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                const targetPage = Math.max(1, Math.min(totalPages - pagesPerView + 1, Math.round(pos * totalPages / pagesPerView) * pagesPerView + 1));
-                renderPages(Math.max(1, targetPage));
-            });
-
-            let touchStartX = 0;
-            let touchStartY = 0;
-            
-            readerContainer.addEventListener('touchstart', function(e) {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-            }, { passive: true });
-
-            readerContainer.addEventListener('touchend', function(e) {
-                if (!touchStartX || usingGoogleDocs || !pdfDoc) return;
-                
-                const touchEndX = e.changedTouches[0].clientX;
-                const touchEndY = e.changedTouches[0].clientY;
-                const diffX = touchStartX - touchEndX;
-                const diffY = touchStartY - touchEndY;
-                
-                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-                    if (diffX > 0) {
-                        nextPage();
-                    } else {
-                        prevPage();
-                    }
-                }
-                
-                touchStartX = 0;
-                touchStartY = 0;
-            }, { passive: true });
-
-            document.addEventListener('keydown', function(e) {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-                if (!pdfDoc || usingGoogleDocs) return;
-
-                switch(e.key) {
-                    case 'ArrowRight':
-                    case 'ArrowDown':
-                    case ' ':
-                        e.preventDefault();
-                        nextPage();
-                        break;
-                    case 'ArrowLeft':
-                    case 'ArrowUp':
-                        e.preventDefault();
-                        prevPage();
-                        break;
-                    case 'Home':
-                        e.preventDefault();
-                        renderPages(1);
-                        break;
-                    case 'End':
-                        e.preventDefault();
-                        const lastStart = Math.floor((totalPages - 1) / pagesPerView) * pagesPerView + 1;
-                        renderPages(lastStart);
-                        break;
-                }
-            });
-
-            let resizeTimeout;
-            window.addEventListener('resize', function() {
-                clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(function() {
-                    if (pdfDoc && currentPage && !usingGoogleDocs && hasLoaded) {
-                        pageCache = {};
-                        renderPages(currentPage);
-                    }
-                }, 500);
-            });
-
-            const savedMode = localStorage.getItem('reader_view_mode');
-            if (savedMode) {
-                setViewMode(savedMode);
-            }
-        }
-
-        // ============================================
-        // MAIN INIT - SECURE
-        // ============================================
-        async function initSecureReader() {
+        async function initReader() {
             if (!fileUrl) {
-                showError('No book found to read');
-                pageInfo.textContent = '❌ No book';
+                showAuthRequired('No Book Found', 'No content URL was provided. Please go back and try again.');
                 return;
             }
 
-            // STEP 1: Check if user is logged in
-            const isLoggedIn = checkAuth();
+            // 1. Check Authorization
+            const authorized = await checkAuthorization();
+            if (!authorized) return;
 
-            if (!isLoggedIn) {
-                showNotLoggedIn();
-                return;
-            }
+            // 2. Load PDF (Authorized)
+            showLoading('Loading PDF library...');
 
-            // STEP 2: Verify purchase
-            if (!currentItemId) {
-                // If no itemId, we can't verify purchase
-                // Show error but allow access for testing (or block)
-                console.warn('No itemId provided for purchase verification');
-                // For production, you might want to block access here
-                // showNotPurchased('This content is not available.');
-                // return;
-            } else {
-                const verified = await verifyPurchase(currentItemId, currentUser.id);
-                
-                if (!verified) {
-                    showNotPurchased('You haven\'t purchased "' + currentItemTitle + '" yet. Visit the Hub to purchase and start reading.');
-                    return;
-                }
-            }
-
-            // STEP 3: User is authenticated and has purchased the content
-            hideAllOverlays();
-            showLoading('Loading your book...', 'Verifying access...');
-
-            // STEP 4: Load the PDF
             try {
                 await loadPDFJS();
 
@@ -1937,22 +1184,13 @@
                 console.log('📚 PDF loaded: ' + totalPages + ' pages');
 
                 const hasProgress = loadSavedProgress();
-                if (!hasProgress) {
-                    currentPage = 1;
-                }
+                if (!hasProgress) currentPage = 1;
 
-                if (isCompleted) {
-                    markCompleteBtn.style.display = 'none';
-                }
-
-                await renderPages(currentPage);
+                await renderPage(currentPage);
                 hideLoading();
-                hasLoaded = true;
 
                 if (autoSaveTimer) clearInterval(autoSaveTimer);
                 autoSaveTimer = setInterval(saveProgress, 5000);
-
-                setupEventListeners();
 
                 showToast('✅ Book loaded successfully!', 'success');
 
@@ -1965,7 +1203,7 @@
                         loadGoogleDocs();
                     }, 1000);
                 } else {
-                    showError('Could not load the book. Please try again.');
+                    showToast('Could not load the book. Please try again.', 'error');
                 }
             }
         }
@@ -1981,17 +1219,53 @@
         }
 
         // ============================================
-        // HANDLE WINDOW CLOSE
+        // LOAD SUPABASE SCRIPT
         // ============================================
-        window.addEventListener('beforeunload', function() {
-            saveProgress();
-        });
+        function loadSupabase() {
+            return new Promise(function(resolve, reject) {
+                if (typeof supabase !== 'undefined' && supabase) {
+                    resolve();
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js';
+                script.onload = function() {
+                    if (window.supabase) {
+                        resolve();
+                    } else {
+                        reject(new Error('Supabase failed to load'));
+                    }
+                };
+                script.onerror = function() {
+                    reject(new Error('Supabase library could not be loaded'));
+                };
+                document.head.appendChild(script);
+            });
+        }
 
         // ============================================
-        // START - Secure
+        // START
         // ============================================
-        // Initialize with security checks
-        setTimeout(initSecureReader, 200);
+        window.addEventListener('beforeunload', saveProgress);
+
+        async function start() {
+            try {
+                await loadSupabase();
+                // Reassign supabase
+                const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                window.supabase = supabaseClient;
+                // Override the global supabase
+                Object.assign(supabase, supabaseClient);
+            } catch (e) {
+                console.warn('Supabase load warning:', e);
+            }
+            
+            // Start the reader
+            setTimeout(initReader, 200);
+        }
+
+        start();
 
         // ============================================
         // EXPOSE GLOBALLY
@@ -2002,16 +1276,10 @@
         window.closeReader = closeReader;
         window.reportIssue = reportIssue;
         window.showToast = showToast;
-        window.setViewMode = setViewMode;
-        window.markComplete = markComplete;
-        window.closeCelebration = closeCelebration;
+        window.goToLogin = goToLogin;
         window.goToHub = goToHub;
-        window.shareCompletion = shareCompletion;
-        window.goToSignIn = goToSignIn;
 
-        console.log('📚 Secure Gliimu Reader initialized');
-        console.log('🔒 Security: User authenticated =', isAuthenticated);
-        console.log('🔒 Security: Purchase verified =', purchaseVerified);
+        console.log('📚 Gliimu Professional Reader with Auth');
     </script>
 </body>
 </html>
