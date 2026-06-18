@@ -1067,12 +1067,11 @@ Those words echoed in her mind as she stood at the crossroads of her life. The c
                     ${isPremium ? '<span class="tag premium-tag">⭐ Premium</span>' : ''}
                     ${isPurchased ? '<span class="tag owned-tag">✅ Owned</span>' : ''}
                 </div>
-                <div class="book-description">${escape(item.description || 'No description available.')}</div>
-                
+                                
                 <div class="chapter-preview-wide">
                     <div class="chapter-header">
                         <span class="chapter-icon">📖</span>
-                        <span class="chapter-label">First Chapter Preview</span>
+                        <span class="chapter-label">Book Teaser</span>
                     </div>
                     <div class="chapter-content ${isPurchased ? '' : 'chapter-blur'}">
                         ${escape(firstChapter)}
