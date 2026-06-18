@@ -291,9 +291,8 @@ async function renderDashboard() {
 }
 
 // ============================================
-// FIXED UPLOAD FUNCTION - WITH PROPER URL
+// UPLOAD FILE TO STORAGE - RETURNS PUBLIC URL
 // ============================================
-
 async function uploadFileToStorage(file, contentType, folder = null) {
     if (!file) {
         console.warn('⚠️ No file provided for upload');
@@ -325,11 +324,10 @@ async function uploadFileToStorage(file, contentType, folder = null) {
         path = `general/${fileName}`;
     }
     
-    console.log('📤 Uploading file to:', path);
-    console.log('📁 File details:', { name: file.name, size: file.size, type: file.type });
+    console.log('📤 Uploading to:', path);
 
     try {
-        // UPLOAD THE FILE
+        // 1. Upload the file
         const { data, error } = await supabase.storage
             .from('hub_content')
             .upload(path, file, {
@@ -344,28 +342,25 @@ async function uploadFileToStorage(file, contentType, folder = null) {
             return null;
         }
 
-        console.log('✅ Upload successful:', data);
+        console.log('✅ File uploaded successfully:', data);
 
-        // GET THE PUBLIC URL - FIXED
-        // THIS IS THE CRITICAL PART
+        // 2. Get the public URL - THIS IS CRITICAL
         const { data: urlData } = supabase.storage
             .from('hub_content')
             .getPublicUrl(path);
 
-        // The URL will be:
-        // https://[project-id].supabase.co/storage/v1/object/public/hub_content/[path]
-        const publicUrl = urlData.publicUrl;
-        
-        console.log('🔗 Public URL:', publicUrl);
-
-        if (!publicUrl) {
-            console.error('❌ Failed to get public URL');
-            showToast('Upload succeeded but URL generation failed', 'error');
+        if (!urlData || !urlData.publicUrl) {
+            console.error('❌ Failed to generate public URL');
+            showToast('Failed to generate file URL', 'error');
             return null;
         }
 
+        const publicUrl = urlData.publicUrl;
+        console.log('🔗 Public URL generated:', publicUrl);
+
+        // 3. Return the URL so it can be saved to database
         return publicUrl;
-        
+
     } catch (error) {
         console.error('❌ Upload exception:', error);
         showToast(`Upload error: ${error.message || 'Unknown error'}`, 'error');
@@ -807,7 +802,7 @@ async function loadItemData(itemId) {
 }
 
 // ============================================
-// SAVE LIBRARY ITEM - WITH FILE UPLOAD
+// SAVE LIBRARY ITEM - WITH AUTO URL STORAGE
 // ============================================
 async function saveLibraryItem(e) {
     e.preventDefault();
@@ -832,39 +827,58 @@ async function saveLibraryItem(e) {
         }
     }
     
-    // Upload cover image if new file selected
+    // --- CRITICAL FIX: Upload cover image and get URL ---
     let coverUrl = existingCoverUrl;
     if (coverFile) {
-        // Delete old cover if exists
-        if (existingCoverUrl) {
-            await deleteFileFromStorage(existingCoverUrl);
+        console.log('📤 Uploading cover image...', coverFile.name);
+        const uploadedUrl = await uploadFileToStorage(coverFile, 'cover');
+        console.log('📤 Upload result URL:', uploadedUrl);
+        
+        if (uploadedUrl) {
+            // Delete old cover if exists
+            if (existingCoverUrl) {
+                await deleteFileFromStorage(existingCoverUrl);
+            }
+            coverUrl = uploadedUrl;  // ✅ Store the returned URL
+            console.log('✅ Cover URL saved:', coverUrl);
+        } else {
+            showToast('Cover upload failed', 'error');
+            return;
         }
-        const uploaded = await uploadFileToStorage(coverFile, 'cover');
-        if (uploaded) coverUrl = uploaded;
     }
     
-    // Upload content file if new file selected
+    // --- CRITICAL FIX: Upload content file and get URL ---
     let fileUrl = existingFileUrl;
     if (contentFile) {
-        // Delete old file if exists
-        if (existingFileUrl) {
-            await deleteFileFromStorage(existingFileUrl);
+        console.log('📤 Uploading content file...', contentFile.name);
+        const uploadedUrl = await uploadFileToStorage(contentFile, contentType);
+        console.log('📤 Upload result URL:', uploadedUrl);
+        
+        if (uploadedUrl) {
+            // Delete old file if exists
+            if (existingFileUrl) {
+                await deleteFileFromStorage(existingFileUrl);
+            }
+            fileUrl = uploadedUrl;  // ✅ Store the returned URL
+            console.log('✅ Content URL saved:', fileUrl);
+        } else {
+            showToast('Content file upload failed', 'error');
+            return;
         }
-        const uploaded = await uploadFileToStorage(contentFile, contentType);
-        if (uploaded) fileUrl = uploaded;
     }
     
+    // --- Build the data object with the URLs ---
     const data = {
         title: document.getElementById('itemTitle').value.trim(),
         type: contentType,
         category: document.getElementById('itemCategory').value.trim(),
         author: document.getElementById('itemAuthor').value.trim(),
         description: document.getElementById('itemDescription').value.trim(),
-        cover_url: coverUrl,
+        cover_url: coverUrl,      // ✅ This now has the uploaded URL
+        file_url: fileUrl,        // ✅ This now has the uploaded URL
         price: parseFloat(document.getElementById('itemPrice').value) || 0,
         physical_price: parseFloat(document.getElementById('itemPhysicalPrice').value) || 0,
         audio_price: parseFloat(document.getElementById('itemAudioPrice').value) || 0,
-        file_url: fileUrl,
         download_url: document.getElementById('itemDownloadUrl').value.trim(),
         level: document.getElementById('itemLevel').value,
         duration: document.getElementById('itemDuration').value.trim(),
@@ -873,11 +887,18 @@ async function saveLibraryItem(e) {
         updated_at: new Date().toISOString()
     };
     
+    console.log('📦 Saving to database:', { 
+        title: data.title, 
+        cover_url: data.cover_url, 
+        file_url: data.file_url 
+    });
+    
     if (!data.title) {
         showToast('Title is required', 'error');
         return;
     }
     
+    // --- Save to database ---
     let result;
     if (itemId) {
         result = await supabase
@@ -893,8 +914,9 @@ async function saveLibraryItem(e) {
     
     if (result.error) {
         showToast(`Error: ${result.error.message}`, 'error');
-        console.error(result.error);
+        console.error('Database error:', result.error);
     } else {
+        console.log('✅ Database updated successfully');
         showToast(`Content ${itemId ? 'updated' : 'added'} successfully!`, 'success');
         closeLibraryModal();
         renderPostsManager();
@@ -1089,6 +1111,9 @@ function closeIndexModal() {
     document.getElementById('indexImageInput').value = '';
 }
 
+// ============================================
+// SAVE INDEX ITEM - WITH AUTO URL STORAGE
+// ============================================
 async function saveIndexItem(e) {
     e.preventDefault();
     
@@ -1110,20 +1135,30 @@ async function saveIndexItem(e) {
     
     let imageUrl = existingImageUrl;
     if (imageFile) {
-        // Delete old image if exists
-        if (existingImageUrl) {
-            await deleteFileFromStorage(existingImageUrl);
+        console.log('📤 Uploading hero image...', imageFile.name);
+        const uploadedUrl = await uploadFileToStorage(imageFile, 'hero');
+        
+        if (uploadedUrl) {
+            // Delete old image if exists
+            if (existingImageUrl) {
+                await deleteFileFromStorage(existingImageUrl);
+            }
+            imageUrl = uploadedUrl;  // ✅ Store the uploaded URL
+            console.log('✅ Hero image URL saved:', imageUrl);
+        } else {
+            showToast('Image upload failed', 'error');
+            return;
         }
-        const uploaded = await uploadFileToStorage(imageFile, 'hero');
-        if (uploaded) imageUrl = uploaded;
     }
     
     const data = {
         hero_title: document.getElementById('indexHeroTitle').value.trim(),
         hero_subtitle: document.getElementById('indexHeroSubtitle').value.trim(),
-        hero_image: imageUrl,
+        hero_image: imageUrl,  // ✅ This now has the uploaded URL
         updated_at: new Date().toISOString()
     };
+    
+    console.log('📦 Saving index data:', data);
     
     let result;
     if (indexId) {
@@ -1140,7 +1175,9 @@ async function saveIndexItem(e) {
     
     if (result.error) {
         showToast(`Error: ${result.error.message}`, 'error');
+        console.error('Database error:', result.error);
     } else {
+        console.log('✅ Index updated successfully');
         showToast('Hero content updated successfully!', 'success');
         closeIndexModal();
         renderPostsManager();
@@ -1207,6 +1244,9 @@ async function loadProductData(productId) {
     }
 }
 
+// ============================================
+// SAVE PRODUCT - WITH AUTO URL STORAGE
+// ============================================
 async function saveProductItem(e) {
     e.preventDefault();
     
@@ -1228,11 +1268,19 @@ async function saveProductItem(e) {
     
     let imageUrl = existingImageUrl;
     if (imageFile) {
-        if (existingImageUrl) {
-            await deleteFileFromStorage(existingImageUrl);
+        console.log('📤 Uploading product image...', imageFile.name);
+        const uploadedUrl = await uploadFileToStorage(imageFile, 'product');
+        
+        if (uploadedUrl) {
+            if (existingImageUrl) {
+                await deleteFileFromStorage(existingImageUrl);
+            }
+            imageUrl = uploadedUrl;  // ✅ Store the uploaded URL
+            console.log('✅ Product image URL saved:', imageUrl);
+        } else {
+            showToast('Image upload failed', 'error');
+            return;
         }
-        const uploaded = await uploadFileToStorage(imageFile, 'product');
-        if (uploaded) imageUrl = uploaded;
     }
     
     const data = {
@@ -1240,9 +1288,11 @@ async function saveProductItem(e) {
         category: document.getElementById('productCategory').value,
         price: parseFloat(document.getElementById('productPrice').value) || 0,
         stock_quantity: parseInt(document.getElementById('productStock').value) || 0,
-        image_url: imageUrl,
+        image_url: imageUrl,  // ✅ This now has the uploaded URL
         updated_at: new Date().toISOString()
     };
+    
+    console.log('📦 Saving product:', data);
     
     if (!data.name) {
         showToast('Product name is required', 'error');
@@ -1264,13 +1314,14 @@ async function saveProductItem(e) {
     
     if (result.error) {
         showToast(`Error: ${result.error.message}`, 'error');
+        console.error('Database error:', result.error);
     } else {
+        console.log('✅ Product saved successfully');
         showToast(`Product ${productId ? 'updated' : 'added'} successfully!`, 'success');
         closeProductModal();
         renderInventory();
     }
 }
-
 // ============================================
 // SETTINGS TAB
 // ============================================
