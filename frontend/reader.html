@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gliimu Reader</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -18,10 +18,9 @@
             --border-color: #e2e8f0;
             --shadow-color: rgba(0,0,0,0.1);
             --reader-bg: #ffffff;
-            --reader-text: #000000;
-            --progress-color: var(--brand-gold);
+            --reader-text: #1a1a2e;
             --progress-track: #e2e8f0;
-            --canvas-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            --watermark-color: rgba(44, 47, 120, 0.05);
         }
 
         body.dark-mode {
@@ -34,24 +33,27 @@
             --reader-bg: #1a1a2e;
             --reader-text: #e0e0e0;
             --progress-track: #2d2d44;
-            --canvas-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            --watermark-color: rgba(251, 176, 64, 0.05);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        body {
-            font-family: 'Space Grotesk', sans-serif;
+        html, body {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             transition: background 0.3s, color 0.3s;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+            height: 100%;
+            width: 100%;
             overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
         }
 
         /* ============================================
@@ -60,31 +62,37 @@
         .reader-header {
             background: var(--bg-card);
             border-bottom: 1px solid var(--border-color);
-            padding: 0.6rem 2rem;
+            padding: 0.5rem 1.2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
             z-index: 10;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 0.5rem;
             box-shadow: 0 1px 4px var(--shadow-color);
+            min-height: 56px;
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
         }
 
         .reader-header .logo {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
+            flex-shrink: 0;
         }
 
         .reader-header .logo img {
-            height: 32px;
+            height: 28px;
+            width: auto;
         }
 
         .reader-header .logo span {
             font-weight: 600;
-            font-size: 1rem;
+            font-size: 0.85rem;
             color: var(--text-primary);
+            white-space: nowrap;
         }
 
         .reader-header .logo span .gold {
@@ -92,9 +100,9 @@
         }
 
         .reader-header .book-title {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
-            max-width: 300px;
+            max-width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -105,7 +113,8 @@
         .reader-header .controls {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.3rem;
+            flex-shrink: 0;
         }
 
         .reader-header .controls button {
@@ -113,10 +122,11 @@
             border: none;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 1rem;
+            font-size: 0.9rem;
             padding: 6px 10px;
             border-radius: 8px;
             transition: all 0.2s;
+            touch-action: manipulation;
         }
 
         .reader-header .controls button:hover {
@@ -124,33 +134,13 @@
             color: var(--brand-gold);
         }
 
-        .reader-header .controls .zoom-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            background: var(--bg-primary);
-            border-radius: 8px;
-            padding: 0 4px;
-            border: 1px solid var(--border-color);
-        }
-
-        .reader-header .controls .zoom-controls button {
-            padding: 4px 8px;
-            font-size: 0.85rem;
-            min-width: 28px;
-        }
-
-        .reader-header .controls .zoom-controls .zoom-level {
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            min-width: 40px;
-            text-align: center;
+        .reader-header .controls button:active {
+            transform: scale(0.92);
         }
 
         .reader-header .controls .close-btn {
-            font-size: 1.2rem;
-            color: var(--text-secondary);
+            font-size: 1.1rem;
+            padding: 6px 10px;
         }
 
         .reader-header .controls .close-btn:hover {
@@ -159,7 +149,7 @@
         }
 
         /* ============================================
-           PROGRESS BAR - FANCY ANIMATION
+           PROGRESS BAR - Fancy Animation
            ============================================ */
         .progress-bar-container {
             flex-shrink: 0;
@@ -168,6 +158,7 @@
             position: relative;
             overflow: hidden;
             cursor: pointer;
+            touch-action: none;
         }
 
         .progress-bar-container .progress-fill {
@@ -176,7 +167,6 @@
             width: 0%;
             transition: width 0.3s ease;
             position: relative;
-            border-radius: 0 2px 2px 0;
         }
 
         .progress-bar-container .progress-fill::after {
@@ -199,30 +189,8 @@
             100% { background-position: -200% 0; }
         }
 
-        .progress-bar-container .progress-tooltip {
-            position: absolute;
-            bottom: 12px;
-            transform: translateX(-50%);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-color) 0 2px 8px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            white-space: nowrap;
-        }
-
-        .progress-bar-container:hover .progress-tooltip {
-            opacity: 1;
-        }
-
         /* ============================================
-           PDF VIEWER CONTAINER
+           READER CONTAINER
            ============================================ */
         .reader-container {
             flex: 1;
@@ -233,31 +201,93 @@
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            padding: 20px;
+            padding: 0;
+            -webkit-overflow-scrolling: touch;
+            height: 100%;
+            min-height: 0;
         }
 
         .reader-container .page-wrapper {
             display: flex;
-            justify-content: center;
-            align-items: flex-start;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
             width: 100%;
             min-height: 100%;
+            padding: 15px 20px 30px;
             transition: transform 0.3s ease;
         }
 
         .reader-container canvas {
-            box-shadow: var(--canvas-shadow);
-            border-radius: 4px;
+            box-shadow: 0 2px 16px var(--shadow-color);
+            border-radius: 6px;
             background: var(--reader-bg);
             transition: transform 0.3s ease, filter 0.3s ease;
             max-width: 100%;
             height: auto;
-            image-rendering: auto;
+            touch-action: none;
         }
 
-        /* Dark mode PDF inversion using CSS filter */
+        /* Dark mode PDF inversion */
         body.dark-mode .reader-container canvas {
             filter: invert(0.85) hue-rotate(180deg) brightness(1.2) contrast(1.1) !important;
+        }
+
+        /* ============================================
+           GOOGLE DOCS VIEWER (Fallback)
+           ============================================ */
+        .reader-container .google-docs-viewer {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: var(--reader-bg);
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* ============================================
+           NAVIGATION OVERLAY (Mobile)
+           ============================================ */
+        .nav-overlay {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 25%;
+            z-index: 2;
+            cursor: pointer;
+            touch-action: none;
+            display: none;
+        }
+
+        .nav-overlay.left {
+            left: 0;
+        }
+
+        .nav-overlay.right {
+            right: 0;
+        }
+
+        .nav-overlay .nav-hint {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            opacity: 0.2;
+            transition: opacity 0.3s;
+        }
+
+        .nav-overlay.left .nav-hint {
+            left: 15px;
+        }
+
+        .nav-overlay.right .nav-hint {
+            right: 15px;
+        }
+
+        .nav-overlay:active .nav-hint {
+            opacity: 0.6;
         }
 
         /* ============================================
@@ -274,8 +304,10 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 5;
+            z-index: 20;
             transition: opacity 0.5s ease;
+            padding: 2rem;
+            text-align: center;
         }
 
         .loading-overlay.hidden {
@@ -284,18 +316,25 @@
         }
 
         .loading-overlay .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid var(--border-color);
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
             border-top-color: var(--brand-gold);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
 
         .loading-overlay p {
-            margin-top: 1rem;
+            margin-top: 0.75rem;
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            max-width: 300px;
+        }
+
+        .loading-overlay .loading-sub {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            margin-top: 0.25rem;
         }
 
         @keyframes spin {
@@ -303,29 +342,36 @@
         }
 
         /* ============================================
-           ZOOM INDICATOR
+           TOAST
            ============================================ */
-        .zoom-indicator {
+        .reader-toast {
             position: fixed;
-            bottom: 80px;
+            bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
             background: var(--bg-card);
             color: var(--text-primary);
-            padding: 0.5rem 1.5rem;
+            padding: 0.5rem 1.2rem;
             border-radius: 12px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 4px 20px var(--shadow-color);
-            z-index: 100;
-            font-size: 0.85rem;
-            font-weight: 600;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 999;
+            font-size: 0.75rem;
+            animation: slideUp 0.3s ease;
+            max-width: 90%;
+            border-left: 4px solid var(--brand-gold);
+            font-family: 'Space Grotesk', sans-serif;
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
         }
 
-        .zoom-indicator.show {
-            opacity: 1;
+        .reader-toast.warning { border-left-color: #f59e0b; }
+        .reader-toast.success { border-left-color: #10b981; }
+        .reader-toast.error { border-left-color: #ef4444; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
 
         /* ============================================
@@ -334,50 +380,57 @@
         .reader-footer {
             background: var(--bg-card);
             border-top: 1px solid var(--border-color);
-            padding: 0.5rem 2rem;
+            padding: 0.4rem 1.2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: var(--text-secondary);
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 0.5rem;
+            min-height: 40px;
         }
 
         .reader-footer .page-info {
             font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
+            white-space: nowrap;
         }
 
         .reader-footer .page-info .page-icon {
             color: var(--brand-gold);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
 
         .reader-footer .actions {
             display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
+            gap: 0.3rem;
+            flex-wrap: nowrap;
         }
 
         .reader-footer .actions button {
             background: transparent;
             border: 1px solid var(--border-color);
-            padding: 0.3rem 0.75rem;
-            border-radius: 20px;
+            padding: 0.2rem 0.6rem;
+            border-radius: 16px;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             font-family: inherit;
             transition: all 0.2s;
+            touch-action: manipulation;
         }
 
         .reader-footer .actions button:hover {
             border-color: var(--brand-gold);
             color: var(--brand-gold);
+        }
+
+        .reader-footer .actions button:active {
+            transform: scale(0.95);
         }
 
         .reader-footer .actions button.primary {
@@ -389,46 +442,7 @@
 
         .reader-footer .actions button.primary:hover {
             background: var(--brand-gold-dark);
-            transform: translateY(-1px);
-        }
-
-        /* ============================================
-           TOAST NOTIFICATION
-           ============================================ */
-        .reader-toast {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            z-index: 999;
-            font-size: 0.85rem;
-            animation: slideUp 0.3s ease;
-            max-width: 90%;
-            border-left: 4px solid var(--brand-gold);
-            font-family: 'Space Grotesk', sans-serif;
-        }
-
-        .reader-toast.warning {
-            border-left-color: #f59e0b;
-        }
-
-        .reader-toast.success {
-            border-left-color: #10b981;
-        }
-
-        .reader-toast.error {
-            border-left-color: #ef4444;
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            border-color: var(--brand-gold-dark);
         }
 
         /* ============================================
@@ -436,80 +450,113 @@
            ============================================ */
         @media (max-width: 768px) {
             .reader-header {
-                padding: 0.5rem 1rem;
-                flex-wrap: wrap;
-                gap: 0.4rem;
-            }
-            
-            .reader-header .book-title {
-                max-width: 150px;
-                font-size: 0.75rem;
-                order: 3;
-                flex-basis: 100%;
-                text-align: center;
-            }
-            
-            .reader-footer {
-                padding: 0.4rem 1rem;
-                flex-wrap: wrap;
-                gap: 0.4rem;
-                justify-content: center;
-            }
-            
-            .reader-header .logo span {
-                font-size: 0.85rem;
-            }
-
-            .reader-header .controls button {
-                padding: 4px 6px;
-                font-size: 0.8rem;
-            }
-
-            .reader-header .controls .zoom-controls button {
-                padding: 2px 6px;
-                font-size: 0.75rem;
-            }
-
-            .reader-header .controls .zoom-controls .zoom-level {
-                font-size: 0.65rem;
-                min-width: 30px;
-            }
-
-            .reader-footer .actions button {
-                font-size: 0.65rem;
-                padding: 0.2rem 0.5rem;
-            }
-
-            .reader-container {
-                padding: 10px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .reader-header {
-                padding: 0.4rem 0.75rem;
-            }
-            
-            .reader-header .book-title {
-                max-width: 100px;
-                font-size: 0.65rem;
+                padding: 0.4rem 0.8rem;
+                min-height: 48px;
             }
             
             .reader-header .logo img {
                 height: 24px;
             }
             
-            .reader-footer {
-                padding: 0.3rem 0.75rem;
-                font-size: 0.7rem;
+            .reader-header .logo span {
+                font-size: 0.75rem;
             }
             
-            .reader-footer .page-info {
-                font-size: 0.7rem;
+            .reader-header .book-title {
+                max-width: 120px;
+                font-size: 0.65rem;
+            }
+            
+            .reader-header .controls button {
+                font-size: 0.8rem;
+                padding: 4px 8px;
+            }
+            
+            .reader-footer {
+                padding: 0.3rem 0.8rem;
+                font-size: 0.6rem;
+                min-height: 36px;
+            }
+            
+            .reader-footer .actions button {
+                font-size: 0.55rem;
+                padding: 0.15rem 0.5rem;
+            }
+            
+            .reader-container .page-wrapper {
+                padding: 10px 12px 20px;
             }
 
-            .reader-container {
-                padding: 5px;
+            .nav-overlay {
+                display: block;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .reader-header {
+                padding: 0.3rem 0.6rem;
+                min-height: 44px;
+            }
+            
+            .reader-header .logo img {
+                height: 20px;
+            }
+            
+            .reader-header .logo span {
+                font-size: 0.65rem;
+            }
+            
+            .reader-header .book-title {
+                max-width: 80px;
+                font-size: 0.55rem;
+            }
+            
+            .reader-header .controls button {
+                font-size: 0.7rem;
+                padding: 3px 6px;
+            }
+            
+            .reader-footer {
+                padding: 0.25rem 0.6rem;
+                font-size: 0.55rem;
+                min-height: 32px;
+            }
+            
+            .reader-footer .actions button {
+                font-size: 0.5rem;
+                padding: 0.1rem 0.4rem;
+            }
+            
+            .reader-container .page-wrapper {
+                padding: 5px 8px 15px;
+            }
+
+            .nav-overlay {
+                width: 20%;
+            }
+        }
+
+        @media (max-width: 375px) {
+            .reader-header .book-title {
+                max-width: 60px;
+                font-size: 0.5rem;
+            }
+            
+            .reader-header .logo span {
+                font-size: 0.6rem;
+            }
+        }
+
+        @supports (padding: max(0px)) {
+            .reader-header {
+                padding-top: max(0.4rem, env(safe-area-inset-top));
+                padding-left: max(0.8rem, env(safe-area-inset-left));
+                padding-right: max(0.8rem, env(safe-area-inset-right));
+            }
+            .reader-footer {
+                padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+                padding-left: max(0.8rem, env(safe-area-inset-left));
+                padding-right: max(0.8rem, env(safe-area-inset-right));
             }
         }
     </style>
@@ -519,29 +566,13 @@
     <!-- Header -->
     <header class="reader-header">
         <div class="logo">
-            <img src="/icons/logo.png" alt="Gliimu">
+            <img src="/icons/logo.png" alt="Gliimu" onerror="this.style.display='none'">
             <span>Gliimu <span class="gold">Reader</span></span>
         </div>
         <div class="book-title" id="bookTitle">Loading...</div>
         <div class="controls">
-            <!-- Zoom Controls -->
-            <div class="zoom-controls">
-                <button onclick="zoomOut()" title="Zoom Out">
-                    <i class="fas fa-minus"></i>
-                </button>
-                <span class="zoom-level" id="zoomLevel">100%</span>
-                <button onclick="zoomIn()" title="Zoom In">
-                    <i class="fas fa-plus"></i>
-                </button>
-                <button onclick="resetZoom()" title="Reset Zoom">
-                    <i class="fas fa-expand"></i>
-                </button>
-            </div>
             <button onclick="toggleTheme()" title="Toggle Theme" id="themeBtn">
                 <i class="fas fa-moon" id="themeIcon"></i>
-            </button>
-            <button onclick="toggleFullscreen()" title="Fullscreen">
-                <i class="fas fa-expand"></i>
             </button>
             <button onclick="closeReader()" class="close-btn" title="Close Reader">
                 <i class="fas fa-times"></i>
@@ -550,24 +581,28 @@
     </header>
 
     <!-- Progress Bar -->
-    <div class="progress-bar-container" id="progressContainer" title="Reading Progress">
+    <div class="progress-bar-container" id="progressContainer">
         <div class="progress-fill" id="progressFill"></div>
-        <div class="progress-tooltip" id="progressTooltip">0%</div>
     </div>
 
-    <!-- PDF Viewer Container -->
+    <!-- Reader Container -->
     <div class="reader-container" id="readerContainer">
         <div class="loading-overlay" id="loadingOverlay">
-            <div class="spinner"></div>
-            <p>Loading your book...</p>
+            <div class="spinner" id="loadingSpinner"></div>
+            <p id="loadingText">Loading your book...</p>
+            <p class="loading-sub" id="loadingSub">This may take a moment</p>
         </div>
         <div class="page-wrapper" id="pageWrapper">
             <!-- Canvas will be rendered here -->
         </div>
+        <!-- Navigation overlays for mobile -->
+        <div class="nav-overlay left" id="navLeft" onclick="prevPage()">
+            <div class="nav-hint"><i class="fas fa-chevron-left"></i></div>
+        </div>
+        <div class="nav-overlay right" id="navRight" onclick="nextPage()">
+            <div class="nav-hint"><i class="fas fa-chevron-right"></i></div>
+        </div>
     </div>
-
-    <!-- Zoom Indicator -->
-    <div class="zoom-indicator" id="zoomIndicator">100%</div>
 
     <!-- Footer -->
     <footer class="reader-footer">
@@ -577,27 +612,30 @@
         </span>
         <div class="actions">
             <button onclick="reportIssue()">
-                <i class="fas fa-flag"></i> Report
+                <i class="fas fa-flag"></i>
             </button>
             <button class="primary" onclick="closeReader()">
-                <i class="fas fa-check"></i> Done Reading
+                <i class="fas fa-check"></i> Done
             </button>
         </div>
     </footer>
 
     <script>
         // ============================================
-        // GLIIMU READER - PDF.js with Full Features
+        // GLIIMU READER - Professional PDF.js + Fallback
         // ============================================
 
         // ============================================
-        // CONFIGURATION
+        // DETECT DEVICE
         // ============================================
-        const STORAGE_KEY = 'gliimu_reader_progress';
-        const AUTO_SAVE_INTERVAL = 3000;
-        const ZOOM_STEP = 0.1;
-        const MIN_ZOOM = 0.5;
-        const MAX_ZOOM = 3.0;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        const isMobile = isIOS || isAndroid || /Mobi/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        console.log('📱 Device:', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop');
+        console.log('🌐 Browser:', isSafari ? 'Safari' : 'Other');
 
         // ============================================
         // STATE
@@ -610,7 +648,8 @@
         let currentItemId = null;
         let currentZoom = 1.0;
         let isRendering = false;
-        let currentScale = 1.5;
+        let pageCache = {};
+        let usingGoogleDocs = false;
 
         // ============================================
         // DOM REFS
@@ -618,168 +657,166 @@
         const pageWrapper = document.getElementById('pageWrapper');
         const bookTitle = document.getElementById('bookTitle');
         const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const loadingSub = document.getElementById('loadingSub');
+        const loadingSpinner = document.getElementById('loadingSpinner');
         const pageInfo = document.getElementById('pageInfo');
         const progressFill = document.getElementById('progressFill');
-        const progressTooltip = document.getElementById('progressTooltip');
         const progressContainer = document.getElementById('progressContainer');
         const themeBtn = document.getElementById('themeBtn');
         const themeIcon = document.getElementById('themeIcon');
-        const zoomLevel = document.getElementById('zoomLevel');
-        const zoomIndicator = document.getElementById('zoomIndicator');
         const readerContainer = document.getElementById('readerContainer');
 
         // ============================================
         // GET URL PARAMETERS
         // ============================================
         const urlParams = new URLSearchParams(window.location.search);
-        const pdfUrl = urlParams.get('url');
+        const fileUrl = urlParams.get('url');
         const title = urlParams.get('title') || 'Book';
         const itemId = urlParams.get('itemId') || '';
 
-        // Set book title
         bookTitle.textContent = title;
         currentItemId = itemId;
 
         // ============================================
-        // ZOOM FUNCTIONS
+        // SHOW/HIDE LOADING
         // ============================================
-        function updateZoomDisplay() {
-            const percent = Math.round(currentZoom * 100);
-            zoomLevel.textContent = percent + '%';
+        function showLoading(message, sub) {
+            loadingOverlay.classList.remove('hidden');
+            loadingSpinner.style.display = 'block';
+            loadingText.textContent = message || 'Loading...';
+            loadingSub.textContent = sub || 'This may take a moment';
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.add('hidden');
+        }
+
+        function showError(message, sub) {
+            loadingOverlay.classList.remove('hidden');
+            loadingSpinner.style.display = 'none';
+            loadingText.textContent = message || 'Failed to load the book.';
+            loadingSub.textContent = sub || 'Please try again or use the fallback viewer.';
+        }
+
+        // ============================================
+        // GOOGLE DOCS FALLBACK
+        // ============================================
+        function loadGoogleDocs() {
+            usingGoogleDocs = true;
             
-            // Show zoom indicator
-            zoomIndicator.textContent = percent + '%';
-            zoomIndicator.classList.add('show');
-            clearTimeout(zoomIndicator._timeout);
-            zoomIndicator._timeout = setTimeout(() => {
-                zoomIndicator.classList.remove('show');
-            }, 1500);
-        }
-
-        function applyZoom() {
-            const canvas = pageWrapper.querySelector('canvas');
-            if (canvas) {
-                canvas.style.transform = `scale(${currentZoom})`;
-                canvas.style.transformOrigin = 'top center';
-                updateZoomDisplay();
-            }
-        }
-
-        function zoomIn() {
-            if (currentZoom < MAX_ZOOM) {
-                currentZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
-                applyZoom();
-                showToast(`Zoom: ${Math.round(currentZoom * 100)}%`, 'info');
-            } else {
-                showToast('Maximum zoom reached', 'warning');
-            }
-        }
-
-        function zoomOut() {
-            if (currentZoom > MIN_ZOOM) {
-                currentZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
-                applyZoom();
-                showToast(`Zoom: ${Math.round(currentZoom * 100)}%`, 'info');
-            } else {
-                showToast('Minimum zoom reached', 'warning');
-            }
-        }
-
-        function resetZoom() {
-            currentZoom = 1.0;
-            applyZoom();
-            showToast('Zoom reset to 100%', 'success');
+            // Clear the page wrapper
+            pageWrapper.innerHTML = '';
+            pageWrapper.style.display = 'none';
+            
+            // Create iframe
+            const iframe = document.createElement('iframe');
+            iframe.className = 'google-docs-viewer';
+            const encodedUrl = encodeURIComponent(fileUrl);
+            iframe.src = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
+            iframe.title = 'Google Docs PDF Viewer';
+            iframe.loading = 'eager';
+            
+            readerContainer.appendChild(iframe);
+            
+            // Update UI
+            pageInfo.textContent = '📄 Google Docs Viewer';
+            progressFill.style.width = '0%';
+            hideLoading();
+            
+            showToast('📄 Using Google Docs viewer', 'info');
+            
+            // Save progress
+            saveProgress();
         }
 
         // ============================================
-        // INITIALIZE PDF.js
+        // LOAD PDF.JS
         // ============================================
-        async function initPDF() {
-            if (!pdfUrl) {
-                loadingOverlay.innerHTML = `
-                    <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--brand-gold);"></i>
-                    <p>No book found to read</p>
-                `;
-                loadingOverlay.classList.remove('hidden');
-                pageInfo.textContent = '❌ No book';
-                return;
-            }
+        function loadPDFJS() {
+            return new Promise(function(resolve, reject) {
+                if (typeof pdfjsLib !== 'undefined' && pdfjsLib.version) {
+                    resolve();
+                    return;
+                }
 
-            try {
-                // Load PDF.js
                 const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+                script.crossOrigin = 'anonymous';
+                
+                script.onload = function() {
+                    if (typeof pdfjsLib !== 'undefined') {
+                        try {
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+                            pdfjsLib.GlobalWorkerOptions.useWorkerFetch = false;
+                        } catch (e) {}
+                        resolve();
+                    } else {
+                        reject(new Error('PDF.js failed to initialize'));
+                    }
+                };
+                
+                script.onerror = function() {
+                    // Try fallback CDN
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js';
+                    fallbackScript.crossOrigin = 'anonymous';
+                    fallbackScript.onload = function() {
+                        if (typeof pdfjsLib !== 'undefined') {
+                            try {
+                                pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+                                pdfjsLib.GlobalWorkerOptions.useWorkerFetch = false;
+                            } catch (e) {}
+                            resolve();
+                        } else {
+                            reject(new Error('PDF.js failed to load from fallback'));
+                        }
+                    };
+                    fallbackScript.onerror = function() {
+                        reject(new Error('PDF.js library could not be loaded'));
+                    };
+                    document.head.appendChild(fallbackScript);
+                };
+                
                 document.head.appendChild(script);
-
-                await new Promise((resolve) => {
-                    script.onload = resolve;
-                });
-
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-                // Load the PDF
-                const loadingTask = pdfjsLib.getDocument({
-                    url: pdfUrl,
-                    withCredentials: false,
-                });
-
-                pdfDoc = await loadingTask.promise;
-                totalPages = pdfDoc.numPages;
-                pageInfo.textContent = `Page 1 of ${totalPages}`;
-
-                console.log(`📚 PDF loaded: ${totalPages} pages`);
-
-                // Load saved progress
-                await loadSavedProgress();
-
-                // Render first page
-                await renderPage(currentPage);
-
-                // Hide loading
-                loadingOverlay.classList.add('hidden');
-
-                // Start auto-save
-                startAutoSave();
-
-                // Setup event listeners
-                setupKeyboardShortcuts();
-
-            } catch (error) {
-                console.error('PDF loading error:', error);
-                loadingOverlay.innerHTML = `
-                    <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--brand-gold);"></i>
-                    <p>Could not load the PDF. Please try again.</p>
-                    <button onclick="location.reload()" style="margin-top:1rem;padding:0.5rem 1.5rem;border-radius:40px;background:var(--brand-gold);color:var(--brand-purple);border:none;font-weight:600;cursor:pointer;font-family:inherit;">
-                        Retry
-                    </button>
-                `;
-                loadingOverlay.classList.remove('hidden');
-                showToast('Failed to load the book', 'error');
-            }
+            });
         }
 
         // ============================================
         // RENDER PAGE
         // ============================================
         async function renderPage(pageNum) {
-            if (!pdfDoc || isRendering) return;
+            if (!pdfDoc || isRendering || usingGoogleDocs) return;
 
             isRendering = true;
 
             try {
+                // Check cache
+                if (pageCache[pageNum]) {
+                    const canvas = pageWrapper.querySelector('canvas');
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = pageCache[pageNum].width;
+                        canvas.height = pageCache[pageNum].height;
+                        canvas.style.width = pageCache[pageNum].width + 'px';
+                        canvas.style.height = pageCache[pageNum].height + 'px';
+                        ctx.putImageData(pageCache[pageNum].imageData, 0, 0);
+                        currentPage = pageNum;
+                        updateProgress();
+                        saveProgress();
+                        isRendering = false;
+                        return;
+                    }
+                }
+
                 const page = await pdfDoc.getPage(pageNum);
                 
-                // Calculate scale to fit width with some padding
-                const containerWidth = readerContainer.clientWidth - 40;
+                // Calculate scale - fit width
+                const containerWidth = readerContainer.clientWidth - 30;
                 const viewport = page.getViewport({ scale: 1 });
-                const scale = Math.min(
-                    (containerWidth / viewport.width) * 1.0,
-                    2.0
-                );
-                
+                const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
                 const scaledViewport = page.getViewport({ scale: scale });
 
-                // Create or get canvas
                 let canvas = pageWrapper.querySelector('canvas');
                 if (!canvas) {
                     canvas = document.createElement('canvas');
@@ -789,11 +826,11 @@
                 const context = canvas.getContext('2d');
                 canvas.width = scaledViewport.width;
                 canvas.height = scaledViewport.height;
+                canvas.style.width = scaledViewport.width + 'px';
+                canvas.style.height = scaledViewport.height + 'px';
 
-                // Clear previous content
                 context.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Render page
                 const renderContext = {
                     canvasContext: context,
                     viewport: scaledViewport,
@@ -801,17 +838,17 @@
 
                 await page.render(renderContext).promise;
 
+                // Cache the page
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                pageCache[pageNum] = {
+                    width: canvas.width,
+                    height: canvas.height,
+                    imageData: imageData
+                };
+
                 currentPage = pageNum;
-                pageInfo.textContent = `Page ${pageNum} of ${totalPages}`;
                 updateProgress();
-
-                // Apply current zoom
-                applyZoom();
-
-                // Save progress when page changes
                 saveProgress();
-
-                // Scroll to top of page
                 readerContainer.scrollTop = 0;
 
             } catch (error) {
@@ -826,6 +863,10 @@
         // NAVIGATION
         // ============================================
         function nextPage() {
+            if (usingGoogleDocs) {
+                showToast('Page navigation not available in Google Docs view', 'info');
+                return;
+            }
             if (currentPage < totalPages) {
                 renderPage(currentPage + 1);
             } else {
@@ -834,6 +875,10 @@
         }
 
         function prevPage() {
+            if (usingGoogleDocs) {
+                showToast('Page navigation not available in Google Docs view', 'info');
+                return;
+            }
             if (currentPage > 1) {
                 renderPage(currentPage - 1);
             } else {
@@ -841,45 +886,194 @@
             }
         }
 
-        function goToPage() {
-            const input = prompt(`Enter page number (1-${totalPages}):`, currentPage);
-            if (input) {
-                const page = parseInt(input);
-                if (page >= 1 && page <= totalPages) {
-                    renderPage(page);
-                } else {
-                    showToast(`Please enter a number between 1 and ${totalPages}`, 'warning');
-                }
+        function goToPage(pageNum) {
+            if (usingGoogleDocs) return;
+            if (pageNum >= 1 && pageNum <= totalPages) {
+                renderPage(pageNum);
             }
         }
 
         // ============================================
-        // KEYBOARD SHORTCUTS
+        // PROGRESS TRACKING
         // ============================================
-        function setupKeyboardShortcuts() {
-            document.addEventListener('keydown', (e) => {
-                // Don't trigger if typing in input
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        function updateProgress() {
+            if (usingGoogleDocs) return;
+            const progress = (currentPage / totalPages) * 100;
+            progressFill.style.width = progress + '%';
+            
+            const icon = progress >= 90 ? '🎯' : progress >= 50 ? '📖' : '📚';
+            pageInfo.innerHTML = icon + ' Page ' + currentPage + ' of ' + totalPages;
+        }
 
-                // Check if modifier keys are pressed
-                if (e.ctrlKey || e.metaKey) {
-                    switch(e.key) {
-                        case '+':
-                        case '=':
-                            e.preventDefault();
-                            zoomIn();
-                            return;
-                        case '-':
-                            e.preventDefault();
-                            zoomOut();
-                            return;
-                        case '0':
-                            e.preventDefault();
-                            resetZoom();
-                            return;
+        // ============================================
+        // SAVE PROGRESS
+        // ============================================
+        function saveProgress() {
+            try {
+                const progressData = {
+                    itemId: currentItemId,
+                    title: title,
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    progress: (currentPage / totalPages) * 100,
+                    lastRead: new Date().toISOString(),
+                    usingGoogleDocs: usingGoogleDocs
+                };
+
+                localStorage.setItem('reader_progress_' + (currentItemId || title), JSON.stringify(progressData));
+
+                const allProgress = JSON.parse(localStorage.getItem('reader_progress_all') || '{}');
+                allProgress[currentItemId || title] = progressData;
+                localStorage.setItem('reader_progress_all', JSON.stringify(allProgress));
+
+            } catch (e) {
+                console.warn('Could not save progress:', e);
+            }
+        }
+
+        // ============================================
+        // LOAD SAVED PROGRESS
+        // ============================================
+        function loadSavedProgress() {
+            try {
+                const saved = localStorage.getItem('reader_progress_' + (currentItemId || title));
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (data.currentPage && data.currentPage <= totalPages) {
+                        currentPage = data.currentPage;
+                        return true;
                     }
+                }
+
+                const allProgress = JSON.parse(localStorage.getItem('reader_progress_all') || '{}');
+                const globalData = allProgress[currentItemId || title];
+                if (globalData && globalData.currentPage <= totalPages) {
+                    currentPage = globalData.currentPage;
+                    return true;
+                }
+
+            } catch (e) {
+                console.warn('Could not load saved progress:', e);
+            }
+            return false;
+        }
+
+        // ============================================
+        // THEME TOGGLE
+        // ============================================
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode', isDarkMode);
+            
+            themeIcon.className = isDarkMode ? 'fas fa-sun' : 'fas fa-moon';
+            
+            localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
+            
+            // Re-render current page for dark mode
+            if (pdfDoc && currentPage && !usingGoogleDocs) {
+                pageCache = {};
+                renderPage(currentPage);
+            }
+
+            showToast(isDarkMode ? '🌙 Dark mode activated' : '☀️ Light mode activated', 'success');
+        }
+
+        // ============================================
+        // CLOSE READER
+        // ============================================
+        function closeReader() {
+            saveProgress();
+            
+            if (autoSaveTimer) {
+                clearInterval(autoSaveTimer);
+                autoSaveTimer = null;
+            }
+
+            try {
+                window.close();
+            } catch (e) {
+                window.location.href = '/hub.html';
+            }
+        }
+
+        // ============================================
+        // REPORT ISSUE
+        // ============================================
+        function reportIssue() {
+            if (confirm('Report an issue with this book? Our team will investigate.')) {
+                showToast('Thank you for reporting!', 'success');
+            }
+        }
+
+        // ============================================
+        // TOAST SYSTEM
+        // ============================================
+        function showToast(message, type) {
+            type = type || 'info';
+            const existing = document.querySelector('.reader-toast');
+            if (existing) existing.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = 'reader-toast ' + type;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(function() {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(function() { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        function setupEventListeners() {
+            // Progress bar click
+            progressContainer.addEventListener('click', function(e) {
+                if (usingGoogleDocs) {
+                    showToast('Page navigation not available in Google Docs view', 'info');
                     return;
                 }
+                const rect = progressContainer.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                const targetPage = Math.max(1, Math.min(totalPages, Math.round(pos * totalPages)));
+                renderPage(targetPage);
+                showToast('📍 Jumped to page ' + targetPage, 'info');
+            });
+
+            // Touch swipe
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            readerContainer.addEventListener('touchstart', function(e) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            readerContainer.addEventListener('touchend', function(e) {
+                if (!touchStartX || usingGoogleDocs) return;
+                
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                const diffX = touchStartX - touchEndX;
+                const diffY = touchStartY - touchEndY;
+                
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+                    if (diffX > 0) {
+                        nextPage();
+                    } else {
+                        prevPage();
+                    }
+                }
+                
+                touchStartX = 0;
+                touchStartY = 0;
+            }, { passive: true });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
                 switch(e.key) {
                     case 'ArrowRight':
@@ -895,249 +1089,100 @@
                         break;
                     case 'Home':
                         e.preventDefault();
-                        renderPage(1);
+                        if (!usingGoogleDocs) renderPage(1);
                         break;
                     case 'End':
                         e.preventDefault();
-                        renderPage(totalPages);
-                        break;
-                    case 'g':
-                        e.preventDefault();
-                        goToPage();
-                        break;
-                    case 't':
-                        e.preventDefault();
-                        toggleTheme();
-                        break;
-                    case 'f':
-                        e.preventDefault();
-                        toggleFullscreen();
-                        break;
-                    case 'Escape':
-                        if (document.fullscreenElement) {
-                            toggleFullscreen();
-                        }
+                        if (!usingGoogleDocs) renderPage(totalPages);
                         break;
                 }
             });
 
-            // Mouse wheel support with zoom
-            readerContainer.addEventListener('wheel', (e) => {
-                // Check if Ctrl is pressed for zoom
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    if (e.deltaY < 0) {
-                        zoomIn();
-                    } else {
-                        zoomOut();
+            // Resize handler
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(function() {
+                    if (pdfDoc && currentPage && !usingGoogleDocs) {
+                        pageCache = {};
+                        renderPage(currentPage);
                     }
-                    return;
-                }
-
-                // Normal scroll for page navigation (only if not over an input)
-                if (e.target.closest('input') || e.target.closest('textarea')) return;
-                
-                // Check if we're in the reader container
-                if (!e.target.closest('.reader-container')) return;
-                
-                // Prevent default scrolling
-                e.preventDefault();
-                
-                // Scroll down = next page, scroll up = prev page
-                if (e.deltaY > 0) {
-                    nextPage();
-                } else if (e.deltaY < 0) {
-                    prevPage();
-                }
-            }, { passive: false });
+                }, 500);
+            });
         }
 
         // ============================================
-        // PROGRESS TRACKING
+        // MAIN INIT
         // ============================================
-        function updateProgress() {
-            const progress = (currentPage / totalPages) * 100;
-            progressFill.style.width = progress + '%';
-            progressTooltip.textContent = Math.round(progress) + '%';
+        async function initPDF() {
+            if (!fileUrl) {
+                showError('No book found to read');
+                pageInfo.textContent = '❌ No book';
+                return;
+            }
 
-            // Update page info with fancy icon
-            const icon = progress >= 90 ? '🎯' : progress >= 50 ? '📖' : '📚';
-            pageInfo.innerHTML = `${icon} Page ${currentPage} of ${totalPages} (${Math.round(progress)}%)`;
-        }
-
-        // ============================================
-        // SAVE PROGRESS TO LOCAL STORAGE
-        // ============================================
-        function saveProgress() {
             try {
-                const progressData = {
-                    itemId: currentItemId,
-                    title: title,
-                    currentPage: currentPage,
-                    totalPages: totalPages,
-                    progress: (currentPage / totalPages) * 100,
-                    lastRead: new Date().toISOString(),
-                    url: pdfUrl
-                };
+                showLoading('Loading PDF library...');
 
-                // Save to localStorage
-                localStorage.setItem(`${STORAGE_KEY}_${currentItemId || title}`, JSON.stringify(progressData));
+                // Load PDF.js
+                await loadPDFJS();
 
-                // Also save to the global progress list
-                const allProgress = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-                allProgress[currentItemId || title] = progressData;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(allProgress));
+                showLoading('Opening book...', 'Loading the PDF file');
 
-                console.log('💾 Progress saved:', progressData.progress + '%');
-            } catch (e) {
-                console.warn('Could not save progress:', e);
-            }
-        }
+                // Load PDF
+                const response = await fetch(fileUrl);
+                const pdfData = await response.arrayBuffer();
 
-        // ============================================
-        // LOAD SAVED PROGRESS
-        // ============================================
-        async function loadSavedProgress() {
-            try {
-                // Try to load specific progress
-                const saved = localStorage.getItem(`${STORAGE_KEY}_${currentItemId || title}`);
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    if (data.currentPage && data.currentPage <= totalPages) {
-                        currentPage = data.currentPage;
-                        showToast(`📚 Resuming from page ${currentPage}`, 'success');
-                        return;
-                    }
+                const loadingTask = pdfjsLib.getDocument({
+                    data: pdfData,
+                    useSystemFonts: true,
+                    disableFontFace: false,
+                    disableRange: true,
+                    disableStream: true,
+                    disableAutoFetch: true,
+                    useWorkerFetch: false,
+                    isEvalSupported: false
+                });
+
+                pdfDoc = await loadingTask.promise;
+                totalPages = pdfDoc.numPages;
+                pageInfo.textContent = 'Page 1 of ' + totalPages;
+
+                console.log('📚 PDF loaded: ' + totalPages + ' pages');
+
+                // Load saved progress
+                const hasProgress = loadSavedProgress();
+                if (!hasProgress) {
+                    currentPage = 1;
                 }
 
-                // Check global progress
-                const allProgress = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-                const globalData = allProgress[currentItemId || title];
-                if (globalData && globalData.currentPage <= totalPages) {
-                    currentPage = globalData.currentPage;
-                    showToast(`📚 Resuming from page ${currentPage}`, 'success');
-                    return;
-                }
+                // Render first page
+                await renderPage(currentPage);
+                hideLoading();
 
-            } catch (e) {
-                console.warn('Could not load saved progress:', e);
-            }
-        }
+                // Start auto-save
+                if (autoSaveTimer) clearInterval(autoSaveTimer);
+                autoSaveTimer = setInterval(saveProgress, 5000);
 
-        // ============================================
-        // AUTO-SAVE
-        // ============================================
-        function startAutoSave() {
-            if (autoSaveTimer) clearInterval(autoSaveTimer);
-            autoSaveTimer = setInterval(() => {
-                saveProgress();
-            }, AUTO_SAVE_INTERVAL);
-        }
+                // Setup event listeners
+                setupEventListeners();
 
-        // ============================================
-        // THEME TOGGLE WITH PDF INVERT
-        // ============================================
-        function toggleTheme() {
-            isDarkMode = !isDarkMode;
-            document.body.classList.toggle('dark-mode', isDarkMode);
-            
-            // Update icon
-            themeIcon.className = isDarkMode ? 'fas fa-sun' : 'fas fa-moon';
-            
-            // Save preference
-            localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
-            
-            // The PDF inversion is handled by CSS filter
-            // It automatically applies when dark-mode class is added
+                showToast('✅ Book loaded successfully!', 'success');
 
-            showToast(isDarkMode ? '🌙 Dark mode activated' : '☀️ Light mode activated', 'success');
-        }
-
-        // ============================================
-        // FULLSCREEN
-        // ============================================
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen().catch(() => {});
+            } catch (error) {
+                console.error('PDF loading error:', error);
+                
+                // If mobile or PDF.js failed, fallback to Google Docs
+                if (isMobile || isSafari) {
+                    showLoading('PDF.js failed, using Google Docs...', 'Opening in Google Docs viewer');
+                    setTimeout(function() {
+                        loadGoogleDocs();
+                    }, 1000);
+                } else {
+                    showError('Could not load the book. Please try again.');
                 }
             }
         }
-
-        // ============================================
-        // CLOSE READER
-        // ============================================
-        function closeReader() {
-            // Save progress before closing
-            saveProgress();
-            
-            // Stop auto-save
-            if (autoSaveTimer) {
-                clearInterval(autoSaveTimer);
-                autoSaveTimer = null;
-            }
-
-            // Close window or redirect
-            try {
-                window.close();
-            } catch (e) {
-                window.location.href = '/hub.html';
-            }
-        }
-
-        // ============================================
-        // REPORT ISSUE
-        // ============================================
-        function reportIssue() {
-            if (confirm('Report an issue with this book? Our team will investigate.')) {
-                showToast('Thank you for reporting! We\'ll look into it.', 'success');
-            }
-        }
-
-        // ============================================
-        // TOAST SYSTEM
-        // ============================================
-        function showToast(message, type = 'info') {
-            const existing = document.querySelector('.reader-toast');
-            if (existing) existing.remove();
-            
-            const toast = document.createElement('div');
-            toast.className = `reader-toast ${type}`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-
-        // ============================================
-        // PROGRESS BAR CLICK - GO TO PAGE
-        // ============================================
-        progressContainer.addEventListener('click', (e) => {
-            const rect = progressContainer.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
-            const targetPage = Math.max(1, Math.min(totalPages, Math.round(pos * totalPages)));
-            renderPage(targetPage);
-            showToast(`📍 Jumped to page ${targetPage}`, 'info');
-        });
-
-        // ============================================
-        // WINDOW RESIZE - Re-render current page
-        // ============================================
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                if (pdfDoc && currentPage) {
-                    renderPage(currentPage);
-                }
-            }, 300);
-        });
 
         // ============================================
         // THEME ON LOAD
@@ -1152,32 +1197,28 @@
         // ============================================
         // HANDLE WINDOW CLOSE
         // ============================================
-        window.addEventListener('beforeunload', () => {
+        window.addEventListener('beforeunload', function() {
             saveProgress();
         });
 
         // ============================================
-        // INIT
+        // START
         // ============================================
-        // Start the reader
-        initPDF();
+        // Small delay to ensure DOM is ready
+        setTimeout(initPDF, 200);
 
         // ============================================
-        // EXPOSE FUNCTIONS GLOBALLY
+        // EXPOSE GLOBALLY
         // ============================================
         window.nextPage = nextPage;
         window.prevPage = prevPage;
         window.goToPage = goToPage;
         window.toggleTheme = toggleTheme;
-        window.toggleFullscreen = toggleFullscreen;
         window.closeReader = closeReader;
         window.reportIssue = reportIssue;
         window.showToast = showToast;
-        window.zoomIn = zoomIn;
-        window.zoomOut = zoomOut;
-        window.resetZoom = resetZoom;
 
-        console.log('📚 Gliimu Reader initialized');
+        console.log('📚 Gliimu Professional Reader initialized');
     </script>
 </body>
 </html>
