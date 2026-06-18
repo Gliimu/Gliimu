@@ -19,7 +19,6 @@
             --shadow-color: rgba(0,0,0,0.1);
             --reader-bg: #ffffff;
             --progress-track: #e2e8f0;
-            --canvas-shadow: 0 2px 12px rgba(0,0,0,0.1);
         }
 
         body.dark-mode {
@@ -31,7 +30,6 @@
             --shadow-color: rgba(0,0,0,0.4);
             --reader-bg: #1a1a2e;
             --progress-track: #2d2d44;
-            --canvas-shadow: 0 2px 12px rgba(0,0,0,0.3);
         }
 
         * {
@@ -55,21 +53,21 @@
         }
 
         /* ============================================
-           HEADER
+           HEADER - More compact
            ============================================ */
         .reader-header {
             background: var(--bg-card);
             border-bottom: 1px solid var(--border-color);
-            padding: 0.5rem 1rem;
+            padding: 0.4rem 0.8rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
             z-index: 10;
             flex-wrap: nowrap;
-            gap: 0.4rem;
+            gap: 0.3rem;
             box-shadow: 0 1px 4px var(--shadow-color);
-            min-height: 56px;
+            min-height: 48px;
             -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
         }
@@ -77,19 +75,19 @@
         .reader-header .logo {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
             flex-shrink: 0;
         }
 
         .reader-header .logo img {
-            height: 28px;
+            height: 24px;
             width: auto;
             display: block;
         }
 
         .reader-header .logo span {
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: var(--text-primary);
             white-space: nowrap;
         }
@@ -99,9 +97,9 @@
         }
 
         .reader-header .book-title {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: var(--text-secondary);
-            max-width: 120px;
+            max-width: 100px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -112,7 +110,7 @@
         .reader-header .controls {
             display: flex;
             align-items: center;
-            gap: 0.25rem;
+            gap: 0.2rem;
             flex-shrink: 0;
         }
 
@@ -121,9 +119,9 @@
             border: none;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 0.85rem;
-            padding: 6px 8px;
-            border-radius: 8px;
+            font-size: 0.8rem;
+            padding: 4px 6px;
+            border-radius: 6px;
             transition: all 0.2s;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
@@ -131,36 +129,36 @@
 
         .reader-header .controls button:active {
             background: var(--border-color);
-            transform: scale(0.95);
+            transform: scale(0.92);
         }
 
         .reader-header .controls .zoom-controls {
             display: flex;
             align-items: center;
-            gap: 0.15rem;
+            gap: 0.1rem;
             background: var(--bg-primary);
-            border-radius: 8px;
-            padding: 0 3px;
+            border-radius: 6px;
+            padding: 0 2px;
             border: 1px solid var(--border-color);
         }
 
         .reader-header .controls .zoom-controls button {
-            padding: 3px 6px;
-            font-size: 0.75rem;
-            min-width: 24px;
+            padding: 2px 5px;
+            font-size: 0.7rem;
+            min-width: 22px;
         }
 
         .reader-header .controls .zoom-controls .zoom-level {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             font-weight: 600;
             color: var(--text-secondary);
-            min-width: 32px;
+            min-width: 28px;
             text-align: center;
         }
 
         .reader-header .controls .close-btn {
-            font-size: 1.1rem;
-            padding: 6px 8px;
+            font-size: 1rem;
+            padding: 4px 6px;
         }
 
         .reader-header .controls .close-btn:active {
@@ -211,7 +209,7 @@
         }
 
         /* ============================================
-           PDF VIEWER CONTAINER
+           PDF VIEWER CONTAINER - FULL HEIGHT
            ============================================ */
         .reader-container {
             flex: 1;
@@ -222,8 +220,10 @@
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            padding: 10px;
+            padding: 0;
             -webkit-overflow-scrolling: touch;
+            height: 100%;
+            min-height: 0;
         }
 
         .reader-container .page-wrapper {
@@ -232,11 +232,12 @@
             align-items: flex-start;
             width: 100%;
             min-height: 100%;
+            padding: 10px 10px 20px;
             transition: transform 0.3s ease;
         }
 
         .reader-container canvas {
-            box-shadow: var(--canvas-shadow);
+            box-shadow: 0 2px 12px var(--shadow-color);
             border-radius: 4px;
             background: var(--reader-bg);
             transition: transform 0.3s ease, filter 0.3s ease;
@@ -246,13 +247,12 @@
             touch-action: none;
         }
 
-        /* Dark mode PDF inversion */
         body.dark-mode .reader-container canvas {
             filter: invert(0.85) hue-rotate(180deg) brightness(1.2) contrast(1.1) !important;
         }
 
         /* ============================================
-           IFRAME VIEWER (Fallback for iOS)
+           iOS NATIVE PDF VIEWER
            ============================================ */
         .reader-container iframe {
             width: 100%;
@@ -260,6 +260,17 @@
             border: none;
             background: var(--reader-bg);
             min-height: 100%;
+            display: block;
+            flex: 1;
+        }
+
+        /* For iOS native viewer - object/embed approach */
+        .reader-container object {
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            display: block;
+            flex: 1;
         }
 
         /* ============================================
@@ -288,8 +299,8 @@
         }
 
         .loading-overlay .spinner {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border: 3px solid var(--border-color);
             border-top-color: var(--brand-gold);
             border-radius: 50%;
@@ -299,19 +310,19 @@
         .loading-overlay p {
             margin-top: 0.75rem;
             color: var(--text-secondary);
-            font-size: 0.85rem;
-            max-width: 300px;
+            font-size: 0.8rem;
+            max-width: 280px;
         }
 
         .loading-overlay .error-icon {
-            font-size: 2.5rem;
+            font-size: 2rem;
             color: var(--brand-gold);
             margin-bottom: 0.5rem;
         }
 
         .loading-overlay .retry-btn {
-            margin-top: 1rem;
-            padding: 0.5rem 2rem;
+            margin-top: 0.75rem;
+            padding: 0.4rem 1.5rem;
             border-radius: 40px;
             background: var(--brand-gold);
             color: var(--brand-purple);
@@ -319,7 +330,7 @@
             font-weight: 600;
             cursor: pointer;
             font-family: inherit;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             touch-action: manipulation;
         }
 
@@ -341,12 +352,12 @@
             transform: translateX(-50%);
             background: var(--bg-card);
             color: var(--text-primary);
-            padding: 0.4rem 1.2rem;
-            border-radius: 12px;
+            padding: 0.3rem 1rem;
+            border-radius: 10px;
             border: 1px solid var(--border-color);
             box-shadow: 0 4px 20px var(--shadow-color);
             z-index: 100;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             opacity: 0;
             transition: opacity 0.3s ease;
@@ -358,50 +369,50 @@
         }
 
         /* ============================================
-           FOOTER
+           FOOTER - Compact
            ============================================ */
         .reader-footer {
             background: var(--bg-card);
             border-top: 1px solid var(--border-color);
-            padding: 0.4rem 1rem;
+            padding: 0.3rem 0.8rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: var(--text-secondary);
             flex-wrap: nowrap;
-            gap: 0.5rem;
-            min-height: 44px;
+            gap: 0.3rem;
+            min-height: 38px;
         }
 
         .reader-footer .page-info {
             font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.3rem;
             white-space: nowrap;
         }
 
         .reader-footer .page-info .page-icon {
             color: var(--brand-gold);
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
 
         .reader-footer .actions {
             display: flex;
-            gap: 0.3rem;
+            gap: 0.25rem;
             flex-wrap: nowrap;
         }
 
         .reader-footer .actions button {
             background: transparent;
             border: 1px solid var(--border-color);
-            padding: 0.2rem 0.6rem;
-            border-radius: 16px;
+            padding: 0.15rem 0.5rem;
+            border-radius: 14px;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             font-family: inherit;
             transition: all 0.2s;
             touch-action: manipulation;
@@ -424,17 +435,17 @@
            ============================================ */
         .reader-toast {
             position: fixed;
-            bottom: 70px;
+            bottom: 65px;
             left: 50%;
             transform: translateX(-50%);
             background: var(--bg-card);
             color: var(--text-primary);
-            padding: 0.6rem 1.2rem;
-            border-radius: 12px;
+            padding: 0.4rem 1rem;
+            border-radius: 10px;
             border: 1px solid var(--border-color);
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             z-index: 999;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             animation: slideUp 0.3s ease;
             max-width: 90%;
             border-left: 4px solid var(--brand-gold);
@@ -465,74 +476,93 @@
            ============================================ */
         @media (max-width: 480px) {
             .reader-header {
-                padding: 0.4rem 0.6rem;
-                min-height: 48px;
+                padding: 0.3rem 0.5rem;
+                min-height: 42px;
             }
             
             .reader-header .logo img {
-                height: 22px;
+                height: 20px;
             }
             
             .reader-header .logo span {
-                font-size: 0.75rem;
+                font-size: 0.65rem;
             }
             
             .reader-header .book-title {
-                max-width: 80px;
-                font-size: 0.6rem;
+                max-width: 70px;
+                font-size: 0.55rem;
             }
             
             .reader-header .controls button {
-                font-size: 0.75rem;
-                padding: 4px 6px;
+                font-size: 0.7rem;
+                padding: 3px 4px;
             }
             
             .reader-header .controls .zoom-controls button {
-                font-size: 0.65rem;
-                padding: 2px 4px;
-                min-width: 20px;
+                font-size: 0.6rem;
+                padding: 2px 3px;
+                min-width: 18px;
             }
             
             .reader-header .controls .zoom-controls .zoom-level {
-                font-size: 0.55rem;
-                min-width: 28px;
+                font-size: 0.5rem;
+                min-width: 24px;
             }
             
             .reader-footer {
-                padding: 0.3rem 0.6rem;
-                font-size: 0.6rem;
-                min-height: 38px;
+                padding: 0.25rem 0.5rem;
+                font-size: 0.55rem;
+                min-height: 34px;
             }
             
             .reader-footer .actions button {
-                font-size: 0.55rem;
-                padding: 0.15rem 0.4rem;
+                font-size: 0.5rem;
+                padding: 0.1rem 0.4rem;
             }
             
-            .reader-container {
-                padding: 5px;
+            .reader-container .page-wrapper {
+                padding: 5px 5px 10px;
             }
             
             .zoom-indicator {
-                bottom: 60px;
-                font-size: 0.7rem;
-                padding: 0.3rem 1rem;
+                bottom: 55px;
+                font-size: 0.65rem;
+                padding: 0.25rem 0.8rem;
             }
         }
 
         @media (max-width: 375px) {
             .reader-header .book-title {
-                max-width: 60px;
-                font-size: 0.55rem;
+                max-width: 50px;
+                font-size: 0.5rem;
             }
             
             .reader-header .logo span {
-                font-size: 0.65rem;
+                font-size: 0.55rem;
             }
             
             .reader-header .controls button {
-                font-size: 0.65rem;
-                padding: 3px 5px;
+                font-size: 0.6rem;
+                padding: 2px 3px;
+            }
+        }
+
+        /* iPhone Safe Area support */
+        @supports (padding: max(0px)) {
+            .reader-header {
+                padding-top: max(0.3rem, env(safe-area-inset-top));
+                padding-left: max(0.5rem, env(safe-area-inset-left));
+                padding-right: max(0.5rem, env(safe-area-inset-right));
+            }
+            
+            .reader-footer {
+                padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+                padding-left: max(0.5rem, env(safe-area-inset-left));
+                padding-right: max(0.5rem, env(safe-area-inset-right));
+            }
+            
+            .reader-container .page-wrapper {
+                padding-bottom: max(10px, env(safe-area-inset-bottom));
             }
         }
     </style>
@@ -583,7 +613,7 @@
             </button>
         </div>
         <div class="page-wrapper" id="pageWrapper">
-            <!-- Canvas will be rendered here -->
+            <!-- Canvas or native viewer will be rendered here -->
         </div>
     </div>
 
@@ -608,7 +638,7 @@
 
     <script>
         // ============================================
-        // GLIIMU READER - iOS Compatible with Fallback
+        // GLIIMU READER - Native iOS + Full Height
         // ============================================
 
         // ============================================
@@ -616,10 +646,8 @@
         // ============================================
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
         console.log('📱 Device:', isIOS ? 'iOS' : 'Not iOS');
-        console.log('🌐 Browser:', isSafari ? 'Safari' : 'Other');
 
         // ============================================
         // CONFIGURATION
@@ -642,7 +670,7 @@
         let currentZoom = 1.0;
         let isRendering = false;
         let isLoading = false;
-        let useFallback = false;
+        let useNativeViewer = false;
 
         // ============================================
         // DOM REFS
@@ -690,7 +718,7 @@
 
         function applyZoom() {
             const canvas = pageWrapper.querySelector('canvas');
-            if (canvas && !useFallback) {
+            if (canvas && !useNativeViewer) {
                 canvas.style.transform = 'scale(' + currentZoom + ')';
                 canvas.style.transformOrigin = 'top center';
                 updateZoomDisplay();
@@ -698,6 +726,10 @@
         }
 
         function zoomIn() {
+            if (useNativeViewer) {
+                showToast('Zoom not available in native viewer', 'info');
+                return;
+            }
             if (currentZoom < MAX_ZOOM) {
                 currentZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
                 applyZoom();
@@ -706,6 +738,10 @@
         }
 
         function zoomOut() {
+            if (useNativeViewer) {
+                showToast('Zoom not available in native viewer', 'info');
+                return;
+            }
             if (currentZoom > MIN_ZOOM) {
                 currentZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
                 applyZoom();
@@ -714,6 +750,10 @@
         }
 
         function resetZoom() {
+            if (useNativeViewer) {
+                showToast('Zoom not available in native viewer', 'info');
+                return;
+            }
             currentZoom = 1.0;
             applyZoom();
             showToast('Zoom reset to 100%', 'success');
@@ -749,38 +789,54 @@
         }
 
         // ============================================
-        // FALLBACK: Google Docs Viewer (iOS)
+        // NATIVE iOS PDF VIEWER - BEST SOLUTION
         // ============================================
-        function loadWithGoogleDocs() {
-            useFallback = true;
+        function loadNativeiOSViewer() {
+            useNativeViewer = true;
             
-            // Hide canvas wrapper
-            pageWrapper.style.display = 'none';
+            // Clear any existing content
+            pageWrapper.innerHTML = '';
             
-            // Create iframe
+            // Use <object> tag for native iOS PDF viewing
+            // This uses Apple's built-in PDF renderer
+            const object = document.createElement('object');
+            object.type = 'application/pdf';
+            object.data = pdfUrl;
+            object.width = '100%';
+            object.height = '100%';
+            object.style.cssText = 'width:100%;height:100%;min-height:100%;display:block;flex:1;';
+            
+            // Also add an iframe as fallback for the object tag
             const iframe = document.createElement('iframe');
-            iframe.id = 'googleDocsViewer';
-            iframe.src = 'https://docs.google.com/viewer?url=' + encodeURIComponent(pdfUrl) + '&embedded=true';
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.minHeight = '100%';
+            iframe.src = pdfUrl;
+            iframe.style.cssText = 'width:100%;height:100%;min-height:100%;display:block;flex:1;border:none;';
+            iframe.loading = 'eager';
             
-            readerContainer.appendChild(iframe);
+            // Try object first, fallback to iframe
+            pageWrapper.appendChild(object);
             
-            // Update page info
-            pageInfo.textContent = '📄 Google Docs Viewer';
+            // Check if object loaded
+            setTimeout(function() {
+                // If object didn't work, try iframe
+                if (!object.contentWindow && !object.contentDocument) {
+                    object.style.display = 'none';
+                    pageWrapper.appendChild(iframe);
+                }
+            }, 2000);
+            
+            // Update UI
+            pageInfo.textContent = '📄 Native Viewer';
             progressFill.style.width = '0%';
             
             hideLoading();
-            showToast('📄 Opening in Google Docs Viewer', 'info');
+            showToast('📄 Opening in native viewer', 'success');
             
             // Save progress
             saveProgress();
         }
 
         // ============================================
-        // LOAD PDF.JS
+        // LOAD PDF.JS - Desktop Only
         // ============================================
         function loadPDFJS() {
             return new Promise(function(resolve, reject) {
@@ -791,21 +847,16 @@
                     return;
                 }
 
-                // Try loading from CDN
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
                 script.crossOrigin = 'anonymous';
-                script.integrity = 'sha512-M8vb1E9V6M8rZvJpL3NW6GFI+iibhFdH2mZNA9J1E8Gj3h4StwbNSZfbg1+j9yRjhGAxNcMh/sdSO8/5LZOylw==';
                 
                 script.onload = function() {
                     if (typeof pdfjsLib !== 'undefined') {
-                        // Set worker to null for iOS compatibility
                         try {
                             pdfjsLib.GlobalWorkerOptions.workerSrc = null;
                             pdfjsLib.GlobalWorkerOptions.useWorkerFetch = false;
-                        } catch (e) {
-                            console.warn('Worker setup failed:', e);
-                        }
+                        } catch (e) {}
                         resolve();
                     } else {
                         reject(new Error('PDF.js failed to initialize'));
@@ -813,7 +864,7 @@
                 };
                 
                 script.onerror = function() {
-                    // Try jsdelivr as fallback
+                    // Try jsdelivr
                     const fallbackScript = document.createElement('script');
                     fallbackScript.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js';
                     fallbackScript.crossOrigin = 'anonymous';
@@ -825,7 +876,7 @@
                             } catch (e) {}
                             resolve();
                         } else {
-                            reject(new Error('PDF.js failed to load from fallback CDN'));
+                            reject(new Error('PDF.js failed to load from fallback'));
                         }
                     };
                     fallbackScript.onerror = function() {
@@ -839,119 +890,10 @@
         }
 
         // ============================================
-        // INITIALIZE PDF
+        // RENDER PAGE - Desktop Only
         // ============================================
-        async function initPDF() {
-            if (!pdfUrl) {
-                showError('No book found to read');
-                pageInfo.textContent = '❌ No book';
-                return;
-            }
-
-            // For iOS, try Google Docs first if PDF.js fails
-            if (isIOS || isSafari) {
-                try {
-                    showLoading('Loading book...');
-                    
-                    // Try PDF.js first
-                    try {
-                        await loadPDFJS();
-                        showLoading('Opening book...');
-                        
-                        // Load PDF
-                        const response = await fetch(pdfUrl);
-                        const arrayBuffer = await response.arrayBuffer();
-                        
-                        const loadingTask = pdfjsLib.getDocument({
-                            data: arrayBuffer,
-                            useSystemFonts: true,
-                            disableFontFace: false,
-                            disableRange: true,
-                            disableStream: true,
-                            disableAutoFetch: true,
-                            useWorkerFetch: false,
-                            isEvalSupported: false
-                        });
-
-                        pdfDoc = await loadingTask.promise;
-                        totalPages = pdfDoc.numPages;
-                        pageInfo.textContent = 'Page 1 of ' + totalPages;
-
-                        console.log('📚 PDF loaded: ' + totalPages + ' pages');
-
-                        await loadSavedProgress();
-                        await renderPage(currentPage);
-                        hideLoading();
-                        startAutoSave();
-                        setupEventListeners();
-                        return;
-                        
-                    } catch (pdfError) {
-                        console.warn('PDF.js failed, falling back to Google Docs:', pdfError);
-                        // Fallback to Google Docs
-                        loadWithGoogleDocs();
-                        return;
-                    }
-                    
-                } catch (error) {
-                    console.error('iOS load error:', error);
-                    // Fallback to Google Docs
-                    loadWithGoogleDocs();
-                    return;
-                }
-            }
-
-            // Desktop: Use PDF.js normally
-            try {
-                showLoading('Loading PDF library...');
-                await loadPDFJS();
-
-                showLoading('Opening book...');
-
-                const loadingTask = pdfjsLib.getDocument({
-                    url: pdfUrl,
-                    withCredentials: false,
-                    useSystemFonts: true,
-                    disableFontFace: false,
-                    disableRange: true,
-                    disableStream: true,
-                    disableAutoFetch: true,
-                    useWorkerFetch: false,
-                    isEvalSupported: false
-                });
-
-                pdfDoc = await loadingTask.promise;
-                totalPages = pdfDoc.numPages;
-                pageInfo.textContent = 'Page 1 of ' + totalPages;
-
-                console.log('📚 PDF loaded: ' + totalPages + ' pages');
-
-                await loadSavedProgress();
-                await renderPage(currentPage);
-                hideLoading();
-                startAutoSave();
-                setupEventListeners();
-
-            } catch (error) {
-                console.error('PDF loading error:', error);
-                
-                // If desktop fails, try Google Docs as last resort
-                if (!useFallback) {
-                    showError('Could not load with PDF.js. Trying Google Docs...');
-                    setTimeout(function() {
-                        loadWithGoogleDocs();
-                    }, 1000);
-                } else {
-                    showError('Could not load the book. Please try again.');
-                }
-            }
-        }
-
-        // ============================================
-        // RENDER PAGE
-        // ============================================
-        async function renderPage(pageNum) {
-            if (!pdfDoc || isRendering || useFallback) return;
+        async function renderPageDesktop(pageNum) {
+            if (!pdfDoc || isRendering || useNativeViewer) return;
 
             isRendering = true;
 
@@ -1003,24 +945,24 @@
         // NAVIGATION
         // ============================================
         function nextPage() {
-            if (useFallback) {
-                showToast('Page navigation not available in Google Docs view', 'info');
+            if (useNativeViewer) {
+                showToast('Page navigation not available in native viewer', 'info');
                 return;
             }
             if (currentPage < totalPages) {
-                renderPage(currentPage + 1);
+                renderPageDesktop(currentPage + 1);
             } else {
                 showToast("You're on the last page", 'info');
             }
         }
 
         function prevPage() {
-            if (useFallback) {
-                showToast('Page navigation not available in Google Docs view', 'info');
+            if (useNativeViewer) {
+                showToast('Page navigation not available in native viewer', 'info');
                 return;
             }
             if (currentPage > 1) {
-                renderPage(currentPage - 1);
+                renderPageDesktop(currentPage - 1);
             } else {
                 showToast("You're on the first page", 'info');
             }
@@ -1030,7 +972,7 @@
         // PROGRESS TRACKING
         // ============================================
         function updateProgress() {
-            if (useFallback) return;
+            if (useNativeViewer) return;
             const progress = (currentPage / totalPages) * 100;
             progressFill.style.width = progress + '%';
             
@@ -1048,10 +990,10 @@
                     title: title,
                     currentPage: currentPage,
                     totalPages: totalPages,
-                    progress: (currentPage / totalPages) * 100,
+                    progress: useNativeViewer ? 0 : (currentPage / totalPages) * 100,
                     lastRead: new Date().toISOString(),
                     url: pdfUrl,
-                    useFallback: useFallback
+                    useNativeViewer: useNativeViewer
                 };
 
                 localStorage.setItem(STORAGE_KEY + '_' + (currentItemId || title), JSON.stringify(progressData));
@@ -1168,45 +1110,16 @@
         function setupEventListeners() {
             // Progress bar click
             progressContainer.addEventListener('click', function(e) {
-                if (useFallback) {
+                if (useNativeViewer) {
                     showToast('Page navigation not available', 'info');
                     return;
                 }
                 const rect = progressContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
                 const targetPage = Math.max(1, Math.min(totalPages, Math.round(pos * totalPages)));
-                renderPage(targetPage);
+                renderPageDesktop(targetPage);
                 showToast('📍 Jumped to page ' + targetPage, 'info');
             });
-
-            // Touch swipe
-            let touchStartX = 0;
-            let touchStartY = 0;
-            
-            readerContainer.addEventListener('touchstart', function(e) {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-            }, { passive: true });
-
-            readerContainer.addEventListener('touchend', function(e) {
-                if (useFallback || !touchStartX) return;
-                
-                const touchEndX = e.changedTouches[0].clientX;
-                const touchEndY = e.changedTouches[0].clientY;
-                const diffX = touchStartX - touchEndX;
-                const diffY = touchStartY - touchEndY;
-                
-                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-                    if (diffX > 0) {
-                        nextPage();
-                    } else {
-                        prevPage();
-                    }
-                }
-                
-                touchStartX = 0;
-                touchStartY = 0;
-            }, { passive: true });
 
             // Keyboard
             document.addEventListener('keydown', function(e) {
@@ -1245,11 +1158,11 @@
                         break;
                     case 'Home':
                         e.preventDefault();
-                        if (!useFallback) renderPage(1);
+                        if (!useNativeViewer) renderPageDesktop(1);
                         break;
                     case 'End':
                         e.preventDefault();
-                        if (!useFallback) renderPage(totalPages);
+                        if (!useNativeViewer) renderPageDesktop(totalPages);
                         break;
                 }
             });
@@ -1258,11 +1171,70 @@
             window.addEventListener('resize', function() {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(function() {
-                    if (pdfDoc && currentPage && !useFallback) {
-                        renderPage(currentPage);
+                    if (pdfDoc && currentPage && !useNativeViewer) {
+                        renderPageDesktop(currentPage);
                     }
                 }, 500);
             });
+        }
+
+        // ============================================
+        // MAIN INIT - iOS uses native viewer, Desktop uses PDF.js
+        // ============================================
+        async function initPDF() {
+            if (!pdfUrl) {
+                showError('No book found to read');
+                pageInfo.textContent = '❌ No book';
+                return;
+            }
+
+            // --- iOS: Use Native Viewer (NO Google Docs) ---
+            if (isIOS) {
+                showLoading('Loading book for iOS...');
+                
+                // Small delay to ensure UI updates
+                await new Promise(r => setTimeout(r, 300));
+                
+                // Use native iOS PDF viewer
+                loadNativeiOSViewer();
+                return;
+            }
+
+            // --- Desktop: Use PDF.js ---
+            try {
+                showLoading('Loading PDF library...');
+                await loadPDFJS();
+
+                showLoading('Opening book...');
+
+                const loadingTask = pdfjsLib.getDocument({
+                    url: pdfUrl,
+                    withCredentials: false,
+                    useSystemFonts: true,
+                    disableFontFace: false,
+                    disableRange: true,
+                    disableStream: true,
+                    disableAutoFetch: true,
+                    useWorkerFetch: false,
+                    isEvalSupported: false
+                });
+
+                pdfDoc = await loadingTask.promise;
+                totalPages = pdfDoc.numPages;
+                pageInfo.textContent = 'Page 1 of ' + totalPages;
+
+                console.log('📚 PDF loaded: ' + totalPages + ' pages');
+
+                await loadSavedProgress();
+                await renderPageDesktop(currentPage);
+                hideLoading();
+                startAutoSave();
+                setupEventListeners();
+
+            } catch (error) {
+                console.error('PDF loading error:', error);
+                showError('Could not load the book. Please try again.');
+            }
         }
 
         // ============================================
