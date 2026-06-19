@@ -25,7 +25,7 @@ import {
     getStudentPortfolio
 } from '../modules/progression.js';
 
-import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
+import { QuestionRenderer, renderProgressBar, renderLeaderboard } from '../modules/questions.js';
 
 // ============================================
 // IMPORT ROLE-SPECIFIC MODULES
@@ -479,7 +479,7 @@ try {
                     <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
                 </div>
                 <div class="leaderboard-list">
-                    ${renderLeaderboardList(leaderboardData)}
+                    ${renderLeaderboard(leaderboardData)}
                 </div>
             </div>
         `;
@@ -639,8 +639,12 @@ function renderGoToMenu() {
 }
 
 // ============================================
-// QUESTIONS - Student Only
+// QUESTIONS - Student Only (UPDATED)
 // ============================================
+let questionHistory = [];
+let currentQuestionIndex = 0;
+let questionsForLevel = [];
+
 async function renderQuestionBar() {
     if (currentRole !== 'student') {
         showToast('Questions are only available for students', 'info');
@@ -650,59 +654,316 @@ async function renderQuestionBar() {
     const container = document.getElementById('question-section');
     if (!container) return;
     
-    // Use student module if available
-    if (studentModule && studentModule.renderQuestionBar) {
-        await studentModule.renderQuestionBar(container);
-        return;
-    }
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2><i class="fas fa-question-circle"></i> Questions</h2>
+                <p>Answer questions to earn points and level up</p>
+            </div>
+            <div class="question-stats">
+                <span class="stat-badge">
+                    <i class="fas fa-star"></i> 
+                    <span id="questionScoreDisplay">0</span>% Score
+                </span>
+                <span class="stat-badge" id="questionLevelBadge">
+                    <i class="fas fa-medal"></i> 
+                    <span id="questionLevelDisplay">Starter</span>
+                </span>
+            </div>
+        </div>
+        
+        <div id="questionContainer">
+            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>
+        </div>
+    `;
     
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
+    await loadQuestionsForCurrentLevel();
+}
+
+async function loadQuestionsForCurrentLevel() {
+    const container = document.getElementById('questionContainer');
+    if (!container) return;
     
     try {
-        const nextQuestion = await getNextQuestion(currentUser.id);
+        // Get current score to determine level
+        const scoreData = await getStudentScore(currentUser.id);
+        const currentScore = scoreData?.current_score || 0;
+        const currentBadge = getCurrentBadge(currentScore);
+        const badgeLevel = currentBadge.name.toLowerCase();
         
-        if (!nextQuestion) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>All Questions Complete!</h3>
-                    <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
-                </div>
-            `;
+        // Update stats display
+        const scoreDisplay = document.getElementById('questionScoreDisplay');
+        if (scoreDisplay) {
+            // Show 99.99% if mastery cap is reached
+            const displayScore = (currentScore >= 99.99 && badgeLevel === 'mastery') ? '99.99' : currentScore;
+            scoreDisplay.textContent = displayScore;
+        }
+        
+        const levelDisplay = document.getElementById('questionLevelDisplay');
+        if (levelDisplay) {
+            levelDisplay.textContent = currentBadge.name;
+        }
+        
+        // Get questions for this level
+        const questions = await getQuestionsForLevel(badgeLevel);
+        
+        if (!questions || questions.length === 0) {
+            // Check if there's a next level
+            const nextBadge = getNextBadge(currentScore);
+            if (nextBadge) {
+                container.innerHTML = `
+                    <div class="question-complete">
+                        <div class="complete-icon">🎉</div>
+                        <h2>Level Complete!</h2>
+                        <p>You've completed all questions for ${currentBadge.name} level.</p>
+                        <p style="font-size: 0.85rem; opacity: 0.7;">You need ${nextBadge.minScore}% to unlock ${nextBadge.name} level.</p>
+                        <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="question-complete">
+                        <div class="complete-icon">🏆</div>
+                        <h2>All Questions Complete!</h2>
+                        <p>You've answered all available questions at every level.</p>
+                        <p style="font-size: 0.85rem; opacity: 0.7;">You are a true ${currentBadge.name}!</p>
+                        <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
+                    </div>
+                `;
+            }
             return;
         }
         
-        questionRenderer = new QuestionRenderer(
-            'question-section',
-            currentUser.id,
-            async (result) => {
-                const scoreData = await getStudentScore(currentUser.id);
-                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-                const nextBadge = getNextBadge(scoreData?.current_score || 0);
-                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-                
-                const progressSection = document.querySelector('.progress-section');
-                if (progressSection) {
-                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
-                }
-                
-                setTimeout(() => renderQuestionBar(), 2000);
-            }
-        );
+        questionsForLevel = questions;
+        currentQuestionIndex = 0;
+        questionHistory = [];
         
-        await questionRenderer.renderQuestion(nextQuestion);
+        // Render first question
+        renderQuestion(0);
         
     } catch (error) {
-        console.error('Error loading question:', error);
+        console.error('Error loading questions:', error);
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load question</h3>
-                <button class="btn-primary" onclick="location.reload()">Try Again</button>
+                <h3>Unable to load questions</h3>
+                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
             </div>
         `;
     }
+}
+
+async function getQuestionsForLevel(level) {
+    try {
+        // First try to get from database
+        const { data, error } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('badge_level', level)
+            .eq('is_approved', true)
+            .order('difficulty_level', { ascending: true });
+        
+        if (error) {
+            console.warn('Error fetching questions:', error);
+            return getSampleQuestions(level);
+        }
+        
+        if (!data || data.length === 0) {
+            return getSampleQuestions(level);
+        }
+        
+        return data;
+        
+    } catch (error) {
+        console.error('Error in getQuestionsForLevel:', error);
+        return getSampleQuestions(level);
+    }
+}
+
+function getSampleQuestions(level) {
+    const samples = {
+        starter: [
+            {
+                id: 'sample_1',
+                text: 'What is the first step in video production?',
+                type: 'mcq',
+                badge_level: 'starter',
+                category: 'Video Production',
+                options: {
+                    'A': 'Pre-production (Planning)',
+                    'B': 'Production (Filming)',
+                    'C': 'Post-production (Editing)',
+                    'D': 'Distribution (Publishing)'
+                },
+                correct_answer: 'A',
+                explanation: 'Pre-production is the planning phase before filming begins.'
+            },
+            {
+                id: 'sample_2',
+                text: 'Which of these is NOT a stage of video production?',
+                type: 'mcq',
+                badge_level: 'starter',
+                category: 'Video Production',
+                options: {
+                    'A': 'Pre-production',
+                    'B': 'Production',
+                    'C': 'Monetization',
+                    'D': 'Post-production'
+                },
+                correct_answer: 'C',
+                explanation: 'The three main stages are pre-production, production, and post-production.'
+            },
+            {
+                id: 'sample_3',
+                text: 'What does "B-roll" refer to in video production?',
+                type: 'mcq',
+                badge_level: 'starter',
+                category: 'Video Production',
+                options: {
+                    'A': 'The main interview footage',
+                    'B': 'Supplementary footage used to support the main footage',
+                    'C': 'The final edited version',
+                    'D': 'Behind-the-scenes footage'
+                },
+                correct_answer: 'B',
+                explanation: 'B-roll is supplementary footage that is used to support the main footage.'
+            }
+        ],
+        diploma: [
+            {
+                id: 'sample_4',
+                text: 'Explain the rule of thirds in cinematography and why it\'s important.',
+                type: 'typed',
+                badge_level: 'diploma',
+                category: 'Video Production'
+            },
+            {
+                id: 'sample_5',
+                text: 'Describe the difference between 24fps, 30fps, and 60fps in video production.',
+                type: 'typed',
+                badge_level: 'diploma',
+                category: 'Video Production'
+            }
+        ],
+        advanced: [
+            {
+                id: 'sample_6',
+                text: 'Create a 30-second video ad for a product of your choice. Document your process from concept to final edit.',
+                type: 'file',
+                badge_level: 'advanced',
+                category: 'Video Production'
+            },
+            {
+                id: 'sample_7',
+                text: 'Design a mobile app UI for a video editing tool. Submit your design files and explain your design decisions.',
+                type: 'file',
+                badge_level: 'advanced',
+                category: 'Design'
+            }
+        ],
+        mastery: [
+            {
+                id: 'sample_8',
+                text: 'RESOLVED: Artificial intelligence will replace human video editors by 2030.',
+                type: 'debate',
+                badge_level: 'mastery',
+                category: 'Media History'
+            },
+            {
+                id: 'sample_9',
+                text: 'RESOLVED: Traditional media education is more effective than online learning.',
+                type: 'debate',
+                badge_level: 'mastery',
+                category: 'Education'
+            }
+        ],
+        ambassador: [
+            {
+                id: 'sample_10',
+                text: 'Submit your real-world media project proposal. Include problem statement, solution, execution plan, and expected impact.',
+                type: 'mvp',
+                badge_level: 'ambassador',
+                category: 'Real World Project'
+            }
+        ]
+    };
+    
+    return samples[level] || samples.starter;
+}
+
+function renderQuestion(index) {
+    const container = document.getElementById('questionContainer');
+    if (!container) return;
+    
+    if (index >= questionsForLevel.length) {
+        // All questions answered
+        container.innerHTML = `
+            <div class="question-complete">
+                <div class="complete-icon">🎉</div>
+                <h2>Level Complete!</h2>
+                <p>You've answered all questions for this level.</p>
+                <button class="btn-primary" onclick="loadQuestionsForCurrentLevel()">Refresh</button>
+            </div>
+        `;
+        return;
+    }
+    
+    const question = questionsForLevel[index];
+    
+    // Create question renderer
+    const renderer = new QuestionRenderer(
+        'questionContainer',
+        currentUser.id,
+        async (result) => {
+            // Update score
+            const scoreData = await getStudentScore(currentUser.id);
+            const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
+            const nextBadge = getNextBadge(scoreData?.current_score || 0);
+            const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+            
+            // Update dashboard progress
+            const progressSection = document.querySelector('.progress-section');
+            if (progressSection) {
+                progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
+            }
+            
+            // Update question stats
+            const scoreDisplay = document.getElementById('questionScoreDisplay');
+            if (scoreDisplay) {
+                const displayScore = (scoreData?.current_score >= 99.99 && currentBadge.name === 'Mastery') ? '99.99' : scoreData?.current_score || 0;
+                scoreDisplay.textContent = displayScore;
+            }
+            
+            const levelDisplay = document.getElementById('questionLevelDisplay');
+            if (levelDisplay) {
+                levelDisplay.textContent = currentBadge.name;
+            }
+            
+            // Move to next question after delay
+            setTimeout(() => {
+                const nextIndex = index + 1;
+                if (nextIndex < questionsForLevel.length) {
+                    renderQuestion(nextIndex);
+                } else {
+                    // Check if all questions are answered
+                    container.innerHTML = `
+                        <div class="question-complete">
+                            <div class="complete-icon">🎉</div>
+                            <h2>Level Complete!</h2>
+                            <p>You've completed all questions for ${currentBadge.name} level!</p>
+                            <p style="font-size: 0.85rem; opacity: 0.7; margin-top: 0.5rem;">
+                                ${nextBadge ? `Next: ${nextBadge.name} requires ${nextBadge.minScore}%` : 'You\'ve reached the highest level!'}
+                            </p>
+                            <button class="btn-primary" onclick="loadQuestionsForCurrentLevel()">Continue</button>
+                        </div>
+                    `;
+                }
+            }, 1500);
+        }
+    );
+    
+    // Render the question
+    renderer.renderQuestion(question, index + 1, questionsForLevel.length);
 }
 
 // ============================================
