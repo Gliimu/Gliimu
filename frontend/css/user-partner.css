@@ -35,6 +35,12 @@
     border-radius: 12px;
     padding: 1rem;
     margin-bottom: 0.75rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.project-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 .project-card:last-child {
@@ -75,10 +81,16 @@
     color: var(--warning);
 }
 
+.project-status.on-hold {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
 .project-description {
     font-size: 0.8rem;
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
+    line-height: 1.4;
 }
 
 .project-footer {
@@ -86,21 +98,51 @@
     justify-content: space-between;
     font-size: 0.7rem;
     color: var(--text-secondary);
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .project-footer i {
     margin-right: 4px;
 }
 
+.project-collaborators {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Create Project Modal */
+.modal .project-form-group {
+    margin-bottom: 1rem;
+}
+
+.modal .project-form-group label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    color: var(--text-secondary);
+}
+
+.modal .project-form-group input,
+.modal .project-form-group select,
+.modal .project-form-group textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+}
+
+.modal .project-form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
 @media (max-width: 480px) {
     .project-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
-    }
-    
-    .projects-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-}
+        flex-direction
