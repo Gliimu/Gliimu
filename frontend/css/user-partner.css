@@ -145,4 +145,21 @@
 
 @media (max-width: 480px) {
     .project-header {
-        flex-direction
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    
+    .projects-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .projects-header button {
+        width: 100%;
+    }
+    
+    .partner-stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
