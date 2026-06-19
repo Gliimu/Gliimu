@@ -96,7 +96,7 @@
     },
     {
       "source": "/user.html",
-      "destination": "/user/:username",
+      "destination": "/user?user=:username",
       "permanent": true
     },
     {
