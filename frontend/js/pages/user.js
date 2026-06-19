@@ -416,7 +416,14 @@ async function renderDashboard() {
         
         // Fallback to generic dashboard
         console.log('Using generic dashboard render');
-        const scoreData = await getStudentScore(currentUser.id);
+       let scoreData = { current_score: 0 };
+try {
+    scoreData = await getStudentScore(currentUser.id);
+    console.log('📊 Score data:', scoreData);
+} catch (e) {
+    console.warn('⚠️ Could not get student score:', e);
+    scoreData = { current_score: 0 };
+}
         const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
         const nextBadge = getNextBadge(scoreData?.current_score || 0);
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
