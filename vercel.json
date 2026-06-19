@@ -10,7 +10,7 @@
     },
     {
       "source": "/user",
-      "destination": "/frontend/user.html?user=:username"
+      "destination": "/frontend/user.html"
     },
     {
       "source": "/display",
@@ -96,7 +96,7 @@
     },
     {
       "source": "/user.html",
-      "destination": "/user?user=:username",
+      "destination": "/user",
       "permanent": true
     },
     {
