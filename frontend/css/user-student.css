@@ -1,0 +1,294 @@
+/* =========================================
+   STUDENT-SPECIFIC STYLES
+   ========================================= */
+
+/* Progress Section */
+.progress-section {
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.current-badge {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.badge-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    border: 3px solid;
+}
+
+.badge-info h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.badge-info p {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.score-display {
+    text-align: center;
+    background: var(--bg-secondary);
+    padding: 0.75rem 1.5rem;
+    border-radius: 16px;
+}
+
+.score-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--brand-gold);
+    display: block;
+    line-height: 1;
+}
+
+.score-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.progress-bar-container {
+    background: var(--border-color);
+    border-radius: 20px;
+    height: 12px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 20px;
+    transition: width 0.5s ease;
+    background: linear-gradient(90deg, var(--brand-gold), var(--brand-gold-dark));
+}
+
+.next-badge-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* Quick Stats */
+.quick-stats {
+    margin-bottom: 1.5rem;
+}
+
+.quick-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.quick-stat-card i {
+    font-size: 1.5rem;
+    color: var(--brand-gold);
+}
+
+.quick-stat-card div {
+    flex: 1;
+}
+
+.quick-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    display: block;
+}
+
+.quick-stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.quick-add-funds {
+    background: var(--brand-gold);
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+/* MVP Section */
+.mvp-section, .mvp-locked-section {
+    background: linear-gradient(135deg, var(--brand-purple) 0%, var(--brand-purple-dark) 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: white;
+}
+
+.mvp-header, .mvp-locked-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.mvp-header i, .mvp-locked-header i {
+    font-size: 1.5rem;
+}
+
+.mvp-section p, .mvp-locked-section p {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+}
+
+.progress-to-unlock {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.progress-to-unlock .progress-bar-container {
+    width: 200px;
+    margin: 0.5rem auto;
+}
+
+/* Leaderboard */
+.leaderboard-section {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    margin-bottom: 1.5rem;
+}
+
+.leaderboard-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.leaderboard-header i {
+    font-size: 1.2rem;
+    color: var(--brand-gold);
+}
+
+.leaderboard-header h3 {
+    flex: 1;
+    margin: 0;
+    font-size: 1rem;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0.25rem;
+}
+
+.btn-icon:hover {
+    color: var(--brand-gold);
+}
+
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+}
+
+.leaderboard-rank {
+    width: 40px;
+    font-weight: 700;
+    color: var(--brand-gold);
+}
+
+.leaderboard-avatar img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.leaderboard-info {
+    flex: 1;
+}
+
+.leaderboard-name {
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.leaderboard-badge {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.leaderboard-score {
+    font-weight: 700;
+    color: var(--brand-gold);
+    font-size: 0.9rem;
+}
+
+/* Leaderboard Top Ranks */
+.leaderboard-item.top-1 {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.leaderboard-item.top-2 {
+    background: linear-gradient(135deg, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05));
+    border: 1px solid rgba(192, 192, 192, 0.3);
+}
+
+.leaderboard-item.top-3 {
+    background: linear-gradient(135deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05));
+    border: 1px solid rgba(205, 127, 50, 0.3);
+}
+
+@media (max-width: 768px) {
+    .progress-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .badge-icon {
+        width: 55px;
+        height: 55px;
+        font-size: 1.8rem;
+    }
+    
+    .score-value {
+        font-size: 1.5rem;
+    }
+}
