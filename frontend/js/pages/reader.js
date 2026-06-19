@@ -233,7 +233,7 @@ async function checkAuthorization() {
         console.log('❌ User not signed in');
         showAuthRequired(
             'Sign In Required',
-            'Please sign in to access this content. You need to have purchased this book to read it.'
+            'Please sign in to access this content.'
         );
         return false;
     }
@@ -249,7 +249,7 @@ async function checkAuthorization() {
         console.log('❌ User has NOT purchased this content');
         console.log('🔄 Redirecting to hub with modal open...');
         
-        showLoading('Redirecting...', 'Taking you to the library to purchase this content');
+        showLoading('Redirecting...', 'Taking you to the hub to view content');
         
         await new Promise(resolve => setTimeout(resolve, 1500));
         
@@ -522,79 +522,125 @@ function loadPDFJS() {
 }
 
 // ============================================
-// RENDER PAGE
+// RENDER ALL PAGES - Continuous Scroll
 // ============================================
-async function renderPage(pageNum) {
-    if (!pdfDoc || isRendering || usingGoogleDocs) return;
+let allPagesRendered = false;
+let totalRenderedPages = 0;
 
-    isRendering = true;
-
+async function renderAllPages() {
+    if (!pdfDoc || usingGoogleDocs || allPagesRendered) return;
+    
+    console.log('📄 Rendering all pages for continuous scroll...');
+    showLoading('Loading book...', 'Rendering pages for smooth reading');
+    
     try {
-        if (pageCache[pageNum]) {
-            const canvas = pageWrapper.querySelector('canvas');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                canvas.width = pageCache[pageNum].width;
-                canvas.height = pageCache[pageNum].height;
-                canvas.style.width = pageCache[pageNum].width + 'px';
-                canvas.style.height = pageCache[pageNum].height + 'px';
-                ctx.putImageData(pageCache[pageNum].imageData, 0, 0);
-                currentPage = pageNum;
-                updateProgress();
-                saveProgress();
-                checkIfCompleted();
-                isRendering = false;
-                return;
+        // Clear existing content
+        pageWrapper.innerHTML = '';
+        
+        // Get container width
+        const containerWidth = readerContainer.clientWidth - 30;
+        
+        // Render each page
+        for (let i = 1; i <= totalPages; i++) {
+            const page = await pdfDoc.getPage(i);
+            
+            // Calculate scale to fit width
+            const viewport = page.getViewport({ scale: 1 });
+            const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
+            const scaledViewport = page.getViewport({ scale: scale });
+            
+            // Create page container
+            const pageContainer = document.createElement('div');
+            pageContainer.className = 'pdf-page-container';
+            pageContainer.style.cssText = `
+                width: 100%;
+                margin-bottom: 16px;
+                display: flex;
+                justify-content: center;
+                position: relative;
+            `;
+            
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            canvas.style.width = scaledViewport.width + 'px';
+            canvas.style.height = scaledViewport.height + 'px';
+            canvas.style.boxShadow = '0 2px 16px var(--shadow-color)';
+            canvas.style.borderRadius = '6px';
+            canvas.style.background = 'var(--reader-bg)';
+            canvas.dataset.page = i;
+            
+            // Render page
+            const renderContext = {
+                canvasContext: context,
+                viewport: scaledViewport,
+            };
+            
+            await page.render(renderContext).promise;
+            
+            // Add page number label
+            const pageLabel = document.createElement('div');
+            pageLabel.className = 'page-label';
+            pageLabel.style.cssText = `
+                position: absolute;
+                bottom: -20px;
+                right: 10px;
+                font-size: 0.7rem;
+                color: var(--text-secondary);
+                opacity: 0.6;
+                font-family: 'Space Grotesk', sans-serif;
+            `;
+            pageLabel.textContent = `Page ${i} of ${totalPages}`;
+            
+            pageContainer.appendChild(canvas);
+            pageContainer.appendChild(pageLabel);
+            pageWrapper.appendChild(pageContainer);
+            
+            totalRenderedPages = i;
+            
+            // Update progress
+            const progress = (i / totalPages) * 100;
+            progressFill.style.width = progress + '%';
+            
+            // Small delay to let the browser breathe
+            if (i % 3 === 0) {
+                await new Promise(r => setTimeout(r, 10));
             }
         }
-
-        const page = await pdfDoc.getPage(pageNum);
         
-        const containerWidth = readerContainer.clientWidth - 30;
-        const viewport = page.getViewport({ scale: 1 });
-        const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
-        const scaledViewport = page.getViewport({ scale: scale });
-
-        let canvas = pageWrapper.querySelector('canvas');
-        if (!canvas) {
-            canvas = document.createElement('canvas');
-            pageWrapper.appendChild(canvas);
-        }
-
-        const context = canvas.getContext('2d');
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-        canvas.style.width = scaledViewport.width + 'px';
-        canvas.style.height = scaledViewport.height + 'px';
-
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
-        const renderContext = {
-            canvasContext: context,
-            viewport: scaledViewport,
-        };
-
-        await page.render(renderContext).promise;
-
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        pageCache[pageNum] = {
-            width: canvas.width,
-            height: canvas.height,
-            imageData: imageData
-        };
-
-        currentPage = pageNum;
-        updateProgress();
-        saveProgress();
-        readerContainer.scrollTop = 0;
+        allPagesRendered = true;
+        hideLoading();
+        
+        // Update page info
+        pageInfo.textContent = `📖 ${totalPages} pages loaded`;
+        
+        // Apply dark mode to all canvases
+        applyDarkModeToAllPages();
+        
+        // Check if completed (all pages rendered)
+        currentPage = totalPages;
         checkIfCompleted();
-
+        
+        console.log('✅ All ' + totalPages + ' pages rendered successfully!');
+        
     } catch (error) {
-        console.error('Render error:', error);
-        showToast('Error rendering page', 'error');
-    } finally {
-        isRendering = false;
+        console.error('Render all pages error:', error);
+        showToast('Error rendering pages. Please try again.', 'error');
     }
+}
+
+function applyDarkModeToAllPages() {
+    const isDark = document.body.classList.contains('dark-mode');
+    const canvases = pageWrapper.querySelectorAll('canvas');
+    canvases.forEach(canvas => {
+        if (isDark) {
+            canvas.style.filter = 'invert(0.85) hue-rotate(180deg) brightness(1.2) contrast(1.1)';
+        } else {
+            canvas.style.filter = 'none';
+        }
+    });
 }
 
 // ============================================
@@ -770,68 +816,78 @@ async function initReader() {
     const authorized = await checkAuthorization();
     if (!authorized) return;
 
-    // 2. Load PDF
-    showLoading('Loading PDF library...');
+   // 2. Load PDF
+showLoading('Loading PDF library...');
 
-    try {
-        await loadPDFJS();
+try {
+    await loadPDFJS();
 
-        showLoading('Opening book...', 'Loading the PDF file');
+    showLoading('Opening book...', 'Loading the PDF file');
 
-        const response = await fetch(fileUrl);
-        const pdfData = await response.arrayBuffer();
+    const response = await fetch(fileUrl);
+    const pdfData = await response.arrayBuffer();
 
-        const loadingTask = pdfjsLib.getDocument({
-            data: pdfData,
-            useSystemFonts: true,
-            disableFontFace: false,
-            disableRange: true,
-            disableStream: true,
-            disableAutoFetch: true,
-            useWorkerFetch: false,
-            isEvalSupported: false
-        });
+    const loadingTask = pdfjsLib.getDocument({
+        data: pdfData,
+        useSystemFonts: true,
+        disableFontFace: false,
+        disableRange: true,
+        disableStream: true,
+        disableAutoFetch: true,
+        useWorkerFetch: false,
+        isEvalSupported: false
+    });
 
-        pdfDoc = await loadingTask.promise;
-        totalPages = pdfDoc.numPages;
-        pageInfo.textContent = 'Page 1 of ' + totalPages;
+    pdfDoc = await loadingTask.promise;
+    totalPages = pdfDoc.numPages;
+    pageInfo.textContent = 'Loading ' + totalPages + ' pages...';
 
-        console.log('📚 PDF loaded: ' + totalPages + ' pages');
+    console.log('📚 PDF loaded: ' + totalPages + ' pages');
 
-        const hasProgress = loadSavedProgress();
-        if (!hasProgress) currentPage = 1;
+    // Load saved progress
+    const hasProgress = loadSavedProgress();
+    
+    // RENDER ALL PAGES FOR CONTINUOUS SCROLL
+    await renderAllPages();
+    hideLoading();
 
-        await renderPage(currentPage);
-        hideLoading();
-
-        if (autoSaveTimer) clearInterval(autoSaveTimer);
-        autoSaveTimer = setInterval(saveProgress, 5000);
-
-        showToast('✅ Book loaded successfully!', 'success');
-
-        if (isCompleted) {
-            const actions = document.querySelector('.reader-footer .actions');
-            const existingBtn = actions.querySelector('.completed-btn');
-            if (!existingBtn) {
-                const btn = document.createElement('button');
-                btn.className = 'completed-btn';
-                btn.innerHTML = '<i class="fas fa-star"></i> Completed! Claim GP';
-                btn.onclick = markAsCompleted;
-                actions.appendChild(btn);
-            }
+    // Scroll to saved position if progress exists
+    if (hasProgress && currentPage > 1) {
+        const containers = pageWrapper.querySelectorAll('.pdf-page-container');
+        if (containers[currentPage - 1]) {
+            setTimeout(() => {
+                containers[currentPage - 1].scrollIntoView({ behavior: 'smooth' });
+            }, 500);
         }
+    }
 
-    } catch (error) {
-        console.error('PDF loading error:', error);
-        
-        if (isMobile || isSafari) {
-            showLoading('PDF.js failed, using Google Docs...', 'Opening in Google Docs viewer');
-            setTimeout(function() {
-                loadGoogleDocs();
-            }, 1000);
-        } else {
-            showToast('Could not load the book. Please try again.', 'error');
+    if (autoSaveTimer) clearInterval(autoSaveTimer);
+    autoSaveTimer = setInterval(saveProgress, 5000);
+
+    showToast('✅ Book loaded successfully!', 'success');
+
+    if (isCompleted) {
+        const actions = document.querySelector('.reader-footer .actions');
+        const existingBtn = actions.querySelector('.completed-btn');
+        if (!existingBtn) {
+            const btn = document.createElement('button');
+            btn.className = 'completed-btn';
+            btn.innerHTML = '<i class="fas fa-star"></i> Completed! Claim GP';
+            btn.onclick = markAsCompleted;
+            actions.appendChild(btn);
         }
+    }
+
+} catch (error) {
+    console.error('PDF loading error:', error);
+    
+    if (isMobile || isSafari) {
+        showLoading('PDF.js failed, using Google Docs...', 'Opening in Google Docs viewer');
+        setTimeout(function() {
+            loadGoogleDocs();
+        }, 1000);
+    } else {
+        showToast('Could not load the book. Please try again.', 'error');
     }
 }
 
