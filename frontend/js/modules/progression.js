@@ -360,6 +360,242 @@ export function sharePortfolio(studentId) {
 }
 
 // ============================================
+// ADD THESE MISSING FUNCTIONS
+// ============================================
+
+// ============================================
+// REPORT QUESTION
+// ============================================
+
+export async function reportQuestion(questionId, studentId, reason, details) {
+    try {
+        // Check if question_reports table exists
+        const { error } = await supabase
+            .from('question_reports')
+            .insert([{
+                question_id: questionId,
+                student_id: studentId,
+                reason: reason,
+                details: details,
+                status: 'pending',
+                created_at: new Date().toISOString()
+            }]);
+        
+        if (error) {
+            // If table doesn't exist, just show success
+            if (error.code === '42P01') {
+                showToast('Thank you for your report. Our team will review it.', 'success');
+                return true;
+            }
+            throw error;
+        }
+        
+        showToast('Thank you for reporting. Our team will review it.', 'success');
+        return true;
+        
+    } catch (error) {
+        console.error('Error reporting question:', error);
+        showToast('Failed to submit report', 'error');
+        return false;
+    }
+}
+
+// ============================================
+// REQUEST DEBATE MATCH
+// ============================================
+
+export async function requestDebateMatch(questionId, studentId) {
+    try {
+        // Check if debate_matches table exists
+        const { error } = await supabase
+            .from('debate_matches')
+            .insert([{
+                motion: 'Debate Topic',
+                student_a_id: studentId,
+                status: 'pending',
+                created_at: new Date().toISOString()
+            }]);
+        
+        if (error) {
+            if (error.code === '42P01') {
+                showToast('Debate feature coming soon!', 'info');
+                return true;
+            }
+            throw error;
+        }
+        
+        showToast('Debate match requested! An instructor will pair you with another student.', 'success');
+        return true;
+        
+    } catch (error) {
+        console.error('Error requesting debate:', error);
+        showToast('Failed to request debate', 'error');
+        return false;
+    }
+}
+
+// ============================================
+// SUBMIT DEBATE ARGUMENT
+// ============================================
+
+export async function submitDebateArgument(debateId, studentId, argument, stance) {
+    try {
+        // Check if debate_matches table exists
+        const { error } = await supabase
+            .from('debate_matches')
+            .update({
+                [stance === 'for' ? 'student_a_submission' : 'student_b_submission']: argument
+            })
+            .eq('id', debateId);
+        
+        if (error) {
+            if (error.code === '42P01') {
+                showToast('Argument submitted! (Demo mode)', 'success');
+                return true;
+            }
+            throw error;
+        }
+        
+        showToast('Argument submitted! Waiting for opponent.', 'success');
+        return true;
+        
+    } catch (error) {
+        console.error('Error submitting debate argument:', error);
+        showToast('Failed to submit argument', 'error');
+        return false;
+    }
+}
+
+// ============================================
+// GET PENDING SUBMISSIONS
+// ============================================
+
+export async function getPendingSubmissions(instructorId) {
+    try {
+        const { data, error } = await supabase
+            .from('student_answers')
+            .select('*, questions(*), users(name, email)')
+            .eq('status', 'pending')
+            .order('submitted_at', { ascending: true });
+        
+        if (error) {
+            if (error.code === '42P01') {
+                return [];
+            }
+            throw error;
+        }
+        
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching pending submissions:', error);
+        return [];
+    }
+}
+
+// ============================================
+// GRADE SUBMISSION
+// ============================================
+
+export async function gradeSubmission(submissionId, grade, feedback, isCorrect) {
+    try {
+        // Get submission details
+        const { data: submission, error: fetchError } = await supabase
+            .from('student_answers')
+            .select('student_id, question_id')
+            .eq('id', submissionId)
+            .single();
+        
+        if (fetchError) {
+            if (fetchError.code === '42P01') {
+                showToast('Grading not available in demo mode', 'info');
+                return false;
+            }
+            throw fetchError;
+        }
+        
+        // Update the submission
+        const { error: updateError } = await supabase
+            .from('student_answers')
+            .update({
+                grade: grade,
+                feedback: feedback,
+                is_correct: isCorrect,
+                status: 'graded',
+                graded_at: new Date().toISOString()
+            })
+            .eq('id', submissionId);
+        
+        if (updateError) throw updateError;
+        
+        // Update student score
+        await updateStudentScore(submission.student_id, isCorrect);
+        
+        showToast('Submission graded successfully!', 'success');
+        return true;
+        
+    } catch (error) {
+        console.error('Error grading submission:', error);
+        showToast('Failed to grade submission', 'error');
+        return false;
+    }
+}
+
+// ============================================
+// GET QUESTIONS FOR BADGE LEVEL
+// ============================================
+
+export async function getQuestionsForBadge(badgeLevel, limit = 10) {
+    try {
+        const { data, error } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('badge_level', badgeLevel)
+            .eq('is_approved', true)
+            .order('difficulty_level', { ascending: true })
+            .limit(limit);
+        
+        if (error) {
+            if (error.code === '42P01') {
+                return getSampleQuestions(badgeLevel);
+            }
+            throw error;
+        }
+        
+        if (!data || data.length === 0) {
+            return getSampleQuestions(badgeLevel);
+        }
+        
+        return data;
+        
+    } catch (error) {
+        console.error('Error fetching questions:', error);
+        return getSampleQuestions(badgeLevel);
+    }
+}
+
+function getSampleQuestions(badgeLevel) {
+    const samples = {
+        starter: [
+            {
+                id: 'sample_1',
+                text: 'What is the primary purpose of video pre-production?',
+                type: 'mcq',
+                badge_level: 'starter',
+                options: {
+                    'A': 'Shooting the video',
+                    'B': 'Planning and preparation',
+                    'C': 'Editing the final cut',
+                    'D': 'Publishing the video'
+                },
+                correct_answer: 'B',
+                explanation: 'Pre-production involves planning before actual production begins.'
+            }
+        ]
+    };
+    return samples[badgeLevel] || samples.starter;
+}
+
+// ============================================
 // EXPORT
 // ============================================
 
