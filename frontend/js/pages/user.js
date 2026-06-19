@@ -34,20 +34,20 @@ let studentModule = null;
 let instructorModule = null;
 let partnerModule = null;
 
-try {
-    const student = await import('./user-student.js');
-    studentModule = student.default || student;
-} catch (e) { console.log('Student module not loaded'); }
+// Dynamically load role modules
+async function loadRoleModules() {
+    try {
+        studentModule = await import('./user-student.js');
+    } catch (e) { console.log('Student module not loaded'); }
 
-try {
-    const instructor = await import('./user-instructor.js');
-    instructorModule = instructor.default || instructor;
-} catch (e) { console.log('Instructor module not loaded'); }
+    try {
+        instructorModule = await import('./user-instructor.js');
+    } catch (e) { console.log('Instructor module not loaded'); }
 
-try {
-    const partner = await import('./user-partner.js');
-    partnerModule = partner.default || partner;
-} catch (e) { console.log('Partner module not loaded'); }
+    try {
+        partnerModule = await import('./user-partner.js');
+    } catch (e) { console.log('Partner module not loaded'); }
+}
 
 // ============================================
 // GLOBAL STATE
@@ -214,7 +214,7 @@ async function loadUserFromSupabase(userId) {
 function loadRoleStylesheet(role) {
     const existing = document.getElementById('roleStylesheet');
     if (existing) {
-        existing.href = `/css/user-${role}.css`;
+        existing.href = `/frontend/css/user-${role}.css`;
     }
 }
 
@@ -402,8 +402,20 @@ async function renderDashboard() {
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
     
     try {
-        console.log('Starting dashboard render...');
+        // Use role-specific render if available
+        if (currentRole === 'student' && studentModule && studentModule.renderDashboard) {
+            await studentModule.renderDashboard(container);
+            return;
+        } else if (currentRole === 'instructor' && instructorModule && instructorModule.renderInstructorDashboard) {
+            await instructorModule.renderInstructorDashboard(container);
+            return;
+        } else if (currentRole === 'partner' && partnerModule && partnerModule.renderPartnerDashboard) {
+            await partnerModule.renderPartnerDashboard(container);
+            return;
+        }
         
+        // Fallback to generic dashboard
+        console.log('Using generic dashboard render');
         const scoreData = await getStudentScore(currentUser.id);
         const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
         const nextBadge = getNextBadge(scoreData?.current_score || 0);
@@ -630,6 +642,12 @@ async function renderQuestionBar() {
     
     const container = document.getElementById('question-section');
     if (!container) return;
+    
+    // Use student module if available
+    if (studentModule && studentModule.renderQuestionBar) {
+        await studentModule.renderQuestionBar(container);
+        return;
+    }
     
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
     
@@ -1212,7 +1230,6 @@ function renderGradeSubmissions() {
     const container = document.getElementById('grade-section');
     if (!container) return;
     
-    // If instructor module is available, use it
     if (instructorModule && instructorModule.renderGradeSubmissions) {
         instructorModule.renderGradeSubmissions(container);
         return;
@@ -1235,7 +1252,6 @@ function renderProjects() {
     const container = document.getElementById('projects-section');
     if (!container) return;
     
-    // If partner module is available, use it
     if (partnerModule && partnerModule.renderProjects) {
         partnerModule.renderProjects(container);
         return;
@@ -1334,6 +1350,9 @@ function setupRealtimeWallet() {
 // ============================================
 async function initDashboard() {
     console.log('Initializing dashboard...');
+    
+    // Load role modules first
+    await loadRoleModules();
     
     const isAuth = await checkAuth();
     if (!isAuth) return;
