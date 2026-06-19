@@ -867,4 +867,17 @@ async function start() {
 
 start();
 
+// ============================================
+// EXPOSE FUNCTIONS TO GLOBAL SCOPE (FIXES BUTTONS)
+// ============================================
+window.goToLogin = goToLogin;
+window.goToHub = goToHub;
+window.nextPage = nextPage;
+window.prevPage = prevPage;
+window.toggleTheme = toggleTheme;
+window.closeReader = closeReader;
+window.reportIssue = reportIssue;
+window.showToast = showToast;
+window.markAsCompleted = markAsCompleted;
+
 console.log('📚 Gliimu Professional Reader with Cross-Tab Auth Support');
