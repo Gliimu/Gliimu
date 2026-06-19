@@ -95,6 +95,34 @@
     gap: 0.5rem;
 }
 
+.submission-actions .btn-outline,
+.submission-actions .btn-primary {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.7rem;
+}
+
+/* Grade Modal */
+.grade-input-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.grade-input-group input {
+    width: 100px;
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.grade-range {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
 @media (max-width: 480px) {
     .submission-item {
         flex-direction: column;
@@ -104,5 +132,9 @@
     
     .submission-actions {
         justify-content: flex-end;
+    }
+    
+    .instructor-stats-grid {
+        grid-template-columns: 1fr 1fr;
     }
 }
