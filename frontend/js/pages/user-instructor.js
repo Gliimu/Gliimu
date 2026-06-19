@@ -160,7 +160,6 @@ async function renderSubmissionsList() {
 // ============================================
 async function getInstructorStats() {
     try {
-        // Get instructor's stats from Supabase
         const { data, error } = await supabase
             .from('instructor_stats')
             .select('*')
@@ -193,7 +192,6 @@ async function getSubmissions() {
 }
 
 async function viewSubmission(submissionId) {
-    // Open submission view modal
     showToast('Viewing submission...', 'info');
     // Implementation details
 }
@@ -223,7 +221,6 @@ async function gradeSubmission(submissionId, grade, feedback) {
 }
 
 function openGradeModal(submissionId) {
-    // Open grade modal
     const modal = document.createElement('div');
     modal.className = 'modal active';
     modal.innerHTML = `
