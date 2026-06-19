@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gliimu Reader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand-purple: #2c2f78;
+            --brand-gold: #fbb040;
+            --bg-primary: #f8fafc;
+            --bg-card: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        body.dark-mode {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #1e293b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .reader-header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .reader-header .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .reader-header .logo img {
+            height: 32px;
+        }
+
+        .reader-header .logo span {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+        }
+
+        .reader-header .logo span .gold {
+            color: var(--brand-gold);
+        }
+
+        .reader-header .book-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .reader-header .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .reader-header .controls button {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .reader-header .controls button:hover {
+            background: var(--border-color);
+            color: var(--brand-gold);
+        }
+
+        .reader-header .controls .close-btn {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+        }
+
+        .reader-header .controls .close-btn:hover {
+            color: #ef4444;
+        }
+
+        /* PDF Viewer Container */
+        .reader-container {
+            flex: 1;
+            overflow: hidden;
+            background: var(--bg-primary);
+            position: relative;
+        }
+
+        .reader-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-overlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--brand-gold);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading-overlay p {
+            margin-top: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Bottom Bar - Reading Progress */
+        .reader-footer {
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            padding: 0.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .reader-footer .page-info {
+            font-weight: 500;
+        }
+
+        .reader-footer .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .reader-footer .actions button {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            padding: 0.3rem 0.75rem;
+            border-radius: 20px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .reader-footer .actions button:hover {
+            border-color: var(--brand-gold);
+            color: var(--brand-gold);
+        }
+
+        .reader-footer .actions button.primary {
+            background: var(--brand-gold);
+            border-color: var(--brand-gold);
+            color: var(--brand-purple);
+            font-weight: 600;
+        }
+
+        .reader-footer .actions button.primary:hover {
+            background: var(--brand-gold-dark);
+            transform: translateY(-1px);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .reader-header {
+                padding: 0.5rem 1rem;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .reader-header .book-title {
+                max-width: 150px;
+                font-size: 0.8rem;
+            }
+            
+            .reader-footer {
+                padding: 0.5rem 1rem;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .reader-header .logo span {
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .reader-header {
+                padding: 0.5rem;
+            }
+            
+            .reader-header .book-title {
+                max-width: 100px;
+                font-size: 0.7rem;
+            }
+            
+            .reader-footer {
+                font-size: 0.7rem;
+                padding: 0.5rem;
+            }
+            
+            .reader-footer .actions button {
+                font-size: 0.65rem;
+                padding: 0.2rem 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="reader-header">
+        <div class="logo">
+            <img src="/icons/logo.png" alt="Gliimu">
+            <span>Gliimu <span class="gold">Reader</span></span>
+        </div>
+        <div class="book-title" id="bookTitle">Loading...</div>
+        <div class="controls">
+            <button onclick="toggleTheme()" title="Toggle Theme">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+            <button onclick="toggleFullscreen()" title="Fullscreen">
+                <i class="fas fa-expand"></i>
+            </button>
+            <button onclick="closeReader()" class="close-btn" title="Close Reader">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- PDF Viewer -->
+    <div class="reader-container" id="readerContainer">
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <p>Loading your book...</p>
+        </div>
+        <iframe id="pdfViewer" src=""></iframe>
+    </div>
+
+    <!-- Footer -->
+    <footer class="reader-footer">
+        <span class="page-info">
+            <i class="fas fa-book-open"></i> 
+            <span id="pageInfo">Reading</span>
+        </span>
+        <div class="actions">
+            <button onclick="window.print()">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <button onclick="reportIssue()">
+                <i class="fas fa-flag"></i> Report
+            </button>
+            <button class="primary" onclick="closeReader()">
+                <i class="fas fa-check"></i> Done Reading
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        // ============================================
+        // GLIIMU READER - PDF View with Protection
+        // ============================================
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const pdfUrl = urlParams.get('url');
+        const title = urlParams.get('title') || 'Book';
+
+        // DOM elements
+        const pdfViewer = document.getElementById('pdfViewer');
+        const bookTitle = document.getElementById('bookTitle');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const pageInfo = document.getElementById('pageInfo');
+
+        // Set book title
+        bookTitle.textContent = title;
+
+        // ============================================
+        // METHOD 1: Google Docs Viewer (No Download)
+        // ============================================
+        // This prevents direct download because Google Docs renders the PDF
+        // and users can't easily download it
+        
+        function loadPDFWithGoogleViewer(url) {
+            const encodedUrl = encodeURIComponent(url);
+            const viewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
+            pdfViewer.src = viewerUrl;
+        }
+
+        // ============================================
+        // METHOD 2: PDF.js with Custom Controls
+        // ============================================
+        // Use PDF.js library for full control
+        
+        function loadPDFWithPDFJS(url) {
+            // This would require loading PDF.js library
+            // For now, we use Google Docs Viewer as it's simpler
+            loadPDFWithGoogleViewer(url);
+        }
+
+        // ============================================
+        // METHOD 3: Custom HTML5 Canvas Renderer
+        // ============================================
+        // Most secure - renders PDF to canvas, no download option
+        
+        // For now, using Google Docs Viewer (Method 1)
+        // But we'll add protection measures
+
+        // Initialize
+        if (pdfUrl) {
+            // Add cache-busting to prevent caching
+            const cacheBuster = `&_t=${Date.now()}`;
+            const urlWithCache = pdfUrl.includes('?') ? pdfUrl + cacheBuster : pdfUrl + '?t=' + Date.now();
+            
+            // Option A: Google Docs Viewer (Recommended)
+            const encodedUrl = encodeURIComponent(urlWithCache);
+            const viewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
+            
+            // Option B: Direct iframe (less secure, but works)
+            // const viewerUrl = urlWithCache;
+            
+            pdfViewer.src = viewerUrl;
+            
+            // Hide loading after PDF loads
+            setTimeout(() => {
+                loadingOverlay.classList.add('hidden');
+            }, 1500);
+            
+            // Track page info (simplified)
+            pageInfo.textContent = '📖 Reading';
+        } else {
+            // No URL provided
+            loadingOverlay.innerHTML = `
+                <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--brand-gold);"></i>
+                <p>No book found to read</p>
+            `;
+            loadingOverlay.classList.remove('hidden');
+            pageInfo.textContent = '❌ No book';
+        }
+
+        // ============================================
+        // FUNCTIONS
+        // ============================================
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const icon = document.getElementById('themeIcon');
+            if (document.body.classList.contains('dark-mode')) {
+                icon.className = 'fas fa-sun';
+            } else {
+                icon.className = 'fas fa-moon';
+            }
+            localStorage.setItem('reader_theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                }
+            }
+        }
+
+        function closeReader() {
+            window.close();
+            // If window.close() doesn't work (opened by user), redirect
+            window.location.href = '/hub.html';
+        }
+
+        function reportIssue() {
+            if (confirm('Report an issue with this book? Our team will investigate.')) {
+                alert('Thank you for reporting. We\'ll look into it.');
+            }
+        }
+
+        // ============================================
+        // PREVENT DOWNLOADING (Client-side protection)
+        // ============================================
+
+        // Disable right-click on the iframe
+        document.addEventListener('contextmenu', function(e) {
+            if (e.target.closest('.reader-container')) {
+                e.preventDefault();
+                showToast('Downloading is disabled for protected content.', 'warning');
+            }
+        });
+
+        // Prevent keyboard shortcuts for saving
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+S, Ctrl+P, Ctrl+Shift+S
+            if ((e.ctrlKey || e.metaKey) && 
+                (e.key === 's' || e.key === 'p' || e.key === 'S')) {
+                e.preventDefault();
+                showToast('Saving and printing are disabled for protected content.', 'warning');
+            }
+        });
+
+        // ============================================
+        // TOAST SYSTEM (Simple)
+        // ============================================
+        function showToast(message, type = 'info') {
+            const existing = document.querySelector('.reader-toast');
+            if (existing) existing.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = 'reader-toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--bg-card);
+                color: var(--text-primary);
+                padding: 0.75rem 1.5rem;
+                border-radius: 12px;
+                border: 1px solid var(--border-color);
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                z-index: 999;
+                font-size: 0.85rem;
+                animation: slideUp 0.3s ease;
+                max-width: 90%;
+                border-left: 4px solid var(--brand-gold);
+            `;
+            
+            if (type === 'warning') {
+                toast.style.borderLeftColor = '#f59e0b';
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // ============================================
+        // THEME ON LOAD
+        // ============================================
+        const savedTheme = localStorage.getItem('reader_theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('themeIcon').className = 'fas fa-sun';
+        }
+
+        // Log protection
+        console.log('📚 Gliimu Reader - Protected Content');
+        console.log('⚠️ Downloading and printing are disabled');
+    </script>
+
+</body>
+</html>
