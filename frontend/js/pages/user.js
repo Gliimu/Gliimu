@@ -26,8 +26,6 @@ import {
 } from '../modules/progression.js';
 
 import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
-// Add this with the other imports
-import { renderQuestionTab } from './user-question.js';
 
 // ============================================
 // IMPORT ROLE-SPECIFIC MODULES
