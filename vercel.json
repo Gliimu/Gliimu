@@ -9,7 +9,7 @@
       "destination": "/frontend/index.html"
     },
     {
-      "source": "/user",
+      "source": "/user/:username",
       "destination": "/frontend/user.html"
     },
     {
