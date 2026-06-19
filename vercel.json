@@ -9,8 +9,8 @@
       "destination": "/frontend/index.html"
     },
     {
-      "source": "/user/:username",
-      "destination": "/frontend/user.html"
+      "source": "/user",
+      "destination": "/frontend/user.html?user=:username"
     },
     {
       "source": "/display",
