@@ -32,8 +32,6 @@ let totalPages = 0;
 let isDarkMode = false;
 let autoSaveTimer = null;
 let currentItemId = null;
-let isRendering = false;
-let pageCache = {};
 let usingGoogleDocs = false;
 let fileUrl = null;
 let isCompleted = false;
@@ -109,7 +107,6 @@ function loadSupabase() {
 // AUTHENTICATION - WITH CROSS-TAB SUPPORT
 // ============================================
 
-// Wait for auth session to restore (cross-tab fix)
 function waitForAuth() {
     return new Promise((resolve) => {
         let attempts = 0;
@@ -176,7 +173,6 @@ async function checkPurchase(userId, itemId) {
             return true;
         }
 
-        // Check if free
         const { data: item, error: itemError } = await supabaseClient
             .from('hub_contents')
             .select('price, physical_price, audio_price')
@@ -225,10 +221,8 @@ async function checkAuthorization() {
 
     showLoading('Checking access...', 'Verifying your account');
 
-    // Wait for auth to be ready
     currentUser = await getCurrentUser();
 
-    // SCENARIO 1: NOT SIGNED IN
     if (!currentUser) {
         console.log('❌ User not signed in');
         showAuthRequired(
@@ -241,10 +235,8 @@ async function checkAuthorization() {
     userId = currentUser.id;
     console.log('✅ User signed in:', currentUser.email);
 
-    // SCENARIO 2: CHECK PURCHASE
     const hasPurchased = await checkPurchase(currentUser.id, currentItemId);
 
-    // SCENARIO 3: SIGNED IN BUT NOT PURCHASED
     if (!hasPurchased) {
         console.log('❌ User has NOT purchased this content');
         console.log('🔄 Redirecting to hub with modal open...');
@@ -258,7 +250,6 @@ async function checkAuthorization() {
         return false;
     }
 
-    // SCENARIO 4: SIGNED IN AND PURCHASED
     console.log('✅ User has purchased this content');
     isAuthorized = true;
     return true;
@@ -534,22 +525,17 @@ async function renderAllPages() {
     showLoading('Loading book...', 'Rendering pages for smooth reading');
     
     try {
-        // Clear existing content
         pageWrapper.innerHTML = '';
         
-        // Get container width
         const containerWidth = readerContainer.clientWidth - 30;
         
-        // Render each page
         for (let i = 1; i <= totalPages; i++) {
             const page = await pdfDoc.getPage(i);
             
-            // Calculate scale to fit width
             const viewport = page.getViewport({ scale: 1 });
             const scale = Math.min((containerWidth / viewport.width) * 1.0, 1.5);
             const scaledViewport = page.getViewport({ scale: scale });
             
-            // Create page container
             const pageContainer = document.createElement('div');
             pageContainer.className = 'pdf-page-container';
             pageContainer.style.cssText = `
@@ -560,7 +546,6 @@ async function renderAllPages() {
                 position: relative;
             `;
             
-            // Create canvas
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.width = scaledViewport.width;
@@ -572,7 +557,6 @@ async function renderAllPages() {
             canvas.style.background = 'var(--reader-bg)';
             canvas.dataset.page = i;
             
-            // Render page
             const renderContext = {
                 canvasContext: context,
                 viewport: scaledViewport,
@@ -580,7 +564,6 @@ async function renderAllPages() {
             
             await page.render(renderContext).promise;
             
-            // Add page number label
             const pageLabel = document.createElement('div');
             pageLabel.className = 'page-label';
             pageLabel.style.cssText = `
@@ -600,11 +583,9 @@ async function renderAllPages() {
             
             totalRenderedPages = i;
             
-            // Update progress
             const progress = (i / totalPages) * 100;
             progressFill.style.width = progress + '%';
             
-            // Small delay to let the browser breathe
             if (i % 3 === 0) {
                 await new Promise(r => setTimeout(r, 10));
             }
@@ -613,13 +594,10 @@ async function renderAllPages() {
         allPagesRendered = true;
         hideLoading();
         
-        // Update page info
         pageInfo.textContent = `📖 ${totalPages} pages loaded`;
         
-        // Apply dark mode to all canvases
         applyDarkModeToAllPages();
         
-        // Check if completed (all pages rendered)
         currentPage = totalPages;
         checkIfCompleted();
         
@@ -665,15 +643,30 @@ function checkIfCompleted() {
 }
 
 // ============================================
-// NAVIGATION
+// NAVIGATION - SCROLL TO TOP/BOTTOM
 // ============================================
 window.nextPage = function() {
     if (usingGoogleDocs) {
         showToast('Page navigation not available in Google Docs view', 'info');
         return;
     }
-    if (currentPage < totalPages) {
-        renderPage(currentPage + 1);
+    
+    // Scroll to the next page container
+    const containers = pageWrapper.querySelectorAll('.pdf-page-container');
+    let currentIndex = 0;
+    for (let i = 0; i < containers.length; i++) {
+        const rect = containers[i].getBoundingClientRect();
+        if (rect.top >= 0 && rect.top < window.innerHeight) {
+            currentIndex = i;
+            break;
+        }
+    }
+    
+    if (currentIndex < containers.length - 1) {
+        containers[currentIndex + 1].scrollIntoView({ behavior: 'smooth' });
+        currentPage = currentIndex + 2;
+        updatePageInfo();
+        saveProgress();
     } else {
         showToast("You're on the last page", 'info');
         if (!isCompleted) {
@@ -696,23 +689,34 @@ window.prevPage = function() {
         showToast('Page navigation not available in Google Docs view', 'info');
         return;
     }
-    if (currentPage > 1) {
-        renderPage(currentPage - 1);
+    
+    const containers = pageWrapper.querySelectorAll('.pdf-page-container');
+    let currentIndex = 0;
+    for (let i = 0; i < containers.length; i++) {
+        const rect = containers[i].getBoundingClientRect();
+        if (rect.top >= 0 && rect.top < window.innerHeight) {
+            currentIndex = i;
+            break;
+        }
+    }
+    
+    if (currentIndex > 0) {
+        containers[currentIndex - 1].scrollIntoView({ behavior: 'smooth' });
+        currentPage = currentIndex;
+        updatePageInfo();
+        saveProgress();
     } else {
         showToast("You're on the first page", 'info');
     }
 };
 
+function updatePageInfo() {
+    pageInfo.textContent = `📖 Page ${currentPage} of ${totalPages}`;
+}
+
 // ============================================
 // PROGRESS TRACKING
 // ============================================
-function updateProgress() {
-    if (usingGoogleDocs) return;
-    // Progress is updated during renderAllPages
-    // This is now handled by the scroll listener
-}
-
-// Add scroll progress tracking
 function setupScrollProgress() {
     readerContainer.addEventListener('scroll', function() {
         if (!allPagesRendered) return;
@@ -771,7 +775,6 @@ window.toggleTheme = function() {
     
     localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
     
-    // Apply dark mode to all canvases
     if (pdfDoc && !usingGoogleDocs) {
         applyDarkModeToAllPages();
     }
@@ -824,86 +827,81 @@ async function initReader() {
         return;
     }
 
-    // 1. Check Authorization
     const authorized = await checkAuthorization();
     if (!authorized) return;
 
-   // 2. Load PDF
-showLoading('Loading PDF library...');
+    showLoading('Loading PDF library...');
 
-try {
-    await loadPDFJS();
+    try {
+        await loadPDFJS();
 
-    showLoading('Opening book...', 'Loading the PDF file');
+        showLoading('Opening book...', 'Loading the PDF file');
 
-    const response = await fetch(fileUrl);
-    const pdfData = await response.arrayBuffer();
+        const response = await fetch(fileUrl);
+        const pdfData = await response.arrayBuffer();
 
-    const loadingTask = pdfjsLib.getDocument({
-        data: pdfData,
-        useSystemFonts: true,
-        disableFontFace: false,
-        disableRange: true,
-        disableStream: true,
-        disableAutoFetch: true,
-        useWorkerFetch: false,
-        isEvalSupported: false
-    });
+        const loadingTask = pdfjsLib.getDocument({
+            data: pdfData,
+            useSystemFonts: true,
+            disableFontFace: false,
+            disableRange: true,
+            disableStream: true,
+            disableAutoFetch: true,
+            useWorkerFetch: false,
+            isEvalSupported: false
+        });
 
-      pdfDoc = await loadingTask.promise;
-    totalPages = pdfDoc.numPages;
-    pageInfo.textContent = 'Loading ' + totalPages + ' pages...';
+        pdfDoc = await loadingTask.promise;
+        totalPages = pdfDoc.numPages;
+        pageInfo.textContent = 'Loading ' + totalPages + ' pages...';
 
-    console.log('📚 PDF loaded: ' + totalPages + ' pages');
+        console.log('📚 PDF loaded: ' + totalPages + ' pages');
 
-    // Load saved progress
-    const hasProgress = loadSavedProgress();
-    
-    // RENDER ALL PAGES FOR CONTINUOUS SCROLL
-    await renderAllPages();
-    
-    // ✅ SETUP SCROLL PROGRESS TRACKING - PASTE HERE
-    setupScrollProgress();
-    
-    hideLoading();
+        const hasProgress = loadSavedProgress();
+        
+        await renderAllPages();
+        
+        setupScrollProgress();
+        
+        hideLoading();
 
-    // Scroll to saved position if progress exists
-    if (hasProgress && currentPage > 1) {
-        const containers = pageWrapper.querySelectorAll('.pdf-page-container');
-        if (containers[currentPage - 1]) {
-            setTimeout(() => {
-                containers[currentPage - 1].scrollIntoView({ behavior: 'smooth' });
-            }, 500);
+        if (hasProgress && currentPage > 1) {
+            const containers = pageWrapper.querySelectorAll('.pdf-page-container');
+            if (containers[currentPage - 1]) {
+                setTimeout(() => {
+                    containers[currentPage - 1].scrollIntoView({ behavior: 'smooth' });
+                }, 500);
+            }
         }
-    }
 
-    if (autoSaveTimer) clearInterval(autoSaveTimer);
-    autoSaveTimer = setInterval(saveProgress, 5000);
+        if (autoSaveTimer) clearInterval(autoSaveTimer);
+        autoSaveTimer = setInterval(saveProgress, 5000);
 
-    showToast('✅ Book loaded successfully!', 'success');
+        showToast('✅ Book loaded successfully!', 'success');
 
-    if (isCompleted) {
-        const actions = document.querySelector('.reader-footer .actions');
-        const existingBtn = actions.querySelector('.completed-btn');
-        if (!existingBtn) {
-            const btn = document.createElement('button');
-            btn.className = 'completed-btn';
-            btn.innerHTML = '<i class="fas fa-star"></i> Completed! Claim GP';
-            btn.onclick = markAsCompleted;
-            actions.appendChild(btn);
+        if (isCompleted) {
+            const actions = document.querySelector('.reader-footer .actions');
+            const existingBtn = actions.querySelector('.completed-btn');
+            if (!existingBtn) {
+                const btn = document.createElement('button');
+                btn.className = 'completed-btn';
+                btn.innerHTML = '<i class="fas fa-star"></i> Completed! Claim GP';
+                btn.onclick = markAsCompleted;
+                actions.appendChild(btn);
+            }
         }
-    }
 
-} catch (error) {
-    console.error('PDF loading error:', error);
-    
-    if (isMobile || isSafari) {
-        showLoading('PDF.js failed, using Google Docs...', 'Opening in Google Docs viewer');
-        setTimeout(function() {
-            loadGoogleDocs();
-        }, 1000);
-    } else {
-        showToast('Could not load the book. Please try again.', 'error');
+    } catch (error) {
+        console.error('PDF loading error:', error);
+        
+        if (isMobile || isSafari) {
+            showLoading('PDF.js failed, using Google Docs...', 'Opening in Google Docs viewer');
+            setTimeout(function() {
+                loadGoogleDocs();
+            }, 1000);
+        } else {
+            showToast('Could not load the book. Please try again.', 'error');
+        }
     }
 }
 
@@ -926,7 +924,6 @@ async function start() {
         }
     }
     
-    // Apply theme from localStorage
     const savedTheme = localStorage.getItem('reader_theme');
     if (savedTheme === 'dark') {
         isDarkMode = true;
@@ -940,7 +937,7 @@ async function start() {
 start();
 
 // ============================================
-// EXPOSE FUNCTIONS TO GLOBAL SCOPE (FIXES BUTTONS)
+// EXPOSE FUNCTIONS TO GLOBAL SCOPE
 // ============================================
 window.goToLogin = goToLogin;
 window.goToHub = goToHub;
