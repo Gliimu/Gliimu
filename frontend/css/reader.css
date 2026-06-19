@@ -552,3 +552,37 @@ body.dark-mode .reader-container canvas {
         padding-right: max(0.8rem, env(safe-area-inset-right));
     }
 }
+
+/* ============================================
+   PDF PAGE CONTAINERS - Continuous Scroll
+   ============================================ */
+.pdf-page-container {
+    width: 100%;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+    position: relative;
+}
+
+.pdf-page-container canvas {
+    box-shadow: 0 2px 16px var(--shadow-color);
+    border-radius: 6px;
+    background: var(--reader-bg);
+    max-width: 100%;
+    height: auto;
+}
+
+.pdf-page-container .page-label {
+    position: absolute;
+    bottom: -20px;
+    right: 10px;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Dark mode support for PDF pages */
+body.dark-mode .pdf-page-container canvas {
+    filter: invert(0.85) hue-rotate(180deg) brightness(1.2) contrast(1.1) !important;
+}
