@@ -708,11 +708,23 @@ window.prevPage = function() {
 // ============================================
 function updateProgress() {
     if (usingGoogleDocs) return;
-    const progress = (currentPage / totalPages) * 100;
-    progressFill.style.width = progress + '%';
-    
-    const icon = progress >= 90 ? '🎯' : progress >= 50 ? '📖' : '📚';
-    pageInfo.innerHTML = icon + ' Page ' + currentPage + ' of ' + totalPages;
+    // Progress is updated during renderAllPages
+    // This is now handled by the scroll listener
+}
+
+// Add scroll progress tracking
+function setupScrollProgress() {
+    readerContainer.addEventListener('scroll', function() {
+        if (!allPagesRendered) return;
+        
+        const scrollTop = readerContainer.scrollTop;
+        const scrollHeight = readerContainer.scrollHeight - readerContainer.clientHeight;
+        
+        if (scrollHeight > 0) {
+            const progress = (scrollTop / scrollHeight) * 100;
+            progressFill.style.width = progress + '%';
+        }
+    });
 }
 
 function saveProgress() {
@@ -759,9 +771,9 @@ window.toggleTheme = function() {
     
     localStorage.setItem('reader_theme', isDarkMode ? 'dark' : 'light');
     
-    if (pdfDoc && currentPage && !usingGoogleDocs) {
-        pageCache = {};
-        renderPage(currentPage);
+    // Apply dark mode to all canvases
+    if (pdfDoc && !usingGoogleDocs) {
+        applyDarkModeToAllPages();
     }
 
     showToast(isDarkMode ? '🌙 Dark mode activated' : '☀️ Light mode activated', 'success');
@@ -838,7 +850,7 @@ try {
         isEvalSupported: false
     });
 
-    pdfDoc = await loadingTask.promise;
+      pdfDoc = await loadingTask.promise;
     totalPages = pdfDoc.numPages;
     pageInfo.textContent = 'Loading ' + totalPages + ' pages...';
 
@@ -849,6 +861,10 @@ try {
     
     // RENDER ALL PAGES FOR CONTINUOUS SCROLL
     await renderAllPages();
+    
+    // ✅ SETUP SCROLL PROGRESS TRACKING - PASTE HERE
+    setupScrollProgress();
+    
     hideLoading();
 
     // Scroll to saved position if progress exists
