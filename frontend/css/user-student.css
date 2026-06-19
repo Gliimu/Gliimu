@@ -886,3 +886,46 @@ body.dark-mode .mcq-option.correct {
 body.dark-mode .mcq-option.incorrect {
     background: rgba(239, 68, 68, 0.15) !important;
 }
+
+/* ============================================
+   QUESTION STATS BADGES
+   ============================================ */
+
+.question-stats {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.stat-badge i {
+    color: var(--brand-gold);
+}
+
+.stat-badge:first-child i {
+    color: var(--brand-gold);
+}
+
+@media (max-width: 480px) {
+    .question-stats {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+    
+    .stat-badge {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.5rem;
+    }
+}
