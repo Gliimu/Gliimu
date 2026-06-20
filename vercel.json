@@ -155,7 +155,7 @@
       "headers": [
         {
           "key": "X-Frame-Options",
-          "value": "ALLOW-FROM https://www.gliimu.com"
+          "value": ""
         }
       ]
     },
@@ -164,7 +164,7 @@
       "headers": [
         {
           "key": "X-Frame-Options",
-          "value": "ALLOW-FROM https://www.gliimu.com"
+          "value": ""
         }
       ]
     },
