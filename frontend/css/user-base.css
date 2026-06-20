@@ -1446,6 +1446,10 @@ body.dark-mode .payment-instructions {
     background: var(--bg-secondary);
 }
 
+body.dark-mode .progress-bar-container{
+   background: rgba(255, 255, 255, .7)
+}
+
 body.dark-mode .amount-btn {
     background: var(--bg-secondary);
     color: var(--text-primary);
