@@ -18,14 +18,13 @@ import {
     getCurrentBadge,
     getNextBadge,
     getProgressToNextBadge,
-    getNextQuestion,
     getLeaderboard,
     sharePortfolio,
     submitMVPProposal,
     getStudentPortfolio
 } from '../modules/progression.js';
 
-import { QuestionRenderer, renderProgressBar, renderLeaderboard } from '../modules/questions.js';
+import { renderProgressBar, renderLeaderboard } from '../modules/questions.js';
 
 // ============================================
 // IMPORT ROLE-SPECIFIC MODULES
@@ -33,19 +32,23 @@ import { QuestionRenderer, renderProgressBar, renderLeaderboard } from '../modul
 let studentModule = null;
 let instructorModule = null;
 let partnerModule = null;
+let courseListenerSetup = false;
 
 // Dynamically load role modules
 async function loadRoleModules() {
     try {
-        studentModule = await import('./user-student.js');
+        const student = await import('./user-student.js');
+        studentModule = student.default || student;
     } catch (e) { console.log('Student module not loaded'); }
 
     try {
-        instructorModule = await import('./user-instructor.js');
+        const instructor = await import('./user-instructor.js');
+        instructorModule = instructor.default || instructor;
     } catch (e) { console.log('Instructor module not loaded'); }
 
     try {
-        partnerModule = await import('./user-partner.js');
+        const partner = await import('./user-partner.js');
+        partnerModule = partner.default || partner;
     } catch (e) { console.log('Partner module not loaded'); }
 }
 
@@ -63,7 +66,6 @@ let pendingPayments = [];
 let approvedPayments = [];
 let cancelledPayments = [];
 let allLibraryItems = [];
-let questionRenderer = null;
 let paymentsCache = null;
 let lastPaymentsFetch = 0;
 const CACHE_DURATION = 30000;
@@ -75,7 +77,7 @@ const PAYMENTS_CACHE_DURATION = 60000;
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'question', name: 'Questions', icon: 'fas fa-question-circle' },
+        { id: 'journey', name: 'Journey', icon: 'fas fa-road' },
         { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
@@ -234,13 +236,13 @@ function updateUI() {
         avatarImg.src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'User')}&background=fbb040&color=fff`;
     }
     
-    // Show/hide question tab based on role
-    const questionTab = document.getElementById('mobileQuestionTab');
-    if (questionTab) {
+    // Show/hide journey tab based on role
+    const journeyTab = document.getElementById('mobileJourneyTab');
+    if (journeyTab) {
         if (currentRole === 'student') {
-            questionTab.style.display = 'flex';
+            journeyTab.style.display = 'flex';
         } else {
-            questionTab.style.display = 'none';
+            journeyTab.style.display = 'none';
         }
     }
 }
@@ -324,8 +326,8 @@ function createContentSections() {
         <div id="dashboard-section" class="dashboard-section active">
             <div class="loading-spinner">Loading dashboard...</div>
         </div>
-        <div id="question-section" class="dashboard-section">
-            <div class="loading-spinner">Loading questions...</div>
+        <div id="journey-section" class="dashboard-section">
+            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading your learning journey...</div>
         </div>
         <div id="gotomenu-section" class="dashboard-section">
             <div class="loading-spinner">Loading menu...</div>
@@ -357,12 +359,8 @@ async function loadTabData(tabId) {
         case 'dashboard':
             await renderDashboard();
             break;
-        case 'question':
-            if (currentRole === 'student') {
-                await renderQuestionBar();
-            } else {
-                showToast('Questions are only available for students', 'info');
-            }
+        case 'journey':
+            renderJourney();
             break;
         case 'gotomenu':
             renderGoToMenu();
@@ -393,6 +391,169 @@ async function loadTabData(tabId) {
 }
 
 // ============================================
+// JOURNEY TAB - RENDER LEARNING PATH
+// ============================================
+function renderJourney() {
+    const container = document.getElementById('journey-section');
+    if (!container) return;
+    
+    // Check if user is student
+    if (currentRole !== 'student') {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-road"></i>
+                <h3>Journey Not Available</h3>
+                <p>The learning journey is only available for students.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="journey-container">
+            <div class="journey-loader" id="journeyLoader">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading your learning journey...</p>
+            </div>
+            <iframe 
+                src="/course.html" 
+                class="journey-iframe" 
+                id="journeyIframe"
+                frameborder="0"
+                scrolling="yes"
+                allow="clipboard-write"
+            ></iframe>
+        </div>
+    `;
+    
+    // Setup message listener for course events
+    if (!courseListenerSetup) {
+        setupCourseMessageListener();
+        courseListenerSetup = true;
+    }
+    
+    // Hide loader when iframe loads
+    const iframe = document.getElementById('journeyIframe');
+    const loader = document.getElementById('journeyLoader');
+    
+    if (iframe) {
+        iframe.addEventListener('load', () => {
+            if (loader) loader.style.display = 'none';
+        });
+        
+        // Fallback: hide loader after 5 seconds even if iframe doesn't load
+        setTimeout(() => {
+            if (loader) loader.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// ============================================
+// COURSE MESSAGE LISTENER (GP Updates)
+// ============================================
+function setupCourseMessageListener() {
+    window.addEventListener('message', async (event) => {
+        // Only accept messages from course.html
+        if (!event.data || event.data.type !== 'moduleCompleted') return;
+        
+        console.log('📬 Course event received:', event.data);
+        
+        const { moduleName, gpEarned, newTotalGP } = event.data;
+        
+        // Update GP display in header (if exists)
+        const gpDisplay = document.querySelector('.gp-display .gp-value');
+        if (gpDisplay) {
+            gpDisplay.textContent = newTotalGP;
+        }
+        
+        // Update dashboard if visible
+        if (currentTab === 'dashboard') {
+            await renderDashboard();
+        }
+        
+        // Update user's GP in localStorage
+        if (currentUser) {
+            currentUser.gpPoints = newTotalGP;
+            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
+        }
+        
+        // Show toast notification
+        showToast(`🎉 +${gpEarned} GP earned for completing "${moduleName}"!`, 'success');
+        
+        // Check for achievements/level ups
+        await checkGPMilestones(newTotalGP);
+    });
+}
+
+// ============================================
+// GP MILESTONE CHECKS
+// ============================================
+async function checkGPMilestones(totalGP) {
+    const milestones = [
+        { gp: 100, title: 'Scholar', icon: '🎓' },
+        { gp: 250, title: 'Reader', icon: '📚' },
+        { gp: 500, title: 'Builder', icon: '🏆' },
+        { gp: 1000, title: 'Master', icon: '👑' },
+        { gp: 1500, title: 'Ambassador', icon: '⭐' }
+    ];
+    
+    for (const milestone of milestones) {
+        if (totalGP >= milestone.gp) {
+            // Check if already unlocked
+            const key = `milestone_${milestone.gp}_${currentUser.id}`;
+            if (!localStorage.getItem(key)) {
+                localStorage.setItem(key, 'true');
+                showToast(`🏆 Achievement Unlocked: ${milestone.icon} ${milestone.title}!`, 'success');
+                
+                // Trigger confetti
+                triggerConfetti();
+            }
+        }
+    }
+}
+
+// ============================================
+// CONFETTI TRIGGER
+// ============================================
+function triggerConfetti() {
+    const colors = ['#fbb040', '#2c2f78', '#10b981', '#ef4444', '#3b82f6'];
+    const container = document.body;
+    
+    // Check if confetti styles exist
+    if (!document.getElementById('confettiStyles')) {
+        const style = document.createElement('style');
+        style.id = 'confettiStyles';
+        style.textContent = `
+            @keyframes confettiFall {
+                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    for (let i = 0; i < 80; i++) {
+        const confetti = document.createElement('div');
+        confetti.style.cssText = `
+            position: fixed;
+            top: -20px;
+            left: ${Math.random() * 100}%;
+            width: ${Math.random() * 10 + 5}px;
+            height: ${Math.random() * 10 + 5}px;
+            background: ${colors[Math.floor(Math.random() * colors.length)]};
+            border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+            z-index: 9999;
+            pointer-events: none;
+            animation: confettiFall ${Math.random() * 3 + 2}s linear forwards;
+            animation-delay: ${Math.random() * 0.5}s;
+        `;
+        container.appendChild(confetti);
+        
+        setTimeout(() => confetti.remove(), 5000);
+    }
+}
+
+// ============================================
 // DASHBOARD RENDER
 // ============================================
 async function renderDashboard() {
@@ -416,20 +577,23 @@ async function renderDashboard() {
         
         // Fallback to generic dashboard
         console.log('Using generic dashboard render');
-       let scoreData = { current_score: 0 };
-try {
-    scoreData = await getStudentScore(currentUser.id);
-    console.log('📊 Score data:', scoreData);
-} catch (e) {
-    console.warn('⚠️ Could not get student score:', e);
-    scoreData = { current_score: 0 };
-}
+        let scoreData = { current_score: 0 };
+        try {
+            scoreData = await getStudentScore(currentUser.id);
+            console.log('📊 Score data:', scoreData);
+        } catch (e) {
+            console.warn('⚠️ Could not get student score:', e);
+            scoreData = { current_score: 0 };
+        }
         const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
         const nextBadge = getNextBadge(scoreData?.current_score || 0);
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
         const leaderboardData = await getLeaderboard(10);
         const isAmbassador = (scoreData?.current_score || 0) >= 100;
         const walletBalance = currentUser?.walletBalance || 14500;
+        
+        // Get GP from localStorage or user data
+        const gpPoints = currentUser?.gpPoints || 0;
         
         container.innerHTML = `
             <div class="progress-section">
@@ -444,6 +608,13 @@ try {
                         <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
                     </div>
                     <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
+                </div>
+                <div class="quick-stat-card">
+                    <i class="fas fa-star"></i>
+                    <div>
+                        <span class="quick-stat-label">Gliimu Points (GP)</span>
+                        <span class="quick-stat-value quick-gp">${gpPoints}</span>
+                    </div>
                 </div>
             </div>
             
@@ -636,334 +807,6 @@ function renderGoToMenu() {
             </div>
         </div>
     `;
-}
-
-// ============================================
-// QUESTIONS - Student Only (UPDATED)
-// ============================================
-let questionHistory = [];
-let currentQuestionIndex = 0;
-let questionsForLevel = [];
-
-async function renderQuestionBar() {
-    if (currentRole !== 'student') {
-        showToast('Questions are only available for students', 'info');
-        return;
-    }
-    
-    const container = document.getElementById('question-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2><i class="fas fa-question-circle"></i> Questions</h2>
-                <p>Answer questions to earn points and level up</p>
-            </div>
-            <div class="question-stats">
-                <span class="stat-badge">
-                    <i class="fas fa-star"></i> 
-                    <span id="questionScoreDisplay">0</span>% Score
-                </span>
-                <span class="stat-badge" id="questionLevelBadge">
-                    <i class="fas fa-medal"></i> 
-                    <span id="questionLevelDisplay">Starter</span>
-                </span>
-            </div>
-        </div>
-        
-        <div id="questionContainer">
-            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>
-        </div>
-    `;
-    
-    await loadQuestionsForCurrentLevel();
-}
-
-async function loadQuestionsForCurrentLevel() {
-    const container = document.getElementById('questionContainer');
-    if (!container) return;
-    
-    try {
-        // Get current score to determine level
-        const scoreData = await getStudentScore(currentUser.id);
-        const currentScore = scoreData?.current_score || 0;
-        const currentBadge = getCurrentBadge(currentScore);
-        const badgeLevel = currentBadge.name.toLowerCase();
-        
-        // Update stats display
-        const scoreDisplay = document.getElementById('questionScoreDisplay');
-        if (scoreDisplay) {
-            // Show 99.99% if mastery cap is reached
-            const displayScore = (currentScore >= 99.99 && badgeLevel === 'mastery') ? '99.99' : currentScore;
-            scoreDisplay.textContent = displayScore;
-        }
-        
-        const levelDisplay = document.getElementById('questionLevelDisplay');
-        if (levelDisplay) {
-            levelDisplay.textContent = currentBadge.name;
-        }
-        
-        // Get questions for this level
-        const questions = await getQuestionsForLevel(badgeLevel);
-        
-        if (!questions || questions.length === 0) {
-            // Check if there's a next level
-            const nextBadge = getNextBadge(currentScore);
-            if (nextBadge) {
-                container.innerHTML = `
-                    <div class="question-complete">
-                        <div class="complete-icon">🎉</div>
-                        <h2>Level Complete!</h2>
-                        <p>You've completed all questions for ${currentBadge.name} level.</p>
-                        <p style="font-size: 0.85rem; opacity: 0.7;">You need ${nextBadge.minScore}% to unlock ${nextBadge.name} level.</p>
-                        <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
-                    </div>
-                `;
-            } else {
-                container.innerHTML = `
-                    <div class="question-complete">
-                        <div class="complete-icon">🏆</div>
-                        <h2>All Questions Complete!</h2>
-                        <p>You've answered all available questions at every level.</p>
-                        <p style="font-size: 0.85rem; opacity: 0.7;">You are a true ${currentBadge.name}!</p>
-                        <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
-                    </div>
-                `;
-            }
-            return;
-        }
-        
-        questionsForLevel = questions;
-        currentQuestionIndex = 0;
-        questionHistory = [];
-        
-        // Render first question
-        renderQuestion(0);
-        
-    } catch (error) {
-        console.error('Error loading questions:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load questions</h3>
-                <button class="btn-primary" onclick="renderQuestionBar()">Try Again</button>
-            </div>
-        `;
-    }
-}
-
-async function getQuestionsForLevel(level) {
-    try {
-        // First try to get from database
-        const { data, error } = await supabase
-            .from('questions')
-            .select('*')
-            .eq('badge_level', level)
-            .eq('is_approved', true)
-            .order('difficulty_level', { ascending: true });
-        
-        if (error) {
-            console.warn('Error fetching questions:', error);
-            return getSampleQuestions(level);
-        }
-        
-        if (!data || data.length === 0) {
-            return getSampleQuestions(level);
-        }
-        
-        return data;
-        
-    } catch (error) {
-        console.error('Error in getQuestionsForLevel:', error);
-        return getSampleQuestions(level);
-    }
-}
-
-function getSampleQuestions(level) {
-    const samples = {
-        starter: [
-            {
-                id: 'sample_1',
-                text: 'What is the first step in video production?',
-                type: 'mcq',
-                badge_level: 'starter',
-                category: 'Video Production',
-                options: {
-                    'A': 'Pre-production (Planning)',
-                    'B': 'Production (Filming)',
-                    'C': 'Post-production (Editing)',
-                    'D': 'Distribution (Publishing)'
-                },
-                correct_answer: 'A',
-                explanation: 'Pre-production is the planning phase before filming begins.'
-            },
-            {
-                id: 'sample_2',
-                text: 'Which of these is NOT a stage of video production?',
-                type: 'mcq',
-                badge_level: 'starter',
-                category: 'Video Production',
-                options: {
-                    'A': 'Pre-production',
-                    'B': 'Production',
-                    'C': 'Monetization',
-                    'D': 'Post-production'
-                },
-                correct_answer: 'C',
-                explanation: 'The three main stages are pre-production, production, and post-production.'
-            },
-            {
-                id: 'sample_3',
-                text: 'What does "B-roll" refer to in video production?',
-                type: 'mcq',
-                badge_level: 'starter',
-                category: 'Video Production',
-                options: {
-                    'A': 'The main interview footage',
-                    'B': 'Supplementary footage used to support the main footage',
-                    'C': 'The final edited version',
-                    'D': 'Behind-the-scenes footage'
-                },
-                correct_answer: 'B',
-                explanation: 'B-roll is supplementary footage that is used to support the main footage.'
-            }
-        ],
-        diploma: [
-            {
-                id: 'sample_4',
-                text: 'Explain the rule of thirds in cinematography and why it\'s important.',
-                type: 'typed',
-                badge_level: 'diploma',
-                category: 'Video Production'
-            },
-            {
-                id: 'sample_5',
-                text: 'Describe the difference between 24fps, 30fps, and 60fps in video production.',
-                type: 'typed',
-                badge_level: 'diploma',
-                category: 'Video Production'
-            }
-        ],
-        advanced: [
-            {
-                id: 'sample_6',
-                text: 'Create a 30-second video ad for a product of your choice. Document your process from concept to final edit.',
-                type: 'file',
-                badge_level: 'advanced',
-                category: 'Video Production'
-            },
-            {
-                id: 'sample_7',
-                text: 'Design a mobile app UI for a video editing tool. Submit your design files and explain your design decisions.',
-                type: 'file',
-                badge_level: 'advanced',
-                category: 'Design'
-            }
-        ],
-        mastery: [
-            {
-                id: 'sample_8',
-                text: 'RESOLVED: Artificial intelligence will replace human video editors by 2030.',
-                type: 'debate',
-                badge_level: 'mastery',
-                category: 'Media History'
-            },
-            {
-                id: 'sample_9',
-                text: 'RESOLVED: Traditional media education is more effective than online learning.',
-                type: 'debate',
-                badge_level: 'mastery',
-                category: 'Education'
-            }
-        ],
-        ambassador: [
-            {
-                id: 'sample_10',
-                text: 'Submit your real-world media project proposal. Include problem statement, solution, execution plan, and expected impact.',
-                type: 'mvp',
-                badge_level: 'ambassador',
-                category: 'Real World Project'
-            }
-        ]
-    };
-    
-    return samples[level] || samples.starter;
-}
-
-function renderQuestion(index) {
-    const container = document.getElementById('questionContainer');
-    if (!container) return;
-    
-    if (index >= questionsForLevel.length) {
-        // All questions answered
-        container.innerHTML = `
-            <div class="question-complete">
-                <div class="complete-icon">🎉</div>
-                <h2>Level Complete!</h2>
-                <p>You've answered all questions for this level.</p>
-                <button class="btn-primary" onclick="loadQuestionsForCurrentLevel()">Refresh</button>
-            </div>
-        `;
-        return;
-    }
-    
-    const question = questionsForLevel[index];
-    
-    // Create question renderer
-    const renderer = new QuestionRenderer(
-        'questionContainer',
-        currentUser.id,
-        async (result) => {
-            // Update score
-            const scoreData = await getStudentScore(currentUser.id);
-            const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-            const nextBadge = getNextBadge(scoreData?.current_score || 0);
-            const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-            
-            // Update dashboard progress
-            const progressSection = document.querySelector('.progress-section');
-            if (progressSection) {
-                progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
-            }
-            
-            // Update question stats
-            const scoreDisplay = document.getElementById('questionScoreDisplay');
-            if (scoreDisplay) {
-                const displayScore = (scoreData?.current_score >= 99.99 && currentBadge.name === 'Mastery') ? '99.99' : scoreData?.current_score || 0;
-                scoreDisplay.textContent = displayScore;
-            }
-            
-            const levelDisplay = document.getElementById('questionLevelDisplay');
-            if (levelDisplay) {
-                levelDisplay.textContent = currentBadge.name;
-            }
-            
-            // Move to next question after delay
-            setTimeout(() => {
-                const nextIndex = index + 1;
-                if (nextIndex < questionsForLevel.length) {
-                    renderQuestion(nextIndex);
-                } else {
-                    // Check if all questions are answered
-                    container.innerHTML = `
-                        <div class="question-complete">
-                            <div class="complete-icon">🎉</div>
-                            <h2>Level Complete!</h2>
-                            <p>You've completed all questions for ${currentBadge.name} level!</p>
-                            <p style="font-size: 0.85rem; opacity: 0.7; margin-top: 0.5rem;">
-                                ${nextBadge ? `Next: ${nextBadge.name} requires ${nextBadge.minScore}%` : 'You\'ve reached the highest level!'}
-                            </p>
-                            <button class="btn-primary" onclick="loadQuestionsForCurrentLevel()">Continue</button>
-                        </div>
-                    `;
-                }
-            }, 1500);
-        }
-    );
-    
-    // Render the question
-    renderer.renderQuestion(question, index + 1, questionsForLevel.length);
 }
 
 // ============================================
@@ -1643,4 +1486,4 @@ initDashboard();
 // Expose functions globally
 window.switchTab = switchTab;
 window.toggleTheme = toggleTheme;
-window.renderQuestionBar = renderQuestionBar;
+window.renderDashboard = renderDashboard;
