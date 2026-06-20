@@ -46,7 +46,7 @@ export async function signIn(email, password) {
             if (userData.role === 'admin') {
                 window.location.href = '/admin-dashboard.html';
             } else {
-                window.location.href = '/dashboard.html';
+                window.location.href = '/user';
             }
         }, 1000);
         
