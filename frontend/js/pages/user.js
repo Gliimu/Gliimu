@@ -416,7 +416,7 @@ function renderJourney() {
                 <p>Loading your learning journey...</p>
             </div>
             <iframe 
-                src="/user-course" 
+                src="/frontend/user-course.html" 
                 class="journey-iframe" 
                 id="journeyIframe"
                 frameborder="0"
