@@ -17,6 +17,7 @@ let userStreak = 0;
 let expandedPhases = new Set();
 let isEmbedded = false;
 let _unlockedAchievements = [];
+let isLoading = true;
 
 // Achievement definitions
 const ACHIEVEMENTS = [
@@ -49,11 +50,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         loadCurriculum();
+        
+        // Load progress from database
         await loadUserProgress();
+        
+        // Load stats from database
         await loadUserStats();
+        
+        // Load leaderboard
         await loadLeaderboard();
+        
+        // Check achievements
         await checkAchievements();
         
+        // Render everything
         renderCurriculum();
         renderAchievements();
         updateOverallStats();
@@ -81,7 +91,7 @@ function showLoading() {
 }
 
 function hideLoading() {
-    // Loading will be replaced by render
+    isLoading = false;
 }
 
 function showError(message) {
@@ -210,6 +220,7 @@ async function loadUserProgress() {
             userProgress = data;
             console.log('✅ Loaded', userProgress.length, 'progress items from database');
         } else {
+            console.log('📂 No progress found in database, checking localStorage');
             loadProgressFromLocalStorage();
         }
     } catch (error) {
@@ -241,30 +252,74 @@ function saveProgressToLocalStorage() {
 
 async function loadUserStats() {
     try {
-        userGP = userProgress.reduce((total, p) => {
-            if (p.completed) {
-                for (const phase of curriculumData) {
-                    const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
-                    if (module) {
-                        return total + module.gp;
-                    }
-                }
+        // Try to get stats from database
+        const { data, error } = await supabase
+            .from('user_stats')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        
+        if (error) {
+            console.warn('⚠️ user_stats table error:', error.message);
+            calculateStatsFromProgress();
+            return;
+        }
+        
+        if (data) {
+            userGP = data.total_gp || 0;
+            userStreak = data.current_streak || 0;
+            console.log('📊 Stats loaded from database - GP:', userGP, 'Streak:', userStreak);
+        } else {
+            // No stats record, calculate from progress
+            calculateStatsFromProgress();
+            
+            // Create stats record
+            try {
+                await supabase
+                    .from('user_stats')
+                    .insert({
+                        user_id: currentUser.id,
+                        total_gp: userGP,
+                        current_streak: userStreak,
+                        longest_streak: userStreak,
+                        modules_completed: userProgress.filter(p => p.completed).length,
+                        last_active: new Date().toISOString()
+                    });
+                console.log('📊 Created stats record for user');
+            } catch (insertError) {
+                console.warn('Could not create stats record:', insertError);
             }
-            return total;
-        }, 0);
+        }
         
-        userStreak = parseInt(localStorage.getItem(`course_streak_${currentUser.id}`)) || 0;
-        
+        // Update UI
         document.getElementById('gpPoints').textContent = userGP;
         document.getElementById('streakDays').textContent = userStreak;
         
-        console.log('📊 Stats loaded - GP:', userGP, 'Streak:', userStreak);
-        
     } catch (error) {
         console.error('Error loading stats:', error);
-        userGP = 0;
-        userStreak = 0;
+        calculateStatsFromProgress();
     }
+}
+
+function calculateStatsFromProgress() {
+    userGP = userProgress.reduce((total, p) => {
+        if (p.completed) {
+            for (const phase of curriculumData) {
+                const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
+                if (module) {
+                    return total + module.gp;
+                }
+            }
+        }
+        return total;
+    }, 0);
+    
+    userStreak = parseInt(localStorage.getItem(`course_streak_${currentUser.id}`)) || 0;
+    
+    document.getElementById('gpPoints').textContent = userGP;
+    document.getElementById('streakDays').textContent = userStreak;
+    
+    console.log('📊 Stats calculated - GP:', userGP, 'Streak:', userStreak);
 }
 
 async function loadLeaderboard() {
@@ -280,6 +335,7 @@ async function loadLeaderboard() {
             return;
         }
         
+        // Fallback to mock data
         const mockLeaderboard = [
             { name: 'Michael Chen', gp: 2450 },
             { name: 'Sarah Johnson', gp: 2100 },
@@ -469,38 +525,28 @@ async function completeModule(moduleId) {
     showToast(`Completing "${module.name}"...`, 'info');
     
     try {
-        // Try to save to database
-        try {
-            const { error } = await supabase
-                .from('module_progress')
-                .insert({
-                    user_id: currentUser.id,
-                    module_id: moduleId.toString(),
-                    module_name: module.name,
-                    completed: true,
-                    completed_at: new Date().toISOString(),
-                    xp_earned: module.gp
-                });
-            
-            if (error) {
-                console.warn('Could not save to database:', error.message);
-                // Fallback to localStorage
-                userProgress.push({
-                    module_id: moduleId.toString(),
-                    module_name: module.name,
-                    completed: true
-                });
-                saveProgressToLocalStorage();
-            } else {
-                userProgress.push({
-                    module_id: moduleId.toString(),
-                    module_name: module.name,
-                    completed: true
-                });
-                saveProgressToLocalStorage();
-            }
-        } catch (dbError) {
-            console.warn('Database error:', dbError);
+        // Insert into database
+        const { error } = await supabase
+            .from('module_progress')
+            .insert({
+                user_id: currentUser.id,
+                module_id: moduleId.toString(),
+                module_name: module.name,
+                completed: true,
+                completed_at: new Date().toISOString(),
+                xp_earned: module.gp
+            });
+        
+        if (error) {
+            console.warn('Could not save to database:', error.message);
+            // Fallback to localStorage
+            userProgress.push({
+                module_id: moduleId.toString(),
+                module_name: module.name,
+                completed: true
+            });
+            saveProgressToLocalStorage();
+        } else {
             userProgress.push({
                 module_id: moduleId.toString(),
                 module_name: module.name,
@@ -517,6 +563,23 @@ async function completeModule(moduleId) {
         userStreak = Math.min(userStreak + 1, 30);
         localStorage.setItem(`course_streak_${currentUser.id}`, userStreak.toString());
         document.getElementById('streakDays').textContent = userStreak;
+        
+        // Update user_stats
+        try {
+            await supabase
+                .from('user_stats')
+                .upsert({
+                    user_id: currentUser.id,
+                    total_gp: userGP,
+                    current_streak: userStreak,
+                    longest_streak: userStreak,
+                    modules_completed: userProgress.filter(p => p.completed).length,
+                    last_active: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+        } catch (statsError) {
+            console.warn('Could not update stats:', statsError);
+        }
         
         // Notify parent
         notifyParent('moduleCompleted', {
@@ -647,6 +710,19 @@ async function unlockAchievement(achievement) {
     
     userGP += achievement.gp;
     document.getElementById('gpPoints').textContent = userGP;
+    
+    // Save to database
+    try {
+        await supabase
+            .from('user_achievements')
+            .insert({
+                user_id: currentUser.id,
+                achievement_id: achievement.id,
+                unlocked_at: new Date().toISOString()
+            });
+    } catch (error) {
+        console.warn('Could not save achievement:', error);
+    }
     
     notifyParent('achievementUnlocked', {
         achievementId: achievement.id,
