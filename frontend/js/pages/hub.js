@@ -180,7 +180,7 @@ function showInsufficientFunds(shortfall, currentBalance, required) {
                     Required: <strong>₦${required.toLocaleString()}</strong>
                 </p>
                 <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
-                    <button onclick="window.location.href='/dashboard.html?tab=wallet'" 
+                    <button onclick="window.location.href='/user?tab=wallet'" 
                             style="padding:0.75rem 2rem; border-radius:40px; border:none; background:var(--brand-gold); color:var(--brand-purple-dark); font-weight:600; cursor:pointer;">
                         💰 Add Funds
                     </button>
