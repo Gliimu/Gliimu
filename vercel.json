@@ -187,3 +187,22 @@
     }
   ]
 }
+
+{
+  "source": "/user-course",
+  "headers": [
+    {
+      "key": "X-Frame-Options",
+      "value": "SAMEORIGIN"
+    }
+  ]
+},
+{
+  "source": "/frontend/user-course.html",
+  "headers": [
+    {
+      "key": "X-Frame-Options",
+      "value": "SAMEORIGIN"
+    }
+  ]
+},
