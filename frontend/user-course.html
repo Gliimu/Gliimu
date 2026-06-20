@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Learning Path – Full-Stack Media Production | Gliimu Institute</title>
+    <title>Learning Journey | Gliimu Institute</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Your gamified learning journey to become a Media Architect.">
     
@@ -19,14 +19,52 @@
 </head>
 <body>
 
-    <!-- Main Container - No Header/Footer -->
+    <!-- ============================================
+         HEADER - Logo + Back Navigation
+         ============================================ -->
+    <header class="course-header">
+        <div class="header-container">
+            <div class="header-left">
+                <button class="back-btn" onclick="goBack()" aria-label="Go back">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="logo">
+                    <img src="/frontend/icons/logo.png" alt="Gliimu" class="logo-img">
+                    <span class="logo-text">Gliimu <span class="logo-gold">Journey</span></span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="mini-stats">
+                    <span class="mini-stat">
+                        <i class="fas fa-star"></i>
+                        <span id="headerGP">0</span>
+                    </span>
+                    <span class="mini-stat">
+                        <i class="fas fa-fire"></i>
+                        <span id="headerStreak">0</span>
+                    </span>
+                </div>
+                <button class="hub-btn" onclick="goToHub()">
+                    <i class="fas fa-th-large"></i>
+                    <span>Hub</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============================================
+         MAIN CONTAINER
+         ============================================ -->
     <div class="learning-path" id="learningPath">
         
-        <!-- Hero Section - Gamified -->
+        <!-- ============================================
+             HERO SECTION - Gamified
+             ============================================ -->
         <div class="path-hero">
             <div class="hero-content">
-                <div class="hero-icon">
-                    <i class="fas fa-rocket"></i>
+                <div class="hero-badge">
+                    <span class="hero-level" id="heroLevel">🌱 Starter</span>
+                    <span class="hero-xp" id="heroXP">0 GP</span>
                 </div>
                 <h1>Your Learning Journey</h1>
                 <p>Become a Media Architect – Master Video, Design & Code</p>
@@ -62,16 +100,29 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Decorative Elements -->
+            <div class="hero-decoration">
+                <div class="floating-icon icon-1">🚀</div>
+                <div class="floating-icon icon-2">⭐</div>
+                <div class="floating-icon icon-3">🎯</div>
+                <div class="floating-icon icon-4">🏆</div>
+            </div>
         </div>
         
-        <!-- Learning Path Container -->
+        <!-- ============================================
+             PATH CONTAINER
+             ============================================ -->
         <div class="path-container">
+            
+            <!-- ============================================
+                 CURRICULUM TIMELINE
+                 ============================================ -->
             <div class="path-header">
-                <h2><i class="fas fa-map"></i> Your Learning Path</h2>
-                <p>Complete modules to earn GP and track your progress</p>
+                <h2><i class="fas fa-map-signs"></i> Your Learning Path</h2>
+                <p>Complete modules to earn GP and level up</p>
             </div>
             
-            <!-- Gamified Curriculum Timeline -->
             <div class="curriculum-timeline" id="curriculumTimeline">
                 <div class="loading-spinner">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -79,17 +130,21 @@
                 </div>
             </div>
             
-            <!-- Electives Section -->
+            <!-- ============================================
+                 ELECTIVES SECTION - Grid Cards
+                 ============================================ -->
             <div class="electives-section">
                 <div class="electives-header">
-                    <h2><i class="fas fa-layer-group"></i> Elective Courses</h2>
-                    <p>Expand your knowledge with these additional courses</p>
+                    <div class="electives-title-group">
+                        <h2><i class="fas fa-layer-group"></i> Elective Courses</h2>
+                        <p>Expand your skills with these additional courses</p>
+                    </div>
                     <div class="electives-search">
                         <input type="text" id="electiveSearchInput" placeholder="Search electives..." oninput="window.searchElectives(this.value)">
-                        <button class="btn-primary"><i class="fas fa-search"></i></button>
+                        <button class="btn-search"><i class="fas fa-search"></i></button>
                     </div>
                 </div>
-                <div id="electivesContainer">
+                <div class="electives-grid" id="electivesContainer">
                     <div class="loading-spinner">
                         <i class="fas fa-spinner fa-spin"></i>
                         <p>Loading electives...</p>
@@ -101,7 +156,9 @@
         
     </div>
 
-    <!-- Module Detail Modal -->
+    <!-- ============================================
+         MODULE DETAIL MODAL
+         ============================================ -->
     <div class="modal-overlay" id="moduleModal">
         <div class="modal-content modal-module">
             <div class="modal-header">
@@ -124,7 +181,9 @@
         </div>
     </div>
 
-    <!-- Celebration Confetti Canvas -->
+    <!-- ============================================
+         CELEBRATION CONFETTI CANVAS
+         ============================================ -->
     <canvas id="confettiCanvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; display: none;"></canvas>
 
     <script type="module" src="/frontend/js/pages/user-course.js"></script>
