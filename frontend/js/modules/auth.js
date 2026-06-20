@@ -122,7 +122,7 @@ export async function signOut() {
         showToast('Signed out successfully', 'success');
         
         setTimeout(() => {
-            window.location.href = '/index.html';
+            window.location.href = '/hub';
         }, 1000);
         
         return { success: true };
@@ -162,7 +162,7 @@ export function requireAuth() {
     if (!isAuthenticated()) {
         showToast('Please login to continue', 'info');
         setTimeout(() => {
-            window.location.href = '/index.html';
+            window.location.href = '/index';
         }, 1500);
         return false;
     }
@@ -177,6 +177,6 @@ export function redirectBasedOnRole() {
     if (user.role === 'admin') {
         window.location.href = '/admin-dashboard.html';
     } else {
-        window.location.href = '/dashboard.html';
+        window.location.href = '/user';
     }
 }
