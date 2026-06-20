@@ -1,6 +1,5 @@
 // ============================================
-// USER COURSE - Learning Path (Clean Version)
-// Focus: Modules, Progress, GP Points
+// USER COURSE - Learning Path + Electives
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -12,11 +11,14 @@ import { showToast } from '../modules/toast.js';
 
 let currentUser = null;
 let curriculumData = [];
+let electivesData = [];
 let userProgress = [];
 let userGP = 0;
 let userStreak = 0;
 let expandedPhases = new Set();
+let expandedElectives = new Set();
 let isEmbedded = false;
+let searchQuery = '';
 
 // ============================================
 // INITIALIZATION
@@ -40,10 +42,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         loadCurriculum();
+        await loadElectives();
         await loadUserProgress();
         await loadUserStats();
         
         renderCurriculum();
+        renderElectives();
         updateOverallStats();
         setupEventListeners();
         hideLoading();
@@ -68,9 +72,7 @@ function showLoading() {
     }
 }
 
-function hideLoading() {
-    // Loading will be replaced by render
-}
+function hideLoading() {}
 
 function showError(message) {
     const container = document.getElementById('curriculumTimeline');
@@ -166,6 +168,46 @@ function loadCurriculum() {
     console.log('📚 Curriculum loaded:', curriculumData.length, 'phases');
 }
 
+async function loadElectives() {
+    try {
+        // Try to load from database
+        const { data, error } = await supabase
+            .from('elective_courses')
+            .select('*')
+            .eq('is_active', true)
+            .order('title', { ascending: true });
+        
+        if (error) {
+            console.warn('Could not load electives from database:', error.message);
+            // Use default electives
+            electivesData = getDefaultElectives();
+            return;
+        }
+        
+        if (data && data.length > 0) {
+            electivesData = data;
+        } else {
+            electivesData = getDefaultElectives();
+        }
+        
+        console.log('📚 Electives loaded:', electivesData.length);
+        
+    } catch (error) {
+        console.error('Error loading electives:', error);
+        electivesData = getDefaultElectives();
+    }
+}
+
+function getDefaultElectives() {
+    return [
+        { id: 'e1', title: 'Financial Literacy', description: 'Learn budgeting, saving, investing, and financial planning.', icon: 'fa-coins', modules: 6 },
+        { id: 'e2', title: 'Public Speaking', description: 'Master the art of confident public speaking and presentation.', icon: 'fa-microphone', modules: 5 },
+        { id: 'e3', title: 'Waste Management', description: 'Sustainable waste management and recycling practices.', icon: 'fa-recycle', modules: 4 },
+        { id: 'e4', title: 'Logic & Critical Thinking', description: 'Develop analytical thinking, reasoning, and problem-solving skills.', icon: 'fa-brain', modules: 6 },
+        { id: 'e5', title: 'Problem Solving', description: 'Systematic approaches to solving complex problems.', icon: 'fa-puzzle-piece', modules: 5 }
+    ];
+}
+
 async function loadUserProgress() {
     try {
         const { data, error } = await supabase
@@ -213,7 +255,6 @@ function saveProgressToLocalStorage() {
 
 async function loadUserStats() {
     try {
-        // Calculate GP from completed modules
         userGP = userProgress.reduce((total, p) => {
             if (p.completed) {
                 for (const phase of curriculumData) {
@@ -226,10 +267,8 @@ async function loadUserStats() {
             return total;
         }, 0);
         
-        // Streak from localStorage
         userStreak = parseInt(localStorage.getItem(`course_streak_${currentUser.id}`)) || 0;
         
-        // Update UI
         document.getElementById('gpPoints').textContent = userGP;
         document.getElementById('streakDays').textContent = userStreak;
         
@@ -347,6 +386,98 @@ function calculatePhaseProgress(phase) {
 }
 
 // ============================================
+// ELECTIVES RENDER
+// ============================================
+
+function renderElectives() {
+    const container = document.getElementById('electivesContainer');
+    if (!container) return;
+    
+    // Filter by search query
+    let filteredElectives = electivesData;
+    if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        filteredElectives = electivesData.filter(e => 
+            e.title.toLowerCase().includes(q) || 
+            e.description.toLowerCase().includes(q)
+        );
+    }
+    
+    if (filteredElectives.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <h3>No Electives Found</h3>
+                <p>${searchQuery ? `No results for "${searchQuery}"` : 'No electives available yet.'}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = filteredElectives.map(elective => {
+        const isExpanded = expandedElectives.has(elective.id);
+        return `
+            <div class="elective-card ${isExpanded ? 'expanded' : ''}" data-id="${elective.id}">
+                <div class="elective-header" onclick="toggleElective('${elective.id}')">
+                    <div class="elective-icon">
+                        <i class="fas ${elective.icon || 'fa-book'}"></i>
+                    </div>
+                    <div class="elective-info">
+                        <div class="elective-title">${elective.title}</div>
+                        <div class="elective-meta">
+                            <span><i class="fas fa-layer-group"></i> ${elective.modules || 0} modules</span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-${isExpanded ? 'up' : 'down'}"></i>
+                </div>
+                <div class="elective-body">
+                    <p class="elective-description">${elective.description || 'No description available.'}</p>
+                    <button class="btn-primary elective-start-btn" onclick="startElective('${elective.id}')">
+                        <i class="fas fa-play"></i> Start Learning
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ============================================
+// SEARCH ELECTIVES
+// ============================================
+
+window.searchElectives = function(query) {
+    searchQuery = query || '';
+    renderElectives();
+};
+
+// ============================================
+// TOGGLE ELECTIVE
+// ============================================
+
+window.toggleElective = function(electiveId) {
+    if (expandedElectives.has(electiveId)) {
+        expandedElectives.delete(electiveId);
+    } else {
+        expandedElectives.add(electiveId);
+    }
+    renderElectives();
+};
+
+// ============================================
+// START ELECTIVE
+// ============================================
+
+window.startElective = function(electiveId) {
+    const elective = electivesData.find(e => e.id === electiveId);
+    if (!elective) return;
+    
+    showToast(`Starting "${elective.title}"...`, 'success');
+    // Navigate to elective detail page or open modal
+    // For now, just show a message
+    showToast(`📚 "${elective.title}" course loaded!`, 'success');
+};
+
+// ============================================
 // MODULE COMPLETION
 // ============================================
 
@@ -374,7 +505,6 @@ async function completeModule(moduleId) {
     showToast(`Completing "${module.name}"...`, 'info');
     
     try {
-        // Save to database
         const { error } = await supabase
             .from('module_progress')
             .insert({
@@ -388,7 +518,6 @@ async function completeModule(moduleId) {
         
         if (error) {
             console.warn('DB error:', error.message);
-            // Fallback to localStorage
             userProgress.push({
                 module_id: moduleId.toString(),
                 module_name: module.name,
@@ -404,16 +533,13 @@ async function completeModule(moduleId) {
             saveProgressToLocalStorage();
         }
         
-        // Update GP
         userGP += module.gp;
         document.getElementById('gpPoints').textContent = userGP;
         
-        // Update streak
         userStreak = Math.min(userStreak + 1, 30);
         localStorage.setItem(`course_streak_${currentUser.id}`, userStreak.toString());
         document.getElementById('streakDays').textContent = userStreak;
         
-        // Notify parent
         notifyParent('moduleCompleted', {
             moduleId: module.id,
             moduleName: module.name,
@@ -591,6 +717,9 @@ function setupEventListeners() {
 // ============================================
 
 window.togglePhase = togglePhase;
+window.toggleElective = toggleElective;
+window.startElective = startElective;
+window.searchElectives = searchElectives;
 window.openModuleModal = openModuleModal;
 window.closeModuleModal = closeModuleModal;
 window.completeModule = completeModule;
