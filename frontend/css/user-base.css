@@ -230,6 +230,9 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
+    padding: 10px;
+    border-radius: 10%;
+    border: 1px solid var(--brand-gold);
 }
 
 .badge-icon {
