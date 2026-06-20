@@ -397,7 +397,6 @@ function renderJourney() {
     const container = document.getElementById('journey-section');
     if (!container) return;
     
-    // Check if user is student
     if (currentRole !== 'student') {
         container.innerHTML = `
             <div class="empty-state">
@@ -422,6 +421,7 @@ function renderJourney() {
                 frameborder="0"
                 scrolling="yes"
                 allow="clipboard-write"
+                style="width:100%;height:100%;border:none;"
             ></iframe>
         </div>
     `;
