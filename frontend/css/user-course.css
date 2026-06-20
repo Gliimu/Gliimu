@@ -1,337 +1,686 @@
 /* =========================================
-   USER COURSE STYLES - Dashboard Integration
+   GAMIFIED LEARNING PATH - GLIIMU
    ========================================= */
 
-/* ============================================
-   EMBEDDED MODE OVERRIDES
-   ============================================ */
-
-/* When course is embedded in dashboard */
-.learning-path.embedded {
-    padding: 0 !important;
-    background: transparent !important;
+:root {
+    --brand-purple: #2c2f78;
+    --brand-purple-dark: #1a1c4a;
+    --brand-gold: #fbb040;
+    --brand-gold-dark: #cc8a2a;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    --xp-color: #fbb040;
+    --streak-color: #ef4444;
 }
 
-.learning-path.embedded .path-hero {
-    border-radius: 16px 16px 0 0;
-    padding: 24px 30px;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+    color: var(--text-primary);
+}
+
+body.dark-mode {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+/* Learning Path Container */
+.learning-path {
+    min-height: 100vh;
+    padding: 40px 20px 60px;
+}
+
+.path-hero {
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
+    border-radius: 32px;
+    padding: 40px;
+    margin-bottom: 40px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.path-hero::before {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.hero-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+.hero-content h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.hero-content p {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin-bottom: 30px;
+}
+
+/* Overall Progress Card */
+.overall-progress-card {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 24px;
+    margin-top: 20px;
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-around;
     margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
-.learning-path.embedded .path-hero .hero-content h1 {
-    font-size: 1.5rem;
+.stat {
+    text-align: center;
 }
 
-.learning-path.embedded .path-hero .hero-content p {
-    font-size: 0.9rem;
-    margin-bottom: 16px;
+.stat-value {
+    display: block;
+    font-size: 28px;
+    font-weight: 800;
 }
 
-.learning-path.embedded .overall-progress-card {
+.stat-label {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.progress-bar-container {
+    width: 100%;
+}
+
+.progress-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.progress-bar-bg {
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+    height: 8px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    background: var(--brand-gold);
+    border-radius: 20px;
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+/* Path Container */
+.path-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.path-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.path-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.path-header p {
+    color: var(--text-secondary);
+}
+
+/* Curriculum Timeline */
+.curriculum-timeline {
+    position: relative;
+}
+
+.curriculum-timeline::before {
+    content: '';
+    position: absolute;
+    left: 30px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, var(--brand-gold), var(--brand-purple));
+    border-radius: 3px;
+}
+
+/* Phase Card */
+.phase-card {
+    position: relative;
+    margin-bottom: 40px;
+    padding-left: 70px;
+}
+
+.phase-marker {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 60px;
+    height: 60px;
+    background: var(--bg-card);
+    border: 3px solid var(--brand-gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 18px;
+    z-index: 2;
+    background: white;
+    box-shadow: var(--shadow-md);
+}
+
+body.dark-mode .phase-marker {
+    background: #1e293b;
+    color: white;
+}
+
+.phase-marker.completed {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+}
+
+.phase-marker.locked {
+    border-color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+.phase-content {
+    background: var(--bg-card);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+.phase-header {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(44,47,120,0.05), rgba(251,176,64,0.05));
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.phase-title {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.phase-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.phase-stats i {
+    color: var(--brand-gold);
+}
+
+.phase-progress {
+    width: 100px;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.phase-progress-fill {
+    height: 100%;
+    background: var(--brand-gold);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.phase-modules {
+    padding: 0 24px 24px;
+    display: none;
+}
+
+.phase-card.expanded .phase-modules {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Module Items */
+.module-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
     padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.2s;
+    cursor: pointer;
 }
 
-.learning-path.embedded .overall-progress-card .stat-value {
-    font-size: 20px;
+.module-item:last-child {
+    border-bottom: none;
 }
 
-.learning-path.embedded .path-container {
-    padding: 0 16px;
+.module-item:hover {
+    background: rgba(251,176,64,0.05);
 }
 
-.learning-path.embedded .path-header h2 {
-    font-size: 20px;
-}
-
-.learning-path.embedded .path-header p {
-    font-size: 0.85rem;
-}
-
-.learning-path.embedded .phase-card {
-    margin-bottom: 24px;
-    padding-left: 56px;
-}
-
-.learning-path.embedded .phase-marker {
-    width: 44px;
-    height: 44px;
+.module-status {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 14px;
 }
 
-.learning-path.embedded .phase-header {
-    padding: 14px 18px;
+.module-status.completed {
+    background: var(--success);
+    color: white;
 }
 
-.learning-path.embedded .phase-title {
-    font-size: 15px;
+.module-status.in-progress {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
 }
 
-.learning-path.embedded .phase-stats {
+.module-status.locked {
+    background: var(--border-color);
+    color: var(--text-secondary);
+}
+
+.module-info {
+    flex: 1;
+}
+
+.module-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.module-meta {
+    display: flex;
+    gap: 16px;
     font-size: 11px;
-    gap: 10px;
+    color: var(--text-secondary);
 }
 
-.learning-path.embedded .phase-modules {
-    padding: 0 18px 18px;
+.module-xp {
+    color: var(--brand-gold);
+    font-weight: 600;
 }
 
-.learning-path.embedded .module-item {
-    padding: 12px 14px;
+.module-action {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: none;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.learning-path.embedded .module-name {
-    font-size: 0.9rem;
+.module-action:hover {
+    background: var(--brand-gold);
+    border-color: var(--brand-gold);
+    color: white;
 }
 
-.learning-path.embedded .module-meta {
+/* Achievements Section */
+.achievements-section {
+    margin-top: 60px;
+    padding: 30px;
+    background: var(--bg-card);
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+}
+
+.achievements-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.achievements-header h3 {
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.achievements-header p {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 20px;
+}
+
+.achievement-card {
+    text-align: center;
+    padding: 16px;
+    border-radius: 16px;
+    background: var(--bg-secondary);
+    transition: all 0.3s;
+}
+
+.achievement-card.unlocked {
+    background: linear-gradient(135deg, rgba(251,176,64,0.1), rgba(44,47,120,0.1));
+}
+
+.achievement-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+}
+
+.achievement-name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.achievement-desc {
     font-size: 10px;
-    gap: 10px;
+    color: var(--text-secondary);
 }
 
-.learning-path.embedded .achievements-section {
-    padding: 20px;
-    margin-top: 30px;
+.achievement-locked {
+    filter: grayscale(1);
+    opacity: 0.5;
 }
 
-.learning-path.embedded .achievements-grid {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+/* Leaderboard Preview */
+.leaderboard-preview {
+    margin-top: 40px;
+    padding: 24px;
+    background: var(--bg-card);
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+}
+
+.leaderboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.leaderboard-header h3 {
+    font-size: 16px;
+}
+
+.view-all {
+    color: var(--brand-gold);
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
 }
 
-.learning-path.embedded .achievement-card {
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+}
+
+.leaderboard-rank {
+    width: 30px;
+    font-weight: 700;
+    color: var(--brand-gold);
+}
+
+.leaderboard-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.leaderboard-avatar i {
+    font-size: 16px;
+    color: white;
+}
+
+.leaderboard-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.leaderboard-xp {
+    color: var(--brand-gold);
+    font-weight: 600;
+}
+
+/* Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border-radius: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-top: 4px solid var(--brand-gold);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    font-size: 18px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.module-detail-icon {
+    font-size: 48px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.module-detail-stats {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin: 16px 0;
     padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
 }
 
-.learning-path.embedded .achievement-icon {
-    font-size: 28px;
+.modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
 }
 
-.learning-path.embedded .achievement-name {
-    font-size: 10px;
+.btn-primary, .btn-secondary {
+    flex: 1;
+    padding: 12px;
+    border-radius: 40px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
 }
 
-.learning-path.embedded .leaderboard-preview {
-    padding: 16px;
-    margin-top: 24px;
+.btn-primary {
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
+    color: white;
 }
 
-.learning-path.embedded .leaderboard-header h3 {
-    font-size: 14px;
+.btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
 }
 
-/* ============================================
-   RESPONSIVE - EMBEDDED
-   ============================================ */
+/* Loading Spinner */
+.loading-spinner {
+    text-align: center;
+    padding: 60px;
+    color: var(--text-secondary);
+}
 
+.loading-spinner i {
+    font-size: 40px;
+    margin-bottom: 16px;
+}
+
+/* Celebration Animation */
+@keyframes celebrate {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.celebration {
+    animation: celebrate 0.5s ease;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-    .learning-path.embedded .path-hero {
-        padding: 16px 20px;
-        border-radius: 12px 12px 0 0;
-        margin-bottom: 16px;
+    .path-hero {
+        padding: 24px;
     }
     
-    .learning-path.embedded .path-hero .hero-content h1 {
-        font-size: 1.2rem;
+    .progress-stats {
+        gap: 12px;
     }
     
-    .learning-path.embedded .path-hero .hero-content p {
-        font-size: 0.8rem;
+    .stat-value {
+        font-size: 20px;
     }
     
-    .learning-path.embedded .overall-progress-card .stat-value {
-        font-size: 16px;
+    .phase-card {
+        padding-left: 50px;
     }
     
-    .learning-path.embedded .phase-card {
-        padding-left: 44px;
-        margin-bottom: 16px;
-    }
-    
-    .learning-path.embedded .phase-marker {
-        width: 36px;
-        height: 36px;
-        font-size: 12px;
-    }
-    
-    .learning-path.embedded .phase-header {
-        padding: 12px 14px;
-        flex-direction: column;
-        gap: 6px;
-    }
-    
-    .learning-path.embedded .phase-title {
+    .phase-marker {
+        width: 40px;
+        height: 40px;
         font-size: 14px;
     }
     
-    .learning-path.embedded .phase-stats {
-        width: 100%;
-        font-size: 10px;
-        flex-wrap: wrap;
-    }
-    
-    .learning-path.embedded .phase-progress {
-        flex: 1;
-        min-width: 60px;
-    }
-    
-    .learning-path.embedded .phase-modules {
-        padding: 0 14px 14px;
-    }
-    
-    .learning-path.embedded .module-item {
-        padding: 10px 12px;
-        flex-wrap: wrap;
+    .phase-header {
+        padding: 16px;
+        flex-direction: column;
         gap: 8px;
     }
     
-    .learning-path.embedded .module-info {
-        width: calc(100% - 40px);
+    .phase-stats {
+        width: 100%;
     }
     
-    .learning-path.embedded .module-name {
-        font-size: 0.8rem;
+    .phase-progress {
+        flex: 1;
     }
     
-    .learning-path.embedded .achievements-grid {
+    .module-item {
+        flex-wrap: wrap;
+    }
+    
+    .module-info {
+        width: calc(100% - 48px);
+    }
+    
+    .achievements-grid {
         grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .learning-path.embedded .path-container {
-        padding: 0 8px;
     }
 }
 
 @media (max-width: 480px) {
-    .learning-path.embedded .path-hero {
-        padding: 12px 14px;
+    .progress-stats {
+        flex-wrap: wrap;
     }
     
-    .learning-path.embedded .path-hero .hero-content h1 {
-        font-size: 1rem;
+    .achievements-grid {
+        grid-template-columns: 1fr;
     }
-    
-    .learning-path.embedded .path-hero .hero-content p {
-        font-size: 0.7rem;
-    }
-    
-    .learning-path.embedded .overall-progress-card {
-        padding: 12px;
-    }
-    
-    .learning-path.embedded .progress-stats {
-        gap: 8px;
-    }
-    
-    .learning-path.embedded .stat-value {
-        font-size: 14px;
-    }
-    
-    .learning-path.embedded .stat-label {
-        font-size: 9px;
-    }
-    
-    .learning-path.embedded .phase-card {
-        padding-left: 36px;
-    }
-    
-    .learning-path.embedded .phase-marker {
-        width: 30px;
-        height: 30px;
-        font-size: 10px;
-    }
-    
-    .learning-path.embedded .phase-header {
-        padding: 10px 12px;
-    }
-    
-    .learning-path.embedded .phase-title {
-        font-size: 13px;
-    }
-    
-    .learning-path.embedded .phase-stats {
-        font-size: 9px;
-    }
-    
-    .learning-path.embedded .module-item {
-        padding: 8px 10px;
-    }
-    
-    .learning-path.embedded .module-name {
-        font-size: 0.75rem;
-    }
-    
-    .learning-path.embedded .module-meta {
-        font-size: 9px;
-        gap: 6px;
-    }
-    
-    .learning-path.embedded .module-status {
-        width: 24px;
-        height: 24px;
-        font-size: 10px;
-    }
-    
-    .learning-path.embedded .achievements-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-    }
-    
-    .learning-path.embedded .achievement-card {
-        padding: 8px;
-    }
-    
-    .learning-path.embedded .achievement-icon {
-        font-size: 20px;
-    }
-    
-    .learning-path.embedded .achievement-name {
-        font-size: 9px;
-    }
-    
-    .learning-path.embedded .achievement-desc {
-        font-size: 8px;
-    }
-}
-
-/* ============================================
-   DARK MODE OVERRIDES - EMBEDDED
-   ============================================ */
-
-body.dark-mode .learning-path.embedded .path-hero {
-    background: linear-gradient(135deg, var(--brand-purple-dark), var(--brand-purple));
-}
-
-body.dark-mode .learning-path.embedded .path-hero .overall-progress-card {
-    background: rgba(255,255,255,0.08);
-}
-
-body.dark-mode .learning-path.embedded .phase-content {
-    background: var(--bg-card);
-    border-color: var(--border-color);
-}
-
-body.dark-mode .learning-path.embedded .phase-header {
-    background: linear-gradient(135deg, rgba(44,47,120,0.08), rgba(251,176,64,0.08));
-}
-
-body.dark-mode .learning-path.embedded .module-item {
-    border-color: var(--border-color);
-}
-
-body.dark-mode .learning-path.embedded .module-item:hover {
-    background: rgba(251,176,64,0.05);
-}
-
-body.dark-mode .learning-path.embedded .achievements-section {
-    background: var(--bg-card);
-    border-color: var(--border-color);
-}
-
-body.dark-mode .learning-path.embedded .leaderboard-preview {
-    background: var(--bg-card);
-    border-color: var(--border-color);
-}
-
-body.dark-mode .learning-path.embedded .leaderboard-item {
-    background: var(--bg-secondary);
 }
