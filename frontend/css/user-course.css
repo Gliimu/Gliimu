@@ -193,4 +193,145 @@
     }
     
     .learning-path.embedded .achievements-grid {
-        grid-template-column
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .learning-path.embedded .path-container {
+        padding: 0 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .learning-path.embedded .path-hero {
+        padding: 12px 14px;
+    }
+    
+    .learning-path.embedded .path-hero .hero-content h1 {
+        font-size: 1rem;
+    }
+    
+    .learning-path.embedded .path-hero .hero-content p {
+        font-size: 0.7rem;
+    }
+    
+    .learning-path.embedded .overall-progress-card {
+        padding: 12px;
+    }
+    
+    .learning-path.embedded .progress-stats {
+        gap: 8px;
+    }
+    
+    .learning-path.embedded .stat-value {
+        font-size: 14px;
+    }
+    
+    .learning-path.embedded .stat-label {
+        font-size: 9px;
+    }
+    
+    .learning-path.embedded .phase-card {
+        padding-left: 36px;
+    }
+    
+    .learning-path.embedded .phase-marker {
+        width: 30px;
+        height: 30px;
+        font-size: 10px;
+    }
+    
+    .learning-path.embedded .phase-header {
+        padding: 10px 12px;
+    }
+    
+    .learning-path.embedded .phase-title {
+        font-size: 13px;
+    }
+    
+    .learning-path.embedded .phase-stats {
+        font-size: 9px;
+    }
+    
+    .learning-path.embedded .module-item {
+        padding: 8px 10px;
+    }
+    
+    .learning-path.embedded .module-name {
+        font-size: 0.75rem;
+    }
+    
+    .learning-path.embedded .module-meta {
+        font-size: 9px;
+        gap: 6px;
+    }
+    
+    .learning-path.embedded .module-status {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+    
+    .learning-path.embedded .achievements-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    
+    .learning-path.embedded .achievement-card {
+        padding: 8px;
+    }
+    
+    .learning-path.embedded .achievement-icon {
+        font-size: 20px;
+    }
+    
+    .learning-path.embedded .achievement-name {
+        font-size: 9px;
+    }
+    
+    .learning-path.embedded .achievement-desc {
+        font-size: 8px;
+    }
+}
+
+/* ============================================
+   DARK MODE OVERRIDES - EMBEDDED
+   ============================================ */
+
+body.dark-mode .learning-path.embedded .path-hero {
+    background: linear-gradient(135deg, var(--brand-purple-dark), var(--brand-purple));
+}
+
+body.dark-mode .learning-path.embedded .path-hero .overall-progress-card {
+    background: rgba(255,255,255,0.08);
+}
+
+body.dark-mode .learning-path.embedded .phase-content {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .learning-path.embedded .phase-header {
+    background: linear-gradient(135deg, rgba(44,47,120,0.08), rgba(251,176,64,0.08));
+}
+
+body.dark-mode .learning-path.embedded .module-item {
+    border-color: var(--border-color);
+}
+
+body.dark-mode .learning-path.embedded .module-item:hover {
+    background: rgba(251,176,64,0.05);
+}
+
+body.dark-mode .learning-path.embedded .achievements-section {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .learning-path.embedded .leaderboard-preview {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .learning-path.embedded .leaderboard-item {
+    background: var(--bg-secondary);
+}
