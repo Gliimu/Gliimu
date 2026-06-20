@@ -35,12 +35,16 @@
                 <i class="fas fa-flag"></i>
                 <span>Report</span>
             </button>
-            <button class="nav-btn" onclick="contactSupport()" aria-label="Contact support">
+            <button class="nav-btn share-btn" onclick="shareCourse()" aria-label="Share course">
+                <i class="fas fa-share-alt"></i>
+                <span>Share</span>
+            </button>
+            <button class="nav-btn" onclick="window.location.href='/contact'" aria-label="Contact support">
                 <i class="fas fa-envelope"></i>
                 <span>Contact</span>
             </button>
-            <button class="nav-btn hub-nav" onclick="goToHub()" aria-label="Go to Hub">
-                <i class="fas fa-th-large"></i>
+            <button class="nav-btn home-nav" onclick="goToHub()" aria-label="Go to Hub">
+                <i class="fas fa-home"></i>
                 <span>Hub</span>
             </button>
         </div>
@@ -212,6 +216,43 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModuleModal()">Close</button>
                 <button class="btn-primary" id="modalCompleteBtn" onclick="completeModuleFromModal()">Mark Complete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SHARE MODAL
+         ============================================ -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal-content modal-share">
+            <div class="modal-header">
+                <h3>Share Your Journey</h3>
+                <button class="modal-close" onclick="closeShareModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="text-align:center; margin-bottom:1rem;">Share your learning journey with friends and earn rewards!</p>
+                <div class="share-code-box">
+                    <div class="share-code" id="shareCode">Loading...</div>
+                    <button class="btn-outline" onclick="copyShareCode()">Copy Code</button>
+                </div>
+                <div class="share-actions">
+                    <button class="share-btn" onclick="shareOnWhatsApp()">
+                        <i class="fab fa-whatsapp" style="color:#25D366;"></i> WhatsApp
+                    </button>
+                    <button class="share-btn" onclick="shareOnTwitter()">
+                        <i class="fab fa-twitter" style="color:#1DA1F2;"></i> Twitter
+                    </button>
+                    <button class="share-btn" onclick="shareOnLinkedIn()">
+                        <i class="fab fa-linkedin" style="color:#0A66C2;"></i> LinkedIn
+                    </button>
+                    <button class="share-btn" onclick="shareOnFacebook()">
+                        <i class="fab fa-facebook" style="color:#1877F2;"></i> Facebook
+                    </button>
+                </div>
+                <div class="share-referral-info">
+                    <p><i class="fas fa-gift"></i> Each friend who joins gives you <strong>+50 GP</strong>!</p>
+                    <p style="font-size:0.7rem; color:var(--text-secondary);">Your referral: <span id="shareReferralLink"></span></p>
+                </div>
             </div>
         </div>
     </div>
