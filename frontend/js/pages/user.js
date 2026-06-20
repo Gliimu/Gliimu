@@ -393,6 +393,9 @@ async function loadTabData(tabId) {
 // ============================================
 // JOURNEY TAB - RENDER LEARNING PATH
 // ============================================
+// ============================================
+// JOURNEY TAB - RENDER LEARNING PATH
+// ============================================
 function renderJourney() {
     const container = document.getElementById('journey-section');
     if (!container) return;
@@ -415,14 +418,21 @@ function renderJourney() {
                 <i class="fas fa-spinner fa-spin"></i>
                 <p>Loading your learning journey...</p>
             </div>
-            <iframe 
-                src="/user-course.html" 
-                class="journey-iframe" 
-                id="journeyIframe"
-                frameborder="0"
-                scrolling="yes"
-                allow="clipboard-write"
-            ></iframe>
+            <!-- Use object instead of iframe -->
+            <object 
+                data="/user-course" 
+                class="journey-object" 
+                id="journeyObject"
+                type="text/html"
+                width="100%"
+                height="100%"
+            >
+                <div class="journey-fallback">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Unable to load the learning journey.</p>
+                    <a href="/user-course" target="_blank" class="btn-primary">Open Journey in New Tab</a>
+                </div>
+            </object>
         </div>
     `;
     
@@ -432,57 +442,21 @@ function renderJourney() {
         courseListenerSetup = true;
     }
     
-    // Hide loader when iframe loads
-    const iframe = document.getElementById('journeyIframe');
+    // Hide loader when object loads
+    const object = document.getElementById('journeyObject');
     const loader = document.getElementById('journeyLoader');
     
-    if (iframe) {
-        iframe.addEventListener('load', () => {
+    if (object) {
+        // Try to detect load
+        object.addEventListener('load', () => {
             if (loader) loader.style.display = 'none';
         });
         
-        // Fallback: hide loader after 5 seconds even if iframe doesn't load
+        // Fallback: hide loader after 5 seconds
         setTimeout(() => {
             if (loader) loader.style.display = 'none';
         }, 5000);
     }
-}
-
-// ============================================
-// COURSE MESSAGE LISTENER (GP Updates)
-// ============================================
-function setupCourseMessageListener() {
-    window.addEventListener('message', async (event) => {
-        // Only accept messages from course page
-        if (!event.data || event.data.type !== 'moduleCompleted') return;
-        
-        console.log('📬 Course event received:', event.data);
-        
-        const { moduleName, gpEarned, newTotalGP } = event.data;
-        
-        // Update GP display in header (if exists)
-        const gpDisplay = document.querySelector('.gp-display .gp-value');
-        if (gpDisplay) {
-            gpDisplay.textContent = newTotalGP;
-        }
-        
-        // Update dashboard if visible
-        if (currentTab === 'dashboard') {
-            await renderDashboard();
-        }
-        
-        // Update user's GP in localStorage
-        if (currentUser) {
-            currentUser.gpPoints = newTotalGP;
-            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-        }
-        
-        // Show toast notification
-        showToast(`🎉 +${gpEarned} GP earned for completing "${moduleName}"!`, 'success');
-        
-        // Check for achievements/level ups
-        await checkGPMilestones(newTotalGP);
-    });
 }
 
 // ============================================
