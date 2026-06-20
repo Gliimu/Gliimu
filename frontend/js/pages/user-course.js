@@ -164,7 +164,6 @@ function generateReferralCode() {
     return `GLM-${shortId}-${random}`;
 }
 
-// Get referral link
 function getReferralLink(code) {
     return `${window.location.origin}/signin?ref=${code}`;
 }
@@ -177,12 +176,10 @@ window.shareCourse = async function() {
     const code = await getUserReferralCode();
     const referralLink = getReferralLink(code);
     
-    // Show share modal
     document.getElementById('shareCode').textContent = code;
     document.getElementById('shareReferralLink').textContent = referralLink;
     document.getElementById('shareModal').classList.add('active');
     
-    // Track share event
     trackShareEvent(code);
 };
 
@@ -220,7 +217,6 @@ window.copyReferralLink = function() {
     });
 };
 
-// Social Share Functions with Referral Link
 window.shareOnWhatsApp = function() {
     const link = document.getElementById('shareReferralLink').textContent;
     const text = `Join me on Gliimu and master video, design & code! 🚀 Use my referral link: ${link}`;
@@ -255,7 +251,6 @@ window.shareOnEmail = function() {
     trackSocialShare('email');
 };
 
-// Track share events for admin
 async function trackShareEvent(code) {
     try {
         await supabase
@@ -285,39 +280,6 @@ async function trackSocialShare(platform) {
         console.log('📊 Social share tracked:', platform);
     } catch (e) {
         console.warn('Could not track social share:', e);
-    }
-}
-
-// Track referral signups (called when someone signs up with a referral code)
-async function trackReferralSignup(refCode, newUserId) {
-    try {
-        await supabase
-            .from('referral_signups')
-            .insert({
-                referral_code: refCode,
-                new_user_id: newUserId,
-                signed_up_at: new Date().toISOString()
-            });
-        
-        // Award GP to referrer
-        const { data: referrer } = await supabase
-            .from('users')
-            .select('id')
-            .eq('referral_code', refCode)
-            .single();
-        
-        if (referrer) {
-            // Add 50 GP to referrer
-            await supabase.rpc('add_gp', {
-                user_id: referrer.id,
-                amount: 50,
-                reason: `Referral: ${refCode}`
-            });
-        }
-        
-        console.log('📊 Referral signup tracked:', refCode);
-    } catch (e) {
-        console.warn('Could not track referral signup:', e);
     }
 }
 
@@ -780,7 +742,7 @@ function calculatePhaseProgress(phase) {
 }
 
 // ============================================
-// ELECTIVES RENDER
+// ELECTIVES RENDER - WITH PATTERN/PLANE CLASSES
 // ============================================
 
 function renderElectives() {
