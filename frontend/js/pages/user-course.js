@@ -16,9 +16,170 @@ let userProgress = [];
 let userGP = 0;
 let userStreak = 0;
 let expandedPhases = new Set();
-let expandedElectives = new Set();
 let isEmbedded = false;
 let searchQuery = '';
+let isDarkMode = false;
+
+// ============================================
+// THEME MANAGEMENT
+// ============================================
+
+function initTheme() {
+    // Check for saved theme from dashboard
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Check if dashboard theme is saved
+    const dashboardTheme = localStorage.getItem('dashboard_theme');
+    
+    // Determine theme preference
+    if (dashboardTheme === 'dark' || savedTheme === 'dark') {
+        isDarkMode = true;
+        document.body.classList.add('dark-mode');
+    } else if (dashboardTheme === 'light' || savedTheme === 'light') {
+        isDarkMode = false;
+        document.body.classList.remove('dark-mode');
+    } else if (systemPrefersDark) {
+        // Default to dark mode if system prefers dark
+        isDarkMode = true;
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        // Default to dark mode for Gliimu (brand standard)
+        isDarkMode = true;
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+    }
+    
+    // Apply theme to hero badge
+    updateHeroTheme();
+    
+    console.log('🎨 Theme initialized:', isDarkMode ? 'Dark' : 'Light');
+}
+
+function toggleTheme() {
+    isDarkMode = !isDarkMode;
+    document.body.classList.toggle('dark-mode', isDarkMode);
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    
+    // Also sync with dashboard theme
+    localStorage.setItem('dashboard_theme', isDarkMode ? 'dark' : 'light');
+    
+    updateHeroTheme();
+    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
+}
+
+function updateHeroTheme() {
+    // Update any theme-dependent elements
+    const heroLevel = document.getElementById('heroLevel');
+    const heroXP = document.getElementById('heroXP');
+    // The CSS handles the rest via body.dark-mode class
+}
+
+// ============================================
+// STICKY NAV
+// ============================================
+
+function toggleNav() {
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    dropdown.classList.toggle('open');
+    toggle.classList.toggle('active');
+}
+
+// Close nav when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('stickyNav');
+    if (nav && !nav.contains(e.target)) {
+        const dropdown = document.getElementById('navDropdown');
+        const toggle = document.getElementById('navToggle');
+        if (dropdown) dropdown.classList.remove('open');
+        if (toggle) toggle.classList.remove('active');
+    }
+});
+
+// ============================================
+// NAVIGATION FUNCTIONS
+// ============================================
+
+window.goBack = function() {
+    // Try to go back to dashboard or hub
+    if (document.referrer && document.referrer.includes('/user')) {
+        window.history.back();
+    } else {
+        window.location.href = '/user';
+    }
+};
+
+window.goToHub = function() {
+    window.location.href = '/hub';
+};
+
+window.reportIssue = function() {
+    showToast('📝 Report an issue? Our team will investigate.', 'info');
+    // Open a modal or redirect to report page
+    // For now, just show a toast
+};
+
+window.contactSupport = function() {
+    showToast('📧 Contact support: support@gliimu.com', 'info');
+    // Could open email or contact form
+};
+
+// ============================================
+// ELECTIVE FUNCTIONS
+// ============================================
+
+window.openElectiveModal = function(electiveId) {
+    const elective = electivesData.find(e => e.id === electiveId);
+    if (!elective) return;
+    
+    document.getElementById('electiveModalTitle').textContent = elective.title;
+    document.getElementById('electiveModalDescription').textContent = elective.description || 'No description available.';
+    document.getElementById('electiveModalModules').textContent = elective.modules || 0;
+    document.getElementById('electiveModalIcon').textContent = elective.icon || '📚';
+    
+    // Store the current elective ID for the start button
+    document.getElementById('electiveModalStart').dataset.electiveId = electiveId;
+    
+    document.getElementById('electiveModal').classList.add('active');
+};
+
+window.closeElectiveModal = function() {
+    document.getElementById('electiveModal').classList.remove('active');
+};
+
+window.startElectiveFromModal = function() {
+    const electiveId = document.getElementById('electiveModalStart').dataset.electiveId;
+    const elective = electivesData.find(e => e.id === electiveId);
+    if (!elective) return;
+    
+    closeElectiveModal();
+    showToast(`📚 Starting "${elective.title}"...`, 'success');
+    // Navigate to elective detail page or open content
+};
+
+// ============================================
+// ELECTIVES SCROLL
+// ============================================
+
+window.scrollElectives = function(direction) {
+    const container = document.getElementById('electivesScroll');
+    if (!container) return;
+    
+    const scrollAmount = container.clientWidth * 0.8;
+    const targetScroll = container.scrollLeft + (direction * scrollAmount);
+    
+    container.scrollTo({
+        left: targetScroll,
+        behavior: 'smooth'
+    });
+};
+
+window.searchElectives = function(query) {
+    searchQuery = query || '';
+    renderElectives();
+};
 
 // ============================================
 // INITIALIZATION
@@ -26,6 +187,17 @@ let searchQuery = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📚 Learning Path initializing...');
+    
+    // Initialize theme FIRST
+    initTheme();
+    
+    // Setup nav toggle
+    document.getElementById('navToggle')?.addEventListener('click', toggleNav);
+    
+    // Setup theme toggle in nav (optional - can add a theme button)
+    // Uncomment to add theme toggle to nav
+    // const themeBtn = document.querySelector('.nav-btn.theme-toggle');
+    // if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
     
     isEmbedded = window.parent !== window;
     console.log('📱 Embedded mode:', isEmbedded);
@@ -70,9 +242,22 @@ function showLoading() {
             </div>
         `;
     }
+    
+    // Also show loading for electives
+    const electivesContainer = document.getElementById('electivesContainer');
+    if (electivesContainer) {
+        electivesContainer.innerHTML = `
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading electives...</p>
+            </div>
+        `;
+    }
 }
 
-function hideLoading() {}
+function hideLoading() {
+    // Loading will be replaced by render
+}
 
 function showError(message) {
     const container = document.getElementById('curriculumTimeline');
@@ -170,7 +355,6 @@ function loadCurriculum() {
 
 async function loadElectives() {
     try {
-        // Try to load from database
         const { data, error } = await supabase
             .from('elective_courses')
             .select('*')
@@ -179,7 +363,6 @@ async function loadElectives() {
         
         if (error) {
             console.warn('Could not load electives from database:', error.message);
-            // Use default electives
             electivesData = getDefaultElectives();
             return;
         }
@@ -200,11 +383,11 @@ async function loadElectives() {
 
 function getDefaultElectives() {
     return [
-        { id: 'e1', title: 'Financial Literacy', description: 'Learn budgeting, saving, investing, and financial planning.', icon: 'fa-coins', modules: 6 },
-        { id: 'e2', title: 'Public Speaking', description: 'Master the art of confident public speaking and presentation.', icon: 'fa-microphone', modules: 5 },
-        { id: 'e3', title: 'Waste Management', description: 'Sustainable waste management and recycling practices.', icon: 'fa-recycle', modules: 4 },
-        { id: 'e4', title: 'Logic & Critical Thinking', description: 'Develop analytical thinking, reasoning, and problem-solving skills.', icon: 'fa-brain', modules: 6 },
-        { id: 'e5', title: 'Problem Solving', description: 'Systematic approaches to solving complex problems.', icon: 'fa-puzzle-piece', modules: 5 }
+        { id: 'e1', title: 'Financial Literacy', description: 'Learn budgeting, saving, investing, and financial planning.', icon: '💰', modules: 6 },
+        { id: 'e2', title: 'Public Speaking', description: 'Master the art of confident public speaking and presentation.', icon: '🎤', modules: 5 },
+        { id: 'e3', title: 'Waste Management', description: 'Sustainable waste management and recycling practices.', icon: '♻️', modules: 4 },
+        { id: 'e4', title: 'Logic & Critical Thinking', description: 'Develop analytical thinking, reasoning, and problem-solving skills.', icon: '🧠', modules: 6 },
+        { id: 'e5', title: 'Problem Solving', description: 'Systematic approaches to solving complex problems.', icon: '🧩', modules: 5 }
     ];
 }
 
@@ -269,8 +452,16 @@ async function loadUserStats() {
         
         userStreak = parseInt(localStorage.getItem(`course_streak_${currentUser.id}`)) || 0;
         
+        // Update header stats
+        document.getElementById('headerGP').textContent = userGP;
+        document.getElementById('headerStreak').textContent = userStreak;
+        
+        // Update hero stats
         document.getElementById('gpPoints').textContent = userGP;
         document.getElementById('streakDays').textContent = userStreak;
+        
+        // Update hero level badge
+        updateHeroLevel(userGP);
         
         console.log('📊 Stats - GP:', userGP, 'Streak:', userStreak);
         
@@ -279,6 +470,24 @@ async function loadUserStats() {
         userGP = 0;
         userStreak = 0;
     }
+}
+
+function updateHeroLevel(gp) {
+    const heroLevel = document.getElementById('heroLevel');
+    const heroXP = document.getElementById('heroXP');
+    
+    if (!heroLevel) return;
+    
+    let level = '🌱 Starter';
+    let xpText = `${gp || 0} GP`;
+    
+    if (gp >= 1000) level = '👑 Ambassador';
+    else if (gp >= 500) level = '🏆 Master';
+    else if (gp >= 250) level = '📚 Builder';
+    else if (gp >= 100) level = '🎓 Scholar';
+    
+    heroLevel.textContent = level;
+    if (heroXP) heroXP.textContent = xpText;
 }
 
 // ============================================
@@ -386,7 +595,7 @@ function calculatePhaseProgress(phase) {
 }
 
 // ============================================
-// ELECTIVES RENDER
+// ELECTIVES RENDER - HORIZONTAL SCROLL
 // ============================================
 
 function renderElectives() {
@@ -405,77 +614,62 @@ function renderElectives() {
     
     if (filteredElectives.length === 0) {
         container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-search"></i>
-                <h3>No Electives Found</h3>
-                <p>${searchQuery ? `No results for "${searchQuery}"` : 'No electives available yet.'}</p>
+            <div class="empty-state" style="min-width:200px; text-align:center; padding:20px;">
+                <i class="fas fa-search" style="font-size:1.5rem; color:var(--text-secondary);"></i>
+                <h3 style="font-size:0.9rem; margin-top:8px;">No Electives Found</h3>
+                <p style="font-size:0.75rem; color:var(--text-secondary);">${searchQuery ? `No results for "${searchQuery}"` : 'No electives available.'}</p>
             </div>
         `;
         return;
     }
     
-    container.innerHTML = filteredElectives.map(elective => {
-        const isExpanded = expandedElectives.has(elective.id);
-        return `
-            <div class="elective-card ${isExpanded ? 'expanded' : ''}" data-id="${elective.id}">
-                <div class="elective-header" onclick="toggleElective('${elective.id}')">
-                    <div class="elective-icon">
-                        <i class="fas ${elective.icon || 'fa-book'}"></i>
-                    </div>
-                    <div class="elective-info">
-                        <div class="elective-title">${elective.title}</div>
-                        <div class="elective-meta">
-                            <span><i class="fas fa-layer-group"></i> ${elective.modules || 0} modules</span>
-                        </div>
-                    </div>
-                    <i class="fas fa-chevron-${isExpanded ? 'up' : 'down'}"></i>
-                </div>
-                <div class="elective-body">
-                    <p class="elective-description">${elective.description || 'No description available.'}</p>
-                    <button class="btn-primary elective-start-btn" onclick="startElective('${elective.id}')">
-                        <i class="fas fa-play"></i> Start Learning
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
+    container.innerHTML = filteredElectives.map(elective => `
+        <div class="elective-card" onclick="window.openElectiveModal('${elective.id}')">
+            <div class="elective-icon">${elective.icon || '📚'}</div>
+            <div class="elective-title">${elective.title}</div>
+            <div class="elective-meta"><i class="fas fa-layer-group"></i> ${elective.modules || 0} modules</div>
+            <div class="elective-desc">${elective.description || 'No description'}</div>
+            <button class="elective-start-btn" onclick="event.stopPropagation(); window.openElectiveModal('${elective.id}')">
+                <i class="fas fa-play"></i> Start
+            </button>
+        </div>
+    `).join('');
+    
+    // Update scroll buttons
+    updateScrollButtons();
 }
 
-// ============================================
-// SEARCH ELECTIVES
-// ============================================
-
-window.searchElectives = function(query) {
-    searchQuery = query || '';
-    renderElectives();
-};
-
-// ============================================
-// TOGGLE ELECTIVE
-// ============================================
-
-window.toggleElective = function(electiveId) {
-    if (expandedElectives.has(electiveId)) {
-        expandedElectives.delete(electiveId);
-    } else {
-        expandedElectives.add(electiveId);
-    }
-    renderElectives();
-};
-
-// ============================================
-// START ELECTIVE
-// ============================================
-
-window.startElective = function(electiveId) {
-    const elective = electivesData.find(e => e.id === electiveId);
-    if (!elective) return;
+function updateScrollButtons() {
+    const container = document.getElementById('electivesScroll');
+    const leftBtn = document.getElementById('scrollLeft');
+    const rightBtn = document.getElementById('scrollRight');
     
-    showToast(`Starting "${elective.title}"...`, 'success');
-    // Navigate to elective detail page or open modal
-    // For now, just show a message
-    showToast(`📚 "${elective.title}" course loaded!`, 'success');
-};
+    if (!container || !leftBtn || !rightBtn) return;
+    
+    // Check if scroll is needed
+    const needsScroll = container.scrollWidth > container.clientWidth;
+    if (!needsScroll) {
+        leftBtn.style.display = 'none';
+        rightBtn.style.display = 'none';
+        return;
+    }
+    
+    leftBtn.style.display = 'flex';
+    rightBtn.style.display = 'flex';
+    
+    // Update button states
+    leftBtn.disabled = container.scrollLeft <= 0;
+    rightBtn.disabled = container.scrollLeft >= container.scrollWidth - container.clientWidth - 5;
+}
+
+// Add scroll listener to update buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const scrollContainer = document.getElementById('electivesScroll');
+    if (scrollContainer) {
+        scrollContainer.addEventListener('scroll', updateScrollButtons);
+        window.addEventListener('resize', updateScrollButtons);
+    }
+});
 
 // ============================================
 // MODULE COMPLETION
@@ -533,11 +727,16 @@ async function completeModule(moduleId) {
             saveProgressToLocalStorage();
         }
         
+        // Update GP
         userGP += module.gp;
+        document.getElementById('headerGP').textContent = userGP;
         document.getElementById('gpPoints').textContent = userGP;
+        updateHeroLevel(userGP);
         
+        // Update streak
         userStreak = Math.min(userStreak + 1, 30);
         localStorage.setItem(`course_streak_${currentUser.id}`, userStreak.toString());
+        document.getElementById('headerStreak').textContent = userStreak;
         document.getElementById('streakDays').textContent = userStreak;
         
         notifyParent('moduleCompleted', {
@@ -710,6 +909,14 @@ function setupEventListeners() {
             if (e.target === modal) closeModuleModal();
         });
     }
+    
+    // Elective modal close on overlay click
+    const electiveModal = document.getElementById('electiveModal');
+    if (electiveModal) {
+        electiveModal.addEventListener('click', (e) => {
+            if (e.target === electiveModal) closeElectiveModal();
+        });
+    }
 }
 
 // ============================================
@@ -717,12 +924,19 @@ function setupEventListeners() {
 // ============================================
 
 window.togglePhase = togglePhase;
-window.toggleElective = toggleElective;
-window.startElective = startElective;
-window.searchElectives = searchElectives;
 window.openModuleModal = openModuleModal;
 window.closeModuleModal = closeModuleModal;
 window.completeModule = completeModule;
 window.completeModuleFromModal = completeModuleFromModal;
+window.openElectiveModal = openElectiveModal;
+window.closeElectiveModal = closeElectiveModal;
+window.startElectiveFromModal = startElectiveFromModal;
+window.scrollElectives = scrollElectives;
+window.searchElectives = searchElectives;
+window.goBack = goBack;
+window.goToHub = goToHub;
+window.reportIssue = reportIssue;
+window.contactSupport = contactSupport;
+window.toggleTheme = toggleTheme;
 
 console.log('📚 Learning Path ready');
