@@ -1,942 +1,267 @@
-// ============================================
-// USER COURSE - Learning Path + Electives
-// ============================================
-
-import { supabase } from '../modules/supabase.js';
-import { showToast } from '../modules/toast.js';
-
-// ============================================
-// GLOBAL STATE
-// ============================================
-
-let currentUser = null;
-let curriculumData = [];
-let electivesData = [];
-let userProgress = [];
-let userGP = 0;
-let userStreak = 0;
-let expandedPhases = new Set();
-let isEmbedded = false;
-let searchQuery = '';
-let isDarkMode = false;
-
-// ============================================
-// THEME MANAGEMENT
-// ============================================
-
-function initTheme() {
-    // Check for saved theme from dashboard
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Learning Journey | Gliimu Institute</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Your gamified learning journey to become a Media Architect.">
     
-    // Check if dashboard theme is saved
-    const dashboardTheme = localStorage.getItem('dashboard_theme');
+    <link rel="icon" type="image/png" href="/frontend/icons/logo.png">
     
-    // Determine theme preference
-    if (dashboardTheme === 'dark' || savedTheme === 'dark') {
-        isDarkMode = true;
-        document.body.classList.add('dark-mode');
-    } else if (dashboardTheme === 'light' || savedTheme === 'light') {
-        isDarkMode = false;
-        document.body.classList.remove('dark-mode');
-    } else if (systemPrefersDark) {
-        // Default to dark mode if system prefers dark
-        isDarkMode = true;
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
-    } else {
-        // Default to dark mode for Gliimu (brand standard)
-        isDarkMode = true;
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
-    }
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    // Apply theme to hero badge
-    updateHeroTheme();
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    console.log('🎨 Theme initialized:', isDarkMode ? 'Dark' : 'Light');
-}
+    <!-- CSS -->
+    <link rel="stylesheet" href="/frontend/css/user-course.css">
+</head>
+<body>
 
-function toggleTheme() {
-    isDarkMode = !isDarkMode;
-    document.body.classList.toggle('dark-mode', isDarkMode);
-    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-    
-    // Also sync with dashboard theme
-    localStorage.setItem('dashboard_theme', isDarkMode ? 'dark' : 'light');
-    
-    updateHeroTheme();
-    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
-}
+    <!-- ============================================
+         STICKY NAVIGATION BUTTON
+         ============================================ -->
+    <div class="sticky-nav" id="stickyNav">
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+            <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <div class="nav-dropdown" id="navDropdown">
+            <button class="nav-btn" onclick="goBack()" aria-label="Go back">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back</span>
+            </button>
+            <button class="nav-btn" onclick="reportIssue()" aria-label="Report issue">
+                <i class="fas fa-flag"></i>
+                <span>Report</span>
+            </button>
+            <button class="nav-btn" onclick="shareCourse()" aria-label="Share course">
+                <i class="fas fa-share-alt"></i>
+                <span>Share</span>
+            </button>
+            <button class="nav-btn" onclick="contactSupport()" aria-label="Contact support">
+                <i class="fas fa-envelope"></i>
+                <span>Contact</span>
+            </button>
+            <button class="nav-btn home-nav" onclick="goToHub()" aria-label="Go to Hub">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </button>
+        </div>
+    </div>
 
-function updateHeroTheme() {
-    // Update any theme-dependent elements
-    const heroLevel = document.getElementById('heroLevel');
-    const heroXP = document.getElementById('heroXP');
-    // The CSS handles the rest via body.dark-mode class
-}
-
-// ============================================
-// STICKY NAV
-// ============================================
-
-function toggleNav() {
-    const dropdown = document.getElementById('navDropdown');
-    const toggle = document.getElementById('navToggle');
-    dropdown.classList.toggle('open');
-    toggle.classList.toggle('active');
-}
-
-// Close nav when clicking outside
-document.addEventListener('click', function(e) {
-    const nav = document.getElementById('stickyNav');
-    if (nav && !nav.contains(e.target)) {
-        const dropdown = document.getElementById('navDropdown');
-        const toggle = document.getElementById('navToggle');
-        if (dropdown) dropdown.classList.remove('open');
-        if (toggle) toggle.classList.remove('active');
-    }
-});
-
-// ============================================
-// NAVIGATION FUNCTIONS
-// ============================================
-
-window.goBack = function() {
-    // Try to go back to dashboard or hub
-    if (document.referrer && document.referrer.includes('/user')) {
-        window.history.back();
-    } else {
-        window.location.href = '/user';
-    }
-};
-
-window.goToHub = function() {
-    window.location.href = '/hub';
-};
-
-window.reportIssue = function() {
-    showToast('📝 Report an issue? Our team will investigate.', 'info');
-    // Open a modal or redirect to report page
-    // For now, just show a toast
-};
-
-window.contactSupport = function() {
-    showToast('📧 Contact support: support@gliimu.com', 'info');
-    // Could open email or contact form
-};
-
-// ============================================
-// ELECTIVE FUNCTIONS
-// ============================================
-
-window.openElectiveModal = function(electiveId) {
-    const elective = electivesData.find(e => e.id === electiveId);
-    if (!elective) return;
-    
-    document.getElementById('electiveModalTitle').textContent = elective.title;
-    document.getElementById('electiveModalDescription').textContent = elective.description || 'No description available.';
-    document.getElementById('electiveModalModules').textContent = elective.modules || 0;
-    document.getElementById('electiveModalIcon').textContent = elective.icon || '📚';
-    
-    // Store the current elective ID for the start button
-    document.getElementById('electiveModalStart').dataset.electiveId = electiveId;
-    
-    document.getElementById('electiveModal').classList.add('active');
-};
-
-window.closeElectiveModal = function() {
-    document.getElementById('electiveModal').classList.remove('active');
-};
-
-window.startElectiveFromModal = function() {
-    const electiveId = document.getElementById('electiveModalStart').dataset.electiveId;
-    const elective = electivesData.find(e => e.id === electiveId);
-    if (!elective) return;
-    
-    closeElectiveModal();
-    showToast(`📚 Starting "${elective.title}"...`, 'success');
-    // Navigate to elective detail page or open content
-};
-
-// ============================================
-// ELECTIVES SCROLL
-// ============================================
-
-window.scrollElectives = function(direction) {
-    const container = document.getElementById('electivesScroll');
-    if (!container) return;
-    
-    const scrollAmount = container.clientWidth * 0.8;
-    const targetScroll = container.scrollLeft + (direction * scrollAmount);
-    
-    container.scrollTo({
-        left: targetScroll,
-        behavior: 'smooth'
-    });
-};
-
-window.searchElectives = function(query) {
-    searchQuery = query || '';
-    renderElectives();
-};
-
-// ============================================
-// INITIALIZATION
-// ============================================
-
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('📚 Learning Path initializing...');
-    
-    // Initialize theme FIRST
-    initTheme();
-    
-    // Setup nav toggle
-    document.getElementById('navToggle')?.addEventListener('click', toggleNav);
-    
-    // Setup theme toggle in nav (optional - can add a theme button)
-    // Uncomment to add theme toggle to nav
-    // const themeBtn = document.querySelector('.nav-btn.theme-toggle');
-    // if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
-    
-    isEmbedded = window.parent !== window;
-    console.log('📱 Embedded mode:', isEmbedded);
-    
-    showLoading();
-    
-    try {
-        currentUser = await getCurrentUser();
-        console.log('👤 Current user:', currentUser?.email || 'Not signed in');
+    <!-- ============================================
+         MAIN CONTAINER
+         ============================================ -->
+    <div class="learning-path" id="learningPath">
         
-        if (!currentUser) {
-            showLoginPrompt();
-            return;
-        }
-        
-        loadCurriculum();
-        await loadElectives();
-        await loadUserProgress();
-        await loadUserStats();
-        
-        renderCurriculum();
-        renderElectives();
-        updateOverallStats();
-        setupEventListeners();
-        hideLoading();
-        
-        console.log('✅ Learning Path loaded successfully');
-        
-    } catch (error) {
-        console.error('❌ Error:', error);
-        showError('Could not load your learning path.');
-    }
-});
-
-function showLoading() {
-    const container = document.getElementById('curriculumTimeline');
-    if (container) {
-        container.innerHTML = `
-            <div class="loading-spinner">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading your learning path...</p>
-            </div>
-        `;
-    }
-    
-    // Also show loading for electives
-    const electivesContainer = document.getElementById('electivesContainer');
-    if (electivesContainer) {
-        electivesContainer.innerHTML = `
-            <div class="loading-spinner">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading electives...</p>
-            </div>
-        `;
-    }
-}
-
-function hideLoading() {
-    // Loading will be replaced by render
-}
-
-function showError(message) {
-    const container = document.getElementById('curriculumTimeline');
-    if (container) {
-        container.innerHTML = `
-            <div class="error-state">
-                <i class="fas fa-exclamation-triangle" style="color: var(--danger); font-size: 2rem;"></i>
-                <h3 style="margin-top: 1rem;">${message}</h3>
-                <button onclick="location.reload()" class="btn-primary" style="margin-top: 1rem;">Retry</button>
-            </div>
-        `;
-    }
-}
-
-function showLoginPrompt() {
-    const container = document.getElementById('curriculumTimeline');
-    if (container) {
-        container.innerHTML = `
-            <div class="login-prompt">
-                <i class="fas fa-lock"></i>
-                <h3>Sign In Required</h3>
-                <p>Please sign in to track your learning progress and earn GP.</p>
-                <button onclick="window.location.href='/signin.html'" class="btn-primary">Sign In</button>
-            </div>
-        `;
-    }
-}
-
-async function getCurrentUser() {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) return null;
-        return user;
-    } catch (e) {
-        return null;
-    }
-}
-
-function notifyParent(event, data) {
-    if (isEmbedded) {
-        try {
-            window.parent.postMessage({ type: event, ...data }, '*');
-        } catch (e) {}
-    }
-}
-
-// ============================================
-// LOAD DATA
-// ============================================
-
-function loadCurriculum() {
-    curriculumData = [
-        {
-            id: 1,
-            name: "Phase 1: Foundation",
-            modules: [
-                { id: 1, name: "Introduction to Media Technologies", desc: "Overview of the media landscape and career paths", duration: "2 hours", gp: 50, type: "foundation" },
-                { id: 2, name: "Visual Storytelling Fundamentals", desc: "Understanding narrative structure and visual language", duration: "3 hours", gp: 50, type: "foundation" },
-                { id: 3, name: "Design Principles", desc: "Color theory, typography, layout, and composition", duration: "4 hours", gp: 50, type: "foundation" },
-                { id: 4, name: "Introduction to Programming", desc: "Basic coding concepts using JavaScript", duration: "5 hours", gp: 50, type: "foundation" }
-            ]
-        },
-        {
-            id: 2,
-            name: "Phase 2: Core Skills",
-            modules: [
-                { id: 5, name: "Video Production & Cinematography", desc: "Camera operation, lighting, and audio recording", duration: "6 hours", gp: 75, type: "core" },
-                { id: 6, name: "Post-Production & Editing", desc: "Adobe Premiere Pro, DaVinci Resolve, After Effects", duration: "8 hours", gp: 75, type: "core" },
-                { id: 7, name: "UI/UX Design", desc: "Figma, prototyping, user research, accessibility", duration: "6 hours", gp: 75, type: "core" },
-                { id: 8, name: "Web Development", desc: "HTML, CSS, JavaScript, responsive design", duration: "8 hours", gp: 75, type: "core" }
-            ]
-        },
-        {
-            id: 3,
-            name: "Phase 3: Advanced",
-            modules: [
-                { id: 9, name: "Advanced Video Effects", desc: "VFX, motion graphics, 3D animation", duration: "8 hours", gp: 100, type: "advanced" },
-                { id: 10, name: "Full-Stack Development", desc: "React, Node.js, databases, APIs", duration: "10 hours", gp: 100, type: "advanced" },
-                { id: 11, name: "Brand Strategy & Management", desc: "Brand identity, marketing, social media", duration: "4 hours", gp: 100, type: "advanced" },
-                { id: 12, name: "Portfolio Development", desc: "Building a professional portfolio", duration: "6 hours", gp: 100, type: "advanced" }
-            ]
-        },
-        {
-            id: 4,
-            name: "Phase 4: Capstone",
-            modules: [
-                { id: 13, name: "Industry Project", desc: "Real-world client project with mentorship", duration: "20 hours", gp: 150, type: "capstone" },
-                { id: 14, name: "Career Preparation", desc: "Resume building, interview skills, networking", duration: "4 hours", gp: 150, type: "capstone" },
-                { id: 15, name: "Final Portfolio Review", desc: "Presentation to industry panel", duration: "3 hours", gp: 150, type: "capstone" }
-            ]
-        }
-    ];
-    console.log('📚 Curriculum loaded:', curriculumData.length, 'phases');
-}
-
-async function loadElectives() {
-    try {
-        const { data, error } = await supabase
-            .from('elective_courses')
-            .select('*')
-            .eq('is_active', true)
-            .order('title', { ascending: true });
-        
-        if (error) {
-            console.warn('Could not load electives from database:', error.message);
-            electivesData = getDefaultElectives();
-            return;
-        }
-        
-        if (data && data.length > 0) {
-            electivesData = data;
-        } else {
-            electivesData = getDefaultElectives();
-        }
-        
-        console.log('📚 Electives loaded:', electivesData.length);
-        
-    } catch (error) {
-        console.error('Error loading electives:', error);
-        electivesData = getDefaultElectives();
-    }
-}
-
-function getDefaultElectives() {
-    return [
-        { id: 'e1', title: 'Financial Literacy', description: 'Learn budgeting, saving, investing, and financial planning.', icon: '💰', modules: 6 },
-        { id: 'e2', title: 'Public Speaking', description: 'Master the art of confident public speaking and presentation.', icon: '🎤', modules: 5 },
-        { id: 'e3', title: 'Waste Management', description: 'Sustainable waste management and recycling practices.', icon: '♻️', modules: 4 },
-        { id: 'e4', title: 'Logic & Critical Thinking', description: 'Develop analytical thinking, reasoning, and problem-solving skills.', icon: '🧠', modules: 6 },
-        { id: 'e5', title: 'Problem Solving', description: 'Systematic approaches to solving complex problems.', icon: '🧩', modules: 5 }
-    ];
-}
-
-async function loadUserProgress() {
-    try {
-        const { data, error } = await supabase
-            .from('module_progress')
-            .select('*')
-            .eq('user_id', currentUser.id);
-        
-        if (error) {
-            console.warn('Module progress error:', error.message);
-            loadProgressFromLocalStorage();
-            return;
-        }
-        
-        if (data && data.length > 0) {
-            userProgress = data;
-            console.log('✅ Loaded', userProgress.length, 'progress items from database');
-        } else {
-            loadProgressFromLocalStorage();
-        }
-    } catch (error) {
-        loadProgressFromLocalStorage();
-    }
-}
-
-function loadProgressFromLocalStorage() {
-    try {
-        const saved = localStorage.getItem(`course_progress_${currentUser.id}`);
-        if (saved) {
-            userProgress = JSON.parse(saved);
-            console.log('📂 Loaded progress from localStorage:', userProgress.length);
-        } else {
-            userProgress = [];
-            console.log('📂 No saved progress found');
-        }
-    } catch (e) {
-        userProgress = [];
-    }
-}
-
-function saveProgressToLocalStorage() {
-    try {
-        localStorage.setItem(`course_progress_${currentUser.id}`, JSON.stringify(userProgress));
-    } catch (e) {}
-}
-
-async function loadUserStats() {
-    try {
-        userGP = userProgress.reduce((total, p) => {
-            if (p.completed) {
-                for (const phase of curriculumData) {
-                    const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
-                    if (module) {
-                        return total + module.gp;
-                    }
-                }
-            }
-            return total;
-        }, 0);
-        
-        userStreak = parseInt(localStorage.getItem(`course_streak_${currentUser.id}`)) || 0;
-        
-        // Update header stats
-        document.getElementById('headerGP').textContent = userGP;
-        document.getElementById('headerStreak').textContent = userStreak;
-        
-        // Update hero stats
-        document.getElementById('gpPoints').textContent = userGP;
-        document.getElementById('streakDays').textContent = userStreak;
-        
-        // Update hero level badge
-        updateHeroLevel(userGP);
-        
-        console.log('📊 Stats - GP:', userGP, 'Streak:', userStreak);
-        
-    } catch (error) {
-        console.error('Error loading stats:', error);
-        userGP = 0;
-        userStreak = 0;
-    }
-}
-
-function updateHeroLevel(gp) {
-    const heroLevel = document.getElementById('heroLevel');
-    const heroXP = document.getElementById('heroXP');
-    
-    if (!heroLevel) return;
-    
-    let level = '🌱 Starter';
-    let xpText = `${gp || 0} GP`;
-    
-    if (gp >= 1000) level = '👑 Ambassador';
-    else if (gp >= 500) level = '🏆 Master';
-    else if (gp >= 250) level = '📚 Builder';
-    else if (gp >= 100) level = '🎓 Scholar';
-    
-    heroLevel.textContent = level;
-    if (heroXP) heroXP.textContent = xpText;
-}
-
-// ============================================
-// RENDER FUNCTIONS
-// ============================================
-
-function renderCurriculum() {
-    const container = document.getElementById('curriculumTimeline');
-    if (!container) return;
-    
-    let totalModules = 0;
-    let completedModules = 0;
-    
-    curriculumData.forEach(phase => {
-        totalModules += phase.modules.length;
-        phase.modules.forEach(module => {
-            const isCompleted = userProgress.some(p => 
-                (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
-            );
-            if (isCompleted) completedModules++;
-        });
-    });
-    
-    document.getElementById('totalModules').textContent = totalModules;
-    document.getElementById('completedModules').textContent = completedModules;
-    
-    const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
-    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
-    
-    container.innerHTML = curriculumData.map((phase) => {
-        const phaseCompleted = phase.modules.every(module => 
-            userProgress.some(p => (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed)
-        );
-        const phaseProgress = calculatePhaseProgress(phase);
-        const isExpanded = expandedPhases.has(phase.id);
-        
-        return `
-            <div class="phase-card ${isExpanded ? 'expanded' : ''}" data-phase="${phase.id}">
-                <div class="phase-marker ${phaseCompleted ? 'completed' : ''}">
-                    ${phaseCompleted ? '<i class="fas fa-check"></i>' : phase.id}
+        <!-- ============================================
+             HERO SECTION - Gamified
+             ============================================ -->
+        <div class="path-hero">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="hero-level" id="heroLevel">🌱 Starter</span>
+                    <span class="hero-xp" id="heroXP">0 GP</span>
                 </div>
-                <div class="phase-content">
-                    <div class="phase-header" onclick="togglePhase(${phase.id})">
-                        <div class="phase-title">${phase.name}</div>
-                        <div class="phase-stats">
-                            <span><i class="fas fa-${phaseCompleted ? 'check-circle' : 'circle'}"></i> ${phaseProgress.completed}/${phase.modules.length} modules</span>
-                            <div class="phase-progress">
-                                <div class="phase-progress-fill" style="width: ${phaseProgress.percentage}%"></div>
-                            </div>
-                            <i class="fas fa-chevron-${isExpanded ? 'up' : 'down'}"></i>
+                <h1>Your Learning Journey</h1>
+                <p>Become a Media Architect – Master Video, Design & Code</p>
+                
+                <!-- Overall Progress Card -->
+                <div class="overall-progress-card">
+                    <div class="progress-stats">
+                        <div class="stat">
+                            <span class="stat-value" id="totalModules">0</span>
+                            <span class="stat-label">Total Modules</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="completedModules">0</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="gpPoints">0</span>
+                            <span class="stat-label">GP Points</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="streakDays">0</span>
+                            <span class="stat-label">Day Streak</span>
                         </div>
                     </div>
-                    <div class="phase-modules">
-                        ${phase.modules.map(module => renderModuleItem(module)).join('')}
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-label">
+                            <span>Overall Progress</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="overallProgressBar" style="width: 0%"></div>
+                        </div>
                     </div>
                 </div>
             </div>
-        `;
-    }).join('');
-}
-
-function renderModuleItem(module) {
-    const isCompleted = userProgress.some(p => 
-        (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
-    );
-    
-    let statusClass = 'in-progress';
-    let statusIcon = '<i class="fas fa-play"></i>';
-    
-    if (isCompleted) {
-        statusClass = 'completed';
-        statusIcon = '<i class="fas fa-check"></i>';
-    }
-    
-    return `
-        <div class="module-item" onclick="openModuleModal(${module.id})">
-            <div class="module-status ${statusClass}">
-                ${statusIcon}
+            
+            <!-- Decorative Elements -->
+            <div class="hero-decoration">
+                <div class="floating-icon icon-1">🚀</div>
+                <div class="floating-icon icon-2">⭐</div>
+                <div class="floating-icon icon-3">🎯</div>
+                <div class="floating-icon icon-4">🏆</div>
             </div>
-            <div class="module-info">
-                <div class="module-name">${module.name}</div>
-                <div class="module-meta">
-                    <span><i class="fas fa-clock"></i> ${module.duration}</span>
-                    <span class="module-gp"><i class="fas fa-star"></i> ${module.gp} GP</span>
+        </div>
+        
+        <!-- ============================================
+             PATH CONTAINER
+             ============================================ -->
+        <div class="path-container">
+            
+            <!-- ============================================
+                 CURRICULUM TIMELINE
+                 ============================================ -->
+            <div class="path-header">
+                <h2><i class="fas fa-map-signs"></i> Your Learning Path</h2>
+                <p>Complete modules to earn GP and level up</p>
+            </div>
+            
+            <div class="curriculum-timeline" id="curriculumTimeline">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading your learning path...</p>
                 </div>
             </div>
-            <button class="module-action" onclick="event.stopPropagation(); completeModule(${module.id})" ${isCompleted ? 'disabled' : ''}>
-                <i class="fas fa-${isCompleted ? 'check' : 'arrow-right'}"></i>
-            </button>
-        </div>
-    `;
-}
-
-function calculatePhaseProgress(phase) {
-    let completed = 0;
-    phase.modules.forEach(module => {
-        const isCompleted = userProgress.some(p => 
-            (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
-        );
-        if (isCompleted) completed++;
-    });
-    const percentage = phase.modules.length > 0 ? (completed / phase.modules.length) * 100 : 0;
-    return { completed, percentage };
-}
-
-// ============================================
-// ELECTIVES RENDER - HORIZONTAL SCROLL
-// ============================================
-
-function renderElectives() {
-    const container = document.getElementById('electivesContainer');
-    if (!container) return;
-    
-    // Filter by search query
-    let filteredElectives = electivesData;
-    if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        filteredElectives = electivesData.filter(e => 
-            e.title.toLowerCase().includes(q) || 
-            e.description.toLowerCase().includes(q)
-        );
-    }
-    
-    if (filteredElectives.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state" style="min-width:200px; text-align:center; padding:20px;">
-                <i class="fas fa-search" style="font-size:1.5rem; color:var(--text-secondary);"></i>
-                <h3 style="font-size:0.9rem; margin-top:8px;">No Electives Found</h3>
-                <p style="font-size:0.75rem; color:var(--text-secondary);">${searchQuery ? `No results for "${searchQuery}"` : 'No electives available.'}</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = filteredElectives.map(elective => `
-        <div class="elective-card" onclick="window.openElectiveModal('${elective.id}')">
-            <div class="elective-icon">${elective.icon || '📚'}</div>
-            <div class="elective-title">${elective.title}</div>
-            <div class="elective-meta"><i class="fas fa-layer-group"></i> ${elective.modules || 0} modules</div>
-            <div class="elective-desc">${elective.description || 'No description'}</div>
-            <button class="elective-start-btn" onclick="event.stopPropagation(); window.openElectiveModal('${elective.id}')">
-                <i class="fas fa-play"></i> Start
-            </button>
-        </div>
-    `).join('');
-    
-    // Update scroll buttons
-    updateScrollButtons();
-}
-
-function updateScrollButtons() {
-    const container = document.getElementById('electivesScroll');
-    const leftBtn = document.getElementById('scrollLeft');
-    const rightBtn = document.getElementById('scrollRight');
-    
-    if (!container || !leftBtn || !rightBtn) return;
-    
-    // Check if scroll is needed
-    const needsScroll = container.scrollWidth > container.clientWidth;
-    if (!needsScroll) {
-        leftBtn.style.display = 'none';
-        rightBtn.style.display = 'none';
-        return;
-    }
-    
-    leftBtn.style.display = 'flex';
-    rightBtn.style.display = 'flex';
-    
-    // Update button states
-    leftBtn.disabled = container.scrollLeft <= 0;
-    rightBtn.disabled = container.scrollLeft >= container.scrollWidth - container.clientWidth - 5;
-}
-
-// Add scroll listener to update buttons
-document.addEventListener('DOMContentLoaded', function() {
-    const scrollContainer = document.getElementById('electivesScroll');
-    if (scrollContainer) {
-        scrollContainer.addEventListener('scroll', updateScrollButtons);
-        window.addEventListener('resize', updateScrollButtons);
-    }
-});
-
-// ============================================
-// MODULE COMPLETION
-// ============================================
-
-async function completeModule(moduleId) {
-    let module = null;
-    for (const phase of curriculumData) {
-        const found = phase.modules.find(m => m.id === moduleId);
-        if (found) {
-            module = found;
-            break;
-        }
-    }
-    
-    if (!module) return;
-    
-    const alreadyCompleted = userProgress.some(p => 
-        (p.module_id === moduleId.toString() || p.module_name === module.name) && p.completed
-    );
-    
-    if (alreadyCompleted) {
-        showToast('Module already completed!', 'info');
-        return;
-    }
-    
-    showToast(`Completing "${module.name}"...`, 'info');
-    
-    try {
-        const { error } = await supabase
-            .from('module_progress')
-            .insert({
-                user_id: currentUser.id,
-                module_id: moduleId.toString(),
-                module_name: module.name,
-                completed: true,
-                completed_at: new Date().toISOString(),
-                xp_earned: module.gp
-            });
-        
-        if (error) {
-            console.warn('DB error:', error.message);
-            userProgress.push({
-                module_id: moduleId.toString(),
-                module_name: module.name,
-                completed: true
-            });
-            saveProgressToLocalStorage();
-        } else {
-            userProgress.push({
-                module_id: moduleId.toString(),
-                module_name: module.name,
-                completed: true
-            });
-            saveProgressToLocalStorage();
-        }
-        
-        // Update GP
-        userGP += module.gp;
-        document.getElementById('headerGP').textContent = userGP;
-        document.getElementById('gpPoints').textContent = userGP;
-        updateHeroLevel(userGP);
-        
-        // Update streak
-        userStreak = Math.min(userStreak + 1, 30);
-        localStorage.setItem(`course_streak_${currentUser.id}`, userStreak.toString());
-        document.getElementById('headerStreak').textContent = userStreak;
-        document.getElementById('streakDays').textContent = userStreak;
-        
-        notifyParent('moduleCompleted', {
-            moduleId: module.id,
-            moduleName: module.name,
-            gpEarned: module.gp,
-            newTotalGP: userGP
-        });
-        
-        celebrateCompletion(module);
-        renderCurriculum();
-        updateOverallStats();
-        
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('Failed to mark module complete', 'error');
-    }
-}
-
-function celebrateCompletion(module) {
-    showToast(`🎉 +${module.gp} GP earned for "${module.name}"!`, 'success');
-    triggerConfetti();
-}
-
-function triggerConfetti() {
-    const canvas = document.getElementById('confettiCanvas');
-    if (!canvas) return;
-    
-    canvas.style.display = 'block';
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    
-    const particles = [];
-    const colors = ['#fbb040', '#2c2f78', '#10b981', '#ef4444', '#3b82f6'];
-    
-    for (let i = 0; i < 150; i++) {
-        particles.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height - canvas.height,
-            size: Math.random() * 8 + 4,
-            color: colors[Math.floor(Math.random() * colors.length)],
-            speedY: Math.random() * 5 + 3,
-            speedX: (Math.random() - 0.5) * 3,
-            rotation: Math.random() * 360
-        });
-    }
-    
-    function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        let anyVisible = false;
-        
-        for (const p of particles) {
-            p.y += p.speedY;
-            p.x += p.speedX;
-            p.rotation += 5;
             
-            if (p.y < canvas.height + 50) {
-                anyVisible = true;
-                ctx.save();
-                ctx.translate(p.x, p.y);
-                ctx.rotate(p.rotation * Math.PI / 180);
-                ctx.fillStyle = p.color;
-                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
-                ctx.restore();
-            }
-        }
+            <!-- ============================================
+                 ELECTIVES - HORIZONTAL SCROLL
+                 ============================================ -->
+            <div class="electives-section">
+                <div class="electives-header">
+                    <div class="electives-title-group">
+                        <h2><i class="fas fa-layer-group"></i> Elective Courses</h2>
+                        <p>Expand your skills with these additional courses</p>
+                    </div>
+                    <div class="electives-search">
+                        <input type="text" id="electiveSearchInput" placeholder="Search electives..." oninput="window.searchElectives(this.value)">
+                        <button class="btn-search"><i class="fas fa-search"></i></button>
+                    </div>
+                </div>
+                
+                <!-- Horizontal Scroll Container -->
+                <div class="electives-scroll-wrapper">
+                    <button class="scroll-btn scroll-left" id="scrollLeft" onclick="scrollElectives(-1)">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="electives-scroll" id="electivesScroll">
+                        <div class="electives-grid" id="electivesContainer">
+                            <div class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <p>Loading electives...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="scroll-btn scroll-right" id="scrollRight" onclick="scrollElectives(1)">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- ============================================
+                 FOOTER - COPYRIGHT
+                 ============================================ -->
+            <div class="course-footer">
+                <p>&copy; 2026 Gliimu LTD. All rights reserved.</p>
+            </div>
+            
+        </div>
         
-        if (anyVisible) {
-            requestAnimationFrame(animate);
-        } else {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            canvas.style.display = 'none';
-        }
-    }
-    
-    animate();
-    setTimeout(() => { canvas.style.display = 'none'; }, 3000);
-}
+    </div>
 
-// ============================================
-// UI HELPERS
-// ============================================
+    <!-- ============================================
+         ELECTIVE MODAL
+         ============================================ -->
+    <div class="modal-overlay" id="electiveModal">
+        <div class="modal-content modal-elective">
+            <div class="modal-header">
+                <h3 id="electiveModalTitle">Elective Course</h3>
+                <button class="modal-close" onclick="closeElectiveModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="elective-modal-icon" id="electiveModalIcon">📚</div>
+                <p id="electiveModalDescription"></p>
+                <div class="elective-modal-stats">
+                    <span><i class="fas fa-layer-group"></i> <span id="electiveModalModules">0</span> modules</span>
+                </div>
+                <button class="btn-primary elective-modal-start" id="electiveModalStart" onclick="startElectiveFromModal()">
+                    <i class="fas fa-play"></i> Start Learning
+                </button>
+            </div>
+        </div>
+    </div>
 
-window.togglePhase = function(phaseId) {
-    if (expandedPhases.has(phaseId)) {
-        expandedPhases.delete(phaseId);
-    } else {
-        expandedPhases.add(phaseId);
-    }
-    renderCurriculum();
-};
+    <!-- ============================================
+         MODULE DETAIL MODAL
+         ============================================ -->
+    <div class="modal-overlay" id="moduleModal">
+        <div class="modal-content modal-module">
+            <div class="modal-header">
+                <h3 id="modalTitle"></h3>
+                <button class="modal-close" onclick="closeModuleModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="module-detail-icon" id="modalIcon"></div>
+                <p id="modalDescription"></p>
+                <div class="module-detail-stats">
+                    <span><i class="fas fa-clock"></i> <span id="modalDuration">2 hours</span></span>
+                    <span><i class="fas fa-star"></i> <span id="modalGP">50 GP</span></span>
+                </div>
+                <div class="module-resources" id="modalResources"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModuleModal()">Close</button>
+                <button class="btn-primary" id="modalCompleteBtn" onclick="completeModuleFromModal()">Mark Complete</button>
+            </div>
+        </div>
+    </div>
 
-window.openModuleModal = function(moduleId) {
-    let module = null;
-    for (const phase of curriculumData) {
-        const found = phase.modules.find(m => m.id === moduleId);
-        if (found) {
-            module = found;
-            break;
-        }
-    }
-    
-    if (!module) return;
-    
-    const isCompleted = userProgress.some(p => 
-        (p.module_id === module.id.toString() || p.module_name === module.name) && p.completed
-    );
-    
-    document.getElementById('modalTitle').textContent = module.name;
-    document.getElementById('modalDescription').textContent = module.desc;
-    document.getElementById('modalDuration').textContent = module.duration;
-    document.getElementById('modalGP').textContent = `${module.gp} GP`;
-    document.getElementById('modalIcon').innerHTML = `<i class="fas fa-${getModuleIcon(module)}"></i>`;
-    
-    const completeBtn = document.getElementById('modalCompleteBtn');
-    if (completeBtn) {
-        if (isCompleted) {
-            completeBtn.disabled = true;
-            completeBtn.textContent = 'Completed ✓';
-            completeBtn.style.opacity = '0.5';
-        } else {
-            completeBtn.disabled = false;
-            completeBtn.textContent = 'Mark Complete';
-            completeBtn.style.opacity = '1';
-            completeBtn.onclick = () => {
-                completeModule(module.id);
-                closeModuleModal();
-            };
-        }
-    }
-    
-    document.getElementById('moduleModal').classList.add('active');
-};
+    <!-- ============================================
+         SHARE MODAL
+         ============================================ -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal-content modal-share">
+            <div class="modal-header">
+                <h3>Share Your Journey</h3>
+                <button class="modal-close" onclick="closeShareModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="text-align:center; margin-bottom:1rem;">Share your learning journey with friends and earn rewards!</p>
+                <div class="share-code-box">
+                    <div class="share-code" id="shareCode">Loading...</div>
+                    <button class="btn-outline" onclick="copyShareCode()">Copy Code</button>
+                </div>
+                <div class="share-actions">
+                    <button class="share-btn" onclick="shareOnWhatsApp()">
+                        <i class="fab fa-whatsapp" style="color:#25D366;"></i> WhatsApp
+                    </button>
+                    <button class="share-btn" onclick="shareOnTwitter()">
+                        <i class="fab fa-twitter" style="color:#1DA1F2;"></i> Twitter
+                    </button>
+                    <button class="share-btn" onclick="shareOnLinkedIn()">
+                        <i class="fab fa-linkedin" style="color:#0A66C2;"></i> LinkedIn
+                    </button>
+                    <button class="share-btn" onclick="shareOnFacebook()">
+                        <i class="fab fa-facebook" style="color:#1877F2;"></i> Facebook
+                    </button>
+                </div>
+                <div class="share-referral-info">
+                    <p><i class="fas fa-gift"></i> Each friend who joins gives you <strong>+50 GP</strong>!</p>
+                    <p style="font-size:0.7rem; color:var(--text-secondary);">Your referral: <span id="shareReferralLink"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-window.closeModuleModal = function() {
-    document.getElementById('moduleModal').classList.remove('active');
-};
+    <!-- ============================================
+         CELEBRATION CONFETTI CANVAS
+         ============================================ -->
+    <canvas id="confettiCanvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; display: none;"></canvas>
 
-window.completeModuleFromModal = function() {
-    const completeBtn = document.getElementById('modalCompleteBtn');
-    if (completeBtn && !completeBtn.disabled) {
-        completeBtn.click();
-    }
-};
-
-function getModuleIcon(module) {
-    if (module.name.includes('Video') || module.name.includes('Cinematography')) return 'video';
-    if (module.name.includes('Design')) return 'palette';
-    if (module.name.includes('Development') || module.name.includes('Programming')) return 'code';
-    if (module.name.includes('Project')) return 'rocket';
-    return 'book-open';
-}
-
-function updateOverallStats() {
-    const totalModules = curriculumData.reduce((sum, p) => sum + p.modules.length, 0);
-    const completedModules = userProgress.filter(p => p.completed).length;
-    const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-    
-    document.getElementById('totalModules').textContent = totalModules;
-    document.getElementById('completedModules').textContent = completedModules;
-    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
-    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
-}
-
-function setupEventListeners() {
-    const modal = document.getElementById('moduleModal');
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModuleModal();
-        });
-    }
-    
-    // Elective modal close on overlay click
-    const electiveModal = document.getElementById('electiveModal');
-    if (electiveModal) {
-        electiveModal.addEventListener('click', (e) => {
-            if (e.target === electiveModal) closeElectiveModal();
-        });
-    }
-}
-
-// ============================================
-// EXPOSE GLOBALLY
-// ============================================
-
-window.togglePhase = togglePhase;
-window.openModuleModal = openModuleModal;
-window.closeModuleModal = closeModuleModal;
-window.completeModule = completeModule;
-window.completeModuleFromModal = completeModuleFromModal;
-window.openElectiveModal = openElectiveModal;
-window.closeElectiveModal = closeElectiveModal;
-window.startElectiveFromModal = startElectiveFromModal;
-window.scrollElectives = scrollElectives;
-window.searchElectives = searchElectives;
-window.goBack = goBack;
-window.goToHub = goToHub;
-window.reportIssue = reportIssue;
-window.contactSupport = contactSupport;
-window.toggleTheme = toggleTheme;
-
-console.log('📚 Learning Path ready');
+    <script type="module" src="/frontend/js/pages/user-course.js"></script>
+</body>
+</html>
