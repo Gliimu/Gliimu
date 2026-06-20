@@ -403,7 +403,7 @@ body {
 }
 
 .progress-to-unlock .progress-bar-container {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.13);
     width: 200px;
     margin: 0.5rem auto;
 }
