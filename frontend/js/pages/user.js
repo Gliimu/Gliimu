@@ -416,7 +416,7 @@ function renderJourney() {
                 <p>Loading your learning journey...</p>
             </div>
             <iframe 
-                src="/course.html" 
+                src="/user-course.html" 
                 class="journey-iframe" 
                 id="journeyIframe"
                 frameborder="0"
@@ -453,7 +453,7 @@ function renderJourney() {
 // ============================================
 function setupCourseMessageListener() {
     window.addEventListener('message', async (event) => {
-        // Only accept messages from course.html
+        // Only accept messages from course page
         if (!event.data || event.data.type !== 'moduleCompleted') return;
         
         console.log('📬 Course event received:', event.data);
