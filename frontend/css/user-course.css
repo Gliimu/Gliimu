@@ -1,0 +1,196 @@
+/* =========================================
+   USER COURSE STYLES - Dashboard Integration
+   ========================================= */
+
+/* ============================================
+   EMBEDDED MODE OVERRIDES
+   ============================================ */
+
+/* When course is embedded in dashboard */
+.learning-path.embedded {
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.learning-path.embedded .path-hero {
+    border-radius: 16px 16px 0 0;
+    padding: 24px 30px;
+    margin-bottom: 24px;
+}
+
+.learning-path.embedded .path-hero .hero-content h1 {
+    font-size: 1.5rem;
+}
+
+.learning-path.embedded .path-hero .hero-content p {
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.learning-path.embedded .overall-progress-card {
+    padding: 16px;
+}
+
+.learning-path.embedded .overall-progress-card .stat-value {
+    font-size: 20px;
+}
+
+.learning-path.embedded .path-container {
+    padding: 0 16px;
+}
+
+.learning-path.embedded .path-header h2 {
+    font-size: 20px;
+}
+
+.learning-path.embedded .path-header p {
+    font-size: 0.85rem;
+}
+
+.learning-path.embedded .phase-card {
+    margin-bottom: 24px;
+    padding-left: 56px;
+}
+
+.learning-path.embedded .phase-marker {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+}
+
+.learning-path.embedded .phase-header {
+    padding: 14px 18px;
+}
+
+.learning-path.embedded .phase-title {
+    font-size: 15px;
+}
+
+.learning-path.embedded .phase-stats {
+    font-size: 11px;
+    gap: 10px;
+}
+
+.learning-path.embedded .phase-modules {
+    padding: 0 18px 18px;
+}
+
+.learning-path.embedded .module-item {
+    padding: 12px 14px;
+}
+
+.learning-path.embedded .module-name {
+    font-size: 0.9rem;
+}
+
+.learning-path.embedded .module-meta {
+    font-size: 10px;
+    gap: 10px;
+}
+
+.learning-path.embedded .achievements-section {
+    padding: 20px;
+    margin-top: 30px;
+}
+
+.learning-path.embedded .achievements-grid {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 12px;
+}
+
+.learning-path.embedded .achievement-card {
+    padding: 12px;
+}
+
+.learning-path.embedded .achievement-icon {
+    font-size: 28px;
+}
+
+.learning-path.embedded .achievement-name {
+    font-size: 10px;
+}
+
+.learning-path.embedded .leaderboard-preview {
+    padding: 16px;
+    margin-top: 24px;
+}
+
+.learning-path.embedded .leaderboard-header h3 {
+    font-size: 14px;
+}
+
+/* ============================================
+   RESPONSIVE - EMBEDDED
+   ============================================ */
+
+@media (max-width: 768px) {
+    .learning-path.embedded .path-hero {
+        padding: 16px 20px;
+        border-radius: 12px 12px 0 0;
+        margin-bottom: 16px;
+    }
+    
+    .learning-path.embedded .path-hero .hero-content h1 {
+        font-size: 1.2rem;
+    }
+    
+    .learning-path.embedded .path-hero .hero-content p {
+        font-size: 0.8rem;
+    }
+    
+    .learning-path.embedded .overall-progress-card .stat-value {
+        font-size: 16px;
+    }
+    
+    .learning-path.embedded .phase-card {
+        padding-left: 44px;
+        margin-bottom: 16px;
+    }
+    
+    .learning-path.embedded .phase-marker {
+        width: 36px;
+        height: 36px;
+        font-size: 12px;
+    }
+    
+    .learning-path.embedded .phase-header {
+        padding: 12px 14px;
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .learning-path.embedded .phase-title {
+        font-size: 14px;
+    }
+    
+    .learning-path.embedded .phase-stats {
+        width: 100%;
+        font-size: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .learning-path.embedded .phase-progress {
+        flex: 1;
+        min-width: 60px;
+    }
+    
+    .learning-path.embedded .phase-modules {
+        padding: 0 14px 14px;
+    }
+    
+    .learning-path.embedded .module-item {
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .learning-path.embedded .module-info {
+        width: calc(100% - 40px);
+    }
+    
+    .learning-path.embedded .module-name {
+        font-size: 0.8rem;
+    }
+    
+    .learning-path.embedded .achievements-grid {
+        grid-template-column
