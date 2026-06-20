@@ -149,16 +149,24 @@ body {
     display: block;
 }
 
-.nav-btn.hub-nav {
+.nav-btn.home-nav {
     background: var(--brand-purple);
     color: white;
     border-color: var(--brand-purple);
 }
 
-.nav-btn.hub-nav:hover {
+.nav-btn.home-nav:hover {
     background: var(--brand-purple-dark);
     border-color: var(--brand-purple-dark);
     color: white;
+}
+
+.nav-btn .fa-share-alt {
+    color: var(--brand-gold);
+}
+
+.nav-btn:hover .fa-share-alt {
+    color: var(--brand-gold-dark);
 }
 
 @media (max-width: 480px) {
@@ -748,7 +756,7 @@ body {
     padding: 4px 4px 8px;
 }
 
-/* Elective Card */
+/* Elective Cards - Pattern / Plane Alternating */
 .elective-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -767,6 +775,18 @@ body {
     min-width: 160px;
     max-width: 180px;
     flex-shrink: 0;
+}
+
+/* Pattern Card - every even card */
+.elective-card:nth-child(even) {
+    background: linear-gradient(145deg, var(--bg-card), var(--bg-secondary));
+    border: 1px solid rgba(251, 176, 64, 0.15);
+}
+
+/* Plane Card - every odd card */
+.elective-card:nth-child(odd) {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
 }
 
 .elective-card::before {
@@ -789,17 +809,6 @@ body {
 
 .elective-card:hover::before {
     opacity: 1;
-}
-
-.elective-card .elective-icon {
-    font-size: 1.8rem;
-    color: var(--brand-gold);
-    margin-bottom: 2px;
-    transition: transform 0.3s;
-}
-
-.elective-card:hover .elective-icon {
-    transform: scale(1.15) rotate(-5deg);
 }
 
 .elective-card .elective-title {
@@ -915,10 +924,6 @@ body {
         padding: 0.8rem 0.6rem;
     }
 
-    .elective-card .elective-icon {
-        font-size: 1.4rem;
-    }
-
     .elective-card .elective-title {
         font-size: 0.7rem;
     }
@@ -947,10 +952,6 @@ body {
         border-radius: 12px;
     }
 
-    .elective-card .elective-icon {
-        font-size: 1.2rem;
-    }
-
     .elective-card .elective-title {
         font-size: 0.65rem;
     }
@@ -973,6 +974,17 @@ body {
         height: 26px;
         font-size: 0.55rem;
     }
+}
+
+/* Dark mode card pattern */
+body.dark-mode .elective-card:nth-child(even) {
+    background: linear-gradient(145deg, var(--bg-card), rgba(44, 47, 120, 0.08));
+    border: 1px solid rgba(251, 176, 64, 0.08);
+}
+
+body.dark-mode .elective-card:nth-child(odd) {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
 }
 
 /* ============================================
@@ -1011,7 +1023,144 @@ body {
 }
 
 /* ============================================
-   MODAL
+   SHARE MODAL
+   ============================================ */
+
+.modal-share .modal-body {
+    padding: 20px;
+}
+
+.share-code-box {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.share-code {
+    flex: 1;
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: monospace;
+    color: var(--brand-gold);
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+.share-code-box .btn-outline {
+    padding: 0.3rem 1rem;
+    font-size: 0.7rem;
+    border-radius: 40px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.share-code-box .btn-outline:hover {
+    border-color: var(--brand-gold);
+    color: var(--brand-gold);
+}
+
+.share-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.share-btn {
+    padding: 0.6rem;
+    border-radius: 40px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+}
+
+.share-btn:hover {
+    border-color: var(--brand-gold);
+    background: var(--bg-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.share-referral-info {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(251, 176, 64, 0.08);
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(251, 176, 64, 0.15);
+}
+
+.share-referral-info p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.share-referral-info p:last-child {
+    margin-bottom: 0;
+}
+
+.share-referral-info strong {
+    color: var(--brand-gold);
+}
+
+.share-referral-info i {
+    color: var(--brand-gold);
+}
+
+#shareReferralLink {
+    color: var(--brand-gold);
+    font-weight: 500;
+    word-break: break-all;
+}
+
+@media (max-width: 480px) {
+    .share-actions {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem;
+    }
+
+    .share-btn {
+        font-size: 0.65rem;
+        padding: 0.4rem 0.6rem;
+    }
+
+    .share-code {
+        font-size: 0.8rem;
+    }
+
+    .share-code-box {
+        flex-wrap: wrap;
+        justify-content: center;
+        padding: 0.5rem;
+    }
+
+    .share-code-box .btn-outline {
+        width: 100%;
+    }
+}
+
+/* ============================================
+   MODAL (General)
    ============================================ */
 
 .modal-overlay {
@@ -1200,6 +1349,28 @@ body {
     to { transform: rotate(360deg); }
 }
 
+.empty-state {
+    text-align: center;
+    padding: 30px 20px;
+    min-width: 150px;
+}
+
+.empty-state i {
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+}
+
+.empty-state h3 {
+    font-size: 0.9rem;
+    margin-top: 8px;
+    color: var(--text-primary);
+}
+
+.empty-state p {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
 .login-prompt {
     text-align: center;
     padding: 40px 20px;
@@ -1300,12 +1471,12 @@ body.dark-mode .nav-btn {
     color: var(--text-secondary);
 }
 
-body.dark-mode .nav-btn.hub-nav {
+body.dark-mode .nav-btn.home-nav {
     background: var(--brand-purple);
     color: white;
 }
 
-body.dark-mode .nav-btn.hub-nav:hover {
+body.dark-mode .nav-btn.home-nav:hover {
     background: var(--brand-purple-dark);
 }
 
@@ -1353,292 +1524,263 @@ body.dark-mode .course-footer p {
     color: var(--text-secondary);
 }
 
-/* ============================================
-   ELECTIVE CARDS - PATTERN / PLANE ALTERNATING
-   ============================================ */
-
-.elective-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1.2rem 1rem;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    box-shadow: var(--shadow-sm);
-    position: relative;
-    overflow: hidden;
-    min-width: 160px;
-    max-width: 180px;
-    flex-shrink: 0;
-}
-
-/* Pattern Card - every even card */
-.elective-card:nth-child(even) {
-    background: linear-gradient(145deg, var(--bg-card), var(--bg-secondary));
-    border: 1px solid rgba(251, 176, 64, 0.15);
-}
-
-/* Plane Card - every odd card */
-.elective-card:nth-child(odd) {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-}
-
-.elective-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--brand-gold), var(--brand-purple));
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.elective-card:hover {
-    transform: translateY(-6px);
-    box-shadow: var(--shadow-lg);
-    border-color: var(--brand-gold);
-}
-
-.elective-card:hover::before {
-    opacity: 1;
-}
-
-.elective-card .elective-icon {
-    display: none; /* Remove icons completely */
-}
-
-.elective-card .elective-title {
-    font-weight: 600;
-    font-size: 0.8rem;
-    color: var(--text-primary);
-    line-height: 1.3;
-}
-
-.elective-card .elective-meta {
-    font-size: 0.6rem;
-    color: var(--text-secondary);
-}
-
-.elective-card .elective-meta i {
-    color: var(--brand-gold);
-}
-
-.elective-card .elective-desc {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    line-height: 1.3;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.elective-card .elective-start-btn {
-    margin-top: 4px;
-    padding: 3px 14px;
-    font-size: 0.65rem;
-    border-radius: 40px;
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-    border: none;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s;
-    opacity: 0;
-    transform: translateY(4px);
-}
-
-.elective-card:hover .elective-start-btn {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.elective-card .elective-start-btn:hover {
-    background: var(--brand-gold-dark);
-    transform: scale(1.05);
-}
-
-/* Dark mode card pattern */
-body.dark-mode .elective-card:nth-child(even) {
-    background: linear-gradient(145deg, var(--bg-card), rgba(44, 47, 120, 0.08));
-    border: 1px solid rgba(251, 176, 64, 0.08);
-}
-
-body.dark-mode .elective-card:nth-child(odd) {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-}
-
-/* ============================================
-   SHARE MODAL
-   ============================================ */
-
-.modal-share .modal-body {
-    padding: 20px;
-}
-
-.share-code-box {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
+body.dark-mode .share-code-box {
     background: var(--bg-secondary);
-    border-radius: 12px;
-    padding: 0.5rem 1rem;
-    margin-bottom: 1rem;
-    border: 1px solid var(--border-color);
+    border-color: var(--border-color);
 }
 
-.share-code {
-    flex: 1;
-    font-size: 1.1rem;
-    font-weight: 700;
-    font-family: monospace;
-    color: var(--brand-gold);
-    letter-spacing: 1px;
-    text-align: center;
-}
-
-.share-code-box .btn-outline {
-    padding: 0.3rem 1rem;
-    font-size: 0.7rem;
-    border-radius: 40px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
-
-.share-code-box .btn-outline:hover {
-    border-color: var(--brand-gold);
-    color: var(--brand-gold);
-}
-
-.share-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    margin: 1rem 0;
-}
-
-.share-btn {
-    padding: 0.6rem;
-    border-radius: 40px;
-    border: 1px solid var(--border-color);
+body.dark-mode .share-btn {
     background: var(--bg-secondary);
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+    border-color: var(--border-color);
     color: var(--text-primary);
 }
 
-.share-btn:hover {
-    border-color: var(--brand-gold);
+body.dark-mode .share-btn:hover {
     background: var(--bg-primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
+    border-color: var(--brand-gold);
 }
 
-.share-referral-info {
-    margin-top: 0.75rem;
-    padding: 0.75rem 1rem;
+body.dark-mode .share-referral-info {
     background: rgba(251, 176, 64, 0.08);
-    border-radius: 12px;
-    text-align: center;
-    border: 1px solid rgba(251, 176, 64, 0.15);
+    border-color: rgba(251, 176, 64, 0.08);
 }
 
-.share-referral-info p {
-    font-size: 0.8rem;
+body.dark-mode .elective-modal-stats {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .empty-state h3 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .empty-state p {
     color: var(--text-secondary);
-    margin-bottom: 0.25rem;
 }
 
-.share-referral-info p:last-child {
-    margin-bottom: 0;
-}
+/* ============================================
+   RESPONSIVE - GENERAL
+   ============================================ */
 
-.share-referral-info strong {
-    color: var(--brand-gold);
-}
+@media (max-width: 768px) {
+    .path-hero {
+        padding: 16px 16px 24px;
+    }
 
-.share-referral-info i {
-    color: var(--brand-gold);
-}
+    .hero-content h1 {
+        font-size: 1.2rem;
+    }
 
-#shareReferralLink {
-    color: var(--brand-gold);
-    font-weight: 500;
-    word-break: break-all;
+    .hero-content p {
+        font-size: 0.75rem;
+    }
+
+    .overall-progress-card {
+        padding: 12px 14px;
+    }
+
+    .stat-value {
+        font-size: 1.1rem;
+    }
+
+    .phase-card {
+        padding-left: 44px;
+        margin-bottom: 16px;
+    }
+
+    .phase-marker {
+        width: 36px;
+        height: 36px;
+        font-size: 11px;
+    }
+
+    .phase-header {
+        padding: 10px 14px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .phase-title {
+        font-size: 13px;
+    }
+
+    .phase-stats {
+        width: 100%;
+        font-size: 10px;
+        justify-content: space-between;
+    }
+
+    .phase-progress {
+        flex: 1;
+        min-width: 50px;
+    }
+
+    .phase-modules {
+        padding: 0 12px 12px;
+    }
+
+    .module-item {
+        padding: 8px 10px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .module-info {
+        width: calc(100% - 36px);
+    }
+
+    .module-name {
+        font-size: 0.75rem;
+    }
+
+    .module-meta {
+        font-size: 9px;
+        gap: 6px;
+    }
+
+    .module-status {
+        width: 24px;
+        height: 24px;
+        font-size: 9px;
+    }
+
+    .module-action {
+        width: 26px;
+        height: 26px;
+        font-size: 9px;
+    }
+
+    .electives-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .electives-search {
+        min-width: unset;
+    }
+
+    .electives-search input {
+        min-width: unset;
+    }
+
+    .floating-icon {
+        display: none;
+    }
 }
 
 @media (max-width: 480px) {
-    .share-actions {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.4rem;
+    .path-hero {
+        padding: 12px 12px 18px;
     }
 
-    .share-btn {
-        font-size: 0.65rem;
-        padding: 0.4rem 0.6rem;
+    .hero-content h1 {
+        font-size: 1rem;
     }
 
-    .share-code {
-        font-size: 0.8rem;
+    .hero-content p {
+        font-size: 0.7rem;
     }
 
-    .share-code-box {
-        flex-wrap: wrap;
-        justify-content: center;
-        padding: 0.5rem;
+    .overall-progress-card {
+        padding: 10px 12px;
     }
 
-    .share-code-box .btn-outline {
-        width: 100%;
+    .stat-value {
+        font-size: 0.95rem;
     }
-}
 
-/* ============================================
-   NAV BUTTON - HOME
-   ============================================ */
+    .stat-label {
+        font-size: 0.5rem;
+    }
 
-.nav-btn.home-nav {
-    background: var(--brand-purple);
-    color: white;
-    border-color: var(--brand-purple);
-}
+    .phase-card {
+        padding-left: 38px;
+        margin-bottom: 12px;
+    }
 
-.nav-btn.home-nav:hover {
-    background: var(--brand-purple-dark);
-    border-color: var(--brand-purple-dark);
-    color: white;
-}
+    .phase-marker {
+        width: 30px;
+        height: 30px;
+        font-size: 9px;
+    }
 
-/* ============================================
-   SHARE BUTTON IN NAV
-   ============================================ */
+    .phase-header {
+        padding: 8px 10px;
+    }
 
-.nav-btn .fa-share-alt {
-    color: var(--brand-gold);
-}
+    .phase-title {
+        font-size: 12px;
+    }
 
-.nav-btn:hover .fa-share-alt {
-    color: var(--brand-gold-dark);
+    .phase-stats {
+        font-size: 9px;
+    }
+
+    .phase-progress {
+        width: 50px;
+    }
+
+    .phase-modules {
+        padding: 0 8px 8px;
+    }
+
+    .module-item {
+        padding: 6px 8px;
+        gap: 4px;
+    }
+
+    .module-name {
+        font-size: 0.7rem;
+    }
+
+    .module-meta {
+        font-size: 8px;
+        gap: 4px;
+    }
+
+    .module-status {
+        width: 20px;
+        height: 20px;
+        font-size: 8px;
+    }
+
+    .module-action {
+        width: 22px;
+        height: 22px;
+        font-size: 8px;
+    }
+
+    .modal-content {
+        max-width: 96%;
+        max-height: 90vh;
+    }
+
+    .modal-header {
+        padding: 12px 16px;
+    }
+
+    .modal-body {
+        padding: 14px 16px;
+    }
+
+    .module-detail-icon {
+        font-size: 2rem;
+    }
+
+    .module-detail-stats {
+        font-size: 0.7rem;
+        gap: 12px;
+        padding: 8px 12px;
+    }
+
+    .modal-footer {
+        padding: 12px 16px;
+        flex-direction: column;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 10px;
+        font-size: 0.75rem;
+    }
 }
