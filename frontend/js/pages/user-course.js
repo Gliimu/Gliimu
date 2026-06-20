@@ -18,6 +18,7 @@ let achievements = [];
 let expandedPhases = new Set();
 let isEmbedded = false;
 let isLoading = true;
+let _unlockedAchievements = [];
 
 // GP values for different module types
 const GP_VALUES = {
@@ -108,7 +109,6 @@ function showLoading() {
 
 function hideLoading() {
     isLoading = false;
-    // Loading will be replaced by render
 }
 
 function showError(message) {
@@ -222,14 +222,12 @@ function loadCurriculum() {
 
 async function loadUserProgress() {
     try {
-        // Check if table exists by trying to query it
         const { data, error } = await supabase
             .from('module_progress')
             .select('*')
             .eq('user_id', currentUser.id);
         
         if (error) {
-            // Table might not exist - use localStorage fallback
             console.warn('⚠️ module_progress table error:', error.message);
             loadProgressFromLocalStorage();
             return;
@@ -239,7 +237,6 @@ async function loadUserProgress() {
             userProgress = data;
             console.log('✅ Loaded', userProgress.length, 'progress items from database');
         } else {
-            // No progress yet - check localStorage
             loadProgressFromLocalStorage();
         }
     } catch (error) {
@@ -271,7 +268,6 @@ function saveProgressToLocalStorage() {
 
 async function loadUserStats() {
     try {
-        // Calculate GP from completed modules
         userGP = userProgress.reduce((total, p) => {
             if (p.completed) {
                 for (const phase of curriculumData) {
@@ -284,10 +280,8 @@ async function loadUserStats() {
             return total;
         }, 0);
         
-        // Calculate streak (simplified - from localStorage)
         userStreak = parseInt(localStorage.getItem(`course_streak_${currentUser.id}`)) || 0;
         
-        // Update UI
         document.getElementById('gpPoints').textContent = userGP;
         document.getElementById('streakDays').textContent = userStreak;
         
@@ -302,7 +296,6 @@ async function loadUserStats() {
 
 async function loadLeaderboard() {
     try {
-        // Try to get from database
         const { data, error } = await supabase
             .from('user_stats')
             .select('user_id, total_gp, users(name)')
@@ -314,7 +307,6 @@ async function loadLeaderboard() {
             return;
         }
         
-        // Fallback to mock data
         const mockLeaderboard = [
             { name: 'Michael Chen', gp: 2450 },
             { name: 'Sarah Johnson', gp: 2100 },
@@ -326,7 +318,6 @@ async function loadLeaderboard() {
         
     } catch (error) {
         console.error('Error loading leaderboard:', error);
-        // Render empty leaderboard
         const container = document.getElementById('leaderboardList');
         if (container) {
             container.innerHTML = `
@@ -505,7 +496,6 @@ async function completeModule(moduleId) {
     showToast(`Completing "${module.name}"...`, 'info');
     
     try {
-        // Save to Supabase if table exists
         try {
             const { error } = await supabase
                 .from('module_progress')
@@ -520,7 +510,6 @@ async function completeModule(moduleId) {
             
             if (error) {
                 console.warn('Could not save to database, saving locally:', error.message);
-                // Fallback to localStorage
                 userProgress.push({
                     module_id: moduleId.toString(),
                     module_name: module.name,
@@ -545,16 +534,13 @@ async function completeModule(moduleId) {
             saveProgressToLocalStorage();
         }
         
-        // Update GP
         userGP += module.gp;
         document.getElementById('gpPoints').textContent = userGP;
         
-        // Update streak
         userStreak = Math.min(userStreak + 1, 30);
         localStorage.setItem(`course_streak_${currentUser.id}`, userStreak.toString());
         document.getElementById('streakDays').textContent = userStreak;
         
-        // Notify parent dashboard
         notifyParent('moduleCompleted', {
             moduleId: module.id,
             moduleName: module.name,
@@ -562,10 +548,8 @@ async function completeModule(moduleId) {
             newTotalGP: userGP
         });
         
-        // Celebrate
         celebrateCompletion(module);
         
-        // Re-render
         renderCurriculum();
         updateOverallStats();
         await checkAchievements();
@@ -674,17 +658,16 @@ async function checkAchievements() {
                 break;
         }
         
-        if (earned && !window._unlockedAchievements?.includes(achievement.id)) {
+        if (earned && !_unlockedAchievements.includes(achievement.id)) {
             await unlockAchievement(achievement);
         }
     }
 }
 
 async function unlockAchievement(achievement) {
-    if (!window._unlockedAchievements) window._unlockedAchievements = [];
-    if (window._unlockedAchievements.includes(achievement.id)) return;
+    if (_unlockedAchievements.includes(achievement.id)) return;
     
-    window._unlockedAchievements.push(achievement.id);
+    _unlockedAchievements.push(achievement.id);
     
     showToast(`🏆 Achievement Unlocked: ${achievement.name}! +${achievement.gp} GP`, 'success');
     
@@ -816,49 +799,6 @@ function setupEventListeners() {
             if (e.target === modal) closeModuleModal();
         });
     }
-}
-
-// ============================================
-// TOAST (Fallback)
-// ============================================
-
-function showToast(message, type = 'info') {
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
-        return;
-    }
-    
-    const existing = document.querySelector('.reader-toast');
-    if (existing) existing.remove();
-    
-    const toast = document.createElement('div');
-    toast.className = `reader-toast ${type}`;
-    toast.textContent = message;
-    toast.style.cssText = `
-        position: fixed;
-        bottom: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #fff;
-        color: #333;
-        padding: 0.75rem 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #ddd;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        z-index: 999;
-        font-size: 0.85rem;
-        font-family: 'Space Grotesk', sans-serif;
-        max-width: 90%;
-        border-left: 4px solid #fbb040;
-        animation: slideUp 0.3s ease;
-    `;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
 }
 
 // ============================================
