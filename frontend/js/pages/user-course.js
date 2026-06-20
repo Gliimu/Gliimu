@@ -1,20 +1,9 @@
 // ============================================
-// GAMIFIED LEARNING PATH - course.js
-// Supports both standalone and embedded mode
+// USER COURSE - Gamified Learning Path
 // ============================================
 
-import { supabase, getCurrentUser } from '../modules/supabase.js';
+import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
-
-// ============================================
-// DETECT EMBEDDED MODE
-// ============================================
-
-const isEmbedded = window.parent !== window;
-const isInIframe = window !== window.top;
-
-console.log('📚 Course page loaded');
-console.log('📱 Embedded mode:', isEmbedded || isInIframe);
 
 // ============================================
 // GLOBAL STATE
@@ -27,9 +16,9 @@ let userGP = 0;
 let userStreak = 0;
 let achievements = [];
 let expandedPhases = new Set();
-let isInitialized = false;
+let isEmbedded = false;
 
-// XP values for different module types (now called GP - Gliimu Points)
+// GP values for different module types (renamed from XP)
 const GP_VALUES = {
     'foundation': 50,
     'core': 75,
@@ -47,26 +36,15 @@ const ACHIEVEMENTS = [
 ];
 
 // ============================================
-// NOTIFY PARENT DASHBOARD
-// ============================================
-
-function notifyParent(event, data) {
-    if (isEmbedded || isInIframe) {
-        try {
-            window.parent.postMessage({ type: event, ...data }, '*');
-            console.log('📤 Sent message to parent:', event, data);
-        } catch (e) {
-            console.warn('Could not send message to parent:', e);
-        }
-    }
-}
-
-// ============================================
 // INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🎮 Gamified Learning Path initializing...');
+    console.log('User Course initializing...');
+    
+    // Check if embedded in iframe
+    isEmbedded = window.parent !== window;
+    console.log('📱 Embedded mode:', isEmbedded);
     
     // Show loading state
     showLoading();
@@ -79,33 +57,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     
-    console.log('👤 User loaded:', currentUser.email);
-    
-    // Load data
+    // Load curriculum
     await loadCurriculum();
+    
+    // Load user progress
     await loadUserProgress();
+    
+    // Load user stats
     await loadUserStats();
+    
+    // Load leaderboard
     await loadLeaderboard();
+    
+    // Check and unlock achievements
     await checkAchievements();
     
     // Render everything
     renderCurriculum();
     renderAchievements();
+    
+    // Setup event listeners
     setupEventListeners();
-    updateOverallStats();
     
     // Hide loading
     hideLoading();
-    isInitialized = true;
     
-    // If embedded, notify parent that course is ready
-    if (isEmbedded || isInIframe) {
-        notifyParent('courseReady', { 
-            userId: currentUser.id,
-            totalGP: userGP,
-            modulesCompleted: userProgress.filter(p => p.completed).length
-        });
-    }
+    // Update overall stats
+    updateOverallStats();
 });
 
 function showLoading() {
@@ -135,6 +113,39 @@ function showLoginPrompt() {
                 <button onclick="window.location.href='/signin.html'" class="btn-primary">Sign In</button>
             </div>
         `;
+    }
+}
+
+// ============================================
+// GET CURRENT USER
+// ============================================
+
+async function getCurrentUser() {
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+            console.error('Error getting user:', error);
+            return null;
+        }
+        return user;
+    } catch (e) {
+        console.error('Error in getCurrentUser:', e);
+        return null;
+    }
+}
+
+// ============================================
+// NOTIFY PARENT DASHBOARD (if embedded)
+// ============================================
+
+function notifyParent(event, data) {
+    if (isEmbedded) {
+        try {
+            window.parent.postMessage({ type: event, ...data }, '*');
+            console.log('📤 Sent message to parent:', event, data);
+        } catch (e) {
+            console.warn('Could not send message to parent:', e);
+        }
     }
 }
 
@@ -189,30 +200,16 @@ async function loadCurriculum() {
 
 async function loadUserProgress() {
     try {
-        // Try to load from Supabase
         const { data, error } = await supabase
             .from('module_progress')
             .select('*')
             .eq('user_id', currentUser.id);
         
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
             userProgress = data;
-            console.log('📊 Loaded progress from Supabase:', userProgress.length, 'records');
-            return;
+        } else {
+            userProgress = [];
         }
-        
-        // Fallback to localStorage
-        const localKey = `module_progress_${currentUser.id}`;
-        const localData = localStorage.getItem(localKey);
-        if (localData) {
-            userProgress = JSON.parse(localData);
-            console.log('📊 Loaded progress from localStorage:', userProgress.length, 'records');
-            return;
-        }
-        
-        userProgress = [];
-        console.log('📊 No progress found, starting fresh');
-        
     } catch (error) {
         console.error('Error loading progress:', error);
         userProgress = [];
@@ -220,51 +217,29 @@ async function loadUserProgress() {
 }
 
 async function loadUserStats() {
-    try {
-        // Calculate GP from completed modules
-        userGP = 0;
-        userProgress.forEach(p => {
-            if (p.completed) {
-                // Find module GP
-                for (const phase of curriculumData) {
-                    const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
-                    if (module) {
-                        userGP += module.gp;
-                    }
+    // Calculate GP from completed modules (renamed from XP)
+    userGP = userProgress.reduce((total, p) => {
+        if (p.completed) {
+            for (const phase of curriculumData) {
+                const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
+                if (module) {
+                    return total + module.gp;
                 }
             }
-        });
-        
-        // Calculate streak (simplified)
-        userStreak = await calculateStreak();
-        
-        // Update UI
-        const gpDisplay = document.getElementById('gpPoints');
-        if (gpDisplay) gpDisplay.textContent = userGP;
-        
-        const streakDisplay = document.getElementById('streakDays');
-        if (streakDisplay) streakDisplay.textContent = userStreak;
-        
-        console.log('📊 GP:', userGP, 'Streak:', userStreak);
-        
-    } catch (error) {
-        console.error('Error loading user stats:', error);
-    }
+        }
+        return total;
+    }, 0);
+    
+    // Calculate streak (simplified)
+    userStreak = await calculateStreak();
+    
+    // Update UI
+    document.getElementById('gpPoints').textContent = userGP;
+    document.getElementById('streakDays').textContent = userStreak;
 }
 
 async function calculateStreak() {
-    // For now, return mock streak
-    // In production, track daily logins and completions
-    try {
-        const localKey = `streak_${currentUser.id}`;
-        const streakData = localStorage.getItem(localKey);
-        if (streakData) {
-            return parseInt(streakData) || 3;
-        }
-        return 3;
-    } catch (e) {
-        return 3;
-    }
+    return 3;
 }
 
 async function loadLeaderboard() {
@@ -275,21 +250,18 @@ async function loadLeaderboard() {
             .order('total_gp', { ascending: false })
             .limit(5);
         
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
             renderLeaderboard(data);
-            return;
+        } else {
+            const mockLeaderboard = [
+                { name: 'Michael Chen', gp: 2450 },
+                { name: 'Sarah Johnson', gp: 2100 },
+                { name: 'David Okafor', gp: 1890 },
+                { name: 'Zoe Williams', gp: 1670 },
+                { name: 'Alex Hunter', gp: 1450 }
+            ];
+            renderLeaderboard(mockLeaderboard);
         }
-        
-        // Mock leaderboard
-        const mockLeaderboard = [
-            { name: 'Michael Chen', gp: 2450 },
-            { name: 'Sarah Johnson', gp: 2100 },
-            { name: 'David Okafor', gp: 1890 },
-            { name: 'Zoe Williams', gp: 1670 },
-            { name: 'Alex Hunter', gp: 1450 }
-        ];
-        renderLeaderboard(mockLeaderboard);
-        
     } catch (error) {
         console.error('Error loading leaderboard:', error);
     }
@@ -316,18 +288,12 @@ function renderCurriculum() {
         });
     });
     
-    const totalEl = document.getElementById('totalModules');
-    if (totalEl) totalEl.textContent = totalModules;
-    
-    const completedEl = document.getElementById('completedModules');
-    if (completedEl) completedEl.textContent = completedModules;
+    document.getElementById('totalModules').textContent = totalModules;
+    document.getElementById('completedModules').textContent = completedModules;
     
     const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-    const percentEl = document.getElementById('progressPercent');
-    if (percentEl) percentEl.textContent = `${Math.round(percentComplete)}%`;
-    
-    const progressBar = document.getElementById('overallProgressBar');
-    if (progressBar) progressBar.style.width = `${percentComplete}%`;
+    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
+    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
     
     container.innerHTML = curriculumData.map((phase, phaseIndex) => {
         const phaseCompleted = phase.modules.every(module => 
@@ -342,7 +308,7 @@ function renderCurriculum() {
                     ${phaseCompleted ? '<i class="fas fa-check"></i>' : phase.id}
                 </div>
                 <div class="phase-content">
-                    <div class="phase-header" onclick="window.togglePhase(${phase.id})">
+                    <div class="phase-header" onclick="togglePhase(${phase.id})">
                         <div class="phase-title">${phase.name}</div>
                         <div class="phase-stats">
                             <span><i class="fas fa-${phaseCompleted ? 'check-circle' : 'circle'}"></i> ${phaseProgress.completed}/${phase.modules.length} modules</span>
@@ -379,7 +345,7 @@ function renderModuleItem(module) {
     }
     
     return `
-        <div class="module-item" onclick="window.openModuleModal(${module.id})">
+        <div class="module-item" onclick="openModuleModal(${module.id})">
             <div class="module-status ${statusClass}">
                 ${statusIcon}
             </div>
@@ -390,7 +356,7 @@ function renderModuleItem(module) {
                     <span class="module-gp"><i class="fas fa-star"></i> ${module.gp} GP</span>
                 </div>
             </div>
-            <button class="module-action" onclick="event.stopPropagation(); window.completeModule(${module.id})" ${isCompleted ? 'disabled' : ''}>
+            <button class="module-action" onclick="event.stopPropagation(); completeModule(${module.id})" ${isCompleted ? 'disabled' : ''}>
                 <i class="fas fa-${isCompleted ? 'check' : 'arrow-right'}"></i>
             </button>
         </div>
@@ -410,8 +376,6 @@ function calculatePhaseProgress(phase) {
 }
 
 function checkModuleLock(module) {
-    // Check if previous modules are completed
-    // For now, all modules are unlocked
     return false;
 }
 
@@ -451,28 +415,21 @@ function renderLeaderboard(users) {
 }
 
 // ============================================
-// PROGRESS & GP FUNCTIONS
+// MODULE COMPLETION
 // ============================================
 
-window.completeModule = async function(moduleId) {
-    // Find module
+async function completeModule(moduleId) {
     let module = null;
-    let phaseName = '';
     for (const phase of curriculumData) {
         const found = phase.modules.find(m => m.id === moduleId);
         if (found) {
             module = found;
-            phaseName = phase.name;
             break;
         }
     }
     
-    if (!module) {
-        showToast('Module not found', 'error');
-        return;
-    }
+    if (!module) return;
     
-    // Check if already completed
     const alreadyCompleted = userProgress.some(p => 
         (p.module_id === moduleId.toString() || p.module_name === module.name) && p.completed
     );
@@ -482,12 +439,9 @@ window.completeModule = async function(moduleId) {
         return;
     }
     
-    // Show loading
     showToast(`Completing "${module.name}"...`, 'info');
     
-    // Save progress
     try {
-        // Save to Supabase
         const { error } = await supabase
             .from('module_progress')
             .insert({
@@ -499,53 +453,18 @@ window.completeModule = async function(moduleId) {
                 xp_earned: module.gp
             });
         
-        if (error) {
-            console.warn('Supabase save error, using localStorage:', error);
-            // Fallback to localStorage
-            const localKey = `module_progress_${currentUser.id}`;
-            const localData = localStorage.getItem(localKey);
-            const progress = localData ? JSON.parse(localData) : [];
-            progress.push({
-                module_id: moduleId.toString(),
-                module_name: module.name,
-                completed: true,
-                completed_at: new Date().toISOString(),
-                xp_earned: module.gp
-            });
-            localStorage.setItem(localKey, JSON.stringify(progress));
-        }
+        if (error) throw error;
         
-        // Update local state
         userProgress.push({
             module_id: moduleId.toString(),
             module_name: module.name,
             completed: true
         });
         
-        // Add GP
         userGP += module.gp;
+        document.getElementById('gpPoints').textContent = userGP;
         
-        // Update GP display
-        const gpDisplay = document.getElementById('gpPoints');
-        if (gpDisplay) gpDisplay.textContent = userGP;
-        
-        // Save streak
-        localStorage.setItem(`streak_${currentUser.id}`, (userStreak + 1).toString());
-        
-        // Show celebration
-        celebrateCompletion(module);
-        
-        // Update UI
-        renderCurriculum();
-        updateOverallStats();
-        
-        // Check for achievements
-        await checkAchievements();
-        
-        // Update leaderboard
-        await loadLeaderboard();
-        
-        // NOTIFY PARENT DASHBOARD (CRITICAL FOR IFRAME)
+        // ✅ NOTIFY PARENT DASHBOARD
         notifyParent('moduleCompleted', {
             moduleId: module.id,
             moduleName: module.name,
@@ -553,17 +472,20 @@ window.completeModule = async function(moduleId) {
             newTotalGP: userGP
         });
         
+        celebrateCompletion(module);
+        renderCurriculum();
+        updateOverallStats();
+        await checkAchievements();
+        await loadLeaderboard();
+        
     } catch (error) {
         console.error('Error completing module:', error);
         showToast('Failed to mark module complete', 'error');
     }
-};
+}
 
 function celebrateCompletion(module) {
-    // Show toast with GP gain
     showToast(`🎉 +${module.gp} GP earned for completing "${module.name}"!`, 'success');
-    
-    // Trigger confetti effect
     triggerConfetti();
 }
 
@@ -658,13 +580,8 @@ async function checkAchievements() {
                 break;
         }
         
-        if (earned) {
-            // Check if already unlocked
-            const key = `achievement_${achievement.id}_${currentUser.id}`;
-            if (!localStorage.getItem(key)) {
-                localStorage.setItem(key, 'true');
-                await unlockAchievement(achievement);
-            }
+        if (earned && !userAchievements?.includes(achievement.id)) {
+            await unlockAchievement(achievement);
         }
     }
 }
@@ -672,12 +589,10 @@ async function checkAchievements() {
 async function unlockAchievement(achievement) {
     showToast(`🏆 Achievement Unlocked: ${achievement.name}! +${achievement.gp} GP`, 'success');
     
-    // Add GP for achievement
     userGP += achievement.gp;
-    const gpDisplay = document.getElementById('gpPoints');
-    if (gpDisplay) gpDisplay.textContent = userGP;
+    document.getElementById('gpPoints').textContent = userGP;
     
-    // Notify parent
+    // Notify parent about achievement
     notifyParent('achievementUnlocked', {
         achievementId: achievement.id,
         achievementName: achievement.name,
@@ -685,7 +600,6 @@ async function unlockAchievement(achievement) {
         newTotalGP: userGP
     });
     
-    // Save to database
     try {
         await supabase
             .from('user_achievements')
@@ -698,29 +612,29 @@ async function unlockAchievement(achievement) {
         console.error('Error saving achievement:', error);
     }
     
-    // Re-render achievements
     renderAchievements();
 }
 
 function checkAchievementUnlocked(achievement) {
-    const key = `achievement_${achievement.id}_${currentUser.id}`;
-    return localStorage.getItem(key) === 'true';
+    if (achievement.id === 'first_step' && userProgress.length > 0) return true;
+    if (achievement.id === 'gp_hunter' && userGP >= 1000) return true;
+    return false;
 }
 
 // ============================================
 // UI HELPERS
 // ============================================
 
-window.togglePhase = function(phaseId) {
+function togglePhase(phaseId) {
     if (expandedPhases.has(phaseId)) {
         expandedPhases.delete(phaseId);
     } else {
         expandedPhases.add(phaseId);
     }
     renderCurriculum();
-};
+}
 
-window.openModuleModal = function(moduleId) {
+function openModuleModal(moduleId) {
     let module = null;
     for (const phase of curriculumData) {
         const found = phase.modules.find(m => m.id === moduleId);
@@ -753,26 +667,26 @@ window.openModuleModal = function(moduleId) {
             completeBtn.textContent = 'Mark Complete';
             completeBtn.style.opacity = '1';
             completeBtn.onclick = () => {
-                window.completeModule(module.id);
+                completeModule(module.id);
                 closeModuleModal();
             };
         }
     }
     
     document.getElementById('moduleModal').classList.add('active');
-};
+}
 
-window.closeModuleModal = function() {
+function closeModuleModal() {
     document.getElementById('moduleModal').classList.remove('active');
-};
+}
 
-window.completeModuleFromModal = function() {
+function completeModuleFromModal() {
     const modal = document.getElementById('moduleModal');
     const completeBtn = document.getElementById('modalCompleteBtn');
     if (completeBtn && !completeBtn.disabled) {
         completeBtn.click();
     }
-};
+}
 
 function getModuleIcon(module) {
     if (module.name.includes('Video') || module.name.includes('Cinematography')) return 'video';
@@ -787,60 +701,60 @@ function updateOverallStats() {
     const completedModules = userProgress.filter(p => p.completed).length;
     const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
     
-    const totalEl = document.getElementById('totalModules');
-    if (totalEl) totalEl.textContent = totalModules;
-    
-    const completedEl = document.getElementById('completedModules');
-    if (completedEl) completedEl.textContent = completedModules;
-    
-    const percentEl = document.getElementById('progressPercent');
-    if (percentEl) percentEl.textContent = `${Math.round(percentComplete)}%`;
-    
-    const progressBar = document.getElementById('overallProgressBar');
-    if (progressBar) progressBar.style.width = `${percentComplete}%`;
+    document.getElementById('totalModules').textContent = totalModules;
+    document.getElementById('completedModules').textContent = completedModules;
+    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
+    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
 }
 
 // ============================================
-// TOAST SYSTEM
+// EVENT LISTENERS
+// ============================================
+
+function setupEventListeners() {
+    const modal = document.getElementById('moduleModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModuleModal();
+        });
+    }
+}
+
+// ============================================
+// TOAST (Fallback if not available)
 // ============================================
 
 function showToast(message, type = 'info') {
-    // Use the global toast if available
-    if (typeof showToast === 'function' && window.parent !== window) {
-        // Use parent's toast if embedded
-        try {
-            window.parent.postMessage({ 
-                type: 'toast', 
-                message: message,
-                toastType: type 
-            }, '*');
-        } catch (e) {}
+    // Use the global toast if available, otherwise create a simple one
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+        return;
     }
     
-    // Also show in-page toast
-    const existing = document.querySelector('.course-toast');
+    // Fallback toast
+    const existing = document.querySelector('.reader-toast');
     if (existing) existing.remove();
     
     const toast = document.createElement('div');
-    toast.className = `course-toast ${type}`;
+    toast.className = `reader-toast ${type}`;
     toast.textContent = message;
     toast.style.cssText = `
         position: fixed;
-        bottom: 30px;
+        bottom: 80px;
         left: 50%;
         transform: translateX(-50%);
-        background: var(--bg-card);
-        color: var(--text-primary);
+        background: var(--bg-card, #fff);
+        color: var(--text-primary, #333);
         padding: 0.75rem 1.5rem;
         border-radius: 12px;
-        border: 1px solid var(--border-color);
+        border: 1px solid var(--border-color, #ddd);
         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        z-index: 1000;
+        z-index: 999;
         font-size: 0.85rem;
-        animation: slideUp 0.3s ease;
-        max-width: 90%;
-        border-left: 4px solid ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#fbb040'};
         font-family: 'Space Grotesk', sans-serif;
+        max-width: 90%;
+        border-left: 4px solid #fbb040;
+        animation: slideUp 0.3s ease;
     `;
     document.body.appendChild(toast);
     
@@ -851,49 +765,14 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// Add toast styles if not present
-if (!document.getElementById('courseToastStyles')) {
-    const style = document.createElement('style');
-    style.id = 'courseToastStyles';
-    style.textContent = `
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-            to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// ============================================
-// EVENT LISTENERS
-// ============================================
-
-function setupEventListeners() {
-    // Close modal on outside click
-    const modal = document.getElementById('moduleModal');
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) window.closeModuleModal();
-        });
-    }
-    
-    // Handle resize for embedded mode
-    if (isEmbedded || isInIframe) {
-        window.addEventListener('resize', () => {
-            // Adjust layout if needed
-        });
-    }
-}
-
 // ============================================
 // EXPOSE GLOBALLY
 // ============================================
 
-window.togglePhase = window.togglePhase;
-window.openModuleModal = window.openModuleModal;
-window.closeModuleModal = window.closeModuleModal;
-window.completeModule = window.completeModule;
-window.completeModuleFromModal = window.completeModuleFromModal;
+window.togglePhase = togglePhase;
+window.openModuleModal = openModuleModal;
+window.closeModuleModal = closeModuleModal;
+window.completeModule = completeModule;
+window.completeModuleFromModal = completeModuleFromModal;
 
-console.log('🎮 Gamified Learning Path ready');
-console.log('📱 Embedded mode:', isEmbedded || isInIframe);
+console.log('User Course ready');
