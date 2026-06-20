@@ -643,7 +643,7 @@ function calculatePhaseProgress(phase) {
 }
 
 // ============================================
-// ELECTIVES RENDER - NO ICONS
+// ELECTIVES RENDER - WITH PATTERN/PLANE CLASSES
 // ============================================
 
 function renderElectives() {
@@ -670,16 +670,21 @@ function renderElectives() {
         return;
     }
     
-    container.innerHTML = filteredElectives.map(elective => `
-        <div class="elective-card" onclick="window.openElectiveModal('${elective.id}')">
-            <div class="elective-title">${elective.title}</div>
-            <div class="elective-meta"><i class="fas fa-layer-group"></i> ${elective.modules || 0} modules</div>
-            <div class="elective-desc">${elective.description || 'No description'}</div>
-            <button class="elective-start-btn" onclick="event.stopPropagation(); window.openElectiveModal('${elective.id}')">
-                <i class="fas fa-play"></i> Start
-            </button>
-        </div>
-    `).join('');
+    container.innerHTML = filteredElectives.map((elective, index) => {
+        // Alternate pattern/plane: even index = pattern, odd = plane
+        const cardType = index % 2 === 0 ? 'pattern-card' : 'plane-card';
+        
+        return `
+            <div class="elective-card ${cardType}" onclick="window.openElectiveModal('${elective.id}')">
+                <div class="elective-title">${elective.title}</div>
+                <div class="elective-meta"><i class="fas fa-layer-group"></i> ${elective.modules || 0} modules</div>
+                <div class="elective-desc">${elective.description || 'No description'}</div>
+                <button class="elective-start-btn" onclick="event.stopPropagation(); window.openElectiveModal('${elective.id}')">
+                    <i class="fas fa-play"></i> Start
+                </button>
+            </div>
+        `;
+    }).join('');
     
     updateScrollButtons();
 }
