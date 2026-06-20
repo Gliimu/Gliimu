@@ -47,6 +47,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
+        // Load existing achievements from database
+        await loadExistingAchievements();
+        
         loadCurriculum();
         await loadUserProgress();
         await loadUserStats();
@@ -125,6 +128,35 @@ function notifyParent(event, data) {
         } catch (e) {}
     }
 }
+
+// ============================================
+// LOAD EXISTING ACHIEVEMENTS
+// ============================================
+
+async function loadExistingAchievements() {
+    try {
+        const { data, error } = await supabase
+            .from('user_achievements')
+            .select('achievement_id')
+            .eq('user_id', currentUser.id);
+        
+        if (error) {
+            console.warn('Could not load achievements:', error.message);
+            return;
+        }
+        
+        if (data && data.length > 0) {
+            _unlockedAchievements = data.map(item => item.achievement_id);
+            console.log('🏆 Loaded', _unlockedAchievements.length, 'existing achievements');
+        }
+    } catch (error) {
+        console.warn('Could not load achievements:', error);
+    }
+}
+
+// ============================================
+// LOAD DATA
+// ============================================
 
 function loadCurriculum() {
     curriculumData = [
@@ -214,7 +246,6 @@ function saveProgressToLocalStorage() {
 
 async function loadUserStats() {
     try {
-        // Calculate GP from progress
         userGP = userProgress.reduce((total, p) => {
             if (p.completed) {
                 for (const phase of curriculumData) {
@@ -232,7 +263,6 @@ async function loadUserStats() {
         document.getElementById('gpPoints').textContent = userGP;
         document.getElementById('streakDays').textContent = userStreak;
         
-        // Try to save stats to database (simple insert/update)
         try {
             const { error } = await supabase
                 .from('user_stats')
@@ -247,9 +277,7 @@ async function loadUserStats() {
             if (error) {
                 console.warn('Stats upsert warning:', error.message);
             }
-        } catch (statsError) {
-            // Silently fail - stats are optional
-        }
+        } catch (statsError) {}
         
     } catch (error) {
         console.error('Error loading stats:', error);
@@ -277,7 +305,6 @@ async function loadLeaderboard() {
             return;
         }
         
-        // Fallback
         const mockLeaderboard = [
             { name: 'Michael Chen', gp: 2450 },
             { name: 'Sarah Johnson', gp: 2100 },
@@ -301,7 +328,7 @@ async function loadLeaderboard() {
 }
 
 // ============================================
-// RENDER FUNCTIONS (Simplified)
+// RENDER FUNCTIONS
 // ============================================
 
 function renderCurriculum() {
@@ -409,7 +436,7 @@ function renderAchievements() {
     if (!container) return;
     
     container.innerHTML = ACHIEVEMENTS.map(achievement => {
-        const isUnlocked = checkAchievementUnlocked(achievement);
+        const isUnlocked = _unlockedAchievements.includes(achievement.id);
         return `
             <div class="achievement-card ${isUnlocked ? 'unlocked' : ''}">
                 <div class="achievement-icon ${!isUnlocked ? 'achievement-locked' : ''}">
@@ -467,7 +494,6 @@ async function completeModule(moduleId) {
     showToast(`Completing "${module.name}"...`, 'info');
     
     try {
-        // Save to database
         const { error } = await supabase
             .from('module_progress')
             .insert({
@@ -481,7 +507,6 @@ async function completeModule(moduleId) {
         
         if (error) {
             console.warn('DB error:', error.message);
-            // Fallback to localStorage
             userProgress.push({
                 module_id: moduleId.toString(),
                 module_name: module.name,
@@ -497,16 +522,13 @@ async function completeModule(moduleId) {
             saveProgressToLocalStorage();
         }
         
-        // Update GP
         userGP += module.gp;
         document.getElementById('gpPoints').textContent = userGP;
         
-        // Update streak
         userStreak = Math.min(userStreak + 1, 30);
         localStorage.setItem(`course_streak_${currentUser.id}`, userStreak.toString());
         document.getElementById('streakDays').textContent = userStreak;
         
-        // Update stats
         try {
             await supabase
                 .from('user_stats')
@@ -605,6 +627,9 @@ async function checkAchievements() {
     const totalModules = curriculumData.reduce((sum, p) => sum + p.modules.length, 0);
     
     for (const achievement of ACHIEVEMENTS) {
+        // Skip if already unlocked
+        if (_unlockedAchievements.includes(achievement.id)) continue;
+        
         let earned = false;
         
         switch (achievement.id) {
@@ -630,15 +655,17 @@ async function checkAchievements() {
                 break;
         }
         
-        if (earned && !_unlockedAchievements.includes(achievement.id)) {
+        if (earned) {
             await unlockAchievement(achievement);
         }
     }
 }
 
 async function unlockAchievement(achievement) {
+    // Skip if already unlocked
     if (_unlockedAchievements.includes(achievement.id)) return;
     
+    // Mark as unlocked
     _unlockedAchievements.push(achievement.id);
     
     showToast(`🏆 Achievement Unlocked: ${achievement.name}! +${achievement.gp} GP`, 'success');
@@ -646,15 +673,25 @@ async function unlockAchievement(achievement) {
     userGP += achievement.gp;
     document.getElementById('gpPoints').textContent = userGP;
     
+    // Save to database (handle duplicate gracefully)
     try {
-        await supabase
+        const { error } = await supabase
             .from('user_achievements')
             .insert({
                 user_id: currentUser.id,
                 achievement_id: achievement.id,
                 unlocked_at: new Date().toISOString()
             });
-    } catch (error) {}
+        
+        if (error && error.code === '23505') {
+            // Duplicate - already exists, that's fine
+            console.log('Achievement already exists in database');
+        } else if (error) {
+            console.warn('Could not save achievement:', error.message);
+        }
+    } catch (error) {
+        console.warn('Could not save achievement:', error);
+    }
     
     notifyParent('achievementUnlocked', {
         achievementId: achievement.id,
@@ -664,25 +701,6 @@ async function unlockAchievement(achievement) {
     });
     
     renderAchievements();
-}
-
-function checkAchievementUnlocked(achievement) {
-    if (achievement.id === 'first_step' && userProgress.length > 0) return true;
-    if (achievement.id === 'gp_hunter' && userGP >= 1000) return true;
-    if (achievement.id === 'phase_master') {
-        for (const phase of curriculumData) {
-            const phaseCompleted = phase.modules.every(m => 
-                userProgress.some(p => (p.module_id === m.id.toString() || p.module_name === m.name) && p.completed)
-            );
-            if (phaseCompleted) return true;
-        }
-    }
-    if (achievement.id === 'streak_7' && userStreak >= 7) return true;
-    if (achievement.id === 'completionist') {
-        const totalModules = curriculumData.reduce((sum, p) => sum + p.modules.length, 0);
-        return userProgress.filter(p => p.completed).length === totalModules;
-    }
-    return false;
 }
 
 // ============================================
