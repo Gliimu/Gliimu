@@ -1447,7 +1447,7 @@ body.dark-mode .payment-instructions {
 }
 
 body.dark-mode .progress-bar-container{
-   background: rgba(255, 255, 255, .7)
+   background: rgba(255, 255, 255, .2)
 }
 
 body.dark-mode .amount-btn {
