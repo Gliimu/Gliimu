@@ -355,7 +355,7 @@ if (loginForm) {
                 if (result.role === 'admin') {
                     window.location.href = '/admin-dashboard.html';
                 } else {
-                    window.location.href = '/dashboard.html';
+                    window.location.href = '/user';
                 }
             }, 1000);
         } else {
@@ -419,7 +419,7 @@ if (goToDashboardBtn) {
                     if (result.role === 'admin') {
                         window.location.href = '/admin-dashboard.html';
                     } else {
-                        window.location.href = '/dashboard.html';
+                        window.location.href = '/user';
                     }
                 } else {
                     window.location.href = '/signin.html';
