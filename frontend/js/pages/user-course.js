@@ -14,19 +14,9 @@ let curriculumData = [];
 let userProgress = [];
 let userGP = 0;
 let userStreak = 0;
-let achievements = [];
 let expandedPhases = new Set();
 let isEmbedded = false;
-let isLoading = true;
 let _unlockedAchievements = [];
-
-// GP values for different module types
-const GP_VALUES = {
-    'foundation': 50,
-    'core': 75,
-    'advanced': 100,
-    'capstone': 150
-};
 
 // Achievement definitions
 const ACHIEVEMENTS = [
@@ -44,15 +34,12 @@ const ACHIEVEMENTS = [
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📚 User Course initializing...');
     
-    // Check if embedded in iframe
     isEmbedded = window.parent !== window;
     console.log('📱 Embedded mode:', isEmbedded);
     
-    // Show loading state
     showLoading();
     
     try {
-        // Get current user
         currentUser = await getCurrentUser();
         console.log('👤 Current user:', currentUser?.email || 'Not signed in');
         
@@ -61,30 +48,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        // Load curriculum (static data - always works)
         loadCurriculum();
-        
-        // Try to load user progress (handles missing tables gracefully)
         await loadUserProgress();
-        
-        // Try to load user stats (handles missing tables gracefully)
         await loadUserStats();
-        
-        // Try to load leaderboard (handles missing tables gracefully)
         await loadLeaderboard();
-        
-        // Check achievements
         await checkAchievements();
         
-        // Render everything
         renderCurriculum();
         renderAchievements();
         updateOverallStats();
-        
-        // Setup event listeners
         setupEventListeners();
-        
-        // Hide loading
         hideLoading();
         
         console.log('✅ User Course loaded successfully');
@@ -108,7 +81,7 @@ function showLoading() {
 }
 
 function hideLoading() {
-    isLoading = false;
+    // Loading will be replaced by render
 }
 
 function showError(message) {
@@ -157,7 +130,7 @@ async function getCurrentUser() {
 }
 
 // ============================================
-// NOTIFY PARENT DASHBOARD (if embedded)
+// NOTIFY PARENT DASHBOARD
 // ============================================
 
 function notifyParent(event, data) {
@@ -181,9 +154,9 @@ function loadCurriculum() {
             id: 1,
             name: "Phase 1: Foundation",
             modules: [
-                { id: 1, name: "Introduction to Media Technologies", desc: "Overview of the media landscape and career paths", duration: "2 hours", gp: 50, type: "foundation" },
-                { id: 2, name: "Visual Storytelling Fundamentals", desc: "Understanding narrative structure and visual language", duration: "3 hours", gp: 50, type: "foundation" },
-                { id: 3, name: "Design Principles", desc: "Color theory, typography, layout, and composition", duration: "4 hours", gp: 50, type: "foundation" },
+                { id: 1, name: "Introduction to Media Technologies", desc: "Overview of the media landscape", duration: "2 hours", gp: 50, type: "foundation" },
+                { id: 2, name: "Visual Storytelling Fundamentals", desc: "Narrative structure and visual language", duration: "3 hours", gp: 50, type: "foundation" },
+                { id: 3, name: "Design Principles", desc: "Color theory, typography, layout", duration: "4 hours", gp: 50, type: "foundation" },
                 { id: 4, name: "Introduction to Programming", desc: "Basic coding concepts using JavaScript", duration: "5 hours", gp: 50, type: "foundation" }
             ]
         },
@@ -191,9 +164,9 @@ function loadCurriculum() {
             id: 2,
             name: "Phase 2: Core Skills",
             modules: [
-                { id: 5, name: "Video Production & Cinematography", desc: "Camera operation, lighting, and audio recording", duration: "6 hours", gp: 75, type: "core" },
-                { id: 6, name: "Post-Production & Editing", desc: "Adobe Premiere Pro, DaVinci Resolve, After Effects", duration: "8 hours", gp: 75, type: "core" },
-                { id: 7, name: "UI/UX Design", desc: "Figma, prototyping, user research, accessibility", duration: "6 hours", gp: 75, type: "core" },
+                { id: 5, name: "Video Production & Cinematography", desc: "Camera, lighting, and audio", duration: "6 hours", gp: 75, type: "core" },
+                { id: 6, name: "Post-Production & Editing", desc: "Premiere Pro, DaVinci Resolve, After Effects", duration: "8 hours", gp: 75, type: "core" },
+                { id: 7, name: "UI/UX Design", desc: "Figma, prototyping, user research", duration: "6 hours", gp: 75, type: "core" },
                 { id: 8, name: "Web Development", desc: "HTML, CSS, JavaScript, responsive design", duration: "8 hours", gp: 75, type: "core" }
             ]
         },
@@ -212,7 +185,7 @@ function loadCurriculum() {
             name: "Phase 4: Capstone",
             modules: [
                 { id: 13, name: "Industry Project", desc: "Real-world client project with mentorship", duration: "20 hours", gp: 150, type: "capstone" },
-                { id: 14, name: "Career Preparation", desc: "Resume building, interview skills, networking", duration: "4 hours", gp: 150, type: "capstone" },
+                { id: 14, name: "Career Preparation", desc: "Resume, interviews, networking", duration: "4 hours", gp: 150, type: "capstone" },
                 { id: 15, name: "Final Portfolio Review", desc: "Presentation to industry panel", duration: "3 hours", gp: 150, type: "capstone" }
             ]
         }
@@ -496,6 +469,7 @@ async function completeModule(moduleId) {
     showToast(`Completing "${module.name}"...`, 'info');
     
     try {
+        // Try to save to database
         try {
             const { error } = await supabase
                 .from('module_progress')
@@ -509,7 +483,8 @@ async function completeModule(moduleId) {
                 });
             
             if (error) {
-                console.warn('Could not save to database, saving locally:', error.message);
+                console.warn('Could not save to database:', error.message);
+                // Fallback to localStorage
                 userProgress.push({
                     module_id: moduleId.toString(),
                     module_name: module.name,
@@ -525,7 +500,7 @@ async function completeModule(moduleId) {
                 saveProgressToLocalStorage();
             }
         } catch (dbError) {
-            console.warn('Database error, saving locally:', dbError);
+            console.warn('Database error:', dbError);
             userProgress.push({
                 module_id: moduleId.toString(),
                 module_name: module.name,
@@ -534,13 +509,16 @@ async function completeModule(moduleId) {
             saveProgressToLocalStorage();
         }
         
+        // Update GP
         userGP += module.gp;
         document.getElementById('gpPoints').textContent = userGP;
         
+        // Update streak
         userStreak = Math.min(userStreak + 1, 30);
         localStorage.setItem(`course_streak_${currentUser.id}`, userStreak.toString());
         document.getElementById('streakDays').textContent = userStreak;
         
+        // Notify parent
         notifyParent('moduleCompleted', {
             moduleId: module.id,
             moduleName: module.name,
@@ -550,6 +528,7 @@ async function completeModule(moduleId) {
         
         celebrateCompletion(module);
         
+        // Re-render
         renderCurriculum();
         updateOverallStats();
         await checkAchievements();
@@ -572,7 +551,6 @@ function triggerConfetti() {
     if (!canvas) return;
     
     canvas.style.display = 'block';
-    
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -594,7 +572,6 @@ function triggerConfetti() {
     
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
         let anyVisible = false;
         
         for (const p of particles) {
@@ -622,10 +599,7 @@ function triggerConfetti() {
     }
     
     animate();
-    
-    setTimeout(() => {
-        canvas.style.display = 'none';
-    }, 3000);
+    setTimeout(() => { canvas.style.display = 'none'; }, 3000);
 }
 
 async function checkAchievements() {
