@@ -155,7 +155,7 @@
       "headers": [
         {
           "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
+          "value": "ALLOW-FROM https://www.gliimu.com"
         }
       ]
     },
