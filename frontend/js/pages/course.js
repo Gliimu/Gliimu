@@ -1,7 +1,20 @@
-// course.js - Gamified Learning Path with Progress Tracking
+// ============================================
+// GAMIFIED LEARNING PATH - course.js
+// Supports both standalone and embedded mode
+// ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
+
+// ============================================
+// DETECT EMBEDDED MODE
+// ============================================
+
+const isEmbedded = window.parent !== window;
+const isInIframe = window !== window.top;
+
+console.log('📚 Course page loaded');
+console.log('📱 Embedded mode:', isEmbedded || isInIframe);
 
 // ============================================
 // GLOBAL STATE
@@ -10,13 +23,14 @@ import { showToast } from '../modules/toast.js';
 let currentUser = null;
 let curriculumData = [];
 let userProgress = [];
-let userXP = 0;
+let userGP = 0;
 let userStreak = 0;
 let achievements = [];
 let expandedPhases = new Set();
+let isInitialized = false;
 
-// XP values for different module types
-const XP_VALUES = {
+// XP values for different module types (now called GP - Gliimu Points)
+const GP_VALUES = {
     'foundation': 50,
     'core': 75,
     'advanced': 100,
@@ -25,19 +39,34 @@ const XP_VALUES = {
 
 // Achievement definitions
 const ACHIEVEMENTS = [
-    { id: 'first_step', name: 'First Step', icon: 'fa-shoe-prints', desc: 'Complete your first module', xp: 50 },
-    { id: 'phase_master', name: 'Phase Master', icon: 'fa-trophy', desc: 'Complete an entire phase', xp: 200 },
-    { id: 'streak_7', name: 'Consistency King', icon: 'fa-calendar-check', desc: '7 day learning streak', xp: 100 },
-    { id: 'xp_hunter', name: 'XP Hunter', icon: 'fa-bolt', desc: 'Earn 1000 XP', xp: 150 },
-    { id: 'completionist', name: 'Completionist', icon: 'fa-crown', desc: 'Complete all modules', xp: 500 }
+    { id: 'first_step', name: 'First Step', icon: 'fa-shoe-prints', desc: 'Complete your first module', gp: 50 },
+    { id: 'phase_master', name: 'Phase Master', icon: 'fa-trophy', desc: 'Complete an entire phase', gp: 200 },
+    { id: 'streak_7', name: 'Consistency King', icon: 'fa-calendar-check', desc: '7 day learning streak', gp: 100 },
+    { id: 'gp_hunter', name: 'GP Hunter', icon: 'fa-bolt', desc: 'Earn 1000 GP', gp: 150 },
+    { id: 'completionist', name: 'Completionist', icon: 'fa-crown', desc: 'Complete all modules', gp: 500 }
 ];
+
+// ============================================
+// NOTIFY PARENT DASHBOARD
+// ============================================
+
+function notifyParent(event, data) {
+    if (isEmbedded || isInIframe) {
+        try {
+            window.parent.postMessage({ type: event, ...data }, '*');
+            console.log('📤 Sent message to parent:', event, data);
+        } catch (e) {
+            console.warn('Could not send message to parent:', e);
+        }
+    }
+}
 
 // ============================================
 // INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Gamified Learning Path initializing...');
+    console.log('🎮 Gamified Learning Path initializing...');
     
     // Show loading state
     showLoading();
@@ -50,33 +79,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     
-    // Load curriculum
+    console.log('👤 User loaded:', currentUser.email);
+    
+    // Load data
     await loadCurriculum();
-    
-    // Load user progress
     await loadUserProgress();
-    
-    // Load user stats
     await loadUserStats();
-    
-    // Load leaderboard
     await loadLeaderboard();
-    
-    // Check and unlock achievements
     await checkAchievements();
     
     // Render everything
     renderCurriculum();
     renderAchievements();
-    
-    // Setup event listeners
     setupEventListeners();
+    updateOverallStats();
     
     // Hide loading
     hideLoading();
+    isInitialized = true;
     
-    // Update overall stats
-    updateOverallStats();
+    // If embedded, notify parent that course is ready
+    if (isEmbedded || isInIframe) {
+        notifyParent('courseReady', { 
+            userId: currentUser.id,
+            totalGP: userGP,
+            modulesCompleted: userProgress.filter(p => p.completed).length
+        });
+    }
 });
 
 function showLoading() {
@@ -102,7 +131,7 @@ function showLoginPrompt() {
             <div class="login-prompt">
                 <i class="fas fa-lock"></i>
                 <h3>Sign In Required</h3>
-                <p>Please sign in to track your learning progress and earn XP.</p>
+                <p>Please sign in to track your learning progress and earn GP.</p>
                 <button onclick="window.location.href='/signin.html'" class="btn-primary">Sign In</button>
             </div>
         `;
@@ -120,39 +149,39 @@ async function loadCurriculum() {
             id: 1,
             name: "Phase 1: Foundation",
             modules: [
-                { id: 1, name: "Introduction to Media Technologies", desc: "Overview of the media landscape and career paths", duration: "2 hours", xp: 50, type: "foundation" },
-                { id: 2, name: "Visual Storytelling Fundamentals", desc: "Understanding narrative structure and visual language", duration: "3 hours", xp: 50, type: "foundation" },
-                { id: 3, name: "Design Principles", desc: "Color theory, typography, layout, and composition", duration: "4 hours", xp: 50, type: "foundation" },
-                { id: 4, name: "Introduction to Programming", desc: "Basic coding concepts using JavaScript", duration: "5 hours", xp: 50, type: "foundation" }
+                { id: 1, name: "Introduction to Media Technologies", desc: "Overview of the media landscape and career paths", duration: "2 hours", gp: 50, type: "foundation" },
+                { id: 2, name: "Visual Storytelling Fundamentals", desc: "Understanding narrative structure and visual language", duration: "3 hours", gp: 50, type: "foundation" },
+                { id: 3, name: "Design Principles", desc: "Color theory, typography, layout, and composition", duration: "4 hours", gp: 50, type: "foundation" },
+                { id: 4, name: "Introduction to Programming", desc: "Basic coding concepts using JavaScript", duration: "5 hours", gp: 50, type: "foundation" }
             ]
         },
         {
             id: 2,
             name: "Phase 2: Core Skills",
             modules: [
-                { id: 5, name: "Video Production & Cinematography", desc: "Camera operation, lighting, and audio recording", duration: "6 hours", xp: 75, type: "core" },
-                { id: 6, name: "Post-Production & Editing", desc: "Adobe Premiere Pro, DaVinci Resolve, After Effects", duration: "8 hours", xp: 75, type: "core" },
-                { id: 7, name: "UI/UX Design", desc: "Figma, prototyping, user research, accessibility", duration: "6 hours", xp: 75, type: "core" },
-                { id: 8, name: "Web Development", desc: "HTML, CSS, JavaScript, responsive design", duration: "8 hours", xp: 75, type: "core" }
+                { id: 5, name: "Video Production & Cinematography", desc: "Camera operation, lighting, and audio recording", duration: "6 hours", gp: 75, type: "core" },
+                { id: 6, name: "Post-Production & Editing", desc: "Adobe Premiere Pro, DaVinci Resolve, After Effects", duration: "8 hours", gp: 75, type: "core" },
+                { id: 7, name: "UI/UX Design", desc: "Figma, prototyping, user research, accessibility", duration: "6 hours", gp: 75, type: "core" },
+                { id: 8, name: "Web Development", desc: "HTML, CSS, JavaScript, responsive design", duration: "8 hours", gp: 75, type: "core" }
             ]
         },
         {
             id: 3,
             name: "Phase 3: Advanced",
             modules: [
-                { id: 9, name: "Advanced Video Effects", desc: "VFX, motion graphics, 3D animation", duration: "8 hours", xp: 100, type: "advanced" },
-                { id: 10, name: "Full-Stack Development", desc: "React, Node.js, databases, APIs", duration: "10 hours", xp: 100, type: "advanced" },
-                { id: 11, name: "Brand Strategy & Management", desc: "Brand identity, marketing, social media", duration: "4 hours", xp: 100, type: "advanced" },
-                { id: 12, name: "Portfolio Development", desc: "Building a professional portfolio", duration: "6 hours", xp: 100, type: "advanced" }
+                { id: 9, name: "Advanced Video Effects", desc: "VFX, motion graphics, 3D animation", duration: "8 hours", gp: 100, type: "advanced" },
+                { id: 10, name: "Full-Stack Development", desc: "React, Node.js, databases, APIs", duration: "10 hours", gp: 100, type: "advanced" },
+                { id: 11, name: "Brand Strategy & Management", desc: "Brand identity, marketing, social media", duration: "4 hours", gp: 100, type: "advanced" },
+                { id: 12, name: "Portfolio Development", desc: "Building a professional portfolio", duration: "6 hours", gp: 100, type: "advanced" }
             ]
         },
         {
             id: 4,
             name: "Phase 4: Capstone",
             modules: [
-                { id: 13, name: "Industry Project", desc: "Real-world client project with mentorship", duration: "20 hours", xp: 150, type: "capstone" },
-                { id: 14, name: "Career Preparation", desc: "Resume building, interview skills, networking", duration: "4 hours", xp: 150, type: "capstone" },
-                { id: 15, name: "Final Portfolio Review", desc: "Presentation to industry panel", duration: "3 hours", xp: 150, type: "capstone" }
+                { id: 13, name: "Industry Project", desc: "Real-world client project with mentorship", duration: "20 hours", gp: 150, type: "capstone" },
+                { id: 14, name: "Career Preparation", desc: "Resume building, interview skills, networking", duration: "4 hours", gp: 150, type: "capstone" },
+                { id: 15, name: "Final Portfolio Review", desc: "Presentation to industry panel", duration: "3 hours", gp: 150, type: "capstone" }
             ]
         }
     ];
@@ -160,17 +189,30 @@ async function loadCurriculum() {
 
 async function loadUserProgress() {
     try {
+        // Try to load from Supabase
         const { data, error } = await supabase
             .from('module_progress')
             .select('*')
             .eq('user_id', currentUser.id);
         
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
             userProgress = data;
-        } else {
-            // Initialize empty progress
-            userProgress = [];
+            console.log('📊 Loaded progress from Supabase:', userProgress.length, 'records');
+            return;
         }
+        
+        // Fallback to localStorage
+        const localKey = `module_progress_${currentUser.id}`;
+        const localData = localStorage.getItem(localKey);
+        if (localData) {
+            userProgress = JSON.parse(localData);
+            console.log('📊 Loaded progress from localStorage:', userProgress.length, 'records');
+            return;
+        }
+        
+        userProgress = [];
+        console.log('📊 No progress found, starting fresh');
+        
     } catch (error) {
         console.error('Error loading progress:', error);
         userProgress = [];
@@ -178,56 +220,76 @@ async function loadUserProgress() {
 }
 
 async function loadUserStats() {
-    // Calculate XP from completed modules
-    userXP = userProgress.reduce((total, p) => {
-        if (p.completed) {
-            // Find module XP
-            for (const phase of curriculumData) {
-                const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
-                if (module) {
-                    return total + module.xp;
+    try {
+        // Calculate GP from completed modules
+        userGP = 0;
+        userProgress.forEach(p => {
+            if (p.completed) {
+                // Find module GP
+                for (const phase of curriculumData) {
+                    const module = phase.modules.find(m => m.id === parseInt(p.module_id) || m.name === p.module_name);
+                    if (module) {
+                        userGP += module.gp;
+                    }
                 }
             }
-        }
-        return total;
-    }, 0);
-    
-    // Calculate streak (simplified - would need daily tracking)
-    userStreak = await calculateStreak();
-    
-    // Update UI
-    document.getElementById('xpPoints').textContent = userXP;
-    document.getElementById('streakDays').textContent = userStreak;
+        });
+        
+        // Calculate streak (simplified)
+        userStreak = await calculateStreak();
+        
+        // Update UI
+        const gpDisplay = document.getElementById('gpPoints');
+        if (gpDisplay) gpDisplay.textContent = userGP;
+        
+        const streakDisplay = document.getElementById('streakDays');
+        if (streakDisplay) streakDisplay.textContent = userStreak;
+        
+        console.log('📊 GP:', userGP, 'Streak:', userStreak);
+        
+    } catch (error) {
+        console.error('Error loading user stats:', error);
+    }
 }
 
 async function calculateStreak() {
     // For now, return mock streak
     // In production, track daily logins and completions
-    return 3;
+    try {
+        const localKey = `streak_${currentUser.id}`;
+        const streakData = localStorage.getItem(localKey);
+        if (streakData) {
+            return parseInt(streakData) || 3;
+        }
+        return 3;
+    } catch (e) {
+        return 3;
+    }
 }
 
 async function loadLeaderboard() {
     try {
-        // Get top users by XP
         const { data, error } = await supabase
             .from('user_stats')
-            .select('user_id, total_xp, users(name)')
-            .order('total_xp', { ascending: false })
+            .select('user_id, total_gp, users(name)')
+            .order('total_gp', { ascending: false })
             .limit(5);
         
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
             renderLeaderboard(data);
-        } else {
-            // Mock leaderboard
-            const mockLeaderboard = [
-                { name: 'Michael Chen', xp: 2450 },
-                { name: 'Sarah Johnson', xp: 2100 },
-                { name: 'David Okafor', xp: 1890 },
-                { name: 'Zoe Williams', xp: 1670 },
-                { name: 'Alex Hunter', xp: 1450 }
-            ];
-            renderLeaderboard(mockLeaderboard);
+            return;
         }
+        
+        // Mock leaderboard
+        const mockLeaderboard = [
+            { name: 'Michael Chen', gp: 2450 },
+            { name: 'Sarah Johnson', gp: 2100 },
+            { name: 'David Okafor', gp: 1890 },
+            { name: 'Zoe Williams', gp: 1670 },
+            { name: 'Alex Hunter', gp: 1450 }
+        ];
+        renderLeaderboard(mockLeaderboard);
+        
     } catch (error) {
         console.error('Error loading leaderboard:', error);
     }
@@ -254,12 +316,18 @@ function renderCurriculum() {
         });
     });
     
-    document.getElementById('totalModules').textContent = totalModules;
-    document.getElementById('completedModules').textContent = completedModules;
+    const totalEl = document.getElementById('totalModules');
+    if (totalEl) totalEl.textContent = totalModules;
+    
+    const completedEl = document.getElementById('completedModules');
+    if (completedEl) completedEl.textContent = completedModules;
     
     const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
-    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
+    const percentEl = document.getElementById('progressPercent');
+    if (percentEl) percentEl.textContent = `${Math.round(percentComplete)}%`;
+    
+    const progressBar = document.getElementById('overallProgressBar');
+    if (progressBar) progressBar.style.width = `${percentComplete}%`;
     
     container.innerHTML = curriculumData.map((phase, phaseIndex) => {
         const phaseCompleted = phase.modules.every(module => 
@@ -274,7 +342,7 @@ function renderCurriculum() {
                     ${phaseCompleted ? '<i class="fas fa-check"></i>' : phase.id}
                 </div>
                 <div class="phase-content">
-                    <div class="phase-header" onclick="togglePhase(${phase.id})">
+                    <div class="phase-header" onclick="window.togglePhase(${phase.id})">
                         <div class="phase-title">${phase.name}</div>
                         <div class="phase-stats">
                             <span><i class="fas fa-${phaseCompleted ? 'check-circle' : 'circle'}"></i> ${phaseProgress.completed}/${phase.modules.length} modules</span>
@@ -311,7 +379,7 @@ function renderModuleItem(module) {
     }
     
     return `
-        <div class="module-item" onclick="openModuleModal(${module.id})">
+        <div class="module-item" onclick="window.openModuleModal(${module.id})">
             <div class="module-status ${statusClass}">
                 ${statusIcon}
             </div>
@@ -319,10 +387,10 @@ function renderModuleItem(module) {
                 <div class="module-name">${module.name}</div>
                 <div class="module-meta">
                     <span><i class="fas fa-clock"></i> ${module.duration}</span>
-                    <span class="module-xp"><i class="fas fa-star"></i> ${module.xp} XP</span>
+                    <span class="module-gp"><i class="fas fa-star"></i> ${module.gp} GP</span>
                 </div>
             </div>
-            <button class="module-action" onclick="event.stopPropagation(); completeModule(${module.id})" ${isCompleted ? 'disabled' : ''}>
+            <button class="module-action" onclick="event.stopPropagation(); window.completeModule(${module.id})" ${isCompleted ? 'disabled' : ''}>
                 <i class="fas fa-${isCompleted ? 'check' : 'arrow-right'}"></i>
             </button>
         </div>
@@ -344,7 +412,6 @@ function calculatePhaseProgress(phase) {
 function checkModuleLock(module) {
     // Check if previous modules are completed
     // For now, all modules are unlocked
-    // In production, check prerequisites
     return false;
 }
 
@@ -378,27 +445,32 @@ function renderLeaderboard(users) {
                 <i class="fas fa-user-circle"></i>
             </div>
             <div class="leaderboard-name">${user.name || 'User'}</div>
-            <div class="leaderboard-xp">${user.xp || user.total_xp} XP</div>
+            <div class="leaderboard-gp">${user.gp || user.total_gp} GP</div>
         </div>
     `).join('');
 }
 
 // ============================================
-// PROGRESS & XP FUNCTIONS
+// PROGRESS & GP FUNCTIONS
 // ============================================
 
-async function completeModule(moduleId) {
+window.completeModule = async function(moduleId) {
     // Find module
     let module = null;
+    let phaseName = '';
     for (const phase of curriculumData) {
         const found = phase.modules.find(m => m.id === moduleId);
         if (found) {
             module = found;
+            phaseName = phase.name;
             break;
         }
     }
     
-    if (!module) return;
+    if (!module) {
+        showToast('Module not found', 'error');
+        return;
+    }
     
     // Check if already completed
     const alreadyCompleted = userProgress.some(p => 
@@ -415,6 +487,7 @@ async function completeModule(moduleId) {
     
     // Save progress
     try {
+        // Save to Supabase
         const { error } = await supabase
             .from('module_progress')
             .insert({
@@ -423,10 +496,24 @@ async function completeModule(moduleId) {
                 module_name: module.name,
                 completed: true,
                 completed_at: new Date().toISOString(),
-                xp_earned: module.xp
+                xp_earned: module.gp
             });
         
-        if (error) throw error;
+        if (error) {
+            console.warn('Supabase save error, using localStorage:', error);
+            // Fallback to localStorage
+            const localKey = `module_progress_${currentUser.id}`;
+            const localData = localStorage.getItem(localKey);
+            const progress = localData ? JSON.parse(localData) : [];
+            progress.push({
+                module_id: moduleId.toString(),
+                module_name: module.name,
+                completed: true,
+                completed_at: new Date().toISOString(),
+                xp_earned: module.gp
+            });
+            localStorage.setItem(localKey, JSON.stringify(progress));
+        }
         
         // Update local state
         userProgress.push({
@@ -435,9 +522,15 @@ async function completeModule(moduleId) {
             completed: true
         });
         
-        // Add XP
-        userXP += module.xp;
-        document.getElementById('xpPoints').textContent = userXP;
+        // Add GP
+        userGP += module.gp;
+        
+        // Update GP display
+        const gpDisplay = document.getElementById('gpPoints');
+        if (gpDisplay) gpDisplay.textContent = userGP;
+        
+        // Save streak
+        localStorage.setItem(`streak_${currentUser.id}`, (userStreak + 1).toString());
         
         // Show celebration
         celebrateCompletion(module);
@@ -452,21 +545,26 @@ async function completeModule(moduleId) {
         // Update leaderboard
         await loadLeaderboard();
         
+        // NOTIFY PARENT DASHBOARD (CRITICAL FOR IFRAME)
+        notifyParent('moduleCompleted', {
+            moduleId: module.id,
+            moduleName: module.name,
+            gpEarned: module.gp,
+            newTotalGP: userGP
+        });
+        
     } catch (error) {
         console.error('Error completing module:', error);
         showToast('Failed to mark module complete', 'error');
     }
-}
+};
 
 function celebrateCompletion(module) {
-    // Show toast with XP gain
-    showToast(`🎉 +${module.xp} XP earned for completing "${module.name}"!`, 'success');
+    // Show toast with GP gain
+    showToast(`🎉 +${module.gp} GP earned for completing "${module.name}"!`, 'success');
     
     // Trigger confetti effect
     triggerConfetti();
-    
-    // Play celebration sound (optional)
-    // playCelebrationSound();
 }
 
 function triggerConfetti() {
@@ -534,7 +632,6 @@ async function checkAchievements() {
     const completedCount = userProgress.filter(p => p.completed).length;
     const totalModules = curriculumData.reduce((sum, p) => sum + p.modules.length, 0);
     
-    // Check each achievement
     for (const achievement of ACHIEVEMENTS) {
         let earned = false;
         
@@ -543,7 +640,6 @@ async function checkAchievements() {
                 earned = completedCount >= 1;
                 break;
             case 'phase_master':
-                // Check if any phase is fully completed
                 for (const phase of curriculumData) {
                     const phaseCompleted = phase.modules.every(m => 
                         userProgress.some(p => (p.module_id === m.id.toString() || p.module_name === m.name) && p.completed)
@@ -554,27 +650,40 @@ async function checkAchievements() {
             case 'streak_7':
                 earned = userStreak >= 7;
                 break;
-            case 'xp_hunter':
-                earned = userXP >= 1000;
+            case 'gp_hunter':
+                earned = userGP >= 1000;
                 break;
             case 'completionist':
                 earned = completedCount === totalModules;
                 break;
         }
         
-        if (earned && !userAchievements?.includes(achievement.id)) {
-            // Unlock achievement
-            await unlockAchievement(achievement);
+        if (earned) {
+            // Check if already unlocked
+            const key = `achievement_${achievement.id}_${currentUser.id}`;
+            if (!localStorage.getItem(key)) {
+                localStorage.setItem(key, 'true');
+                await unlockAchievement(achievement);
+            }
         }
     }
 }
 
 async function unlockAchievement(achievement) {
-    showToast(`🏆 Achievement Unlocked: ${achievement.name}! +${achievement.xp} XP`, 'success');
+    showToast(`🏆 Achievement Unlocked: ${achievement.name}! +${achievement.gp} GP`, 'success');
     
-    // Add XP for achievement
-    userXP += achievement.xp;
-    document.getElementById('xpPoints').textContent = userXP;
+    // Add GP for achievement
+    userGP += achievement.gp;
+    const gpDisplay = document.getElementById('gpPoints');
+    if (gpDisplay) gpDisplay.textContent = userGP;
+    
+    // Notify parent
+    notifyParent('achievementUnlocked', {
+        achievementId: achievement.id,
+        achievementName: achievement.name,
+        gpEarned: achievement.gp,
+        newTotalGP: userGP
+    });
     
     // Save to database
     try {
@@ -594,27 +703,24 @@ async function unlockAchievement(achievement) {
 }
 
 function checkAchievementUnlocked(achievement) {
-    // Check if user has this achievement
-    // For demo, return false for locked ones
-    if (achievement.id === 'first_step' && userProgress.length > 0) return true;
-    if (achievement.id === 'xp_hunter' && userXP >= 1000) return true;
-    return false;
+    const key = `achievement_${achievement.id}_${currentUser.id}`;
+    return localStorage.getItem(key) === 'true';
 }
 
 // ============================================
 // UI HELPERS
 // ============================================
 
-function togglePhase(phaseId) {
+window.togglePhase = function(phaseId) {
     if (expandedPhases.has(phaseId)) {
         expandedPhases.delete(phaseId);
     } else {
         expandedPhases.add(phaseId);
     }
     renderCurriculum();
-}
+};
 
-function openModuleModal(moduleId) {
+window.openModuleModal = function(moduleId) {
     let module = null;
     for (const phase of curriculumData) {
         const found = phase.modules.find(m => m.id === moduleId);
@@ -633,7 +739,7 @@ function openModuleModal(moduleId) {
     document.getElementById('modalTitle').textContent = module.name;
     document.getElementById('modalDescription').textContent = module.desc;
     document.getElementById('modalDuration').textContent = module.duration;
-    document.getElementById('modalXP').textContent = `${module.xp} XP`;
+    document.getElementById('modalGP').textContent = `${module.gp} GP`;
     document.getElementById('modalIcon').innerHTML = `<i class="fas fa-${getModuleIcon(module)}"></i>`;
     
     const completeBtn = document.getElementById('modalCompleteBtn');
@@ -647,26 +753,26 @@ function openModuleModal(moduleId) {
             completeBtn.textContent = 'Mark Complete';
             completeBtn.style.opacity = '1';
             completeBtn.onclick = () => {
-                completeModule(module.id);
+                window.completeModule(module.id);
                 closeModuleModal();
             };
         }
     }
     
     document.getElementById('moduleModal').classList.add('active');
-}
+};
 
-function closeModuleModal() {
+window.closeModuleModal = function() {
     document.getElementById('moduleModal').classList.remove('active');
-}
+};
 
-function completeModuleFromModal() {
+window.completeModuleFromModal = function() {
     const modal = document.getElementById('moduleModal');
     const completeBtn = document.getElementById('modalCompleteBtn');
     if (completeBtn && !completeBtn.disabled) {
         completeBtn.click();
     }
-}
+};
 
 function getModuleIcon(module) {
     if (module.name.includes('Video') || module.name.includes('Cinematography')) return 'video';
@@ -681,10 +787,81 @@ function updateOverallStats() {
     const completedModules = userProgress.filter(p => p.completed).length;
     const percentComplete = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
     
-    document.getElementById('totalModules').textContent = totalModules;
-    document.getElementById('completedModules').textContent = completedModules;
-    document.getElementById('progressPercent').textContent = `${Math.round(percentComplete)}%`;
-    document.getElementById('overallProgressBar').style.width = `${percentComplete}%`;
+    const totalEl = document.getElementById('totalModules');
+    if (totalEl) totalEl.textContent = totalModules;
+    
+    const completedEl = document.getElementById('completedModules');
+    if (completedEl) completedEl.textContent = completedModules;
+    
+    const percentEl = document.getElementById('progressPercent');
+    if (percentEl) percentEl.textContent = `${Math.round(percentComplete)}%`;
+    
+    const progressBar = document.getElementById('overallProgressBar');
+    if (progressBar) progressBar.style.width = `${percentComplete}%`;
+}
+
+// ============================================
+// TOAST SYSTEM
+// ============================================
+
+function showToast(message, type = 'info') {
+    // Use the global toast if available
+    if (typeof showToast === 'function' && window.parent !== window) {
+        // Use parent's toast if embedded
+        try {
+            window.parent.postMessage({ 
+                type: 'toast', 
+                message: message,
+                toastType: type 
+            }, '*');
+        } catch (e) {}
+    }
+    
+    // Also show in-page toast
+    const existing = document.querySelector('.course-toast');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = `course-toast ${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--bg-card);
+        color: var(--text-primary);
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 1000;
+        font-size: 0.85rem;
+        animation: slideUp 0.3s ease;
+        max-width: 90%;
+        border-left: 4px solid ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#fbb040'};
+        font-family: 'Space Grotesk', sans-serif;
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Add toast styles if not present
+if (!document.getElementById('courseToastStyles')) {
+    const style = document.createElement('style');
+    style.id = 'courseToastStyles';
+    style.textContent = `
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // ============================================
@@ -696,7 +873,14 @@ function setupEventListeners() {
     const modal = document.getElementById('moduleModal');
     if (modal) {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModuleModal();
+            if (e.target === modal) window.closeModuleModal();
+        });
+    }
+    
+    // Handle resize for embedded mode
+    if (isEmbedded || isInIframe) {
+        window.addEventListener('resize', () => {
+            // Adjust layout if needed
         });
     }
 }
@@ -705,10 +889,11 @@ function setupEventListeners() {
 // EXPOSE GLOBALLY
 // ============================================
 
-window.togglePhase = togglePhase;
-window.openModuleModal = openModuleModal;
-window.closeModuleModal = closeModuleModal;
-window.completeModule = completeModule;
-window.completeModuleFromModal = completeModuleFromModal;
+window.togglePhase = window.togglePhase;
+window.openModuleModal = window.openModuleModal;
+window.closeModuleModal = window.closeModuleModal;
+window.completeModule = window.completeModule;
+window.completeModuleFromModal = window.completeModuleFromModal;
 
-console.log('Gamified Learning Path ready');
+console.log('🎮 Gamified Learning Path ready');
+console.log('📱 Embedded mode:', isEmbedded || isInIframe);
