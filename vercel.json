@@ -61,8 +61,8 @@
       "destination": "/frontend/portfolio.html"
     },
     {
-      "source": "/course",
-      "destination": "/frontend/course.html"
+      "source": "/user-course",
+      "destination": "/frontend/user-course.html"
     },
     {
       "source": "/admin",
@@ -130,8 +130,8 @@
       "permanent": true
     },
     {
-      "source": "/course.html",
-      "destination": "/course",
+      "source": "/user-course.html",
+      "destination": "/user-course",
       "permanent": true
     },
     {
