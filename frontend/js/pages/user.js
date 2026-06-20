@@ -32,6 +32,7 @@ import { renderProgressBar, renderLeaderboard } from '../modules/questions.js';
 let studentModule = null;
 let instructorModule = null;
 let partnerModule = null;
+let alertsModule = null;
 let courseListenerSetup = false;
 
 // Dynamically load role modules
@@ -50,6 +51,11 @@ async function loadRoleModules() {
         const partner = await import('./user-partner.js');
         partnerModule = partner.default || partner;
     } catch (e) { console.log('Partner module not loaded'); }
+
+    try {
+        const alerts = await import('./user-alerts.js');
+        alertsModule = alerts.default || alerts;
+    } catch (e) { console.log('Alerts module not loaded'); }
 }
 
 // ============================================
@@ -77,7 +83,7 @@ const PAYMENTS_CACHE_DURATION = 60000;
 const roleTabs = {
     student: [
         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-        { id: 'journey', name: 'Journey', icon: 'fas fa-road' },
+        { id: 'alerts', name: 'Alerts', icon: 'fas fa-bell' },
         { id: 'gotomenu', name: 'Go To', icon: 'fas fa-door-open' },
         { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' },
         { id: 'settings', name: 'Settings', icon: 'fas fa-cog' }
@@ -236,13 +242,13 @@ function updateUI() {
         avatarImg.src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'User')}&background=fbb040&color=fff`;
     }
     
-    // Show/hide journey tab based on role
-    const journeyTab = document.getElementById('mobileJourneyTab');
-    if (journeyTab) {
+    // Show/hide alerts tab based on role
+    const alertsTab = document.getElementById('mobileAlertsTab');
+    if (alertsTab) {
         if (currentRole === 'student') {
-            journeyTab.style.display = 'flex';
+            alertsTab.style.display = 'flex';
         } else {
-            journeyTab.style.display = 'none';
+            alertsTab.style.display = 'none';
         }
     }
 }
@@ -326,8 +332,8 @@ function createContentSections() {
         <div id="dashboard-section" class="dashboard-section active">
             <div class="loading-spinner">Loading dashboard...</div>
         </div>
-        <div id="journey-section" class="dashboard-section">
-            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading your learning journey...</div>
+        <div id="alerts-section" class="dashboard-section">
+            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading alerts...</div>
         </div>
         <div id="gotomenu-section" class="dashboard-section">
             <div class="loading-spinner">Loading menu...</div>
@@ -359,8 +365,8 @@ async function loadTabData(tabId) {
         case 'dashboard':
             await renderDashboard();
             break;
-        case 'journey':
-            renderJourney();
+        case 'alerts':
+            renderAlerts();
             break;
         case 'gotomenu':
             renderGoToMenu();
@@ -391,166 +397,132 @@ async function loadTabData(tabId) {
 }
 
 // ============================================
-// JOURNEY TAB - RENDER LEARNING PATH
+// ALERTS TAB - RENDER ALERTS
 // ============================================
-function renderJourney() {
-    const container = document.getElementById('journey-section');
+function renderAlerts() {
+    const container = document.getElementById('alerts-section');
     if (!container) return;
     
+    // Check if user is student
     if (currentRole !== 'student') {
         container.innerHTML = `
             <div class="empty-state">
-                <i class="fas fa-road"></i>
-                <h3>Journey Not Available</h3>
-                <p>The learning journey is only available for students.</p>
+                <i class="fas fa-bell"></i>
+                <h3>Alerts Not Available</h3>
+                <p>Alerts are only available for students.</p>
             </div>
         `;
         return;
     }
     
+    // Use alerts module if available
+    if (alertsModule && alertsModule.renderAlerts) {
+        alertsModule.renderAlerts(container);
+        return;
+    }
+    
+    // Fallback: Show placeholder
     container.innerHTML = `
-        <div class="journey-container">
-            <div class="journey-loader" id="journeyLoader">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading your learning journey...</p>
+        <div class="section-header">
+            <div>
+                <h2><i class="fas fa-bell"></i> Alerts</h2>
+                <p>Your achievements, certificates, badges, and messages</p>
             </div>
-            <iframe 
-                src="/frontend/user-course.html" 
-                class="journey-iframe" 
-                id="journeyIframe"
-                frameborder="0"
-                scrolling="yes"
-                allow="clipboard-write"
-                style="width:100%;height:100%;border:none;"
-            ></iframe>
+        </div>
+        
+        <div class="alerts-grid">
+            <div class="alert-card">
+                <div class="alert-icon"><i class="fas fa-certificate"></i></div>
+                <div class="alert-content">
+                    <h3>Certificates</h3>
+                    <p>Your earned certificates will appear here.</p>
+                    <span class="alert-count">0</span>
+                </div>
+            </div>
+            
+            <div class="alert-card">
+                <div class="alert-icon"><i class="fas fa-medal"></i></div>
+                <div class="alert-content">
+                    <h3>Badges</h3>
+                    <p>Your unlocked badges and achievements.</p>
+                    <span class="alert-count">0</span>
+                </div>
+            </div>
+            
+            <div class="alert-card">
+                <div class="alert-icon"><i class="fas fa-envelope"></i></div>
+                <div class="alert-content">
+                    <h3>Messages</h3>
+                    <p>Private messages from admins and instructors.</p>
+                    <span class="alert-count">0</span>
+                </div>
+            </div>
+            
+            <div class="alert-card">
+                <div class="alert-icon"><i class="fas fa-bullhorn"></i></div>
+                <div class="alert-content">
+                    <h3>Notifications</h3>
+                    <p>Important updates and announcements.</p>
+                    <span class="alert-count">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="empty-state" style="margin-top: 2rem;">
+            <i class="fas fa-check-circle"></i>
+            <h3>All Caught Up!</h3>
+            <p>You have no new alerts. Keep learning and earning achievements!</p>
         </div>
     `;
-    
-    // Setup message listener for course events
-    if (!courseListenerSetup) {
-        setupCourseMessageListener();
-        courseListenerSetup = true;
-    }
-    
-    // Hide loader when iframe loads
-    const iframe = document.getElementById('journeyIframe');
-    const loader = document.getElementById('journeyLoader');
-    
-    if (iframe) {
-        iframe.addEventListener('load', () => {
-            if (loader) loader.style.display = 'none';
-        });
-        
-        // Fallback: hide loader after 5 seconds even if iframe doesn't load
-        setTimeout(() => {
-            if (loader) loader.style.display = 'none';
-        }, 5000);
-    }
 }
 
 // ============================================
-// COURSE MESSAGE LISTENER (GP Updates)
+// GO TO MENU - UPDATED WITH COURSES
 // ============================================
-function setupCourseMessageListener() {
-    window.addEventListener('message', async (event) => {
-        // Only accept messages from course.html
-        if (!event.data || event.data.type !== 'moduleCompleted') return;
-        
-        console.log('📬 Course event received:', event.data);
-        
-        const { moduleName, gpEarned, newTotalGP } = event.data;
-        
-        // Update GP display in header (if exists)
-        const gpDisplay = document.querySelector('.gp-display .gp-value');
-        if (gpDisplay) {
-            gpDisplay.textContent = newTotalGP;
-        }
-        
-        // Update dashboard if visible
-        if (currentTab === 'dashboard') {
-            await renderDashboard();
-        }
-        
-        // Update user's GP in localStorage
-        if (currentUser) {
-            currentUser.gpPoints = newTotalGP;
-            localStorage.setItem('glimu_user', JSON.stringify(currentUser));
-        }
-        
-        // Show toast notification
-        showToast(`🎉 +${gpEarned} GP earned for completing "${moduleName}"!`, 'success');
-        
-        // Check for achievements/level ups
-        await checkGPMilestones(newTotalGP);
-    });
-}
-
-// ============================================
-// GP MILESTONE CHECKS
-// ============================================
-async function checkGPMilestones(totalGP) {
-    const milestones = [
-        { gp: 100, title: 'Scholar', icon: '🎓' },
-        { gp: 250, title: 'Reader', icon: '📚' },
-        { gp: 500, title: 'Builder', icon: '🏆' },
-        { gp: 1000, title: 'Master', icon: '👑' },
-        { gp: 1500, title: 'Ambassador', icon: '⭐' }
-    ];
+function renderGoToMenu() {
+    const container = document.getElementById('gotomenu-section');
+    if (!container) return;
     
-    for (const milestone of milestones) {
-        if (totalGP >= milestone.gp) {
-            // Check if already unlocked
-            const key = `milestone_${milestone.gp}_${currentUser.id}`;
-            if (!localStorage.getItem(key)) {
-                localStorage.setItem(key, 'true');
-                showToast(`🏆 Achievement Unlocked: ${milestone.icon} ${milestone.title}!`, 'success');
-                
-                // Trigger confetti
-                triggerConfetti();
-            }
-        }
-    }
-}
-
-// ============================================
-// CONFETTI TRIGGER
-// ============================================
-function triggerConfetti() {
-    const colors = ['#fbb040', '#2c2f78', '#10b981', '#ef4444', '#3b82f6'];
-    const container = document.body;
-    
-    // Check if confetti styles exist
-    if (!document.getElementById('confettiStyles')) {
-        const style = document.createElement('style');
-        style.id = 'confettiStyles';
-        style.textContent = `
-            @keyframes confettiFall {
-                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-                100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    for (let i = 0; i < 80; i++) {
-        const confetti = document.createElement('div');
-        confetti.style.cssText = `
-            position: fixed;
-            top: -20px;
-            left: ${Math.random() * 100}%;
-            width: ${Math.random() * 10 + 5}px;
-            height: ${Math.random() * 10 + 5}px;
-            background: ${colors[Math.floor(Math.random() * colors.length)]};
-            border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
-            z-index: 9999;
-            pointer-events: none;
-            animation: confettiFall ${Math.random() * 3 + 2}s linear forwards;
-            animation-delay: ${Math.random() * 0.5}s;
-        `;
-        container.appendChild(confetti);
+    container.innerHTML = `
+        <div class="section-header">
+            <div>
+                <h2><i class="fas fa-door-open"></i> Go To</h2>
+                <p>Quick access to all platform sections</p>
+            </div>
+        </div>
         
-        setTimeout(() => confetti.remove(), 5000);
-    }
+        <div class="go-to-grid">
+            <div class="go-to-card" onclick="window.location.href='/hub.html?tab=saved'">
+                <div class="go-to-icon"><i class="fas fa-bookmark"></i></div>
+                <div class="go-to-info"><h3>Library</h3><p>Your saved books and learning materials</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/hub.html'">
+                <div class="go-to-icon"><i class="fas fa-newspaper"></i></div>
+                <div class="go-to-info"><h3>Hub</h3><p>Events, insights, and latest updates</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/virtualroom.html'">
+                <div class="go-to-icon"><i class="fas fa-video"></i></div>
+                <div class="go-to-info"><h3>Virtual Classroom</h3><p>Live classes and interactive sessions</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/chat.html'">
+                <div class="go-to-icon"><i class="fas fa-comments"></i></div>
+                <div class="go-to-info"><h3>Community Chat</h3><p>Connect with fellow learners and instructors</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+            
+            <div class="go-to-card" onclick="window.location.href='/user-course.html'">
+                <div class="go-to-icon"><i class="fas fa-graduation-cap"></i></div>
+                <div class="go-to-info"><h3>Courses</h3><p>Your learning path and course modules</p></div>
+                <i class="fas fa-arrow-right go-to-arrow"></i>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================
@@ -764,49 +736,6 @@ function openMvpModal() {
         });
     }
     modal.classList.add('active');
-}
-
-// ============================================
-// GO TO MENU
-// ============================================
-function renderGoToMenu() {
-    const container = document.getElementById('gotomenu-section');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2><i class="fas fa-door-open"></i> Go To</h2>
-                <p>Quick access to all platform sections</p>
-            </div>
-        </div>
-        
-        <div class="go-to-grid">
-            <div class="go-to-card" onclick="window.location.href='/library.html'">
-                <div class="go-to-icon"><i class="fas fa-book"></i></div>
-                <div class="go-to-info"><h3>Library</h3><p>Access books, bundles, and learning materials</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/virtualroom.html'">
-                <div class="go-to-icon"><i class="fas fa-video"></i></div>
-                <div class="go-to-info"><h3>Virtual Classroom</h3><p>Live classes and interactive sessions</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/hub.html'">
-                <div class="go-to-icon"><i class="fas fa-newspaper"></i></div>
-                <div class="go-to-info"><h3>Hub</h3><p>Events, insights, and latest updates</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-            
-            <div class="go-to-card" onclick="window.location.href='/chat.html'">
-                <div class="go-to-icon"><i class="fas fa-comments"></i></div>
-                <div class="go-to-info"><h3>Community</h3><p>Connect with fellow learners and instructors</p></div>
-                <i class="fas fa-arrow-right go-to-arrow"></i>
-            </div>
-        </div>
-    `;
 }
 
 // ============================================
