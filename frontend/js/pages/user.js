@@ -254,24 +254,58 @@ function updateUI() {
 }
 
 // ============================================
-// THEME
+// THEME - COMPLETE FIXED VERSION
 // ============================================
+
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
+    const dashboardTheme = localStorage.getItem('dashboard_theme');
+    
+    let theme = dashboardTheme || savedTheme || 'light';
+    
+    if (theme === 'dark') {
         document.body.classList.add('dark-mode');
     } else {
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
+        document.body.classList.remove('dark-mode');
     }
+    
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    
+    console.log('🎨 Theme initialized:', theme, 'mode');
 }
 
 function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    showToast(`Switched to ${isDark ? 'dark' : 'light'} mode`, 'info');
+    const isDark = document.body.classList.toggle('dark-mode');
+    const theme = isDark ? 'dark' : 'light';
+    
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+    
+    showToast(`Switched to ${isDark ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
 }
+
+// Expose for settings buttons
+window.selectTheme = function(theme) {
+    if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
+    }
+    
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+    
+    showToast(`Switched to ${theme === 'dark' ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
+};
 
 // ============================================
 // SIDEBAR NAVIGATION
