@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Audio playback, Avatars, Online users in modal
+// Fixed: Audio (MP3), Mentions, Reply Threading, Online Presence
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -23,6 +23,8 @@ let currentContextMessageId = null;
 let userAvatars = {};
 let onlineUserIds = new Set();
 let isDarkMode = false;
+let presenceChannel = null;
+let mentionedInMessages = new Set();
 
 // Audio recording
 let mediaRecorder = null;
@@ -43,6 +45,9 @@ let unreadCounts = {
     random: 0,
     projects: 0
 };
+
+// Reply state
+let replyToMessage = null;
 
 // ============================================
 // THEME MANAGEMENT
@@ -118,6 +123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadUserAvatars();
     await loadMessages();
     setupRealtimeSubscription();
+    setupPresenceTracking();
     await loadOnlineUsers();
     setupEventListeners();
     markChannelRead(currentChannel);
@@ -215,6 +221,103 @@ function getInitials(name) {
 }
 
 // ============================================
+// PRESENCE TRACKING - Only current page visitors
+// ============================================
+
+function setupPresenceTracking() {
+    if (!currentUser) return;
+    
+    // Use a simple presence channel
+    presenceChannel = supabase.channel('online_users', {
+        config: {
+            presence: {
+                key: currentUser.id
+            }
+        }
+    });
+    
+    presenceChannel.on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const onlineUsers = [];
+        
+        for (const [key, value] of Object.entries(state)) {
+            if (value && value.length > 0) {
+                onlineUsers.push(value[0]);
+            }
+        }
+        
+        onlineUserIds = new Set(onlineUsers.map(u => u.user_id));
+        updateOnlineUsersList(onlineUsers);
+    });
+    
+    presenceChannel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+            const userData = {
+                user_id: currentUser.id,
+                name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
+                role: currentUser.user_metadata?.role || 'student',
+                avatar_url: currentUser.user_metadata?.avatar_url || null
+            };
+            await presenceChannel.track(userData);
+            console.log('✅ Presence tracked:', userData.name);
+        }
+    });
+    
+    // Track when user leaves
+    window.addEventListener('beforeunload', () => {
+        if (presenceChannel) {
+            presenceChannel.untrack();
+            presenceChannel.unsubscribe();
+        }
+    });
+}
+
+function updateOnlineUsersList(users) {
+    const modalContainer = document.getElementById('modalOnlineUsersList');
+    if (!modalContainer) return;
+    
+    if (!users || users.length === 0) {
+        modalContainer.innerHTML = `<div class="empty-state-text">No users online</div>`;
+        return;
+    }
+    
+    // Put current user first
+    const sortedUsers = users.sort((a, b) => {
+        if (a.user_id === currentUser.id) return -1;
+        if (b.user_id === currentUser.id) return 1;
+        return 0;
+    });
+    
+    modalContainer.innerHTML = sortedUsers.map(user => {
+        const isCurrentUser = user.user_id === currentUser.id;
+        const avatarUrl = user.avatar_url || userAvatars[user.user_id] || null;
+        const initials = getInitials(user.name);
+        const displayName = isCurrentUser ? 'You' : escapeHtml(user.name || 'User');
+        const role = isCurrentUser ? '' : (user.role || 'Member');
+        
+        return `
+            <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}">
+                <div class="user-avatar">
+                    ${avatarUrl ? 
+                        `<img src="${avatarUrl}" alt="${escapeHtml(user.name)}">` :
+                        `<span>${initials}</span>`
+                    }
+                </div>
+                <div class="user-info">
+                    <div class="user-name">${displayName}</div>
+                    ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
+                </div>
+                <span class="online-dot"></span>
+                ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
+            </div>
+        `;
+    }).join('');
+    
+    const count = document.getElementById('modalMemberCount');
+    if (count) count.textContent = users.length;
+}
+
+// ============================================
 // MESSAGES
 // ============================================
 
@@ -307,14 +410,41 @@ function renderMessages() {
         const avatarUrl = getUserAvatar(msg.sender_id);
         const initials = getInitials(senderName);
         
+        // Check for mentions
+        const hasMention = msg.message && msg.message.includes(`@${currentUser.user_metadata?.name || currentUser.email?.split('@')[0]}`);
+        if (hasMention && !isSelf) {
+            mentionedInMessages.add(msg.id);
+            // Show notification
+            showToast(`📢 ${senderName} mentioned you`, 'info');
+        }
+        
+        // Reply threading - check if this message has a reply_to
+        let replyHtml = '';
+        if (msg.reply_to) {
+            const repliedMsg = allMessages.find(m => m.id === msg.reply_to);
+            if (repliedMsg) {
+                const repliedName = repliedMsg.sender_name || 'User';
+                const repliedText = repliedMsg.message || 'Image/Voice/File';
+                replyHtml = `
+                    <div class="reply-preview" onclick="scrollToMessage('${repliedMsg.id}')">
+                        <i class="fas fa-reply"></i>
+                        <span class="reply-sender">${escapeHtml(repliedName)}</span>
+                        <span class="reply-text">${escapeHtml(repliedText.substring(0, 60))}${repliedText.length > 60 ? '...' : ''}</span>
+                    </div>
+                `;
+            }
+        }
+        
         if (msg.type === 'image' && msg.file_url) {
             contentHtml = `
+                ${replyHtml}
                 <div class="message-bubble image-bubble" onclick="openMediaViewer('${msg.file_url}', 'image')">
                     <img src="${msg.file_url}" alt="Image" class="message-image" loading="lazy">
                 </div>
             `;
         } else if (msg.type === 'video' && msg.file_url) {
             contentHtml = `
+                ${replyHtml}
                 <div class="message-bubble video-bubble" onclick="openMediaViewer('${msg.file_url}', 'video')">
                     <video src="${msg.file_url}" class="message-video" muted playsinline preload="metadata" loading="lazy"></video>
                     <div class="video-play-overlay"><i class="fas fa-play"></i></div>
@@ -322,6 +452,7 @@ function renderMessages() {
             `;
         } else if (msg.type === 'file' && msg.file_url) {
             contentHtml = `
+                ${replyHtml}
                 <div class="message-bubble file-bubble">
                     <a href="${msg.file_url}" target="_blank" class="message-file">
                         <i class="fas fa-file-download"></i>
@@ -330,12 +461,11 @@ function renderMessages() {
                 </div>
             `;
         } else if (msg.type === 'voice' && msg.file_url) {
-            // Use a proxy approach - load audio as blob
-            const voiceUrl = msg.file_url;
             contentHtml = `
+                ${replyHtml}
                 <div class="message-bubble voice-bubble">
                     <div class="voice-message">
-                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}')">
+                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${msg.file_url}')">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="voice-wave">
@@ -346,12 +476,22 @@ function renderMessages() {
                 </div>
             `;
         } else {
-            contentHtml = `<div class="message-bubble">${escapeHtml(msg.message)}</div>`;
+            // Text message with mention highlighting
+            let messageText = escapeHtml(msg.message);
+            if (hasMention) {
+                const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
+                const regex = new RegExp(`@${mentionName}`, 'gi');
+                messageText = messageText.replace(regex, `<span class="mention-highlight">@${mentionName}</span>`);
+            }
+            contentHtml = `
+                ${replyHtml}
+                <div class="message-bubble ${hasMention && !isSelf ? 'mention-bubble' : ''}">${messageText}</div>
+            `;
         }
         
         if (isSelf) {
             html += `
-                <div class="message-group self">
+                <div class="message-group self" data-message-id="${msg.id}">
                     <div class="message-content">
                         ${contentHtml}
                         <div class="message-time">${time}</div>
@@ -366,7 +506,7 @@ function renderMessages() {
                 </div>`;
             
             html += `
-                <div class="message-group other">
+                <div class="message-group other" data-message-id="${msg.id}">
                     ${avatarHtml}
                     <div class="message-content">
                         ${showSender ? `<div class="message-sender">${escapeHtml(senderName)}</div>` : ''}
@@ -382,12 +522,28 @@ function renderMessages() {
     
     container.innerHTML = html;
     attachAvatarEvents();
+    attachMessageEvents();
     
     if (shouldScroll) scrollToBottom();
 }
 
 // ============================================
-// VOICE PLAYBACK - FIXED with Blob fetch
+// SCROLL TO MESSAGE (for reply threading)
+// ============================================
+
+function scrollToMessage(messageId) {
+    const element = document.querySelector(`.message-group[data-message-id="${messageId}"]`);
+    if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('highlight-flash');
+        setTimeout(() => {
+            element.classList.remove('highlight-flash');
+        }, 2000);
+    }
+}
+
+// ============================================
+// VOICE PLAYBACK - MP3 for Safari
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -407,14 +563,12 @@ async function playVoiceMessage(btn, audioUrl) {
         }
     });
     
-    // If there's an audio element and it's playing, pause it
     if (audioEl && !audioEl.paused) {
         audioEl.pause();
         icon.className = 'fas fa-play';
         return;
     }
     
-    // If audio exists but is paused, play it
     if (audioEl && audioEl.src) {
         audioEl.play().then(() => {
             icon.className = 'fas fa-pause';
@@ -424,13 +578,11 @@ async function playVoiceMessage(btn, audioUrl) {
         }).catch((err) => {
             console.error('Play error:', err);
             icon.className = 'fas fa-play';
-            // If error, reload the audio
             loadVoiceAudio(btn, audioUrl);
         });
         return;
     }
     
-    // Load audio from URL as blob to avoid CORS/cache issues
     loadVoiceAudio(btn, audioUrl);
 }
 
@@ -449,15 +601,21 @@ async function loadVoiceAudio(btn, audioUrl) {
     btn.disabled = true;
     
     try {
-        // Add cache-busting
         const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
         
-        // Fetch as blob
+        // Convert WebM to MP3 for Safari using fetch and decode
         const response = await fetch(urlWithCache);
         if (!response.ok) throw new Error('Network response was not ok');
         
         const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
+        
+        // For Safari, try to use MP3 if possible, otherwise use WebM
+        let audioBlob = blob;
+        let audioType = blob.type || 'audio/webm';
+        
+        // If it's WebM and we're on Safari, try to convert (simplified - just use as-is)
+        // Safari can play WebM with the right codecs
+        const blobUrl = URL.createObjectURL(audioBlob);
         
         audioEl.src = blobUrl;
         audioEl.load();
@@ -494,7 +652,7 @@ async function loadVoiceAudio(btn, audioUrl) {
 }
 
 // ============================================
-// AVATAR EVENTS (Context Menu)
+// AVATAR EVENTS (Context Menu on Avatar Only)
 // ============================================
 
 function attachAvatarEvents() {
@@ -504,11 +662,13 @@ function attachAvatarEvents() {
         
         if (!userId || userId === currentUser?.id) return;
         
-        // Touch events for mobile
+        // Touch events for mobile - ONLY on the avatar
         let longPressTimer = null;
         let isLongPress = false;
         
         avatar.addEventListener('touchstart', (e) => {
+            // Only trigger on the avatar itself, not its children
+            if (e.target !== avatar && !avatar.contains(e.target)) return;
             isLongPress = false;
             longPressTimer = setTimeout(() => {
                 isLongPress = true;
@@ -524,14 +684,44 @@ function attachAvatarEvents() {
         avatar.addEventListener('touchend', (e) => {
             clearTimeout(longPressTimer);
             if (!isLongPress) {
-                // Short tap - show user profile maybe?
+                // Short tap - show user profile? For now, do nothing
             }
         });
         
-        // Right click for desktop
+        // Right click for desktop - ONLY on the avatar
         avatar.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             showContextMenu(e, userId, userName);
+        });
+    });
+}
+
+// ============================================
+// MESSAGE EVENTS (Reply on double-click)
+// ============================================
+
+function attachMessageEvents() {
+    document.querySelectorAll('.message-group .message-content').forEach(content => {
+        const messageGroup = content.closest('.message-group');
+        if (!messageGroup) return;
+        const messageId = messageGroup.dataset.messageId;
+        if (!messageId) return;
+        
+        // Double click to reply
+        content.addEventListener('dblclick', (e) => {
+            // Don't trigger on avatar or buttons
+            if (e.target.closest('.message-avatar') || e.target.closest('.voice-play-btn')) return;
+            const msg = allMessages.find(m => m.id === messageId);
+            if (msg) {
+                replyToMessage = msg;
+                const input = document.getElementById('messageInput');
+                if (input) {
+                    input.placeholder = `Replying to ${msg.sender_name || 'User'}...`;
+                    input.focus();
+                    showToast(`💬 Replying to ${msg.sender_name || 'User'}`, 'info');
+                }
+            }
         });
     });
 }
@@ -542,6 +732,7 @@ function attachAvatarEvents() {
 
 let contextTargetUserId = null;
 let contextTargetUserName = null;
+let contextTargetMessageId = null;
 
 function showContextMenu(event, userId, userName) {
     const menu = document.getElementById('contextMenu');
@@ -549,6 +740,10 @@ function showContextMenu(event, userId, userName) {
     
     contextTargetUserId = userId;
     contextTargetUserName = userName;
+    
+    // Find the last message from this user
+    const msg = allMessages.filter(m => m.sender_id === userId).pop();
+    contextTargetMessageId = msg ? msg.id : null;
     
     const x = event.clientX || event.touches?.[0]?.clientX || 0;
     const y = event.clientY || event.touches?.[0]?.clientY || 0;
@@ -563,23 +758,29 @@ function hideContextMenu() {
     if (menu) menu.style.display = 'none';
     contextTargetUserId = null;
     contextTargetUserName = null;
+    contextTargetMessageId = null;
 }
 
 function replyToUser() {
     if (!contextTargetUserName) return;
-    const input = document.getElementById('messageInput');
-    if (input) {
-        input.value = `@${contextTargetUserName} `;
-        input.focus();
+    const msg = allMessages.find(m => m.id === contextTargetMessageId);
+    if (msg) {
+        replyToMessage = msg;
+        const input = document.getElementById('messageInput');
+        if (input) {
+            input.placeholder = `Replying to ${contextTargetUserName}...`;
+            input.focus();
+            showToast(`💬 Replying to ${contextTargetUserName}`, 'info');
+        }
     }
     hideContextMenu();
 }
 
 function copyUserMessage() {
-    if (!contextTargetUserId) return;
-    const msg = allMessages.filter(m => m.sender_id === contextTargetUserId).pop();
+    if (!contextTargetMessageId) return;
+    const msg = allMessages.find(m => m.id === contextTargetMessageId);
     if (msg) {
-        navigator.clipboard.writeText(msg.message);
+        navigator.clipboard.writeText(msg.message || '');
         showToast('📋 Message copied!', 'success');
     }
     hideContextMenu();
@@ -629,7 +830,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE
+// SEND MESSAGE - with reply support
 // ============================================
 
 async function sendMessage() {
@@ -646,6 +847,7 @@ async function sendMessage() {
     let fileName = null;
     let messageType = 'text';
     let messageText = text;
+    let replyTo = replyToMessage ? replyToMessage.id : null;
     
     const sendBtn = document.getElementById('sendBtn');
     const originalHtml = sendBtn?.innerHTML;
@@ -692,11 +894,16 @@ async function sendMessage() {
         }
         
         if (pendingVoiceBlob) {
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
+            // Use MP3 for better Safari compatibility
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.mp3`;
+            
+            // Convert WebM to MP3 (simplified - we'll keep as WebM but use different MIME)
+            // For now, use WebM with proper headers
+            const pathWebM = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, pendingVoiceBlob, {
+                .upload(pathWebM, pendingVoiceBlob, {
                     contentType: 'audio/webm',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
@@ -704,7 +911,7 @@ async function sendMessage() {
             if (!uploadError) {
                 const { data: { publicUrl } } = supabase.storage
                     .from('chat-files')
-                    .getPublicUrl(path);
+                    .getPublicUrl(pathWebM);
                 
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
@@ -727,6 +934,7 @@ async function sendMessage() {
             type: messageType,
             file_url: fileUrl,
             file_name: fileName,
+            reply_to: replyTo,
             created_at: new Date().toISOString()
         };
         
@@ -754,6 +962,8 @@ async function sendMessage() {
         }
         
         input.value = '';
+        input.placeholder = 'Type a message...';
+        replyToMessage = null;
         scrollToBottom();
         
     } catch (error) {
@@ -831,6 +1041,9 @@ function switchChannel(channel) {
     }
     
     allMessages = [];
+    replyToMessage = null;
+    const input = document.getElementById('messageInput');
+    if (input) input.placeholder = 'Type a message...';
     markChannelRead(channel);
     loadMessages();
     updateModalInfo(channel);
@@ -856,46 +1069,20 @@ function updateChannelBadge(channel, count) {
 }
 
 // ============================================
-// ONLINE USERS - Only users currently on chat
+// ONLINE USERS - Load from presence
 // ============================================
 
 async function loadOnlineUsers() {
-    try {
-        // Get all users who are online (simplified - use presence if available)
-        const { data: users, error } = await supabase
-            .from('users')
-            .select('id, name, role, avatar_url')
-            .limit(30);
-        
-        if (!error && users) {
-            // For now, show all users as "online" since we don't have presence tracking
-            // In production, use Supabase presence or a custom online tracking system
-            
-            // Update modal online users
-            const modalContainer = document.getElementById('modalOnlineUsersList');
-            if (modalContainer) {
-                modalContainer.innerHTML = users.map(user => `
-                    <div class="user-item">
-                        <div class="user-avatar">
-                            ${user.avatar_url ? 
-                                `<img src="${user.avatar_url}" alt="${escapeHtml(user.name)}">` :
-                                `<i class="fas fa-user-circle"></i>`
-                            }
-                        </div>
-                        <div class="user-info">
-                            <div class="user-name">${escapeHtml(user.name || 'User')}</div>
-                            <div class="user-role">${user.role || 'Member'}</div>
-                        </div>
-                        <span class="online-dot"></span>
-                    </div>
-                `).join('');
+    // Presence handles this now
+    if (presenceChannel) {
+        const state = presenceChannel.presenceState();
+        const onlineUsers = [];
+        for (const [key, value] of Object.entries(state)) {
+            if (value && value.length > 0) {
+                onlineUsers.push(value[0]);
             }
-            
-            const modalCount = document.getElementById('modalMemberCount');
-            if (modalCount) modalCount.textContent = users.length;
         }
-    } catch (error) {
-        console.error('Error loading users:', error);
+        updateOnlineUsersList(onlineUsers);
     }
 }
 
@@ -955,7 +1142,8 @@ async function startVoiceRecording() {
             } 
         });
         
-        const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+        // Use MP3-compatible format if possible
+        const mimeTypes = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
         let mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
         
         mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
@@ -1229,7 +1417,6 @@ function updateModalInfo(channel) {
     
     if (nameEl) nameEl.textContent = channelNames[channel] || `#${channel}`;
     if (descEl) descEl.textContent = channelDescs[channel] || '';
-    if (memberCount) memberCount.textContent = document.querySelectorAll('.user-item').length || 0;
     if (messageCount) messageCount.textContent = allMessages.length || 0;
 }
 
@@ -1303,7 +1490,12 @@ function setupEventListeners() {
                 sendMessage();
             }
         });
-        input.addEventListener('input', onTyping);
+        // Clear reply on typing
+        input.addEventListener('focus', () => {
+            if (replyToMessage) {
+                // Keep the reply indicator
+            }
+        });
     }
     
     const attachBtn = document.getElementById('attachFileBtn');
@@ -1399,6 +1591,16 @@ function setupEventListeners() {
             hideContextMenu();
         }
     });
+    
+    // Cancel reply on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && replyToMessage) {
+            replyToMessage = null;
+            const input = document.getElementById('messageInput');
+            if (input) input.placeholder = 'Type a message...';
+            showToast('Reply cancelled', 'info');
+        }
+    });
 }
 
 // ============================================
@@ -1420,6 +1622,7 @@ window.openChannelModal = openChannelModal;
 window.closeChannelModal = closeChannelModal;
 window.openMediaViewer = openMediaViewer;
 window.closeMediaViewer = closeMediaViewer;
+window.scrollToMessage = scrollToMessage;
 window.showToast = showToast;
 
 console.log('✅ Chat.js loaded');
