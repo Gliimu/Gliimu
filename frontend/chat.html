@@ -22,7 +22,7 @@
   <div class="chat-app">
     
     <!-- ==========================================
-    LEFT SIDEBAR - Channels & Users
+    LEFT SIDEBAR - Channels Only
     ========================================== -->
     <aside class="chat-sidebar" id="chatSidebar">
       <div class="sidebar-header">
@@ -67,17 +67,6 @@
             <span>projects</span>
             <span class="channel-badge" id="badge-projects">0</span>
           </div>
-        </div>
-      </div>
-      
-      <!-- Online Users -->
-      <div class="sidebar-section users-section">
-        <div class="section-header">
-          <i class="fas fa-circle" style="color: #10b981; font-size: 10px;"></i>
-          <span>Online · <span id="onlineCount">0</span></span>
-        </div>
-        <div class="online-users-list" id="onlineUsersList">
-          <div class="empty-state-text">No users online</div>
         </div>
       </div>
       
@@ -155,7 +144,7 @@
           </button>
         </div>
         
-        <!-- Voice Preview with Playback -->
+        <!-- Voice Preview -->
         <div class="attachment-preview voice-preview" id="voicePreview" style="display: none;">
           <div class="attachment-content">
             <button class="voice-preview-play" id="voicePreviewPlay" aria-label="Preview voice message">
@@ -226,7 +215,7 @@
     </main>
     
     <!-- ==========================================
-    INFO PANEL - Online Users Only
+    INFO PANEL - Online Users Only (Desktop)
     ========================================== -->
     <aside class="info-panel" id="infoPanel">
       <div class="info-panel-header">
@@ -252,7 +241,7 @@
     <div class="info-overlay" id="infoOverlay"></div>
 
     <!-- ==========================================
-    CHANNEL INFO MODAL
+    CHANNEL INFO MODAL (Mobile & Desktop)
     ========================================== -->
     <div class="modal-overlay" id="channelModalOverlay">
       <div class="modal-content" id="channelModal">
@@ -283,6 +272,13 @@
             <span><i class="fas fa-user"></i> <span id="modalMemberCount">0</span> members</span>
             <span><i class="fas fa-comment"></i> <span id="modalMessageCount">0</span> messages</span>
           </div>
+          <div class="modal-divider"></div>
+          <div class="modal-online-users">
+            <h5>🟢 Online Users</h5>
+            <div class="modal-online-list" id="modalOnlineUsersList">
+              <div class="empty-state-text">No users online</div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="modal-btn" id="modalCloseBtn">Close</button>
@@ -301,6 +297,21 @@
         <div class="media-modal-body" id="mediaModalBody">
           <!-- Content loaded by JS -->
         </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+    CONTEXT MENU
+    ========================================== -->
+    <div class="context-menu" id="contextMenu" style="display: none;">
+      <div class="context-item" id="contextReply">
+        <i class="fas fa-reply"></i> Reply
+      </div>
+      <div class="context-item" id="contextCopy">
+        <i class="fas fa-copy"></i> Copy
+      </div>
+      <div class="context-item" id="contextReport">
+        <i class="fas fa-flag"></i> Report
       </div>
     </div>
 
