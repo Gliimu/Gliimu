@@ -1,6 +1,6 @@
 /* ============================================
    💬 COMMUNITY CHAT - GLIIMU
-   Fully Responsive - Fixed Issues
+   Fully Responsive - Clean Version
    ============================================ */
 
 /* ============================================
@@ -603,13 +603,46 @@ html, body {
     100% { height: 20px; }
 }
 
-/* Image Messages */
+/* Image/Video Messages */
+.message-bubble.image-bubble,
+.message-bubble.video-bubble {
+    position: relative;
+    padding: 4px;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer;
+}
+
 .message-image {
     max-width: 200px;
     max-height: 200px;
     border-radius: 8px;
-    cursor: pointer;
     object-fit: cover;
+}
+
+.message-video {
+    max-width: 200px;
+    max-height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.video-play-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    height: 48px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    pointer-events: none;
 }
 
 .message-file {
@@ -748,6 +781,57 @@ html, body {
     color: var(--danger);
 }
 
+/* Voice Preview Playback */
+.voice-preview .voice-wave-preview {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 20px;
+    margin-left: 4px;
+}
+
+.voice-preview .voice-wave-preview span {
+    width: 3px;
+    background: var(--brand-purple);
+    border-radius: 2px;
+    transition: height 0.2s;
+    height: 8px;
+}
+
+.voice-preview .voice-wave-preview.playing span {
+    animation: wave-preview 0.6s infinite ease alternate;
+}
+
+.voice-preview .voice-wave-preview.playing span:nth-child(2) { animation-delay: 0.1s; }
+.voice-preview .voice-wave-preview.playing span:nth-child(3) { animation-delay: 0.2s; }
+.voice-preview .voice-wave-preview.playing span:nth-child(4) { animation-delay: 0.3s; }
+.voice-preview .voice-wave-preview.playing span:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes wave-preview {
+    0% { height: 6px; }
+    100% { height: 18px; }
+}
+
+.voice-preview-play {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--brand-purple);
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.voice-preview-play:hover {
+    transform: scale(1.05);
+}
+
+/* Composer Row */
 .composer-row {
     display: flex;
     align-items: center;
@@ -1179,6 +1263,74 @@ html, body {
 }
 
 /* ============================================
+   MEDIA VIEWER MODAL
+   ============================================ */
+
+.media-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.media-modal-overlay.active {
+    display: flex;
+}
+
+.media-modal-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-modal-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 10;
+    padding: 8px;
+}
+
+.media-modal-body {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-modal-image {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.media-modal-video {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 8px;
+    background: #000;
+}
+
+/* ============================================
    TOAST
    ============================================ */
 
@@ -1349,6 +1501,11 @@ html, body {
         max-width: 95%;
         margin: 10px;
     }
+    
+    .media-modal-close {
+        top: -36px;
+        font-size: 24px;
+    }
 }
 
 /* ============================================
@@ -1490,6 +1647,25 @@ html, body {
         font-size: 12px;
         padding: 4px 0;
     }
+    
+    .message-image {
+        max-width: 150px;
+        max-height: 150px;
+    }
+    
+    .message-video {
+        max-width: 150px;
+        max-height: 130px;
+    }
+    
+    .voice-message {
+        min-width: 100px;
+    }
+    
+    .media-modal-close {
+        top: -30px;
+        font-size: 20px;
+    }
 }
 
 /* ============================================
@@ -1534,7 +1710,7 @@ html, body {
 }
 
 /* ============================================
-   DARK MODE
+   DARK MODE (System Preference)
    ============================================ */
 
 @media (prefers-color-scheme: dark) {
