@@ -4,267 +4,195 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>💬 Community Chat | Gliimu Institute</title>
-  <meta name="description" content="💭 Connect with the Gliimu community in real-time. Chat with students, instructors, and alumni. 🎓">
+  <meta name="description" content="Connect with the Gliimu community in real-time. Chat with students, instructors, and alumni.">
   
-  <!-- 📱 Favicon -->
   <link rel="icon" type="image/png" href="icons/logo.png">
-  <link rel="apple-touch-icon" href="icons/logo.png">
   
-  <!-- 🎨 Font Awesome 6 (Free) -->
+  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
-  <!-- ✍️ Google Fonts - Space Grotesk -->
+  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- 🎨 Custom CSS -->
+  <!-- Custom CSS -->
   <link rel="stylesheet" href="css/chat.css">
 </head>
 <body>
 
-  <!-- ============================================
-  🚀 CHAT APPLICATION SHELL
-  ============================================ -->
-  <div id="app" class="chat-app">
-
+  <div class="chat-app">
+    
     <!-- ==========================================
-    📋 SIDEBAR - Channels & Users (Slide-out)
+    LEFT SIDEBAR - Channels & Users
     ========================================== -->
-    <aside class="chat-sidebar" id="chatSidebar" role="navigation" aria-label="Chat navigation">
-      
-      <!-- 🏠 Sidebar Header -->
+    <aside class="chat-sidebar" id="chatSidebar">
       <div class="sidebar-header">
         <div class="logo-area">
-          <img src="icons/logo.png" alt="Gliimu Institute" class="sidebar-logo" id="sidebarLogo" loading="lazy">
-          <h3>💬 Channels</h3>
+          <img src="icons/logo.png" alt="Gliimu" class="sidebar-logo" id="sidebarLogo">
+          <h3>💬 Community Chat</h3>
         </div>
         <button class="close-sidebar" id="closeSidebarBtn" aria-label="Close sidebar">
           <i class="fas fa-times"></i>
         </button>
       </div>
-
-      <!-- 📢 Channels Section -->
-      <div class="sidebar-section channels-section">
+      
+      <!-- Channels -->
+      <div class="sidebar-section">
         <div class="section-header">
           <i class="fas fa-hashtag"></i>
-          <span>All Channels</span>
-          <span class="channel-count" id="channelCount">5</span>
+          <span>Channels</span>
         </div>
-        
-        <div class="channels-list" id="channelsList" role="list">
-          <!-- 🗣️ General -->
-          <div class="channel-item active" data-channel="general" role="listitem">
-            <div class="channel-icon-wrapper">
-              <i class="fas fa-hashtag"></i>
-            </div>
-            <span class="channel-name">💬 general</span>
+        <div class="channels-list" id="channelsList">
+          <div class="channel-item active" data-channel="general">
+            <i class="fas fa-hashtag"></i>
+            <span>general</span>
             <span class="channel-badge" id="badge-general">0</span>
           </div>
-          
-          <!-- 📢 Announcements -->
-          <div class="channel-item" data-channel="announcements" role="listitem">
-            <div class="channel-icon-wrapper">
-              <i class="fas fa-bullhorn"></i>
-            </div>
-            <span class="channel-name">📢 announcements</span>
+          <div class="channel-item" data-channel="announcements">
+            <i class="fas fa-bullhorn"></i>
+            <span>announcements</span>
             <span class="channel-badge" id="badge-announcements">0</span>
           </div>
-          
-          <!-- ❓ Help -->
-          <div class="channel-item" data-channel="help" role="listitem">
-            <div class="channel-icon-wrapper">
-              <i class="fas fa-question-circle"></i>
-            </div>
-            <span class="channel-name">❓ help</span>
+          <div class="channel-item" data-channel="help">
+            <i class="fas fa-question-circle"></i>
+            <span>help</span>
             <span class="channel-badge" id="badge-help">0</span>
           </div>
-          
-          <!-- 🎲 Random -->
-          <div class="channel-item" data-channel="random" role="listitem">
-            <div class="channel-icon-wrapper">
-              <i class="fas fa-random"></i>
-            </div>
-            <span class="channel-name">🎲 random</span>
+          <div class="channel-item" data-channel="random">
+            <i class="fas fa-random"></i>
+            <span>random</span>
             <span class="channel-badge" id="badge-random">0</span>
           </div>
-          
-          <!-- 💻 Projects -->
-          <div class="channel-item" data-channel="projects" role="listitem">
-            <div class="channel-icon-wrapper">
-              <i class="fas fa-code"></i>
-            </div>
-            <span class="channel-name">💻 projects</span>
+          <div class="channel-item" data-channel="projects">
+            <i class="fas fa-code"></i>
+            <span>projects</span>
             <span class="channel-badge" id="badge-projects">0</span>
           </div>
         </div>
       </div>
-
-      <!-- 👥 Online Users Section -->
-      <div class="sidebar-section users-section">
+      
+      <!-- Online Users -->
+      <div class="sidebar-section">
         <div class="section-header">
-          <span class="online-indicator-dot"></span>
-          <span>🟢 Online · <span id="onlineCount">0</span></span>
-          <button class="refresh-users-btn" id="refreshUsersBtn" aria-label="Refresh users">
-            <i class="fas fa-sync-alt"></i>
-          </button>
+          <i class="fas fa-circle" style="color: #10b981; font-size: 10px;"></i>
+          <span>Online · <span id="onlineCount">0</span></span>
         </div>
-        
-        <div class="online-users-list" id="onlineUsersList" role="list">
-          <!-- 👤 Users populated by JS -->
-          <div class="empty-state-text">👀 No users online</div>
+        <div class="online-users-list" id="onlineUsersList">
+          <!-- Users will be populated here -->
         </div>
       </div>
-
-      <!-- 👤 Current User Card -->
+      
+      <!-- Current User -->
       <div class="current-user" id="currentUserCard">
-        <div class="user-avatar-wrapper">
-          <div class="user-avatar-large" id="userAvatar">
-            <i class="fas fa-user-circle"></i>
-          </div>
-          <span class="user-status-dot online" id="userStatusDot"></span>
+        <div class="user-avatar-large">
+          <i class="fas fa-user-circle"></i>
         </div>
-        
         <div class="user-info-compact">
-          <div class="user-display-name" id="currentUserName">👤 Guest User</div>
-          <div class="user-status-text" id="userStatusText">🔄 Connecting...</div>
+          <div class="user-display-name" id="currentUserName">Guest User</div>
+          <div class="user-status-text" id="userStatusText">Join to chat</div>
         </div>
-        
         <button class="logout-btn" id="logoutBtn" style="display: none;" aria-label="Logout">
           <i class="fas fa-sign-out-alt"></i>
         </button>
       </div>
     </aside>
-
-    <!-- ==========================================
-    🌑 SIDEBAR OVERLAY (for mobile)
-    ========================================== -->
+    
+    <!-- Sidebar Overlay (mobile) -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
+    
     <!-- ==========================================
-    💬 MAIN CHAT AREA
+    MAIN CHAT AREA
     ========================================== -->
-    <main class="chat-main" id="chatMain">
+    <main class="chat-main">
       
-      <!-- 📌 Chat Header -->
-      <header class="chat-header" id="chatHeader">
+      <!-- Chat Header -->
+      <header class="chat-header">
         <button class="menu-toggle" id="menuToggleBtn" aria-label="Toggle sidebar">
           <i class="fas fa-bars"></i>
         </button>
-        
         <div class="channel-info">
-          <div class="channel-icon-wrapper">
-            <i class="fas fa-hashtag" id="channelIcon"></i>
-          </div>
-          <div class="channel-meta">
-            <h2 id="channelName">💬 general</h2>
-            <span class="channel-topic" id="channelTopic">🗣️ General discussion</span>
-          </div>
+          <i class="fas fa-hashtag" id="channelIcon"></i>
+          <h2 id="channelName">general</h2>
         </div>
-        
         <div class="chat-actions">
-          <button class="action-btn search-btn" id="searchToggleBtn" aria-label="Search messages">
-            <i class="fas fa-search"></i>
-          </button>
-          <button class="action-btn info-btn" id="infoToggleBtn" aria-label="Channel info">
+          <button class="action-btn" id="infoToggleBtn" aria-label="Channel info">
             <i class="fas fa-info-circle"></i>
           </button>
-          <button class="action-btn call-btn" id="callBtn" aria-label="Voice call">
+          <button class="action-btn" id="callBtn" aria-label="Voice channel">
             <i class="fas fa-phone"></i>
           </button>
         </div>
       </header>
-
-      <!-- 🔍 Search Bar (hidden by default) -->
-      <div class="search-bar" id="searchBar" style="display: none;">
-        <div class="search-input-wrapper">
-          <i class="fas fa-search"></i>
-          <input type="text" id="searchInput" placeholder="🔎 Search messages..." autocomplete="off">
-          <button class="search-close" id="searchCloseBtn">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="search-results" id="searchResults"></div>
-      </div>
-
-      <!-- 📨 Messages Container -->
+      
+      <!-- Messages Container -->
       <div class="messages-wrapper">
-        <div class="messages-container" id="messagesContainer" role="log" aria-live="polite">
-          <!-- 👋 Welcome Message (shown when empty) -->
-          <div class="welcome-message" id="welcomeMessage">
-            <div class="welcome-icon">
-              <i class="fas fa-comments"></i>
-            </div>
+        <div class="messages-container" id="messagesContainer">
+          <div class="welcome-message">
+            <i class="fas fa-comments"></i>
             <h3>👋 Welcome to Community Chat</h3>
-            <p>🤝 Connect with fellow creatives, share your work, and grow together!</p>
-            <span class="welcome-hint">💬 #general • 👥 0 members online</span>
+            <p>Connect with fellow creatives, share your work, and grow together!</p>
           </div>
         </div>
         
-        <!-- ⬇️ Scroll to Bottom Button -->
+        <!-- Scroll to Bottom Button -->
         <button class="scroll-to-bottom" id="scrollToBottomBtn" aria-label="Scroll to bottom">
           <i class="fas fa-arrow-down"></i>
-          <span class="unread-count" id="unreadCount">0</span>
         </button>
       </div>
-
-      <!-- ⌨️ Typing Indicator -->
+      
+      <!-- Typing Indicator -->
       <div id="typingIndicator" class="typing-indicator-container"></div>
-
+      
       <!-- ==========================================
-      ✍️ MESSAGE COMPOSER
+      MESSAGE COMPOSER
       ========================================== -->
-      <div class="chat-composer" id="chatComposer">
+      <div class="chat-composer">
         
-        <!-- 📎 File Preview -->
+        <!-- File Preview -->
         <div class="attachment-preview" id="filePreview" style="display: none;">
           <div class="attachment-content">
             <i class="fas fa-file"></i>
             <span id="previewFileName">file.name</span>
-            <span class="attachment-size" id="previewFileSize">0 KB</span>
           </div>
           <button class="cancel-attachment" id="cancelFileBtn" aria-label="Remove attachment">
             <i class="fas fa-times-circle"></i>
           </button>
         </div>
         
-        <!-- 🎤 Voice Preview -->
+        <!-- Voice Preview -->
         <div class="attachment-preview voice-preview" id="voicePreview" style="display: none;">
           <div class="attachment-content">
             <i class="fas fa-microphone" style="color: #ef4444;"></i>
-            <span>🎤 Voice message</span>
+            <span>Voice message</span>
             <span class="voice-duration" id="voiceDuration">0:00</span>
           </div>
           <button class="cancel-attachment" id="cancelVoiceBtn" aria-label="Cancel voice message">
             <i class="fas fa-times-circle"></i>
           </button>
         </div>
-
-        <!-- 📝 Composer Row -->
+        
+        <!-- Composer Row -->
         <div class="composer-row">
           <div class="composer-input-wrapper">
-            <!-- 📎 Left Actions -->
+            <!-- Left Actions -->
             <div class="composer-actions-left">
               <button class="composer-btn" id="attachFileBtn" aria-label="Attach file">
                 <i class="fas fa-paperclip"></i>
               </button>
-              <input type="file" id="fileInput" style="display: none;" accept="image/*,video/*,application/pdf,.doc,.docx" multiple>
+              <input type="file" id="fileInput" style="display: none;" accept="image/*,video/*,application/pdf,.doc,.docx">
             </div>
 
-            <!-- ✏️ Text Input -->
+            <!-- Text Input -->
             <div class="composer-text-wrapper">
-              <div class="mentions-suggestions" id="mentionsSuggestions" style="display: none;">
-                <div class="suggestions-list" id="suggestionsList"></div>
-              </div>
               <input 
                 type="text" 
                 id="messageInput" 
-                placeholder="💬 Type a message..." 
+                placeholder="Type a message..." 
                 autocomplete="off"
                 aria-label="Type a message"
-                role="textbox"
               >
             </div>
 
-            <!-- 🎯 Right Actions -->
+            <!-- Right Actions -->
             <div class="composer-actions-right">
               <button class="composer-btn" id="emojiBtn" aria-label="Open emoji picker">
                 <i class="far fa-smile"></i>
@@ -278,166 +206,100 @@
             </div>
           </div>
         </div>
-
-        <!-- 😊 Emoji Picker -->
+        
+        <!-- Emoji Picker -->
         <div class="emoji-picker" id="emojiPicker">
           <div class="emoji-header">
-            <span>😊 Emojis</span>
-            <button class="emoji-close" id="emojiCloseBtn">
+            <span>Emojis</span>
+            <button class="emoji-close" id="emojiCloseBtn" aria-label="Close emoji picker">
               <i class="fas fa-times"></i>
             </button>
           </div>
           <div class="emoji-grid" id="emojiGrid">
-            <!-- 😀 Populated by JS -->
+            <!-- Populated by JS -->
           </div>
         </div>
       </div>
-
+      
     </main>
-
+    
     <!-- ==========================================
-    ℹ️ RIGHT INFO PANEL (Slide-in)
+    RIGHT INFO PANEL
     ========================================== -->
-    <aside class="info-panel" id="infoPanel" role="dialog" aria-label="Channel information">
+    <aside class="info-panel" id="infoPanel">
       <div class="info-panel-header">
         <h3>ℹ️ Channel Info</h3>
         <button class="close-panel" id="closeInfoPanelBtn" aria-label="Close info panel">
           <i class="fas fa-times"></i>
         </button>
       </div>
-      
       <div class="info-panel-body" id="infoContent">
-        <!-- 📋 Channel Details -->
         <div class="info-section channel-details">
           <div class="channel-icon-big">
             <i class="fas fa-hashtag"></i>
           </div>
           <h4 id="infoChannelName">#general</h4>
-          <p id="infoChannelDescription">🗣️ General discussion for everyone. Share ideas, ask questions, and connect with the community.</p>
+          <p id="infoChannelDescription">General discussion for everyone. Share ideas, ask questions, and connect with the community.</p>
           <div class="channel-stats">
-            <span><i class="fas fa-user"></i> 👥 <span id="infoMemberCount">0</span> members</span>
-            <span><i class="fas fa-comment"></i> 💬 <span id="infoMessageCount">0</span> messages</span>
+            <span><i class="fas fa-user"></i> <span id="infoMemberCount">0</span> members</span>
+            <span><i class="fas fa-comment"></i> <span id="infoMessageCount">0</span> messages</span>
           </div>
         </div>
-
-        <!-- 👤 Channel Members -->
         <div class="info-section channel-members">
           <div class="section-header">
-            <span>👥 Members</span>
+            <span>Members</span>
             <span class="member-count" id="infoMemberCountLabel">0</span>
           </div>
           <div class="members-list" id="channelMembersList">
-            <!-- 👤 Populated by JS -->
+            <!-- Populated by JS -->
           </div>
         </div>
       </div>
     </aside>
-
-    <!-- ==========================================
-    🌑 INFO PANEL OVERLAY (for mobile)
-    ========================================== -->
+    
+    <!-- Info Panel Overlay (mobile) -->
     <div class="info-overlay" id="infoOverlay"></div>
 
     <!-- ==========================================
-    📱 BOTTOM NAVIGATION (Mobile)
+    BOTTOM NAVIGATION (Mobile)
     ========================================== -->
-    <nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Main navigation">
+    <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
       <button class="nav-item active" data-tab="chats" id="navChats" aria-label="Chats">
         <i class="fas fa-comment-dots"></i>
-        <span>💬 Chats</span>
+        <span>Chats</span>
         <span class="nav-badge" id="navChatsBadge">0</span>
       </button>
-      
       <button class="nav-item" data-tab="channels" id="navChannels" aria-label="Channels">
         <i class="fas fa-hashtag"></i>
-        <span>📢 Channels</span>
+        <span>Channels</span>
       </button>
-      
       <button class="nav-item" data-tab="people" id="navPeople" aria-label="People">
         <i class="fas fa-users"></i>
-        <span>👥 People</span>
+        <span>People</span>
         <span class="nav-badge" id="navPeopleBadge">0</span>
       </button>
-      
       <button class="nav-item" data-tab="profile" id="navProfile" aria-label="Profile">
         <i class="fas fa-user"></i>
-        <span>👤 Profile</span>
+        <span>Profile</span>
       </button>
     </nav>
 
     <!-- ==========================================
-    ❤️ MESSAGE REACTION TOOLTIP (Long press)
-    ========================================== -->
-    <div class="reaction-tooltip" id="reactionTooltip" style="display: none;">
-      <div class="reaction-options" id="reactionOptions">
-        <button class="reaction-option" data-reaction="❤️">❤️</button>
-        <button class="reaction-option" data-reaction="🔥">🔥</button>
-        <button class="reaction-option" data-reaction="👍">👍</button>
-        <button class="reaction-option" data-reaction="👏">👏</button>
-        <button class="reaction-option" data-reaction="😂">😂</button>
-        <button class="reaction-option" data-reaction="🎉">🎉</button>
-        <button class="reaction-option" data-reaction="😮">😮</button>
-        <button class="reaction-option" data-reaction="💯">💯</button>
-      </div>
-    </div>
-
-    <!-- ==========================================
-    📋 MESSAGE CONTEXT MENU (Long press)
-    ========================================== -->
-    <div class="context-menu" id="contextMenu" style="display: none;">
-      <button class="context-item" id="contextReply">
-        <i class="fas fa-reply"></i> ↩️ Reply
-      </button>
-      <button class="context-item" id="contextCopy">
-        <i class="fas fa-copy"></i> 📋 Copy
-      </button>
-      <button class="context-item" id="contextPin">
-        <i class="fas fa-thumbtack"></i> 📌 Pin
-      </button>
-      <button class="context-item danger" id="contextDelete">
-        <i class="fas fa-trash"></i> 🗑️ Delete
-      </button>
-      <button class="context-item" id="contextReport">
-        <i class="fas fa-flag"></i> 🚩 Report
-      </button>
-    </div>
-
-    <!-- ==========================================
-    🔔 TOAST NOTIFICATIONS
-    ========================================== -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <!-- ==========================================
-    ⏱️ TIMER BANNER (Free tier)
+    TIMER BANNER (Free tier)
     ========================================== -->
     <div id="timerBanner" class="timer-banner" style="display: none;">
       <div class="timer-banner-content">
         <i class="fas fa-hourglass-half"></i>
-        <span>⏱️ Free access: <span id="timerDisplay">15:00</span> remaining</span>
-        <button class="upgrade-timer-btn" onclick="window.location.href='/dashboard.html?tab=wallet'">
-          ⭐ Upgrade
-        </button>
+        <span>Free access: <span id="timerDisplay">15:00</span> remaining</span>
+        <button class="upgrade-timer-btn" onclick="window.location.href='/dashboard.html?tab=wallet'">Upgrade</button>
       </div>
-    </div>
-
-    <!-- ==========================================
-    🎓 GLIIMU BRAND WATERMARK (Optional)
-    ========================================== -->
-    <div class="brand-watermark" aria-hidden="true">
-      <span>🎓 Gliimu Institute</span>
     </div>
 
   </div>
 
   <!-- ==========================================
-  📦 SCRIPTS
+  SCRIPTS
   ========================================== -->
-  <!-- 🧩 Core Modules -->
-  <script type="module" src="js/modules/supabase.js"></script>
-  <script type="module" src="js/modules/toast.js"></script>
-  <script type="module" src="js/modules/chat.js"></script>
-  
-  <!-- 📄 Page Script -->
   <script type="module" src="js/pages/chat.js"></script>
 
 </body>
