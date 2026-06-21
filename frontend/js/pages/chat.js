@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Reply toast, Reply threading, Avatar click context menu
+// Fixed: Mention toasts persistence, Audio for mobile, Online users
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -24,10 +24,11 @@ let userAvatars = {};
 let onlineUserIds = new Set();
 let isDarkMode = false;
 let presenceChannel = null;
-let mentionedInMessages = new Set();
 let replyToMessage = null;
 let hasReplyColumn = true;
-let shownMentionToasts = new Set(); // Track shown mention toasts
+
+// Track mentioned messages using localStorage for persistence
+let shownMentionToasts = new Set();
 
 // Audio recording
 let mediaRecorder = null;
@@ -48,6 +49,29 @@ let unreadCounts = {
     random: 0,
     projects: 0
 };
+
+// ============================================
+// LOAD/SAVE MENTION TOASTS
+// ============================================
+
+function loadMentionToasts() {
+    try {
+        const saved = localStorage.getItem('chat_mention_toasts');
+        if (saved) {
+            const data = JSON.parse(saved);
+            shownMentionToasts = new Set(data);
+        }
+    } catch (e) {
+        shownMentionToasts = new Set();
+    }
+}
+
+function saveMentionToast(messageId) {
+    shownMentionToasts.add(messageId);
+    try {
+        localStorage.setItem('chat_mention_toasts', JSON.stringify([...shownMentionToasts]));
+    } catch (e) {}
+}
 
 // ============================================
 // THEME MANAGEMENT
@@ -126,6 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     initTheme();
     fixMobileViewport();
+    loadMentionToasts();
     
     const container = document.getElementById('messagesContainer');
     if (container) {
@@ -155,7 +180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkReplyColumn();
     await loadMessages();
     setupRealtimeSubscription();
-    setupPresenceTracking();
+    await setupPresenceTracking();
     await loadOnlineUsers();
     setupEventListeners();
     markChannelRead(currentChannel);
@@ -253,11 +278,19 @@ function getInitials(name) {
 }
 
 // ============================================
-// PRESENCE TRACKING
+// PRESENCE TRACKING - FIXED
 // ============================================
 
-function setupPresenceTracking() {
+async function setupPresenceTracking() {
     if (!currentUser) return;
+    
+    // Clean up old channel
+    if (presenceChannel) {
+        try {
+            await presenceChannel.untrack();
+            await presenceChannel.unsubscribe();
+        } catch (e) {}
+    }
     
     presenceChannel = supabase.channel('online_users', {
         config: {
@@ -267,37 +300,84 @@ function setupPresenceTracking() {
         }
     });
     
-    presenceChannel.on('presence', { event: 'sync' }, () => {
+    presenceChannel.on('presence', { event: 'sync', timeout: 30000 }, () => {
         const state = presenceChannel.presenceState();
         const onlineUsers = [];
         
         for (const [key, value] of Object.entries(state)) {
             if (value && value.length > 0) {
-                onlineUsers.push(value[0]);
+                // Get the most recent presence data
+                const userData = value[value.length - 1];
+                onlineUsers.push(userData);
             }
         }
         
-        onlineUserIds = new Set(onlineUsers.map(u => u.user_id));
+        console.log('👥 Online users:', onlineUsers.length);
         updateOnlineUsersList(onlineUsers);
     });
     
-    presenceChannel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-            const userData = {
-                user_id: currentUser.id,
-                name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
-                role: currentUser.user_metadata?.role || 'student',
-                avatar_url: currentUser.user_metadata?.avatar_url || null
-            };
-            await presenceChannel.track(userData);
-            console.log('✅ Presence tracked:', userData.name);
+    // Handle presence join events
+    presenceChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('👤 User joined:', newPresences);
+        const state = presenceChannel.presenceState();
+        const onlineUsers = [];
+        for (const [key, value] of Object.entries(state)) {
+            if (value && value.length > 0) {
+                onlineUsers.push(value[value.length - 1]);
+            }
         }
+        updateOnlineUsersList(onlineUsers);
     });
     
-    window.addEventListener('beforeunload', () => {
+    // Handle presence leave events
+    presenceChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('👤 User left:', leftPresences);
+        const state = presenceChannel.presenceState();
+        const onlineUsers = [];
+        for (const [key, value] of Object.entries(state)) {
+            if (value && value.length > 0) {
+                onlineUsers.push(value[value.length - 1]);
+            }
+        }
+        updateOnlineUsersList(onlineUsers);
+    });
+    
+    try {
+        await presenceChannel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                const userData = {
+                    user_id: currentUser.id,
+                    name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
+                    role: currentUser.user_metadata?.role || 'student',
+                    avatar_url: currentUser.user_metadata?.avatar_url || null,
+                    online_at: new Date().toISOString()
+                };
+                await presenceChannel.track(userData);
+                console.log('✅ Presence tracked:', userData.name);
+                
+                // Force immediate update
+                setTimeout(() => {
+                    const state = presenceChannel.presenceState();
+                    const users = [];
+                    for (const [key, value] of Object.entries(state)) {
+                        if (value && value.length > 0) {
+                            users.push(value[value.length - 1]);
+                        }
+                    }
+                    updateOnlineUsersList(users);
+                }, 1000);
+            }
+        });
+    } catch (error) {
+        console.error('Presence subscription error:', error);
+    }
+    
+    window.addEventListener('beforeunload', async () => {
         if (presenceChannel) {
-            presenceChannel.untrack();
-            presenceChannel.unsubscribe();
+            try {
+                await presenceChannel.untrack();
+                await presenceChannel.unsubscribe();
+            } catch (e) {}
         }
     });
 }
@@ -306,15 +386,28 @@ function updateOnlineUsersList(users) {
     const modalContainer = document.getElementById('modalOnlineUsersList');
     if (!modalContainer) return;
     
-    if (!users || users.length === 0) {
+    // Filter out duplicates and invalid users
+    const uniqueUsers = [];
+    const seenIds = new Set();
+    for (const user of users) {
+        if (user && user.user_id && !seenIds.has(user.user_id)) {
+            seenIds.add(user.user_id);
+            uniqueUsers.push(user);
+        }
+    }
+    
+    if (uniqueUsers.length === 0) {
         modalContainer.innerHTML = `<div class="empty-state-text">No users online</div>`;
+        const count = document.getElementById('modalMemberCount');
+        if (count) count.textContent = '0';
         return;
     }
     
-    const sortedUsers = users.sort((a, b) => {
+    // Sort: current user first, then by name
+    const sortedUsers = uniqueUsers.sort((a, b) => {
         if (a.user_id === currentUser.id) return -1;
         if (b.user_id === currentUser.id) return 1;
-        return 0;
+        return (a.name || '').localeCompare(b.name || '');
     });
     
     modalContainer.innerHTML = sortedUsers.map(user => {
@@ -343,7 +436,7 @@ function updateOnlineUsersList(users) {
     }).join('');
     
     const count = document.getElementById('modalMemberCount');
-    if (count) count.textContent = users.length;
+    if (count) count.textContent = uniqueUsers.length;
 }
 
 // ============================================
@@ -444,15 +537,15 @@ function renderMessages() {
         const avatarUrl = getUserAvatar(msg.sender_id);
         const initials = getInitials(senderName);
         
-        // Check for mentions - only show toast once per message
-        const mentionKey = msg.id;
+        // Check for mentions - only show once per message (persisted)
+        const mentionKey = `mention_${msg.id}`;
         const hasMention = msg.message && msg.message.includes(`@${currentUser.user_metadata?.name || currentUser.email?.split('@')[0]}`);
         if (hasMention && !isSelf && !shownMentionToasts.has(mentionKey)) {
-            shownMentionToasts.add(mentionKey);
+            saveMentionToast(mentionKey);
             showToast(`📢 ${senderName} mentioned you`, 'info');
         }
         
-        // Reply threading - get the SPECIFIC replied message
+        // Reply threading
         let replyHtml = '';
         if (hasReplyColumn && msg.reply_to) {
             const repliedMsg = allMessages.find(m => m.id === msg.reply_to);
@@ -576,14 +669,15 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK
+// VOICE PLAYBACK - MOBILE FIXED
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
     const container = btn.parentElement;
     const icon = btn.querySelector('i');
-    const audioEl = container.querySelector('audio');
+    let audioEl = container.querySelector('audio');
     
+    // Stop any other playing voice messages
     document.querySelectorAll('.voice-play-btn i').forEach(el => {
         if (el !== icon) {
             el.className = 'fas fa-play';
@@ -601,24 +695,28 @@ async function playVoiceMessage(btn, audioUrl) {
         return;
     }
     
+    // If we have an audio element with src, try playing
     if (audioEl && audioEl.src) {
-        audioEl.play().then(() => {
+        try {
+            await audioEl.play();
             icon.className = 'fas fa-pause';
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
             };
-        }).catch((err) => {
+            return;
+        } catch (err) {
             console.error('Play error:', err);
             icon.className = 'fas fa-play';
-            // Don't reload on AbortError (caused by pause)
+            // If it's not an AbortError, reload
             if (err.name !== 'AbortError') {
-                loadVoiceAudio(btn, audioUrl);
+                await loadVoiceAudio(btn, audioUrl);
             }
-        });
-        return;
+            return;
+        }
     }
     
-    loadVoiceAudio(btn, audioUrl);
+    // Load fresh audio
+    await loadVoiceAudio(btn, audioUrl);
 }
 
 async function loadVoiceAudio(btn, audioUrl) {
@@ -629,6 +727,10 @@ async function loadVoiceAudio(btn, audioUrl) {
     if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.style.display = 'none';
+        // Mobile-friendly settings
+        audioEl.playsInline = true;
+        audioEl.setAttribute('playsinline', '');
+        audioEl.setAttribute('webkit-playsinline', '');
         container.appendChild(audioEl);
     }
     
@@ -636,52 +738,99 @@ async function loadVoiceAudio(btn, audioUrl) {
     btn.disabled = true;
     
     try {
+        // Try multiple approaches for mobile
         const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
         
+        // Approach 1: Fetch as blob
         const response = await fetch(urlWithCache);
         if (!response.ok) throw new Error('Network response was not ok');
         
         const blob = await response.blob();
+        
+        // Check if blob is valid audio
+        if (blob.size === 0) throw new Error('Empty audio file');
+        
         const blobUrl = URL.createObjectURL(blob);
         
+        // Set audio source
         audioEl.src = blobUrl;
         audioEl.load();
         
-        audioEl.oncanplay = () => {
-            audioEl.play().then(() => {
-                icon.className = 'fas fa-pause';
-                btn.disabled = false;
-                audioEl.onended = () => {
-                    icon.className = 'fas fa-play';
-                    URL.revokeObjectURL(blobUrl);
-                };
-            }).catch((err) => {
-                console.error('Play error:', err);
+        // Create a promise for playing
+        const playPromise = new Promise((resolve, reject) => {
+            const onCanPlay = () => {
+                audioEl.removeEventListener('canplaythrough', onCanPlay);
+                resolve();
+            };
+            const onError = () => {
+                audioEl.removeEventListener('error', onError);
+                reject(new Error('Audio load error'));
+            };
+            audioEl.addEventListener('canplaythrough', onCanPlay);
+            audioEl.addEventListener('error', onError);
+            
+            // Fallback timeout
+            setTimeout(() => {
+                audioEl.removeEventListener('canplaythrough', onCanPlay);
+                audioEl.removeEventListener('error', onError);
+                reject(new Error('Load timeout'));
+            }, 10000);
+        });
+        
+        await playPromise;
+        
+        // Try to play
+        try {
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+                URL.revokeObjectURL(blobUrl);
+            };
+            audioEl.onerror = () => {
                 icon.className = 'fas fa-play';
                 btn.disabled = false;
-                if (err.name !== 'AbortError') {
-                    showToast('❌ Could not play voice message', 'error');
-                }
-            });
-        };
-        
-        audioEl.onerror = () => {
-            console.error('Audio load error');
+                showToast('❌ Audio playback error', 'error');
+            };
+        } catch (playErr) {
+            console.error('Play error:', playErr);
             icon.className = 'fas fa-play';
             btn.disabled = false;
-            showToast('❌ Could not load voice message', 'error');
-        };
+            
+            // On iOS, sometimes we need user interaction
+            if (playErr.name === 'NotAllowedError') {
+                showToast('👆 Tap play again to start', 'warning');
+            } else {
+                showToast('❌ Could not play voice message', 'error');
+            }
+        }
         
     } catch (err) {
-        console.error('Fetch error:', err);
+        console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
-        showToast('❌ Could not load voice message', 'error');
+        
+        // Try alternative: direct URL (for Safari)
+        try {
+            audioEl.src = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+            audioEl.load();
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        } catch (altErr) {
+            console.error('Alternative play error:', altErr);
+            showToast('❌ Could not play voice message', 'error');
+        }
     }
 }
 
 // ============================================
-// AVATAR EVENTS - Click to show context menu (no long press)
+// AVATAR EVENTS
 // ============================================
 
 function attachAvatarEvents() {
@@ -691,14 +840,12 @@ function attachAvatarEvents() {
         
         if (!userId || userId === currentUser?.id) return;
         
-        // Single click/tap shows context menu
         avatar.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             showContextMenu(e, userId, userName);
         });
         
-        // Right click also shows context menu
         avatar.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -708,7 +855,7 @@ function attachAvatarEvents() {
 }
 
 // ============================================
-// MESSAGE EVENTS (Double click to reply)
+// MESSAGE EVENTS
 // ============================================
 
 function attachMessageEvents() {
@@ -749,14 +896,12 @@ function showContextMenu(event, userId, userName) {
     contextTargetUserId = userId;
     contextTargetUserName = userName;
     
-    // Find the specific message that was clicked - use the avatar's parent message
     const avatar = event.currentTarget || event.target;
     const messageGroup = avatar.closest('.message-group');
     if (messageGroup) {
         contextTargetMessageId = messageGroup.dataset.messageId;
     }
     
-    // If no message found, use the last message from this user
     if (!contextTargetMessageId) {
         const msg = allMessages.filter(m => m.sender_id === userId).pop();
         contextTargetMessageId = msg ? msg.id : null;
@@ -1062,7 +1207,6 @@ function switchChannel(channel) {
     
     allMessages = [];
     replyToMessage = null;
-    shownMentionToasts = new Set(); // Reset mention toasts on channel switch
     const input = document.getElementById('messageInput');
     if (input) input.placeholder = 'Type a message...';
     markChannelRead(channel);
@@ -1095,14 +1239,18 @@ function updateChannelBadge(channel, count) {
 
 async function loadOnlineUsers() {
     if (presenceChannel) {
-        const state = presenceChannel.presenceState();
-        const onlineUsers = [];
-        for (const [key, value] of Object.entries(state)) {
-            if (value && value.length > 0) {
-                onlineUsers.push(value[0]);
+        try {
+            const state = presenceChannel.presenceState();
+            const onlineUsers = [];
+            for (const [key, value] of Object.entries(state)) {
+                if (value && value.length > 0) {
+                    onlineUsers.push(value[value.length - 1]);
+                }
             }
+            updateOnlineUsersList(onlineUsers);
+        } catch (error) {
+            console.error('Error loading online users:', error);
         }
-        updateOnlineUsersList(onlineUsers);
     }
 }
 
