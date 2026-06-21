@@ -653,13 +653,13 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VIDEO - Fixed: No persistent play overlay
+        // VIDEO - Fixed: No giant play button
         else if (msg.type === 'video' && msg.file_url) {
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble video-bubble" onclick="openMediaViewer('${msg.file_url}', 'video')">
                     <video src="${msg.file_url}" class="message-video" muted playsinline webkit-playsinline preload="metadata" loading="lazy"></video>
-                    <div class="video-play-overlay"><i class="fas fa-play"></i></div>
+                    <div class="video-play-overlay"><i class="fas fa-play-circle"></i></div>
                 </div>
             `;
         } 
@@ -828,7 +828,6 @@ async function loadVoiceAudio(btn, audioUrl) {
     btn.disabled = true;
     
     try {
-        // audioUrl already has cache-busting from render
         const response = await fetch(audioUrl);
         if (!response.ok) throw new Error('Network response was not ok');
         
@@ -1043,7 +1042,6 @@ function openMediaViewer(url, type) {
     if (type === 'image') {
         body.innerHTML = `<img src="${url}" alt="Media" class="media-modal-image">`;
     } else if (type === 'video') {
-        // Fix: Properly handle video with playsinline and controls
         body.innerHTML = `
             <video src="${url}" class="media-modal-video" controls autoplay playsinline webkit-playsinline>
                 Your browser does not support video playback.
