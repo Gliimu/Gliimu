@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Media Modal, Voice Preview, Mobile Audio
+// Fixed: Theme Persistence, Mobile Audio
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -44,31 +44,48 @@ let unreadCounts = {
 let isDarkMode = false;
 
 // ============================================
-// THEME MANAGEMENT (Matches user-course.js)
+// THEME MANAGEMENT - FIXED
 // ============================================
 
 function initTheme() {
+    // Priority order:
+    // 1. dashboard_theme (set in dashboard settings)
+    // 2. theme (legacy)
+    // 3. system preference
+    // 4. default: light mode
+    
+    const dashboardTheme = localStorage.getItem('dashboard_theme');
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const dashboardTheme = localStorage.getItem('dashboard_theme');
     
-    if (dashboardTheme === 'dark' || savedTheme === 'dark') {
-        isDarkMode = true;
-        document.body.classList.add('dark-mode');
-    } else if (dashboardTheme === 'light' || savedTheme === 'light') {
-        isDarkMode = false;
-        document.body.classList.remove('dark-mode');
+    let theme = 'light';
+    
+    if (dashboardTheme === 'dark') {
+        theme = 'dark';
+    } else if (dashboardTheme === 'light') {
+        theme = 'light';
+    } else if (savedTheme === 'dark') {
+        theme = 'dark';
+    } else if (savedTheme === 'light') {
+        theme = 'light';
     } else if (systemPrefersDark) {
-        isDarkMode = true;
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
-    } else {
-        isDarkMode = true;
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
+        theme = 'dark';
     }
     
-    console.log('🎨 Theme initialized:', isDarkMode ? 'Dark' : 'Light');
+    // Apply theme
+    if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+        isDarkMode = true;
+    } else {
+        document.body.classList.remove('dark-mode');
+        isDarkMode = false;
+    }
+    
+    // Sync localStorage
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    
+    console.log('🎨 Theme initialized:', theme, 'mode');
 }
 
 // ============================================
@@ -78,6 +95,7 @@ function initTheme() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('💬 Chat initializing...');
     
+    // Init theme FIRST
     initTheme();
     fixMobileViewport();
     
@@ -297,7 +315,7 @@ function renderMessages() {
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" src="${msg.file_url}" preload="metadata"></audio>
+                        <audio style="display:none;" src="${msg.file_url}" preload="metadata" playsinline></audio>
                     </div>
                 </div>
             `;
@@ -334,7 +352,7 @@ function openMediaViewer(url, type) {
         body.innerHTML = `<img src="${url}" alt="Media" class="media-modal-image">`;
     } else if (type === 'video') {
         body.innerHTML = `
-            <video src="${url}" class="media-modal-video" controls autoplay playsinline>
+            <video src="${url}" class="media-modal-video" controls autoplay playsinline webkit-playsinline>
                 Your browser does not support video playback.
             </video>
         `;
@@ -669,7 +687,7 @@ function cancelFilePreview() {
 }
 
 // ============================================
-// VOICE RECORDING - WITH PREVIEW
+// VOICE RECORDING - FIXED FOR MOBILE
 // ============================================
 
 async function startVoiceRecording() {
@@ -678,27 +696,40 @@ async function startVoiceRecording() {
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true
+                autoGainControl: true,
+                sampleRate: 44100,
+                channelCount: 1
             } 
         });
-        mediaRecorder = new MediaRecorder(stream);
+        
+        const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+        let mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
+        
+        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
         audioChunks = [];
         
-        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                audioChunks.push(e.data);
+            }
+        };
+        
         mediaRecorder.onstop = () => {
-            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            if (blob.size > 0) {
+            const mime = mediaRecorder.mimeType || 'audio/webm';
+            const blob = new Blob(audioChunks, { type: mime });
+            
+            if (blob.size > 1000) {
                 pendingVoiceBlob = blob;
                 pendingVoiceUrl = URL.createObjectURL(blob);
                 showVoicePreview();
                 setupVoicePreviewPlayback();
             } else {
-                showToast('❌ Recording failed', 'error');
+                showToast('❌ Recording too short', 'error');
             }
             stream.getTracks().forEach(t => t.stop());
         };
         
-        mediaRecorder.start();
+        mediaRecorder.start(1000);
         isRecording = true;
         recordingStartTime = Date.now();
         
@@ -716,10 +747,17 @@ async function startVoiceRecording() {
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
         
-        showToast('🎤 Recording... Click stop to preview', 'info');
+        if (navigator.vibrate) navigator.vibrate(50);
+        showToast('🎤 Recording... Tap stop to preview', 'info');
     } catch (err) {
         console.error('Microphone error:', err);
-        showToast('❌ Could not access microphone', 'error');
+        let errorMsg = '❌ Could not access microphone';
+        if (err.name === 'NotAllowedError') {
+            errorMsg = '❌ Please allow microphone access in your browser settings';
+        } else if (err.name === 'NotFoundError') {
+            errorMsg = '❌ No microphone found on this device';
+        }
+        showToast(errorMsg, 'error');
     }
 }
 
@@ -754,6 +792,10 @@ function hideVoicePreview() {
         URL.revokeObjectURL(pendingVoiceUrl);
         pendingVoiceUrl = null;
     }
+    if (voicePreviewAudio) {
+        voicePreviewAudio.pause();
+        voicePreviewAudio = null;
+    }
     pendingVoiceBlob = null;
     isVoicePreviewPlaying = false;
 }
@@ -772,48 +814,75 @@ function cancelVoicePreview() {
     hideVoicePreview();
 }
 
+// ============================================
+// VOICE PREVIEW PLAYBACK - FIXED FOR MOBILE
+// ============================================
+
 function setupVoicePreviewPlayback() {
     const playBtn = document.getElementById('voicePreviewPlay');
     const wave = document.getElementById('voiceWavePreview');
     
     if (!playBtn || !pendingVoiceUrl) return;
     
-    playBtn.onclick = () => {
-        if (isVoicePreviewPlaying) {
-            if (voicePreviewAudio) {
-                voicePreviewAudio.pause();
-                voicePreviewAudio.currentTime = 0;
-            }
+    playBtn.replaceWith(playBtn.cloneNode(true));
+    const newPlayBtn = document.getElementById('voicePreviewPlay');
+    
+    newPlayBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleVoicePreviewPlayback(this, wave);
+    });
+}
+
+function toggleVoicePreviewPlayback(playBtn, wave) {
+    if (isVoicePreviewPlaying) {
+        if (voicePreviewAudio) {
+            voicePreviewAudio.pause();
+        }
+        isVoicePreviewPlaying = false;
+        playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        if (wave) wave.classList.remove('playing');
+        return;
+    }
+    
+    if (!voicePreviewAudio) {
+        voicePreviewAudio = new Audio(pendingVoiceUrl);
+        voicePreviewAudio.preload = 'metadata';
+        voicePreviewAudio.playsInline = true;
+        voicePreviewAudio.setAttribute('playsinline', '');
+        voicePreviewAudio.setAttribute('webkit-playsinline', '');
+        
+        voicePreviewAudio.onended = () => {
             isVoicePreviewPlaying = false;
             playBtn.innerHTML = '<i class="fas fa-play"></i>';
-            wave.classList.remove('playing');
-            return;
-        }
+            if (wave) wave.classList.remove('playing');
+        };
         
-        if (!voicePreviewAudio) {
-            voicePreviewAudio = new Audio(pendingVoiceUrl);
-            voicePreviewAudio.onended = () => {
-                isVoicePreviewPlaying = false;
-                playBtn.innerHTML = '<i class="fas fa-play"></i>';
-                wave.classList.remove('playing');
-            };
-            voicePreviewAudio.onerror = () => {
-                showToast('❌ Could not play preview', 'error');
-                isVoicePreviewPlaying = false;
-                playBtn.innerHTML = '<i class="fas fa-play"></i>';
-                wave.classList.remove('playing');
-            };
-        }
-        
-        voicePreviewAudio.play().then(() => {
-            isVoicePreviewPlaying = true;
-            playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-            wave.classList.add('playing');
-        }).catch(() => {
+        voicePreviewAudio.onerror = (e) => {
+            console.error('Audio error:', e);
             showToast('❌ Could not play preview', 'error');
-        });
-    };
+            isVoicePreviewPlaying = false;
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            if (wave) wave.classList.remove('playing');
+        };
+    }
+    
+    voicePreviewAudio.play().then(() => {
+        isVoicePreviewPlaying = true;
+        playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        if (wave) wave.classList.add('playing');
+    }).catch((err) => {
+        console.error('Play error:', err);
+        showToast('❌ Tap again to play preview', 'error');
+        if (err.name === 'NotAllowedError') {
+            showToast('❌ Please tap play again after interacting with the page', 'warning');
+        }
+    });
 }
+
+// ============================================
+// VOICE PLAY IN MESSAGES - FIXED FOR MOBILE
+// ============================================
 
 function toggleVoicePlay(btn, audioUrl) {
     const container = btn.parentElement;
@@ -823,6 +892,9 @@ function toggleVoicePlay(btn, audioUrl) {
         audio = document.createElement('audio');
         audio.src = audioUrl;
         audio.preload = 'metadata';
+        audio.playsInline = true;
+        audio.setAttribute('playsinline', '');
+        audio.setAttribute('webkit-playsinline', '');
         container.appendChild(audio);
     }
     
@@ -845,8 +917,10 @@ function toggleVoicePlay(btn, audioUrl) {
             audio.onended = () => {
                 icon.className = 'fas fa-play';
             };
-        }).catch(() => {
-            showToast('❌ Could not play voice message', 'error');
+        }).catch((err) => {
+            console.error('Play error:', err);
+            showToast('❌ Tap again to play', 'error');
+            icon.className = 'fas fa-play';
         });
     } else {
         audio.pause();
