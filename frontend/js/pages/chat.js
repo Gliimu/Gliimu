@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Presence tracking for online users
+// Fully Functional - Fixed Presence, Audio, Mentions, Reply
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -283,7 +283,7 @@ function getInitials(name) {
 }
 
 // ============================================
-// PRESENCE TRACKING - COMPLETELY REWRITTEN
+// PRESENCE TRACKING - SHARED CHANNEL
 // ============================================
 
 async function setupPresenceTracking() {
@@ -292,7 +292,6 @@ async function setupPresenceTracking() {
     
     console.log('🟢 Setting up presence tracking...');
     
-    // Clean up any existing channel
     if (presenceChannel) {
         try {
             await presenceChannel.untrack();
@@ -303,7 +302,6 @@ async function setupPresenceTracking() {
         presenceChannel = null;
     }
     
-    // Get user data for presence
     const userData = {
         user_id: currentUser.id,
         name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
@@ -312,8 +310,9 @@ async function setupPresenceTracking() {
         online_at: new Date().toISOString()
     };
     
-    // Create the presence channel with a unique name
-    const channelName = `presence:${currentUser.id}`;
+    // ✅ SHARED channel name - ALL users use the same channel
+    const channelName = 'chat_online_users';
+    
     presenceChannel = supabase.channel(channelName, {
         config: {
             presence: {
@@ -322,10 +321,9 @@ async function setupPresenceTracking() {
         }
     });
     
-    // Handle presence sync
     presenceChannel.on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
-        console.log('🔄 Presence sync - Current state:', state);
+        console.log('🔄 Presence sync - State keys:', Object.keys(state).length);
         
         const onlineUsers = [];
         for (const [key, value] of Object.entries(state)) {
@@ -341,30 +339,25 @@ async function setupPresenceTracking() {
         updateOnlineUsersList(onlineUsers);
     });
     
-    // Handle user join
     presenceChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
         console.log('👤 User joined:', newPresences);
         refreshOnlineUsers();
     });
     
-    // Handle user leave
     presenceChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         console.log('👤 User left:', leftPresences);
         refreshOnlineUsers();
     });
     
     try {
-        // Subscribe to the channel
         await presenceChannel.subscribe(async (status) => {
             console.log('📡 Presence subscription status:', status);
             
             if (status === 'SUBSCRIBED') {
-                // Track the current user
                 await presenceChannel.track(userData);
                 console.log('✅ Presence tracked for:', userData.name);
                 presenceInitialized = true;
                 
-                // Force a sync after a short delay
                 setTimeout(() => {
                     refreshOnlineUsers();
                 }, 500);
@@ -374,7 +367,6 @@ async function setupPresenceTracking() {
         console.error('❌ Presence subscription error:', error);
     }
     
-    // Clean up on page unload
     window.addEventListener('beforeunload', async () => {
         if (presenceChannel) {
             try {
@@ -416,7 +408,6 @@ function updateOnlineUsersList(users) {
     const modalContainer = document.getElementById('modalOnlineUsersList');
     if (!modalContainer) return;
     
-    // Filter out duplicates and invalid users
     const uniqueUsers = [];
     const seenIds = new Set();
     for (const user of users) {
@@ -435,7 +426,6 @@ function updateOnlineUsersList(users) {
         return;
     }
     
-    // Sort: current user first, then by name
     const sortedUsers = uniqueUsers.sort((a, b) => {
         if (a.user_id === currentUser.id) return -1;
         if (b.user_id === currentUser.id) return 1;
@@ -570,7 +560,8 @@ function renderMessages() {
         const initials = getInitials(senderName);
         
         const mentionKey = `mention_${msg.id}`;
-        const hasMention = msg.message && msg.message.includes(`@${currentUser.user_metadata?.name || currentUser.email?.split('@')[0]}`);
+        const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
+        const hasMention = msg.message && msg.message.includes(`@${mentionName}`);
         if (hasMention && !isSelf && !shownMentionToasts.has(mentionKey)) {
             saveMentionToast(mentionKey);
             showToast(`📢 ${senderName} mentioned you`, 'info');
@@ -635,7 +626,6 @@ function renderMessages() {
         } else {
             let messageText = escapeHtml(msg.message);
             if (hasMention) {
-                const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
                 const regex = new RegExp(`@${mentionName}`, 'gi');
                 messageText = messageText.replace(regex, `<span class="mention-highlight">@${mentionName}</span>`);
             }
