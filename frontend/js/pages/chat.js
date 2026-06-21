@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Audio, File Uploads, Mobile Input
+// Fixed: Media Modal, Voice Preview, Mobile Audio
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -16,6 +16,7 @@ let allMessages = [];
 let messageSubscription = null;
 let pendingFile = null;
 let pendingVoiceBlob = null;
+let pendingVoiceUrl = null;
 let typingTimeout = null;
 let lastMessageId = null;
 
@@ -26,6 +27,10 @@ let isRecording = false;
 let recordingStartTime = null;
 let recordingTimer = null;
 
+// Voice preview
+let voicePreviewAudio = null;
+let isVoicePreviewPlaying = false;
+
 // Unread counts
 let unreadCounts = {
     general: 0,
@@ -35,6 +40,37 @@ let unreadCounts = {
     projects: 0
 };
 
+// Theme state
+let isDarkMode = false;
+
+// ============================================
+// THEME MANAGEMENT (Matches user-course.js)
+// ============================================
+
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const dashboardTheme = localStorage.getItem('dashboard_theme');
+    
+    if (dashboardTheme === 'dark' || savedTheme === 'dark') {
+        isDarkMode = true;
+        document.body.classList.add('dark-mode');
+    } else if (dashboardTheme === 'light' || savedTheme === 'light') {
+        isDarkMode = false;
+        document.body.classList.remove('dark-mode');
+    } else if (systemPrefersDark) {
+        isDarkMode = true;
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        isDarkMode = true;
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+    }
+    
+    console.log('🎨 Theme initialized:', isDarkMode ? 'Dark' : 'Light');
+}
+
 // ============================================
 // INIT
 // ============================================
@@ -42,6 +78,7 @@ let unreadCounts = {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('💬 Chat initializing...');
     
+    initTheme();
     fixMobileViewport();
     
     const container = document.getElementById('messagesContainer');
@@ -228,11 +265,17 @@ function renderMessages() {
         
         let contentHtml = '';
         
-        // Handle different message types
         if (msg.type === 'image' && msg.file_url) {
             contentHtml = `
-                <div class="message-bubble" style="padding:4px;background:transparent;border:none;">
-                    <img src="${msg.file_url}" alt="Image" class="message-image" loading="lazy" onclick="window.open('${msg.file_url}','_blank')">
+                <div class="message-bubble image-bubble" onclick="openMediaViewer('${msg.file_url}', 'image')">
+                    <img src="${msg.file_url}" alt="Image" class="message-image" loading="lazy">
+                </div>
+            `;
+        } else if (msg.type === 'video' && msg.file_url) {
+            contentHtml = `
+                <div class="message-bubble video-bubble" onclick="openMediaViewer('${msg.file_url}', 'video')">
+                    <video src="${msg.file_url}" class="message-video" muted playsinline preload="metadata" loading="lazy"></video>
+                    <div class="video-play-overlay"><i class="fas fa-play"></i></div>
                 </div>
             `;
         } else if (msg.type === 'file' && msg.file_url) {
@@ -254,7 +297,7 @@ function renderMessages() {
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" src="${msg.file_url}"></audio>
+                        <audio style="display:none;" src="${msg.file_url}" preload="metadata"></audio>
                     </div>
                 </div>
             `;
@@ -278,7 +321,44 @@ function renderMessages() {
 }
 
 // ============================================
-// SEND MESSAGE - FIXED FILE & VOICE
+// MEDIA VIEWER MODAL
+// ============================================
+
+function openMediaViewer(url, type) {
+    const overlay = document.getElementById('mediaModalOverlay');
+    const body = document.getElementById('mediaModalBody');
+    
+    if (!overlay || !body) return;
+    
+    if (type === 'image') {
+        body.innerHTML = `<img src="${url}" alt="Media" class="media-modal-image">`;
+    } else if (type === 'video') {
+        body.innerHTML = `
+            <video src="${url}" class="media-modal-video" controls autoplay playsinline>
+                Your browser does not support video playback.
+            </video>
+        `;
+    }
+    
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeMediaViewer() {
+    const overlay = document.getElementById('mediaModalOverlay');
+    const body = document.getElementById('mediaModalBody');
+    
+    if (overlay) overlay.classList.remove('active');
+    if (body) {
+        const video = body.querySelector('video');
+        if (video) video.pause();
+        body.innerHTML = '';
+    }
+    document.body.style.overflow = '';
+}
+
+// ============================================
+// SEND MESSAGE
 // ============================================
 
 async function sendMessage() {
@@ -304,7 +384,6 @@ async function sendMessage() {
     }
     
     try {
-        // Handle file upload
         if (pendingFile) {
             const file = pendingFile;
             const ext = file.name.split('.').pop();
@@ -321,7 +400,13 @@ async function sendMessage() {
                 
                 fileUrl = publicUrl;
                 fileName = file.name;
-                messageType = file.type.startsWith('image/') ? 'image' : 'file';
+                if (file.type.startsWith('video/')) {
+                    messageType = 'video';
+                } else if (file.type.startsWith('image/')) {
+                    messageType = 'image';
+                } else {
+                    messageType = 'file';
+                }
                 messageText = '';
             } else {
                 showToast('❌ File upload failed', 'error');
@@ -333,7 +418,6 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // Handle voice message
         if (pendingVoiceBlob) {
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
             
@@ -370,7 +454,6 @@ async function sendMessage() {
             created_at: new Date().toISOString()
         };
         
-        // Optimistic update
         const tempId = 'temp_' + Date.now();
         const tempMsg = { ...message, id: tempId };
         allMessages.push(tempMsg);
@@ -521,7 +604,6 @@ async function loadOnlineUsers() {
                 `).join('');
             }
             
-            // Update info panel online users
             const infoContainer = document.getElementById('infoOnlineUsersList');
             if (infoContainer) {
                 infoContainer.innerHTML = users.map(user => `
@@ -587,12 +669,18 @@ function cancelFilePreview() {
 }
 
 // ============================================
-// VOICE RECORDING - FIXED
+// VOICE RECORDING - WITH PREVIEW
 // ============================================
 
 async function startVoiceRecording() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            } 
+        });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
         
@@ -601,7 +689,9 @@ async function startVoiceRecording() {
             const blob = new Blob(audioChunks, { type: 'audio/webm' });
             if (blob.size > 0) {
                 pendingVoiceBlob = blob;
+                pendingVoiceUrl = URL.createObjectURL(blob);
                 showVoicePreview();
+                setupVoicePreviewPlayback();
             } else {
                 showToast('❌ Recording failed', 'error');
             }
@@ -626,7 +716,7 @@ async function startVoiceRecording() {
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
         
-        showToast('🎤 Recording... Click stop to send', 'info');
+        showToast('🎤 Recording... Click stop to preview', 'info');
     } catch (err) {
         console.error('Microphone error:', err);
         showToast('❌ Could not access microphone', 'error');
@@ -660,12 +750,69 @@ function showVoicePreview() {
 function hideVoicePreview() {
     const preview = document.getElementById('voicePreview');
     if (preview) preview.style.display = 'none';
+    if (pendingVoiceUrl) {
+        URL.revokeObjectURL(pendingVoiceUrl);
+        pendingVoiceUrl = null;
+    }
     pendingVoiceBlob = null;
+    isVoicePreviewPlaying = false;
 }
 
 function cancelVoicePreview() {
+    if (voicePreviewAudio) {
+        voicePreviewAudio.pause();
+        voicePreviewAudio = null;
+    }
+    isVoicePreviewPlaying = false;
     pendingVoiceBlob = null;
+    if (pendingVoiceUrl) {
+        URL.revokeObjectURL(pendingVoiceUrl);
+        pendingVoiceUrl = null;
+    }
     hideVoicePreview();
+}
+
+function setupVoicePreviewPlayback() {
+    const playBtn = document.getElementById('voicePreviewPlay');
+    const wave = document.getElementById('voiceWavePreview');
+    
+    if (!playBtn || !pendingVoiceUrl) return;
+    
+    playBtn.onclick = () => {
+        if (isVoicePreviewPlaying) {
+            if (voicePreviewAudio) {
+                voicePreviewAudio.pause();
+                voicePreviewAudio.currentTime = 0;
+            }
+            isVoicePreviewPlaying = false;
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            wave.classList.remove('playing');
+            return;
+        }
+        
+        if (!voicePreviewAudio) {
+            voicePreviewAudio = new Audio(pendingVoiceUrl);
+            voicePreviewAudio.onended = () => {
+                isVoicePreviewPlaying = false;
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                wave.classList.remove('playing');
+            };
+            voicePreviewAudio.onerror = () => {
+                showToast('❌ Could not play preview', 'error');
+                isVoicePreviewPlaying = false;
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                wave.classList.remove('playing');
+            };
+        }
+        
+        voicePreviewAudio.play().then(() => {
+            isVoicePreviewPlaying = true;
+            playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            wave.classList.add('playing');
+        }).catch(() => {
+            showToast('❌ Could not play preview', 'error');
+        });
+    };
 }
 
 function toggleVoicePlay(btn, audioUrl) {
@@ -675,21 +822,32 @@ function toggleVoicePlay(btn, audioUrl) {
     if (!audio) {
         audio = document.createElement('audio');
         audio.src = audioUrl;
+        audio.preload = 'metadata';
         container.appendChild(audio);
     }
     
     const icon = btn.querySelector('i');
     
+    document.querySelectorAll('.voice-play-btn i').forEach(el => {
+        if (el !== icon) {
+            el.className = 'fas fa-play';
+            const parent = el.closest('.voice-message');
+            if (parent) {
+                const otherAudio = parent.querySelector('audio');
+                if (otherAudio) otherAudio.pause();
+            }
+        }
+    });
+    
     if (audio.paused) {
-        audio.play();
-        icon.className = 'fas fa-pause';
-        audio.onended = () => {
-            icon.className = 'fas fa-play';
-        };
-        audio.onerror = () => {
+        audio.play().then(() => {
+            icon.className = 'fas fa-pause';
+            audio.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+        }).catch(() => {
             showToast('❌ Could not play voice message', 'error');
-            icon.className = 'fas fa-play';
-        };
+        });
     } else {
         audio.pause();
         icon.className = 'fas fa-play';
@@ -848,7 +1006,6 @@ function escapeHtml(text) {
 // ============================================
 
 function setupEventListeners() {
-    // Send
     const sendBtn = document.getElementById('sendBtn');
     const input = document.getElementById('messageInput');
     if (sendBtn) sendBtn.addEventListener('click', sendMessage);
@@ -862,17 +1019,14 @@ function setupEventListeners() {
         input.addEventListener('input', onTyping);
     }
     
-    // File
     const attachBtn = document.getElementById('attachFileBtn');
     const fileInput = document.getElementById('fileInput');
     if (attachBtn) attachBtn.addEventListener('click', () => fileInput?.click());
     if (fileInput) fileInput.addEventListener('change', () => handleFileSelect(fileInput));
     
-    // Voice
     const voiceBtn = document.getElementById('voiceRecordBtn');
     if (voiceBtn) voiceBtn.addEventListener('click', toggleVoiceRecording);
     
-    // Emoji
     const emojiBtn = document.getElementById('emojiBtn');
     const emojiClose = document.getElementById('emojiCloseBtn');
     if (emojiBtn) emojiBtn.addEventListener('click', toggleEmojiPicker);
@@ -884,7 +1038,6 @@ function setupEventListeners() {
         }
     });
     
-    // Sidebar
     const menuToggle = document.getElementById('menuToggleBtn');
     const closeSidebar = document.getElementById('closeSidebarBtn');
     const overlay = document.getElementById('sidebarOverlay');
@@ -892,7 +1045,6 @@ function setupEventListeners() {
     if (closeSidebar) closeSidebar.addEventListener('click', toggleSidebar);
     if (overlay) overlay.addEventListener('click', toggleSidebar);
     
-    // Info panel
     const infoToggle = document.getElementById('infoToggleBtn');
     const closeInfo = document.getElementById('closeInfoPanelBtn');
     const infoOverlay = document.getElementById('infoOverlay');
@@ -900,7 +1052,6 @@ function setupEventListeners() {
     if (closeInfo) closeInfo.addEventListener('click', toggleInfoPanel);
     if (infoOverlay) infoOverlay.addEventListener('click', toggleInfoPanel);
     
-    // Modal
     const modalClose = document.getElementById('channelModalClose');
     const modalBtn = document.getElementById('modalCloseBtn');
     const modalOverlay = document.getElementById('channelModalOverlay');
@@ -912,10 +1063,22 @@ function setupEventListeners() {
         });
     }
     
-    // Info button opens modal
+    const mediaClose = document.getElementById('mediaModalClose');
+    const mediaOverlay = document.getElementById('mediaModalOverlay');
+    if (mediaClose) mediaClose.addEventListener('click', closeMediaViewer);
+    if (mediaOverlay) {
+        mediaOverlay.addEventListener('click', (e) => {
+            if (e.target === mediaOverlay) closeMediaViewer();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && mediaOverlay.classList.contains('active')) {
+                closeMediaViewer();
+            }
+        });
+    }
+    
     if (infoToggle) {
         infoToggle.addEventListener('click', () => {
-            // Close info panel if open on mobile
             const panel = document.getElementById('infoPanel');
             if (panel && panel.classList.contains('open')) {
                 toggleInfoPanel();
@@ -924,19 +1087,16 @@ function setupEventListeners() {
         });
     }
     
-    // Scroll
     const scrollBtn = document.getElementById('scrollToBottomBtn');
     const messages = document.getElementById('messagesContainer');
     if (scrollBtn) scrollBtn.addEventListener('click', scrollToBottom);
     if (messages) messages.addEventListener('scroll', checkScroll);
     
-    // Cancel buttons
     const cancelFile = document.getElementById('cancelFileBtn');
     const cancelVoice = document.getElementById('cancelVoiceBtn');
     if (cancelFile) cancelFile.addEventListener('click', cancelFilePreview);
     if (cancelVoice) cancelVoice.addEventListener('click', cancelVoicePreview);
     
-    // Channel clicks
     document.querySelectorAll('.channel-item').forEach(el => {
         el.addEventListener('click', () => {
             const channel = el.dataset.channel;
@@ -963,6 +1123,8 @@ window.cancelFilePreview = cancelFilePreview;
 window.cancelVoicePreview = cancelVoicePreview;
 window.openChannelModal = openChannelModal;
 window.closeChannelModal = closeChannelModal;
+window.openMediaViewer = openMediaViewer;
+window.closeMediaViewer = closeMediaViewer;
 window.showToast = showToast;
 
 console.log('✅ Chat.js loaded');
