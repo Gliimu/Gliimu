@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: reply_to column handling with fallback
+// Fixed: Reply toast, Reply threading, Avatar click context menu
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -26,7 +26,8 @@ let isDarkMode = false;
 let presenceChannel = null;
 let mentionedInMessages = new Set();
 let replyToMessage = null;
-let hasReplyColumn = true; // Track if reply column exists
+let hasReplyColumn = true;
+let shownMentionToasts = new Set(); // Track shown mention toasts
 
 // Audio recording
 let mediaRecorder = null;
@@ -91,7 +92,6 @@ function initTheme() {
 
 async function checkReplyColumn() {
     try {
-        // Try to insert a test message with reply_to (will fail if column doesn't exist)
         const { error } = await supabase
             .from('chat_messages')
             .insert({
@@ -107,8 +107,6 @@ async function checkReplyColumn() {
         if (error && error.message && error.message.includes('column "reply_to" does not exist')) {
             hasReplyColumn = false;
             console.log('📌 reply_to column does not exist - using fallback mode');
-            // Try to add the column
-            await addReplyColumn();
         } else {
             hasReplyColumn = true;
             console.log('📌 reply_to column exists');
@@ -116,19 +114,6 @@ async function checkReplyColumn() {
     } catch (error) {
         console.warn('Could not check reply column:', error);
         hasReplyColumn = false;
-    }
-}
-
-async function addReplyColumn() {
-    try {
-        // Try to add the column via Supabase REST API
-        const { error } = await supabase.rpc('add_reply_column');
-        if (error) {
-            console.warn('Could not add reply_to column via RPC:', error);
-            // If RPC fails, we'll still work without it
-        }
-    } catch (e) {
-        console.warn('Could not add reply_to column:', e);
     }
 }
 
@@ -370,7 +355,6 @@ async function loadMessages() {
     if (!container) return;
     
     try {
-        // Try to include reply_to if column exists
         let selectQuery = '*';
         if (!hasReplyColumn) {
             selectQuery = 'id, channel, sender_id, sender_name, message, type, file_url, file_name, created_at';
@@ -460,14 +444,15 @@ function renderMessages() {
         const avatarUrl = getUserAvatar(msg.sender_id);
         const initials = getInitials(senderName);
         
-        // Check for mentions
+        // Check for mentions - only show toast once per message
+        const mentionKey = msg.id;
         const hasMention = msg.message && msg.message.includes(`@${currentUser.user_metadata?.name || currentUser.email?.split('@')[0]}`);
-        if (hasMention && !isSelf) {
-            mentionedInMessages.add(msg.id);
+        if (hasMention && !isSelf && !shownMentionToasts.has(mentionKey)) {
+            shownMentionToasts.add(mentionKey);
             showToast(`📢 ${senderName} mentioned you`, 'info');
         }
         
-        // Reply threading - only if column exists and has value
+        // Reply threading - get the SPECIFIC replied message
         let replyHtml = '';
         if (hasReplyColumn && msg.reply_to) {
             const repliedMsg = allMessages.find(m => m.id === msg.reply_to);
@@ -625,7 +610,10 @@ async function playVoiceMessage(btn, audioUrl) {
         }).catch((err) => {
             console.error('Play error:', err);
             icon.className = 'fas fa-play';
-            loadVoiceAudio(btn, audioUrl);
+            // Don't reload on AbortError (caused by pause)
+            if (err.name !== 'AbortError') {
+                loadVoiceAudio(btn, audioUrl);
+            }
         });
         return;
     }
@@ -671,7 +659,9 @@ async function loadVoiceAudio(btn, audioUrl) {
                 console.error('Play error:', err);
                 icon.className = 'fas fa-play';
                 btn.disabled = false;
-                showToast('❌ Could not play voice message', 'error');
+                if (err.name !== 'AbortError') {
+                    showToast('❌ Could not play voice message', 'error');
+                }
             });
         };
         
@@ -691,7 +681,7 @@ async function loadVoiceAudio(btn, audioUrl) {
 }
 
 // ============================================
-// AVATAR EVENTS
+// AVATAR EVENTS - Click to show context menu (no long press)
 // ============================================
 
 function attachAvatarEvents() {
@@ -701,27 +691,14 @@ function attachAvatarEvents() {
         
         if (!userId || userId === currentUser?.id) return;
         
-        let longPressTimer = null;
-        let isLongPress = false;
-        
-        avatar.addEventListener('touchstart', (e) => {
-            if (e.target !== avatar && !avatar.contains(e.target)) return;
-            isLongPress = false;
-            longPressTimer = setTimeout(() => {
-                isLongPress = true;
-                e.preventDefault();
-                showContextMenu(e, userId, userName);
-            }, 500);
+        // Single click/tap shows context menu
+        avatar.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showContextMenu(e, userId, userName);
         });
         
-        avatar.addEventListener('touchmove', () => {
-            clearTimeout(longPressTimer);
-        });
-        
-        avatar.addEventListener('touchend', (e) => {
-            clearTimeout(longPressTimer);
-        });
-        
+        // Right click also shows context menu
         avatar.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -731,7 +708,7 @@ function attachAvatarEvents() {
 }
 
 // ============================================
-// MESSAGE EVENTS
+// MESSAGE EVENTS (Double click to reply)
 // ============================================
 
 function attachMessageEvents() {
@@ -772,8 +749,18 @@ function showContextMenu(event, userId, userName) {
     contextTargetUserId = userId;
     contextTargetUserName = userName;
     
-    const msg = allMessages.filter(m => m.sender_id === userId).pop();
-    contextTargetMessageId = msg ? msg.id : null;
+    // Find the specific message that was clicked - use the avatar's parent message
+    const avatar = event.currentTarget || event.target;
+    const messageGroup = avatar.closest('.message-group');
+    if (messageGroup) {
+        contextTargetMessageId = messageGroup.dataset.messageId;
+    }
+    
+    // If no message found, use the last message from this user
+    if (!contextTargetMessageId) {
+        const msg = allMessages.filter(m => m.sender_id === userId).pop();
+        contextTargetMessageId = msg ? msg.id : null;
+    }
     
     const x = event.clientX || event.touches?.[0]?.clientX || 0;
     const y = event.clientY || event.touches?.[0]?.clientY || 0;
@@ -879,7 +866,6 @@ async function sendMessage() {
     let messageText = text;
     let replyTo = replyToMessage ? replyToMessage.id : null;
     
-    // Only include reply_to if column exists
     if (!hasReplyColumn) {
         replyTo = null;
     }
@@ -956,7 +942,6 @@ async function sendMessage() {
             hideVoicePreview();
         }
         
-        // Build message object - only include reply_to if column exists
         const message = {
             channel: currentChannel,
             sender_id: currentUser.id,
@@ -968,7 +953,6 @@ async function sendMessage() {
             created_at: new Date().toISOString()
         };
         
-        // Only add reply_to if column exists and we have a reply
         if (hasReplyColumn && replyTo) {
             message.reply_to = replyTo;
         }
@@ -1078,6 +1062,7 @@ function switchChannel(channel) {
     
     allMessages = [];
     replyToMessage = null;
+    shownMentionToasts = new Set(); // Reset mention toasts on channel switch
     const input = document.getElementById('messageInput');
     if (input) input.placeholder = 'Type a message...';
     markChannelRead(channel);
