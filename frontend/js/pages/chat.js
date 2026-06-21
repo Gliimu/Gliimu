@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Voice Playback, Cache Issues
+// Fixed: Avatars, Context Menu, Audio, Layout
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -19,6 +19,8 @@ let pendingVoiceBlob = null;
 let pendingVoiceUrl = null;
 let typingTimeout = null;
 let lastMessageId = null;
+let currentContextMessageId = null;
+let userAvatars = {};
 
 // Audio recording
 let mediaRecorder = null;
@@ -114,6 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     updateUserUI();
+    await loadUserAvatars();
     await loadMessages();
     setupRealtimeSubscription();
     await loadOnlineUsers();
@@ -181,6 +184,36 @@ function updateUserUI() {
             window.location.reload();
         };
     }
+}
+
+// ============================================
+// USER AVATARS
+// ============================================
+
+async function loadUserAvatars() {
+    try {
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('id, name, avatar_url');
+        
+        if (!error && users) {
+            users.forEach(user => {
+                userAvatars[user.id] = user.avatar_url || getInitialsAvatar(user.name || 'User');
+            });
+        }
+    } catch (error) {
+        console.error('Error loading avatars:', error);
+    }
+}
+
+function getInitialsAvatar(name) {
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%232c2f78"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="600">${initials}</text></svg>`;
+}
+
+function getUserAvatar(userId, name) {
+    if (userId === currentUser?.id) return null;
+    return userAvatars[userId] || getInitialsAvatar(name || 'User');
 }
 
 // ============================================
@@ -273,6 +306,7 @@ function renderMessages() {
         }
         
         let contentHtml = '';
+        const avatarUrl = getUserAvatar(msg.sender_id, senderName);
         
         if (msg.type === 'image' && msg.file_url) {
             contentHtml = `
@@ -297,7 +331,6 @@ function renderMessages() {
                 </div>
             `;
         } else if (msg.type === 'voice' && msg.file_url) {
-            // Add cache-busting to voice URL
             const voiceUrl = msg.file_url + (msg.file_url.includes('?') ? '&' : '?') + 't=' + Date.now();
             contentHtml = `
                 <div class="message-bubble voice-bubble">
@@ -316,19 +349,142 @@ function renderMessages() {
             contentHtml = `<div class="message-bubble">${escapeHtml(msg.message)}</div>`;
         }
         
-        html += `
-            <div class="message-group ${isSelf ? 'self' : 'other'}">
-                ${!isSelf && showSender ? `<div class="message-sender">${escapeHtml(senderName)}</div>` : ''}
-                ${contentHtml}
-                <div class="message-time">${time}</div>
-            </div>
-        `;
+        if (isSelf) {
+            // Self messages - no avatar
+            html += `
+                <div class="message-group self">
+                    <div class="message-content">
+                        ${contentHtml}
+                        <div class="message-time">${time}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Other messages - with avatar
+            const avatarHtml = avatarUrl ? 
+                `<img src="${avatarUrl}" alt="${escapeHtml(senderName)}" class="message-avatar" 
+                      onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'message-avatar\\' style=\\'background:linear-gradient(135deg, var(--brand-purple), var(--brand-gold));\\'>${escapeHtml(senderName[0] || '?')}</div>'"
+                      data-user-id="${msg.sender_id}" data-user-name="${escapeHtml(senderName)}">` :
+                `<div class="message-avatar" style="background:linear-gradient(135deg, var(--brand-purple), var(--brand-gold));">
+                    ${escapeHtml(senderName[0] || '?')}
+                </div>`;
+            
+            html += `
+                <div class="message-group other">
+                    ${avatarHtml}
+                    <div class="message-content">
+                        ${showSender ? `<div class="message-sender">${escapeHtml(senderName)}</div>` : ''}
+                        ${contentHtml}
+                        <div class="message-time">${time}</div>
+                    </div>
+                </div>
+            `;
+        }
         
         lastSender = msg.sender_id;
     });
     
     container.innerHTML = html;
+    
+    // Attach context menu events to avatars
+    attachAvatarEvents();
+    
     if (shouldScroll) scrollToBottom();
+}
+
+function attachAvatarEvents() {
+    document.querySelectorAll('.message-avatar').forEach(avatar => {
+        const userId = avatar.dataset.userId;
+        const userName = avatar.dataset.userName;
+        
+        if (!userId || userId === currentUser?.id) return;
+        
+        // Touch events for mobile
+        let longPressTimer = null;
+        let isLongPress = false;
+        
+        avatar.addEventListener('touchstart', (e) => {
+            isLongPress = false;
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                e.preventDefault();
+                showContextMenu(e, userId, userName);
+            }, 500);
+        });
+        
+        avatar.addEventListener('touchmove', () => {
+            clearTimeout(longPressTimer);
+        });
+        
+        avatar.addEventListener('touchend', (e) => {
+            clearTimeout(longPressTimer);
+            if (!isLongPress) {
+                // Short tap - show user profile maybe?
+            }
+        });
+        
+        // Right click for desktop
+        avatar.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            showContextMenu(e, userId, userName);
+        });
+    });
+}
+
+// ============================================
+// CONTEXT MENU
+// ============================================
+
+let contextTargetUserId = null;
+let contextTargetUserName = null;
+
+function showContextMenu(event, userId, userName) {
+    const menu = document.getElementById('contextMenu');
+    if (!menu) return;
+    
+    contextTargetUserId = userId;
+    contextTargetUserName = userName;
+    
+    const x = event.clientX || event.touches?.[0]?.clientX || 0;
+    const y = event.clientY || event.touches?.[0]?.clientY || 0;
+    
+    menu.style.display = 'block';
+    menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 150)}px`;
+}
+
+function hideContextMenu() {
+    const menu = document.getElementById('contextMenu');
+    if (menu) menu.style.display = 'none';
+    contextTargetUserId = null;
+    contextTargetUserName = null;
+}
+
+function replyToUser() {
+    if (!contextTargetUserName) return;
+    const input = document.getElementById('messageInput');
+    if (input) {
+        input.value = `@${contextTargetUserName} `;
+        input.focus();
+    }
+    hideContextMenu();
+}
+
+function copyUserMessage() {
+    // Find the last message from this user and copy it
+    if (!contextTargetUserId) return;
+    const msg = allMessages.filter(m => m.sender_id === contextTargetUserId).pop();
+    if (msg) {
+        navigator.clipboard.writeText(msg.message);
+        showToast('📋 Message copied!', 'success');
+    }
+    hideContextMenu();
+}
+
+function reportUser() {
+    if (!contextTargetUserName) return;
+    showToast(`🚩 Reported @${contextTargetUserName} to moderators`, 'info');
+    hideContextMenu();
 }
 
 // ============================================
@@ -432,6 +588,7 @@ async function sendMessage() {
         }
         
         if (pendingVoiceBlob) {
+            // For Safari compatibility, try MP3 or use WebM with proper headers
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
             
             const { error: uploadError } = await supabase.storage
@@ -603,28 +760,21 @@ async function loadOnlineUsers() {
     try {
         const { data: users, error } = await supabase
             .from('users')
-            .select('id, name, role')
+            .select('id, name, role, avatar_url')
             .limit(30);
         
         if (!error && users) {
-            const container = document.getElementById('onlineUsersList');
-            if (container) {
-                container.innerHTML = users.map(user => `
-                    <div class="user-item">
-                        <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
-                        <div class="user-info">
-                            <div class="user-name">${escapeHtml(user.name || 'User')}</div>
-                            <div class="user-role">${user.role || 'Member'}</div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
+            // Update info panel online users
             const infoContainer = document.getElementById('infoOnlineUsersList');
             if (infoContainer) {
                 infoContainer.innerHTML = users.map(user => `
                     <div class="user-item">
-                        <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
+                        <div class="user-avatar">
+                            ${user.avatar_url ? 
+                                `<img src="${user.avatar_url}" alt="${escapeHtml(user.name)}">` :
+                                `<i class="fas fa-user-circle"></i>`
+                            }
+                        </div>
                         <div class="user-info">
                             <div class="user-name">${escapeHtml(user.name || 'User')}</div>
                             <div class="user-role">${user.role || 'Member'}</div>
@@ -633,11 +783,31 @@ async function loadOnlineUsers() {
                 `).join('');
             }
             
-            const count = document.getElementById('onlineCount');
-            if (count) count.textContent = users.length;
+            // Update modal online users
+            const modalContainer = document.getElementById('modalOnlineUsersList');
+            if (modalContainer) {
+                modalContainer.innerHTML = users.map(user => `
+                    <div class="user-item">
+                        <div class="user-avatar">
+                            ${user.avatar_url ? 
+                                `<img src="${user.avatar_url}" alt="${escapeHtml(user.name)}">` :
+                                `<i class="fas fa-user-circle"></i>`
+                            }
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">${escapeHtml(user.name || 'User')}</div>
+                            <div class="user-role">${user.role || 'Member'}</div>
+                        </div>
+                        <span class="online-dot"></span>
+                    </div>
+                `).join('');
+            }
             
             const infoCount = document.getElementById('infoOnlineCount');
             if (infoCount) infoCount.textContent = users.length;
+            
+            const modalCount = document.getElementById('modalMemberCount');
+            if (modalCount) modalCount.textContent = users.length;
         }
     } catch (error) {
         console.error('Error loading users:', error);
@@ -685,7 +855,7 @@ function cancelFilePreview() {
 }
 
 // ============================================
-// VOICE RECORDING - FIXED FOR MOBILE
+// VOICE RECORDING
 // ============================================
 
 async function startVoiceRecording() {
@@ -812,10 +982,6 @@ function cancelVoicePreview() {
     hideVoicePreview();
 }
 
-// ============================================
-// VOICE PREVIEW PLAYBACK - FIXED
-// ============================================
-
 function setupVoicePreviewPlayback() {
     const playBtn = document.getElementById('voicePreviewPlay');
     const wave = document.getElementById('voiceWavePreview');
@@ -897,7 +1063,7 @@ function setupVoicePreviewPlayback() {
 }
 
 // ============================================
-// VOICE PLAY IN MESSAGES - FIXED
+// VOICE PLAY IN MESSAGES
 // ============================================
 
 function toggleVoicePlay(btn, audioUrl) {
@@ -1020,6 +1186,8 @@ function openChannelModal() {
         modal.classList.add('active');
         updateModalInfo(currentChannel);
         document.body.style.overflow = 'hidden';
+        // Also load online users into modal
+        loadOnlineUsers();
     }
 }
 
@@ -1172,6 +1340,7 @@ function setupEventListeners() {
     if (closeInfo) closeInfo.addEventListener('click', toggleInfoPanel);
     if (infoOverlay) infoOverlay.addEventListener('click', toggleInfoPanel);
     
+    // Modal
     const modalClose = document.getElementById('channelModalClose');
     const modalBtn = document.getElementById('modalCloseBtn');
     const modalOverlay = document.getElementById('channelModalOverlay');
@@ -1183,6 +1352,7 @@ function setupEventListeners() {
         });
     }
     
+    // Media viewer
     const mediaClose = document.getElementById('mediaModalClose');
     const mediaOverlay = document.getElementById('mediaModalOverlay');
     if (mediaClose) mediaClose.addEventListener('click', closeMediaViewer);
@@ -1197,6 +1367,7 @@ function setupEventListeners() {
         });
     }
     
+    // Info button opens modal
     if (infoToggle) {
         infoToggle.addEventListener('click', () => {
             const panel = document.getElementById('infoPanel');
@@ -1207,21 +1378,39 @@ function setupEventListeners() {
         });
     }
     
+    // Scroll
     const scrollBtn = document.getElementById('scrollToBottomBtn');
     const messages = document.getElementById('messagesContainer');
     if (scrollBtn) scrollBtn.addEventListener('click', scrollToBottom);
     if (messages) messages.addEventListener('scroll', checkScroll);
     
+    // Cancel buttons
     const cancelFile = document.getElementById('cancelFileBtn');
     const cancelVoice = document.getElementById('cancelVoiceBtn');
     if (cancelFile) cancelFile.addEventListener('click', cancelFilePreview);
     if (cancelVoice) cancelVoice.addEventListener('click', cancelVoicePreview);
     
+    // Channel clicks
     document.querySelectorAll('.channel-item').forEach(el => {
         el.addEventListener('click', () => {
             const channel = el.dataset.channel;
             if (channel) switchChannel(channel);
         });
+    });
+    
+    // Context menu
+    const contextReply = document.getElementById('contextReply');
+    const contextCopy = document.getElementById('contextCopy');
+    const contextReport = document.getElementById('contextReport');
+    if (contextReply) contextReply.addEventListener('click', replyToUser);
+    if (contextCopy) contextCopy.addEventListener('click', copyUserMessage);
+    if (contextReport) contextReport.addEventListener('click', reportUser);
+    
+    // Close context menu on click outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.context-menu')) {
+            hideContextMenu();
+        }
     });
 }
 
