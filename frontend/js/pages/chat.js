@@ -300,7 +300,7 @@ async function setupPresenceTracking() {
     }, 30000);
     
     // Load online users initially
-    await loadOnlineUsers();
+    await refreshOnlineUsers();
     
     presenceInitialized = true;
     
@@ -356,7 +356,7 @@ async function markUserOffline() {
     }
 }
 
-async function loadOnlineUsers() {
+async function refreshOnlineUsers() {
     try {
         // Get users who have been active in the last 60 seconds
         const cutoffTime = new Date();
@@ -378,10 +378,6 @@ async function loadOnlineUsers() {
     } catch (error) {
         console.error('Error loading online users:', error);
     }
-}
-
-function refreshOnlineUsers() {
-    loadOnlineUsers();
 }
 
 function updateOnlineUsersList(users) {
@@ -1216,14 +1212,6 @@ function updateChannelBadge(channel, count) {
 }
 
 // ============================================
-// ONLINE USERS - Manual refresh
-// ============================================
-
-async function loadOnlineUsers() {
-    refreshOnlineUsers();
-}
-
-// ============================================
 // FILE HANDLING
 // ============================================
 
@@ -1736,7 +1724,6 @@ window.toggleVoiceRecording = toggleVoiceRecording;
 window.playVoiceMessage = playVoiceMessage;
 window.addEmoji = addEmoji;
 window.scrollToBottom = scrollToBottom;
-window.loadOnlineUsers = loadOnlineUsers;
 window.cancelFilePreview = cancelFilePreview;
 window.cancelVoicePreview = cancelVoicePreview;
 window.openChannelModal = openChannelModal;
