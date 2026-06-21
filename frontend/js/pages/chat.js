@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Voice on iPhone 7, Theme Navigation
+// Fixed: Voice Loading, Removed You Badge
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -149,18 +149,16 @@ const CHANNEL_CONFIG = {
 };
 
 // ============================================
-// THEME MANAGEMENT - FIXED (Sync with Dashboard)
+// THEME MANAGEMENT
 // ============================================
 
 function initTheme() {
-    // Priority: dashboard_theme > theme > system > default (light)
     const dashboardTheme = localStorage.getItem('dashboard_theme');
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
     let theme = 'light';
     
-    // Check dashboard_theme first (highest priority - set in dashboard settings)
     if (dashboardTheme === 'dark') {
         theme = 'dark';
     } else if (dashboardTheme === 'light') {
@@ -172,7 +170,6 @@ function initTheme() {
     } else if (systemPrefersDark) {
         theme = 'dark';
     }
-    // Default is 'light'
     
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
@@ -182,14 +179,12 @@ function initTheme() {
         isDarkMode = false;
     }
     
-    // Sync localStorage so both keys match
     localStorage.setItem('theme', theme);
     localStorage.setItem('dashboard_theme', theme);
     
-    console.log('🎨 Theme initialized:', theme, 'mode (from dashboard)');
+    console.log('🎨 Theme initialized:', theme, 'mode');
 }
 
-// Expose toggle for settings page integration
 window.toggleTheme = function() {
     isDarkMode = !isDarkMode;
     document.body.classList.toggle('dark-mode', isDarkMode);
@@ -297,7 +292,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     markChannelRead(currentChannel);
     initEmojiGrid();
     
-    // Periodically refresh online users
     setInterval(() => {
         refreshOnlineUsers();
     }, 15000);
@@ -401,7 +395,7 @@ async function setupPresenceTracking() {
     if (!currentUser) return;
     if (presenceInitialized) return;
     
-    console.log('🟢 Setting up online users tracking (database approach)...');
+    console.log('🟢 Setting up online users tracking...');
     
     await markUserOnline();
     
@@ -529,7 +523,6 @@ function updateOnlineUsersList(users) {
                     ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
                 </div>
                 <span class="online-dot"></span>
-                ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
             </div>
         `;
     }).join('');
@@ -689,17 +682,18 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - FIXED FOR IPHONE 7
+        // VOICE - FIXED
         else if (msg.type === 'voice' && msg.file_url) {
-            // Add cache-busting AND ensure it's a fresh request
+            // Extract base URL without any query params
             const baseUrl = msg.file_url.split('?')[0];
-            const voiceUrlWithCache = baseUrl + '?t=' + Date.now() + '&v=' + Math.random().toString(36).substring(7);
+            // Add fresh cache-busting with timestamp and random
+            const voiceUrl = baseUrl + '?t=' + Date.now() + '&v=' + Math.random().toString(36).substring(7);
             
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble voice-bubble">
                     <div class="voice-message">
-                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrlWithCache}')">
+                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}')">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="voice-wave">
@@ -777,7 +771,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - COMPLETE IPHONE 7 FIX
+// VOICE PLAYBACK - COMPLETE FIX
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -793,7 +787,6 @@ async function playVoiceMessage(btn, audioUrl) {
             if (parent) {
                 const otherAudio = parent.querySelector('audio');
                 if (otherAudio) otherAudio.pause();
-                // Reset other audio
                 otherAudio.currentTime = 0;
             }
         }
@@ -806,11 +799,11 @@ async function playVoiceMessage(btn, audioUrl) {
         return;
     }
     
-    // Load and play the audio
-    await loadAndPlayVoiceAudio(btn, audioUrl);
+    // Load and play
+    await loadAndPlayVoice(btn, audioUrl);
 }
 
-async function loadAndPlayVoiceAudio(btn, audioUrl) {
+async function loadAndPlayVoice(btn, audioUrl) {
     const icon = btn.querySelector('i');
     const container = btn.parentElement;
     let audioEl = container.querySelector('audio');
@@ -818,11 +811,9 @@ async function loadAndPlayVoiceAudio(btn, audioUrl) {
     if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.style.display = 'none';
-        // Critical for iPhone: these attributes MUST be set
         audioEl.playsInline = true;
         audioEl.setAttribute('playsinline', '');
         audioEl.setAttribute('webkit-playsinline', '');
-        // Prevent autoplay issues
         audioEl.preload = 'none';
         container.appendChild(audioEl);
     }
@@ -831,13 +822,13 @@ async function loadAndPlayVoiceAudio(btn, audioUrl) {
     btn.disabled = true;
     
     try {
-        // Clean the URL and add fresh cache-busting
+        // Clean URL and add fresh cache-busting
         const baseUrl = audioUrl.split('?')[0];
         const freshUrl = baseUrl + '?t=' + Date.now() + '&v=' + Math.random().toString(36).substring(7);
         
         console.log('🔊 Loading voice from:', freshUrl);
         
-        // Approach 1: Fetch as blob (works on iPhone)
+        // Fetch as blob
         const response = await fetch(freshUrl, {
             cache: 'no-cache',
             headers: {
@@ -855,72 +846,47 @@ async function loadAndPlayVoiceAudio(btn, audioUrl) {
             throw new Error('Empty audio file');
         }
         
-        console.log('📦 Audio blob size:', blob.size, 'bytes, type:', blob.type);
+        console.log('📦 Audio blob size:', blob.size, 'bytes');
         
-        // Create blob URL
         const blobUrl = URL.createObjectURL(blob);
         audioEl.src = blobUrl;
         audioEl.load();
         
         // Wait for audio to be ready
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                audioEl.removeEventListener('canplaythrough', onCanPlay);
-                audioEl.removeEventListener('loadeddata', onLoaded);
-                audioEl.removeEventListener('error', onError);
-                resolve(); // Continue anyway
-            }, 8000);
+        await new Promise((resolve) => {
+            const timeout = setTimeout(resolve, 8000);
             
-            const onCanPlay = () => {
+            const onReady = () => {
                 clearTimeout(timeout);
-                audioEl.removeEventListener('canplaythrough', onCanPlay);
-                audioEl.removeEventListener('loadeddata', onLoaded);
-                audioEl.removeEventListener('error', onError);
+                audioEl.removeEventListener('canplaythrough', onReady);
+                audioEl.removeEventListener('loadeddata', onReady);
                 resolve();
             };
             
-            const onLoaded = () => {
+            audioEl.addEventListener('canplaythrough', onReady);
+            audioEl.addEventListener('loadeddata', onReady);
+            
+            // If already loaded
+            if (audioEl.readyState >= 3) {
                 clearTimeout(timeout);
-                audioEl.removeEventListener('canplaythrough', onCanPlay);
-                audioEl.removeEventListener('loadeddata', onLoaded);
-                audioEl.removeEventListener('error', onError);
+                audioEl.removeEventListener('canplaythrough', onReady);
+                audioEl.removeEventListener('loadeddata', onReady);
                 resolve();
-            };
-            
-            const onError = () => {
-                clearTimeout(timeout);
-                audioEl.removeEventListener('canplaythrough', onCanPlay);
-                audioEl.removeEventListener('loadeddata', onLoaded);
-                audioEl.removeEventListener('error', onError);
-                reject(new Error('Audio load error'));
-            };
-            
-            audioEl.addEventListener('canplaythrough', onCanPlay);
-            audioEl.addEventListener('loadeddata', onLoaded);
-            audioEl.addEventListener('error', onError);
+            }
         });
         
-        // Play the audio
+        // Play
         try {
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
-                // Clean up blob URL after play
-                URL.revokeObjectURL(blobUrl);
-            };
-            audioEl.onerror = () => {
-                icon.className = 'fas fa-play';
-                btn.disabled = false;
-                URL.revokeObjectURL(blobUrl);
-                showToast('❌ Audio playback error', 'error');
             };
         } catch (playErr) {
             console.error('Play error:', playErr);
             icon.className = 'fas fa-play';
             btn.disabled = false;
-            URL.revokeObjectURL(blobUrl);
             
             // Try direct URL as fallback
             try {
@@ -933,11 +899,11 @@ async function loadAndPlayVoiceAudio(btn, audioUrl) {
                     icon.className = 'fas fa-play';
                 };
             } catch (altErr) {
-                console.error('Alternative play error:', altErr);
-                if (playErr.name === 'NotAllowedError' || altErr.name === 'NotAllowedError') {
-                    showToast('👆 Tap the play button again to start', 'warning');
+                console.error('Fallback play error:', altErr);
+                if (playErr.name === 'NotAllowedError') {
+                    showToast('👆 Tap again to play', 'warning');
                 } else {
-                    showToast('❌ Could not play voice message', 'error');
+                    showToast('❌ Could not play voice', 'error');
                 }
             }
         }
@@ -1195,7 +1161,6 @@ async function sendMessage() {
                     .from('chat-files')
                     .getPublicUrl(path);
                 
-                // Add cache-busting to stored URL
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
                 messageText = '';
