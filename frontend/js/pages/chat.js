@@ -514,8 +514,8 @@ function updateOnlineUsersList(users) {
                     <div class="user-name">${displayName}</div>
                     ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
                 </div>
-                <span class="online-dot"></span>
-                ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
+                <span class="online-dot"></span>'
+                }
             </div>
         `;
     }).join('');
