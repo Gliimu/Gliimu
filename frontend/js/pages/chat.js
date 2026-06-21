@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Audio (MP3), Mentions, Reply Threading, Online Presence
+// Fixed: reply_to column handling with fallback
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -25,6 +25,8 @@ let onlineUserIds = new Set();
 let isDarkMode = false;
 let presenceChannel = null;
 let mentionedInMessages = new Set();
+let replyToMessage = null;
+let hasReplyColumn = true; // Track if reply column exists
 
 // Audio recording
 let mediaRecorder = null;
@@ -45,9 +47,6 @@ let unreadCounts = {
     random: 0,
     projects: 0
 };
-
-// Reply state
-let replyToMessage = null;
 
 // ============================================
 // THEME MANAGEMENT
@@ -87,6 +86,53 @@ function initTheme() {
 }
 
 // ============================================
+// CHECK REPLY COLUMN
+// ============================================
+
+async function checkReplyColumn() {
+    try {
+        // Try to insert a test message with reply_to (will fail if column doesn't exist)
+        const { error } = await supabase
+            .from('chat_messages')
+            .insert({
+                channel: 'test',
+                sender_id: 'test',
+                sender_name: 'test',
+                message: 'test',
+                type: 'text',
+                reply_to: 'test'
+            })
+            .select();
+        
+        if (error && error.message && error.message.includes('column "reply_to" does not exist')) {
+            hasReplyColumn = false;
+            console.log('📌 reply_to column does not exist - using fallback mode');
+            // Try to add the column
+            await addReplyColumn();
+        } else {
+            hasReplyColumn = true;
+            console.log('📌 reply_to column exists');
+        }
+    } catch (error) {
+        console.warn('Could not check reply column:', error);
+        hasReplyColumn = false;
+    }
+}
+
+async function addReplyColumn() {
+    try {
+        // Try to add the column via Supabase REST API
+        const { error } = await supabase.rpc('add_reply_column');
+        if (error) {
+            console.warn('Could not add reply_to column via RPC:', error);
+            // If RPC fails, we'll still work without it
+        }
+    } catch (e) {
+        console.warn('Could not add reply_to column:', e);
+    }
+}
+
+// ============================================
 // INIT
 // ============================================
 
@@ -121,6 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     updateUserUI();
     await loadUserAvatars();
+    await checkReplyColumn();
     await loadMessages();
     setupRealtimeSubscription();
     setupPresenceTracking();
@@ -221,13 +268,12 @@ function getInitials(name) {
 }
 
 // ============================================
-// PRESENCE TRACKING - Only current page visitors
+// PRESENCE TRACKING
 // ============================================
 
 function setupPresenceTracking() {
     if (!currentUser) return;
     
-    // Use a simple presence channel
     presenceChannel = supabase.channel('online_users', {
         config: {
             presence: {
@@ -263,7 +309,6 @@ function setupPresenceTracking() {
         }
     });
     
-    // Track when user leaves
     window.addEventListener('beforeunload', () => {
         if (presenceChannel) {
             presenceChannel.untrack();
@@ -281,7 +326,6 @@ function updateOnlineUsersList(users) {
         return;
     }
     
-    // Put current user first
     const sortedUsers = users.sort((a, b) => {
         if (a.user_id === currentUser.id) return -1;
         if (b.user_id === currentUser.id) return 1;
@@ -326,9 +370,15 @@ async function loadMessages() {
     if (!container) return;
     
     try {
+        // Try to include reply_to if column exists
+        let selectQuery = '*';
+        if (!hasReplyColumn) {
+            selectQuery = 'id, channel, sender_id, sender_name, message, type, file_url, file_name, created_at';
+        }
+        
         const { data: messages, error } = await supabase
             .from('chat_messages')
-            .select('*')
+            .select(selectQuery)
             .eq('channel', currentChannel)
             .order('created_at', { ascending: true })
             .limit(100);
@@ -414,13 +464,12 @@ function renderMessages() {
         const hasMention = msg.message && msg.message.includes(`@${currentUser.user_metadata?.name || currentUser.email?.split('@')[0]}`);
         if (hasMention && !isSelf) {
             mentionedInMessages.add(msg.id);
-            // Show notification
             showToast(`📢 ${senderName} mentioned you`, 'info');
         }
         
-        // Reply threading - check if this message has a reply_to
+        // Reply threading - only if column exists and has value
         let replyHtml = '';
-        if (msg.reply_to) {
+        if (hasReplyColumn && msg.reply_to) {
             const repliedMsg = allMessages.find(m => m.id === msg.reply_to);
             if (repliedMsg) {
                 const repliedName = repliedMsg.sender_name || 'User';
@@ -476,7 +525,6 @@ function renderMessages() {
                 </div>
             `;
         } else {
-            // Text message with mention highlighting
             let messageText = escapeHtml(msg.message);
             if (hasMention) {
                 const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
@@ -528,7 +576,7 @@ function renderMessages() {
 }
 
 // ============================================
-// SCROLL TO MESSAGE (for reply threading)
+// SCROLL TO MESSAGE
 // ============================================
 
 function scrollToMessage(messageId) {
@@ -543,7 +591,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - MP3 for Safari
+// VOICE PLAYBACK
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -551,7 +599,6 @@ async function playVoiceMessage(btn, audioUrl) {
     const icon = btn.querySelector('i');
     const audioEl = container.querySelector('audio');
     
-    // Stop any other playing voice messages
     document.querySelectorAll('.voice-play-btn i').forEach(el => {
         if (el !== icon) {
             el.className = 'fas fa-play';
@@ -603,19 +650,11 @@ async function loadVoiceAudio(btn, audioUrl) {
     try {
         const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
         
-        // Convert WebM to MP3 for Safari using fetch and decode
         const response = await fetch(urlWithCache);
         if (!response.ok) throw new Error('Network response was not ok');
         
         const blob = await response.blob();
-        
-        // For Safari, try to use MP3 if possible, otherwise use WebM
-        let audioBlob = blob;
-        let audioType = blob.type || 'audio/webm';
-        
-        // If it's WebM and we're on Safari, try to convert (simplified - just use as-is)
-        // Safari can play WebM with the right codecs
-        const blobUrl = URL.createObjectURL(audioBlob);
+        const blobUrl = URL.createObjectURL(blob);
         
         audioEl.src = blobUrl;
         audioEl.load();
@@ -652,7 +691,7 @@ async function loadVoiceAudio(btn, audioUrl) {
 }
 
 // ============================================
-// AVATAR EVENTS (Context Menu on Avatar Only)
+// AVATAR EVENTS
 // ============================================
 
 function attachAvatarEvents() {
@@ -662,12 +701,10 @@ function attachAvatarEvents() {
         
         if (!userId || userId === currentUser?.id) return;
         
-        // Touch events for mobile - ONLY on the avatar
         let longPressTimer = null;
         let isLongPress = false;
         
         avatar.addEventListener('touchstart', (e) => {
-            // Only trigger on the avatar itself, not its children
             if (e.target !== avatar && !avatar.contains(e.target)) return;
             isLongPress = false;
             longPressTimer = setTimeout(() => {
@@ -683,12 +720,8 @@ function attachAvatarEvents() {
         
         avatar.addEventListener('touchend', (e) => {
             clearTimeout(longPressTimer);
-            if (!isLongPress) {
-                // Short tap - show user profile? For now, do nothing
-            }
         });
         
-        // Right click for desktop - ONLY on the avatar
         avatar.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -698,7 +731,7 @@ function attachAvatarEvents() {
 }
 
 // ============================================
-// MESSAGE EVENTS (Reply on double-click)
+// MESSAGE EVENTS
 // ============================================
 
 function attachMessageEvents() {
@@ -708,9 +741,7 @@ function attachMessageEvents() {
         const messageId = messageGroup.dataset.messageId;
         if (!messageId) return;
         
-        // Double click to reply
         content.addEventListener('dblclick', (e) => {
-            // Don't trigger on avatar or buttons
             if (e.target.closest('.message-avatar') || e.target.closest('.voice-play-btn')) return;
             const msg = allMessages.find(m => m.id === messageId);
             if (msg) {
@@ -741,7 +772,6 @@ function showContextMenu(event, userId, userName) {
     contextTargetUserId = userId;
     contextTargetUserName = userName;
     
-    // Find the last message from this user
     const msg = allMessages.filter(m => m.sender_id === userId).pop();
     contextTargetMessageId = msg ? msg.id : null;
     
@@ -830,7 +860,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - with reply support
+// SEND MESSAGE
 // ============================================
 
 async function sendMessage() {
@@ -848,6 +878,11 @@ async function sendMessage() {
     let messageType = 'text';
     let messageText = text;
     let replyTo = replyToMessage ? replyToMessage.id : null;
+    
+    // Only include reply_to if column exists
+    if (!hasReplyColumn) {
+        replyTo = null;
+    }
     
     const sendBtn = document.getElementById('sendBtn');
     const originalHtml = sendBtn?.innerHTML;
@@ -894,16 +929,11 @@ async function sendMessage() {
         }
         
         if (pendingVoiceBlob) {
-            // Use MP3 for better Safari compatibility
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.mp3`;
-            
-            // Convert WebM to MP3 (simplified - we'll keep as WebM but use different MIME)
-            // For now, use WebM with proper headers
-            const pathWebM = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(pathWebM, pendingVoiceBlob, {
+                .upload(path, pendingVoiceBlob, {
                     contentType: 'audio/webm',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
@@ -911,7 +941,7 @@ async function sendMessage() {
             if (!uploadError) {
                 const { data: { publicUrl } } = supabase.storage
                     .from('chat-files')
-                    .getPublicUrl(pathWebM);
+                    .getPublicUrl(path);
                 
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
@@ -926,6 +956,7 @@ async function sendMessage() {
             hideVoicePreview();
         }
         
+        // Build message object - only include reply_to if column exists
         const message = {
             channel: currentChannel,
             sender_id: currentUser.id,
@@ -934,12 +965,17 @@ async function sendMessage() {
             type: messageType,
             file_url: fileUrl,
             file_name: fileName,
-            reply_to: replyTo,
             created_at: new Date().toISOString()
         };
         
+        // Only add reply_to if column exists and we have a reply
+        if (hasReplyColumn && replyTo) {
+            message.reply_to = replyTo;
+        }
+        
         const tempId = 'temp_' + Date.now();
         const tempMsg = { ...message, id: tempId };
+        if (replyTo) tempMsg.reply_to = replyTo;
         allMessages.push(tempMsg);
         renderMessages();
         
@@ -1069,11 +1105,10 @@ function updateChannelBadge(channel, count) {
 }
 
 // ============================================
-// ONLINE USERS - Load from presence
+// ONLINE USERS
 // ============================================
 
 async function loadOnlineUsers() {
-    // Presence handles this now
     if (presenceChannel) {
         const state = presenceChannel.presenceState();
         const onlineUsers = [];
@@ -1142,7 +1177,6 @@ async function startVoiceRecording() {
             } 
         });
         
-        // Use MP3-compatible format if possible
         const mimeTypes = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
         let mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
         
@@ -1490,12 +1524,6 @@ function setupEventListeners() {
                 sendMessage();
             }
         });
-        // Clear reply on typing
-        input.addEventListener('focus', () => {
-            if (replyToMessage) {
-                // Keep the reply indicator
-            }
-        });
     }
     
     const attachBtn = document.getElementById('attachFileBtn');
@@ -1524,7 +1552,6 @@ function setupEventListeners() {
     if (closeSidebar) closeSidebar.addEventListener('click', toggleSidebar);
     if (overlay) overlay.addEventListener('click', toggleSidebar);
     
-    // Modal
     const modalClose = document.getElementById('channelModalClose');
     const modalBtn = document.getElementById('modalCloseBtn');
     const modalOverlay = document.getElementById('channelModalOverlay');
@@ -1536,13 +1563,11 @@ function setupEventListeners() {
         });
     }
     
-    // Info button opens modal
     const infoToggle = document.getElementById('infoToggleBtn');
     if (infoToggle) {
         infoToggle.addEventListener('click', openChannelModal);
     }
     
-    // Media viewer
     const mediaClose = document.getElementById('mediaModalClose');
     const mediaOverlay = document.getElementById('mediaModalOverlay');
     if (mediaClose) mediaClose.addEventListener('click', closeMediaViewer);
@@ -1557,19 +1582,16 @@ function setupEventListeners() {
         });
     }
     
-    // Scroll
     const scrollBtn = document.getElementById('scrollToBottomBtn');
     const messages = document.getElementById('messagesContainer');
     if (scrollBtn) scrollBtn.addEventListener('click', scrollToBottom);
     if (messages) messages.addEventListener('scroll', checkScroll);
     
-    // Cancel buttons
     const cancelFile = document.getElementById('cancelFileBtn');
     const cancelVoice = document.getElementById('cancelVoiceBtn');
     if (cancelFile) cancelFile.addEventListener('click', cancelFilePreview);
     if (cancelVoice) cancelVoice.addEventListener('click', cancelVoicePreview);
     
-    // Channel clicks
     document.querySelectorAll('.channel-item').forEach(el => {
         el.addEventListener('click', () => {
             const channel = el.dataset.channel;
@@ -1577,7 +1599,6 @@ function setupEventListeners() {
         });
     });
     
-    // Context menu
     const contextReply = document.getElementById('contextReply');
     const contextCopy = document.getElementById('contextCopy');
     const contextReport = document.getElementById('contextReport');
@@ -1585,14 +1606,12 @@ function setupEventListeners() {
     if (contextCopy) contextCopy.addEventListener('click', copyUserMessage);
     if (contextReport) contextReport.addEventListener('click', reportUser);
     
-    // Close context menu on click outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.context-menu')) {
             hideContextMenu();
         }
     });
     
-    // Cancel reply on Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && replyToMessage) {
             replyToMessage = null;
