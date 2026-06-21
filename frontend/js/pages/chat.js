@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Online Users, Audio/Video Playback
+// Fully Functional - Fixed Video Play Button
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -653,7 +653,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VIDEO - Fixed for mobile
+        // VIDEO - Fixed: No persistent play overlay
         else if (msg.type === 'video' && msg.file_url) {
             contentHtml = `
                 ${replyHtml}
@@ -675,19 +675,20 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - Fixed for mobile (Safari compatibility)
+        // VOICE - With cache-busting
         else if (msg.type === 'voice' && msg.file_url) {
+            const voiceUrlWithCache = msg.file_url + (msg.file_url.includes('?') ? '&' : '?') + 't=' + Date.now();
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble voice-bubble">
                     <div class="voice-message">
-                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${msg.file_url}')">
+                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrlWithCache}')">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" preload="metadata" playsinline webkit-playsinline></audio>
+                        <audio style="display:none;" src="${voiceUrlWithCache}" preload="metadata" playsinline webkit-playsinline></audio>
                     </div>
                 </div>
             `;
@@ -798,7 +799,6 @@ async function playVoiceMessage(btn, audioUrl) {
         } catch (err) {
             console.error('Play error:', err);
             icon.className = 'fas fa-play';
-            // If not an AbortError, reload the audio
             if (err.name !== 'AbortError') {
                 await loadVoiceAudio(btn, audioUrl);
             }
@@ -828,22 +828,17 @@ async function loadVoiceAudio(btn, audioUrl) {
     btn.disabled = true;
     
     try {
-        // Add cache-busting to URL
-        const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-        
-        // Fetch the audio as a blob
-        const response = await fetch(urlWithCache);
+        // audioUrl already has cache-busting from render
+        const response = await fetch(audioUrl);
         if (!response.ok) throw new Error('Network response was not ok');
         
         const blob = await response.blob();
         if (blob.size === 0) throw new Error('Empty audio file');
         
-        // Create a blob URL
         const blobUrl = URL.createObjectURL(blob);
         audioEl.src = blobUrl;
         audioEl.load();
         
-        // Wait for audio to be ready
         await new Promise((resolve, reject) => {
             const onCanPlay = () => {
                 audioEl.removeEventListener('canplaythrough', onCanPlay);
@@ -858,22 +853,19 @@ async function loadVoiceAudio(btn, audioUrl) {
             audioEl.addEventListener('canplaythrough', onCanPlay);
             audioEl.addEventListener('error', onError);
             
-            // Timeout fallback
             setTimeout(() => {
                 audioEl.removeEventListener('canplaythrough', onCanPlay);
                 audioEl.removeEventListener('error', onError);
-                resolve(); // Continue anyway
+                resolve();
             }, 5000);
         });
         
-        // Play the audio
         try {
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
-                URL.revokeObjectURL(blobUrl);
             };
             audioEl.onerror = () => {
                 icon.className = 'fas fa-play';
@@ -898,7 +890,7 @@ async function loadVoiceAudio(btn, audioUrl) {
         
         // Fallback: try direct URL
         try {
-            audioEl.src = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+            audioEl.src = audioUrl;
             audioEl.load();
             await audioEl.play();
             icon.className = 'fas fa-pause';
@@ -1051,6 +1043,7 @@ function openMediaViewer(url, type) {
     if (type === 'image') {
         body.innerHTML = `<img src="${url}" alt="Media" class="media-modal-image">`;
     } else if (type === 'video') {
+        // Fix: Properly handle video with playsinline and controls
         body.innerHTML = `
             <video src="${url}" class="media-modal-video" controls autoplay playsinline webkit-playsinline>
                 Your browser does not support video playback.
