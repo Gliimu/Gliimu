@@ -254,7 +254,7 @@ function updateUI() {
 }
 
 // ============================================
-// THEME - COMPLETE FIXED VERSION
+// THEME
 // ============================================
 
 function initTheme() {
@@ -289,7 +289,6 @@ function toggleTheme() {
     showToast(`Switched to ${isDark ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
 }
 
-// Expose for settings buttons
 window.selectTheme = function(theme) {
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
