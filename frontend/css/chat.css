@@ -1761,3 +1761,212 @@ html, body {
     background: var(--brand-purple);
     color: white;
 }
+
+/* ============================================
+   CONTEXT MENU
+   ============================================ */
+
+.context-menu {
+    position: fixed;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 4px;
+    min-width: 160px;
+    z-index: 100;
+    display: none;
+    animation: popIn 0.15s ease;
+}
+
+.context-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+}
+
+.context-item:hover {
+    background: var(--bg-hover);
+}
+
+.context-item i {
+    width: 18px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.context-item#contextReport {
+    color: var(--danger);
+}
+
+.context-item#contextReport i {
+    color: var(--danger);
+}
+
+.context-item#contextReport:hover {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+/* ============================================
+   MESSAGE WITH AVATAR
+   ============================================ */
+
+.message-group.other {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 80%;
+}
+
+.message-group.other .message-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.message-group.other .message-avatar:hover {
+    transform: scale(1.05);
+}
+
+.message-group.other .message-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.message-group.other .message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.message-group.self {
+    max-width: 75%;
+    align-self: flex-end;
+}
+
+.message-group.self .message-content {
+    width: 100%;
+}
+
+/* Modal online users */
+.modal-online-users {
+    margin-top: 12px;
+}
+
+.modal-online-users h5 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.modal-online-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.modal-online-list .user-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+}
+
+.modal-online-list .user-item .user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.modal-online-list .user-item .user-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.modal-online-list .user-item .user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.modal-online-list .user-item .user-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.modal-online-list .user-item .user-role {
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.modal-online-list .user-item .online-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    flex-shrink: 0;
+}
+
+/* ============================================
+   RESPONSIVE - Message avatar
+   ============================================ */
+
+@media (max-width: 768px) {
+    .message-group.other {
+        max-width: 88%;
+    }
+    
+    .message-group.other .message-avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 400px) {
+    .message-group.other {
+        max-width: 92%;
+    }
+    
+    .message-group.other .message-avatar {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+}
