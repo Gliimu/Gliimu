@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fully Functional - Database-based Online Users
+// Updated Channels + Mobile Audio Fix
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -46,8 +46,106 @@ let unreadCounts = {
     general: 0,
     announcements: 0,
     help: 0,
-    random: 0,
-    projects: 0
+    projects: 0,
+    alumni: 0,
+    reports: 0,
+    administration: 0,
+    submissions: 0,
+    jobpostings: 0,
+    academics: 0,
+    debate: 0,
+    boardroom: 0
+};
+
+// ============================================
+// CHANNEL CONFIGURATION
+// ============================================
+
+const CHANNEL_CONFIG = {
+    general: {
+        name: 'general',
+        icon: 'fa-hashtag',
+        label: '💬 general',
+        description: 'General discussion for everyone. Share ideas, ask questions, and connect with the community.',
+        rules: ['Be respectful to all members', 'No spam or self-promotion', 'Stay on topic', 'No inappropriate content']
+    },
+    announcements: {
+        name: 'announcements',
+        icon: 'fa-bullhorn',
+        label: '📢 announcements',
+        description: 'Important updates and news from the Gliimu team. Stay informed!',
+        rules: ['Check here daily for updates', 'No replies to announcements', 'Contact admins for questions']
+    },
+    help: {
+        name: 'help',
+        icon: 'fa-question-circle',
+        label: '❓ help',
+        description: 'Ask questions about courses, projects, or technical issues. Get help from the community.',
+        rules: ['Be specific about your issue', 'Provide screenshots when possible', 'Be patient for responses']
+    },
+    projects: {
+        name: 'projects',
+        icon: 'fa-code',
+        label: '💻 projects',
+        description: 'Share your work, get feedback, and collaborate with other creators.',
+        rules: ['Share your own work only', 'Give constructive feedback', 'No self-promotion outside projects']
+    },
+    alumni: {
+        name: 'alumni',
+        icon: 'fa-graduation-cap',
+        label: '🎓 alumni',
+        description: 'Connect with fellow graduates. Share career updates, opportunities, and network.',
+        rules: ['Be professional', 'Share opportunities', 'Support fellow alumni']
+    },
+    reports: {
+        name: 'reports',
+        icon: 'fa-flag',
+        label: '🚩 reports',
+        description: 'Report issues, bugs, or inappropriate content. All reports are confidential.',
+        rules: ['Be factual', 'Provide evidence', 'Reports are confidential']
+    },
+    administration: {
+        name: 'administration',
+        icon: 'fa-users-cog',
+        label: '⚙️ administration',
+        description: 'For administrators to manage the platform and communicate with staff.',
+        rules: ['Admin only', 'Professional conduct required']
+    },
+    submissions: {
+        name: 'submissions',
+        icon: 'fa-upload',
+        label: '📤 submissions',
+        description: 'Submit assignments, projects, and proposals for review.',
+        rules: ['Follow submission guidelines', 'Include all required files', 'Submit before deadlines']
+    },
+    jobpostings: {
+        name: 'jobpostings',
+        icon: 'fa-briefcase',
+        label: '💼 job postings',
+        description: 'Post and view job opportunities from partner organizations.',
+        rules: ['No spam', 'Include job requirements', 'Valid contact information required']
+    },
+    academics: {
+        name: 'academics',
+        icon: 'fa-book-open',
+        label: '📚 academics',
+        description: 'Discuss academic topics, share resources, and collaborate with instructors.',
+        rules: ['Stay on academic topics', 'Respect instructors', 'No plagiarism']
+    },
+    debate: {
+        name: 'debate',
+        icon: 'fa-microphone-alt',
+        label: '🎤 debate',
+        description: 'Engage in respectful debates on various topics. Critical thinking welcome!',
+        rules: ['Respect opposing views', 'Use evidence', 'No personal attacks', 'Stay on topic']
+    },
+    boardroom: {
+        name: 'boardroom',
+        icon: 'fa-handshake',
+        label: '🤝 boardroom',
+        description: 'Strategic discussions for founders and investors.',
+        rules: ['Founders and investors only', 'Confidential discussions', 'Professional conduct']
+    }
 };
 
 // ============================================
@@ -291,20 +389,16 @@ async function setupPresenceTracking() {
     
     console.log('🟢 Setting up online users tracking (database approach)...');
     
-    // Mark user as online
     await markUserOnline();
     
-    // Set up interval to keep user online (every 30 seconds)
     onlineInterval = setInterval(async () => {
         await markUserOnline();
     }, 30000);
     
-    // Load online users initially
     await refreshOnlineUsers();
     
     presenceInitialized = true;
     
-    // Clean up on page unload
     window.addEventListener('beforeunload', async () => {
         if (onlineInterval) {
             clearInterval(onlineInterval);
@@ -358,7 +452,6 @@ async function markUserOffline() {
 
 async function refreshOnlineUsers() {
     try {
-        // Get users who have been active in the last 60 seconds
         const cutoffTime = new Date();
         cutoffTime.setSeconds(cutoffTime.getSeconds() - 60);
         
@@ -384,13 +477,9 @@ function updateOnlineUsersList(users) {
     const modalContainer = document.getElementById('modalOnlineUsersList');
     if (!modalContainer) return;
     
-    // Filter out the current user for the list (we'll add them separately with "You" badge)
     const otherUsers = users.filter(user => user.user_id !== currentUser?.id);
-    
-    // Sort users by name
     const sortedUsers = otherUsers.sort((a, b) => (a.user_name || '').localeCompare(b.user_name || ''));
     
-    // Add current user at the top if they're in the list
     const currentUserData = users.find(user => user.user_id === currentUser?.id);
     
     let allSorted = [];
@@ -487,14 +576,11 @@ async function insertWelcomeMessage() {
 }
 
 function getWelcomeMessage(channel) {
-    const msgs = {
-        general: '👋 Welcome to #general! Introduce yourself and start chatting.',
-        announcements: '📢 Welcome to #announcements! Check here for updates.',
-        help: '❓ Welcome to #help! Ask questions and get help.',
-        random: '🎲 Welcome to #random! Casual conversation and fun.',
-        projects: '💻 Welcome to #projects! Share your work and collaborate.'
-    };
-    return msgs[channel] || `👋 Welcome to #${channel}!`;
+    const config = CHANNEL_CONFIG[channel];
+    if (config) {
+        return `👋 Welcome to ${config.label}! ${config.description}`;
+    }
+    return `👋 Welcome to #${channel}!`;
 }
 
 function renderMessages() {
@@ -502,11 +588,12 @@ function renderMessages() {
     if (!container) return;
     
     if (allMessages.length === 0) {
+        const config = CHANNEL_CONFIG[currentChannel];
         container.innerHTML = `
             <div class="welcome-message">
                 <i class="fas fa-comments"></i>
-                <h3>👋 Welcome to #${currentChannel}</h3>
-                <p>${getWelcomeMessage(currentChannel)}</p>
+                <h3>👋 Welcome to ${config ? config.label : '#' + currentChannel}</h3>
+                <p>${config ? config.description : getWelcomeMessage(currentChannel)}</p>
             </div>
         `;
         return;
@@ -663,7 +750,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK
+// VOICE PLAYBACK - MOBILE FIXED
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -1168,19 +1255,14 @@ function switchChannel(channel) {
         el.classList.toggle('active', el.dataset.channel === channel);
     });
     
+    const config = CHANNEL_CONFIG[channel];
+    
     const nameEl = document.getElementById('channelName');
-    if (nameEl) nameEl.textContent = channel;
+    if (nameEl) nameEl.textContent = config ? config.label.replace(/[^a-zA-Z0-9 ]/g, '').trim() : channel;
     
     const iconEl = document.getElementById('channelIcon');
     if (iconEl) {
-        const icons = {
-            general: 'fa-hashtag',
-            announcements: 'fa-bullhorn',
-            help: 'fa-question-circle',
-            random: 'fa-random',
-            projects: 'fa-code'
-        };
-        iconEl.className = `fas ${icons[channel] || 'fa-hashtag'}`;
+        iconEl.className = `fas ${config ? config.icon : 'fa-hashtag'}`;
     }
     
     allMessages = [];
@@ -1518,29 +1600,15 @@ function closeChannelModal() {
 }
 
 function updateModalInfo(channel) {
+    const config = CHANNEL_CONFIG[channel];
+    
     const nameEl = document.getElementById('modalChannelName');
     const descEl = document.getElementById('modalChannelDescription');
     const memberCount = document.getElementById('modalMemberCount');
     const messageCount = document.getElementById('modalMessageCount');
     
-    const channelNames = {
-        general: '#general',
-        announcements: '#announcements',
-        help: '#help',
-        random: '#random',
-        projects: '#projects'
-    };
-    
-    const channelDescs = {
-        general: 'General discussion for everyone. Share ideas, ask questions, and connect with the community.',
-        announcements: 'Important updates and news from the Gliimu team. Stay informed!',
-        help: 'Ask questions about courses, projects, or technical issues. Get help from the community.',
-        random: 'Casual conversation, memes, and off-topic discussions. Have fun!',
-        projects: 'Share your work, get feedback, and collaborate with other creators.'
-    };
-    
-    if (nameEl) nameEl.textContent = channelNames[channel] || `#${channel}`;
-    if (descEl) descEl.textContent = channelDescs[channel] || '';
+    if (nameEl) nameEl.textContent = config ? config.label : `#${channel}`;
+    if (descEl) descEl.textContent = config ? config.description : `Welcome to #${channel}!`;
     if (messageCount) messageCount.textContent = allMessages.length || 0;
 }
 
