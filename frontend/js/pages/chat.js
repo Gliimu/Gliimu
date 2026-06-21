@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Avatars, Context Menu, Audio, Layout
+// Fixed: Audio playback, Avatars, Online users in modal
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -21,6 +21,8 @@ let typingTimeout = null;
 let lastMessageId = null;
 let currentContextMessageId = null;
 let userAvatars = {};
+let onlineUserIds = new Set();
+let isDarkMode = false;
 
 // Audio recording
 let mediaRecorder = null;
@@ -41,9 +43,6 @@ let unreadCounts = {
     random: 0,
     projects: 0
 };
-
-// Theme state
-let isDarkMode = false;
 
 // ============================================
 // THEME MANAGEMENT
@@ -198,7 +197,7 @@ async function loadUserAvatars() {
         
         if (!error && users) {
             users.forEach(user => {
-                userAvatars[user.id] = user.avatar_url || getInitialsAvatar(user.name || 'User');
+                userAvatars[user.id] = user.avatar_url || null;
             });
         }
     } catch (error) {
@@ -206,14 +205,13 @@ async function loadUserAvatars() {
     }
 }
 
-function getInitialsAvatar(name) {
-    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%232c2f78"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="600">${initials}</text></svg>`;
+function getUserAvatar(userId) {
+    return userAvatars[userId] || null;
 }
 
-function getUserAvatar(userId, name) {
-    if (userId === currentUser?.id) return null;
-    return userAvatars[userId] || getInitialsAvatar(name || 'User');
+function getInitials(name) {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 // ============================================
@@ -306,7 +304,8 @@ function renderMessages() {
         }
         
         let contentHtml = '';
-        const avatarUrl = getUserAvatar(msg.sender_id, senderName);
+        const avatarUrl = getUserAvatar(msg.sender_id);
+        const initials = getInitials(senderName);
         
         if (msg.type === 'image' && msg.file_url) {
             contentHtml = `
@@ -331,17 +330,18 @@ function renderMessages() {
                 </div>
             `;
         } else if (msg.type === 'voice' && msg.file_url) {
-            const voiceUrl = msg.file_url + (msg.file_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+            // Use a proxy approach - load audio as blob
+            const voiceUrl = msg.file_url;
             contentHtml = `
                 <div class="message-bubble voice-bubble">
                     <div class="voice-message">
-                        <button class="voice-play-btn" onclick="toggleVoicePlay(this, '${voiceUrl}')">
+                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}')">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" src="${voiceUrl}" preload="metadata" playsinline webkit-playsinline></audio>
+                        <audio style="display:none;"></audio>
                     </div>
                 </div>
             `;
@@ -350,7 +350,6 @@ function renderMessages() {
         }
         
         if (isSelf) {
-            // Self messages - no avatar
             html += `
                 <div class="message-group self">
                     <div class="message-content">
@@ -360,13 +359,10 @@ function renderMessages() {
                 </div>
             `;
         } else {
-            // Other messages - with avatar
             const avatarHtml = avatarUrl ? 
-                `<img src="${avatarUrl}" alt="${escapeHtml(senderName)}" class="message-avatar" 
-                      onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'message-avatar\\' style=\\'background:linear-gradient(135deg, var(--brand-purple), var(--brand-gold));\\'>${escapeHtml(senderName[0] || '?')}</div>'"
-                      data-user-id="${msg.sender_id}" data-user-name="${escapeHtml(senderName)}">` :
-                `<div class="message-avatar" style="background:linear-gradient(135deg, var(--brand-purple), var(--brand-gold));">
-                    ${escapeHtml(senderName[0] || '?')}
+                `<img src="${avatarUrl}" alt="${escapeHtml(senderName)}" class="message-avatar" data-user-id="${msg.sender_id}" data-user-name="${escapeHtml(senderName)}" loading="lazy">` :
+                `<div class="message-avatar" data-user-id="${msg.sender_id}" data-user-name="${escapeHtml(senderName)}" style="background:linear-gradient(135deg, var(--brand-purple), var(--brand-gold));">
+                    ${initials}
                 </div>`;
             
             html += `
@@ -385,12 +381,121 @@ function renderMessages() {
     });
     
     container.innerHTML = html;
-    
-    // Attach context menu events to avatars
     attachAvatarEvents();
     
     if (shouldScroll) scrollToBottom();
 }
+
+// ============================================
+// VOICE PLAYBACK - FIXED with Blob fetch
+// ============================================
+
+async function playVoiceMessage(btn, audioUrl) {
+    const container = btn.parentElement;
+    const icon = btn.querySelector('i');
+    const audioEl = container.querySelector('audio');
+    
+    // Stop any other playing voice messages
+    document.querySelectorAll('.voice-play-btn i').forEach(el => {
+        if (el !== icon) {
+            el.className = 'fas fa-play';
+            const parent = el.closest('.voice-message');
+            if (parent) {
+                const otherAudio = parent.querySelector('audio');
+                if (otherAudio) otherAudio.pause();
+            }
+        }
+    });
+    
+    // If there's an audio element and it's playing, pause it
+    if (audioEl && !audioEl.paused) {
+        audioEl.pause();
+        icon.className = 'fas fa-play';
+        return;
+    }
+    
+    // If audio exists but is paused, play it
+    if (audioEl && audioEl.src) {
+        audioEl.play().then(() => {
+            icon.className = 'fas fa-pause';
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+        }).catch((err) => {
+            console.error('Play error:', err);
+            icon.className = 'fas fa-play';
+            // If error, reload the audio
+            loadVoiceAudio(btn, audioUrl);
+        });
+        return;
+    }
+    
+    // Load audio from URL as blob to avoid CORS/cache issues
+    loadVoiceAudio(btn, audioUrl);
+}
+
+async function loadVoiceAudio(btn, audioUrl) {
+    const icon = btn.querySelector('i');
+    const container = btn.parentElement;
+    let audioEl = container.querySelector('audio');
+    
+    if (!audioEl) {
+        audioEl = document.createElement('audio');
+        audioEl.style.display = 'none';
+        container.appendChild(audioEl);
+    }
+    
+    icon.className = 'fas fa-spinner fa-spin';
+    btn.disabled = true;
+    
+    try {
+        // Add cache-busting
+        const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+        
+        // Fetch as blob
+        const response = await fetch(urlWithCache);
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        audioEl.src = blobUrl;
+        audioEl.load();
+        
+        audioEl.oncanplay = () => {
+            audioEl.play().then(() => {
+                icon.className = 'fas fa-pause';
+                btn.disabled = false;
+                audioEl.onended = () => {
+                    icon.className = 'fas fa-play';
+                    URL.revokeObjectURL(blobUrl);
+                };
+            }).catch((err) => {
+                console.error('Play error:', err);
+                icon.className = 'fas fa-play';
+                btn.disabled = false;
+                showToast('❌ Could not play voice message', 'error');
+            });
+        };
+        
+        audioEl.onerror = () => {
+            console.error('Audio load error');
+            icon.className = 'fas fa-play';
+            btn.disabled = false;
+            showToast('❌ Could not load voice message', 'error');
+        };
+        
+    } catch (err) {
+        console.error('Fetch error:', err);
+        icon.className = 'fas fa-play';
+        btn.disabled = false;
+        showToast('❌ Could not load voice message', 'error');
+    }
+}
+
+// ============================================
+// AVATAR EVENTS (Context Menu)
+// ============================================
 
 function attachAvatarEvents() {
     document.querySelectorAll('.message-avatar').forEach(avatar => {
@@ -471,7 +576,6 @@ function replyToUser() {
 }
 
 function copyUserMessage() {
-    // Find the last message from this user and copy it
     if (!contextTargetUserId) return;
     const msg = allMessages.filter(m => m.sender_id === contextTargetUserId).pop();
     if (msg) {
@@ -588,7 +692,6 @@ async function sendMessage() {
         }
         
         if (pendingVoiceBlob) {
-            // For Safari compatibility, try MP3 or use WebM with proper headers
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
             
             const { error: uploadError } = await supabase.storage
@@ -753,35 +856,20 @@ function updateChannelBadge(channel, count) {
 }
 
 // ============================================
-// ONLINE USERS
+// ONLINE USERS - Only users currently on chat
 // ============================================
 
 async function loadOnlineUsers() {
     try {
+        // Get all users who are online (simplified - use presence if available)
         const { data: users, error } = await supabase
             .from('users')
             .select('id, name, role, avatar_url')
             .limit(30);
         
         if (!error && users) {
-            // Update info panel online users
-            const infoContainer = document.getElementById('infoOnlineUsersList');
-            if (infoContainer) {
-                infoContainer.innerHTML = users.map(user => `
-                    <div class="user-item">
-                        <div class="user-avatar">
-                            ${user.avatar_url ? 
-                                `<img src="${user.avatar_url}" alt="${escapeHtml(user.name)}">` :
-                                `<i class="fas fa-user-circle"></i>`
-                            }
-                        </div>
-                        <div class="user-info">
-                            <div class="user-name">${escapeHtml(user.name || 'User')}</div>
-                            <div class="user-role">${user.role || 'Member'}</div>
-                        </div>
-                    </div>
-                `).join('');
-            }
+            // For now, show all users as "online" since we don't have presence tracking
+            // In production, use Supabase presence or a custom online tracking system
             
             // Update modal online users
             const modalContainer = document.getElementById('modalOnlineUsersList');
@@ -802,9 +890,6 @@ async function loadOnlineUsers() {
                     </div>
                 `).join('');
             }
-            
-            const infoCount = document.getElementById('infoOnlineCount');
-            if (infoCount) infoCount.textContent = users.length;
             
             const modalCount = document.getElementById('modalMemberCount');
             if (modalCount) modalCount.textContent = users.length;
@@ -1063,84 +1148,6 @@ function setupVoicePreviewPlayback() {
 }
 
 // ============================================
-// VOICE PLAY IN MESSAGES
-// ============================================
-
-function toggleVoicePlay(btn, audioUrl) {
-    const container = btn.parentElement;
-    let audio = container.querySelector('audio');
-    
-    const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-    
-    if (!audio) {
-        audio = document.createElement('audio');
-        audio.src = urlWithCache;
-        audio.preload = 'metadata';
-        audio.playsInline = true;
-        audio.setAttribute('playsinline', '');
-        audio.setAttribute('webkit-playsinline', '');
-        audio.onerror = function() {
-            console.error('Audio load error, retrying...');
-            const newUrl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-            this.src = newUrl;
-            this.load();
-        };
-        container.appendChild(audio);
-    } else {
-        const currentSrc = audio.src;
-        const newUrl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-        if (currentSrc !== newUrl) {
-            audio.src = newUrl;
-            audio.load();
-        }
-    }
-    
-    const icon = btn.querySelector('i');
-    
-    document.querySelectorAll('.voice-play-btn i').forEach(el => {
-        if (el !== icon) {
-            el.className = 'fas fa-play';
-            const parent = el.closest('.voice-message');
-            if (parent) {
-                const otherAudio = parent.querySelector('audio');
-                if (otherAudio) otherAudio.pause();
-            }
-        }
-    });
-    
-    if (audio.paused) {
-        audio.play().then(() => {
-            icon.className = 'fas fa-pause';
-            audio.onended = () => {
-                icon.className = 'fas fa-play';
-            };
-        }).catch((err) => {
-            console.error('Play error:', err);
-            if (err.name === 'NotSupportedError' || err.message.includes('decode')) {
-                showToast('🔄 Reloading audio...', 'info');
-                const newUrl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-                audio.src = newUrl;
-                audio.load();
-                setTimeout(() => {
-                    audio.play().then(() => {
-                        icon.className = 'fas fa-pause';
-                    }).catch(() => {
-                        showToast('❌ Could not play voice message', 'error');
-                        icon.className = 'fas fa-play';
-                    });
-                }, 500);
-            } else {
-                showToast('❌ Could not play voice message', 'error');
-                icon.className = 'fas fa-play';
-            }
-        });
-    } else {
-        audio.pause();
-        icon.className = 'fas fa-play';
-    }
-}
-
-// ============================================
 // EMOJI
 // ============================================
 
@@ -1186,7 +1193,6 @@ function openChannelModal() {
         modal.classList.add('active');
         updateModalInfo(currentChannel);
         document.body.style.overflow = 'hidden';
-        // Also load online users into modal
         loadOnlineUsers();
     }
 }
@@ -1235,13 +1241,6 @@ function toggleSidebar() {
     const sidebar = document.getElementById('chatSidebar');
     const overlay = document.getElementById('sidebarOverlay');
     if (sidebar) sidebar.classList.toggle('open');
-    if (overlay) overlay.classList.toggle('visible');
-}
-
-function toggleInfoPanel() {
-    const panel = document.getElementById('infoPanel');
-    const overlay = document.getElementById('infoOverlay');
-    if (panel) panel.classList.toggle('open');
     if (overlay) overlay.classList.toggle('visible');
 }
 
@@ -1333,13 +1332,6 @@ function setupEventListeners() {
     if (closeSidebar) closeSidebar.addEventListener('click', toggleSidebar);
     if (overlay) overlay.addEventListener('click', toggleSidebar);
     
-    const infoToggle = document.getElementById('infoToggleBtn');
-    const closeInfo = document.getElementById('closeInfoPanelBtn');
-    const infoOverlay = document.getElementById('infoOverlay');
-    if (infoToggle) infoToggle.addEventListener('click', toggleInfoPanel);
-    if (closeInfo) closeInfo.addEventListener('click', toggleInfoPanel);
-    if (infoOverlay) infoOverlay.addEventListener('click', toggleInfoPanel);
-    
     // Modal
     const modalClose = document.getElementById('channelModalClose');
     const modalBtn = document.getElementById('modalCloseBtn');
@@ -1350,6 +1342,12 @@ function setupEventListeners() {
         modalOverlay.addEventListener('click', (e) => {
             if (e.target === modalOverlay) closeChannelModal();
         });
+    }
+    
+    // Info button opens modal
+    const infoToggle = document.getElementById('infoToggleBtn');
+    if (infoToggle) {
+        infoToggle.addEventListener('click', openChannelModal);
     }
     
     // Media viewer
@@ -1364,17 +1362,6 @@ function setupEventListeners() {
             if (e.key === 'Escape' && mediaOverlay.classList.contains('active')) {
                 closeMediaViewer();
             }
-        });
-    }
-    
-    // Info button opens modal
-    if (infoToggle) {
-        infoToggle.addEventListener('click', () => {
-            const panel = document.getElementById('infoPanel');
-            if (panel && panel.classList.contains('open')) {
-                toggleInfoPanel();
-            }
-            openChannelModal();
         });
     }
     
@@ -1421,10 +1408,9 @@ function setupEventListeners() {
 window.sendMessage = sendMessage;
 window.switchChannel = switchChannel;
 window.toggleSidebar = toggleSidebar;
-window.toggleInfoPanel = toggleInfoPanel;
 window.toggleEmojiPicker = toggleEmojiPicker;
 window.toggleVoiceRecording = toggleVoiceRecording;
-window.toggleVoicePlay = toggleVoicePlay;
+window.playVoiceMessage = playVoiceMessage;
 window.addEmoji = addEmoji;
 window.scrollToBottom = scrollToBottom;
 window.loadOnlineUsers = loadOnlineUsers;
