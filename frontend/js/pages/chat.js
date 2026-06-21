@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Updated Channels + Mobile Audio Fix
+// Fixed: Online Users, Audio/Video Playback
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -515,6 +515,7 @@ function updateOnlineUsersList(users) {
                     ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
                 </div>
                 <span class="online-dot"></span>
+                ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
             </div>
         `;
     }).join('');
@@ -643,6 +644,7 @@ function renderMessages() {
             }
         }
         
+        // IMAGE
         if (msg.type === 'image' && msg.file_url) {
             contentHtml = `
                 ${replyHtml}
@@ -650,15 +652,19 @@ function renderMessages() {
                     <img src="${msg.file_url}" alt="Image" class="message-image" loading="lazy">
                 </div>
             `;
-        } else if (msg.type === 'video' && msg.file_url) {
+        } 
+        // VIDEO - Fixed for mobile
+        else if (msg.type === 'video' && msg.file_url) {
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble video-bubble" onclick="openMediaViewer('${msg.file_url}', 'video')">
-                    <video src="${msg.file_url}" class="message-video" muted playsinline preload="metadata" loading="lazy"></video>
+                    <video src="${msg.file_url}" class="message-video" muted playsinline webkit-playsinline preload="metadata" loading="lazy"></video>
                     <div class="video-play-overlay"><i class="fas fa-play"></i></div>
                 </div>
             `;
-        } else if (msg.type === 'file' && msg.file_url) {
+        } 
+        // FILE
+        else if (msg.type === 'file' && msg.file_url) {
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble file-bubble">
@@ -668,7 +674,9 @@ function renderMessages() {
                     </a>
                 </div>
             `;
-        } else if (msg.type === 'voice' && msg.file_url) {
+        } 
+        // VOICE - Fixed for mobile (Safari compatibility)
+        else if (msg.type === 'voice' && msg.file_url) {
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble voice-bubble">
@@ -679,11 +687,13 @@ function renderMessages() {
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;"></audio>
+                        <audio style="display:none;" preload="metadata" playsinline webkit-playsinline></audio>
                     </div>
                 </div>
             `;
-        } else {
+        } 
+        // TEXT
+        else {
             let messageText = escapeHtml(msg.message);
             if (hasMention) {
                 const regex = new RegExp(`@${mentionName}`, 'gi');
@@ -749,7 +759,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - MOBILE FIXED
+// VOICE PLAYBACK - COMPLETE MOBILE FIX
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -757,6 +767,7 @@ async function playVoiceMessage(btn, audioUrl) {
     const icon = btn.querySelector('i');
     let audioEl = container.querySelector('audio');
     
+    // Stop any other playing voice messages
     document.querySelectorAll('.voice-play-btn i').forEach(el => {
         if (el !== icon) {
             el.className = 'fas fa-play';
@@ -768,12 +779,14 @@ async function playVoiceMessage(btn, audioUrl) {
         }
     });
     
+    // If audio exists and is playing, pause it
     if (audioEl && !audioEl.paused) {
         audioEl.pause();
         icon.className = 'fas fa-play';
         return;
     }
     
+    // If audio exists with src, try playing
     if (audioEl && audioEl.src) {
         try {
             await audioEl.play();
@@ -785,6 +798,7 @@ async function playVoiceMessage(btn, audioUrl) {
         } catch (err) {
             console.error('Play error:', err);
             icon.className = 'fas fa-play';
+            // If not an AbortError, reload the audio
             if (err.name !== 'AbortError') {
                 await loadVoiceAudio(btn, audioUrl);
             }
@@ -792,6 +806,7 @@ async function playVoiceMessage(btn, audioUrl) {
         }
     }
     
+    // Load fresh audio
     await loadVoiceAudio(btn, audioUrl);
 }
 
@@ -813,40 +828,45 @@ async function loadVoiceAudio(btn, audioUrl) {
     btn.disabled = true;
     
     try {
+        // Add cache-busting to URL
         const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
         
+        // Fetch the audio as a blob
         const response = await fetch(urlWithCache);
         if (!response.ok) throw new Error('Network response was not ok');
         
         const blob = await response.blob();
         if (blob.size === 0) throw new Error('Empty audio file');
         
+        // Create a blob URL
         const blobUrl = URL.createObjectURL(blob);
-        
         audioEl.src = blobUrl;
         audioEl.load();
         
-        const playPromise = new Promise((resolve, reject) => {
+        // Wait for audio to be ready
+        await new Promise((resolve, reject) => {
             const onCanPlay = () => {
                 audioEl.removeEventListener('canplaythrough', onCanPlay);
+                audioEl.removeEventListener('error', onError);
                 resolve();
             };
             const onError = () => {
+                audioEl.removeEventListener('canplaythrough', onCanPlay);
                 audioEl.removeEventListener('error', onError);
                 reject(new Error('Audio load error'));
             };
             audioEl.addEventListener('canplaythrough', onCanPlay);
             audioEl.addEventListener('error', onError);
             
+            // Timeout fallback
             setTimeout(() => {
                 audioEl.removeEventListener('canplaythrough', onCanPlay);
                 audioEl.removeEventListener('error', onError);
-                reject(new Error('Load timeout'));
-            }, 10000);
+                resolve(); // Continue anyway
+            }, 5000);
         });
         
-        await playPromise;
-        
+        // Play the audio
         try {
             await audioEl.play();
             icon.className = 'fas fa-pause';
@@ -876,6 +896,7 @@ async function loadVoiceAudio(btn, audioUrl) {
         icon.className = 'fas fa-play';
         btn.disabled = false;
         
+        // Fallback: try direct URL
         try {
             audioEl.src = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
             audioEl.load();
@@ -885,7 +906,6 @@ async function loadVoiceAudio(btn, audioUrl) {
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
             };
-            return;
         } catch (altErr) {
             console.error('Alternative play error:', altErr);
             showToast('❌ Could not play voice message', 'error');
