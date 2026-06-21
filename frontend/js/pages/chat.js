@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fully Functional - Fixed Video Play Button
+// Fixed: Voice on iPhone 7, Theme Navigation
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -149,6 +149,57 @@ const CHANNEL_CONFIG = {
 };
 
 // ============================================
+// THEME MANAGEMENT - FIXED (Sync with Dashboard)
+// ============================================
+
+function initTheme() {
+    // Priority: dashboard_theme > theme > system > default (light)
+    const dashboardTheme = localStorage.getItem('dashboard_theme');
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    let theme = 'light';
+    
+    // Check dashboard_theme first (highest priority - set in dashboard settings)
+    if (dashboardTheme === 'dark') {
+        theme = 'dark';
+    } else if (dashboardTheme === 'light') {
+        theme = 'light';
+    } else if (savedTheme === 'dark') {
+        theme = 'dark';
+    } else if (savedTheme === 'light') {
+        theme = 'light';
+    } else if (systemPrefersDark) {
+        theme = 'dark';
+    }
+    // Default is 'light'
+    
+    if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+        isDarkMode = true;
+    } else {
+        document.body.classList.remove('dark-mode');
+        isDarkMode = false;
+    }
+    
+    // Sync localStorage so both keys match
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    
+    console.log('🎨 Theme initialized:', theme, 'mode (from dashboard)');
+}
+
+// Expose toggle for settings page integration
+window.toggleTheme = function() {
+    isDarkMode = !isDarkMode;
+    document.body.classList.toggle('dark-mode', isDarkMode);
+    const theme = isDarkMode ? 'dark' : 'light';
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
+};
+
+// ============================================
 // LOAD/SAVE MENTION TOASTS
 // ============================================
 
@@ -169,43 +220,6 @@ function saveMentionToast(messageId) {
     try {
         localStorage.setItem('chat_mention_toasts', JSON.stringify([...shownMentionToasts]));
     } catch (e) {}
-}
-
-// ============================================
-// THEME MANAGEMENT
-// ============================================
-
-function initTheme() {
-    const dashboardTheme = localStorage.getItem('dashboard_theme');
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    let theme = 'light';
-    
-    if (dashboardTheme === 'dark') {
-        theme = 'dark';
-    } else if (dashboardTheme === 'light') {
-        theme = 'light';
-    } else if (savedTheme === 'dark') {
-        theme = 'dark';
-    } else if (savedTheme === 'light') {
-        theme = 'light';
-    } else if (systemPrefersDark) {
-        theme = 'dark';
-    }
-    
-    if (theme === 'dark') {
-        document.body.classList.add('dark-mode');
-        isDarkMode = true;
-    } else {
-        document.body.classList.remove('dark-mode');
-        isDarkMode = false;
-    }
-    
-    localStorage.setItem('theme', theme);
-    localStorage.setItem('dashboard_theme', theme);
-    
-    console.log('🎨 Theme initialized:', theme, 'mode');
 }
 
 // ============================================
@@ -653,7 +667,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VIDEO - Fixed: No giant play button
+        // VIDEO
         else if (msg.type === 'video' && msg.file_url) {
             contentHtml = `
                 ${replyHtml}
@@ -675,9 +689,12 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - With cache-busting
+        // VOICE - FIXED FOR IPHONE 7
         else if (msg.type === 'voice' && msg.file_url) {
-            const voiceUrlWithCache = msg.file_url + (msg.file_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+            // Add cache-busting AND ensure it's a fresh request
+            const baseUrl = msg.file_url.split('?')[0];
+            const voiceUrlWithCache = baseUrl + '?t=' + Date.now() + '&v=' + Math.random().toString(36).substring(7);
+            
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble voice-bubble">
@@ -688,7 +705,7 @@ function renderMessages() {
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" src="${voiceUrlWithCache}" preload="metadata" playsinline webkit-playsinline></audio>
+                        <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
                     </div>
                 </div>
             `;
@@ -760,7 +777,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - COMPLETE MOBILE FIX
+// VOICE PLAYBACK - COMPLETE IPHONE 7 FIX
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -776,6 +793,8 @@ async function playVoiceMessage(btn, audioUrl) {
             if (parent) {
                 const otherAudio = parent.querySelector('audio');
                 if (otherAudio) otherAudio.pause();
+                // Reset other audio
+                otherAudio.currentTime = 0;
             }
         }
     });
@@ -787,30 +806,11 @@ async function playVoiceMessage(btn, audioUrl) {
         return;
     }
     
-    // If audio exists with src, try playing
-    if (audioEl && audioEl.src) {
-        try {
-            await audioEl.play();
-            icon.className = 'fas fa-pause';
-            audioEl.onended = () => {
-                icon.className = 'fas fa-play';
-            };
-            return;
-        } catch (err) {
-            console.error('Play error:', err);
-            icon.className = 'fas fa-play';
-            if (err.name !== 'AbortError') {
-                await loadVoiceAudio(btn, audioUrl);
-            }
-            return;
-        }
-    }
-    
-    // Load fresh audio
-    await loadVoiceAudio(btn, audioUrl);
+    // Load and play the audio
+    await loadAndPlayVoiceAudio(btn, audioUrl);
 }
 
-async function loadVoiceAudio(btn, audioUrl) {
+async function loadAndPlayVoiceAudio(btn, audioUrl) {
     const icon = btn.querySelector('i');
     const container = btn.parentElement;
     let audioEl = container.querySelector('audio');
@@ -818,9 +818,12 @@ async function loadVoiceAudio(btn, audioUrl) {
     if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.style.display = 'none';
+        // Critical for iPhone: these attributes MUST be set
         audioEl.playsInline = true;
         audioEl.setAttribute('playsinline', '');
         audioEl.setAttribute('webkit-playsinline', '');
+        // Prevent autoplay issues
+        audioEl.preload = 'none';
         container.appendChild(audioEl);
     }
     
@@ -828,57 +831,114 @@ async function loadVoiceAudio(btn, audioUrl) {
     btn.disabled = true;
     
     try {
-        const response = await fetch(audioUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
+        // Clean the URL and add fresh cache-busting
+        const baseUrl = audioUrl.split('?')[0];
+        const freshUrl = baseUrl + '?t=' + Date.now() + '&v=' + Math.random().toString(36).substring(7);
+        
+        console.log('🔊 Loading voice from:', freshUrl);
+        
+        // Approach 1: Fetch as blob (works on iPhone)
+        const response = await fetch(freshUrl, {
+            cache: 'no-cache',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
         const blob = await response.blob();
-        if (blob.size === 0) throw new Error('Empty audio file');
+        if (blob.size === 0) {
+            throw new Error('Empty audio file');
+        }
         
+        console.log('📦 Audio blob size:', blob.size, 'bytes, type:', blob.type);
+        
+        // Create blob URL
         const blobUrl = URL.createObjectURL(blob);
         audioEl.src = blobUrl;
         audioEl.load();
         
+        // Wait for audio to be ready
         await new Promise((resolve, reject) => {
-            const onCanPlay = () => {
+            const timeout = setTimeout(() => {
                 audioEl.removeEventListener('canplaythrough', onCanPlay);
+                audioEl.removeEventListener('loadeddata', onLoaded);
+                audioEl.removeEventListener('error', onError);
+                resolve(); // Continue anyway
+            }, 8000);
+            
+            const onCanPlay = () => {
+                clearTimeout(timeout);
+                audioEl.removeEventListener('canplaythrough', onCanPlay);
+                audioEl.removeEventListener('loadeddata', onLoaded);
                 audioEl.removeEventListener('error', onError);
                 resolve();
             };
-            const onError = () => {
+            
+            const onLoaded = () => {
+                clearTimeout(timeout);
                 audioEl.removeEventListener('canplaythrough', onCanPlay);
+                audioEl.removeEventListener('loadeddata', onLoaded);
+                audioEl.removeEventListener('error', onError);
+                resolve();
+            };
+            
+            const onError = () => {
+                clearTimeout(timeout);
+                audioEl.removeEventListener('canplaythrough', onCanPlay);
+                audioEl.removeEventListener('loadeddata', onLoaded);
                 audioEl.removeEventListener('error', onError);
                 reject(new Error('Audio load error'));
             };
-            audioEl.addEventListener('canplaythrough', onCanPlay);
-            audioEl.addEventListener('error', onError);
             
-            setTimeout(() => {
-                audioEl.removeEventListener('canplaythrough', onCanPlay);
-                audioEl.removeEventListener('error', onError);
-                resolve();
-            }, 5000);
+            audioEl.addEventListener('canplaythrough', onCanPlay);
+            audioEl.addEventListener('loadeddata', onLoaded);
+            audioEl.addEventListener('error', onError);
         });
         
+        // Play the audio
         try {
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
+                // Clean up blob URL after play
+                URL.revokeObjectURL(blobUrl);
             };
             audioEl.onerror = () => {
                 icon.className = 'fas fa-play';
                 btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
                 showToast('❌ Audio playback error', 'error');
             };
         } catch (playErr) {
             console.error('Play error:', playErr);
             icon.className = 'fas fa-play';
             btn.disabled = false;
-            if (playErr.name === 'NotAllowedError') {
-                showToast('👆 Tap play again to start', 'warning');
-            } else {
-                showToast('❌ Could not play voice message', 'error');
+            URL.revokeObjectURL(blobUrl);
+            
+            // Try direct URL as fallback
+            try {
+                audioEl.src = freshUrl;
+                audioEl.load();
+                await audioEl.play();
+                icon.className = 'fas fa-pause';
+                btn.disabled = false;
+                audioEl.onended = () => {
+                    icon.className = 'fas fa-play';
+                };
+            } catch (altErr) {
+                console.error('Alternative play error:', altErr);
+                if (playErr.name === 'NotAllowedError' || altErr.name === 'NotAllowedError') {
+                    showToast('👆 Tap the play button again to start', 'warning');
+                } else {
+                    showToast('❌ Could not play voice message', 'error');
+                }
             }
         }
         
@@ -886,21 +946,7 @@ async function loadVoiceAudio(btn, audioUrl) {
         console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
-        
-        // Fallback: try direct URL
-        try {
-            audioEl.src = audioUrl;
-            audioEl.load();
-            await audioEl.play();
-            icon.className = 'fas fa-pause';
-            btn.disabled = false;
-            audioEl.onended = () => {
-                icon.className = 'fas fa-play';
-            };
-        } catch (altErr) {
-            console.error('Alternative play error:', altErr);
-            showToast('❌ Could not play voice message', 'error');
-        }
+        showToast('❌ Could not load voice message', 'error');
     }
 }
 
@@ -1149,6 +1195,7 @@ async function sendMessage() {
                     .from('chat-files')
                     .getPublicUrl(path);
                 
+                // Add cache-busting to stored URL
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
                 messageText = '';
@@ -1811,5 +1858,6 @@ window.closeMediaViewer = closeMediaViewer;
 window.scrollToMessage = scrollToMessage;
 window.refreshOnlineUsers = refreshOnlineUsers;
 window.showToast = showToast;
+window.toggleTheme = toggleTheme;
 
 console.log('✅ Chat.js loaded');
