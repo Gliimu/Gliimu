@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// All JavaScript moved here for easy management
+// Fixed: Audio, File Uploads, Mobile Input
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -42,10 +42,8 @@ let unreadCounts = {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('💬 Chat initializing...');
     
-    // Fix mobile viewport
     fixMobileViewport();
     
-    // Show loading
     const container = document.getElementById('messagesContainer');
     if (container) {
         container.innerHTML = `
@@ -57,7 +55,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
     }
     
-    // Get user
     try {
         currentUser = await getCurrentUser();
     } catch (err) {
@@ -70,25 +67,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     
-    // Update UI
     updateUserUI();
-    
-    // Load messages
     await loadMessages();
-    
-    // Setup real-time
     setupRealtimeSubscription();
-    
-    // Load online users
     await loadOnlineUsers();
-    
-    // Setup events
     setupEventListeners();
-    
-    // Mark channel read
     markChannelRead(currentChannel);
-    
-    // Init emoji grid
     initEmojiGrid();
     
     console.log('✅ Chat ready');
@@ -106,27 +90,6 @@ function fixMobileViewport() {
     setVH();
     window.addEventListener('resize', setVH);
     window.addEventListener('orientationchange', () => setTimeout(setVH, 300));
-    
-    // Keyboard handling
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', () => {
-            const container = document.getElementById('messagesContainer');
-            if (container) {
-                setTimeout(() => container.scrollTop = container.scrollHeight, 100);
-            }
-        });
-    }
-    
-    // Focus handling
-    const input = document.getElementById('messageInput');
-    if (input) {
-        input.addEventListener('focus', () => {
-            setTimeout(() => {
-                const container = document.getElementById('messagesContainer');
-                if (container) container.scrollTop = container.scrollHeight;
-            }, 200);
-        });
-    }
 }
 
 // ============================================
@@ -263,10 +226,46 @@ function renderMessages() {
             return;
         }
         
+        let contentHtml = '';
+        
+        // Handle different message types
+        if (msg.type === 'image' && msg.file_url) {
+            contentHtml = `
+                <div class="message-bubble" style="padding:4px;background:transparent;border:none;">
+                    <img src="${msg.file_url}" alt="Image" class="message-image" loading="lazy" onclick="window.open('${msg.file_url}','_blank')">
+                </div>
+            `;
+        } else if (msg.type === 'file' && msg.file_url) {
+            contentHtml = `
+                <div class="message-bubble file-bubble">
+                    <a href="${msg.file_url}" target="_blank" class="message-file">
+                        <i class="fas fa-file-download"></i>
+                        <span>📄 ${escapeHtml(msg.file_name || 'Download')}</span>
+                    </a>
+                </div>
+            `;
+        } else if (msg.type === 'voice' && msg.file_url) {
+            contentHtml = `
+                <div class="message-bubble voice-bubble">
+                    <div class="voice-message">
+                        <button class="voice-play-btn" onclick="toggleVoicePlay(this, '${msg.file_url}')">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <div class="voice-wave">
+                            <span></span><span></span><span></span><span></span><span></span>
+                        </div>
+                        <audio style="display:none;" src="${msg.file_url}"></audio>
+                    </div>
+                </div>
+            `;
+        } else {
+            contentHtml = `<div class="message-bubble">${escapeHtml(msg.message)}</div>`;
+        }
+        
         html += `
             <div class="message-group ${isSelf ? 'self' : 'other'}">
                 ${!isSelf && showSender ? `<div class="message-sender">${escapeHtml(senderName)}</div>` : ''}
-                <div class="message-bubble">${escapeHtml(msg.message)}</div>
+                ${contentHtml}
                 <div class="message-time">${time}</div>
             </div>
         `;
@@ -279,7 +278,7 @@ function renderMessages() {
 }
 
 // ============================================
-// SEND MESSAGE
+// SEND MESSAGE - FIXED FILE & VOICE
 // ============================================
 
 async function sendMessage() {
@@ -304,50 +303,73 @@ async function sendMessage() {
         sendBtn.disabled = true;
     }
     
-    // Handle file
-    if (pendingFile) {
-        const file = pendingFile;
-        const ext = file.name.split('.').pop();
-        const path = `chat_uploads/${currentUser.id}/${Date.now()}.${ext}`;
-        
-        const { error } = await supabase.storage.from('chat-files').upload(path, file);
-        if (!error) {
-            const { data: { publicUrl } } = supabase.storage.from('chat-files').getPublicUrl(path);
-            fileUrl = publicUrl;
-            fileName = file.name;
-            messageType = file.type.startsWith('image/') ? 'image' : 'file';
-            messageText = '';
-        }
-        pendingFile = null;
-        hideFilePreview();
-    }
-    
-    // Handle voice
-    if (pendingVoiceBlob) {
-        const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
-        const { error } = await supabase.storage.from('chat-files').upload(path, pendingVoiceBlob);
-        if (!error) {
-            const { data: { publicUrl } } = supabase.storage.from('chat-files').getPublicUrl(path);
-            fileUrl = publicUrl;
-            messageType = 'voice';
-            messageText = '';
-        }
-        pendingVoiceBlob = null;
-        hideVoicePreview();
-    }
-    
-    const message = {
-        channel: currentChannel,
-        sender_id: currentUser.id,
-        sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
-        message: messageText,
-        type: messageType,
-        file_url: fileUrl,
-        file_name: fileName,
-        created_at: new Date().toISOString()
-    };
-    
     try {
+        // Handle file upload
+        if (pendingFile) {
+            const file = pendingFile;
+            const ext = file.name.split('.').pop();
+            const path = `chat_uploads/${currentUser.id}/${Date.now()}.${ext}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('chat-files')
+                .upload(path, file);
+            
+            if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                    .from('chat-files')
+                    .getPublicUrl(path);
+                
+                fileUrl = publicUrl;
+                fileName = file.name;
+                messageType = file.type.startsWith('image/') ? 'image' : 'file';
+                messageText = '';
+            } else {
+                showToast('❌ File upload failed', 'error');
+                pendingFile = null;
+                hideFilePreview();
+                return;
+            }
+            pendingFile = null;
+            hideFilePreview();
+        }
+        
+        // Handle voice message
+        if (pendingVoiceBlob) {
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('chat-files')
+                .upload(path, pendingVoiceBlob);
+            
+            if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                    .from('chat-files')
+                    .getPublicUrl(path);
+                
+                fileUrl = publicUrl;
+                messageType = 'voice';
+                messageText = '';
+            } else {
+                showToast('❌ Voice upload failed', 'error');
+                pendingVoiceBlob = null;
+                hideVoicePreview();
+                return;
+            }
+            pendingVoiceBlob = null;
+            hideVoicePreview();
+        }
+        
+        const message = {
+            channel: currentChannel,
+            sender_id: currentUser.id,
+            sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
+            message: messageText,
+            type: messageType,
+            file_url: fileUrl,
+            file_name: fileName,
+            created_at: new Date().toISOString()
+        };
+        
         // Optimistic update
         const tempId = 'temp_' + Date.now();
         const tempMsg = { ...message, id: tempId };
@@ -374,6 +396,7 @@ async function sendMessage() {
         
         input.value = '';
         scrollToBottom();
+        
     } catch (error) {
         console.error('Send error:', error);
         showToast('❌ Failed to send', 'error');
@@ -416,7 +439,6 @@ function setupRealtimeSubscription() {
                 if (unreadCounts[msg.channel] !== undefined) {
                     unreadCounts[msg.channel]++;
                     updateChannelBadge(msg.channel, unreadCounts[msg.channel]);
-                    updateNavBadge('chats', getTotalUnread());
                 }
             }
         })
@@ -435,16 +457,7 @@ function switchChannel(channel) {
     });
     
     const nameEl = document.getElementById('channelName');
-    if (nameEl) {
-        const names = {
-            general: 'general',
-            announcements: 'announcements',
-            help: 'help',
-            random: 'random',
-            projects: 'projects'
-        };
-        nameEl.textContent = names[channel] || channel;
-    }
+    if (nameEl) nameEl.textContent = channel;
     
     const iconEl = document.getElementById('channelIcon');
     if (iconEl) {
@@ -461,34 +474,18 @@ function switchChannel(channel) {
     allMessages = [];
     markChannelRead(channel);
     loadMessages();
+    updateModalInfo(channel);
 }
 
 function markChannelRead(channel) {
     if (unreadCounts[channel] !== undefined) {
         unreadCounts[channel] = 0;
         updateChannelBadge(channel, 0);
-        updateNavBadge('chats', getTotalUnread());
     }
 }
 
 function updateChannelBadge(channel, count) {
     const badge = document.getElementById(`badge-${channel}`);
-    if (badge) {
-        if (count > 0) {
-            badge.textContent = count > 99 ? '99+' : count;
-            badge.style.display = 'inline-block';
-        } else {
-            badge.style.display = 'none';
-        }
-    }
-}
-
-function getTotalUnread() {
-    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
-}
-
-function updateNavBadge(tab, count) {
-    const badge = document.getElementById(`nav${tab.charAt(0).toUpperCase() + tab.slice(1)}Badge`);
     if (badge) {
         if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
@@ -523,11 +520,26 @@ async function loadOnlineUsers() {
                     </div>
                 `).join('');
             }
+            
+            // Update info panel online users
+            const infoContainer = document.getElementById('infoOnlineUsersList');
+            if (infoContainer) {
+                infoContainer.innerHTML = users.map(user => `
+                    <div class="user-item">
+                        <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
+                        <div class="user-info">
+                            <div class="user-name">${escapeHtml(user.name || 'User')}</div>
+                            <div class="user-role">${user.role || 'Member'}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
             const count = document.getElementById('onlineCount');
             if (count) count.textContent = users.length;
             
-            const peopleBadge = document.getElementById('navPeopleBadge');
-            if (peopleBadge) peopleBadge.textContent = users.length;
+            const infoCount = document.getElementById('infoOnlineCount');
+            if (infoCount) infoCount.textContent = users.length;
         }
     } catch (error) {
         console.error('Error loading users:', error);
@@ -575,7 +587,7 @@ function cancelFilePreview() {
 }
 
 // ============================================
-// VOICE RECORDING
+// VOICE RECORDING - FIXED
 // ============================================
 
 async function startVoiceRecording() {
@@ -587,8 +599,12 @@ async function startVoiceRecording() {
         mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
         mediaRecorder.onstop = () => {
             const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            pendingVoiceBlob = blob;
-            showVoicePreview();
+            if (blob.size > 0) {
+                pendingVoiceBlob = blob;
+                showVoicePreview();
+            } else {
+                showToast('❌ Recording failed', 'error');
+            }
             stream.getTracks().forEach(t => t.stop());
         };
         
@@ -612,6 +628,7 @@ async function startVoiceRecording() {
         
         showToast('🎤 Recording... Click stop to send', 'info');
     } catch (err) {
+        console.error('Microphone error:', err);
         showToast('❌ Could not access microphone', 'error');
     }
 }
@@ -652,17 +669,27 @@ function cancelVoicePreview() {
 }
 
 function toggleVoicePlay(btn, audioUrl) {
-    const audio = btn.parentElement.querySelector('audio') || document.createElement('audio');
-    if (!audio.src) {
+    const container = btn.parentElement;
+    let audio = container.querySelector('audio');
+    
+    if (!audio) {
+        audio = document.createElement('audio');
         audio.src = audioUrl;
-        btn.parentElement.appendChild(audio);
+        container.appendChild(audio);
     }
     
     const icon = btn.querySelector('i');
+    
     if (audio.paused) {
         audio.play();
         icon.className = 'fas fa-pause';
-        audio.onended = () => { icon.className = 'fas fa-play'; };
+        audio.onended = () => {
+            icon.className = 'fas fa-play';
+        };
+        audio.onerror = () => {
+            showToast('❌ Could not play voice message', 'error');
+            icon.className = 'fas fa-play';
+        };
     } else {
         audio.pause();
         icon.className = 'fas fa-play';
@@ -703,6 +730,55 @@ function addEmoji(emoji) {
     }
     const picker = document.getElementById('emojiPicker');
     if (picker) picker.classList.remove('active');
+}
+
+// ============================================
+// MODAL
+// ============================================
+
+function openChannelModal() {
+    const modal = document.getElementById('channelModalOverlay');
+    if (modal) {
+        modal.classList.add('active');
+        updateModalInfo(currentChannel);
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeChannelModal() {
+    const modal = document.getElementById('channelModalOverlay');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function updateModalInfo(channel) {
+    const nameEl = document.getElementById('modalChannelName');
+    const descEl = document.getElementById('modalChannelDescription');
+    const memberCount = document.getElementById('modalMemberCount');
+    const messageCount = document.getElementById('modalMessageCount');
+    
+    const channelNames = {
+        general: '#general',
+        announcements: '#announcements',
+        help: '#help',
+        random: '#random',
+        projects: '#projects'
+    };
+    
+    const channelDescs = {
+        general: 'General discussion for everyone. Share ideas, ask questions, and connect with the community.',
+        announcements: 'Important updates and news from the Gliimu team. Stay informed!',
+        help: 'Ask questions about courses, projects, or technical issues. Get help from the community.',
+        random: 'Casual conversation, memes, and off-topic discussions. Have fun!',
+        projects: 'Share your work, get feedback, and collaborate with other creators.'
+    };
+    
+    if (nameEl) nameEl.textContent = channelNames[channel] || `#${channel}`;
+    if (descEl) descEl.textContent = channelDescs[channel] || '';
+    if (memberCount) memberCount.textContent = document.querySelectorAll('.user-item').length || 0;
+    if (messageCount) messageCount.textContent = allMessages.length || 0;
 }
 
 // ============================================
@@ -754,27 +830,6 @@ function onTyping() {
         const container = document.getElementById('typingIndicator');
         if (container) container.innerHTML = '';
     }, 1000);
-}
-
-function switchTab(tab) {
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.toggle('active', item.dataset.tab === tab);
-    });
-    
-    switch (tab) {
-        case 'chats':
-            document.querySelector('.chat-main').style.display = 'flex';
-            break;
-        case 'channels':
-            toggleSidebar();
-            break;
-        case 'people':
-            document.querySelector('.users-section').style.display = 'block';
-            break;
-        case 'profile':
-            showToast('👤 Profile coming soon!', 'info');
-            break;
-    }
 }
 
 // ============================================
@@ -845,6 +900,30 @@ function setupEventListeners() {
     if (closeInfo) closeInfo.addEventListener('click', toggleInfoPanel);
     if (infoOverlay) infoOverlay.addEventListener('click', toggleInfoPanel);
     
+    // Modal
+    const modalClose = document.getElementById('channelModalClose');
+    const modalBtn = document.getElementById('modalCloseBtn');
+    const modalOverlay = document.getElementById('channelModalOverlay');
+    if (modalClose) modalClose.addEventListener('click', closeChannelModal);
+    if (modalBtn) modalBtn.addEventListener('click', closeChannelModal);
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeChannelModal();
+        });
+    }
+    
+    // Info button opens modal
+    if (infoToggle) {
+        infoToggle.addEventListener('click', () => {
+            // Close info panel if open on mobile
+            const panel = document.getElementById('infoPanel');
+            if (panel && panel.classList.contains('open')) {
+                toggleInfoPanel();
+            }
+            openChannelModal();
+        });
+    }
+    
     // Scroll
     const scrollBtn = document.getElementById('scrollToBottomBtn');
     const messages = document.getElementById('messagesContainer');
@@ -864,26 +943,10 @@ function setupEventListeners() {
             if (channel) switchChannel(channel);
         });
     });
-    
-    // Call button
-    const callBtn = document.getElementById('callBtn');
-    if (callBtn) {
-        callBtn.addEventListener('click', () => {
-            showToast('🎤 Voice channels coming soon!', 'info');
-        });
-    }
-    
-    // Bottom nav
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const tab = item.dataset.tab;
-            if (tab) switchTab(tab);
-        });
-    });
 }
 
 // ============================================
-// EXPOSE TO WINDOW (for inline onclick)
+// EXPOSE TO WINDOW
 // ============================================
 
 window.sendMessage = sendMessage;
@@ -898,7 +961,8 @@ window.scrollToBottom = scrollToBottom;
 window.loadOnlineUsers = loadOnlineUsers;
 window.cancelFilePreview = cancelFilePreview;
 window.cancelVoicePreview = cancelVoicePreview;
-window.switchTab = switchTab;
+window.openChannelModal = openChannelModal;
+window.closeChannelModal = closeChannelModal;
 window.showToast = showToast;
 
 console.log('✅ Chat.js loaded');
