@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>💬 Community Chat | Gliimu Institute</title>
-  <meta name="description" content="Connect with the Gliimu community in real-time. Chat with students, instructors, and alumni.">
+  <meta name="description" content="Connect with the Gliimu community in real-time.">
   
   <link rel="icon" type="image/png" href="icons/logo.png">
   
@@ -71,13 +71,13 @@
       </div>
       
       <!-- Online Users -->
-      <div class="sidebar-section">
+      <div class="sidebar-section users-section">
         <div class="section-header">
           <i class="fas fa-circle" style="color: #10b981; font-size: 10px;"></i>
           <span>Online · <span id="onlineCount">0</span></span>
         </div>
         <div class="online-users-list" id="onlineUsersList">
-          <!-- Users will be populated here -->
+          <div class="empty-state-text">No users online</div>
         </div>
       </div>
       
@@ -117,9 +117,6 @@
           <button class="action-btn" id="infoToggleBtn" aria-label="Channel info">
             <i class="fas fa-info-circle"></i>
           </button>
-          <button class="action-btn" id="callBtn" aria-label="Voice channel">
-            <i class="fas fa-phone"></i>
-          </button>
         </div>
       </header>
       
@@ -145,7 +142,7 @@
       <!-- ==========================================
       MESSAGE COMPOSER
       ========================================== -->
-      <div class="chat-composer">
+      <div class="chat-composer" id="chatComposer">
         
         <!-- File Preview -->
         <div class="attachment-preview" id="filePreview" style="display: none;">
@@ -224,34 +221,23 @@
     </main>
     
     <!-- ==========================================
-    RIGHT INFO PANEL
+    INFO PANEL - Online Users Only
     ========================================== -->
     <aside class="info-panel" id="infoPanel">
       <div class="info-panel-header">
-        <h3>ℹ️ Channel Info</h3>
+        <h3>👥 Online Users</h3>
         <button class="close-panel" id="closeInfoPanelBtn" aria-label="Close info panel">
           <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="info-panel-body" id="infoContent">
-        <div class="info-section channel-details">
-          <div class="channel-icon-big">
-            <i class="fas fa-hashtag"></i>
-          </div>
-          <h4 id="infoChannelName">#general</h4>
-          <p id="infoChannelDescription">General discussion for everyone. Share ideas, ask questions, and connect with the community.</p>
-          <div class="channel-stats">
-            <span><i class="fas fa-user"></i> <span id="infoMemberCount">0</span> members</span>
-            <span><i class="fas fa-comment"></i> <span id="infoMessageCount">0</span> messages</span>
-          </div>
-        </div>
-        <div class="info-section channel-members">
+        <div class="info-section">
           <div class="section-header">
-            <span>Members</span>
-            <span class="member-count" id="infoMemberCountLabel">0</span>
+            <i class="fas fa-circle" style="color: #10b981; font-size: 10px;"></i>
+            <span>Online · <span id="infoOnlineCount">0</span></span>
           </div>
-          <div class="members-list" id="channelMembersList">
-            <!-- Populated by JS -->
+          <div class="online-users-list" id="infoOnlineUsersList">
+            <div class="empty-state-text">No users online</div>
           </div>
         </div>
       </div>
@@ -261,37 +247,41 @@
     <div class="info-overlay" id="infoOverlay"></div>
 
     <!-- ==========================================
-    BOTTOM NAVIGATION (Mobile)
+    CHANNEL INFO MODAL
     ========================================== -->
-    <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
-      <button class="nav-item active" data-tab="chats" id="navChats" aria-label="Chats">
-        <i class="fas fa-comment-dots"></i>
-        <span>Chats</span>
-        <span class="nav-badge" id="navChatsBadge">0</span>
-      </button>
-      <button class="nav-item" data-tab="channels" id="navChannels" aria-label="Channels">
-        <i class="fas fa-hashtag"></i>
-        <span>Channels</span>
-      </button>
-      <button class="nav-item" data-tab="people" id="navPeople" aria-label="People">
-        <i class="fas fa-users"></i>
-        <span>People</span>
-        <span class="nav-badge" id="navPeopleBadge">0</span>
-      </button>
-      <button class="nav-item" data-tab="profile" id="navProfile" aria-label="Profile">
-        <i class="fas fa-user"></i>
-        <span>Profile</span>
-      </button>
-    </nav>
-
-    <!-- ==========================================
-    TIMER BANNER (Free tier)
-    ========================================== -->
-    <div id="timerBanner" class="timer-banner" style="display: none;">
-      <div class="timer-banner-content">
-        <i class="fas fa-hourglass-half"></i>
-        <span>Free access: <span id="timerDisplay">15:00</span> remaining</span>
-        <button class="upgrade-timer-btn" onclick="window.location.href='/dashboard.html?tab=wallet'">Upgrade</button>
+    <div class="modal-overlay" id="channelModalOverlay">
+      <div class="modal-content" id="channelModal">
+        <div class="modal-header">
+          <h3>📋 Channel Info</h3>
+          <button class="modal-close" id="channelModalClose">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-channel-icon">
+            <i class="fas fa-hashtag"></i>
+          </div>
+          <h4 id="modalChannelName">#general</h4>
+          <p id="modalChannelDescription">General discussion for everyone. Share ideas, ask questions, and connect with the community.</p>
+          <div class="modal-divider"></div>
+          <div class="modal-rules">
+            <h5>📜 Channel Rules</h5>
+            <ul>
+              <li>🤝 Be respectful to all members</li>
+              <li>🚫 No spam or self-promotion</li>
+              <li>💬 Stay on topic</li>
+              <li>🔞 No inappropriate content</li>
+              <li>📢 Follow admin instructions</li>
+            </ul>
+          </div>
+          <div class="modal-stats">
+            <span><i class="fas fa-user"></i> <span id="modalMemberCount">0</span> members</span>
+            <span><i class="fas fa-comment"></i> <span id="modalMessageCount">0</span> messages</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn" id="modalCloseBtn">Close</button>
+        </div>
       </div>
     </div>
 
