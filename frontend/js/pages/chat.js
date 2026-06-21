@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Clean, Working Version
+// All JavaScript moved here for easy management
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (container) {
         container.innerHTML = `
             <div class="welcome-message">
-                <div class="welcome-icon"><i class="fas fa-spinner fa-spin"></i></div>
+                <i class="fas fa-spinner fa-spin"></i>
                 <h3>🔄 Connecting...</h3>
                 <p>Please wait while we connect you</p>
             </div>
@@ -88,6 +88,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Mark channel read
     markChannelRead(currentChannel);
     
+    // Init emoji grid
+    initEmojiGrid();
+    
     console.log('✅ Chat ready');
 });
 
@@ -102,6 +105,28 @@ function fixMobileViewport() {
     };
     setVH();
     window.addEventListener('resize', setVH);
+    window.addEventListener('orientationchange', () => setTimeout(setVH, 300));
+    
+    // Keyboard handling
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            const container = document.getElementById('messagesContainer');
+            if (container) {
+                setTimeout(() => container.scrollTop = container.scrollHeight, 100);
+            }
+        });
+    }
+    
+    // Focus handling
+    const input = document.getElementById('messageInput');
+    if (input) {
+        input.addEventListener('focus', () => {
+            setTimeout(() => {
+                const container = document.getElementById('messagesContainer');
+                if (container) container.scrollTop = container.scrollHeight;
+            }, 200);
+        });
+    }
 }
 
 // ============================================
@@ -213,7 +238,7 @@ function renderMessages() {
     if (allMessages.length === 0) {
         container.innerHTML = `
             <div class="welcome-message">
-                <div class="welcome-icon"><i class="fas fa-comments"></i></div>
+                <i class="fas fa-comments"></i>
                 <h3>👋 Welcome to #${currentChannel}</h3>
                 <p>${getWelcomeMessage(currentChannel)}</p>
             </div>
@@ -224,24 +249,29 @@ function renderMessages() {
     const shouldScroll = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
     
     let html = '';
-    allMessages.forEach(msg => {
+    let lastSender = null;
+    
+    allMessages.forEach((msg, index) => {
         const isSelf = msg.sender_id === currentUser?.id;
         const isSystem = msg.sender_id === null;
         const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const senderName = msg.sender_name || 'User';
+        const showSender = !isSystem && (lastSender !== msg.sender_id || index === 0);
         
         if (isSystem) {
-            html += `<div class="message-system">${msg.message}</div>`;
+            html += `<div class="message-system">${escapeHtml(msg.message)}</div>`;
             return;
         }
         
         html += `
             <div class="message-group ${isSelf ? 'self' : 'other'}">
-                ${!isSelf ? `<div class="message-sender">${escapeHtml(senderName)}</div>` : ''}
+                ${!isSelf && showSender ? `<div class="message-sender">${escapeHtml(senderName)}</div>` : ''}
                 <div class="message-bubble">${escapeHtml(msg.message)}</div>
                 <div class="message-time">${time}</div>
             </div>
         `;
+        
+        lastSender = msg.sender_id;
     });
     
     container.innerHTML = html;
@@ -386,6 +416,7 @@ function setupRealtimeSubscription() {
                 if (unreadCounts[msg.channel] !== undefined) {
                     unreadCounts[msg.channel]++;
                     updateChannelBadge(msg.channel, unreadCounts[msg.channel]);
+                    updateNavBadge('chats', getTotalUnread());
                 }
             }
         })
@@ -406,13 +437,13 @@ function switchChannel(channel) {
     const nameEl = document.getElementById('channelName');
     if (nameEl) {
         const names = {
-            general: '💬 general',
-            announcements: '📢 announcements',
-            help: '❓ help',
-            random: '🎲 random',
-            projects: '💻 projects'
+            general: 'general',
+            announcements: 'announcements',
+            help: 'help',
+            random: 'random',
+            projects: 'projects'
         };
-        nameEl.textContent = names[channel] || `#${channel}`;
+        nameEl.textContent = names[channel] || channel;
     }
     
     const iconEl = document.getElementById('channelIcon');
@@ -436,11 +467,28 @@ function markChannelRead(channel) {
     if (unreadCounts[channel] !== undefined) {
         unreadCounts[channel] = 0;
         updateChannelBadge(channel, 0);
+        updateNavBadge('chats', getTotalUnread());
     }
 }
 
 function updateChannelBadge(channel, count) {
     const badge = document.getElementById(`badge-${channel}`);
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+function getTotalUnread() {
+    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+}
+
+function updateNavBadge(tab, count) {
+    const badge = document.getElementById(`nav${tab.charAt(0).toUpperCase() + tab.slice(1)}Badge`);
     if (badge) {
         if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
@@ -477,6 +525,9 @@ async function loadOnlineUsers() {
             }
             const count = document.getElementById('onlineCount');
             if (count) count.textContent = users.length;
+            
+            const peopleBadge = document.getElementById('navPeopleBadge');
+            if (peopleBadge) peopleBadge.textContent = users.length;
         }
     } catch (error) {
         console.error('Error loading users:', error);
@@ -622,6 +673,22 @@ function toggleVoicePlay(btn, audioUrl) {
 // EMOJI
 // ============================================
 
+function initEmojiGrid() {
+    const grid = document.getElementById('emojiGrid');
+    if (!grid) return;
+    
+    const emojis = [
+        '😀', '😂', '❤️', '👍', '🔥', '🎉', '😎', '🤔',
+        '💯', '🚀', '🎨', '💻', '🎬', '📸', '👋', '🙌',
+        '💡', '🎯', '⚡', '✨', '💪', '🤝', '🌟', '🌈',
+        '🎊', '🎁', '🏆', '⭐', '💎', '🎵', '📚', '🎓'
+    ];
+    
+    grid.innerHTML = emojis.map(emoji => `
+        <div class="emoji-item" onclick="addEmoji('${emoji}')">${emoji}</div>
+    `).join('');
+}
+
 function toggleEmojiPicker() {
     const picker = document.getElementById('emojiPicker');
     if (picker) picker.classList.toggle('active');
@@ -632,6 +699,7 @@ function addEmoji(emoji) {
     if (input) {
         input.value += emoji;
         input.focus();
+        input.dispatchEvent(new Event('input'));
     }
     const picker = document.getElementById('emojiPicker');
     if (picker) picker.classList.remove('active');
@@ -688,6 +756,27 @@ function onTyping() {
     }, 1000);
 }
 
+function switchTab(tab) {
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tab);
+    });
+    
+    switch (tab) {
+        case 'chats':
+            document.querySelector('.chat-main').style.display = 'flex';
+            break;
+        case 'channels':
+            toggleSidebar();
+            break;
+        case 'people':
+            document.querySelector('.users-section').style.display = 'block';
+            break;
+        case 'profile':
+            showToast('👤 Profile coming soon!', 'info');
+            break;
+    }
+}
+
 // ============================================
 // UTILITY
 // ============================================
@@ -730,7 +819,9 @@ function setupEventListeners() {
     
     // Emoji
     const emojiBtn = document.getElementById('emojiBtn');
+    const emojiClose = document.getElementById('emojiCloseBtn');
     if (emojiBtn) emojiBtn.addEventListener('click', toggleEmojiPicker);
+    if (emojiClose) emojiClose.addEventListener('click', toggleEmojiPicker);
     document.addEventListener('click', (e) => {
         const picker = document.getElementById('emojiPicker');
         if (picker && !picker.contains(e.target) && !e.target.closest('#emojiBtn')) {
@@ -773,10 +864,26 @@ function setupEventListeners() {
             if (channel) switchChannel(channel);
         });
     });
+    
+    // Call button
+    const callBtn = document.getElementById('callBtn');
+    if (callBtn) {
+        callBtn.addEventListener('click', () => {
+            showToast('🎤 Voice channels coming soon!', 'info');
+        });
+    }
+    
+    // Bottom nav
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const tab = item.dataset.tab;
+            if (tab) switchTab(tab);
+        });
+    });
 }
 
 // ============================================
-// EXPOSE
+// EXPOSE TO WINDOW (for inline onclick)
 // ============================================
 
 window.sendMessage = sendMessage;
@@ -791,5 +898,7 @@ window.scrollToBottom = scrollToBottom;
 window.loadOnlineUsers = loadOnlineUsers;
 window.cancelFilePreview = cancelFilePreview;
 window.cancelVoicePreview = cancelVoicePreview;
+window.switchTab = switchTab;
+window.showToast = showToast;
 
 console.log('✅ Chat.js loaded');
