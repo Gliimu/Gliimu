@@ -96,7 +96,7 @@
       </div>
     </aside>
     
-    <!-- Sidebar Overlay (mobile) -->
+    <!-- Sidebar Overlay -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     
     <!-- ==========================================
@@ -155,12 +155,17 @@
           </button>
         </div>
         
-        <!-- Voice Preview -->
+        <!-- Voice Preview with Playback -->
         <div class="attachment-preview voice-preview" id="voicePreview" style="display: none;">
           <div class="attachment-content">
-            <i class="fas fa-microphone" style="color: #ef4444;"></i>
-            <span>Voice message</span>
+            <button class="voice-preview-play" id="voicePreviewPlay" aria-label="Preview voice message">
+              <i class="fas fa-play"></i>
+            </button>
+            <span>🎤 Voice message</span>
             <span class="voice-duration" id="voiceDuration">0:00</span>
+            <div class="voice-wave-preview" id="voiceWavePreview">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
           </div>
           <button class="cancel-attachment" id="cancelVoiceBtn" aria-label="Cancel voice message">
             <i class="fas fa-times-circle"></i>
@@ -243,7 +248,7 @@
       </div>
     </aside>
     
-    <!-- Info Panel Overlay (mobile) -->
+    <!-- Info Panel Overlay -->
     <div class="info-overlay" id="infoOverlay"></div>
 
     <!-- ==========================================
@@ -281,6 +286,20 @@
         </div>
         <div class="modal-footer">
           <button class="modal-btn" id="modalCloseBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+    MEDIA VIEWER MODAL - Images & Videos
+    ========================================== -->
+    <div class="media-modal-overlay" id="mediaModalOverlay">
+      <div class="media-modal-content">
+        <button class="media-modal-close" id="mediaModalClose" aria-label="Close media viewer">
+          <i class="fas fa-times"></i>
+        </button>
+        <div class="media-modal-body" id="mediaModalBody">
+          <!-- Content loaded by JS -->
         </div>
       </div>
     </div>
