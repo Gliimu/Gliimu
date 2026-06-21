@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Theme Persistence, Mobile Audio
+// Fixed: Voice Playback, Cache Issues
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -44,16 +44,10 @@ let unreadCounts = {
 let isDarkMode = false;
 
 // ============================================
-// THEME MANAGEMENT - FIXED
+// THEME MANAGEMENT
 // ============================================
 
 function initTheme() {
-    // Priority order:
-    // 1. dashboard_theme (set in dashboard settings)
-    // 2. theme (legacy)
-    // 3. system preference
-    // 4. default: light mode
-    
     const dashboardTheme = localStorage.getItem('dashboard_theme');
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -72,7 +66,6 @@ function initTheme() {
         theme = 'dark';
     }
     
-    // Apply theme
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
         isDarkMode = true;
@@ -81,7 +74,6 @@ function initTheme() {
         isDarkMode = false;
     }
     
-    // Sync localStorage
     localStorage.setItem('theme', theme);
     localStorage.setItem('dashboard_theme', theme);
     
@@ -95,7 +87,6 @@ function initTheme() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('💬 Chat initializing...');
     
-    // Init theme FIRST
     initTheme();
     fixMobileViewport();
     
@@ -306,16 +297,18 @@ function renderMessages() {
                 </div>
             `;
         } else if (msg.type === 'voice' && msg.file_url) {
+            // Add cache-busting to voice URL
+            const voiceUrl = msg.file_url + (msg.file_url.includes('?') ? '&' : '?') + 't=' + Date.now();
             contentHtml = `
                 <div class="message-bubble voice-bubble">
                     <div class="voice-message">
-                        <button class="voice-play-btn" onclick="toggleVoicePlay(this, '${msg.file_url}')">
+                        <button class="voice-play-btn" onclick="toggleVoicePlay(this, '${voiceUrl}')">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" src="${msg.file_url}" preload="metadata" playsinline></audio>
+                        <audio style="display:none;" src="${voiceUrl}" preload="metadata" playsinline webkit-playsinline></audio>
                     </div>
                 </div>
             `;
@@ -409,14 +402,16 @@ async function sendMessage() {
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, file);
+                .upload(path, file, {
+                    cacheControl: 'no-cache, no-store, must-revalidate'
+                });
             
             if (!uploadError) {
                 const { data: { publicUrl } } = supabase.storage
                     .from('chat-files')
                     .getPublicUrl(path);
                 
-                fileUrl = publicUrl;
+                fileUrl = publicUrl + '?t=' + Date.now();
                 fileName = file.name;
                 if (file.type.startsWith('video/')) {
                     messageType = 'video';
@@ -441,14 +436,17 @@ async function sendMessage() {
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, pendingVoiceBlob);
+                .upload(path, pendingVoiceBlob, {
+                    contentType: 'audio/webm',
+                    cacheControl: 'no-cache, no-store, must-revalidate'
+                });
             
             if (!uploadError) {
                 const { data: { publicUrl } } = supabase.storage
                     .from('chat-files')
                     .getPublicUrl(path);
                 
-                fileUrl = publicUrl;
+                fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
                 messageText = '';
             } else {
@@ -815,7 +813,7 @@ function cancelVoicePreview() {
 }
 
 // ============================================
-// VOICE PREVIEW PLAYBACK - FIXED FOR MOBILE
+// VOICE PREVIEW PLAYBACK - FIXED
 // ============================================
 
 function setupVoicePreviewPlayback() {
@@ -830,72 +828,105 @@ function setupVoicePreviewPlayback() {
     newPlayBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        toggleVoicePreviewPlayback(this, wave);
-    });
-}
-
-function toggleVoicePreviewPlayback(playBtn, wave) {
-    if (isVoicePreviewPlaying) {
-        if (voicePreviewAudio) {
-            voicePreviewAudio.pause();
-        }
-        isVoicePreviewPlaying = false;
-        playBtn.innerHTML = '<i class="fas fa-play"></i>';
-        if (wave) wave.classList.remove('playing');
-        return;
-    }
-    
-    if (!voicePreviewAudio) {
-        voicePreviewAudio = new Audio(pendingVoiceUrl);
-        voicePreviewAudio.preload = 'metadata';
-        voicePreviewAudio.playsInline = true;
-        voicePreviewAudio.setAttribute('playsinline', '');
-        voicePreviewAudio.setAttribute('webkit-playsinline', '');
         
-        voicePreviewAudio.onended = () => {
+        if (isVoicePreviewPlaying) {
+            if (voicePreviewAudio) {
+                voicePreviewAudio.pause();
+            }
             isVoicePreviewPlaying = false;
-            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            this.innerHTML = '<i class="fas fa-play"></i>';
             if (wave) wave.classList.remove('playing');
-        };
-        
-        voicePreviewAudio.onerror = (e) => {
-            console.error('Audio error:', e);
-            showToast('❌ Could not play preview', 'error');
-            isVoicePreviewPlaying = false;
-            playBtn.innerHTML = '<i class="fas fa-play"></i>';
-            if (wave) wave.classList.remove('playing');
-        };
-    }
-    
-    voicePreviewAudio.play().then(() => {
-        isVoicePreviewPlaying = true;
-        playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-        if (wave) wave.classList.add('playing');
-    }).catch((err) => {
-        console.error('Play error:', err);
-        showToast('❌ Tap again to play preview', 'error');
-        if (err.name === 'NotAllowedError') {
-            showToast('❌ Please tap play again after interacting with the page', 'warning');
+            return;
         }
+        
+        if (!voicePreviewAudio) {
+            voicePreviewAudio = new Audio(pendingVoiceUrl);
+            voicePreviewAudio.preload = 'metadata';
+            voicePreviewAudio.playsInline = true;
+            voicePreviewAudio.setAttribute('playsinline', '');
+            voicePreviewAudio.setAttribute('webkit-playsinline', '');
+            
+            voicePreviewAudio.onended = () => {
+                isVoicePreviewPlaying = false;
+                this.innerHTML = '<i class="fas fa-play"></i>';
+                if (wave) wave.classList.remove('playing');
+            };
+            
+            voicePreviewAudio.onerror = (e) => {
+                console.error('Audio error:', e);
+                const newUrl = pendingVoiceUrl + '?t=' + Date.now();
+                this.src = newUrl;
+                this.load();
+                showToast('🔄 Reloading preview...', 'info');
+                setTimeout(() => {
+                    this.play().then(() => {
+                        isVoicePreviewPlaying = true;
+                        this.innerHTML = '<i class="fas fa-pause"></i>';
+                        if (wave) wave.classList.add('playing');
+                    }).catch(() => {
+                        showToast('❌ Could not play preview', 'error');
+                    });
+                }, 500);
+            };
+        }
+        
+        voicePreviewAudio.play().then(() => {
+            isVoicePreviewPlaying = true;
+            this.innerHTML = '<i class="fas fa-pause"></i>';
+            if (wave) wave.classList.add('playing');
+        }).catch((err) => {
+            console.error('Play error:', err);
+            if (err.name === 'NotAllowedError') {
+                showToast('👆 Tap play after interacting with the page', 'warning');
+            } else {
+                const newUrl = pendingVoiceUrl + '?t=' + Date.now();
+                voicePreviewAudio.src = newUrl;
+                voicePreviewAudio.load();
+                setTimeout(() => {
+                    voicePreviewAudio.play().then(() => {
+                        isVoicePreviewPlaying = true;
+                        this.innerHTML = '<i class="fas fa-pause"></i>';
+                        if (wave) wave.classList.add('playing');
+                    }).catch(() => {
+                        showToast('❌ Could not play preview', 'error');
+                    });
+                }, 300);
+            }
+        });
     });
 }
 
 // ============================================
-// VOICE PLAY IN MESSAGES - FIXED FOR MOBILE
+// VOICE PLAY IN MESSAGES - FIXED
 // ============================================
 
 function toggleVoicePlay(btn, audioUrl) {
     const container = btn.parentElement;
     let audio = container.querySelector('audio');
     
+    const urlWithCache = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+    
     if (!audio) {
         audio = document.createElement('audio');
-        audio.src = audioUrl;
+        audio.src = urlWithCache;
         audio.preload = 'metadata';
         audio.playsInline = true;
         audio.setAttribute('playsinline', '');
         audio.setAttribute('webkit-playsinline', '');
+        audio.onerror = function() {
+            console.error('Audio load error, retrying...');
+            const newUrl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+            this.src = newUrl;
+            this.load();
+        };
         container.appendChild(audio);
+    } else {
+        const currentSrc = audio.src;
+        const newUrl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+        if (currentSrc !== newUrl) {
+            audio.src = newUrl;
+            audio.load();
+        }
     }
     
     const icon = btn.querySelector('i');
@@ -919,8 +950,23 @@ function toggleVoicePlay(btn, audioUrl) {
             };
         }).catch((err) => {
             console.error('Play error:', err);
-            showToast('❌ Tap again to play', 'error');
-            icon.className = 'fas fa-play';
+            if (err.name === 'NotSupportedError' || err.message.includes('decode')) {
+                showToast('🔄 Reloading audio...', 'info');
+                const newUrl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+                audio.src = newUrl;
+                audio.load();
+                setTimeout(() => {
+                    audio.play().then(() => {
+                        icon.className = 'fas fa-pause';
+                    }).catch(() => {
+                        showToast('❌ Could not play voice message', 'error');
+                        icon.className = 'fas fa-play';
+                    });
+                }, 500);
+            } else {
+                showToast('❌ Could not play voice message', 'error');
+                icon.className = 'fas fa-play';
+            }
         });
     } else {
         audio.pause();
