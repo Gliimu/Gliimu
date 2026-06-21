@@ -1849,3 +1849,63 @@ html, body {
     25% { background: rgba(251, 176, 64, 0.2); border-radius: var(--radius); }
     50% { background: rgba(251, 176, 64, 0.1); border-radius: var(--radius); }
 }
+
+/* ============================================
+   VIDEO PLAY OVERLAY - SMALL & CLEAN
+   ============================================ */
+
+.video-bubble {
+    position: relative;
+    cursor: pointer;
+    padding: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.video-bubble .message-video {
+    width: 100%;
+    max-width: 200px;
+    max-height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+}
+
+.video-bubble .video-play-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 36px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.video-bubble:hover .video-play-overlay {
+    background: rgba(44, 47, 120, 0.8);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* Responsive for mobile */
+@media (max-width: 400px) {
+    .video-bubble .video-play-overlay {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    .video-bubble .message-video {
+        max-width: 150px;
+        max-height: 130px;
+    }
+}
