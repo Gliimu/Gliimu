@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fully Functional - Fixed Presence, Audio, Mentions, Reply
+// Fully Functional - Database-based Online Users
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -28,6 +28,7 @@ let replyToMessage = null;
 let hasReplyColumn = true;
 let shownMentionToasts = new Set();
 let presenceInitialized = false;
+let onlineInterval = null;
 
 // Audio recording
 let mediaRecorder = null;
@@ -186,10 +187,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Periodically refresh online users
     setInterval(() => {
-        if (presenceChannel) {
-            refreshOnlineUsers();
-        }
-    }, 10000);
+        refreshOnlineUsers();
+    }, 15000);
     
     console.log('✅ Chat ready');
 });
@@ -283,167 +282,146 @@ function getInitials(name) {
 }
 
 // ============================================
-// PRESENCE TRACKING - SHARED CHANNEL
+// ONLINE USERS - DATABASE TABLE APPROACH
 // ============================================
 
 async function setupPresenceTracking() {
     if (!currentUser) return;
     if (presenceInitialized) return;
     
-    console.log('🟢 Setting up presence tracking...');
+    console.log('🟢 Setting up online users tracking (database approach)...');
     
-    if (presenceChannel) {
-        try {
-            await presenceChannel.untrack();
-            await presenceChannel.unsubscribe();
-        } catch (e) {
-            console.warn('Error cleaning up presence:', e);
-        }
-        presenceChannel = null;
-    }
+    // Mark user as online
+    await markUserOnline();
     
-    const userData = {
-        user_id: currentUser.id,
-        name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
-        role: currentUser.user_metadata?.role || 'student',
-        avatar_url: currentUser.user_metadata?.avatar_url || null,
-        online_at: new Date().toISOString()
-    };
+    // Set up interval to keep user online (every 30 seconds)
+    onlineInterval = setInterval(async () => {
+        await markUserOnline();
+    }, 30000);
     
-    // ✅ SHARED channel name - ALL users use the same channel
-    const channelName = 'chat_online_users';
+    // Load online users initially
+    await loadOnlineUsers();
     
-    presenceChannel = supabase.channel(channelName, {
-        config: {
-            presence: {
-                key: currentUser.id
-            }
-        }
-    });
+    presenceInitialized = true;
     
-    presenceChannel.on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        console.log('🔄 Presence sync - State keys:', Object.keys(state).length);
-        
-        const onlineUsers = [];
-        for (const [key, value] of Object.entries(state)) {
-            if (value && value.length > 0) {
-                const userInfo = value[value.length - 1];
-                if (userInfo && userInfo.user_id) {
-                    onlineUsers.push(userInfo);
-                }
-            }
-        }
-        
-        console.log('👥 Online users from sync:', onlineUsers.length);
-        updateOnlineUsersList(onlineUsers);
-    });
-    
-    presenceChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('👤 User joined:', newPresences);
-        refreshOnlineUsers();
-    });
-    
-    presenceChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('👤 User left:', leftPresences);
-        refreshOnlineUsers();
-    });
-    
-    try {
-        await presenceChannel.subscribe(async (status) => {
-            console.log('📡 Presence subscription status:', status);
-            
-            if (status === 'SUBSCRIBED') {
-                await presenceChannel.track(userData);
-                console.log('✅ Presence tracked for:', userData.name);
-                presenceInitialized = true;
-                
-                setTimeout(() => {
-                    refreshOnlineUsers();
-                }, 500);
-            }
-        });
-    } catch (error) {
-        console.error('❌ Presence subscription error:', error);
-    }
-    
+    // Clean up on page unload
     window.addEventListener('beforeunload', async () => {
-        if (presenceChannel) {
-            try {
-                await presenceChannel.untrack();
-                await presenceChannel.unsubscribe();
-            } catch (e) {}
+        if (onlineInterval) {
+            clearInterval(onlineInterval);
         }
+        await markUserOffline();
     });
 }
 
-function refreshOnlineUsers() {
-    if (!presenceChannel) {
-        console.warn('No presence channel to refresh');
-        return;
-    }
+async function markUserOnline() {
+    if (!currentUser) return;
     
     try {
-        const state = presenceChannel.presenceState();
-        console.log('🔄 Refreshing presence state:', Object.keys(state).length, 'keys');
+        const name = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User';
+        const role = currentUser.user_metadata?.role || 'student';
+        const avatar = currentUser.user_metadata?.avatar_url || null;
         
-        const onlineUsers = [];
-        for (const [key, value] of Object.entries(state)) {
-            if (value && value.length > 0) {
-                const userInfo = value[value.length - 1];
-                if (userInfo && userInfo.user_id) {
-                    onlineUsers.push(userInfo);
-                }
-            }
+        const { error } = await supabase
+            .from('online_users')
+            .upsert({
+                user_id: currentUser.id,
+                user_name: name,
+                user_role: role,
+                avatar_url: avatar,
+                last_seen: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        
+        if (error) {
+            console.warn('Error marking user online:', error);
+        }
+    } catch (error) {
+        console.warn('Error marking user online:', error);
+    }
+}
+
+async function markUserOffline() {
+    if (!currentUser) return;
+    
+    try {
+        const { error } = await supabase
+            .from('online_users')
+            .delete()
+            .eq('user_id', currentUser.id);
+        
+        if (error) {
+            console.warn('Error marking user offline:', error);
+        }
+    } catch (error) {
+        console.warn('Error marking user offline:', error);
+    }
+}
+
+async function loadOnlineUsers() {
+    try {
+        // Get users who have been active in the last 60 seconds
+        const cutoffTime = new Date();
+        cutoffTime.setSeconds(cutoffTime.getSeconds() - 60);
+        
+        const { data: users, error } = await supabase
+            .from('online_users')
+            .select('user_id, user_name, user_role, avatar_url, last_seen')
+            .gte('last_seen', cutoffTime.toISOString())
+            .order('user_name', { ascending: true });
+        
+        if (error) {
+            console.error('Error loading online users:', error);
+            return;
         }
         
-        console.log('👥 Online users from refresh:', onlineUsers.length);
-        updateOnlineUsersList(onlineUsers);
+        console.log('👥 Online users from database:', users?.length || 0);
+        updateOnlineUsersList(users || []);
     } catch (error) {
-        console.error('Error refreshing online users:', error);
+        console.error('Error loading online users:', error);
     }
+}
+
+function refreshOnlineUsers() {
+    loadOnlineUsers();
 }
 
 function updateOnlineUsersList(users) {
     const modalContainer = document.getElementById('modalOnlineUsersList');
     if (!modalContainer) return;
     
-    const uniqueUsers = [];
-    const seenIds = new Set();
-    for (const user of users) {
-        if (user && user.user_id && !seenIds.has(user.user_id)) {
-            seenIds.add(user.user_id);
-            uniqueUsers.push(user);
-        }
+    // Filter out the current user for the list (we'll add them separately with "You" badge)
+    const otherUsers = users.filter(user => user.user_id !== currentUser?.id);
+    
+    // Sort users by name
+    const sortedUsers = otherUsers.sort((a, b) => (a.user_name || '').localeCompare(b.user_name || ''));
+    
+    // Add current user at the top if they're in the list
+    const currentUserData = users.find(user => user.user_id === currentUser?.id);
+    
+    let allSorted = [];
+    if (currentUserData) {
+        allSorted.push(currentUserData);
     }
+    allSorted = allSorted.concat(sortedUsers);
     
-    console.log('📊 Displaying online users:', uniqueUsers.length);
-    
-    if (uniqueUsers.length === 0) {
+    if (allSorted.length === 0) {
         modalContainer.innerHTML = `<div class="empty-state-text">No users online</div>`;
         const count = document.getElementById('modalMemberCount');
         if (count) count.textContent = '0';
         return;
     }
     
-    const sortedUsers = uniqueUsers.sort((a, b) => {
-        if (a.user_id === currentUser.id) return -1;
-        if (b.user_id === currentUser.id) return 1;
-        return (a.name || '').localeCompare(b.name || '');
-    });
-    
-    modalContainer.innerHTML = sortedUsers.map(user => {
-        const isCurrentUser = user.user_id === currentUser.id;
+    modalContainer.innerHTML = allSorted.map(user => {
+        const isCurrentUser = user.user_id === currentUser?.id;
         const avatarUrl = user.avatar_url || userAvatars[user.user_id] || null;
-        const initials = getInitials(user.name);
-        const displayName = isCurrentUser ? 'You' : escapeHtml(user.name || 'User');
-        const role = isCurrentUser ? '' : (user.role || 'Member');
+        const initials = getInitials(user.user_name);
+        const displayName = isCurrentUser ? 'You' : escapeHtml(user.user_name || 'User');
+        const role = isCurrentUser ? '' : (user.user_role || 'Member');
         
         return `
             <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}">
                 <div class="user-avatar">
                     ${avatarUrl ? 
-                        `<img src="${avatarUrl}" alt="${escapeHtml(user.name)}">` :
+                        `<img src="${avatarUrl}" alt="${escapeHtml(user.user_name)}">` :
                         `<span>${initials}</span>`
                     }
                 </div>
@@ -458,7 +436,7 @@ function updateOnlineUsersList(users) {
     }).join('');
     
     const count = document.getElementById('modalMemberCount');
-    if (count) count.textContent = uniqueUsers.length;
+    if (count) count.textContent = allSorted.length;
 }
 
 // ============================================
