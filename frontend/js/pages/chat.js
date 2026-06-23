@@ -151,16 +151,20 @@ const CHANNEL_CONFIG = {
 };
 
 // ============================================
-// THEME MANAGEMENT
+// THEME MANAGEMENT - AGGRESSIVE FIX
 // ============================================
 
 function initTheme() {
+    // Force read from localStorage
     const dashboardTheme = localStorage.getItem('dashboard_theme');
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
+    console.log('🔍 Theme check - dashboard_theme:', dashboardTheme, 'savedTheme:', savedTheme);
+    
     let theme = 'light';
     
+    // Priority: dashboard_theme > savedTheme > system > default 'light'
     if (dashboardTheme === 'dark') {
         theme = 'dark';
     } else if (dashboardTheme === 'light') {
@@ -172,29 +176,29 @@ function initTheme() {
     } else if (systemPrefersDark) {
         theme = 'dark';
     }
+    // Default: 'light'
     
+    // Apply theme to body
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
         isDarkMode = true;
+        console.log('🌙 Dark mode applied');
     } else {
         document.body.classList.remove('dark-mode');
         isDarkMode = false;
+        console.log('☀️ Light mode applied');
     }
     
+    // Sync localStorage
     localStorage.setItem('theme', theme);
     localStorage.setItem('dashboard_theme', theme);
     
-    console.log('🎨 Theme initialized:', theme, 'mode');
+    // Force CSS variable update
+    document.documentElement.style.setProperty('--bg-primary', theme === 'dark' ? '#0f172a' : '#ffffff');
+    document.documentElement.style.setProperty('--text-primary', theme === 'dark' ? '#f1f5f9' : '#0f172a');
+    
+    console.log('🎨 Theme finalized:', theme, 'mode');
 }
-
-window.toggleTheme = function() {
-    isDarkMode = !isDarkMode;
-    document.body.classList.toggle('dark-mode', isDarkMode);
-    const theme = isDarkMode ? 'dark' : 'light';
-    localStorage.setItem('theme', theme);
-    localStorage.setItem('dashboard_theme', theme);
-    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
-};
 
 // ============================================
 // LOAD/SAVE MENTION TOASTS
