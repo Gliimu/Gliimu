@@ -824,13 +824,28 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
     let audioEl = container.querySelector('audio');
     const durationLabel = container.querySelector('.voice-duration-label');
     
+    // ✅ iOS AudioContext resume
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+            console.log('🔊 AudioContext resumed');
+        }
+    } catch (e) {
+        console.log('AudioContext resume error:', e);
+    }
+    
     if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.style.display = 'none';
         audioEl.playsInline = true;
         audioEl.setAttribute('playsinline', '');
         audioEl.setAttribute('webkit-playsinline', '');
+        audioEl.setAttribute('x-webkit-airplay', 'allow');
         audioEl.preload = 'auto';
+        // ✅ Ensure volume is not muted
+        audioEl.volume = 1.0;
+        audioEl.muted = false;
         container.appendChild(audioEl);
     }
     
@@ -843,33 +858,34 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         
         console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        // For WAV files, use direct URL approach (works best on all devices)
-        if (isWav) {
-            console.log('🎵 Playing WAV directly');
-            audioEl.src = freshUrl;
-            audioEl.load();
-            
-            await new Promise((resolve) => {
-                const timeout = setTimeout(resolve, 5000);
-                const onReady = () => {
-                    clearTimeout(timeout);
-                    audioEl.removeEventListener('canplaythrough', onReady);
-                    audioEl.removeEventListener('loadeddata', onReady);
-                    resolve();
-                };
-                audioEl.addEventListener('canplaythrough', onReady);
-                audioEl.addEventListener('loadeddata', onReady);
-                if (audioEl.readyState >= 3) {
-                    clearTimeout(timeout);
-                    resolve();
-                }
-            });
-            
+        // ✅ For WAV or WebM, use direct URL first (works best on iOS)
+        console.log('🎵 Playing directly from URL');
+        audioEl.src = freshUrl;
+        audioEl.load();
+        
+        // ✅ Wait for audio to be ready
+        await new Promise((resolve) => {
+            const timeout = setTimeout(resolve, 8000);
+            const onReady = () => {
+                clearTimeout(timeout);
+                audioEl.removeEventListener('canplaythrough', onReady);
+                audioEl.removeEventListener('loadeddata', onReady);
+                resolve();
+            };
+            audioEl.addEventListener('canplaythrough', onReady);
+            audioEl.addEventListener('loadeddata', onReady);
+            if (audioEl.readyState >= 3) {
+                clearTimeout(timeout);
+                resolve();
+            }
+        });
+        
+        // ✅ Try playing
+        try {
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
             
-            // Show duration if available
             if (durationLabel && audioEl.duration) {
                 const mins = Math.floor(audioEl.duration / 60);
                 const secs = Math.floor(audioEl.duration % 60);
@@ -879,46 +895,63 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
             };
-            return;
-        }
-        
-        // For WebM files, try multiple approaches
-        console.log('🎵 Playing WebM with fallback chain');
-        
-        // Approach 1: Direct URL
-        try {
-            audioEl.src = freshUrl;
-            audioEl.load();
             
-            await new Promise((resolve) => {
-                const timeout = setTimeout(resolve, 5000);
-                const onReady = () => {
-                    clearTimeout(timeout);
-                    audioEl.removeEventListener('canplaythrough', onReady);
-                    audioEl.removeEventListener('loadeddata', onReady);
-                    resolve();
-                };
-                audioEl.addEventListener('canplaythrough', onReady);
-                audioEl.addEventListener('loadeddata', onReady);
-                if (audioEl.readyState >= 3) {
-                    clearTimeout(timeout);
-                    resolve();
-                }
-            });
-            
-            await audioEl.play();
-            icon.className = 'fas fa-pause';
-            btn.disabled = false;
-            audioEl.onended = () => {
+            // ✅ Error handler
+            audioEl.onerror = (e) => {
+                console.error('Audio error:', e);
                 icon.className = 'fas fa-play';
+                btn.disabled = false;
+                // ✅ Try fallback if direct URL fails
+                if (audioEl.error && audioEl.error.code === 4) {
+                    // MEDIA_ERR_SRC_NOT_SUPPORTED - try blob approach
+                    loadVoiceAsBlob(btn, freshUrl);
+                }
             };
-            return;
-        } catch (directErr) {
-            console.log('Direct URL failed, trying blob:', directErr);
+            
+        } catch (playErr) {
+            console.error('Play error:', playErr);
+            icon.className = 'fas fa-play';
+            btn.disabled = false;
+            
+            // ✅ If NotAllowedError, show user-friendly message
+            if (playErr.name === 'NotAllowedError') {
+                showToast('👆 Tap the play button again', 'warning');
+            } else {
+                // ✅ Try blob approach as fallback
+                await loadVoiceAsBlob(btn, freshUrl);
+            }
         }
         
-        // Approach 2: Blob fetch
-        const response = await fetch(freshUrl, {
+    } catch (err) {
+        console.error('Load error:', err);
+        icon.className = 'fas fa-play';
+        btn.disabled = false;
+        showToast('❌ Could not load voice message', 'error');
+    }
+}
+
+// ✅ New function: Load voice as blob (fallback)
+async function loadVoiceAsBlob(btn, audioUrl) {
+    const icon = btn.querySelector('i');
+    const container = btn.parentElement;
+    let audioEl = container.querySelector('audio');
+    
+    if (!audioEl) {
+        audioEl = document.createElement('audio');
+        audioEl.style.display = 'none';
+        audioEl.playsInline = true;
+        audioEl.setAttribute('playsinline', '');
+        audioEl.setAttribute('webkit-playsinline', '');
+        audioEl.volume = 1.0;
+        audioEl.muted = false;
+        container.appendChild(audioEl);
+    }
+    
+    icon.className = 'fas fa-spinner fa-spin';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch(audioUrl, {
             cache: 'no-cache',
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -926,23 +959,19 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const blob = await response.blob();
-        if (blob.size === 0) {
-            throw new Error('Empty audio file');
-        }
+        if (blob.size === 0) throw new Error('Empty audio file');
         
-        console.log('📦 Audio blob size:', blob.size, 'bytes, type:', blob.type);
+        console.log('📦 Audio blob loaded:', blob.size, 'bytes');
         
         const blobUrl = URL.createObjectURL(blob);
         audioEl.src = blobUrl;
         audioEl.load();
         
         await new Promise((resolve) => {
-            const timeout = setTimeout(resolve, 8000);
+            const timeout = setTimeout(resolve, 5000);
             const onReady = () => {
                 clearTimeout(timeout);
                 audioEl.removeEventListener('canplaythrough', onReady);
@@ -966,26 +995,10 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         };
         
     } catch (err) {
-        console.error('Load error:', err);
+        console.error('Blob load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
-        
-        // Final fallback: try direct URL one more time
-        try {
-            const freshUrl = audioUrl.split('?')[0] + '?t=' + Date.now();
-            audioEl.src = freshUrl;
-            audioEl.load();
-            await audioEl.play();
-            icon.className = 'fas fa-pause';
-            btn.disabled = false;
-            audioEl.onended = () => {
-                icon.className = 'fas fa-play';
-            };
-            return;
-        } catch (finalErr) {
-            console.error('Final fallback failed:', finalErr);
-            showToast('❌ Could not play voice message', 'error');
-        }
+        showToast('❌ Could not play voice message', 'error');
     }
 }
 
