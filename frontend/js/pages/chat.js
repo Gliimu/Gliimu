@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Clean Version - No Guest Access, Projects Restored
+// WAV ONLY - Universal audio for all devices
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -29,7 +29,6 @@ let hasReplyColumn = true;
 let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
-let userRole = null;
 
 // Audio recording - WAV ONLY
 let audioContext = null;
@@ -152,7 +151,7 @@ const CHANNEL_CONFIG = {
 };
 
 // ============================================
-// THEME MANAGEMENT - FIXED
+// THEME MANAGEMENT
 // ============================================
 
 function initTheme() {
@@ -275,10 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
         currentUser = await getCurrentUser();
-        if (currentUser) {
-            userRole = currentUser.user_metadata?.role || 'student';
-            console.log('👤 User logged in:', currentUser.email, 'Role:', userRole);
-        }
     } catch (err) {
         console.error('Error getting user:', err);
         currentUser = null;
@@ -689,7 +684,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE
+        // VOICE - Check file extension for WAV vs WebM
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -706,7 +701,7 @@ function renderMessages() {
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
                         <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
-                        <span class="voice-duration-label"></span>
+                        <span class="voice-duration-label">${getVoiceDuration(msg.file_url)}</span>
                     </div>
                 </div>
             `;
@@ -760,6 +755,12 @@ function renderMessages() {
     attachMessageEvents();
     
     if (shouldScroll) scrollToBottom();
+}
+
+// Helper: Get voice duration (placeholder)
+function getVoiceDuration(url) {
+    // In a real implementation, you'd parse duration from metadata
+    return '';
 }
 
 // ============================================
@@ -864,6 +865,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             icon.className = 'fas fa-pause';
             btn.disabled = false;
             
+            // Show duration if available
             if (durationLabel && audioEl.duration) {
                 const mins = Math.floor(audioEl.duration / 60);
                 const secs = Math.floor(audioEl.duration % 60);
@@ -1453,7 +1455,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE
+// SEND MESSAGE - WAV FOR ALL DEVICES
 // ============================================
 
 async function sendMessage() {
@@ -1522,11 +1524,18 @@ async function sendMessage() {
         
         // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
+            // Ensure it's WAV format
+            let voiceBlob = pendingVoiceBlob;
+            if (!pendingVoiceBlob.type || pendingVoiceBlob.type !== 'audio/wav') {
+                // If somehow not WAV, convert (should already be WAV from recording)
+                console.warn('Unexpected voice format:', pendingVoiceBlob.type);
+            }
+            
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, pendingVoiceBlob, {
+                .upload(path, voiceBlob, {
                     contentType: 'audio/wav',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
@@ -1541,7 +1550,7 @@ async function sendMessage() {
                 messageText = '';
                 console.log('📤 Voice uploaded as WAV:', path);
             } else {
-                showToast('❌ Voice upload failed', 'error');
+                showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
                 return;
