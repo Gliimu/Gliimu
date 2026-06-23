@@ -28,6 +28,38 @@
     --danger: #ef4444;
 }
 
+/* ============================================
+   THEME - LIGHT MODE DEFAULT
+   ============================================ */
+
+/* Light mode is the default */
+body {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-input: #f1f5f9;
+    
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-tertiary: #94a3b8;
+    
+    --border-color: #e2e8f0;
+}
+
+/* Dark mode override */
+body.dark-mode {
+    --bg-primary: #0f172a;
+    --bg-secondary: #0f172a;
+    --bg-card: #1e293b;
+    --bg-input: #1e293b;
+    
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+    
+    --border-color: #1e293b;
+}
+
 body.dark-mode {
     --bg-primary: #0f172a;
     --bg-secondary: #0f172a;
