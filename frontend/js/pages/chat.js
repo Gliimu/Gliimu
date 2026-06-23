@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// WAV ONLY - Universal audio for all devices
+// Fixed: Theme sync, New Visitors channel, Guest access
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -29,6 +29,8 @@ let hasReplyColumn = true;
 let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
+let isGuest = true;
+let userRole = null;
 
 // Audio recording - WAV ONLY
 let audioContext = null;
@@ -48,7 +50,7 @@ let unreadCounts = {
     general: 0,
     announcements: 0,
     help: 0,
-    projects: 0,
+    newvisitors: 0,  // Changed from projects
     alumni: 0,
     reports: 0,
     administration: 0,
@@ -69,98 +71,125 @@ const CHANNEL_CONFIG = {
         icon: 'fa-hashtag',
         label: '💬 general',
         description: 'General discussion for everyone. Share ideas, ask questions, and connect with the community.',
-        rules: ['Be respectful to all members', 'No spam or self-promotion', 'Stay on topic', 'No inappropriate content']
+        rules: ['Be respectful to all members', 'No spam or self-promotion', 'Stay on topic', 'No inappropriate content'],
+        requiresAuth: false,
+        allowedRoles: null
     },
     announcements: {
         name: 'announcements',
         icon: 'fa-bullhorn',
         label: '📢 announcements',
         description: 'Important updates and news from the Gliimu team. Stay informed!',
-        rules: ['Check here daily for updates', 'No replies to announcements', 'Contact admins for questions']
+        rules: ['Check here daily for updates', 'No replies to announcements', 'Contact admins for questions'],
+        requiresAuth: true,
+        allowedRoles: ['admin', 'instructor']
     },
     help: {
         name: 'help',
         icon: 'fa-question-circle',
         label: '❓ help',
         description: 'Ask questions about courses, projects, or technical issues. Get help from the community.',
-        rules: ['Be specific about your issue', 'Provide screenshots when possible', 'Be patient for responses']
+        rules: ['Be specific about your issue', 'Provide screenshots when possible', 'Be patient for responses'],
+        requiresAuth: true,
+        allowedRoles: null
     },
-    projects: {
-        name: 'projects',
-        icon: 'fa-code',
-        label: '💻 projects',
-        description: 'Share your work, get feedback, and collaborate with other creators.',
-        rules: ['Share your own work only', 'Give constructive feedback', 'No self-promotion outside projects']
+    newvisitors: {
+        name: 'newvisitors',
+        icon: 'fa-user-plus',
+        label: '🆕 new visitors',
+        description: 'Welcome new visitors! Introduce yourself and explore the platform.',
+        rules: ['Be respectful to all members', 'No spam or self-promotion', 'Stay on topic', 'No inappropriate content'],
+        requiresAuth: false,
+        allowedRoles: ['crm'],
+        isPublic: true
     },
     alumni: {
         name: 'alumni',
         icon: 'fa-graduation-cap',
         label: '🎓 alumni',
         description: 'Connect with fellow graduates. Share career updates, opportunities, and network.',
-        rules: ['Be professional', 'Share opportunities', 'Support fellow alumni']
+        rules: ['Be professional', 'Share opportunities', 'Support fellow alumni'],
+        requiresAuth: true,
+        allowedRoles: ['student', 'admin', 'instructor']
     },
     reports: {
         name: 'reports',
         icon: 'fa-flag',
         label: '🚩 reports',
         description: 'Report issues, bugs, or inappropriate content. All reports are confidential.',
-        rules: ['Be factual', 'Provide evidence', 'Reports are confidential']
+        rules: ['Be factual', 'Provide evidence', 'Reports are confidential'],
+        requiresAuth: true,
+        allowedRoles: ['admin', 'crm']
     },
     administration: {
         name: 'administration',
         icon: 'fa-users-cog',
         label: '⚙️ administration',
         description: 'For administrators to manage the platform and communicate with staff.',
-        rules: ['Admin only', 'Professional conduct required']
+        rules: ['Admin only', 'Professional conduct required'],
+        requiresAuth: true,
+        allowedRoles: ['admin']
     },
     submissions: {
         name: 'submissions',
         icon: 'fa-upload',
         label: '📤 submissions',
         description: 'Submit assignments, projects, and proposals for review.',
-        rules: ['Follow submission guidelines', 'Include all required files', 'Submit before deadlines']
+        rules: ['Follow submission guidelines', 'Include all required files', 'Submit before deadlines'],
+        requiresAuth: true,
+        allowedRoles: ['student', 'admin', 'instructor']
     },
     jobpostings: {
         name: 'jobpostings',
         icon: 'fa-briefcase',
         label: '💼 job postings',
         description: 'Post and view job opportunities from partner organizations.',
-        rules: ['No spam', 'Include job requirements', 'Valid contact information required']
+        rules: ['No spam', 'Include job requirements', 'Valid contact information required'],
+        requiresAuth: true,
+        allowedRoles: ['partner', 'admin']
     },
     academics: {
         name: 'academics',
         icon: 'fa-book-open',
         label: '📚 academics',
         description: 'Discuss academic topics, share resources, and collaborate with instructors.',
-        rules: ['Stay on academic topics', 'Respect instructors', 'No plagiarism']
+        rules: ['Stay on academic topics', 'Respect instructors', 'No plagiarism'],
+        requiresAuth: true,
+        allowedRoles: ['student', 'admin', 'instructor']
     },
     debate: {
         name: 'debate',
         icon: 'fa-microphone-alt',
         label: '🎤 debate',
         description: 'Engage in respectful debates on various topics. Critical thinking welcome!',
-        rules: ['Respect opposing views', 'Use evidence', 'No personal attacks', 'Stay on topic']
+        rules: ['Respect opposing views', 'Use evidence', 'No personal attacks', 'Stay on topic'],
+        requiresAuth: true,
+        allowedRoles: ['student', 'admin', 'instructor']
     },
     boardroom: {
         name: 'boardroom',
         icon: 'fa-handshake',
         label: '🤝 boardroom',
         description: 'Strategic discussions for founders and investors.',
-        rules: ['Founders and investors only', 'Confidential discussions', 'Professional conduct']
+        rules: ['Founders and investors only', 'Confidential discussions', 'Professional conduct'],
+        requiresAuth: true,
+        allowedRoles: ['admin', 'founder']
     }
 };
 
 // ============================================
-// THEME MANAGEMENT
+// THEME MANAGEMENT - FIXED
 // ============================================
 
 function initTheme() {
+    // Read from localStorage - use dashboard_theme as primary
     const dashboardTheme = localStorage.getItem('dashboard_theme');
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
     let theme = 'light';
     
+    // Check dashboard_theme first (set by dashboard settings)
     if (dashboardTheme === 'dark') {
         theme = 'dark';
     } else if (dashboardTheme === 'light') {
@@ -172,7 +201,9 @@ function initTheme() {
     } else if (systemPrefersDark) {
         theme = 'dark';
     }
+    // Default is 'light'
     
+    // Apply theme
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
         isDarkMode = true;
@@ -181,10 +212,11 @@ function initTheme() {
         isDarkMode = false;
     }
     
+    // Sync both keys
     localStorage.setItem('theme', theme);
     localStorage.setItem('dashboard_theme', theme);
     
-    console.log('🎨 Theme initialized:', theme, 'mode');
+    console.log('🎨 Theme initialized:', theme, 'mode (from dashboard_theme:', dashboardTheme || 'not set', ')');
 }
 
 window.toggleTheme = function() {
@@ -194,6 +226,20 @@ window.toggleTheme = function() {
     localStorage.setItem('theme', theme);
     localStorage.setItem('dashboard_theme', theme);
     showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
+};
+
+// Sync theme from dashboard
+window.syncThemeFromDashboard = function() {
+    const dashboardTheme = localStorage.getItem('dashboard_theme');
+    if (dashboardTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        isDarkMode = true;
+    } else {
+        document.body.classList.remove('dark-mode');
+        isDarkMode = false;
+    }
+    localStorage.setItem('theme', dashboardTheme || 'light');
+    console.log('🔄 Theme synced from dashboard:', dashboardTheme || 'light');
 };
 
 // ============================================
@@ -257,6 +303,7 @@ async function checkReplyColumn() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('💬 Chat initializing...');
     
+    // Init theme FIRST
     initTheme();
     fixMobileViewport();
     loadMentionToasts();
@@ -272,34 +319,92 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
     }
     
+    // Try to get current user
     try {
         currentUser = await getCurrentUser();
+        if (currentUser) {
+            isGuest = false;
+            userRole = currentUser.user_metadata?.role || 'student';
+            console.log('👤 User logged in:', currentUser.email, 'Role:', userRole);
+        } else {
+            isGuest = true;
+            userRole = null;
+            console.log('👤 Guest user');
+        }
     } catch (err) {
         console.error('Error getting user:', err);
         currentUser = null;
+        isGuest = true;
+        userRole = null;
     }
     
-    if (!currentUser) {
-        showLoginScreen();
-        return;
+    // Show appropriate UI based on auth
+    if (isGuest) {
+        showGuestUI();
+    } else {
+        updateUserUI();
     }
     
-    updateUserUI();
+    // Load messages (public or private based on channel)
     await loadUserAvatars();
     await checkReplyColumn();
     await loadMessages();
     setupRealtimeSubscription();
-    await setupPresenceTracking();
+    
+    // Only setup presence for logged-in users
+    if (!isGuest) {
+        await setupPresenceTracking();
+    }
+    
     setupEventListeners();
     markChannelRead(currentChannel);
     initEmojiGrid();
     
+    // Periodically refresh online users
     setInterval(() => {
-        refreshOnlineUsers();
+        if (!isGuest && presenceChannel) {
+            refreshOnlineUsers();
+        }
     }, 15000);
     
     console.log('✅ Chat ready');
 });
+
+// ============================================
+// GUEST UI
+// ============================================
+
+function showGuestUI() {
+    const nameEl = document.getElementById('currentUserName');
+    const statusEl = document.getElementById('userStatusText');
+    const input = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const avatar = document.querySelector('.user-avatar-large');
+    
+    if (nameEl) nameEl.textContent = '👤 Guest User';
+    if (statusEl) statusEl.textContent = '🟢 Browsing';
+    if (input) {
+        // Guests can only type in public channels
+        const config = CHANNEL_CONFIG[currentChannel];
+        if (config && config.isPublic) {
+            input.disabled = false;
+            input.placeholder = '💬 Type a message as guest...';
+        } else {
+            input.disabled = true;
+            input.placeholder = '🔒 Sign in to chat in this channel';
+        }
+    }
+    if (sendBtn) {
+        // Guests can only send in public channels
+        const config = CHANNEL_CONFIG[currentChannel];
+        sendBtn.disabled = !(config && config.isPublic);
+    }
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (avatar) {
+        avatar.innerHTML = '<i class="fas fa-user-circle" style="font-size:24px;"></i>';
+    }
+}
 
 // ============================================
 // MOBILE FIX
@@ -344,6 +449,7 @@ function updateUserUI() {
     const input = document.getElementById('messageInput');
     const sendBtn = document.getElementById('sendBtn');
     const logoutBtn = document.getElementById('logoutBtn');
+    const avatar = document.querySelector('.user-avatar-large');
     
     const name = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User';
     
@@ -358,6 +464,42 @@ function updateUserUI() {
             window.location.reload();
         };
     }
+    if (avatar) {
+        avatar.innerHTML = '<i class="fas fa-user-circle"></i>';
+    }
+    
+    // Update channel access based on role
+    updateChannelAccess();
+}
+
+function updateChannelAccess() {
+    document.querySelectorAll('.channel-item').forEach(el => {
+        const channel = el.dataset.channel;
+        const config = CHANNEL_CONFIG[channel];
+        if (!config) return;
+        
+        // Check if user can access this channel
+        let canAccess = true;
+        if (config.requiresAuth && isGuest) {
+            canAccess = false;
+        }
+        if (config.allowedRoles && userRole && !config.allowedRoles.includes(userRole)) {
+            canAccess = false;
+        }
+        if (config.allowedRoles && !userRole && !config.isPublic) {
+            canAccess = false;
+        }
+        
+        // Show/hide channel
+        el.style.display = canAccess ? 'flex' : 'none';
+        
+        // For guests, show a lock icon on restricted channels
+        if (!canAccess) {
+            el.querySelector('.channel-name').textContent = `🔒 ${config.label.replace(/[^a-zA-Z ]/g, '').trim()}`;
+        } else {
+            el.querySelector('.channel-name').textContent = config.label;
+        }
+    });
 }
 
 // ============================================
@@ -394,7 +536,7 @@ function getInitials(name) {
 // ============================================
 
 async function setupPresenceTracking() {
-    if (!currentUser) return;
+    if (!currentUser || isGuest) return;
     if (presenceInitialized) return;
     
     console.log('🟢 Setting up online users tracking...');
@@ -418,7 +560,7 @@ async function setupPresenceTracking() {
 }
 
 async function markUserOnline() {
-    if (!currentUser) return;
+    if (!currentUser || isGuest) return;
     
     try {
         const name = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User';
@@ -444,7 +586,7 @@ async function markUserOnline() {
 }
 
 async function markUserOffline() {
-    if (!currentUser) return;
+    if (!currentUser || isGuest) return;
     
     try {
         const { error } = await supabase
@@ -461,6 +603,7 @@ async function markUserOffline() {
 }
 
 async function refreshOnlineUsers() {
+    if (isGuest) return;
     try {
         const cutoffTime = new Date();
         cutoffTime.setSeconds(cutoffTime.getSeconds() - 60);
@@ -541,6 +684,20 @@ async function loadMessages() {
     const container = document.getElementById('messagesContainer');
     if (!container) return;
     
+    // Check if user can access this channel
+    const config = CHANNEL_CONFIG[currentChannel];
+    if (config && config.requiresAuth && isGuest) {
+        container.innerHTML = `
+            <div class="welcome-message">
+                <i class="fas fa-lock" style="font-size:48px;opacity:0.5;margin-bottom:16px;"></i>
+                <h3>🔒 Channel Restricted</h3>
+                <p style="color:var(--text-secondary);">Please sign in to view and participate in this channel.</p>
+                <button onclick="window.location.href='/signin.html'" style="padding:12px 32px;background:linear-gradient(135deg,#2c2f78,#1a1c4a);color:white;border:none;border-radius:40px;cursor:pointer;font-size:16px;margin-top:16px;">🚀 Sign In</button>
+            </div>
+        `;
+        return;
+    }
+    
     try {
         let selectQuery = '*';
         if (!hasReplyColumn) {
@@ -587,6 +744,9 @@ async function insertWelcomeMessage() {
 function getWelcomeMessage(channel) {
     const config = CHANNEL_CONFIG[channel];
     if (config) {
+        if (config.isPublic && isGuest) {
+            return `👋 Welcome to ${config.label}! You're browsing as a guest. Sign in to join the full conversation.`;
+        }
         return `👋 Welcome to ${config.label}! ${config.description}`;
     }
     return `👋 Welcome to #${channel}!`;
@@ -598,11 +758,13 @@ function renderMessages() {
     
     if (allMessages.length === 0) {
         const config = CHANNEL_CONFIG[currentChannel];
+        const isRestricted = config && config.requiresAuth && isGuest;
         container.innerHTML = `
             <div class="welcome-message">
-                <i class="fas fa-comments"></i>
-                <h3>👋 Welcome to ${config ? config.label : '#' + currentChannel}</h3>
-                <p>${config ? config.description : getWelcomeMessage(currentChannel)}</p>
+                <i class="fas ${isRestricted ? 'fa-lock' : 'fa-comments'}"></i>
+                <h3>${isRestricted ? '🔒 Restricted Channel' : '👋 Welcome to ' + (config ? config.label : '#' + currentChannel)}</h3>
+                <p>${isRestricted ? 'Sign in to view messages.' : (config ? config.description : getWelcomeMessage(currentChannel))}</p>
+                ${isRestricted ? `<button onclick="window.location.href='/signin.html'" style="padding:12px 32px;background:linear-gradient(135deg,#2c2f78,#1a1c4a);color:white;border:none;border-radius:40px;cursor:pointer;font-size:16px;margin-top:16px;">🚀 Sign In</button>` : ''}
             </div>
         `;
         return;
@@ -630,8 +792,8 @@ function renderMessages() {
         const initials = getInitials(senderName);
         
         const mentionKey = `mention_${msg.id}`;
-        const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
-        const hasMention = msg.message && msg.message.includes(`@${mentionName}`);
+        const mentionName = currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0];
+        const hasMention = mentionName && msg.message && msg.message.includes(`@${mentionName}`);
         if (hasMention && !isSelf && !shownMentionToasts.has(mentionKey)) {
             saveMentionToast(mentionKey);
             showToast(`📢 ${senderName} mentioned you`, 'info');
@@ -684,7 +846,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - Check file extension for WAV vs WebM
+        // VOICE
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -701,7 +863,7 @@ function renderMessages() {
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
                         <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
-                        <span class="voice-duration-label">${getVoiceDuration(msg.file_url)}</span>
+                        <span class="voice-duration-label"></span>
                     </div>
                 </div>
             `;
@@ -755,12 +917,6 @@ function renderMessages() {
     attachMessageEvents();
     
     if (shouldScroll) scrollToBottom();
-}
-
-// Helper: Get voice duration (placeholder)
-function getVoiceDuration(url) {
-    // In a real implementation, you'd parse duration from metadata
-    return '';
 }
 
 // ============================================
@@ -865,7 +1021,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             icon.className = 'fas fa-pause';
             btn.disabled = false;
             
-            // Show duration if available
             if (durationLabel && audioEl.duration) {
                 const mins = Math.floor(audioEl.duration / 60);
                 const secs = Math.floor(audioEl.duration % 60);
@@ -1463,8 +1618,16 @@ async function sendMessage() {
     const text = input.value.trim();
     
     if (!text && !pendingFile && !pendingVoiceBlob) return;
-    if (!currentUser) {
-        showToast('🔒 Please login', 'error');
+    
+    // Check if user can send in this channel
+    const config = CHANNEL_CONFIG[currentChannel];
+    if (isGuest && config && !config.isPublic) {
+        showToast('🔒 Please sign in to send messages in this channel', 'error');
+        return;
+    }
+    
+    if (!currentUser && !isGuest) {
+        showToast('🔒 Please login to send messages', 'error');
         return;
     }
     
@@ -1489,7 +1652,7 @@ async function sendMessage() {
         if (pendingFile) {
             const file = pendingFile;
             const ext = file.name.split('.').pop();
-            const path = `chat_uploads/${currentUser.id}/${Date.now()}.${ext}`;
+            const path = `chat_uploads/${currentUser?.id || 'guest'}/${Date.now()}.${ext}`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
@@ -1524,14 +1687,9 @@ async function sendMessage() {
         
         // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
-            // Ensure it's WAV format
             let voiceBlob = pendingVoiceBlob;
-            if (!pendingVoiceBlob.type || pendingVoiceBlob.type !== 'audio/wav') {
-                // If somehow not WAV, convert (should already be WAV from recording)
-                console.warn('Unexpected voice format:', pendingVoiceBlob.type);
-            }
-            
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
+            const userId = currentUser?.id || 'guest';
+            const path = `chat_uploads/${userId}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
@@ -1559,10 +1717,14 @@ async function sendMessage() {
             hideVoicePreview();
         }
         
+        // Use guest name if not logged in
+        const senderName = currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0] || 'Guest';
+        const senderId = currentUser?.id || 'guest_' + Date.now();
+        
         const message = {
             channel: currentChannel,
-            sender_id: currentUser.id,
-            sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
+            sender_id: senderId,
+            sender_name: senderName + (isGuest ? ' (Guest)' : ''),
             message: messageText,
             type: messageType,
             file_url: fileUrl,
@@ -1635,6 +1797,10 @@ function setupRealtimeSubscription() {
             if (lastMessageId === msg.id) return;
             if (allMessages.some(m => m.id === msg.id)) return;
             
+            // Check if user can view this channel
+            const config = CHANNEL_CONFIG[msg.channel];
+            if (config && config.requiresAuth && isGuest) return;
+            
             if (msg.channel === currentChannel) {
                 lastMessageId = msg.id;
                 allMessages.push(msg);
@@ -1675,7 +1841,29 @@ function switchChannel(channel) {
     allMessages = [];
     replyToMessage = null;
     const input = document.getElementById('messageInput');
-    if (input) input.placeholder = 'Type a message...';
+    if (input) {
+        if (config && config.isPublic && isGuest) {
+            input.placeholder = '💬 Type a message as guest...';
+            input.disabled = false;
+        } else if (config && config.requiresAuth && isGuest) {
+            input.placeholder = '🔒 Sign in to chat in this channel';
+            input.disabled = true;
+        } else {
+            input.placeholder = 'Type a message...';
+            input.disabled = false;
+        }
+    }
+    
+    // Update send button
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+        if (config && config.requiresAuth && isGuest) {
+            sendBtn.disabled = true;
+        } else {
+            sendBtn.disabled = false;
+        }
+    }
+    
     markChannelRead(channel);
     loadMessages();
     updateModalInfo(channel);
@@ -1786,7 +1974,7 @@ function openChannelModal() {
         modal.classList.add('active');
         updateModalInfo(currentChannel);
         document.body.style.overflow = 'hidden';
-        refreshOnlineUsers();
+        if (!isGuest) refreshOnlineUsers();
     }
 }
 
@@ -2001,5 +2189,6 @@ window.scrollToMessage = scrollToMessage;
 window.refreshOnlineUsers = refreshOnlineUsers;
 window.showToast = showToast;
 window.toggleTheme = toggleTheme;
+window.syncThemeFromDashboard = syncThemeFromDashboard;
 
 console.log('✅ Chat.js loaded');
