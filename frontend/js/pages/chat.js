@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// COMPLETE FIX: Voice recording & playback for all devices
+// WAV ONLY - Universal audio for all devices
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,14 +30,14 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording - FIXED for iPhone
+// Audio recording - WAV ONLY
 let audioContext = null;
-let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 let recordingStartTime = null;
 let recordingTimer = null;
 let mediaStream = null;
+let scriptProcessor = null;
 
 // Voice preview
 let voicePreviewAudio = null;
@@ -684,23 +684,24 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - UNIVERSAL PLAYBACK
+        // VOICE - Check file extension for WAV vs WebM
         else if (msg.type === 'voice' && msg.file_url) {
-            // Clean URL for all devices
             const baseUrl = msg.file_url.split('?')[0];
+            const isWav = baseUrl.toLowerCase().endsWith('.wav');
             const voiceUrl = baseUrl + '?t=' + Date.now();
             
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble voice-bubble">
                     <div class="voice-message">
-                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}')">
+                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}', ${isWav})">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
                         <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
+                        <span class="voice-duration-label">${getVoiceDuration(msg.file_url)}</span>
                     </div>
                 </div>
             `;
@@ -756,6 +757,12 @@ function renderMessages() {
     if (shouldScroll) scrollToBottom();
 }
 
+// Helper: Get voice duration (placeholder)
+function getVoiceDuration(url) {
+    // In a real implementation, you'd parse duration from metadata
+    return '';
+}
+
 // ============================================
 // SCROLL TO MESSAGE
 // ============================================
@@ -775,10 +782,11 @@ function scrollToMessage(messageId) {
 // VOICE PLAYBACK - UNIVERSAL FOR ALL DEVICES
 // ============================================
 
-async function playVoiceMessage(btn, audioUrl) {
+async function playVoiceMessage(btn, audioUrl, isWav) {
     const container = btn.parentElement;
     const icon = btn.querySelector('i');
     let audioEl = container.querySelector('audio');
+    const durationLabel = container.querySelector('.voice-duration-label');
     
     // Stop any other playing voice messages
     document.querySelectorAll('.voice-play-btn i').forEach(el => {
@@ -803,13 +811,14 @@ async function playVoiceMessage(btn, audioUrl) {
     }
     
     // Load and play
-    await loadAndPlayVoice(btn, audioUrl);
+    await loadAndPlayVoice(btn, audioUrl, isWav);
 }
 
-async function loadAndPlayVoice(btn, audioUrl) {
+async function loadAndPlayVoice(btn, audioUrl, isWav) {
     const icon = btn.querySelector('i');
     const container = btn.parentElement;
     let audioEl = container.querySelector('audio');
+    const durationLabel = container.querySelector('.voice-duration-label');
     
     if (!audioEl) {
         audioEl = document.createElement('audio');
@@ -825,53 +834,86 @@ async function loadAndPlayVoice(btn, audioUrl) {
     btn.disabled = true;
     
     try {
-        // Clean URL and add fresh cache-busting
         const baseUrl = audioUrl.split('?')[0];
         const freshUrl = baseUrl + '?t=' + Date.now();
         
-        console.log('🔊 Loading voice from:', freshUrl);
+        console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        // Detect device
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        
-        // For iOS/Safari, try direct URL first (they handle audio differently)
-        if (isIOS || isSafari) {
-            try {
-                audioEl.src = freshUrl;
-                audioEl.load();
-                
-                // Wait for audio to be ready
-                await new Promise((resolve) => {
-                    const timeout = setTimeout(resolve, 5000);
-                    const onReady = () => {
-                        clearTimeout(timeout);
-                        audioEl.removeEventListener('canplaythrough', onReady);
-                        audioEl.removeEventListener('loadeddata', onReady);
-                        resolve();
-                    };
-                    audioEl.addEventListener('canplaythrough', onReady);
-                    audioEl.addEventListener('loadeddata', onReady);
-                    if (audioEl.readyState >= 3) {
-                        clearTimeout(timeout);
-                        resolve();
-                    }
-                });
-                
-                await audioEl.play();
-                icon.className = 'fas fa-pause';
-                btn.disabled = false;
-                audioEl.onended = () => {
-                    icon.className = 'fas fa-play';
+        // For WAV files, use direct URL approach (works best on all devices)
+        if (isWav) {
+            console.log('🎵 Playing WAV directly');
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
                 };
-                return;
-            } catch (iosErr) {
-                console.log('Direct URL failed for iOS, trying blob approach:', iosErr);
-                // Fall through to blob approach
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            
+            // Show duration if available
+            if (durationLabel && audioEl.duration) {
+                const mins = Math.floor(audioEl.duration / 60);
+                const secs = Math.floor(audioEl.duration % 60);
+                durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
             }
+            
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
         }
         
-        // Blob approach for all other devices
+        // For WebM files, try multiple approaches
+        console.log('🎵 Playing WebM with fallback chain');
+        
+        // Approach 1: Direct URL
+        try {
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        } catch (directErr) {
+            console.log('Direct URL failed, trying blob:', directErr);
+        }
+        
+        // Approach 2: Blob fetch
         const response = await fetch(freshUrl, {
             cache: 'no-cache',
             headers: {
@@ -881,7 +923,7 @@ async function loadAndPlayVoice(btn, audioUrl) {
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const blob = await response.blob();
@@ -895,78 +937,60 @@ async function loadAndPlayVoice(btn, audioUrl) {
         audioEl.src = blobUrl;
         audioEl.load();
         
-        // Wait for audio to be ready
         await new Promise((resolve) => {
             const timeout = setTimeout(resolve, 8000);
-            
             const onReady = () => {
                 clearTimeout(timeout);
                 audioEl.removeEventListener('canplaythrough', onReady);
                 audioEl.removeEventListener('loadeddata', onReady);
                 resolve();
             };
-            
             audioEl.addEventListener('canplaythrough', onReady);
             audioEl.addEventListener('loadeddata', onReady);
-            
             if (audioEl.readyState >= 3) {
                 clearTimeout(timeout);
-                audioEl.removeEventListener('canplaythrough', onReady);
-                audioEl.removeEventListener('loadeddata', onReady);
                 resolve();
             }
         });
         
-        try {
-            await audioEl.play();
-            icon.className = 'fas fa-pause';
-            btn.disabled = false;
-            audioEl.onended = () => {
-                icon.className = 'fas fa-play';
-                URL.revokeObjectURL(blobUrl);
-            };
-        } catch (playErr) {
-            console.error('Play error:', playErr);
+        await audioEl.play();
+        icon.className = 'fas fa-pause';
+        btn.disabled = false;
+        audioEl.onended = () => {
             icon.className = 'fas fa-play';
-            btn.disabled = false;
             URL.revokeObjectURL(blobUrl);
-            
-            if (playErr.name === 'NotAllowedError') {
-                showToast('👆 Tap play again after interacting with the page', 'warning');
-            } else {
-                // Final fallback: try direct URL
-                try {
-                    audioEl.src = freshUrl;
-                    audioEl.load();
-                    await audioEl.play();
-                    icon.className = 'fas fa-pause';
-                    btn.disabled = false;
-                    audioEl.onended = () => {
-                        icon.className = 'fas fa-play';
-                    };
-                } catch (finalErr) {
-                    showToast('❌ Could not play voice message', 'error');
-                }
-            }
-        }
+        };
         
     } catch (err) {
         console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
-        showToast('❌ Could not load voice message', 'error');
+        
+        // Final fallback: try direct URL one more time
+        try {
+            const freshUrl = audioUrl.split('?')[0] + '?t=' + Date.now();
+            audioEl.src = freshUrl;
+            audioEl.load();
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        } catch (finalErr) {
+            console.error('Final fallback failed:', finalErr);
+            showToast('❌ Could not play voice message', 'error');
+        }
     }
 }
 
 // ============================================
-// VOICE RECORDING - WAV FOR IPHONE COMPATIBILITY
+// VOICE RECORDING - WAV FOR ALL DEVICES
 // ============================================
 
 async function startVoiceRecording() {
     try {
-        // Detect iPhone
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: true,
@@ -979,146 +1003,33 @@ async function startVoiceRecording() {
         
         mediaStream = stream;
         
-        // For iPhone, try to use WAV format (better compatibility)
-        let mimeType = 'audio/webm';
-        if (isIOS && MediaRecorder.isTypeSupported('audio/wav')) {
-            mimeType = 'audio/wav';
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            mimeType = 'audio/mp4';
-        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-            mimeType = 'audio/webm;codecs=opus';
-        }
+        // Create audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
         
-        // Check if we need to use Web Audio API for WAV
-        if (isIOS && mimeType === 'audio/webm') {
-            // iOS may not support WebM well, try WAV via Web Audio API
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioContext.createMediaStreamSource(stream);
-                const processor = audioContext.createScriptProcessor(4096, 1, 1);
-                const wavChunks = [];
-                
-                processor.onaudioprocess = (event) => {
-                    const inputData = event.inputBuffer.getChannelData(0);
-                    // Convert to int16
-                    const pcmData = new Int16Array(inputData.length);
-                    for (let i = 0; i < inputData.length; i++) {
-                        const s = Math.max(-1, Math.min(1, inputData[i]));
-                        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                    }
-                    wavChunks.push(pcmData);
-                };
-                
-                source.connect(processor);
-                processor.connect(audioContext.destination);
-                
-                // Store cleanup references
-                const cleanup = () => {
-                    processor.disconnect();
-                    source.disconnect();
-                    audioContext.close();
-                    stream.getTracks().forEach(t => t.stop());
-                };
-                
-                // Override stop to use WAV
-                const originalStop = stopVoiceRecording;
-                stopVoiceRecording = function() {
-                    if (isRecording) {
-                        isRecording = false;
-                        if (recordingTimer) clearInterval(recordingTimer);
-                        
-                        const btn = document.getElementById('voiceRecordBtn');
-                        if (btn) {
-                            btn.classList.remove('recording');
-                            btn.innerHTML = '<i class="fas fa-microphone"></i>';
-                        }
-                        
-                        // Combine all PCM chunks
-                        const totalLength = wavChunks.reduce((acc, chunk) => acc + chunk.length, 0);
-                        if (totalLength > 0) {
-                            const combinedPCM = new Int16Array(totalLength);
-                            let offset = 0;
-                            for (const chunk of wavChunks) {
-                                combinedPCM.set(chunk, offset);
-                                offset += chunk.length;
-                            }
-                            
-                            // Create WAV blob
-                            const wavBlob = createWavBlob(combinedPCM, 44100);
-                            if (wavBlob.size > 1000) {
-                                pendingVoiceBlob = wavBlob;
-                                pendingVoiceUrl = URL.createObjectURL(wavBlob);
-                                showVoicePreview();
-                                setupVoicePreviewPlayback();
-                                console.log('🎤 WAV recorded:', wavBlob.size, 'bytes');
-                            } else {
-                                showToast('❌ Recording too short', 'error');
-                            }
-                        } else {
-                            showToast('❌ Recording failed', 'error');
-                        }
-                        
-                        cleanup();
-                    }
-                };
-                
-                // Start WAV recording
-                isRecording = true;
-                recordingStartTime = Date.now();
-                
-                const btn = document.getElementById('voiceRecordBtn');
-                if (btn) {
-                    btn.classList.add('recording');
-                    btn.innerHTML = '<i class="fas fa-stop"></i>';
-                }
-                
-                recordingTimer = setInterval(() => {
-                    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-                    const mins = Math.floor(elapsed / 60);
-                    const secs = elapsed % 60;
-                    const dur = document.getElementById('voiceDuration');
-                    if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-                }, 1000);
-                
-                if (navigator.vibrate) navigator.vibrate(50);
-                showToast('🎤 Recording... Tap stop to preview', 'info');
-                return;
-            } catch (wavErr) {
-                console.warn('WAV recording failed, falling back to MediaRecorder:', wavErr);
-                // Fall back to MediaRecorder
+        // Create script processor for raw audio capture
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        const wavChunks = [];
+        
+        processor.onaudioprocess = (event) => {
+            if (!isRecording) return;
+            const inputData = event.inputBuffer.getChannelData(0);
+            // Convert float32 to int16 PCM
+            const pcmData = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+                const s = Math.max(-1, Math.min(1, inputData[i]));
+                pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
-        }
-        
-        // Standard MediaRecorder approach
-        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-        audioChunks = [];
-        
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-                audioChunks.push(e.data);
-            }
+            wavChunks.push(pcmData);
         };
         
-        mediaRecorder.onstop = () => {
-            const mime = mediaRecorder.mimeType || 'audio/webm';
-            const blob = new Blob(audioChunks, { type: mime });
-            
-            if (blob.size > 1000) {
-                pendingVoiceBlob = blob;
-                pendingVoiceUrl = URL.createObjectURL(blob);
-                showVoicePreview();
-                setupVoicePreviewPlayback();
-                console.log('🎤 Voice recorded:', blob.size, 'bytes, type:', mime);
-            } else {
-                showToast('❌ Recording too short', 'error');
-            }
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(t => t.stop());
-                mediaStream = null;
-            }
-        };
+        source.connect(processor);
+        processor.connect(audioContext.destination);
         
-        mediaRecorder.start(1000);
+        // Store cleanup
+        scriptProcessor = processor;
+        
+        // Start recording
         isRecording = true;
         recordingStartTime = Date.now();
         
@@ -1136,6 +1047,9 @@ async function startVoiceRecording() {
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
         
+        // Override stop to capture WAV
+        window._wavChunks = wavChunks;
+        
         if (navigator.vibrate) navigator.vibrate(50);
         showToast('🎤 Recording... Tap stop to preview', 'info');
         
@@ -1148,6 +1062,74 @@ async function startVoiceRecording() {
             errorMsg = '❌ No microphone found on this device';
         }
         showToast(errorMsg, 'error');
+    }
+}
+
+function stopVoiceRecording() {
+    if (!isRecording) return;
+    
+    isRecording = false;
+    if (recordingTimer) clearInterval(recordingTimer);
+    
+    const btn = document.getElementById('voiceRecordBtn');
+    if (btn) {
+        btn.classList.remove('recording');
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+    }
+    
+    // Get the recorded chunks
+    const wavChunks = window._wavChunks || [];
+    window._wavChunks = [];
+    
+    // Clean up audio resources
+    if (scriptProcessor) {
+        scriptProcessor.disconnect();
+        scriptProcessor = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+    }
+    
+    // Create WAV blob
+    if (wavChunks.length > 0) {
+        const totalLength = wavChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        if (totalLength > 0) {
+            const combinedPCM = new Int16Array(totalLength);
+            let offset = 0;
+            for (const chunk of wavChunks) {
+                combinedPCM.set(chunk, offset);
+                offset += chunk.length;
+            }
+            
+            const wavBlob = createWavBlob(combinedPCM, 44100);
+            if (wavBlob.size > 1000) {
+                pendingVoiceBlob = wavBlob;
+                pendingVoiceUrl = URL.createObjectURL(wavBlob);
+                showVoicePreview();
+                setupVoicePreviewPlayback();
+                console.log('🎤 WAV recorded:', wavBlob.size, 'bytes');
+                showToast('✅ Voice recorded! Tap play to preview', 'success');
+            } else {
+                showToast('❌ Recording too short', 'error');
+            }
+        } else {
+            showToast('❌ Recording failed', 'error');
+        }
+    } else {
+        showToast('❌ No audio captured', 'error');
+    }
+}
+
+function toggleVoiceRecording() {
+    if (isRecording) {
+        stopVoiceRecording();
+    } else {
+        startVoiceRecording();
     }
 }
 
@@ -1172,7 +1154,7 @@ function createWavBlob(pcmData, sampleRate) {
     // Format chunk
     writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
+    view.setUint16(20, 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, byteRate, true);
@@ -1194,38 +1176,6 @@ function writeString(view, offset, string) {
     for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
     }
-}
-
-function stopVoiceRecording() {
-    if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        if (recordingTimer) clearInterval(recordingTimer);
-        
-        const btn = document.getElementById('voiceRecordBtn');
-        if (btn) {
-            btn.classList.remove('recording');
-            btn.innerHTML = '<i class="fas fa-microphone"></i>';
-        }
-        return;
-    }
-    
-    // If using WAV recording, the stop is handled in the custom implementation
-    if (isRecording) {
-        isRecording = false;
-        if (recordingTimer) clearInterval(recordingTimer);
-        
-        const btn = document.getElementById('voiceRecordBtn');
-        if (btn) {
-            btn.classList.remove('recording');
-            btn.innerHTML = '<i class="fas fa-microphone"></i>';
-        }
-    }
-}
-
-function toggleVoiceRecording() {
-    if (isRecording) stopVoiceRecording();
-    else startVoiceRecording();
 }
 
 function showVoicePreview() {
@@ -1505,7 +1455,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - UPDATED FOR WAV/IPHONE
+// SEND MESSAGE - WAV FOR ALL DEVICES
 // ============================================
 
 async function sendMessage() {
@@ -1572,26 +1522,21 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE UPLOAD - Detect iPhone and use WAV
+        // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            
-            // For iPhone, use WAV for better compatibility
-            let extension = 'webm';
-            let contentType = 'audio/webm';
-            
-            // Check if the blob is already WAV
-            if (pendingVoiceBlob.type === 'audio/wav' || isIOS) {
-                extension = 'wav';
-                contentType = 'audio/wav';
+            // Ensure it's WAV format
+            let voiceBlob = pendingVoiceBlob;
+            if (!pendingVoiceBlob.type || pendingVoiceBlob.type !== 'audio/wav') {
+                // If somehow not WAV, convert (should already be WAV from recording)
+                console.warn('Unexpected voice format:', pendingVoiceBlob.type);
             }
             
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.${extension}`;
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, pendingVoiceBlob, {
-                    contentType: contentType,
+                .upload(path, voiceBlob, {
+                    contentType: 'audio/wav',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
             
@@ -1603,9 +1548,9 @@ async function sendMessage() {
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
                 messageText = '';
-                console.log('📤 Voice uploaded as:', extension, 'for', isIOS ? 'iPhone' : 'other device');
+                console.log('📤 Voice uploaded as WAV:', path);
             } else {
-                showToast('❌ Voice upload failed', 'error');
+                showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
                 return;
