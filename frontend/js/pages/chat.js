@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// WAV ONLY - Universal audio for all devices
+// Fixed: Recording with WebM, Play button shows
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,7 +30,7 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording - WAV ONLY
+// Audio recording
 let mediaRecorder = null;
 let audioContext = null;
 let audioChunks = [];
@@ -707,7 +707,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - WAV ONLY
+        // VOICE
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const voiceUrl = baseUrl + '?t=' + Date.now();
@@ -795,7 +795,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - WAV ONLY
+// VOICE PLAYBACK
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -861,12 +861,8 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         
         console.log('🔊 Loading voice from:', freshUrl);
         
-        // Ensure volume is up
         audioEl.volume = 1.0;
         audioEl.muted = false;
-        
-        // Use direct URL for WAV (best compatibility)
-        console.log('🎵 Playing WAV directly');
         audioEl.src = freshUrl;
         audioEl.load();
         
@@ -920,7 +916,7 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
 }
 
 // ============================================
-// VOICE RECORDING - WAV ONLY
+// VOICE RECORDING - FIXED
 // ============================================
 
 async function startVoiceRecording() {
@@ -938,16 +934,23 @@ async function startVoiceRecording() {
         mediaStream = stream;
         audioChunks = [];
         
-        // FORCE WAV - ONLY check for WAV support
-        let mimeType = null;
+        // Use the best available MIME type
+        const mimeTypes = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/mp4',
+            'audio/wav'
+        ];
         
-        if (MediaRecorder.isTypeSupported('audio/wav')) {
-            mimeType = 'audio/wav';
-        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-            // If WAV is not supported, use the best available (but warn)
-            console.warn('⚠️ WAV not supported, using WebM fallback');
-            mimeType = 'audio/webm;codecs=opus';
-        } else {
+        let mimeType = null;
+        for (const type of mimeTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                mimeType = type;
+                break;
+            }
+        }
+        
+        if (!mimeType) {
             mimeType = 'audio/webm';
         }
         
@@ -962,7 +965,7 @@ async function startVoiceRecording() {
         };
         
         mediaRecorder.onstop = () => {
-            const mime = mediaRecorder.mimeType || 'audio/wav';
+            const mime = mediaRecorder.mimeType || 'audio/webm';
             const blob = new Blob(audioChunks, { type: mime });
             
             console.log('🎤 Recording stopped, blob size:', blob.size, 'type:', blob.type);
@@ -970,8 +973,11 @@ async function startVoiceRecording() {
             if (blob.size > 1000) {
                 pendingVoiceBlob = blob;
                 pendingVoiceUrl = URL.createObjectURL(blob);
+                
+                // Show preview immediately
                 showVoicePreview();
                 setupVoicePreviewPlayback();
+                
                 console.log('🎤 Voice recorded:', blob.size, 'bytes');
                 showToast('✅ Voice recorded! Tap play to preview', 'success');
             } else {
@@ -1062,19 +1068,33 @@ function showVoicePreview() {
     const preview = document.getElementById('voicePreview');
     const playBtn = document.getElementById('voicePreviewPlay');
     const wave = document.getElementById('voiceWavePreview');
+    const duration = document.getElementById('voiceDuration');
+    
+    console.log('🎯 Showing voice preview - playBtn:', playBtn);
     
     if (preview) {
         preview.style.display = 'flex';
-        if (playBtn) {
-            playBtn.innerHTML = '<i class="fas fa-play"></i>';
-            playBtn.style.display = 'flex';
-            playBtn.disabled = false;
-        }
-        if (wave) {
-            wave.classList.remove('playing');
-        }
+        preview.style.visibility = 'visible';
+        preview.style.opacity = '1';
     }
     
+    if (playBtn) {
+        playBtn.style.display = 'flex';
+        playBtn.style.visibility = 'visible';
+        playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        playBtn.disabled = false;
+        console.log('✅ Play button shown');
+    }
+    
+    if (wave) {
+        wave.classList.remove('playing');
+    }
+    
+    if (duration) {
+        duration.textContent = '0:00';
+    }
+    
+    // Setup playback
     setupVoicePreviewPlayback();
 }
 
@@ -1110,25 +1130,29 @@ function cancelVoicePreview() {
 function setupVoicePreviewPlayback() {
     const playBtn = document.getElementById('voicePreviewPlay');
     const wave = document.getElementById('voiceWavePreview');
-    const previewContainer = document.getElementById('voicePreview');
     
-    if (!playBtn || !pendingVoiceUrl) return;
-    
-    if (previewContainer) {
-        previewContainer.style.display = 'flex';
+    if (!playBtn || !pendingVoiceUrl) {
+        console.warn('No play button or voice URL');
+        return;
     }
     
-    playBtn.style.display = 'flex';
-    playBtn.innerHTML = '<i class="fas fa-play"></i>';
-    playBtn.disabled = false;
+    console.log('🔊 Setting up voice preview playback');
     
     // Remove old listeners
     playBtn.replaceWith(playBtn.cloneNode(true));
     const newPlayBtn = document.getElementById('voicePreviewPlay');
     
+    if (!newPlayBtn) return;
+    
+    newPlayBtn.style.display = 'flex';
+    newPlayBtn.style.visibility = 'visible';
+    newPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
+    newPlayBtn.disabled = false;
+    
     newPlayBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
+        console.log('🔘 Play button clicked, isPlaying:', isVoicePreviewPlaying);
         
         if (isVoicePreviewPlaying) {
             if (voicePreviewAudio) {
@@ -1169,6 +1193,7 @@ function setupVoicePreviewPlayback() {
             isVoicePreviewPlaying = true;
             this.innerHTML = '<i class="fas fa-pause"></i>';
             if (wave) wave.classList.add('playing');
+            console.log('▶️ Preview playing');
         }).catch((err) => {
             console.error('Play error:', err);
             if (err.name === 'NotAllowedError') {
@@ -1343,7 +1368,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - WAV ONLY
+// SEND MESSAGE
 // ============================================
 
 async function sendMessage() {
@@ -1411,7 +1436,7 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE - ALWAYS UPLOAD AS WAV
+        // VOICE - Upload with correct format
         if (pendingVoiceBlob) {
             if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
                 showToast('❌ Voice recording is empty', 'error');
@@ -1422,13 +1447,24 @@ async function sendMessage() {
             
             console.log('🎤 Voice blob size:', pendingVoiceBlob.size, 'type:', pendingVoiceBlob.type);
             
-            // Always use WAV extension
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
+            // Determine file extension from blob type
+            let extension = 'webm';
+            let contentType = 'audio/webm';
+            
+            if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('wav')) {
+                extension = 'wav';
+                contentType = 'audio/wav';
+            } else if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('mp4')) {
+                extension = 'mp4';
+                contentType = 'audio/mp4';
+            }
+            
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.${extension}`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
                 .upload(path, pendingVoiceBlob, {
-                    contentType: 'audio/wav',
+                    contentType: contentType,
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
             
