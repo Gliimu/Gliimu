@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Complete Working Version - Messages Persist
+// Complete Working Version - Voice Recording Fixed
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,7 +30,8 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording
+// Audio recording - FIXED: mediaRecorder in global scope
+let mediaRecorder = null;
 let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
@@ -534,7 +535,7 @@ function updateOnlineUsersList(users) {
 }
 
 // ============================================
-// LOAD MESSAGES - FIXED
+// LOAD MESSAGES
 // ============================================
 
 async function loadMessages() {
@@ -559,7 +560,6 @@ async function loadMessages() {
         
         console.log('📨 Loaded', messages?.length || 0, 'messages');
         
-        // Clear and reset
         allMessages = [];
         
         if (messages && messages.length > 0) {
@@ -610,7 +610,7 @@ function getWelcomeMessage(channel) {
 }
 
 // ============================================
-// RENDER MESSAGES - FIXED
+// RENDER MESSAGES
 // ============================================
 
 function renderMessages() {
@@ -991,7 +991,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
 }
 
 // ============================================
-// VOICE RECORDING - UPDATED
+// VOICE RECORDING - UPDATED (mediaRecorder in global scope)
 // ============================================
 
 async function startVoiceRecording() {
@@ -1008,7 +1008,7 @@ async function startVoiceRecording() {
         
         mediaStream = stream;
         
-        // Check if we can use MediaRecorder (simpler, more reliable)
+        // Check if we can use MediaRecorder
         if (MediaRecorder.isTypeSupported('audio/wav')) {
             console.log('🎤 Using MediaRecorder for WAV');
             mediaRecorder = new MediaRecorder(stream, { 
@@ -1064,7 +1064,7 @@ async function startVoiceRecording() {
             return;
         }
         
-        // Fallback: Web Audio API (ScriptProcessorNode)
+        // Fallback: Web Audio API
         console.log('🎤 Using Web Audio API (fallback)');
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const source = audioContext.createMediaStreamSource(stream);
@@ -1087,6 +1087,7 @@ async function startVoiceRecording() {
         processor.connect(audioContext.destination);
         
         scriptProcessor = processor;
+        mediaRecorder = null; // Ensure mediaRecorder is null for fallback
         
         isRecording = true;
         recordingStartTime = Date.now();
@@ -1123,7 +1124,7 @@ async function startVoiceRecording() {
 }
 
 // ============================================
-// STOP VOICE RECORDING - UPDATED
+// STOP VOICE RECORDING - FIXED
 // ============================================
 
 function stopVoiceRecording() {
@@ -1138,13 +1139,16 @@ function stopVoiceRecording() {
         btn.innerHTML = '<i class="fas fa-microphone"></i>';
     }
     
-    // If using MediaRecorder
+    // If using MediaRecorder (check if mediaRecorder exists and is active)
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        console.log('🛑 Stopping MediaRecorder');
         mediaRecorder.stop();
+        // Don't set mediaRecorder = null here, let onstop handle cleanup
         return;
     }
     
     // If using Web Audio API fallback
+    console.log('🛑 Stopping Web Audio API recording');
     const wavChunks = window._wavChunks || [];
     window._wavChunks = [];
     
@@ -1542,7 +1546,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - COMPLETE WORKING VERSION
+// SEND MESSAGE - WORKING VERSION
 // ============================================
 
 async function sendMessage() {
@@ -1610,7 +1614,7 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE - FIXED
+        // VOICE - UPLOAD AS WAV (FIXED)
         if (pendingVoiceBlob) {
             if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
                 showToast('❌ Voice recording is empty', 'error');
