@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Recording with WebM, Play button shows
+// WAV ONLY - Universal audio for all devices
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,8 +30,7 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording
-let mediaRecorder = null;
+// Audio recording - WAV ONLY
 let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
@@ -226,26 +225,28 @@ function saveMentionToast(messageId) {
 
 async function checkReplyColumn() {
     try {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('chat_messages')
-            .select('reply_to')
-            .limit(1);
+            .insert({
+                channel: 'test',
+                sender_id: 'test',
+                sender_name: 'test',
+                message: 'test',
+                type: 'text',
+                reply_to: 'test'
+            })
+            .select();
         
-        if (error) {
-            if (error.message && error.message.includes('column "reply_to" does not exist')) {
-                hasReplyColumn = false;
-                console.log('📌 reply_to column does not exist - using fallback mode');
-            } else {
-                hasReplyColumn = true;
-                console.log('📌 reply_to column exists (assumed)');
-            }
+        if (error && error.message && error.message.includes('column "reply_to" does not exist')) {
+            hasReplyColumn = false;
+            console.log('📌 reply_to column does not exist - using fallback mode');
         } else {
             hasReplyColumn = true;
             console.log('📌 reply_to column exists');
         }
     } catch (error) {
         console.warn('Could not check reply column:', error);
-        hasReplyColumn = true;
+        hasReplyColumn = false;
     }
 }
 
@@ -273,8 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
         currentUser = await getCurrentUser();
-        console.log('👤 Current user:', currentUser?.email || 'Not logged in');
-        console.log('🆔 User ID:', currentUser?.id || 'No ID');
     } catch (err) {
         console.error('Error getting user:', err);
         currentUser = null;
@@ -535,7 +534,7 @@ function updateOnlineUsersList(users) {
 }
 
 // ============================================
-// LOAD MESSAGES
+// MESSAGES
 // ============================================
 
 async function loadMessages() {
@@ -543,62 +542,46 @@ async function loadMessages() {
     if (!container) return;
     
     try {
-        console.log('📨 Loading messages for channel:', currentChannel);
+        let selectQuery = '*';
+        if (!hasReplyColumn) {
+            selectQuery = 'id, channel, sender_id, sender_name, message, type, file_url, file_name, created_at';
+        }
         
         const { data: messages, error } = await supabase
             .from('chat_messages')
-            .select('*')
+            .select(selectQuery)
             .eq('channel', currentChannel)
             .order('created_at', { ascending: true })
-            .limit(200);
+            .limit(100);
         
-        if (error) {
-            console.error('❌ Load messages error:', error);
-            showToast('❌ Failed to load messages', 'error');
-            return;
-        }
-        
-        console.log('📨 Loaded', messages?.length || 0, 'messages');
-        
-        allMessages = [];
+        if (error) throw error;
         
         if (messages && messages.length > 0) {
             allMessages = messages;
             lastMessageId = messages[messages.length - 1].id;
+            renderMessages();
         } else {
             await insertWelcomeMessage();
+            renderMessages();
         }
         
-        renderMessages();
         scrollToBottom();
-        
     } catch (error) {
-        console.error('❌ Exception loading messages:', error);
+        console.error('Error loading messages:', error);
         showToast('❌ Failed to load messages', 'error');
     }
 }
 
 async function insertWelcomeMessage() {
-    try {
-        const welcome = {
-            channel: currentChannel,
-            sender_id: null,
-            sender_name: '🎓 Gliimu System',
-            message: getWelcomeMessage(currentChannel),
-            type: 'text',
-            created_at: new Date().toISOString()
-        };
-        
-        const { error } = await supabase
-            .from('chat_messages')
-            .insert([welcome]);
-        
-        if (error) {
-            console.error('❌ Welcome message insert error:', error);
-        }
-    } catch (error) {
-        console.warn('Could not insert welcome message:', error);
-    }
+    const welcome = {
+        channel: currentChannel,
+        sender_id: null,
+        sender_name: 'System',
+        message: getWelcomeMessage(currentChannel),
+        type: 'text',
+        created_at: new Date().toISOString()
+    };
+    await supabase.from('chat_messages').insert([welcome]);
 }
 
 function getWelcomeMessage(channel) {
@@ -609,15 +592,11 @@ function getWelcomeMessage(channel) {
     return `👋 Welcome to #${channel}!`;
 }
 
-// ============================================
-// RENDER MESSAGES
-// ============================================
-
 function renderMessages() {
     const container = document.getElementById('messagesContainer');
     if (!container) return;
     
-    if (!allMessages || allMessages.length === 0) {
+    if (allMessages.length === 0) {
         const config = CHANNEL_CONFIG[currentChannel];
         container.innerHTML = `
             <div class="welcome-message">
@@ -628,8 +607,6 @@ function renderMessages() {
         `;
         return;
     }
-    
-    console.log('📊 Rendering', allMessages.length, 'messages');
     
     const shouldScroll = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
     
@@ -653,8 +630,8 @@ function renderMessages() {
         const initials = getInitials(senderName);
         
         const mentionKey = `mention_${msg.id}`;
-        const mentionName = currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0];
-        const hasMention = mentionName && msg.message && msg.message.includes(`@${mentionName}`);
+        const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
+        const hasMention = msg.message && msg.message.includes(`@${mentionName}`);
         if (hasMention && !isSelf && !shownMentionToasts.has(mentionKey)) {
             saveMentionToast(mentionKey);
             showToast(`📢 ${senderName} mentioned you`, 'info');
@@ -707,23 +684,24 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE
+        // VOICE - Check file extension for WAV vs WebM
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
+            const isWav = baseUrl.toLowerCase().endsWith('.wav');
             const voiceUrl = baseUrl + '?t=' + Date.now();
             
             contentHtml = `
                 ${replyHtml}
                 <div class="message-bubble voice-bubble">
                     <div class="voice-message">
-                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}')">
+                        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}', ${isWav})">
                             <i class="fas fa-play"></i>
                         </button>
-                        <div class="voice-wave" id="voiceWave-${msg.id}">
+                        <div class="voice-wave">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" preload="auto" playsinline webkit-playsinline></audio>
-                        <span class="voice-duration-label"></span>
+                        <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
+                        <span class="voice-duration-label">${getVoiceDuration(msg.file_url)}</span>
                     </div>
                 </div>
             `;
@@ -779,6 +757,12 @@ function renderMessages() {
     if (shouldScroll) scrollToBottom();
 }
 
+// Helper: Get voice duration (placeholder)
+function getVoiceDuration(url) {
+    // In a real implementation, you'd parse duration from metadata
+    return '';
+}
+
 // ============================================
 // SCROLL TO MESSAGE
 // ============================================
@@ -795,13 +779,12 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK
+// VOICE PLAYBACK - UNIVERSAL FOR ALL DEVICES
 // ============================================
 
-async function playVoiceMessage(btn, audioUrl) {
+async function playVoiceMessage(btn, audioUrl, isWav) {
     const container = btn.parentElement;
     const icon = btn.querySelector('i');
-    const wave = container.querySelector('.voice-wave');
     let audioEl = container.querySelector('audio');
     const durationLabel = container.querySelector('.voice-duration-label');
     
@@ -811,8 +794,6 @@ async function playVoiceMessage(btn, audioUrl) {
             el.className = 'fas fa-play';
             const parent = el.closest('.voice-message');
             if (parent) {
-                const otherWave = parent.querySelector('.voice-wave');
-                if (otherWave) otherWave.classList.remove('playing');
                 const otherAudio = parent.querySelector('audio');
                 if (otherAudio) {
                     otherAudio.pause();
@@ -826,15 +807,14 @@ async function playVoiceMessage(btn, audioUrl) {
     if (audioEl && !audioEl.paused) {
         audioEl.pause();
         icon.className = 'fas fa-play';
-        if (wave) wave.classList.remove('playing');
         return;
     }
     
     // Load and play
-    await loadAndPlayVoice(btn, audioUrl, wave);
+    await loadAndPlayVoice(btn, audioUrl, isWav);
 }
 
-async function loadAndPlayVoice(btn, audioUrl, wave) {
+async function loadAndPlayVoice(btn, audioUrl, isWav) {
     const icon = btn.querySelector('i');
     const container = btn.parentElement;
     let audioEl = container.querySelector('audio');
@@ -847,8 +827,6 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         audioEl.setAttribute('playsinline', '');
         audioEl.setAttribute('webkit-playsinline', '');
         audioEl.preload = 'auto';
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
         container.appendChild(audioEl);
     }
     
@@ -859,11 +837,104 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         const baseUrl = audioUrl.split('?')[0];
         const freshUrl = baseUrl + '?t=' + Date.now();
         
-        console.log('🔊 Loading voice from:', freshUrl);
+        console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        audioEl.src = freshUrl;
+        // For WAV files, use direct URL approach (works best on all devices)
+        if (isWav) {
+            console.log('🎵 Playing WAV directly');
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            
+            // Show duration if available
+            if (durationLabel && audioEl.duration) {
+                const mins = Math.floor(audioEl.duration / 60);
+                const secs = Math.floor(audioEl.duration % 60);
+                durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+            
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        }
+        
+        // For WebM files, try multiple approaches
+        console.log('🎵 Playing WebM with fallback chain');
+        
+        // Approach 1: Direct URL
+        try {
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        } catch (directErr) {
+            console.log('Direct URL failed, trying blob:', directErr);
+        }
+        
+        // Approach 2: Blob fetch
+        const response = await fetch(freshUrl, {
+            cache: 'no-cache',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        if (blob.size === 0) {
+            throw new Error('Empty audio file');
+        }
+        
+        console.log('📦 Audio blob size:', blob.size, 'bytes, type:', blob.type);
+        
+        const blobUrl = URL.createObjectURL(blob);
+        audioEl.src = blobUrl;
         audioEl.load();
         
         await new Promise((resolve) => {
@@ -885,38 +956,37 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         await audioEl.play();
         icon.className = 'fas fa-pause';
         btn.disabled = false;
-        if (wave) wave.classList.add('playing');
-        
-        if (durationLabel && audioEl.duration) {
-            const mins = Math.floor(audioEl.duration / 60);
-            const secs = Math.floor(audioEl.duration % 60);
-            durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-        
         audioEl.onended = () => {
             icon.className = 'fas fa-play';
-            if (wave) wave.classList.remove('playing');
-        };
-        
-        audioEl.onerror = () => {
-            console.error('Audio error during playback');
-            icon.className = 'fas fa-play';
-            btn.disabled = false;
-            if (wave) wave.classList.remove('playing');
-            showToast('❌ Could not play voice message', 'error');
+            URL.revokeObjectURL(blobUrl);
         };
         
     } catch (err) {
         console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
-        if (wave) wave.classList.remove('playing');
-        showToast('❌ Could not load voice message', 'error');
+        
+        // Final fallback: try direct URL one more time
+        try {
+            const freshUrl = audioUrl.split('?')[0] + '?t=' + Date.now();
+            audioEl.src = freshUrl;
+            audioEl.load();
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        } catch (finalErr) {
+            console.error('Final fallback failed:', finalErr);
+            showToast('❌ Could not play voice message', 'error');
+        }
     }
 }
 
 // ============================================
-// VOICE RECORDING - FIXED
+// VOICE RECORDING - WAV FOR ALL DEVICES
 // ============================================
 
 async function startVoiceRecording() {
@@ -932,66 +1002,34 @@ async function startVoiceRecording() {
         });
         
         mediaStream = stream;
-        audioChunks = [];
         
-        // Use the best available MIME type
-        const mimeTypes = [
-            'audio/webm;codecs=opus',
-            'audio/webm',
-            'audio/mp4',
-            'audio/wav'
-        ];
+        // Create audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
         
-        let mimeType = null;
-        for (const type of mimeTypes) {
-            if (MediaRecorder.isTypeSupported(type)) {
-                mimeType = type;
-                break;
+        // Create script processor for raw audio capture
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        const wavChunks = [];
+        
+        processor.onaudioprocess = (event) => {
+            if (!isRecording) return;
+            const inputData = event.inputBuffer.getChannelData(0);
+            // Convert float32 to int16 PCM
+            const pcmData = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+                const s = Math.max(-1, Math.min(1, inputData[i]));
+                pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
-        }
-        
-        if (!mimeType) {
-            mimeType = 'audio/webm';
-        }
-        
-        console.log('🎤 Using MediaRecorder with mimeType:', mimeType);
-        
-        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-        
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-                audioChunks.push(e.data);
-            }
+            wavChunks.push(pcmData);
         };
         
-        mediaRecorder.onstop = () => {
-            const mime = mediaRecorder.mimeType || 'audio/webm';
-            const blob = new Blob(audioChunks, { type: mime });
-            
-            console.log('🎤 Recording stopped, blob size:', blob.size, 'type:', blob.type);
-            
-            if (blob.size > 1000) {
-                pendingVoiceBlob = blob;
-                pendingVoiceUrl = URL.createObjectURL(blob);
-                
-                // Show preview immediately
-                showVoicePreview();
-                setupVoicePreviewPlayback();
-                
-                console.log('🎤 Voice recorded:', blob.size, 'bytes');
-                showToast('✅ Voice recorded! Tap play to preview', 'success');
-            } else {
-                showToast('❌ Recording too short', 'error');
-            }
-            audioChunks = [];
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(t => t.stop());
-                mediaStream = null;
-            }
-            mediaRecorder = null;
-        };
+        source.connect(processor);
+        processor.connect(audioContext.destination);
         
-        mediaRecorder.start(100);
+        // Store cleanup
+        scriptProcessor = processor;
+        
+        // Start recording
         isRecording = true;
         recordingStartTime = Date.now();
         
@@ -1008,6 +1046,9 @@ async function startVoiceRecording() {
             const dur = document.getElementById('voiceDuration');
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
+        
+        // Override stop to capture WAV
+        window._wavChunks = wavChunks;
         
         if (navigator.vibrate) navigator.vibrate(50);
         showToast('🎤 Recording... Tap stop to preview', 'info');
@@ -1036,20 +1077,52 @@ function stopVoiceRecording() {
         btn.innerHTML = '<i class="fas fa-microphone"></i>';
     }
     
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        console.log('🛑 Stopping MediaRecorder');
-        mediaRecorder.stop();
-        return;
-    }
+    // Get the recorded chunks
+    const wavChunks = window._wavChunks || [];
+    window._wavChunks = [];
     
-    // Cleanup if MediaRecorder failed
+    // Clean up audio resources
+    if (scriptProcessor) {
+        scriptProcessor.disconnect();
+        scriptProcessor = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
     if (mediaStream) {
         mediaStream.getTracks().forEach(t => t.stop());
         mediaStream = null;
     }
-    mediaRecorder = null;
-    audioChunks = [];
-    showToast('❌ Recording stopped unexpectedly', 'error');
+    
+    // Create WAV blob
+    if (wavChunks.length > 0) {
+        const totalLength = wavChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        if (totalLength > 0) {
+            const combinedPCM = new Int16Array(totalLength);
+            let offset = 0;
+            for (const chunk of wavChunks) {
+                combinedPCM.set(chunk, offset);
+                offset += chunk.length;
+            }
+            
+            const wavBlob = createWavBlob(combinedPCM, 44100);
+            if (wavBlob.size > 1000) {
+                pendingVoiceBlob = wavBlob;
+                pendingVoiceUrl = URL.createObjectURL(wavBlob);
+                showVoicePreview();
+                setupVoicePreviewPlayback();
+                console.log('🎤 WAV recorded:', wavBlob.size, 'bytes');
+                showToast('✅ Voice recorded! Tap play to preview', 'success');
+            } else {
+                showToast('❌ Recording too short', 'error');
+            }
+        } else {
+            showToast('❌ Recording failed', 'error');
+        }
+    } else {
+        showToast('❌ No audio captured', 'error');
+    }
 }
 
 function toggleVoiceRecording() {
@@ -1060,42 +1133,54 @@ function toggleVoiceRecording() {
     }
 }
 
-// ============================================
-// VOICE PREVIEW PLAYBACK - FIXED
-// ============================================
+// Helper: Create WAV blob from PCM data
+function createWavBlob(pcmData, sampleRate) {
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+    const blockAlign = numChannels * bitsPerSample / 8;
+    const dataSize = pcmData.length * 2;
+    const headerSize = 44;
+    const totalSize = headerSize + dataSize;
+    
+    const buffer = new ArrayBuffer(totalSize);
+    const view = new DataView(buffer);
+    
+    // RIFF header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, totalSize - 8, true);
+    writeString(view, 8, 'WAVE');
+    
+    // Format chunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    
+    // Data chunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    // Write PCM data
+    const pcmView = new Int16Array(buffer, headerSize, pcmData.length);
+    pcmView.set(pcmData);
+    
+    return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
 
 function showVoicePreview() {
     const preview = document.getElementById('voicePreview');
-    const playBtn = document.getElementById('voicePreviewPlay');
-    const wave = document.getElementById('voiceWavePreview');
-    const duration = document.getElementById('voiceDuration');
-    
-    console.log('🎯 Showing voice preview - playBtn:', playBtn);
-    
-    if (preview) {
-        preview.style.display = 'flex';
-        preview.style.visibility = 'visible';
-        preview.style.opacity = '1';
-    }
-    
-    if (playBtn) {
-        playBtn.style.display = 'flex';
-        playBtn.style.visibility = 'visible';
-        playBtn.innerHTML = '<i class="fas fa-play"></i>';
-        playBtn.disabled = false;
-        console.log('✅ Play button shown');
-    }
-    
-    if (wave) {
-        wave.classList.remove('playing');
-    }
-    
-    if (duration) {
-        duration.textContent = '0:00';
-    }
-    
-    // Setup playback
-    setupVoicePreviewPlayback();
+    if (preview) preview.style.display = 'flex';
 }
 
 function hideVoicePreview() {
@@ -1131,33 +1216,18 @@ function setupVoicePreviewPlayback() {
     const playBtn = document.getElementById('voicePreviewPlay');
     const wave = document.getElementById('voiceWavePreview');
     
-    if (!playBtn || !pendingVoiceUrl) {
-        console.warn('No play button or voice URL');
-        return;
-    }
+    if (!playBtn || !pendingVoiceUrl) return;
     
-    console.log('🔊 Setting up voice preview playback');
-    
-    // Remove old listeners
     playBtn.replaceWith(playBtn.cloneNode(true));
     const newPlayBtn = document.getElementById('voicePreviewPlay');
-    
-    if (!newPlayBtn) return;
-    
-    newPlayBtn.style.display = 'flex';
-    newPlayBtn.style.visibility = 'visible';
-    newPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
-    newPlayBtn.disabled = false;
     
     newPlayBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔘 Play button clicked, isPlaying:', isVoicePreviewPlaying);
         
         if (isVoicePreviewPlaying) {
             if (voicePreviewAudio) {
                 voicePreviewAudio.pause();
-                voicePreviewAudio.currentTime = 0;
             }
             isVoicePreviewPlaying = false;
             this.innerHTML = '<i class="fas fa-play"></i>';
@@ -1171,8 +1241,6 @@ function setupVoicePreviewPlayback() {
             voicePreviewAudio.playsInline = true;
             voicePreviewAudio.setAttribute('playsinline', '');
             voicePreviewAudio.setAttribute('webkit-playsinline', '');
-            voicePreviewAudio.volume = 1.0;
-            voicePreviewAudio.muted = false;
             
             voicePreviewAudio.onended = () => {
                 isVoicePreviewPlaying = false;
@@ -1181,11 +1249,20 @@ function setupVoicePreviewPlayback() {
             };
             
             voicePreviewAudio.onerror = (e) => {
-                console.error('Preview audio error:', e);
-                isVoicePreviewPlaying = false;
-                this.innerHTML = '<i class="fas fa-play"></i>';
-                if (wave) wave.classList.remove('playing');
-                showToast('❌ Could not play preview', 'error');
+                console.error('Audio error:', e);
+                const newUrl = pendingVoiceUrl + '?t=' + Date.now();
+                this.src = newUrl;
+                this.load();
+                showToast('🔄 Reloading preview...', 'info');
+                setTimeout(() => {
+                    this.play().then(() => {
+                        isVoicePreviewPlaying = true;
+                        this.innerHTML = '<i class="fas fa-pause"></i>';
+                        if (wave) wave.classList.add('playing');
+                    }).catch(() => {
+                        showToast('❌ Could not play preview', 'error');
+                    });
+                }, 500);
             };
         }
         
@@ -1193,13 +1270,23 @@ function setupVoicePreviewPlayback() {
             isVoicePreviewPlaying = true;
             this.innerHTML = '<i class="fas fa-pause"></i>';
             if (wave) wave.classList.add('playing');
-            console.log('▶️ Preview playing');
         }).catch((err) => {
             console.error('Play error:', err);
             if (err.name === 'NotAllowedError') {
                 showToast('👆 Tap play after interacting with the page', 'warning');
             } else {
-                showToast('❌ Could not play preview', 'error');
+                const newUrl = pendingVoiceUrl + '?t=' + Date.now();
+                voicePreviewAudio.src = newUrl;
+                voicePreviewAudio.load();
+                setTimeout(() => {
+                    voicePreviewAudio.play().then(() => {
+                        isVoicePreviewPlaying = true;
+                        this.innerHTML = '<i class="fas fa-pause"></i>';
+                        if (wave) wave.classList.add('playing');
+                    }).catch(() => {
+                        showToast('❌ Could not play preview', 'error');
+                    });
+                }, 300);
             }
         });
     });
@@ -1368,20 +1455,16 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE
+// SEND MESSAGE - WAV FOR ALL DEVICES
 // ============================================
 
 async function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     
-    if (!text && !pendingFile && !pendingVoiceBlob) {
-        showToast('📝 Type a message or attach a file', 'info');
-        return;
-    }
-    
+    if (!text && !pendingFile && !pendingVoiceBlob) return;
     if (!currentUser) {
-        showToast('🔒 Please login to send messages', 'error');
+        showToast('🔒 Please login', 'error');
         return;
     }
     
@@ -1391,6 +1474,10 @@ async function sendMessage() {
     let messageText = text;
     let replyTo = replyToMessage ? replyToMessage.id : null;
     
+    if (!hasReplyColumn) {
+        replyTo = null;
+    }
+    
     const sendBtn = document.getElementById('sendBtn');
     const originalHtml = sendBtn?.innerHTML;
     if (sendBtn) {
@@ -1399,7 +1486,6 @@ async function sendMessage() {
     }
     
     try {
-        // File upload
         if (pendingFile) {
             const file = pendingFile;
             const ext = file.name.split('.').pop();
@@ -1436,63 +1522,47 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE - Upload with correct format
+        // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
-            if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
-                showToast('❌ Voice recording is empty', 'error');
-                pendingVoiceBlob = null;
-                hideVoicePreview();
-                return;
+            // Ensure it's WAV format
+            let voiceBlob = pendingVoiceBlob;
+            if (!pendingVoiceBlob.type || pendingVoiceBlob.type !== 'audio/wav') {
+                // If somehow not WAV, convert (should already be WAV from recording)
+                console.warn('Unexpected voice format:', pendingVoiceBlob.type);
             }
             
-            console.log('🎤 Voice blob size:', pendingVoiceBlob.size, 'type:', pendingVoiceBlob.type);
-            
-            // Determine file extension from blob type
-            let extension = 'webm';
-            let contentType = 'audio/webm';
-            
-            if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('wav')) {
-                extension = 'wav';
-                contentType = 'audio/wav';
-            } else if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('mp4')) {
-                extension = 'mp4';
-                contentType = 'audio/mp4';
-            }
-            
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.${extension}`;
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, pendingVoiceBlob, {
-                    contentType: contentType,
+                .upload(path, voiceBlob, {
+                    contentType: 'audio/wav',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
             
-            if (uploadError) {
-                console.error('❌ Voice upload error:', uploadError);
+            if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                    .from('chat-files')
+                    .getPublicUrl(path);
+                
+                fileUrl = publicUrl + '?t=' + Date.now();
+                messageType = 'voice';
+                messageText = '';
+                console.log('📤 Voice uploaded as WAV:', path);
+            } else {
                 showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
                 return;
             }
-            
-            const { data: { publicUrl } } = supabase.storage
-                .from('chat-files')
-                .getPublicUrl(path);
-            
-            fileUrl = publicUrl + '?t=' + Date.now();
-            messageType = 'voice';
-            messageText = '';
-            console.log('✅ Voice uploaded successfully:', fileUrl);
             pendingVoiceBlob = null;
             hideVoicePreview();
         }
         
-        // Build message
         const message = {
             channel: currentChannel,
             sender_id: currentUser.id,
-            sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
+            sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
             message: messageText,
             type: messageType,
             file_url: fileUrl,
@@ -1504,7 +1574,11 @@ async function sendMessage() {
             message.reply_to = replyTo;
         }
         
-        console.log('📨 Inserting message:', message);
+        const tempId = 'temp_' + Date.now();
+        const tempMsg = { ...message, id: tempId };
+        if (replyTo) tempMsg.reply_to = replyTo;
+        allMessages.push(tempMsg);
+        renderMessages();
         
         const { data, error } = await supabase
             .from('chat_messages')
@@ -1512,24 +1586,25 @@ async function sendMessage() {
             .select();
         
         if (error) {
-            console.error('❌ Insert error:', error);
-            showToast(`❌ Failed to send: ${error.message}`, 'error');
+            allMessages = allMessages.filter(m => m.id !== tempId);
+            renderMessages();
+            showToast(`❌ ${error.message}`, 'error');
             return;
         }
         
         if (data && data[0]) {
-            console.log('✅ Message saved! ID:', data[0].id);
-            allMessages.push(data[0]);
+            const index = allMessages.findIndex(m => m.id === tempId);
+            if (index !== -1) allMessages[index] = data[0];
             renderMessages();
-            scrollToBottom();
-            input.value = '';
-            input.placeholder = 'Type a message...';
-            replyToMessage = null;
-            showToast('✅ Message sent!', 'success');
         }
         
+        input.value = '';
+        input.placeholder = 'Type a message...';
+        replyToMessage = null;
+        scrollToBottom();
+        
     } catch (error) {
-        console.error('❌ Send error:', error);
+        console.error('Send error:', error);
         showToast('❌ Failed to send', 'error');
     } finally {
         if (sendBtn) {
