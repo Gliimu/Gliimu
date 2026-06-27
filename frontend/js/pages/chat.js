@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Voice recording and playback across all devices
+// Simplified: Voice recording and playback that works
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -32,13 +32,11 @@ let onlineInterval = null;
 
 // Audio recording
 let mediaRecorder = null;
-let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
 let recordingStartTime = null;
 let recordingTimer = null;
 let mediaStream = null;
-let scriptProcessor = null;
 
 // Voice preview
 let voicePreviewAudio = null;
@@ -722,8 +720,6 @@ function renderMessages() {
                         <div class="voice-wave" id="voiceWave-${msg.id}">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
-                        <audio style="display:none;" preload="auto" playsinline webkit-playsinline></audio>
-                        <span class="voice-duration-label"></span>
                     </div>
                 </div>
             `;
@@ -1003,6 +999,42 @@ async function startVoiceRecording() {
     }
 }
 
+function stopVoiceRecording() {
+    if (!isRecording) return;
+    
+    isRecording = false;
+    if (recordingTimer) clearInterval(recordingTimer);
+    
+    const btn = document.getElementById('voiceRecordBtn');
+    if (btn) {
+        btn.classList.remove('recording');
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+    }
+    
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        console.log('🛑 Stopping MediaRecorder');
+        mediaRecorder.stop();
+        return;
+    }
+    
+    // Cleanup if MediaRecorder failed
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+    }
+    mediaRecorder = null;
+    audioChunks = [];
+    showToast('❌ Recording stopped unexpectedly', 'error');
+}
+
+function toggleVoiceRecording() {
+    if (isRecording) {
+        stopVoiceRecording();
+    } else {
+        startVoiceRecording();
+    }
+}
+
 // ============================================
 // VOICE PREVIEW - SIMPLIFIED
 // ============================================
@@ -1125,167 +1157,6 @@ function setupVoicePreviewPlayback() {
             showToast('❌ Could not play preview', 'error');
         });
     });
-}
-
-// ============================================
-// SEND MESSAGE - SIMPLIFIED VOICE UPLOAD
-// ============================================
-
-async function sendMessage() {
-    const input = document.getElementById('messageInput');
-    const text = input.value.trim();
-    
-    if (!text && !pendingFile && !pendingVoiceBlob) {
-        showToast('📝 Type a message or attach a file', 'info');
-        return;
-    }
-    
-    if (!currentUser) {
-        showToast('🔒 Please login to send messages', 'error');
-        return;
-    }
-    
-    let fileUrl = null;
-    let fileName = null;
-    let messageType = 'text';
-    let messageText = text;
-    let replyTo = replyToMessage ? replyToMessage.id : null;
-    
-    const sendBtn = document.getElementById('sendBtn');
-    const originalHtml = sendBtn?.innerHTML;
-    if (sendBtn) {
-        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        sendBtn.disabled = true;
-    }
-    
-    try {
-        // File upload
-        if (pendingFile) {
-            const file = pendingFile;
-            const ext = file.name.split('.').pop();
-            const path = `chat_uploads/${currentUser.id}/${Date.now()}.${ext}`;
-            
-            const { error: uploadError } = await supabase.storage
-                .from('chat-files')
-                .upload(path, file, {
-                    cacheControl: 'no-cache, no-store, must-revalidate'
-                });
-            
-            if (!uploadError) {
-                const { data: { publicUrl } } = supabase.storage
-                    .from('chat-files')
-                    .getPublicUrl(path);
-                
-                fileUrl = publicUrl + '?t=' + Date.now();
-                fileName = file.name;
-                if (file.type.startsWith('video/')) {
-                    messageType = 'video';
-                } else if (file.type.startsWith('image/')) {
-                    messageType = 'image';
-                } else {
-                    messageType = 'file';
-                }
-                messageText = '';
-            } else {
-                showToast('❌ File upload failed', 'error');
-                pendingFile = null;
-                hideFilePreview();
-                return;
-            }
-            pendingFile = null;
-            hideFilePreview();
-        }
-        
-        // VOICE - Simplified upload
-        if (pendingVoiceBlob) {
-            if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
-                showToast('❌ Voice recording is empty', 'error');
-                pendingVoiceBlob = null;
-                hideVoicePreview();
-                return;
-            }
-            
-            console.log('🎤 Voice blob size:', pendingVoiceBlob.size);
-            
-            // Simple: always use webm
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
-            
-            const { error: uploadError } = await supabase.storage
-                .from('chat-files')
-                .upload(path, pendingVoiceBlob, {
-                    contentType: 'audio/webm;codecs=opus',
-                    cacheControl: 'no-cache, no-store, must-revalidate'
-                });
-            
-            if (uploadError) {
-                console.error('❌ Voice upload error:', uploadError);
-                showToast('❌ Voice upload failed', 'error');
-                pendingVoiceBlob = null;
-                hideVoicePreview();
-                return;
-            }
-            
-            const { data: { publicUrl } } = supabase.storage
-                .from('chat-files')
-                .getPublicUrl(path);
-            
-            fileUrl = publicUrl + '?t=' + Date.now();
-            messageType = 'voice';
-            messageText = '';
-            console.log('✅ Voice uploaded successfully');
-            pendingVoiceBlob = null;
-            hideVoicePreview();
-        }
-        
-        // Build message
-        const message = {
-            channel: currentChannel,
-            sender_id: currentUser.id,
-            sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
-            message: messageText,
-            type: messageType,
-            file_url: fileUrl,
-            file_name: fileName,
-            created_at: new Date().toISOString()
-        };
-        
-        if (hasReplyColumn && replyTo) {
-            message.reply_to = replyTo;
-        }
-        
-        console.log('📨 Inserting message');
-        
-        const { data, error } = await supabase
-            .from('chat_messages')
-            .insert([message])
-            .select();
-        
-        if (error) {
-            console.error('❌ Insert error:', error);
-            showToast(`❌ Failed to send: ${error.message}`, 'error');
-            return;
-        }
-        
-        if (data && data[0]) {
-            console.log('✅ Message saved!');
-            allMessages.push(data[0]);
-            renderMessages();
-            scrollToBottom();
-            input.value = '';
-            input.placeholder = 'Type a message...';
-            replyToMessage = null;
-            showToast('✅ Message sent!', 'success');
-        }
-        
-    } catch (error) {
-        console.error('❌ Send error:', error);
-        showToast('❌ Failed to send', 'error');
-    } finally {
-        if (sendBtn) {
-            sendBtn.innerHTML = originalHtml;
-            sendBtn.disabled = false;
-        }
-    }
 }
 
 // ============================================
@@ -1451,7 +1322,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - FIXED VOICE UPLOAD
+// SEND MESSAGE - SIMPLIFIED VOICE UPLOAD
 // ============================================
 
 async function sendMessage() {
@@ -1519,7 +1390,7 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE - Upload with correct format
+        // VOICE - Simplified upload
         if (pendingVoiceBlob) {
             if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
                 showToast('❌ Voice recording is empty', 'error');
@@ -1528,49 +1399,26 @@ async function sendMessage() {
                 return;
             }
             
-            console.log('🎤 Voice blob size:', pendingVoiceBlob.size, 'type:', pendingVoiceBlob.type);
+            console.log('🎤 Voice blob size:', pendingVoiceBlob.size);
             
-            // Determine file extension and content type from blob type
-            let extension = 'webm';
-            let contentType = 'audio/webm;codecs=opus'; // Use full codec info
+            // Simple: always use webm
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
             
-            if (pendingVoiceBlob.type) {
-                if (pendingVoiceBlob.type.includes('wav')) {
-                    extension = 'wav';
-                    contentType = 'audio/wav';
-                } else if (pendingVoiceBlob.type.includes('mp4') || pendingVoiceBlob.type.includes('m4a')) {
-                    extension = 'mp4';
-                    contentType = 'audio/mp4';
-                } else if (pendingVoiceBlob.type.includes('webm')) {
-                    extension = 'webm';
-                    // Keep the full codec info for webm
-                    if (pendingVoiceBlob.type.includes('opus')) {
-                        contentType = 'audio/webm;codecs=opus';
-                    } else {
-                        contentType = 'audio/webm';
-                    }
-                }
-            }
-            
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.${extension}`;
-            
-            // CRITICAL FIX: Upload with proper MIME type
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
                 .upload(path, pendingVoiceBlob, {
-                    contentType: contentType,
+                    contentType: 'audio/webm;codecs=opus',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
             
             if (uploadError) {
                 console.error('❌ Voice upload error:', uploadError);
-                showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
+                showToast('❌ Voice upload failed', 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
                 return;
             }
             
-            // Get the public URL with a cache-busting parameter
             const { data: { publicUrl } } = supabase.storage
                 .from('chat-files')
                 .getPublicUrl(path);
@@ -1578,7 +1426,7 @@ async function sendMessage() {
             fileUrl = publicUrl + '?t=' + Date.now();
             messageType = 'voice';
             messageText = '';
-            console.log('✅ Voice uploaded successfully:', fileUrl);
+            console.log('✅ Voice uploaded successfully');
             pendingVoiceBlob = null;
             hideVoicePreview();
         }
@@ -1599,7 +1447,7 @@ async function sendMessage() {
             message.reply_to = replyTo;
         }
         
-        console.log('📨 Inserting message:', message);
+        console.log('📨 Inserting message');
         
         const { data, error } = await supabase
             .from('chat_messages')
@@ -1613,7 +1461,7 @@ async function sendMessage() {
         }
         
         if (data && data[0]) {
-            console.log('✅ Message saved! ID:', data[0].id);
+            console.log('✅ Message saved!');
             allMessages.push(data[0]);
             renderMessages();
             scrollToBottom();
