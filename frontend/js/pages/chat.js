@@ -795,7 +795,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - FIXED
+// VOICE PLAYBACK - SIMPLIFIED & FUNCTIONAL
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -803,7 +803,6 @@ async function playVoiceMessage(btn, audioUrl) {
     const icon = btn.querySelector('i');
     const wave = container.querySelector('.voice-wave');
     let audioEl = container.querySelector('audio');
-    const durationLabel = container.querySelector('.voice-duration-label');
     
     // Stop any other playing voice messages
     document.querySelectorAll('.voice-play-btn i').forEach(el => {
@@ -831,153 +830,87 @@ async function playVoiceMessage(btn, audioUrl) {
     }
     
     // Load and play
-    await loadAndPlayVoice(btn, audioUrl, wave);
-}
-
-async function loadAndPlayVoice(btn, audioUrl, wave) {
-    const icon = btn.querySelector('i');
-    const container = btn.parentElement;
-    let audioEl = container.querySelector('audio');
-    const durationLabel = container.querySelector('.voice-duration-label');
-    
-    if (!audioEl) {
-        audioEl = document.createElement('audio');
-        audioEl.style.display = 'none';
-        audioEl.playsInline = true;
-        audioEl.setAttribute('playsinline', '');
-        audioEl.setAttribute('webkit-playsinline', '');
-        audioEl.preload = 'auto';
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        container.appendChild(audioEl);
-    }
-    
-    icon.className = 'fas fa-spinner fa-spin';
-    btn.disabled = true;
-    
     try {
         const baseUrl = audioUrl.split('?')[0];
         const freshUrl = baseUrl + '?t=' + Date.now();
         
         console.log('🔊 Loading voice from:', freshUrl);
         
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        
-        // CRITICAL FIX: Fetch the audio as blob to ensure correct MIME type
-        try {
-            const response = await fetch(freshUrl, {
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const blob = await response.blob();
-            console.log('📦 Fetched blob type:', blob.type, 'size:', blob.size);
-            
-            // Create a blob URL with the correct MIME type
-            const blobUrl = URL.createObjectURL(blob);
-            audioEl.src = blobUrl;
-            
-            // Clean up blob URL when done
-            audioEl.addEventListener('ended', () => {
-                URL.revokeObjectURL(blobUrl);
-            }, { once: true });
-            
-            audioEl.addEventListener('error', () => {
-                URL.revokeObjectURL(blobUrl);
-            }, { once: true });
-            
-        } catch (fetchError) {
-            console.warn('Fetch fallback, using direct URL:', fetchError);
-            audioEl.src = freshUrl;
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.style.display = 'none';
+            audioEl.playsInline = true;
+            audioEl.setAttribute('playsinline', '');
+            audioEl.setAttribute('webkit-playsinline', '');
+            container.appendChild(audioEl);
         }
         
+        // Fetch as blob to ensure correct MIME type
+        const response = await fetch(freshUrl);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        console.log('📦 Fetched blob type:', blob.type, 'size:', blob.size);
+        
+        // Create blob URL
+        const blobUrl = URL.createObjectURL(blob);
+        audioEl.src = blobUrl;
         audioEl.load();
         
-        // Wait for metadata to load so we can get duration
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                audioEl.removeEventListener('loadedmetadata', onReady);
-                reject(new Error('Timeout loading audio metadata'));
-            }, 10000);
-            
-            const onReady = () => {
-                clearTimeout(timeout);
-                audioEl.removeEventListener('loadedmetadata', onReady);
-                resolve();
-            };
-            
-            // Check if metadata is already loaded
-            if (audioEl.readyState >= 1) { // HAVE_METADATA = 1
-                clearTimeout(timeout);
-                resolve();
-                return;
+        // Play when ready
+        audioEl.oncanplaythrough = async () => {
+            try {
+                await audioEl.play();
+                icon.className = 'fas fa-pause';
+                btn.disabled = false;
+                if (wave) wave.classList.add('playing');
+                
+                audioEl.onended = () => {
+                    icon.className = 'fas fa-play';
+                    if (wave) wave.classList.remove('playing');
+                    URL.revokeObjectURL(blobUrl);
+                };
+                
+                audioEl.onerror = () => {
+                    icon.className = 'fas fa-play';
+                    if (wave) wave.classList.remove('playing');
+                    URL.revokeObjectURL(blobUrl);
+                    showToast('❌ Could not play voice', 'error');
+                };
+                
+            } catch (err) {
+                console.error('Play error:', err);
+                icon.className = 'fas fa-play';
+                btn.disabled = false;
+                if (wave) wave.classList.remove('playing');
+                showToast('❌ Could not play voice', 'error');
             }
-            
-            audioEl.addEventListener('loadedmetadata', onReady);
-        });
-        
-        // Now duration is available
-        if (durationLabel && audioEl.duration && isFinite(audioEl.duration)) {
-            const mins = Math.floor(audioEl.duration / 60);
-            const secs = Math.floor(audioEl.duration % 60);
-            durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-            console.log('⏱️ Duration:', audioEl.duration, 'seconds');
-        } else {
-            console.warn('Duration not available or invalid');
-        }
-        
-        // Wait for audio to be ready to play
-        await new Promise((resolve) => {
-            const timeout = setTimeout(resolve, 8000);
-            const onReady = () => {
-                clearTimeout(timeout);
-                audioEl.removeEventListener('canplaythrough', onReady);
-                audioEl.removeEventListener('loadeddata', onReady);
-                resolve();
-            };
-            audioEl.addEventListener('canplaythrough', onReady);
-            audioEl.addEventListener('loadeddata', onReady);
-            if (audioEl.readyState >= 3) { // HAVE_FUTURE_DATA = 3
-                clearTimeout(timeout);
-                resolve();
-            }
-        });
-        
-        await audioEl.play();
-        icon.className = 'fas fa-pause';
-        btn.disabled = false;
-        if (wave) wave.classList.add('playing');
-        
-        audioEl.onended = () => {
-            icon.className = 'fas fa-play';
-            if (wave) wave.classList.remove('playing');
         };
         
         audioEl.onerror = () => {
-            console.error('Audio error during playback');
+            console.error('Audio load error');
             icon.className = 'fas fa-play';
             btn.disabled = false;
             if (wave) wave.classList.remove('playing');
-            showToast('❌ Could not play voice message', 'error');
+            showToast('❌ Could not load voice', 'error');
         };
+        
+        btn.disabled = true;
+        icon.className = 'fas fa-spinner fa-spin';
         
     } catch (err) {
         console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
         if (wave) wave.classList.remove('playing');
-        showToast('❌ Could not load voice message: ' + err.message, 'error');
+        showToast('❌ Could not load voice', 'error');
     }
 }
 
 // ============================================
-// VOICE RECORDING - FIXED
+// VOICE RECORDING - SIMPLIFIED
 // ============================================
 
 async function startVoiceRecording() {
@@ -986,33 +919,20 @@ async function startVoiceRecording() {
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true,
-                sampleRate: 44100,
-                channelCount: 1
+                autoGainControl: true
             }
         });
         
         mediaStream = stream;
         audioChunks = [];
         
-        // Use the best available MIME type
-        const mimeTypes = [
-            'audio/webm;codecs=opus',
-            'audio/webm',
-            'audio/mp4',
-            'audio/wav'
-        ];
-        
-        let mimeType = null;
-        for (const type of mimeTypes) {
-            if (MediaRecorder.isTypeSupported(type)) {
-                mimeType = type;
-                break;
-            }
-        }
-        
-        if (!mimeType) {
+        // Use webm with opus codec (most compatible)
+        let mimeType = 'audio/webm;codecs=opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
             mimeType = 'audio/webm';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'audio/mp4';
+            }
         }
         
         console.log('🎤 Using MediaRecorder with mimeType:', mimeType);
@@ -1026,24 +946,22 @@ async function startVoiceRecording() {
         };
         
         mediaRecorder.onstop = () => {
-            const mime = mediaRecorder.mimeType || 'audio/webm';
-            const blob = new Blob(audioChunks, { type: mime });
+            const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
             
-            console.log('🎤 Recording stopped, blob size:', blob.size, 'type:', blob.type);
+            console.log('🎤 Recording stopped, blob size:', blob.size);
             
             if (blob.size > 1000) {
                 pendingVoiceBlob = blob;
                 pendingVoiceUrl = URL.createObjectURL(blob);
                 
-                // Show preview immediately
                 showVoicePreview();
                 setupVoicePreviewPlayback();
                 
-                console.log('🎤 Voice recorded:', blob.size, 'bytes');
-                showToast('✅ Voice recorded! Tap play to preview', 'success');
+                showToast('✅ Voice recorded!', 'success');
             } else {
                 showToast('❌ Recording too short', 'error');
             }
+            
             audioChunks = [];
             if (mediaStream) {
                 mediaStream.getTracks().forEach(t => t.stop());
@@ -1071,67 +989,28 @@ async function startVoiceRecording() {
         }, 1000);
         
         if (navigator.vibrate) navigator.vibrate(50);
-        showToast('🎤 Recording... Tap stop to preview', 'info');
+        showToast('🎤 Recording... Tap stop', 'info');
         
     } catch (err) {
         console.error('Microphone error:', err);
         let errorMsg = '❌ Could not access microphone';
         if (err.name === 'NotAllowedError') {
-            errorMsg = '❌ Please allow microphone access in your browser settings';
+            errorMsg = '❌ Please allow microphone access';
         } else if (err.name === 'NotFoundError') {
-            errorMsg = '❌ No microphone found on this device';
+            errorMsg = '❌ No microphone found';
         }
         showToast(errorMsg, 'error');
     }
 }
 
-function stopVoiceRecording() {
-    if (!isRecording) return;
-    
-    isRecording = false;
-    if (recordingTimer) clearInterval(recordingTimer);
-    
-    const btn = document.getElementById('voiceRecordBtn');
-    if (btn) {
-        btn.classList.remove('recording');
-        btn.innerHTML = '<i class="fas fa-microphone"></i>';
-    }
-    
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        console.log('🛑 Stopping MediaRecorder');
-        mediaRecorder.stop();
-        return;
-    }
-    
-    // Cleanup if MediaRecorder failed
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(t => t.stop());
-        mediaStream = null;
-    }
-    mediaRecorder = null;
-    audioChunks = [];
-    showToast('❌ Recording stopped unexpectedly', 'error');
-}
-
-function toggleVoiceRecording() {
-    if (isRecording) {
-        stopVoiceRecording();
-    } else {
-        startVoiceRecording();
-    }
-}
-
 // ============================================
-// VOICE PREVIEW PLAYBACK - FIXED
+// VOICE PREVIEW - SIMPLIFIED
 // ============================================
 
 function showVoicePreview() {
     const preview = document.getElementById('voicePreview');
     const playBtn = document.getElementById('voicePreviewPlay');
     const wave = document.getElementById('voiceWavePreview');
-    const duration = document.getElementById('voiceDuration');
-    
-    console.log('🎯 Showing voice preview - playBtn:', playBtn);
     
     if (preview) {
         preview.style.display = 'flex';
@@ -1144,18 +1023,12 @@ function showVoicePreview() {
         playBtn.style.visibility = 'visible';
         playBtn.innerHTML = '<i class="fas fa-play"></i>';
         playBtn.disabled = false;
-        console.log('✅ Play button shown');
     }
     
     if (wave) {
         wave.classList.remove('playing');
     }
     
-    if (duration) {
-        duration.textContent = '0:00';
-    }
-    
-    // Setup playback
     setupVoicePreviewPlayback();
 }
 
@@ -1197,9 +1070,7 @@ function setupVoicePreviewPlayback() {
         return;
     }
     
-    console.log('🔊 Setting up voice preview playback');
-    
-    // Remove old listeners
+    // Remove old listener
     playBtn.replaceWith(playBtn.cloneNode(true));
     const newPlayBtn = document.getElementById('voicePreviewPlay');
     
@@ -1213,7 +1084,6 @@ function setupVoicePreviewPlayback() {
     newPlayBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔘 Play button clicked, isPlaying:', isVoicePreviewPlaying);
         
         if (isVoicePreviewPlaying) {
             if (voicePreviewAudio) {
@@ -1228,12 +1098,9 @@ function setupVoicePreviewPlayback() {
         
         if (!voicePreviewAudio) {
             voicePreviewAudio = new Audio(pendingVoiceUrl);
-            voicePreviewAudio.preload = 'metadata';
             voicePreviewAudio.playsInline = true;
             voicePreviewAudio.setAttribute('playsinline', '');
             voicePreviewAudio.setAttribute('webkit-playsinline', '');
-            voicePreviewAudio.volume = 1.0;
-            voicePreviewAudio.muted = false;
             
             voicePreviewAudio.onended = () => {
                 isVoicePreviewPlaying = false;
@@ -1241,8 +1108,7 @@ function setupVoicePreviewPlayback() {
                 if (wave) wave.classList.remove('playing');
             };
             
-            voicePreviewAudio.onerror = (e) => {
-                console.error('Preview audio error:', e);
+            voicePreviewAudio.onerror = () => {
                 isVoicePreviewPlaying = false;
                 this.innerHTML = '<i class="fas fa-play"></i>';
                 if (wave) wave.classList.remove('playing');
@@ -1254,16 +1120,172 @@ function setupVoicePreviewPlayback() {
             isVoicePreviewPlaying = true;
             this.innerHTML = '<i class="fas fa-pause"></i>';
             if (wave) wave.classList.add('playing');
-            console.log('▶️ Preview playing');
         }).catch((err) => {
             console.error('Play error:', err);
-            if (err.name === 'NotAllowedError') {
-                showToast('👆 Tap play after interacting with the page', 'warning');
-            } else {
-                showToast('❌ Could not play preview', 'error');
-            }
+            showToast('❌ Could not play preview', 'error');
         });
     });
+}
+
+// ============================================
+// SEND MESSAGE - SIMPLIFIED VOICE UPLOAD
+// ============================================
+
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    
+    if (!text && !pendingFile && !pendingVoiceBlob) {
+        showToast('📝 Type a message or attach a file', 'info');
+        return;
+    }
+    
+    if (!currentUser) {
+        showToast('🔒 Please login to send messages', 'error');
+        return;
+    }
+    
+    let fileUrl = null;
+    let fileName = null;
+    let messageType = 'text';
+    let messageText = text;
+    let replyTo = replyToMessage ? replyToMessage.id : null;
+    
+    const sendBtn = document.getElementById('sendBtn');
+    const originalHtml = sendBtn?.innerHTML;
+    if (sendBtn) {
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        sendBtn.disabled = true;
+    }
+    
+    try {
+        // File upload
+        if (pendingFile) {
+            const file = pendingFile;
+            const ext = file.name.split('.').pop();
+            const path = `chat_uploads/${currentUser.id}/${Date.now()}.${ext}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('chat-files')
+                .upload(path, file, {
+                    cacheControl: 'no-cache, no-store, must-revalidate'
+                });
+            
+            if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                    .from('chat-files')
+                    .getPublicUrl(path);
+                
+                fileUrl = publicUrl + '?t=' + Date.now();
+                fileName = file.name;
+                if (file.type.startsWith('video/')) {
+                    messageType = 'video';
+                } else if (file.type.startsWith('image/')) {
+                    messageType = 'image';
+                } else {
+                    messageType = 'file';
+                }
+                messageText = '';
+            } else {
+                showToast('❌ File upload failed', 'error');
+                pendingFile = null;
+                hideFilePreview();
+                return;
+            }
+            pendingFile = null;
+            hideFilePreview();
+        }
+        
+        // VOICE - Simplified upload
+        if (pendingVoiceBlob) {
+            if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
+                showToast('❌ Voice recording is empty', 'error');
+                pendingVoiceBlob = null;
+                hideVoicePreview();
+                return;
+            }
+            
+            console.log('🎤 Voice blob size:', pendingVoiceBlob.size);
+            
+            // Simple: always use webm
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.webm`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('chat-files')
+                .upload(path, pendingVoiceBlob, {
+                    contentType: 'audio/webm;codecs=opus',
+                    cacheControl: 'no-cache, no-store, must-revalidate'
+                });
+            
+            if (uploadError) {
+                console.error('❌ Voice upload error:', uploadError);
+                showToast('❌ Voice upload failed', 'error');
+                pendingVoiceBlob = null;
+                hideVoicePreview();
+                return;
+            }
+            
+            const { data: { publicUrl } } = supabase.storage
+                .from('chat-files')
+                .getPublicUrl(path);
+            
+            fileUrl = publicUrl + '?t=' + Date.now();
+            messageType = 'voice';
+            messageText = '';
+            console.log('✅ Voice uploaded successfully');
+            pendingVoiceBlob = null;
+            hideVoicePreview();
+        }
+        
+        // Build message
+        const message = {
+            channel: currentChannel,
+            sender_id: currentUser.id,
+            sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
+            message: messageText,
+            type: messageType,
+            file_url: fileUrl,
+            file_name: fileName,
+            created_at: new Date().toISOString()
+        };
+        
+        if (hasReplyColumn && replyTo) {
+            message.reply_to = replyTo;
+        }
+        
+        console.log('📨 Inserting message');
+        
+        const { data, error } = await supabase
+            .from('chat_messages')
+            .insert([message])
+            .select();
+        
+        if (error) {
+            console.error('❌ Insert error:', error);
+            showToast(`❌ Failed to send: ${error.message}`, 'error');
+            return;
+        }
+        
+        if (data && data[0]) {
+            console.log('✅ Message saved!');
+            allMessages.push(data[0]);
+            renderMessages();
+            scrollToBottom();
+            input.value = '';
+            input.placeholder = 'Type a message...';
+            replyToMessage = null;
+            showToast('✅ Message sent!', 'success');
+        }
+        
+    } catch (error) {
+        console.error('❌ Send error:', error);
+        showToast('❌ Failed to send', 'error');
+    } finally {
+        if (sendBtn) {
+            sendBtn.innerHTML = originalHtml;
+            sendBtn.disabled = false;
+        }
+    }
 }
 
 // ============================================
