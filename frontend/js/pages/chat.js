@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Complete Working Version - Voice Recording Fixed
+// Complete Working Version - WAV FORCED
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -707,10 +707,10 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - FIXED: Use playsinline and proper audio
+        // VOICE - Check if WAV or WebM
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
-            const isWav = baseUrl.toLowerCase().endsWith('.wav');
+            const isWav = baseUrl.toLowerCase().endsWith('.wav') || baseUrl.toLowerCase().includes('.wav');
             const voiceUrl = baseUrl + '?t=' + Date.now();
             
             contentHtml = `
@@ -796,7 +796,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - FIXED WITH VOLUME
+// VOICE PLAYBACK - FIXED
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl, isWav) {
@@ -866,7 +866,48 @@ async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
         audioEl.volume = 1.0;
         audioEl.muted = false;
         
-        // Try direct URL
+        // For WAV files, use direct URL (best compatibility)
+        if (isWav) {
+            console.log('🎵 Playing WAV directly');
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 8000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            if (wave) wave.classList.add('playing');
+            
+            if (durationLabel && audioEl.duration) {
+                const mins = Math.floor(audioEl.duration / 60);
+                const secs = Math.floor(audioEl.duration % 60);
+                durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+            
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+                if (wave) wave.classList.remove('playing');
+            };
+            return;
+        }
+        
+        // For WebM files, try direct URL first
+        console.log('🎵 Playing WebM directly');
         audioEl.src = freshUrl;
         audioEl.load();
         
@@ -886,101 +927,77 @@ async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
             }
         });
         
-        // Try playing with error handling
-        try {
-            await audioEl.play();
-            icon.className = 'fas fa-pause';
-            btn.disabled = false;
-            if (wave) wave.classList.add('playing');
-            
-            if (durationLabel && audioEl.duration) {
-                const mins = Math.floor(audioEl.duration / 60);
-                const secs = Math.floor(audioEl.duration % 60);
-                durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-            }
-            
-            audioEl.onended = () => {
-                icon.className = 'fas fa-play';
-                if (wave) wave.classList.remove('playing');
-            };
-            
-            audioEl.onerror = (e) => {
-                console.error('Audio error during playback:', e);
-                icon.className = 'fas fa-play';
-                btn.disabled = false;
-                if (wave) wave.classList.remove('playing');
-                showToast('❌ Audio playback error', 'error');
-            };
-            
-        } catch (playErr) {
-            console.error('Play error:', playErr);
+        await audioEl.play();
+        icon.className = 'fas fa-pause';
+        btn.disabled = false;
+        if (wave) wave.classList.add('playing');
+        
+        audioEl.onended = () => {
             icon.className = 'fas fa-play';
-            btn.disabled = false;
             if (wave) wave.classList.remove('playing');
-            
-            // Try blob approach as fallback
-            try {
-                console.log('🎵 Trying blob approach as fallback');
-                const response = await fetch(freshUrl, {
-                    cache: 'no-cache',
-                    headers: {
-                        'Cache-Control': 'no-cache, no-store, must-revalidate',
-                        'Pragma': 'no-cache'
-                    }
-                });
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                const blob = await response.blob();
-                if (blob.size === 0) throw new Error('Empty audio file');
-                
-                const blobUrl = URL.createObjectURL(blob);
-                audioEl.src = blobUrl;
-                audioEl.load();
-                
-                await new Promise((resolve) => {
-                    const timeout = setTimeout(resolve, 5000);
-                    const onReady = () => {
-                        clearTimeout(timeout);
-                        audioEl.removeEventListener('canplaythrough', onReady);
-                        audioEl.removeEventListener('loadeddata', onReady);
-                        resolve();
-                    };
-                    audioEl.addEventListener('canplaythrough', onReady);
-                    audioEl.addEventListener('loadeddata', onReady);
-                    if (audioEl.readyState >= 3) {
-                        clearTimeout(timeout);
-                        resolve();
-                    }
-                });
-                
-                await audioEl.play();
-                icon.className = 'fas fa-pause';
-                btn.disabled = false;
-                if (wave) wave.classList.add('playing');
-                audioEl.onended = () => {
-                    icon.className = 'fas fa-play';
-                    if (wave) wave.classList.remove('playing');
-                    URL.revokeObjectURL(blobUrl);
-                };
-                
-            } catch (blobErr) {
-                console.error('Blob fallback failed:', blobErr);
-                showToast('❌ Could not play voice message', 'error');
-            }
-        }
+        };
         
     } catch (err) {
         console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
         if (wave) wave.classList.remove('playing');
-        showToast('❌ Could not load voice message', 'error');
+        
+        // Try blob approach as fallback
+        try {
+            console.log('🎵 Trying blob approach as fallback');
+            const response = await fetch(audioUrl.split('?')[0] + '?t=' + Date.now(), {
+                cache: 'no-cache',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const blob = await response.blob();
+            if (blob.size === 0) throw new Error('Empty audio file');
+            
+            const blobUrl = URL.createObjectURL(blob);
+            audioEl.src = blobUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            if (wave) wave.classList.add('playing');
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+                if (wave) wave.classList.remove('playing');
+                URL.revokeObjectURL(blobUrl);
+            };
+            
+        } catch (blobErr) {
+            console.error('Blob fallback failed:', blobErr);
+            showToast('❌ Could not play voice message', 'error');
+        }
     }
 }
 
 // ============================================
-// VOICE RECORDING - SIMPLIFIED AND FIXED
+// VOICE RECORDING - FORCED WAV
 // ============================================
 
 async function startVoiceRecording() {
@@ -998,9 +1015,21 @@ async function startVoiceRecording() {
         mediaStream = stream;
         audioChunks = [];
         
-        // Use MediaRecorder with WAV if supported, otherwise WebM
+        // FORCE WAV - Check WAV first (priority)
         const mimeTypes = ['audio/wav', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
-        let mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
+        let mimeType = null;
+        
+        for (const type of mimeTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                mimeType = type;
+                break;
+            }
+        }
+        
+        // If WAV is not supported, use the best available
+        if (!mimeType) {
+            mimeType = 'audio/webm';
+        }
         
         console.log('🎤 Using MediaRecorder with mimeType:', mimeType);
         
@@ -1084,12 +1113,10 @@ function stopVoiceRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         console.log('🛑 Stopping MediaRecorder');
         mediaRecorder.stop();
-        // Clean up will happen in onstop
         return;
     }
     
-    // If MediaRecorder is not available or failed
-    console.warn('MediaRecorder not available, stopping without cleanup');
+    // Cleanup if MediaRecorder failed
     if (mediaStream) {
         mediaStream.getTracks().forEach(t => t.stop());
         mediaStream = null;
@@ -1413,7 +1440,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - WORKING VERSION
+// SEND MESSAGE - FIXED
 // ============================================
 
 async function sendMessage() {
@@ -1481,7 +1508,7 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE - UPLOAD AS WAV
+        // VOICE - Upload with correct format
         if (pendingVoiceBlob) {
             if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
                 showToast('❌ Voice recording is empty', 'error');
@@ -1493,11 +1520,15 @@ async function sendMessage() {
             console.log('🎤 Voice blob size:', pendingVoiceBlob.size, 'type:', pendingVoiceBlob.type);
             
             // Determine file extension from blob type
-            let extension = 'webm';
-            let contentType = 'audio/webm';
-            if (pendingVoiceBlob.type === 'audio/wav') {
-                extension = 'wav';
-                contentType = 'audio/wav';
+            let extension = 'wav';
+            let contentType = 'audio/wav';
+            
+            if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('webm')) {
+                extension = 'webm';
+                contentType = 'audio/webm';
+            } else if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('mp4')) {
+                extension = 'mp4';
+                contentType = 'audio/mp4';
             }
             
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.${extension}`;
