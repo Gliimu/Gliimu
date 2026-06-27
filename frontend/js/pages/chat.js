@@ -795,7 +795,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK
+// VOICE PLAYBACK - FIXED
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl) {
@@ -866,6 +866,40 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         audioEl.src = freshUrl;
         audioEl.load();
         
+        // Wait for metadata to load so we can get duration
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                audioEl.removeEventListener('loadedmetadata', onReady);
+                reject(new Error('Timeout loading audio metadata'));
+            }, 10000);
+            
+            const onReady = () => {
+                clearTimeout(timeout);
+                audioEl.removeEventListener('loadedmetadata', onReady);
+                resolve();
+            };
+            
+            // Check if metadata is already loaded
+            if (audioEl.readyState >= 1) { // HAVE_METADATA = 1
+                clearTimeout(timeout);
+                resolve();
+                return;
+            }
+            
+            audioEl.addEventListener('loadedmetadata', onReady);
+        });
+        
+        // Now duration is available
+        if (durationLabel && audioEl.duration && isFinite(audioEl.duration)) {
+            const mins = Math.floor(audioEl.duration / 60);
+            const secs = Math.floor(audioEl.duration % 60);
+            durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            console.log('⏱️ Duration:', audioEl.duration, 'seconds');
+        } else {
+            console.warn('Duration not available or invalid');
+        }
+        
+        // Wait for audio to be ready to play
         await new Promise((resolve) => {
             const timeout = setTimeout(resolve, 8000);
             const onReady = () => {
@@ -876,7 +910,7 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
             };
             audioEl.addEventListener('canplaythrough', onReady);
             audioEl.addEventListener('loadeddata', onReady);
-            if (audioEl.readyState >= 3) {
+            if (audioEl.readyState >= 3) { // HAVE_FUTURE_DATA = 3
                 clearTimeout(timeout);
                 resolve();
             }
@@ -886,12 +920,6 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         icon.className = 'fas fa-pause';
         btn.disabled = false;
         if (wave) wave.classList.add('playing');
-        
-        if (durationLabel && audioEl.duration) {
-            const mins = Math.floor(audioEl.duration / 60);
-            const secs = Math.floor(audioEl.duration % 60);
-            durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
         
         audioEl.onended = () => {
             icon.className = 'fas fa-play';
@@ -911,7 +939,7 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         icon.className = 'fas fa-play';
         btn.disabled = false;
         if (wave) wave.classList.remove('playing');
-        showToast('❌ Could not load voice message', 'error');
+        showToast('❌ Could not load voice message: ' + err.message, 'error');
     }
 }
 
