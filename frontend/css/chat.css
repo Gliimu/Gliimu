@@ -1,14 +1,33 @@
 /* ============================================
    💬 COMMUNITY CHAT - GLIIMU
-   Clean - No Right Panel
+   Complete CSS - All Variables Defined
    ============================================ */
 
 /* ============================================
-   THEME - LIGHT MODE DEFAULT (FIXED)
+   THEME - LIGHT MODE DEFAULT
    ============================================ */
 
-/* IMPORTANT: Light mode is the default */
 :root {
+    /* Brand Colors */
+    --brand-purple: #2c2f78;
+    --brand-purple-dark: #1a1c4a;
+    --brand-gold: #fbb040;
+    --brand-gold-dark: #cc8a2a;
+    
+    /* Status Colors */
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    
+    /* Radius */
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-full: 9999px;
+    
+    /* Font */
+    --font: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    
     /* Light Theme (Default) */
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
@@ -30,7 +49,7 @@
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
 }
 
-/* Dark Mode - ONLY applied when body has .dark-mode class */
+/* Dark Mode */
 body.dark-mode {
     --bg-primary: #0f172a;
     --bg-secondary: #0f172a;
@@ -52,7 +71,7 @@ body.dark-mode {
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
 }
 
-/* System preference fallback (only if no class is set) */
+/* System preference fallback */
 @media (prefers-color-scheme: dark) {
     body:not(.light-mode):not(.dark-mode) {
         --bg-primary: #0f172a;
@@ -68,6 +87,10 @@ body.dark-mode {
     }
 }
 
+/* ============================================
+   RESET
+   ============================================ */
+
 * {
     margin: 0;
     padding: 0;
@@ -77,7 +100,7 @@ body.dark-mode {
 html, body {
     height: 100%;
     width: 100%;
-    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font);
     background: var(--bg-secondary);
     color: var(--text-primary);
     overflow: hidden;
@@ -185,22 +208,21 @@ html, body {
     font-size: 14px;
 }
 
-.channel-item i {
-    width: 18px;
-    font-size: 14px;
-}
-
-.channel-item span {
+.channel-item .channel-name {
     flex: 1;
 }
 
 .channel-item:hover {
-    background: rgba(44, 47, 120, 0.06);
+    background: var(--bg-hover);
     color: var(--brand-purple);
 }
 
 .channel-item.active {
     background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
+    color: white;
+}
+
+.channel-item.active .channel-name {
     color: white;
 }
 
@@ -286,7 +308,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.4);
+    background: rgba(0, 0, 0, 0.4);
     z-index: 15;
 }
 
@@ -373,7 +395,7 @@ html, body {
 }
 
 .action-btn:hover {
-    background: rgba(44, 47, 120, 0.06);
+    background: var(--bg-hover);
     color: var(--brand-purple);
 }
 
@@ -628,16 +650,22 @@ html, body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 48px;
-    height: 48px;
-    background: rgba(0,0,0,0.6);
+    width: 36px;
+    height: 36px;
+    background: rgba(0, 0, 0, 0.6);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 20px;
+    font-size: 16px;
     pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.video-bubble:hover .video-play-overlay {
+    background: rgba(44, 47, 120, 0.8);
+    transform: translate(-50%, -50%) scale(1.1);
 }
 
 .message-file {
@@ -870,7 +898,7 @@ html, body {
 }
 
 .composer-btn:hover {
-    background: rgba(44, 47, 120, 0.06);
+    background: var(--bg-hover);
     color: var(--brand-purple);
 }
 
@@ -1005,7 +1033,7 @@ html, body {
     text-align: center;
     padding: 4px;
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     transition: all 0.2s;
 }
 
@@ -1024,7 +1052,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 50;
@@ -1140,7 +1168,7 @@ html, body {
     padding: 6px 0;
     font-size: 13px;
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border-light, #f1f5f9);
+    border-bottom: 1px solid var(--border-light);
 }
 
 .modal-rules ul li:last-child {
@@ -1274,7 +1302,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.92);
+    background: rgba(0, 0, 0, 0.92);
     z-index: 1000;
     display: none;
     align-items: center;
@@ -1432,7 +1460,121 @@ html, body {
 }
 
 /* ============================================
-   RESPONSIVE
+   REPLY PREVIEW
+   ============================================ */
+
+.reply-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin-bottom: 4px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-left: 3px solid var(--brand-gold);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.reply-preview:hover {
+    background: var(--bg-hover);
+}
+
+.reply-preview .reply-sender {
+    font-weight: 600;
+    color: var(--brand-purple);
+}
+
+.reply-preview .reply-text {
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+
+/* ============================================
+   MENTION HIGHLIGHT
+   ============================================ */
+
+.mention-highlight {
+    background: rgba(251, 176, 64, 0.25);
+    padding: 0 4px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: var(--brand-purple);
+}
+
+.message-bubble.mention-bubble {
+    border-left: 3px solid var(--brand-gold);
+}
+
+/* ============================================
+   ONLINE USERS - YOU BADGE
+   ============================================ */
+
+.user-item.current-user-item {
+    background: var(--bg-hover);
+    border-radius: var(--radius);
+}
+
+.you-badge {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--brand-purple);
+    background: rgba(251, 176, 64, 0.15);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+
+.user-item .user-avatar span {
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+}
+
+/* ============================================
+   HIGHLIGHT FLASH (for scroll to message)
+   ============================================ */
+
+.highlight-flash {
+    animation: highlightFlash 1.5s ease;
+}
+
+@keyframes highlightFlash {
+    0%, 100% { background: transparent; }
+    25% { background: rgba(251, 176, 64, 0.2); border-radius: var(--radius); }
+    50% { background: rgba(251, 176, 64, 0.1); border-radius: var(--radius); }
+}
+
+/* ============================================
+   VIDEO BUBBLE
+   ============================================ */
+
+.video-bubble {
+    position: relative;
+    cursor: pointer;
+    padding: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.video-bubble .message-video {
+    width: 100%;
+    max-width: 200px;
+    max-height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+}
+
+/* ============================================
+   RESPONSIVE - TABLETS
    ============================================ */
 
 @media (max-width: 768px) {
@@ -1545,6 +1687,10 @@ html, body {
         font-size: 12px;
     }
 }
+
+/* ============================================
+   RESPONSIVE - SMALL PHONES (iPhone 7)
+   ============================================ */
 
 @media (max-width: 400px) {
     .chat-header {
@@ -1706,7 +1852,22 @@ html, body {
         height: 24px;
         font-size: 10px;
     }
+    
+    .video-bubble .video-play-overlay {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    .video-bubble .message-video {
+        max-width: 150px;
+        max-height: 130px;
+    }
 }
+
+/* ============================================
+   RESPONSIVE - LANDSCAPE
+   ============================================ */
 
 @media (max-height: 500px) and (orientation: landscape) {
     .chat-sidebar {
@@ -1741,33 +1902,62 @@ html, body {
     }
 }
 
-@media (prefers-color-scheme: dark) {
-    body:not(.light-mode) {
-        --bg-primary: #0f172a;
-        --bg-secondary: #0f172a;
-        --bg-card: #1e293b;
-        --bg-input: #1e293b;
-        
-        --text-primary: #f1f5f9;
-        --text-secondary: #94a3b8;
-        --text-tertiary: #64748b;
-        
-        --border-color: #1e293b;
-    }
-    
-    body:not(.light-mode) .message-group.other .message-bubble {
-        background: #1e293b;
-        color: #f1f5f9;
-    }
-    
-    body:not(.light-mode) .message-system {
-        background: rgba(255, 255, 255, 0.06);
-    }
-    
-    body:not(.light-mode) .modal-rules ul li {
-        border-bottom-color: #1e293b;
-    }
+/* ============================================
+   DARK MODE OVERRIDES
+   ============================================ */
+
+body.dark-mode .message-group.other .message-bubble {
+    background: var(--bg-card);
+    color: var(--text-primary);
 }
+
+body.dark-mode .message-system {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode .modal-rules ul li {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .channel-item.active {
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
+}
+
+body.dark-mode .sidebar-header h3 {
+    background: linear-gradient(135deg, var(--brand-gold), var(--brand-gold-dark));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.dark-mode .user-avatar-large {
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
+}
+
+body.dark-mode .voice-play-btn {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+}
+
+body.dark-mode .voice-wave span {
+    background: var(--brand-gold);
+}
+
+body.dark-mode .message-group.self .message-bubble {
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
+}
+
+body.dark-mode .reply-preview {
+    background: var(--bg-input);
+}
+
+body.dark-mode .reply-preview .reply-sender {
+    color: var(--brand-gold);
+}
+
+/* ============================================
+   UTILITY
+   ============================================ */
 
 *:focus-visible {
     outline: 2px solid var(--brand-purple);
@@ -1784,155 +1974,4 @@ html, body {
 ::selection {
     background: var(--brand-purple);
     color: white;
-}
-
-/* ============================================
-   REPLY PREVIEW
-   ============================================ */
-
-.reply-preview {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    margin-bottom: 4px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    border-left: 3px solid var(--brand-gold);
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.reply-preview:hover {
-    background: var(--bg-hover);
-}
-
-.reply-preview .reply-sender {
-    font-weight: 600;
-    color: var(--brand-purple);
-}
-
-.reply-preview .reply-text {
-    opacity: 0.8;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 150px;
-}
-
-/* ============================================
-   MENTION HIGHLIGHT
-   ============================================ */
-
-.mention-highlight {
-    background: rgba(251, 176, 64, 0.25);
-    padding: 0 4px;
-    border-radius: 4px;
-    font-weight: 600;
-    color: var(--brand-purple);
-}
-
-.message-bubble.mention-bubble {
-    border-left: 3px solid var(--brand-gold);
-}
-
-/* ============================================
-   ONLINE USERS - YOU BADGE
-   ============================================ */
-
-.user-item.current-user-item {
-    background: rgba(44, 47, 120, 0.06);
-    border-radius: var(--radius);
-}
-
-.you-badge {
-    font-size: 9px;
-    font-weight: 600;
-    color: var(--brand-purple);
-    background: rgba(251, 176, 64, 0.15);
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-    flex-shrink: 0;
-}
-
-.user-item .user-avatar span {
-    font-size: 12px;
-    font-weight: 600;
-    color: white;
-}
-
-/* ============================================
-   HIGHLIGHT FLASH (for scroll to message)
-   ============================================ */
-
-.highlight-flash {
-    animation: highlightFlash 1.5s ease;
-}
-
-@keyframes highlightFlash {
-    0%, 100% { background: transparent; }
-    25% { background: rgba(251, 176, 64, 0.2); border-radius: var(--radius); }
-    50% { background: rgba(251, 176, 64, 0.1); border-radius: var(--radius); }
-}
-
-/* ============================================
-   VIDEO PLAY OVERLAY - SMALL & CLEAN
-   ============================================ */
-
-.video-bubble {
-    position: relative;
-    cursor: pointer;
-    padding: 4px !important;
-    background: transparent !important;
-    border: none !important;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.video-bubble .message-video {
-    width: 100%;
-    max-width: 200px;
-    max-height: 180px;
-    border-radius: 8px;
-    object-fit: cover;
-    display: block;
-}
-
-.video-bubble .video-play-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 36px;
-    height: 36px;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 16px;
-    pointer-events: none;
-    transition: all 0.2s ease;
-}
-
-.video-bubble:hover .video-play-overlay {
-    background: rgba(44, 47, 120, 0.8);
-    transform: translate(-50%, -50%) scale(1.1);
-}
-
-/* Responsive for mobile */
-@media (max-width: 400px) {
-    .video-bubble .video-play-overlay {
-        width: 28px;
-        height: 28px;
-        font-size: 12px;
-    }
-    
-    .video-bubble .message-video {
-        max-width: 150px;
-        max-height: 130px;
-    }
 }
