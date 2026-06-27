@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Complete Updated - Fixed 400 Error, Voice Animation
+// Complete Working Version - Messages Persist
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,7 +30,7 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording - WAV ONLY
+// Audio recording
 let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
@@ -220,7 +220,7 @@ function saveMentionToast(messageId) {
 }
 
 // ============================================
-// CHECK REPLY COLUMN - FIXED
+// CHECK REPLY COLUMN
 // ============================================
 
 async function checkReplyColumn() {
@@ -549,26 +549,29 @@ async function loadMessages() {
             .select('*')
             .eq('channel', currentChannel)
             .order('created_at', { ascending: true })
-            .limit(100);
+            .limit(200);
         
         if (error) {
             console.error('❌ Load messages error:', error);
-            showToast('❌ Failed to load messages: ' + error.message, 'error');
+            showToast('❌ Failed to load messages', 'error');
             return;
         }
         
         console.log('📨 Loaded', messages?.length || 0, 'messages');
         
+        // Clear and reset
+        allMessages = [];
+        
         if (messages && messages.length > 0) {
             allMessages = messages;
             lastMessageId = messages[messages.length - 1].id;
-            renderMessages();
         } else {
             await insertWelcomeMessage();
-            renderMessages();
         }
         
+        renderMessages();
         scrollToBottom();
+        
     } catch (error) {
         console.error('❌ Exception loading messages:', error);
         showToast('❌ Failed to load messages', 'error');
@@ -606,11 +609,15 @@ function getWelcomeMessage(channel) {
     return `👋 Welcome to #${channel}!`;
 }
 
+// ============================================
+// RENDER MESSAGES - FIXED
+// ============================================
+
 function renderMessages() {
     const container = document.getElementById('messagesContainer');
     if (!container) return;
     
-    if (allMessages.length === 0) {
+    if (!allMessages || allMessages.length === 0) {
         const config = CHANNEL_CONFIG[currentChannel];
         container.innerHTML = `
             <div class="welcome-message">
@@ -621,6 +628,8 @@ function renderMessages() {
         `;
         return;
     }
+    
+    console.log('📊 Rendering', allMessages.length, 'messages');
     
     const shouldScroll = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
     
@@ -644,8 +653,8 @@ function renderMessages() {
         const initials = getInitials(senderName);
         
         const mentionKey = `mention_${msg.id}`;
-        const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
-        const hasMention = msg.message && msg.message.includes(`@${mentionName}`);
+        const mentionName = currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0];
+        const hasMention = mentionName && msg.message && msg.message.includes(`@${mentionName}`);
         if (hasMention && !isSelf && !shownMentionToasts.has(mentionKey)) {
             saveMentionToast(mentionKey);
             showToast(`📢 ${senderName} mentioned you`, 'info');
@@ -698,7 +707,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - NO ANIMATION UNLESS PLAYING
+        // VOICE
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -804,9 +813,7 @@ async function playVoiceMessage(btn, audioUrl, isWav) {
             const parent = el.closest('.voice-message');
             if (parent) {
                 const otherWave = parent.querySelector('.voice-wave');
-                if (otherWave) {
-                    otherWave.classList.remove('playing');
-                }
+                if (otherWave) otherWave.classList.remove('playing');
                 const otherAudio = parent.querySelector('audio');
                 if (otherAudio) {
                     otherAudio.pause();
@@ -853,7 +860,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
         
         console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        // For WAV files, use direct URL approach
+        // For WAV files, use direct URL
         if (isWav) {
             console.log('🎵 Playing WAV directly');
             audioEl.src = freshUrl;
@@ -878,8 +885,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
-            
-            // Start animation ONLY when playing
             if (wave) wave.classList.add('playing');
             
             if (durationLabel && audioEl.duration) {
@@ -919,8 +924,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
         await audioEl.play();
         icon.className = 'fas fa-pause';
         btn.disabled = false;
-        
-        // Start animation ONLY when playing
         if (wave) wave.classList.add('playing');
         
         audioEl.onended = () => {
@@ -1167,7 +1170,7 @@ function writeString(view, offset, string) {
 }
 
 // ============================================
-// VOICE PREVIEW PLAYBACK - FIXED
+// VOICE PREVIEW PLAYBACK
 // ============================================
 
 function showVoicePreview() {
@@ -1470,7 +1473,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - SIMPLIFIED & FIXED
+// SEND MESSAGE - WORKING VERSION
 // ============================================
 
 async function sendMessage() {
@@ -1487,8 +1490,6 @@ async function sendMessage() {
         return;
     }
     
-    console.log('📤 Sending message from user:', currentUser.id);
-    
     let fileUrl = null;
     let fileName = null;
     let messageType = 'text';
@@ -1503,7 +1504,7 @@ async function sendMessage() {
     }
     
     try {
-        // Handle file upload
+        // File upload
         if (pendingFile) {
             const file = pendingFile;
             const ext = file.name.split('.').pop();
@@ -1530,9 +1531,7 @@ async function sendMessage() {
                     messageType = 'file';
                 }
                 messageText = '';
-                console.log('📎 File uploaded:', path);
             } else {
-                console.error('File upload error:', uploadError);
                 showToast('❌ File upload failed', 'error');
                 pendingFile = null;
                 hideFilePreview();
@@ -1542,7 +1541,7 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // Handle voice upload
+        // Voice upload
         if (pendingVoiceBlob) {
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
@@ -1561,9 +1560,7 @@ async function sendMessage() {
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
                 messageText = '';
-                console.log('🎤 Voice uploaded:', path);
             } else {
-                console.error('Voice upload error:', uploadError);
                 showToast('❌ Voice upload failed', 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
@@ -1591,6 +1588,7 @@ async function sendMessage() {
         
         console.log('📨 Inserting message:', message);
         
+        // Insert into database
         const { data, error } = await supabase
             .from('chat_messages')
             .insert([message])
@@ -1604,16 +1602,16 @@ async function sendMessage() {
         
         if (data && data[0]) {
             console.log('✅ Message saved! ID:', data[0].id);
+            
+            // Add to local state and re-render
             allMessages.push(data[0]);
             renderMessages();
             scrollToBottom();
+            
             input.value = '';
             input.placeholder = 'Type a message...';
             replyToMessage = null;
             showToast('✅ Message sent!', 'success');
-        } else {
-            console.error('No data returned');
-            showToast('❌ Failed to send message', 'error');
         }
         
     } catch (error) {
