@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Updated: Fixed Voice Preview, Message Sending, RLS Error Handling
+// Complete Updated - Fixed 400 Error, Voice Animation
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -220,33 +220,31 @@ function saveMentionToast(messageId) {
 }
 
 // ============================================
-// CHECK REPLY COLUMN
+// CHECK REPLY COLUMN - FIXED
 // ============================================
 
 async function checkReplyColumn() {
     try {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('chat_messages')
-            .insert({
-                channel: 'test',
-                sender_id: 'test',
-                sender_name: 'test',
-                message: 'test',
-                type: 'text',
-                reply_to: 'test'
-            })
-            .select();
+            .select('reply_to')
+            .limit(1);
         
-        if (error && error.message && error.message.includes('column "reply_to" does not exist')) {
-            hasReplyColumn = false;
-            console.log('📌 reply_to column does not exist - using fallback mode');
+        if (error) {
+            if (error.message && error.message.includes('column "reply_to" does not exist')) {
+                hasReplyColumn = false;
+                console.log('📌 reply_to column does not exist - using fallback mode');
+            } else {
+                hasReplyColumn = true;
+                console.log('📌 reply_to column exists (assumed)');
+            }
         } else {
             hasReplyColumn = true;
             console.log('📌 reply_to column exists');
         }
     } catch (error) {
         console.warn('Could not check reply column:', error);
-        hasReplyColumn = false;
+        hasReplyColumn = true;
     }
 }
 
@@ -536,7 +534,7 @@ function updateOnlineUsersList(users) {
 }
 
 // ============================================
-// MESSAGES
+// LOAD MESSAGES - FIXED
 // ============================================
 
 async function loadMessages() {
@@ -544,19 +542,22 @@ async function loadMessages() {
     if (!container) return;
     
     try {
-        let selectQuery = '*';
-        if (!hasReplyColumn) {
-            selectQuery = 'id, channel, sender_id, sender_name, message, type, file_url, file_name, created_at';
-        }
+        console.log('📨 Loading messages for channel:', currentChannel);
         
         const { data: messages, error } = await supabase
             .from('chat_messages')
-            .select(selectQuery)
+            .select('*')
             .eq('channel', currentChannel)
             .order('created_at', { ascending: true })
             .limit(100);
         
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Load messages error:', error);
+            showToast('❌ Failed to load messages: ' + error.message, 'error');
+            return;
+        }
+        
+        console.log('📨 Loaded', messages?.length || 0, 'messages');
         
         if (messages && messages.length > 0) {
             allMessages = messages;
@@ -569,21 +570,32 @@ async function loadMessages() {
         
         scrollToBottom();
     } catch (error) {
-        console.error('Error loading messages:', error);
+        console.error('❌ Exception loading messages:', error);
         showToast('❌ Failed to load messages', 'error');
     }
 }
 
 async function insertWelcomeMessage() {
-    const welcome = {
-        channel: currentChannel,
-        sender_id: null,
-        sender_name: 'System',
-        message: getWelcomeMessage(currentChannel),
-        type: 'text',
-        created_at: new Date().toISOString()
-    };
-    await supabase.from('chat_messages').insert([welcome]);
+    try {
+        const welcome = {
+            channel: currentChannel,
+            sender_id: null,
+            sender_name: '🎓 Gliimu System',
+            message: getWelcomeMessage(currentChannel),
+            type: 'text',
+            created_at: new Date().toISOString()
+        };
+        
+        const { error } = await supabase
+            .from('chat_messages')
+            .insert([welcome]);
+        
+        if (error) {
+            console.error('❌ Welcome message insert error:', error);
+        }
+    } catch (error) {
+        console.warn('Could not insert welcome message:', error);
+    }
 }
 
 function getWelcomeMessage(channel) {
@@ -686,7 +698,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE
+        // VOICE - NO ANIMATION UNLESS PLAYING
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -699,7 +711,7 @@ function renderMessages() {
                         <button class="voice-play-btn" onclick="playVoiceMessage(this, '${voiceUrl}', ${isWav})">
                             <i class="fas fa-play"></i>
                         </button>
-                        <div class="voice-wave">
+                        <div class="voice-wave" id="voiceWave-${msg.id}">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
                         <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
@@ -775,12 +787,13 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - UNIVERSAL FOR ALL DEVICES
+// VOICE PLAYBACK - ANIMATION ONLY WHEN PLAYING
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl, isWav) {
     const container = btn.parentElement;
     const icon = btn.querySelector('i');
+    const wave = container.querySelector('.voice-wave');
     let audioEl = container.querySelector('audio');
     const durationLabel = container.querySelector('.voice-duration-label');
     
@@ -790,6 +803,10 @@ async function playVoiceMessage(btn, audioUrl, isWav) {
             el.className = 'fas fa-play';
             const parent = el.closest('.voice-message');
             if (parent) {
+                const otherWave = parent.querySelector('.voice-wave');
+                if (otherWave) {
+                    otherWave.classList.remove('playing');
+                }
                 const otherAudio = parent.querySelector('audio');
                 if (otherAudio) {
                     otherAudio.pause();
@@ -803,14 +820,15 @@ async function playVoiceMessage(btn, audioUrl, isWav) {
     if (audioEl && !audioEl.paused) {
         audioEl.pause();
         icon.className = 'fas fa-play';
+        if (wave) wave.classList.remove('playing');
         return;
     }
     
     // Load and play
-    await loadAndPlayVoice(btn, audioUrl, isWav);
+    await loadAndPlayVoice(btn, audioUrl, isWav, wave);
 }
 
-async function loadAndPlayVoice(btn, audioUrl, isWav) {
+async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
     const icon = btn.querySelector('i');
     const container = btn.parentElement;
     let audioEl = container.querySelector('audio');
@@ -835,7 +853,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         
         console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        // For WAV files, use direct URL approach (works best on all devices)
+        // For WAV files, use direct URL approach
         if (isWav) {
             console.log('🎵 Playing WAV directly');
             audioEl.src = freshUrl;
@@ -861,6 +879,9 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             icon.className = 'fas fa-pause';
             btn.disabled = false;
             
+            // Start animation ONLY when playing
+            if (wave) wave.classList.add('playing');
+            
             if (durationLabel && audioEl.duration) {
                 const mins = Math.floor(audioEl.duration / 60);
                 const secs = Math.floor(audioEl.duration % 60);
@@ -869,6 +890,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
+                if (wave) wave.classList.remove('playing');
             };
             return;
         }
@@ -897,16 +919,22 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         await audioEl.play();
         icon.className = 'fas fa-pause';
         btn.disabled = false;
+        
+        // Start animation ONLY when playing
+        if (wave) wave.classList.add('playing');
+        
         audioEl.onended = () => {
             icon.className = 'fas fa-play';
+            if (wave) wave.classList.remove('playing');
         };
         
     } catch (err) {
         console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
+        if (wave) wave.classList.remove('playing');
         
-        // If direct URL fails, try blob approach
+        // Try blob approach as fallback
         try {
             console.log('🎵 Trying blob approach as fallback');
             const response = await fetch(audioUrl.split('?')[0] + '?t=' + Date.now(), {
@@ -945,8 +973,10 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
+            if (wave) wave.classList.add('playing');
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
+                if (wave) wave.classList.remove('playing');
                 URL.revokeObjectURL(blobUrl);
             };
             
@@ -975,18 +1005,15 @@ async function startVoiceRecording() {
         
         mediaStream = stream;
         
-        // Create audio context
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const source = audioContext.createMediaStreamSource(stream);
         
-        // Create script processor for raw audio capture
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         const wavChunks = [];
         
         processor.onaudioprocess = (event) => {
             if (!isRecording) return;
             const inputData = event.inputBuffer.getChannelData(0);
-            // Convert float32 to int16 PCM
             const pcmData = new Int16Array(inputData.length);
             for (let i = 0; i < inputData.length; i++) {
                 const s = Math.max(-1, Math.min(1, inputData[i]));
@@ -998,10 +1025,8 @@ async function startVoiceRecording() {
         source.connect(processor);
         processor.connect(audioContext.destination);
         
-        // Store cleanup
         scriptProcessor = processor;
         
-        // Start recording
         isRecording = true;
         recordingStartTime = Date.now();
         
@@ -1019,7 +1044,6 @@ async function startVoiceRecording() {
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
         
-        // Override stop to capture WAV
         window._wavChunks = wavChunks;
         
         if (navigator.vibrate) navigator.vibrate(50);
@@ -1049,11 +1073,9 @@ function stopVoiceRecording() {
         btn.innerHTML = '<i class="fas fa-microphone"></i>';
     }
     
-    // Get the recorded chunks
     const wavChunks = window._wavChunks || [];
     window._wavChunks = [];
     
-    // Clean up audio resources
     if (scriptProcessor) {
         scriptProcessor.disconnect();
         scriptProcessor = null;
@@ -1067,7 +1089,6 @@ function stopVoiceRecording() {
         mediaStream = null;
     }
     
-    // Create WAV blob
     if (wavChunks.length > 0) {
         const totalLength = wavChunks.reduce((acc, chunk) => acc + chunk.length, 0);
         if (totalLength > 0) {
@@ -1105,7 +1126,6 @@ function toggleVoiceRecording() {
     }
 }
 
-// Helper: Create WAV blob from PCM data
 function createWavBlob(pcmData, sampleRate) {
     const numChannels = 1;
     const bitsPerSample = 16;
@@ -1118,12 +1138,10 @@ function createWavBlob(pcmData, sampleRate) {
     const buffer = new ArrayBuffer(totalSize);
     const view = new DataView(buffer);
     
-    // RIFF header
     writeString(view, 0, 'RIFF');
     view.setUint32(4, totalSize - 8, true);
     writeString(view, 8, 'WAVE');
     
-    // Format chunk
     writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true);
@@ -1133,11 +1151,9 @@ function createWavBlob(pcmData, sampleRate) {
     view.setUint16(32, blockAlign, true);
     view.setUint16(34, bitsPerSample, true);
     
-    // Data chunk
     writeString(view, 36, 'data');
     view.setUint32(40, dataSize, true);
     
-    // Write PCM data
     const pcmView = new Int16Array(buffer, headerSize, pcmData.length);
     pcmView.set(pcmData);
     
@@ -1161,7 +1177,6 @@ function showVoicePreview() {
     
     if (preview) {
         preview.style.display = 'flex';
-        // Reset play button state
         if (playBtn) {
             playBtn.innerHTML = '<i class="fas fa-play"></i>';
             playBtn.style.display = 'flex';
@@ -1171,7 +1186,6 @@ function showVoicePreview() {
         }
     }
     
-    // Setup playback
     setupVoicePreviewPlayback();
 }
 
@@ -1211,16 +1225,13 @@ function setupVoicePreviewPlayback() {
     
     if (!playBtn || !pendingVoiceUrl) return;
     
-    // Show the preview container with play button
     if (previewContainer) {
         previewContainer.style.display = 'flex';
     }
     
-    // Make sure the play button is visible
     playBtn.style.display = 'flex';
     playBtn.innerHTML = '<i class="fas fa-play"></i>';
     
-    // Remove old listeners by cloning
     playBtn.replaceWith(playBtn.cloneNode(true));
     const newPlayBtn = document.getElementById('voicePreviewPlay');
     
@@ -1459,7 +1470,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - ENHANCED WITH ERROR LOGGING
+// SEND MESSAGE - SIMPLIFIED & FIXED
 // ============================================
 
 async function sendMessage() {
@@ -1476,18 +1487,13 @@ async function sendMessage() {
         return;
     }
     
-    // Log user state for debugging
-    console.log('📤 Sending message - User:', currentUser.id, currentUser.email);
+    console.log('📤 Sending message from user:', currentUser.id);
     
     let fileUrl = null;
     let fileName = null;
     let messageType = 'text';
     let messageText = text;
     let replyTo = replyToMessage ? replyToMessage.id : null;
-    
-    if (!hasReplyColumn) {
-        replyTo = null;
-    }
     
     const sendBtn = document.getElementById('sendBtn');
     const originalHtml = sendBtn?.innerHTML;
@@ -1527,7 +1533,7 @@ async function sendMessage() {
                 console.log('📎 File uploaded:', path);
             } else {
                 console.error('File upload error:', uploadError);
-                showToast('❌ File upload failed: ' + uploadError.message, 'error');
+                showToast('❌ File upload failed', 'error');
                 pendingFile = null;
                 hideFilePreview();
                 return;
@@ -1536,7 +1542,7 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE - ALWAYS UPLOAD AS WAV
+        // Handle voice upload
         if (pendingVoiceBlob) {
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
@@ -1555,10 +1561,10 @@ async function sendMessage() {
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
                 messageText = '';
-                console.log('🎤 Voice uploaded as WAV:', path);
+                console.log('🎤 Voice uploaded:', path);
             } else {
                 console.error('Voice upload error:', uploadError);
-                showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
+                showToast('❌ Voice upload failed', 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
                 return;
@@ -1567,7 +1573,7 @@ async function sendMessage() {
             hideVoicePreview();
         }
         
-        // Build message object
+        // Build message
         const message = {
             channel: currentChannel,
             sender_id: currentUser.id,
@@ -1585,7 +1591,6 @@ async function sendMessage() {
         
         console.log('📨 Inserting message:', message);
         
-        // Try to insert with better error handling
         const { data, error } = await supabase
             .from('chat_messages')
             .insert([message])
@@ -1594,27 +1599,22 @@ async function sendMessage() {
         if (error) {
             console.error('❌ Insert error:', error);
             showToast(`❌ Failed to send: ${error.message}`, 'error');
-            
-            // Check if it's an RLS issue
-            if (error.code === '42501') {
-                showToast('🔒 Permission denied. Please contact support.', 'error');
-            }
             return;
         }
         
         if (data && data[0]) {
-            console.log('✅ Message inserted:', data[0].id);
+            console.log('✅ Message saved! ID:', data[0].id);
             allMessages.push(data[0]);
             renderMessages();
             scrollToBottom();
+            input.value = '';
+            input.placeholder = 'Type a message...';
+            replyToMessage = null;
+            showToast('✅ Message sent!', 'success');
         } else {
-            console.error('No data returned from insert');
+            console.error('No data returned');
             showToast('❌ Failed to send message', 'error');
         }
-        
-        input.value = '';
-        input.placeholder = 'Type a message...';
-        replyToMessage = null;
         
     } catch (error) {
         console.error('❌ Send error:', error);
