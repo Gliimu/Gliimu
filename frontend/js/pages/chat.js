@@ -991,7 +991,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav, wave) {
 }
 
 // ============================================
-// VOICE RECORDING - WAV FOR ALL DEVICES
+// VOICE RECORDING - UPDATED
 // ============================================
 
 async function startVoiceRecording() {
@@ -1008,6 +1008,64 @@ async function startVoiceRecording() {
         
         mediaStream = stream;
         
+        // Check if we can use MediaRecorder (simpler, more reliable)
+        if (MediaRecorder.isTypeSupported('audio/wav')) {
+            console.log('🎤 Using MediaRecorder for WAV');
+            mediaRecorder = new MediaRecorder(stream, { 
+                mimeType: 'audio/wav' 
+            });
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    audioChunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, { type: 'audio/wav' });
+                if (blob.size > 1000) {
+                    pendingVoiceBlob = blob;
+                    pendingVoiceUrl = URL.createObjectURL(blob);
+                    showVoicePreview();
+                    setupVoicePreviewPlayback();
+                    console.log('🎤 WAV recorded:', blob.size, 'bytes');
+                    showToast('✅ Voice recorded! Tap play to preview', 'success');
+                } else {
+                    showToast('❌ Recording too short', 'error');
+                }
+                audioChunks = [];
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(t => t.stop());
+                    mediaStream = null;
+                }
+            };
+            
+            mediaRecorder.start(100);
+            isRecording = true;
+            recordingStartTime = Date.now();
+            
+            const btn = document.getElementById('voiceRecordBtn');
+            if (btn) {
+                btn.classList.add('recording');
+                btn.innerHTML = '<i class="fas fa-stop"></i>';
+            }
+            
+            recordingTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                const dur = document.getElementById('voiceDuration');
+                if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+            
+            if (navigator.vibrate) navigator.vibrate(50);
+            showToast('🎤 Recording... Tap stop to preview', 'info');
+            return;
+        }
+        
+        // Fallback: Web Audio API (ScriptProcessorNode)
+        console.log('🎤 Using Web Audio API (fallback)');
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const source = audioContext.createMediaStreamSource(stream);
         
@@ -1064,6 +1122,10 @@ async function startVoiceRecording() {
     }
 }
 
+// ============================================
+// STOP VOICE RECORDING - UPDATED
+// ============================================
+
 function stopVoiceRecording() {
     if (!isRecording) return;
     
@@ -1076,6 +1138,13 @@ function stopVoiceRecording() {
         btn.innerHTML = '<i class="fas fa-microphone"></i>';
     }
     
+    // If using MediaRecorder
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        return;
+    }
+    
+    // If using Web Audio API fallback
     const wavChunks = window._wavChunks || [];
     window._wavChunks = [];
     
@@ -1473,7 +1542,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - WORKING VERSION
+// SEND MESSAGE - COMPLETE WORKING VERSION
 // ============================================
 
 async function sendMessage() {
@@ -1541,8 +1610,17 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // Voice upload
+        // VOICE - FIXED
         if (pendingVoiceBlob) {
+            if (!pendingVoiceBlob || pendingVoiceBlob.size === 0) {
+                showToast('❌ Voice recording is empty', 'error');
+                pendingVoiceBlob = null;
+                hideVoicePreview();
+                return;
+            }
+            
+            console.log('🎤 Voice blob size:', pendingVoiceBlob.size, 'type:', pendingVoiceBlob.type);
+            
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
@@ -1552,20 +1630,22 @@ async function sendMessage() {
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
             
-            if (!uploadError) {
-                const { data: { publicUrl } } = supabase.storage
-                    .from('chat-files')
-                    .getPublicUrl(path);
-                
-                fileUrl = publicUrl + '?t=' + Date.now();
-                messageType = 'voice';
-                messageText = '';
-            } else {
-                showToast('❌ Voice upload failed', 'error');
+            if (uploadError) {
+                console.error('❌ Voice upload error:', uploadError);
+                showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
                 return;
             }
+            
+            const { data: { publicUrl } } = supabase.storage
+                .from('chat-files')
+                .getPublicUrl(path);
+            
+            fileUrl = publicUrl + '?t=' + Date.now();
+            messageType = 'voice';
+            messageText = '';
+            console.log('✅ Voice uploaded successfully:', fileUrl);
             pendingVoiceBlob = null;
             hideVoicePreview();
         }
@@ -1588,7 +1668,6 @@ async function sendMessage() {
         
         console.log('📨 Inserting message:', message);
         
-        // Insert into database
         const { data, error } = await supabase
             .from('chat_messages')
             .insert([message])
@@ -1602,12 +1681,9 @@ async function sendMessage() {
         
         if (data && data[0]) {
             console.log('✅ Message saved! ID:', data[0].id);
-            
-            // Add to local state and re-render
             allMessages.push(data[0]);
             renderMessages();
             scrollToBottom();
-            
             input.value = '';
             input.placeholder = 'Type a message...';
             replyToMessage = null;
