@@ -1,95 +1,45 @@
 /* ============================================
    💬 COMMUNITY CHAT - GLIIMU
-   Complete CSS - All Variables Defined
-   ============================================ */
-
-/* ============================================
-   THEME - LIGHT MODE DEFAULT
+   Complete Styles
    ============================================ */
 
 :root {
-    /* Brand Colors */
     --brand-purple: #2c2f78;
     --brand-purple-dark: #1a1c4a;
     --brand-gold: #fbb040;
-    --brand-gold-dark: #cc8a2a;
     
-    /* Status Colors */
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --info: #3b82f6;
-    
-    /* Radius */
-    --radius: 10px;
-    --radius-sm: 6px;
-    --radius-full: 9999px;
-    
-    /* Font */
-    --font: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    
-    /* Light Theme (Default) */
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
     --bg-card: #ffffff;
     --bg-input: #f1f5f9;
-    --bg-hover: rgba(44, 47, 120, 0.06);
     
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-tertiary: #94a3b8;
-    --text-inverse: #ffffff;
     
     --border-color: #e2e8f0;
-    --border-light: #f1f5f9;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
     
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+    --radius: 10px;
+    --radius-full: 9999px;
+    
+    --success: #10b981;
+    --danger: #ef4444;
 }
 
-/* Dark Mode */
 body.dark-mode {
     --bg-primary: #0f172a;
     --bg-secondary: #0f172a;
     --bg-card: #1e293b;
     --bg-input: #1e293b;
-    --bg-hover: rgba(255, 255, 255, 0.06);
     
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
     --text-tertiary: #64748b;
-    --text-inverse: #0f172a;
     
     --border-color: #1e293b;
-    --border-light: #334155;
-    
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
 }
-
-/* System preference fallback */
-@media (prefers-color-scheme: dark) {
-    body:not(.light-mode):not(.dark-mode) {
-        --bg-primary: #0f172a;
-        --bg-secondary: #0f172a;
-        --bg-card: #1e293b;
-        --bg-input: #1e293b;
-        
-        --text-primary: #f1f5f9;
-        --text-secondary: #94a3b8;
-        --text-tertiary: #64748b;
-        
-        --border-color: #1e293b;
-    }
-}
-
-/* ============================================
-   RESET
-   ============================================ */
 
 * {
     margin: 0;
@@ -100,7 +50,7 @@ body.dark-mode {
 html, body {
     height: 100%;
     width: 100%;
-    font-family: var(--font);
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-secondary);
     color: var(--text-primary);
     overflow: hidden;
@@ -208,21 +158,17 @@ html, body {
     font-size: 14px;
 }
 
-.channel-item .channel-name {
+.channel-item span {
     flex: 1;
 }
 
 .channel-item:hover {
-    background: var(--bg-hover);
+    background: rgba(44, 47, 120, 0.06);
     color: var(--brand-purple);
 }
 
 .channel-item.active {
     background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-    color: white;
-}
-
-.channel-item.active .channel-name {
     color: white;
 }
 
@@ -238,69 +184,6 @@ html, body {
     display: none;
 }
 
-/* Current User */
-.current-user {
-    margin-top: auto;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-    background: var(--bg-primary);
-}
-
-.user-avatar-large {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
-    color: white;
-    font-size: 18px;
-    flex-shrink: 0;
-}
-
-.user-avatar-large i {
-    font-size: 20px;
-}
-
-.user-info-compact {
-    flex: 1;
-    min-width: 0;
-}
-
-.user-display-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.user-status-text {
-    font-size: 11px;
-    color: var(--text-tertiary);
-}
-
-.logout-btn {
-    background: none;
-    border: none;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    padding: 6px;
-    border-radius: 50%;
-    transition: background 0.2s;
-}
-
-.logout-btn:hover {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--danger);
-}
-
 .sidebar-overlay {
     display: none;
     position: fixed;
@@ -308,7 +191,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0,0,0,0.4);
     z-index: 15;
 }
 
@@ -395,7 +278,7 @@ html, body {
 }
 
 .action-btn:hover {
-    background: var(--bg-hover);
+    background: rgba(44, 47, 120, 0.06);
     color: var(--brand-purple);
 }
 
@@ -580,13 +463,13 @@ html, body {
 .voice-message {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-width: 140px;
+    gap: 8px;
+    min-width: 100px;
 }
 
 .voice-play-btn {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: var(--brand-purple);
     border: none;
@@ -597,18 +480,26 @@ html, body {
     justify-content: center;
     flex-shrink: 0;
     transition: all 0.2s;
+    font-size: 12px;
 }
 
 .voice-play-btn:hover {
     transform: scale(1.05);
 }
 
+.voice-play-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .voice-wave {
     flex: 1;
-    height: 28px;
+    height: 24px;
     display: flex;
     align-items: center;
     gap: 3px;
+    padding: 2px 0;
 }
 
 .voice-wave span {
@@ -618,17 +509,54 @@ html, body {
     animation: wave 0.6s infinite ease alternate;
 }
 
-.voice-wave span:nth-child(2) { animation-delay: 0.1s; }
-.voice-wave span:nth-child(3) { animation-delay: 0.2s; }
-.voice-wave span:nth-child(4) { animation-delay: 0.3s; }
-.voice-wave span:nth-child(5) { animation-delay: 0.4s; }
+.voice-wave span:nth-child(1) { animation-delay: 0s; height: 6px; }
+.voice-wave span:nth-child(2) { animation-delay: 0.1s; height: 10px; }
+.voice-wave span:nth-child(3) { animation-delay: 0.2s; height: 14px; }
+.voice-wave span:nth-child(4) { animation-delay: 0.3s; height: 10px; }
+.voice-wave span:nth-child(5) { animation-delay: 0.4s; height: 6px; }
 
 @keyframes wave {
     0% { height: 6px; }
-    100% { height: 20px; }
+    50% { height: 18px; }
+    100% { height: 6px; }
 }
 
-/* Image/Video */
+.voice-duration-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-left: 2px;
+    font-variant-numeric: tabular-nums;
+    min-width: 28px;
+    text-align: center;
+}
+
+.message-group.self .voice-duration-label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Dark mode voice */
+body.dark-mode .voice-wave span {
+    background: var(--brand-gold);
+}
+
+body.dark-mode .voice-play-btn {
+    background: var(--brand-gold);
+    color: var(--brand-purple-dark);
+}
+
+.message-group.self .voice-wave span {
+    background: white;
+}
+
+.message-group.self .voice-play-btn {
+    background: white;
+    color: var(--brand-purple);
+}
+
+/* ============================================
+   IMAGE / VIDEO / FILE
+   ============================================ */
+
 .message-image {
     max-width: 200px;
     max-height: 200px;
@@ -663,6 +591,25 @@ html, body {
     transition: all 0.2s ease;
 }
 
+.video-bubble {
+    position: relative;
+    cursor: pointer;
+    padding: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.video-bubble .message-video {
+    width: 100%;
+    max-width: 200px;
+    max-height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+}
+
 .video-bubble:hover .video-play-overlay {
     background: rgba(44, 47, 120, 0.8);
     transform: translate(-50%, -50%) scale(1.1);
@@ -681,7 +628,10 @@ html, body {
     font-size: 18px;
 }
 
-/* Typing */
+/* ============================================
+   TYPING INDICATOR
+   ============================================ */
+
 .typing-indicator-container {
     padding: 4px 16px 8px;
     min-height: 28px;
@@ -717,7 +667,10 @@ html, body {
     30% { transform: translateY(-6px); opacity: 1; }
 }
 
-/* Scroll Button */
+/* ============================================
+   SCROLL TO BOTTOM
+   ============================================ */
+
 .scroll-to-bottom {
     position: absolute;
     bottom: 16px;
@@ -898,7 +851,7 @@ html, body {
 }
 
 .composer-btn:hover {
-    background: var(--bg-hover);
+    background: rgba(44, 47, 120, 0.06);
     color: var(--brand-purple);
 }
 
@@ -1033,7 +986,7 @@ html, body {
     text-align: center;
     padding: 4px;
     cursor: pointer;
-    border-radius: var(--radius-sm);
+    border-radius: 6px;
     transition: all 0.2s;
 }
 
@@ -1052,7 +1005,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0,0,0,0.6);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 50;
@@ -1168,7 +1121,7 @@ html, body {
     padding: 6px 0;
     font-size: 13px;
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-light, #f1f5f9);
 }
 
 .modal-rules ul li:last-child {
@@ -1194,7 +1147,6 @@ html, body {
     margin-right: 4px;
 }
 
-/* Modal Online Users */
 .modal-online-users {
     margin-top: 12px;
 }
@@ -1302,7 +1254,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.92);
+    background: rgba(0,0,0,0.92);
     z-index: 1000;
     display: none;
     align-items: center;
@@ -1512,32 +1464,7 @@ html, body {
 }
 
 /* ============================================
-   ONLINE USERS - YOU BADGE
-   ============================================ */
-
-.user-item.current-user-item {
-    background: var(--bg-hover);
-    border-radius: var(--radius);
-}
-
-.you-badge {
-    font-size: 9px;
-    font-weight: 600;
-    color: var(--brand-purple);
-    background: rgba(251, 176, 64, 0.15);
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-    flex-shrink: 0;
-}
-
-.user-item .user-avatar span {
-    font-size: 12px;
-    font-weight: 600;
-    color: white;
-}
-
-/* ============================================
-   HIGHLIGHT FLASH (for scroll to message)
+   HIGHLIGHT FLASH
    ============================================ */
 
 .highlight-flash {
@@ -1551,30 +1478,7 @@ html, body {
 }
 
 /* ============================================
-   VIDEO BUBBLE
-   ============================================ */
-
-.video-bubble {
-    position: relative;
-    cursor: pointer;
-    padding: 4px !important;
-    background: transparent !important;
-    border: none !important;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.video-bubble .message-video {
-    width: 100%;
-    max-width: 200px;
-    max-height: 180px;
-    border-radius: 8px;
-    object-fit: cover;
-    display: block;
-}
-
-/* ============================================
-   RESPONSIVE - TABLETS
+   RESPONSIVE
    ============================================ */
 
 @media (max-width: 768px) {
@@ -1688,10 +1592,6 @@ html, body {
     }
 }
 
-/* ============================================
-   RESPONSIVE - SMALL PHONES (iPhone 7)
-   ============================================ */
-
 @media (max-width: 400px) {
     .chat-header {
         padding: 8px 10px;
@@ -1758,10 +1658,6 @@ html, body {
     .composer-text-wrapper input {
         font-size: 12px;
         padding: 5px 2px;
-    }
-    
-    .composer-text-wrapper input::placeholder {
-        font-size: 12px;
     }
     
     .send-btn {
@@ -1839,7 +1735,7 @@ html, body {
     }
     
     .voice-message {
-        min-width: 100px;
+        min-width: 80px;
     }
     
     .media-modal-close {
@@ -1864,10 +1760,6 @@ html, body {
         max-height: 130px;
     }
 }
-
-/* ============================================
-   RESPONSIVE - LANDSCAPE
-   ============================================ */
 
 @media (max-height: 500px) and (orientation: landscape) {
     .chat-sidebar {
@@ -1902,62 +1794,33 @@ html, body {
     }
 }
 
-/* ============================================
-   DARK MODE OVERRIDES
-   ============================================ */
-
-body.dark-mode .message-group.other .message-bubble {
-    background: var(--bg-card);
-    color: var(--text-primary);
+@media (prefers-color-scheme: dark) {
+    body:not(.light-mode) {
+        --bg-primary: #0f172a;
+        --bg-secondary: #0f172a;
+        --bg-card: #1e293b;
+        --bg-input: #1e293b;
+        
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --text-tertiary: #64748b;
+        
+        --border-color: #1e293b;
+    }
+    
+    body:not(.light-mode) .message-group.other .message-bubble {
+        background: #1e293b;
+        color: #f1f5f9;
+    }
+    
+    body:not(.light-mode) .message-system {
+        background: rgba(255, 255, 255, 0.06);
+    }
+    
+    body:not(.light-mode) .modal-rules ul li {
+        border-bottom-color: #1e293b;
+    }
 }
-
-body.dark-mode .message-system {
-    background: rgba(255, 255, 255, 0.06);
-}
-
-body.dark-mode .modal-rules ul li {
-    border-bottom-color: var(--border-color);
-}
-
-body.dark-mode .channel-item.active {
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-}
-
-body.dark-mode .sidebar-header h3 {
-    background: linear-gradient(135deg, var(--brand-gold), var(--brand-gold-dark));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-body.dark-mode .user-avatar-large {
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
-}
-
-body.dark-mode .voice-play-btn {
-    background: var(--brand-gold);
-    color: var(--brand-purple-dark);
-}
-
-body.dark-mode .voice-wave span {
-    background: var(--brand-gold);
-}
-
-body.dark-mode .message-group.self .message-bubble {
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-}
-
-body.dark-mode .reply-preview {
-    background: var(--bg-input);
-}
-
-body.dark-mode .reply-preview .reply-sender {
-    color: var(--brand-gold);
-}
-
-/* ============================================
-   UTILITY
-   ============================================ */
 
 *:focus-visible {
     outline: 2px solid var(--brand-purple);
