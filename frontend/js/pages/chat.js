@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Recording with WebM, Play button shows
+// Fixed: Voice recording and playback across all devices
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -863,7 +863,40 @@ async function loadAndPlayVoice(btn, audioUrl, wave) {
         
         audioEl.volume = 1.0;
         audioEl.muted = false;
-        audioEl.src = freshUrl;
+        
+        // CRITICAL FIX: Fetch the audio as blob to ensure correct MIME type
+        try {
+            const response = await fetch(freshUrl, {
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const blob = await response.blob();
+            console.log('📦 Fetched blob type:', blob.type, 'size:', blob.size);
+            
+            // Create a blob URL with the correct MIME type
+            const blobUrl = URL.createObjectURL(blob);
+            audioEl.src = blobUrl;
+            
+            // Clean up blob URL when done
+            audioEl.addEventListener('ended', () => {
+                URL.revokeObjectURL(blobUrl);
+            }, { once: true });
+            
+            audioEl.addEventListener('error', () => {
+                URL.revokeObjectURL(blobUrl);
+            }, { once: true });
+            
+        } catch (fetchError) {
+            console.warn('Fetch fallback, using direct URL:', fetchError);
+            audioEl.src = freshUrl;
+        }
+        
         audioEl.load();
         
         // Wait for metadata to load so we can get duration
@@ -1396,7 +1429,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE
+// SEND MESSAGE - FIXED VOICE UPLOAD
 // ============================================
 
 async function sendMessage() {
@@ -1475,20 +1508,31 @@ async function sendMessage() {
             
             console.log('🎤 Voice blob size:', pendingVoiceBlob.size, 'type:', pendingVoiceBlob.type);
             
-            // Determine file extension from blob type
+            // Determine file extension and content type from blob type
             let extension = 'webm';
-            let contentType = 'audio/webm';
+            let contentType = 'audio/webm;codecs=opus'; // Use full codec info
             
-            if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('wav')) {
-                extension = 'wav';
-                contentType = 'audio/wav';
-            } else if (pendingVoiceBlob.type && pendingVoiceBlob.type.includes('mp4')) {
-                extension = 'mp4';
-                contentType = 'audio/mp4';
+            if (pendingVoiceBlob.type) {
+                if (pendingVoiceBlob.type.includes('wav')) {
+                    extension = 'wav';
+                    contentType = 'audio/wav';
+                } else if (pendingVoiceBlob.type.includes('mp4') || pendingVoiceBlob.type.includes('m4a')) {
+                    extension = 'mp4';
+                    contentType = 'audio/mp4';
+                } else if (pendingVoiceBlob.type.includes('webm')) {
+                    extension = 'webm';
+                    // Keep the full codec info for webm
+                    if (pendingVoiceBlob.type.includes('opus')) {
+                        contentType = 'audio/webm;codecs=opus';
+                    } else {
+                        contentType = 'audio/webm';
+                    }
+                }
             }
             
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.${extension}`;
             
+            // CRITICAL FIX: Upload with proper MIME type
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
                 .upload(path, pendingVoiceBlob, {
@@ -1504,6 +1548,7 @@ async function sendMessage() {
                 return;
             }
             
+            // Get the public URL with a cache-busting parameter
             const { data: { publicUrl } } = supabase.storage
                 .from('chat-files')
                 .getPublicUrl(path);
