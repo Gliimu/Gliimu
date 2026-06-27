@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// WAV ONLY - Universal audio for all devices
+// WORKING VERSION - Audio works on iPhone 7
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -151,11 +151,10 @@ const CHANNEL_CONFIG = {
 };
 
 // ============================================
-// THEME MANAGEMENT - AGGRESSIVE FIX
+// THEME MANAGEMENT - SIMPLE
 // ============================================
 
 function initTheme() {
-    // Force read from localStorage
     const dashboardTheme = localStorage.getItem('dashboard_theme');
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -164,7 +163,6 @@ function initTheme() {
     
     let theme = 'light';
     
-    // Priority: dashboard_theme > savedTheme > system > default 'light'
     if (dashboardTheme === 'dark') {
         theme = 'dark';
     } else if (dashboardTheme === 'light') {
@@ -176,9 +174,7 @@ function initTheme() {
     } else if (systemPrefersDark) {
         theme = 'dark';
     }
-    // Default: 'light'
     
-    // Apply theme to body
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
         isDarkMode = true;
@@ -189,16 +185,20 @@ function initTheme() {
         console.log('☀️ Light mode applied');
     }
     
-    // Sync localStorage
     localStorage.setItem('theme', theme);
     localStorage.setItem('dashboard_theme', theme);
     
-    // Force CSS variable update
-    document.documentElement.style.setProperty('--bg-primary', theme === 'dark' ? '#0f172a' : '#ffffff');
-    document.documentElement.style.setProperty('--text-primary', theme === 'dark' ? '#f1f5f9' : '#0f172a');
-    
     console.log('🎨 Theme finalized:', theme, 'mode');
 }
+
+window.toggleTheme = function() {
+    isDarkMode = !isDarkMode;
+    document.body.classList.toggle('dark-mode', isDarkMode);
+    const theme = isDarkMode ? 'dark' : 'light';
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
+};
 
 // ============================================
 // LOAD/SAVE MENTION TOASTS
@@ -688,7 +688,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - Check file extension for WAV vs WebM
+        // VOICE - WORKING VERSION
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -705,7 +705,7 @@ function renderMessages() {
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
                         <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
-                        <span class="voice-duration-label">${getVoiceDuration(msg.file_url)}</span>
+                        <span class="voice-duration-label"></span>
                     </div>
                 </div>
             `;
@@ -761,12 +761,6 @@ function renderMessages() {
     if (shouldScroll) scrollToBottom();
 }
 
-// Helper: Get voice duration (placeholder)
-function getVoiceDuration(url) {
-    // In a real implementation, you'd parse duration from metadata
-    return '';
-}
-
 // ============================================
 // SCROLL TO MESSAGE
 // ============================================
@@ -783,7 +777,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - UNIVERSAL FOR ALL DEVICES
+// VOICE PLAYBACK - WORKING VERSION
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl, isWav) {
@@ -824,28 +818,13 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
     let audioEl = container.querySelector('audio');
     const durationLabel = container.querySelector('.voice-duration-label');
     
-    // ✅ iOS AudioContext resume
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx.state === 'suspended') {
-            await ctx.resume();
-            console.log('🔊 AudioContext resumed');
-        }
-    } catch (e) {
-        console.log('AudioContext resume error:', e);
-    }
-    
     if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.style.display = 'none';
         audioEl.playsInline = true;
         audioEl.setAttribute('playsinline', '');
         audioEl.setAttribute('webkit-playsinline', '');
-        audioEl.setAttribute('x-webkit-airplay', 'allow');
         audioEl.preload = 'auto';
-        // ✅ Ensure volume is not muted
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
         container.appendChild(audioEl);
     }
     
@@ -858,30 +837,28 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         
         console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        // ✅ For WAV or WebM, use direct URL first (works best on iOS)
-        console.log('🎵 Playing directly from URL');
-        audioEl.src = freshUrl;
-        audioEl.load();
-        
-        // ✅ Wait for audio to be ready
-        await new Promise((resolve) => {
-            const timeout = setTimeout(resolve, 8000);
-            const onReady = () => {
-                clearTimeout(timeout);
-                audioEl.removeEventListener('canplaythrough', onReady);
-                audioEl.removeEventListener('loadeddata', onReady);
-                resolve();
-            };
-            audioEl.addEventListener('canplaythrough', onReady);
-            audioEl.addEventListener('loadeddata', onReady);
-            if (audioEl.readyState >= 3) {
-                clearTimeout(timeout);
-                resolve();
-            }
-        });
-        
-        // ✅ Try playing
-        try {
+        // For WAV files, use direct URL approach
+        if (isWav) {
+            console.log('🎵 Playing WAV directly');
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
@@ -895,79 +872,12 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
             };
-            
-            // ✅ Error handler
-            audioEl.onerror = (e) => {
-                console.error('Audio error:', e);
-                icon.className = 'fas fa-play';
-                btn.disabled = false;
-                // ✅ Try fallback if direct URL fails
-                if (audioEl.error && audioEl.error.code === 4) {
-                    // MEDIA_ERR_SRC_NOT_SUPPORTED - try blob approach
-                    loadVoiceAsBlob(btn, freshUrl);
-                }
-            };
-            
-        } catch (playErr) {
-            console.error('Play error:', playErr);
-            icon.className = 'fas fa-play';
-            btn.disabled = false;
-            
-            // ✅ If NotAllowedError, show user-friendly message
-            if (playErr.name === 'NotAllowedError') {
-                showToast('👆 Tap the play button again', 'warning');
-            } else {
-                // ✅ Try blob approach as fallback
-                await loadVoiceAsBlob(btn, freshUrl);
-            }
+            return;
         }
         
-    } catch (err) {
-        console.error('Load error:', err);
-        icon.className = 'fas fa-play';
-        btn.disabled = false;
-        showToast('❌ Could not load voice message', 'error');
-    }
-}
-
-// ✅ New function: Load voice as blob (fallback)
-async function loadVoiceAsBlob(btn, audioUrl) {
-    const icon = btn.querySelector('i');
-    const container = btn.parentElement;
-    let audioEl = container.querySelector('audio');
-    
-    if (!audioEl) {
-        audioEl = document.createElement('audio');
-        audioEl.style.display = 'none';
-        audioEl.playsInline = true;
-        audioEl.setAttribute('playsinline', '');
-        audioEl.setAttribute('webkit-playsinline', '');
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        container.appendChild(audioEl);
-    }
-    
-    icon.className = 'fas fa-spinner fa-spin';
-    btn.disabled = true;
-    
-    try {
-        const response = await fetch(audioUrl, {
-            cache: 'no-cache',
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-            }
-        });
-        
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const blob = await response.blob();
-        if (blob.size === 0) throw new Error('Empty audio file');
-        
-        console.log('📦 Audio blob loaded:', blob.size, 'bytes');
-        
-        const blobUrl = URL.createObjectURL(blob);
-        audioEl.src = blobUrl;
+        // For WebM files, try direct URL
+        console.log('🎵 Playing WebM directly');
+        audioEl.src = freshUrl;
         audioEl.load();
         
         await new Promise((resolve) => {
@@ -991,14 +901,61 @@ async function loadVoiceAsBlob(btn, audioUrl) {
         btn.disabled = false;
         audioEl.onended = () => {
             icon.className = 'fas fa-play';
-            URL.revokeObjectURL(blobUrl);
         };
         
     } catch (err) {
-        console.error('Blob load error:', err);
+        console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
-        showToast('❌ Could not play voice message', 'error');
+        
+        // If direct URL fails, try blob approach
+        try {
+            console.log('🎵 Trying blob approach as fallback');
+            const response = await fetch(audioUrl.split('?')[0] + '?t=' + Date.now(), {
+                cache: 'no-cache',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const blob = await response.blob();
+            if (blob.size === 0) throw new Error('Empty audio file');
+            
+            const blobUrl = URL.createObjectURL(blob);
+            audioEl.src = blobUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+                URL.revokeObjectURL(blobUrl);
+            };
+            
+        } catch (blobErr) {
+            console.error('Blob fallback failed:', blobErr);
+            showToast('❌ Could not play voice message', 'error');
+        }
     }
 }
 
@@ -1541,18 +1498,11 @@ async function sendMessage() {
         
         // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
-            // Ensure it's WAV format
-            let voiceBlob = pendingVoiceBlob;
-            if (!pendingVoiceBlob.type || pendingVoiceBlob.type !== 'audio/wav') {
-                // If somehow not WAV, convert (should already be WAV from recording)
-                console.warn('Unexpected voice format:', pendingVoiceBlob.type);
-            }
-            
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, voiceBlob, {
+                .upload(path, pendingVoiceBlob, {
                     contentType: 'audio/wav',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
@@ -1567,7 +1517,7 @@ async function sendMessage() {
                 messageText = '';
                 console.log('📤 Voice uploaded as WAV:', path);
             } else {
-                showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
+                showToast('❌ Voice upload failed', 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
                 return;
