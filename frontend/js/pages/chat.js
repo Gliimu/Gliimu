@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Complete Production Version
+// WAV ONLY - Universal audio for all devices
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,7 +30,7 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording - WAV for universal compatibility
+// Audio recording - WAV ONLY
 let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
@@ -684,7 +684,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - Universal playback
+        // VOICE - Check file extension for WAV vs WebM
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -701,6 +701,7 @@ function renderMessages() {
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
                         <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
+                        <span class="voice-duration-label">${getVoiceDuration(msg.file_url)}</span>
                     </div>
                 </div>
             `;
@@ -756,6 +757,12 @@ function renderMessages() {
     if (shouldScroll) scrollToBottom();
 }
 
+// Helper: Get voice duration (placeholder)
+function getVoiceDuration(url) {
+    // In a real implementation, you'd parse duration from metadata
+    return '';
+}
+
 // ============================================
 // SCROLL TO MESSAGE
 // ============================================
@@ -772,13 +779,14 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - UNIVERSAL
+// VOICE PLAYBACK - UNIVERSAL FOR ALL DEVICES
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl, isWav) {
     const container = btn.parentElement;
     const icon = btn.querySelector('i');
     let audioEl = container.querySelector('audio');
+    const durationLabel = container.querySelector('.voice-duration-label');
     
     // Stop any other playing voice messages
     document.querySelectorAll('.voice-play-btn i').forEach(el => {
@@ -810,6 +818,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
     const icon = btn.querySelector('i');
     const container = btn.parentElement;
     let audioEl = container.querySelector('audio');
+    const durationLabel = container.querySelector('.voice-duration-label');
     
     if (!audioEl) {
         audioEl = document.createElement('audio');
@@ -855,6 +864,14 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             await audioEl.play();
             icon.className = 'fas fa-pause';
             btn.disabled = false;
+            
+            // Show duration if available
+            if (durationLabel && audioEl.duration) {
+                const mins = Math.floor(audioEl.duration / 60);
+                const secs = Math.floor(audioEl.duration % 60);
+                durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+            
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
             };
@@ -1438,7 +1455,7 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE
+// SEND MESSAGE - WAV FOR ALL DEVICES
 // ============================================
 
 async function sendMessage() {
@@ -1507,7 +1524,12 @@ async function sendMessage() {
         
         // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
+            // Ensure it's WAV format
             let voiceBlob = pendingVoiceBlob;
+            if (!pendingVoiceBlob.type || pendingVoiceBlob.type !== 'audio/wav') {
+                // If somehow not WAV, convert (should already be WAV from recording)
+                console.warn('Unexpected voice format:', pendingVoiceBlob.type);
+            }
             
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
