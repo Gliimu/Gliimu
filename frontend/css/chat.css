@@ -2043,3 +2043,234 @@ body.dark-mode .channel-info .info-btn-inline:hover {
 .chat-actions .action-btn.info-btn {
     display: none;
 }
+
+/* ============================================
+   WHATSAPP-STYLE CHAT BACKGROUND
+   ============================================ */
+
+/* WhatsApp-style background pattern */
+.chat-main {
+    position: relative;
+    background-color: #e5ddd5;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+        repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.02) 0px,
+            rgba(255, 255, 255, 0.02) 2px,
+            rgba(255, 255, 255, 0.03) 2px,
+            rgba(255, 255, 255, 0.03) 4px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            rgba(255, 255, 255, 0.02) 0px,
+            rgba(255, 255, 255, 0.02) 2px,
+            rgba(255, 255, 255, 0.03) 2px,
+            rgba(255, 255, 255, 0.03) 4px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.01) 0px,
+            rgba(255, 255, 255, 0.01) 3px,
+            rgba(255, 255, 255, 0.02) 3px,
+            rgba(255, 255, 255, 0.02) 6px
+        ),
+        repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.01) 0px,
+            rgba(255, 255, 255, 0.01) 3px,
+            rgba(255, 255, 255, 0.02) 3px,
+            rgba(255, 255, 255, 0.02) 6px
+        );
+    background-size: 
+        100% 100%,
+        100% 100%,
+        8px 8px,
+        8px 8px,
+        12px 12px,
+        12px 12px;
+}
+
+/* Dark mode WhatsApp-style background */
+body.dark-mode .chat-main {
+    background-color: #0a0a0a;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(44, 47, 120, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 50%, rgba(251, 176, 64, 0.05) 0%, transparent 50%),
+        repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.01) 0px,
+            rgba(255, 255, 255, 0.01) 2px,
+            rgba(255, 255, 255, 0.02) 2px,
+            rgba(255, 255, 255, 0.02) 4px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            rgba(255, 255, 255, 0.01) 0px,
+            rgba(255, 255, 255, 0.01) 2px,
+            rgba(255, 255, 255, 0.02) 2px,
+            rgba(255, 255, 255, 0.02) 4px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.005) 0px,
+            rgba(255, 255, 255, 0.005) 3px,
+            rgba(255, 255, 255, 0.01) 3px,
+            rgba(255, 255, 255, 0.01) 6px
+        ),
+        repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.005) 0px,
+            rgba(255, 255, 255, 0.005) 3px,
+            rgba(255, 255, 255, 0.01) 3px,
+            rgba(255, 255, 255, 0.01) 6px
+        );
+    background-size: 
+        100% 100%,
+        100% 100%,
+        8px 8px,
+        8px 8px,
+        12px 12px,
+        12px 12px;
+}
+
+/* ============================================
+   CONTEXT MENU - Updated with more options
+   ============================================ */
+
+.context-menu {
+    position: fixed;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    padding: 6px;
+    min-width: 200px;
+    z-index: 100;
+    display: none;
+    animation: contextPopIn 0.15s ease;
+    overflow: hidden;
+}
+
+@keyframes contextPopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.context-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 12px;
+}
+
+.context-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+}
+
+.context-item:hover {
+    background: var(--bg-hover);
+}
+
+.context-item i {
+    width: 20px;
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.context-item#contextViewProfile i {
+    color: var(--brand-purple);
+}
+
+.context-item#contextStar i {
+    color: var(--brand-gold);
+}
+
+.context-item#contextHeart i {
+    color: #ef4444;
+}
+
+.context-item#contextLaugh i {
+    color: #f59e0b;
+}
+
+.context-item#contextReport {
+    color: var(--danger);
+}
+
+.context-item#contextReport i {
+    color: var(--danger);
+}
+
+.context-item#contextReport:hover {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+/* Dark mode context menu */
+body.dark-mode .context-menu {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .context-divider {
+    background: var(--border-color);
+}
+
+body.dark-mode .context-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* ============================================
+   INFO BUTTON INLINE
+   ============================================ */
+
+.info-btn-inline {
+    background: none;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-left: -2px;
+}
+
+.info-btn-inline:hover {
+    background: rgba(44, 47, 120, 0.06);
+    color: var(--brand-purple);
+}
+
+body.dark-mode .info-btn-inline:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--brand-gold);
+}
+
+/* Remove old info button from chat-actions */
+.chat-actions .action-btn.info-btn {
+    display: none;
+}
