@@ -1,6 +1,6 @@
 /* ============================================
    💬 COMMUNITY CHAT - GLIIMU
-   Light Mode Fixed + Gliimu Background
+   Complete Styles - Light Mode Fixed + Gliimu Background
    ============================================ */
 
 :root {
@@ -22,8 +22,10 @@
     --border-color: #e2e8f0;
     --shadow: 0 1px 3px rgba(0,0,0,0.08);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --shadow-xl: 0 12px 40px rgba(0,0,0,0.15);
     
     --radius: 10px;
+    --radius-lg: 16px;
     --radius-full: 9999px;
     
     --success: #10b981;
@@ -55,7 +57,7 @@ body.dark-mode {
 html, body {
     height: 100%;
     width: 100%;
-    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-secondary);
     color: var(--text-primary);
     overflow: hidden;
@@ -241,7 +243,7 @@ body.dark-mode .chat-main {
     display: flex;
     flex-direction: column;
     z-index: 20;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, width 0.3s ease;
 }
 
 .sidebar-header {
@@ -296,10 +298,53 @@ body.dark-mode .chat-main {
     margin-bottom: 10px;
 }
 
+/* ============================================
+   COLLAPSIBLE CHANNELS
+   ============================================ */
+
+.channels-section {
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.collapsible-header {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0 6px;
+    transition: color 0.2s;
+    margin-bottom: 0;
+}
+
+.collapsible-header:hover {
+    color: var(--text-primary);
+}
+
+.collapsible-header .collapse-icon {
+    margin-left: auto;
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+.collapsible-header .collapse-icon.open {
+    transform: rotate(180deg);
+}
+
 .channels-list {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+    padding-top: 0;
+}
+
+.channels-list.open {
+    max-height: 500px;
+    padding-top: 6px;
 }
 
 .channel-item {
@@ -338,6 +383,209 @@ body.dark-mode .chat-main {
     min-width: 18px;
     text-align: center;
     display: none;
+}
+
+.channel-badge.show {
+    display: inline-block;
+}
+
+/* Channel Count Badge */
+.channel-count {
+    background: var(--bg-secondary);
+    padding: 0 8px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    min-width: 20px;
+    text-align: center;
+}
+
+body.dark-mode .channel-count {
+    background: var(--bg-input);
+}
+
+/* ============================================
+   ONLINE USERS - Wider Screens
+   ============================================ */
+
+.online-users-section {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-bottom: none;
+    padding-bottom: 4px;
+}
+
+.online-users-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0 0 8px;
+}
+
+.online-users-list .user-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.online-users-list .user-item:hover {
+    background: var(--bg-hover);
+}
+
+.online-users-list .user-item .user-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
+    color: white;
+    font-size: 14px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.online-users-list .user-item .user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.online-users-list .user-item .user-avatar i {
+    font-size: 16px;
+}
+
+.online-users-list .user-item .user-avatar span {
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+}
+
+.online-users-list .user-item .user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.online-users-list .user-item .user-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.online-users-list .user-item .user-role {
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.online-users-list .user-item .online-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--online);
+    flex-shrink: 0;
+}
+
+.online-users-list .user-item.current-user-item {
+    background: rgba(44, 47, 120, 0.06);
+    border-radius: var(--radius);
+}
+
+body.dark-mode .online-users-list .user-item.current-user-item {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.you-badge {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--brand-purple);
+    background: rgba(251, 176, 64, 0.15);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+
+body.dark-mode .you-badge {
+    color: var(--brand-gold);
+    background: rgba(251, 176, 64, 0.1);
+}
+
+/* ============================================
+   CURRENT USER
+   ============================================ */
+
+.current-user {
+    margin-top: auto;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    background: var(--bg-primary);
+}
+
+.user-avatar-large {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
+    color: white;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.user-avatar-large i {
+    font-size: 20px;
+}
+
+.user-info-compact {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-display-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-status-text {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.logout-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.logout-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
 }
 
 .sidebar-overlay {
@@ -433,7 +681,15 @@ body.dark-mode .chat-main {
     color: var(--brand-purple);
 }
 
-/* Messages */
+body.dark-mode .info-btn-inline:hover {
+    background: var(--bg-hover);
+    color: var(--brand-gold);
+}
+
+/* ============================================
+   MESSAGES
+   ============================================ */
+
 .messages-wrapper {
     flex: 1;
     position: relative;
@@ -490,6 +746,10 @@ body.dark-mode .chat-main {
     color: var(--text-secondary);
     margin: 4px auto;
     max-width: 80%;
+}
+
+body.dark-mode .message-system {
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .message-group {
@@ -685,7 +945,6 @@ body.dark-mode .chat-main {
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* Dark mode voice */
 body.dark-mode .voice-wave span {
     background: var(--brand-gold);
 }
@@ -708,20 +967,40 @@ body.dark-mode .voice-play-btn {
    IMAGE / VIDEO / FILE
    ============================================ */
 
+.image-bubble {
+    padding: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
 .message-image {
     max-width: 200px;
     max-height: 200px;
     border-radius: 8px;
     object-fit: cover;
+    display: block;
+}
+
+.video-bubble {
+    position: relative;
     cursor: pointer;
+    padding: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .message-video {
+    width: 100%;
     max-width: 200px;
     max-height: 180px;
     border-radius: 8px;
     object-fit: cover;
-    cursor: pointer;
+    display: block;
 }
 
 .video-play-overlay {
@@ -742,25 +1021,6 @@ body.dark-mode .voice-play-btn {
     transition: all 0.2s ease;
 }
 
-.video-bubble {
-    position: relative;
-    cursor: pointer;
-    padding: 4px !important;
-    background: transparent !important;
-    border: none !important;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.video-bubble .message-video {
-    width: 100%;
-    max-width: 200px;
-    max-height: 180px;
-    border-radius: 8px;
-    object-fit: cover;
-    display: block;
-}
-
 .video-bubble:hover .video-play-overlay {
     background: rgba(44, 47, 120, 0.8);
     transform: translate(-50%, -50%) scale(1.1);
@@ -777,6 +1037,10 @@ body.dark-mode .voice-play-btn {
 
 .message-file i {
     font-size: 18px;
+}
+
+.message-file span {
+    font-size: 13px;
 }
 
 /* ============================================
@@ -1036,7 +1300,7 @@ body.dark-mode .voice-play-btn {
     background: none;
     padding: 8px 4px;
     font-size: 14px;
-    font-family: var(--font);
+    font-family: inherit;
     color: var(--text-primary);
     outline: none;
 }
@@ -1385,7 +1649,7 @@ body.dark-mode .voice-play-btn {
     color: white;
     border: none;
     cursor: pointer;
-    font-family: var(--font);
+    font-family: inherit;
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s;
@@ -1508,7 +1772,7 @@ body.dark-mode .voice-play-btn {
     border: none;
     cursor: pointer;
     font-size: 13px;
-    font-family: var(--font);
+    font-family: inherit;
     color: var(--text-primary);
     border-radius: var(--radius-sm);
     transition: all 0.15s;
@@ -1547,6 +1811,19 @@ body.dark-mode .voice-play-btn {
     background: rgba(239, 68, 68, 0.08);
 }
 
+body.dark-mode .context-menu {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .context-divider {
+    background: var(--border-color);
+}
+
+body.dark-mode .context-item:hover {
+    background: var(--bg-hover);
+}
+
 /* ============================================
    REACTION BADGE
    ============================================ */
@@ -1570,6 +1847,72 @@ body.dark-mode .voice-play-btn {
     0%, 100% { background: transparent; }
     25% { background: rgba(251, 176, 64, 0.12); border-radius: var(--radius); }
     50% { background: rgba(251, 176, 64, 0.06); border-radius: var(--radius); }
+}
+
+/* ============================================
+   REPLY PREVIEW
+   ============================================ */
+
+.reply-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin-bottom: 4px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-left: 3px solid var(--brand-gold);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.reply-preview:hover {
+    background: var(--bg-hover);
+}
+
+.reply-preview .reply-sender {
+    font-weight: 600;
+    color: var(--brand-purple);
+}
+
+.reply-preview .reply-text {
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+
+/* ============================================
+   MENTION HIGHLIGHT
+   ============================================ */
+
+.mention-highlight {
+    background: rgba(251, 176, 64, 0.25);
+    padding: 0 4px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: var(--brand-purple);
+}
+
+.message-bubble.mention-bubble {
+    border-left: 3px solid var(--brand-gold);
+}
+
+/* ============================================
+   HIGHLIGHT FLASH
+   ============================================ */
+
+.highlight-flash {
+    animation: highlightFlash 1.5s ease;
+}
+
+@keyframes highlightFlash {
+    0%, 100% { background: transparent; }
+    25% { background: rgba(251, 176, 64, 0.15); border-radius: var(--radius); }
+    50% { background: rgba(251, 176, 64, 0.08); border-radius: var(--radius); }
 }
 
 /* ============================================
@@ -1688,75 +2031,81 @@ body.dark-mode .voice-play-btn {
     color: white;
 }
 
+body.dark-mode .nav-btn {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .nav-btn.home-nav {
+    background: var(--brand-purple);
+    color: white;
+}
+
+body.dark-mode .nav-btn.home-nav:hover {
+    background: var(--brand-purple-dark);
+}
+
+body.dark-mode .nav-btn span {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
 /* ============================================
-   REPLY PREVIEW
+   TOAST
    ============================================ */
 
-.reply-preview {
+.toast-container {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 6px;
-    padding: 4px 10px;
-    margin-bottom: 4px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    border-left: 3px solid var(--brand-gold);
-    cursor: pointer;
-    transition: background 0.2s;
+    pointer-events: none;
+    max-width: 90%;
 }
 
-.reply-preview:hover {
-    background: var(--bg-hover);
+.toast {
+    padding: 10px 20px;
+    border-radius: var(--radius-full);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    pointer-events: all;
+    animation: toastIn 0.3s ease;
 }
 
-.reply-preview .reply-sender {
-    font-weight: 600;
-    color: var(--brand-purple);
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.reply-preview .reply-text {
-    opacity: 0.8;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 150px;
+.toast-error {
+    border-color: var(--danger);
 }
 
-/* ============================================
-   MENTION HIGHLIGHT
-   ============================================ */
-
-.mention-highlight {
-    background: rgba(251, 176, 64, 0.25);
-    padding: 0 4px;
-    border-radius: 4px;
-    font-weight: 600;
-    color: var(--brand-purple);
-}
-
-.message-bubble.mention-bubble {
-    border-left: 3px solid var(--brand-gold);
+.toast-success {
+    border-color: var(--success);
 }
 
 /* ============================================
-   HIGHLIGHT FLASH
+   RESPONSIVE - TABLETS & MOBILE
    ============================================ */
 
-.highlight-flash {
-    animation: highlightFlash 1.5s ease;
+@media (max-width: 1024px) {
+    .chat-sidebar {
+        width: 260px;
+        min-width: 260px;
+    }
 }
-
-@keyframes highlightFlash {
-    0%, 100% { background: transparent; }
-    25% { background: rgba(251, 176, 64, 0.15); border-radius: var(--radius); }
-    50% { background: rgba(251, 176, 64, 0.08); border-radius: var(--radius); }
-}
-
-/* ============================================
-   RESPONSIVE
-   ============================================ */
 
 @media (max-width: 768px) {
     .chat-sidebar {
@@ -1766,9 +2115,10 @@ body.dark-mode .voice-play-btn {
         bottom: 0;
         width: 280px;
         z-index: 30;
-        box-shadow: var(--shadow-lg);
+        box-shadow: var(--shadow-xl);
         transition: left 0.3s ease;
         border-right: none;
+        border-radius: 0;
     }
     
     .chat-sidebar.open {
@@ -1781,6 +2131,11 @@ body.dark-mode .voice-play-btn {
     
     .menu-toggle {
         display: block;
+    }
+    
+    /* Hide online users on mobile */
+    .online-users-section {
+        display: none;
     }
     
     .messages-container {
@@ -1889,6 +2244,10 @@ body.dark-mode .voice-play-btn {
         display: none !important;
     }
 }
+
+/* ============================================
+   RESPONSIVE - SMALL PHONES (400px and below)
+   ============================================ */
 
 @media (max-width: 400px) {
     .chat-header {
@@ -2059,9 +2418,14 @@ body.dark-mode .voice-play-btn {
     }
 }
 
+/* ============================================
+   RESPONSIVE - LANDSCAPE
+   ============================================ */
+
 @media (max-height: 500px) and (orientation: landscape) {
     .chat-sidebar {
         width: 240px;
+        min-width: 240px;
     }
     
     .chat-header {
@@ -2090,7 +2454,19 @@ body.dark-mode .voice-play-btn {
         font-size: 12px;
         padding: 4px 2px;
     }
+    
+    .online-users-list {
+        max-height: 80px;
+    }
+    
+    .channels-list.open {
+        max-height: 200px;
+    }
 }
+
+/* ============================================
+   DARK MODE AUTO (System Preference)
+   ============================================ */
 
 @media (prefers-color-scheme: dark) {
     body:not(.light-mode) {
@@ -2119,7 +2495,16 @@ body.dark-mode .voice-play-btn {
     body:not(.light-mode) .modal-rules ul li {
         border-bottom-color: #1e293b;
     }
+    
+    body:not(.light-mode) .reaction-badge {
+        background: #1e293b;
+        border-color: #1e293b;
+    }
 }
+
+/* ============================================
+   UTILITY
+   ============================================ */
 
 *:focus-visible {
     outline: 2px solid var(--brand-purple);
@@ -2137,228 +2522,30 @@ body.dark-mode .voice-play-btn {
     background: var(--brand-purple);
     color: white;
 }
-/* ============================================
-   COLLAPSIBLE CHANNELS
-   ============================================ */
 
-.channels-section {
-    border-bottom: 1px solid var(--border-color);
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
 }
 
-.collapsible-header {
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0 6px;
-    transition: color 0.2s;
+::-webkit-scrollbar-track {
+    background: transparent;
 }
 
-.collapsible-header:hover {
-    color: var(--text-primary);
-}
-
-.collapsible-header .collapse-icon {
-    margin-left: auto;
-    font-size: 12px;
-    transition: transform 0.3s ease;
-}
-
-.collapsible-header .collapse-icon.open {
-    transform: rotate(180deg);
-}
-
-.channels-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-}
-
-.channels-list.open {
-    max-height: 500px;
-}
-
-.channel-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-.channel-item span {
-    flex: 1;
-}
-
-.channel-item:hover {
-    background: var(--bg-hover);
-    color: var(--brand-purple);
-}
-
-.channel-item.active {
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-    color: white;
-}
-
-.channel-badge {
-    background: var(--danger);
-    color: white;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 8px;
+::-webkit-scrollbar-thumb {
+    background: var(--brand-purple);
     border-radius: var(--radius-full);
-    min-width: 18px;
-    text-align: center;
-    display: none;
 }
 
-.channel-badge.show {
-    display: inline-block;
+::-webkit-scrollbar-thumb:hover {
+    background: var(--brand-purple-dark);
 }
 
-/* ============================================
-   ONLINE USERS - Wider Screens
-   ============================================ */
-
-.online-users-section {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+body.dark-mode ::-webkit-scrollbar-thumb {
+    background: var(--brand-gold);
 }
 
-.online-users-list {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 0 0 8px;
-}
-
-.online-users-list .user-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 10px;
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.online-users-list .user-item:hover {
-    background: var(--bg-hover);
-}
-
-.online-users-list .user-item .user-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-gold));
-    color: white;
-    font-size: 14px;
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-.online-users-list .user-item .user-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.online-users-list .user-item .user-avatar i {
-    font-size: 16px;
-}
-
-.online-users-list .user-item .user-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.online-users-list .user-item .user-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.online-users-list .user-item .user-role {
-    font-size: 10px;
-    color: var(--text-tertiary);
-}
-
-.online-users-list .user-item .online-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--online);
-    flex-shrink: 0;
-}
-
-/* Hide online users on mobile */
-@media (max-width: 768px) {
-    .online-users-section {
-        display: none;
-    }
-}
-
-/* ============================================
-   SIDEBAR - Wider Screens
-   ============================================ */
-
-@media (min-width: 769px) {
-    .chat-sidebar {
-        width: 280px;
-        min-width: 280px;
-        position: relative;
-        left: 0 !important;
-        transform: none !important;
-        box-shadow: none !important;
-        border-right: 1px solid var(--border-color);
-    }
-    
-    .close-sidebar {
-        display: none !important;
-    }
-    
-    .menu-toggle {
-        display: none !important;
-    }
-    
-    .sidebar-overlay {
-        display: none !important;
-    }
-}
-
-/* ============================================
-   CHANNEL COUNT BADGE
-   ============================================ */
-
-.channel-count {
-    background: var(--bg-secondary);
-    padding: 0 8px;
-    border-radius: var(--radius-full);
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--text-tertiary);
-    min-width: 20px;
-    text-align: center;
-}
-
-body.dark-mode .channel-count {
-    background: var(--bg-input);
+body.dark-mode ::-webkit-scrollbar-thumb:hover {
+    background: var(--brand-gold-dark);
 }
