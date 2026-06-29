@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Complete Production Version
+// Updated: 5 Channels with Access Control
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -11,6 +11,7 @@ import { showToast } from '../modules/toast.js';
 // ============================================
 
 let currentUser = null;
+let currentUserRole = null;
 let currentChannel = 'general';
 let allMessages = [];
 let messageSubscription = null;
@@ -30,7 +31,7 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording - WAV for universal compatibility
+// Audio recording
 let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
@@ -43,24 +44,8 @@ let scriptProcessor = null;
 let voicePreviewAudio = null;
 let isVoicePreviewPlaying = false;
 
-// Unread counts
-let unreadCounts = {
-    general: 0,
-    announcements: 0,
-    help: 0,
-    projects: 0,
-    alumni: 0,
-    reports: 0,
-    administration: 0,
-    submissions: 0,
-    jobpostings: 0,
-    academics: 0,
-    debate: 0,
-    boardroom: 0
-};
-
 // ============================================
-// CHANNEL CONFIGURATION
+// CHANNEL CONFIGURATION - 5 CHANNELS
 // ============================================
 
 const CHANNEL_CONFIG = {
@@ -69,85 +54,67 @@ const CHANNEL_CONFIG = {
         icon: 'fa-hashtag',
         label: '💬 general',
         description: 'General discussion for everyone. Share ideas, ask questions, and connect with the community.',
+        access: ['all'],
         rules: ['Be respectful to all members', 'No spam or self-promotion', 'Stay on topic', 'No inappropriate content']
     },
-    announcements: {
-        name: 'announcements',
-        icon: 'fa-bullhorn',
-        label: '📢 announcements',
-        description: 'Important updates and news from the Gliimu team. Stay informed!',
-        rules: ['Check here daily for updates', 'No replies to announcements', 'Contact admins for questions']
-    },
-    help: {
-        name: 'help',
-        icon: 'fa-question-circle',
-        label: '❓ help',
-        description: 'Ask questions about courses, projects, or technical issues. Get help from the community.',
-        rules: ['Be specific about your issue', 'Provide screenshots when possible', 'Be patient for responses']
-    },
-    projects: {
-        name: 'projects',
-        icon: 'fa-code',
-        label: '💻 projects',
-        description: 'Share your work, get feedback, and collaborate with other creators.',
-        rules: ['Share your own work only', 'Give constructive feedback', 'No self-promotion outside projects']
-    },
-    alumni: {
-        name: 'alumni',
+    students: {
+        name: 'students',
         icon: 'fa-graduation-cap',
-        label: '🎓 alumni',
-        description: 'Connect with fellow graduates. Share career updates, opportunities, and network.',
-        rules: ['Be professional', 'Share opportunities', 'Support fellow alumni']
+        label: '🎓 students',
+        description: 'Student-focused discussions, course help, peer support, and study groups.',
+        access: ['student', 'instructor', 'admin', 'board'],
+        rules: ['Be supportive', 'No academic dishonesty', 'Help fellow students', 'Stay on topic']
     },
-    reports: {
-        name: 'reports',
-        icon: 'fa-flag',
-        label: '🚩 reports',
-        description: 'Report issues, bugs, or inappropriate content. All reports are confidential.',
-        rules: ['Be factual', 'Provide evidence', 'Reports are confidential']
+    instructors: {
+        name: 'instructors',
+        icon: 'fa-chalkboard-teacher',
+        label: '👨‍🏫 instructors',
+        description: 'Instructor collaboration, curriculum planning, teaching resources, and faculty discussions.',
+        access: ['instructor', 'admin', 'board'],
+        rules: ['Professional conduct', 'Share resources', 'Collaborate effectively']
     },
-    administration: {
-        name: 'administration',
+    admin: {
+        name: 'admin',
         icon: 'fa-users-cog',
-        label: '⚙️ administration',
-        description: 'For administrators to manage the platform and communicate with staff.',
-        rules: ['Admin only', 'Professional conduct required']
-    },
-    submissions: {
-        name: 'submissions',
-        icon: 'fa-upload',
-        label: '📤 submissions',
-        description: 'Submit assignments, projects, and proposals for review.',
-        rules: ['Follow submission guidelines', 'Include all required files', 'Submit before deadlines']
-    },
-    jobpostings: {
-        name: 'jobpostings',
-        icon: 'fa-briefcase',
-        label: '💼 job postings',
-        description: 'Post and view job opportunities from partner organizations.',
-        rules: ['No spam', 'Include job requirements', 'Valid contact information required']
-    },
-    academics: {
-        name: 'academics',
-        icon: 'fa-book-open',
-        label: '📚 academics',
-        description: 'Discuss academic topics, share resources, and collaborate with instructors.',
-        rules: ['Stay on academic topics', 'Respect instructors', 'No plagiarism']
-    },
-    debate: {
-        name: 'debate',
-        icon: 'fa-microphone-alt',
-        label: '🎤 debate',
-        description: 'Engage in respectful debates on various topics. Critical thinking welcome!',
-        rules: ['Respect opposing views', 'Use evidence', 'No personal attacks', 'Stay on topic']
+        label: '⚙️ admin',
+        description: 'Administrative communications, platform management, policy discussions, and staff coordination.',
+        access: ['admin', 'board'],
+        rules: ['Confidential information', 'Professional conduct', 'Follow platform policies']
     },
     boardroom: {
         name: 'boardroom',
         icon: 'fa-handshake',
         label: '🤝 boardroom',
-        description: 'Strategic discussions for founders and investors.',
-        rules: ['Founders and investors only', 'Confidential discussions', 'Professional conduct']
+        description: 'Strategic discussions, board matters, confidential decisions, and institutional planning.',
+        access: ['board'],
+        rules: ['Strictly confidential', 'Board members only', 'Professional conduct', 'No external sharing']
     }
+};
+
+// Get available channels based on user role
+function getAvailableChannels() {
+    const role = currentUserRole || 'student';
+    const available = [];
+    
+    for (const [key, config] of Object.entries(CHANNEL_CONFIG)) {
+        if (config.access.includes('all') || config.access.includes(role)) {
+            available.push(key);
+        }
+    }
+    
+    return available;
+}
+
+// ============================================
+// UNREAD COUNTS - 5 CHANNELS
+// ============================================
+
+let unreadCounts = {
+    general: 0,
+    students: 0,
+    instructors: 0,
+    admin: 0,
+    boardroom: 0
 };
 
 // ============================================
@@ -274,6 +241,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
         currentUser = await getCurrentUser();
+        currentUserRole = currentUser?.user_metadata?.role || currentUser?.role || 'student';
+        console.log('👤 User role:', currentUserRole);
     } catch (err) {
         console.error('Error getting user:', err);
         currentUser = null;
@@ -287,6 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateUserUI();
     await loadUserAvatars();
     await checkReplyColumn();
+    renderChannels();
     await loadMessages();
     setupRealtimeSubscription();
     await setupPresenceTracking();
@@ -300,6 +270,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     console.log('✅ Chat ready');
 });
+
+// ============================================
+// RENDER CHANNELS - Only show accessible ones
+// ============================================
+
+function renderChannels() {
+    const container = document.getElementById('channelsList');
+    if (!container) return;
+    
+    const available = getAvailableChannels();
+    console.log('📢 Available channels:', available);
+    
+    let html = '';
+    for (const key of available) {
+        const config = CHANNEL_CONFIG[key];
+        const isActive = key === currentChannel;
+        html += `
+            <div class="channel-item ${isActive ? 'active' : ''}" data-channel="${key}">
+                <span class="channel-name">${config.label}</span>
+                <span class="channel-badge" id="badge-${key}">0</span>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Add click listeners
+    container.querySelectorAll('.channel-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const channel = el.dataset.channel;
+            if (channel) switchChannel(channel);
+        });
+    });
+}
 
 // ============================================
 // MOBILE FIX
@@ -422,7 +426,7 @@ async function markUserOnline() {
     
     try {
         const name = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User';
-        const role = currentUser.user_metadata?.role || 'student';
+        const role = currentUser.user_metadata?.role || currentUserRole || 'student';
         const avatar = currentUser.user_metadata?.avatar_url || null;
         
         const { error } = await supabase
@@ -573,23 +577,16 @@ async function loadMessages() {
 }
 
 async function insertWelcomeMessage() {
+    const config = CHANNEL_CONFIG[currentChannel];
     const welcome = {
         channel: currentChannel,
         sender_id: null,
         sender_name: 'System',
-        message: getWelcomeMessage(currentChannel),
+        message: `👋 Welcome to ${config ? config.label : '#' + currentChannel}! ${config ? config.description : ''}`,
         type: 'text',
         created_at: new Date().toISOString()
     };
     await supabase.from('chat_messages').insert([welcome]);
-}
-
-function getWelcomeMessage(channel) {
-    const config = CHANNEL_CONFIG[channel];
-    if (config) {
-        return `👋 Welcome to ${config.label}! ${config.description}`;
-    }
-    return `👋 Welcome to #${channel}!`;
 }
 
 function renderMessages() {
@@ -602,7 +599,7 @@ function renderMessages() {
             <div class="welcome-message">
                 <i class="fas fa-comments"></i>
                 <h3>👋 Welcome to ${config ? config.label : '#' + currentChannel}</h3>
-                <p>${config ? config.description : getWelcomeMessage(currentChannel)}</p>
+                <p>${config ? config.description : ''}</p>
             </div>
         `;
         return;
@@ -684,7 +681,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - Universal playback
+        // VOICE
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -772,7 +769,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - UNIVERSAL
+// VOICE PLAYBACK
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl, isWav) {
@@ -780,7 +777,6 @@ async function playVoiceMessage(btn, audioUrl, isWav) {
     const icon = btn.querySelector('i');
     let audioEl = container.querySelector('audio');
     
-    // Stop any other playing voice messages
     document.querySelectorAll('.voice-play-btn i').forEach(el => {
         if (el !== icon) {
             el.className = 'fas fa-play';
@@ -795,14 +791,12 @@ async function playVoiceMessage(btn, audioUrl, isWav) {
         }
     });
     
-    // If audio exists and is playing, pause it
     if (audioEl && !audioEl.paused) {
         audioEl.pause();
         icon.className = 'fas fa-play';
         return;
     }
     
-    // Load and play
     await loadAndPlayVoice(btn, audioUrl, isWav);
 }
 
@@ -828,11 +822,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         const baseUrl = audioUrl.split('?')[0];
         const freshUrl = baseUrl + '?t=' + Date.now();
         
-        console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
-        
-        // For WAV files, use direct URL approach (works best on all devices)
         if (isWav) {
-            console.log('🎵 Playing WAV directly');
             audioEl.src = freshUrl;
             audioEl.load();
             
@@ -861,10 +851,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             return;
         }
         
-        // For WebM files, try multiple approaches
-        console.log('🎵 Playing WebM with fallback chain');
-        
-        // Approach 1: Direct URL
+        // WebM fallback
         try {
             audioEl.src = freshUrl;
             audioEl.load();
@@ -896,7 +883,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             console.log('Direct URL failed, trying blob:', directErr);
         }
         
-        // Approach 2: Blob fetch
         const response = await fetch(freshUrl, {
             cache: 'no-cache',
             headers: {
@@ -913,8 +899,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         if (blob.size === 0) {
             throw new Error('Empty audio file');
         }
-        
-        console.log('📦 Audio blob size:', blob.size, 'bytes, type:', blob.type);
         
         const blobUrl = URL.createObjectURL(blob);
         audioEl.src = blobUrl;
@@ -949,7 +933,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         icon.className = 'fas fa-play';
         btn.disabled = false;
         
-        // Final fallback: try direct URL one more time
         try {
             const freshUrl = audioUrl.split('?')[0] + '?t=' + Date.now();
             audioEl.src = freshUrl;
@@ -960,7 +943,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
             audioEl.onended = () => {
                 icon.className = 'fas fa-play';
             };
-            return;
         } catch (finalErr) {
             console.error('Final fallback failed:', finalErr);
             showToast('❌ Could not play voice message', 'error');
@@ -985,19 +967,14 @@ async function startVoiceRecording() {
         });
         
         mediaStream = stream;
-        
-        // Create audio context
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const source = audioContext.createMediaStreamSource(stream);
-        
-        // Create script processor for raw audio capture
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         const wavChunks = [];
         
         processor.onaudioprocess = (event) => {
             if (!isRecording) return;
             const inputData = event.inputBuffer.getChannelData(0);
-            // Convert float32 to int16 PCM
             const pcmData = new Int16Array(inputData.length);
             for (let i = 0; i < inputData.length; i++) {
                 const s = Math.max(-1, Math.min(1, inputData[i]));
@@ -1008,11 +985,8 @@ async function startVoiceRecording() {
         
         source.connect(processor);
         processor.connect(audioContext.destination);
-        
-        // Store cleanup
         scriptProcessor = processor;
         
-        // Start recording
         isRecording = true;
         recordingStartTime = Date.now();
         
@@ -1030,7 +1004,6 @@ async function startVoiceRecording() {
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
         
-        // Override stop to capture WAV
         window._wavChunks = wavChunks;
         
         if (navigator.vibrate) navigator.vibrate(50);
@@ -1060,11 +1033,9 @@ function stopVoiceRecording() {
         btn.innerHTML = '<i class="fas fa-microphone"></i>';
     }
     
-    // Get the recorded chunks
     const wavChunks = window._wavChunks || [];
     window._wavChunks = [];
     
-    // Clean up audio resources
     if (scriptProcessor) {
         scriptProcessor.disconnect();
         scriptProcessor = null;
@@ -1078,7 +1049,6 @@ function stopVoiceRecording() {
         mediaStream = null;
     }
     
-    // Create WAV blob
     if (wavChunks.length > 0) {
         const totalLength = wavChunks.reduce((acc, chunk) => acc + chunk.length, 0);
         if (totalLength > 0) {
@@ -1116,7 +1086,6 @@ function toggleVoiceRecording() {
     }
 }
 
-// Helper: Create WAV blob from PCM data
 function createWavBlob(pcmData, sampleRate) {
     const numChannels = 1;
     const bitsPerSample = 16;
@@ -1129,12 +1098,9 @@ function createWavBlob(pcmData, sampleRate) {
     const buffer = new ArrayBuffer(totalSize);
     const view = new DataView(buffer);
     
-    // RIFF header
     writeString(view, 0, 'RIFF');
     view.setUint32(4, totalSize - 8, true);
     writeString(view, 8, 'WAVE');
-    
-    // Format chunk
     writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true);
@@ -1143,12 +1109,9 @@ function createWavBlob(pcmData, sampleRate) {
     view.setUint32(28, byteRate, true);
     view.setUint16(32, blockAlign, true);
     view.setUint16(34, bitsPerSample, true);
-    
-    // Data chunk
     writeString(view, 36, 'data');
     view.setUint32(40, dataSize, true);
     
-    // Write PCM data
     const pcmView = new Int16Array(buffer, headerSize, pcmData.length);
     pcmView.set(pcmData);
     
@@ -1507,13 +1470,11 @@ async function sendMessage() {
         
         // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
-            let voiceBlob = pendingVoiceBlob;
-            
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, voiceBlob, {
+                .upload(path, pendingVoiceBlob, {
                     contentType: 'audio/wav',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
@@ -1927,12 +1888,13 @@ function setupEventListeners() {
     if (cancelFile) cancelFile.addEventListener('click', cancelFilePreview);
     if (cancelVoice) cancelVoice.addEventListener('click', cancelVoicePreview);
     
-    document.querySelectorAll('.channel-item').forEach(el => {
-        el.addEventListener('click', () => {
-            const channel = el.dataset.channel;
-            if (channel) switchChannel(channel);
-        });
-    });
+    // Channel clicks are handled in renderChannels
+    // But we also need to handle clicks on existing channel items
+    
+    const infoToggle = document.getElementById('infoToggleBtn');
+    if (infoToggle) {
+        infoToggle.addEventListener('click', openChannelModal);
+    }
     
     const contextReply = document.getElementById('contextReply');
     const contextCopy = document.getElementById('contextCopy');
