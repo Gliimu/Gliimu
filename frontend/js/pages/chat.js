@@ -57,6 +57,7 @@ let hasReplyColumn = true;
 let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
+let channelsExpanded = false;
 
 // Audio recording
 let audioContext = null;
@@ -194,6 +195,22 @@ function reportIssue() {
 }
 
 // ============================================
+// COLLAPSIBLE CHANNELS
+// ============================================
+
+function toggleChannels() {
+    channelsExpanded = !channelsExpanded;
+    const list = document.getElementById('channelsList');
+    const icon = document.querySelector('.collapse-icon');
+    if (list) {
+        list.classList.toggle('open', channelsExpanded);
+    }
+    if (icon) {
+        icon.classList.toggle('open', channelsExpanded);
+    }
+}
+
+// ============================================
 // GET AVAILABLE CHANNELS
 // ============================================
 
@@ -269,7 +286,7 @@ async function checkReplyColumn() {
 }
 
 // ============================================
-// RENDER CHANNELS
+// RENDER CHANNELS - Updated with collapsible
 // ============================================
 
 function renderChannels() {
@@ -283,7 +300,7 @@ function renderChannels() {
     console.log('📢 Rendering channels:', available);
     
     if (available.length === 0) {
-        container.innerHTML = `<div class="empty-state-text">No channels available for your role</div>`;
+        container.innerHTML = `<div class="empty-state-text">No channels available</div>`;
         return;
     }
     
@@ -291,20 +308,34 @@ function renderChannels() {
         currentChannel = available[0];
     }
     
+    // Update channel count
+    const countEl = document.getElementById('channelCount');
+    if (countEl) countEl.textContent = available.length;
+    
     let html = '';
     for (const key of available) {
         const config = CHANNEL_CONFIG[key];
         const isActive = key === currentChannel;
+        const badgeCount = unreadCounts[key] || 0;
         html += `
             <div class="channel-item ${isActive ? 'active' : ''}" data-channel="${key}">
                 <span class="channel-name">${config.label}</span>
-                <span class="channel-badge" id="badge-${key}" style="display:none;">0</span>
+                <span class="channel-badge ${badgeCount > 0 ? 'show' : ''}" id="badge-${key}">${badgeCount > 0 ? badgeCount : ''}</span>
             </div>
         `;
     }
     
     container.innerHTML = html;
     
+    // Auto-expand on first load
+    if (!channelsExpanded && available.length > 0) {
+        channelsExpanded = true;
+        container.classList.add('open');
+        const icon = document.querySelector('.collapse-icon');
+        if (icon) icon.classList.add('open');
+    }
+    
+    // Update header
     const config = CHANNEL_CONFIG[currentChannel];
     const nameEl = document.getElementById('channelName');
     if (nameEl) nameEl.textContent = config ? config.label.replace(/[^a-zA-Z0-9 ]/g, '').trim() : currentChannel;
@@ -314,6 +345,7 @@ function renderChannels() {
         iconEl.className = `fas ${config ? config.icon : 'fa-hashtag'}`;
     }
     
+    // Add click listeners
     container.querySelectorAll('.channel-item').forEach(el => {
         el.addEventListener('click', () => {
             const channel = el.dataset.channel;
@@ -338,6 +370,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const navToggle = document.getElementById('navToggle');
     if (navToggle) {
         navToggle.addEventListener('click', toggleNav);
+    }
+    
+    // Channels toggle
+    const channelsToggle = document.getElementById('channelsToggle');
+    if (channelsToggle) {
+        channelsToggle.addEventListener('click', toggleChannels);
     }
     
     const container = document.getElementById('messagesContainer');
@@ -567,53 +605,96 @@ async function refreshOnlineUsers() {
 }
 
 function updateOnlineUsersList(users) {
+    // Update modal online users
     const modalContainer = document.getElementById('modalOnlineUsersList');
-    if (!modalContainer) return;
-    
-    const otherUsers = users.filter(user => user.user_id !== currentUser?.id);
-    const sortedUsers = otherUsers.sort((a, b) => (a.user_name || '').localeCompare(b.user_name || ''));
-    
-    const currentUserData = users.find(user => user.user_id === currentUser?.id);
-    
-    let allSorted = [];
-    if (currentUserData) {
-        allSorted.push(currentUserData);
-    }
-    allSorted = allSorted.concat(sortedUsers);
-    
-    if (allSorted.length === 0) {
-        modalContainer.innerHTML = `<div class="empty-state-text">No users online</div>`;
-        const count = document.getElementById('modalMemberCount');
-        if (count) count.textContent = '0';
-        return;
-    }
-    
-    modalContainer.innerHTML = allSorted.map(user => {
-        const isCurrentUser = user.user_id === currentUser?.id;
-        const avatarUrl = user.avatar_url || userAvatars[user.user_id] || null;
-        const initials = getInitials(user.user_name);
-        const displayName = isCurrentUser ? 'You' : escapeHtml(user.user_name || 'User');
-        const role = isCurrentUser ? '' : (user.user_role || 'Member');
+    if (modalContainer) {
+        const otherUsers = users.filter(user => user.user_id !== currentUser?.id);
+        const sortedUsers = otherUsers.sort((a, b) => (a.user_name || '').localeCompare(b.user_name || ''));
         
-        return `
-            <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}">
-                <div class="user-avatar">
-                    ${avatarUrl ? 
-                        `<img src="${avatarUrl}" alt="${escapeHtml(user.user_name)}">` :
-                        `<span>${initials}</span>`
-                    }
-                </div>
-                <div class="user-info">
-                    <div class="user-name">${displayName}</div>
-                    ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
-                </div>
-                <span class="online-dot"></span>
-            </div>
-        `;
-    }).join('');
+        const currentUserData = users.find(user => user.user_id === currentUser?.id);
+        
+        let allSorted = [];
+        if (currentUserData) {
+            allSorted.push(currentUserData);
+        }
+        allSorted = allSorted.concat(sortedUsers);
+        
+        if (allSorted.length === 0) {
+            modalContainer.innerHTML = `<div class="empty-state-text">No users online</div>`;
+        } else {
+            modalContainer.innerHTML = allSorted.map(user => {
+                const isCurrentUser = user.user_id === currentUser?.id;
+                const avatarUrl = user.avatar_url || userAvatars[user.user_id] || null;
+                const initials = getInitials(user.user_name);
+                const displayName = isCurrentUser ? 'You' : escapeHtml(user.user_name || 'User');
+                const role = isCurrentUser ? '' : (user.user_role || 'Member');
+                
+                return `
+                    <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}">
+                        <div class="user-avatar">
+                            ${avatarUrl ? 
+                                `<img src="${avatarUrl}" alt="${escapeHtml(user.user_name)}">` :
+                                `<span>${initials}</span>`
+                            }
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">${displayName}</div>
+                            ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
+                        </div>
+                        <span class="online-dot"></span>
+                        ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+    }
     
-    const count = document.getElementById('modalMemberCount');
-    if (count) count.textContent = allSorted.length;
+    // Update sidebar online users
+    const sidebarContainer = document.getElementById('onlineUsersList');
+    if (sidebarContainer) {
+        const otherUsers = users.filter(user => user.user_id !== currentUser?.id);
+        const sortedUsers = otherUsers.sort((a, b) => (a.user_name || '').localeCompare(b.user_name || ''));
+        
+        const currentUserData = users.find(user => user.user_id === currentUser?.id);
+        
+        let allSorted = [];
+        if (currentUserData) {
+            allSorted.push(currentUserData);
+        }
+        allSorted = allSorted.concat(sortedUsers);
+        
+        if (allSorted.length === 0) {
+            sidebarContainer.innerHTML = `<div class="empty-state-text">No users online</div>`;
+        } else {
+            sidebarContainer.innerHTML = allSorted.map(user => {
+                const isCurrentUser = user.user_id === currentUser?.id;
+                const avatarUrl = user.avatar_url || userAvatars[user.user_id] || null;
+                const initials = getInitials(user.user_name);
+                const displayName = isCurrentUser ? 'You' : escapeHtml(user.user_name || 'User');
+                const role = isCurrentUser ? '' : (user.user_role || 'Member');
+                
+                return `
+                    <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}">
+                        <div class="user-avatar">
+                            ${avatarUrl ? 
+                                `<img src="${avatarUrl}" alt="${escapeHtml(user.user_name)}">` :
+                                `<span>${initials}</span>`
+                            }
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">${displayName}</div>
+                            ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
+                        </div>
+                        <span class="online-dot"></span>
+                        ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+    
+    const count = document.getElementById('onlineCount');
+    if (count) count.textContent = users.length;
 }
 
 // ============================================
@@ -1395,7 +1476,7 @@ function attachMessageEvents() {
 }
 
 // ============================================
-// CONTEXT MENU - Updated Structure
+// CONTEXT MENU
 // ============================================
 
 let contextTargetUserId = null;
@@ -1490,23 +1571,19 @@ function reactToMessage(reaction) {
         return;
     }
     
-    // Toggle reaction - remove if already present
     const reactions = JSON.parse(localStorage.getItem('message_reactions_' + contextTargetMessageId) || '{}');
     const userId = currentUser.id;
     
     if (reactions[userId] === reaction) {
-        // Remove reaction if already set
         delete reactions[userId];
         showToast('Reaction removed', 'info');
     } else {
-        // Add or update reaction
         reactions[userId] = reaction;
         showToast(`Reacted with ${reaction}`, 'success');
     }
     
     localStorage.setItem('message_reactions_' + contextTargetMessageId, JSON.stringify(reactions));
     
-    // Update UI
     const element = document.querySelector(`.message-group[data-message-id="${contextTargetMessageId}"]`);
     if (element) {
         element.classList.add('reacted-flash');
@@ -1522,7 +1599,6 @@ function reactToMessage(reaction) {
             reactionBadge.textContent = reactions[userId];
             reactionBadge.style.display = 'inline-block';
         } else if (reactionBadge) {
-            // Check if any other reactions exist
             const otherReactions = Object.values(reactions);
             if (otherReactions.length > 0) {
                 reactionBadge.textContent = otherReactions[otherReactions.length - 1];
@@ -1812,9 +1888,10 @@ function updateChannelBadge(channel, count) {
     if (badge) {
         if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
-            badge.style.display = 'inline-block';
+            badge.classList.add('show');
         } else {
-            badge.style.display = 'none';
+            badge.classList.remove('show');
+            badge.textContent = '';
         }
     }
 }
@@ -2127,5 +2204,6 @@ window.showToast = showToast;
 window.toggleTheme = toggleTheme;
 window.toggleNav = toggleNav;
 window.reportIssue = reportIssue;
+window.toggleChannels = toggleChannels;
 
 console.log('✅ Chat.js loaded');
