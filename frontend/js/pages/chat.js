@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Complete Updated Version
+// Complete Updated Version - Fixed Theme, Online Users, Context Menu
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -132,7 +132,7 @@ let unreadCounts = {
 };
 
 // ============================================
-// THEME MANAGEMENT
+// THEME MANAGEMENT - FIXED
 // ============================================
 
 function initTheme() {
@@ -142,6 +142,7 @@ function initTheme() {
     
     let theme = 'light';
     
+    // Check dashboard_theme first (highest priority)
     if (dashboardTheme === 'dark') {
         theme = 'dark';
     } else if (dashboardTheme === 'light') {
@@ -153,7 +154,9 @@ function initTheme() {
     } else if (systemPrefersDark) {
         theme = 'dark';
     }
+    // Default is 'light'
     
+    // Apply theme to body
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
         isDarkMode = true;
@@ -162,6 +165,7 @@ function initTheme() {
         isDarkMode = false;
     }
     
+    // Sync localStorage
     localStorage.setItem('theme', theme);
     localStorage.setItem('dashboard_theme', theme);
     
@@ -286,7 +290,7 @@ async function checkReplyColumn() {
 }
 
 // ============================================
-// RENDER CHANNELS - Updated with collapsible
+// RENDER CHANNELS
 // ============================================
 
 function renderChannels() {
@@ -308,19 +312,13 @@ function renderChannels() {
         currentChannel = available[0];
     }
     
-    // Update channel count
-    const countEl = document.getElementById('channelCount');
-    if (countEl) countEl.textContent = available.length;
-    
     let html = '';
     for (const key of available) {
         const config = CHANNEL_CONFIG[key];
         const isActive = key === currentChannel;
-        const badgeCount = unreadCounts[key] || 0;
         html += `
             <div class="channel-item ${isActive ? 'active' : ''}" data-channel="${key}">
                 <span class="channel-name">${config.label}</span>
-                <span class="channel-badge ${badgeCount > 0 ? 'show' : ''}" id="badge-${key}">${badgeCount > 0 ? badgeCount : ''}</span>
             </div>
         `;
     }
@@ -372,7 +370,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         navToggle.addEventListener('click', toggleNav);
     }
     
-    // Channels toggle
     const channelsToggle = document.getElementById('channelsToggle');
     if (channelsToggle) {
         channelsToggle.addEventListener('click', toggleChannels);
@@ -630,7 +627,7 @@ function updateOnlineUsersList(users) {
                 const role = isCurrentUser ? '' : (user.user_role || 'Member');
                 
                 return `
-                    <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}">
+                    <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}" data-user-id="${user.user_id}" data-user-name="${escapeHtml(user.user_name)}">
                         <div class="user-avatar">
                             ${avatarUrl ? 
                                 `<img src="${avatarUrl}" alt="${escapeHtml(user.user_name)}">` :
@@ -642,10 +639,20 @@ function updateOnlineUsersList(users) {
                             ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
                         </div>
                         <span class="online-dot"></span>
-                        ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
                     </div>
                 `;
             }).join('');
+            
+            // Add click listeners to user items for portfolio navigation
+            modalContainer.querySelectorAll('.user-item').forEach(item => {
+                const userId = item.dataset.userId;
+                const userName = item.dataset.userName;
+                if (userId && userId !== currentUser?.id) {
+                    item.addEventListener('click', () => {
+                        goToUserPortfolio(userName);
+                    });
+                }
+            });
         }
     }
     
@@ -674,7 +681,7 @@ function updateOnlineUsersList(users) {
                 const role = isCurrentUser ? '' : (user.user_role || 'Member');
                 
                 return `
-                    <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}">
+                    <div class="user-item ${isCurrentUser ? 'current-user-item' : ''}" data-user-id="${user.user_id}" data-user-name="${escapeHtml(user.user_name)}">
                         <div class="user-avatar">
                             ${avatarUrl ? 
                                 `<img src="${avatarUrl}" alt="${escapeHtml(user.user_name)}">` :
@@ -686,15 +693,35 @@ function updateOnlineUsersList(users) {
                             ${!isCurrentUser ? `<div class="user-role">${escapeHtml(role)}</div>` : ''}
                         </div>
                         <span class="online-dot"></span>
-                        ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
                     </div>
                 `;
             }).join('');
+            
+            // Add click listeners to user items for portfolio navigation
+            sidebarContainer.querySelectorAll('.user-item').forEach(item => {
+                const userId = item.dataset.userId;
+                const userName = item.dataset.userName;
+                if (userId && userId !== currentUser?.id) {
+                    item.addEventListener('click', () => {
+                        goToUserPortfolio(userName);
+                    });
+                }
+            });
         }
     }
     
     const count = document.getElementById('onlineCount');
     if (count) count.textContent = users.length;
+}
+
+// ============================================
+// NAVIGATE TO USER PORTFOLIO
+// ============================================
+
+function goToUserPortfolio(userName) {
+    if (!userName) return;
+    const username = userName.toLowerCase().replace(/\s+/g, '-');
+    window.location.href = `/u/${username}`;
 }
 
 // ============================================
@@ -1476,13 +1503,14 @@ function attachMessageEvents() {
 }
 
 // ============================================
-// CONTEXT MENU
+// CONTEXT MENU - Updated
 // ============================================
 
 let contextTargetUserId = null;
 let contextTargetUserName = null;
 let contextTargetMessageId = null;
 let contextTargetAvatarUrl = null;
+let reactSubmenuOpen = false;
 
 function showContextMenu(event, userId, userName) {
     const menu = document.getElementById('contextMenu');
@@ -1508,9 +1536,23 @@ function showContextMenu(event, userId, userName) {
     const x = event.clientX || event.touches?.[0]?.clientX || 0;
     const y = event.clientY || event.touches?.[0]?.clientY || 0;
     
+    // Show all items, hide react submenu by default
+    document.querySelectorAll('.context-item').forEach(item => {
+        item.style.display = 'flex';
+    });
+    document.querySelectorAll('.context-divider').forEach(item => {
+        item.style.display = 'block';
+    });
+    
+    const reactSubmenu = document.getElementById('reactSubmenu');
+    if (reactSubmenu) {
+        reactSubmenu.style.display = 'none';
+    }
+    reactSubmenuOpen = false;
+    
     menu.style.display = 'block';
     menu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - 320)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 280)}px`;
 }
 
 function hideContextMenu() {
@@ -1520,22 +1562,21 @@ function hideContextMenu() {
     contextTargetUserName = null;
     contextTargetMessageId = null;
     contextTargetAvatarUrl = null;
+    reactSubmenuOpen = false;
 }
 
 // ============================================
 // CONTEXT MENU ACTIONS
 // ============================================
 
-function viewProfile() {
+function viewPortfolio() {
     if (!contextTargetUserId || !contextTargetUserName) {
         showToast('User not found', 'error');
         hideContextMenu();
         return;
     }
     
-    // Navigate to user's portfolio page
-    const username = contextTargetUserName.toLowerCase().replace(/\s+/g, '-');
-    window.location.href = `/u/${username}`;
+    goToUserPortfolio(contextTargetUserName);
     hideContextMenu();
 }
 
@@ -1562,6 +1603,14 @@ function copyUserMessage() {
         showToast('📋 Message copied!', 'success');
     }
     hideContextMenu();
+}
+
+function toggleReactSubmenu() {
+    const submenu = document.getElementById('reactSubmenu');
+    if (!submenu) return;
+    
+    reactSubmenuOpen = !reactSubmenuOpen;
+    submenu.style.display = reactSubmenuOpen ? 'flex' : 'none';
 }
 
 function reactToMessage(reaction) {
@@ -1836,7 +1885,6 @@ function setupRealtimeSubscription() {
             } else {
                 if (unreadCounts[msg.channel] !== undefined) {
                     unreadCounts[msg.channel]++;
-                    updateChannelBadge(msg.channel, unreadCounts[msg.channel]);
                 }
             }
         })
@@ -1879,20 +1927,6 @@ function switchChannel(channel) {
 function markChannelRead(channel) {
     if (unreadCounts[channel] !== undefined) {
         unreadCounts[channel] = 0;
-        updateChannelBadge(channel, 0);
-    }
-}
-
-function updateChannelBadge(channel, count) {
-    const badge = document.getElementById(`badge-${channel}`);
-    if (badge) {
-        if (count > 0) {
-            badge.textContent = count > 99 ? '99+' : count;
-            badge.classList.add('show');
-        } else {
-            badge.classList.remove('show');
-            badge.textContent = '';
-        }
     }
 }
 
@@ -2063,7 +2097,7 @@ function escapeHtml(text) {
 }
 
 // ============================================
-// EVENT LISTENERS
+// EVENT LISTENERS - Updated
 // ============================================
 
 function setupEventListeners() {
@@ -2145,28 +2179,35 @@ function setupEventListeners() {
     if (cancelFile) cancelFile.addEventListener('click', cancelFilePreview);
     if (cancelVoice) cancelVoice.addEventListener('click', cancelVoicePreview);
     
-    // Context menu items
-    const contextViewProfile = document.getElementById('contextViewProfile');
+    // Context menu items - Updated
+    const contextViewPortfolio = document.getElementById('contextViewPortfolio');
     const contextReply = document.getElementById('contextReply');
     const contextCopy = document.getElementById('contextCopy');
+    const contextReact = document.getElementById('contextReact');
     const contextReport = document.getElementById('contextReport');
     
     const reactStar = document.getElementById('reactStar');
     const reactHeart = document.getElementById('reactHeart');
+    const reactAngry = document.getElementById('reactAngry');
     const reactHaha = document.getElementById('reactHaha');
     
-    if (contextViewProfile) contextViewProfile.addEventListener('click', viewProfile);
+    if (contextViewPortfolio) contextViewPortfolio.addEventListener('click', viewPortfolio);
     if (contextReply) contextReply.addEventListener('click', replyToUser);
     if (contextCopy) contextCopy.addEventListener('click', copyUserMessage);
+    if (contextReact) contextReact.addEventListener('click', toggleReactSubmenu);
     if (contextReport) contextReport.addEventListener('click', reportUser);
     
     if (reactStar) reactStar.addEventListener('click', () => reactToMessage('⭐'));
     if (reactHeart) reactHeart.addEventListener('click', () => reactToMessage('❤️'));
+    if (reactAngry) reactAngry.addEventListener('click', () => reactToMessage('😡'));
     if (reactHaha) reactHaha.addEventListener('click', () => reactToMessage('😂'));
     
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.context-menu')) {
             hideContextMenu();
+            const submenu = document.getElementById('reactSubmenu');
+            if (submenu) submenu.style.display = 'none';
+            reactSubmenuOpen = false;
         }
     });
     
@@ -2201,9 +2242,9 @@ window.closeMediaViewer = closeMediaViewer;
 window.scrollToMessage = scrollToMessage;
 window.refreshOnlineUsers = refreshOnlineUsers;
 window.showToast = showToast;
-window.toggleTheme = toggleTheme;
 window.toggleNav = toggleNav;
 window.reportIssue = reportIssue;
 window.toggleChannels = toggleChannels;
+window.goToUserPortfolio = goToUserPortfolio;
 
 console.log('✅ Chat.js loaded');
