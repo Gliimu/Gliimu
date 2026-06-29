@@ -132,7 +132,7 @@ let unreadCounts = {
 };
 
 // ============================================
-// THEME MANAGEMENT - FIXED
+// THEME MANAGEMENT - FIXED (Matches dashboard)
 // ============================================
 
 function initTheme() {
@@ -171,6 +171,16 @@ function initTheme() {
     
     console.log('🎨 Theme initialized:', theme, 'mode');
 }
+
+// Expose toggleTheme for settings page integration
+window.toggleTheme = function() {
+    isDarkMode = !isDarkMode;
+    document.body.classList.toggle('dark-mode', isDarkMode);
+    const theme = isDarkMode ? 'dark' : 'light';
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('dashboard_theme', theme);
+    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
+};
 
 // ============================================
 // STICKY NAVIGATION
