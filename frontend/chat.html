@@ -297,37 +297,53 @@
       </div>
     </div>
 
-    <!-- ==========================================
-    CONTEXT MENU - Updated with more options
-    ========================================== -->
-    <div class="context-menu" id="contextMenu" style="display: none;">
-      <div class="context-item" id="contextViewProfile">
+<!-- Context Menu - Updated with React Submenu -->
+<div class="context-menu" id="contextMenu" style="display: none;">
+    <!-- View Profile -->
+    <div class="context-item" id="contextViewProfile">
         <i class="fas fa-user-circle"></i> View Profile
-      </div>
-      <div class="context-divider"></div>
-      <div class="context-item" id="contextReply">
-        <i class="fas fa-reply"></i> Reply
-      </div>
-      <div class="context-item" id="contextCopy">
-        <i class="fas fa-copy"></i> Copy
-      </div>
-      <div class="context-divider"></div>
-      <div class="context-item" id="contextStar">
-        <i class="fas fa-star"></i> Star
-      </div>
-      <div class="context-item" id="contextHeart">
-        <i class="fas fa-heart" style="color:#ef4444;"></i> Like ❤️
-      </div>
-      <div class="context-item" id="contextLaugh">
-        <i class="fas fa-laugh" style="color:#f59e0b;"></i> Haha 😂
-      </div>
-      <div class="context-divider"></div>
-      <div class="context-item" id="contextReport">
-        <i class="fas fa-flag"></i> Report
-      </div>
     </div>
-
-  </div>
+    
+    <div class="context-divider"></div>
+    
+    <!-- Reply -->
+    <div class="context-item" id="contextReply">
+        <i class="fas fa-reply"></i> Reply
+    </div>
+    
+    <!-- Copy -->
+    <div class="context-item" id="contextCopy">
+        <i class="fas fa-copy"></i> Copy
+    </div>
+    
+    <div class="context-divider"></div>
+    
+    <!-- React (with submenu) -->
+    <div class="context-item" id="contextReact">
+        <i class="fas fa-smile"></i> React
+        <i class="fas fa-chevron-right" style="margin-left:auto; font-size:12px;"></i>
+    </div>
+    
+    <!-- React Submenu -->
+    <div class="react-submenu" id="reactSubmenu">
+        <div class="context-item" id="reactStar">
+            <i class="fas fa-star" style="color:#fbb040;"></i> Star ⭐
+        </div>
+        <div class="context-item" id="reactHeart">
+            <i class="fas fa-heart" style="color:#ef4444;"></i> Like ❤️
+        </div>
+        <div class="context-item" id="reactHaha">
+            <i class="fas fa-laugh" style="color:#f59e0b;"></i> Haha 😂
+        </div>
+    </div>
+    
+    <div class="context-divider"></div>
+    
+    <!-- Report -->
+    <div class="context-item" id="contextReport">
+        <i class="fas fa-flag"></i> Report
+    </div>
+</div>
 
   <!-- ==========================================
   SCRIPTS
