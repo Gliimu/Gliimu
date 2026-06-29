@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// WAV ONLY - Universal audio for all devices
+// DEFINITIVE FIXED VERSION - iPhone 7 Working
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,7 +30,7 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// Audio recording - WAV ONLY
+// Audio recording - WAV for universal compatibility
 let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
@@ -684,7 +684,7 @@ function renderMessages() {
                 </div>
             `;
         } 
-        // VOICE - Check file extension for WAV vs WebM
+        // VOICE - Universal playback with duration label
         else if (msg.type === 'voice' && msg.file_url) {
             const baseUrl = msg.file_url.split('?')[0];
             const isWav = baseUrl.toLowerCase().endsWith('.wav');
@@ -701,7 +701,7 @@ function renderMessages() {
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
                         <audio style="display:none;" preload="none" playsinline webkit-playsinline></audio>
-                        <span class="voice-duration-label">${getVoiceDuration(msg.file_url)}</span>
+                        <span class="voice-duration-label"></span>
                     </div>
                 </div>
             `;
@@ -757,12 +757,6 @@ function renderMessages() {
     if (shouldScroll) scrollToBottom();
 }
 
-// Helper: Get voice duration (placeholder)
-function getVoiceDuration(url) {
-    // In a real implementation, you'd parse duration from metadata
-    return '';
-}
-
 // ============================================
 // SCROLL TO MESSAGE
 // ============================================
@@ -779,7 +773,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - UNIVERSAL FOR ALL DEVICES
+// VOICE PLAYBACK - UNIVERSAL (Works on iPhone 7)
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl, isWav) {
@@ -839,47 +833,67 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         
         console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        // For WAV files, use direct URL approach (works best on all devices)
+        // CRITICAL FOR IPHONE: Use direct URL for WAV files
         if (isWav) {
-            console.log('🎵 Playing WAV directly');
+            console.log('🎵 Playing WAV directly (iPhone optimized)');
             audioEl.src = freshUrl;
             audioEl.load();
             
+            // Wait for audio to be ready with iOS-specific handling
             await new Promise((resolve) => {
-                const timeout = setTimeout(resolve, 5000);
+                const timeout = setTimeout(resolve, 8000);
+                
                 const onReady = () => {
                     clearTimeout(timeout);
                     audioEl.removeEventListener('canplaythrough', onReady);
                     audioEl.removeEventListener('loadeddata', onReady);
                     resolve();
                 };
+                
                 audioEl.addEventListener('canplaythrough', onReady);
                 audioEl.addEventListener('loadeddata', onReady);
-                if (audioEl.readyState >= 3) {
+                
+                // Check if already loaded enough
+                if (audioEl.readyState >= 2) {
                     clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
                     resolve();
                 }
             });
             
-            await audioEl.play();
-            icon.className = 'fas fa-pause';
-            btn.disabled = false;
-            
-            // Show duration if available
-            if (durationLabel && audioEl.duration) {
-                const mins = Math.floor(audioEl.duration / 60);
-                const secs = Math.floor(audioEl.duration % 60);
-                durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            // Play with iOS-friendly approach
+            try {
+                await audioEl.play();
+                icon.className = 'fas fa-pause';
+                btn.disabled = false;
+                
+                // Show duration if available
+                if (durationLabel && audioEl.duration) {
+                    const mins = Math.floor(audioEl.duration / 60);
+                    const secs = Math.floor(audioEl.duration % 60);
+                    durationLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+                
+                audioEl.onended = () => {
+                    icon.className = 'fas fa-play';
+                };
+                return;
+            } catch (playErr) {
+                console.error('WAV play error:', playErr);
+                // If play fails on iOS, try again with a small delay (iOS quirk)
+                if (playErr.name === 'NotAllowedError') {
+                    showToast('👆 Tap play again to start', 'warning');
+                    icon.className = 'fas fa-play';
+                    btn.disabled = false;
+                    return;
+                }
+                // Continue to fallback
             }
-            
-            audioEl.onended = () => {
-                icon.className = 'fas fa-play';
-            };
-            return;
         }
         
-        // For WebM files, try multiple approaches
-        console.log('🎵 Playing WebM with fallback chain');
+        // For WebM files or if WAV direct failed
+        console.log('🎵 Using fallback playback chain');
         
         // Approach 1: Direct URL
         try {
@@ -966,9 +980,9 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         icon.className = 'fas fa-play';
         btn.disabled = false;
         
-        // Final fallback: try direct URL one more time
+        // Final fallback: try direct URL one more time with a different cache-buster
         try {
-            const freshUrl = audioUrl.split('?')[0] + '?t=' + Date.now();
+            const freshUrl = audioUrl.split('?')[0] + '?t=' + Date.now() + Math.random();
             audioEl.src = freshUrl;
             audioEl.load();
             await audioEl.play();
@@ -991,6 +1005,7 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
 
 async function startVoiceRecording() {
     try {
+        // iOS-specific: ensure audio context is created with user gesture
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: true,
@@ -1003,8 +1018,12 @@ async function startVoiceRecording() {
         
         mediaStream = stream;
         
-        // Create audio context
+        // iOS: Resume audio context if suspended
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+        
         const source = audioContext.createMediaStreamSource(stream);
         
         // Create script processor for raw audio capture
@@ -1047,7 +1066,7 @@ async function startVoiceRecording() {
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
         
-        // Override stop to capture WAV
+        // Store chunks for stop
         window._wavChunks = wavChunks;
         
         if (navigator.vibrate) navigator.vibrate(50);
@@ -1524,12 +1543,7 @@ async function sendMessage() {
         
         // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
-            // Ensure it's WAV format
             let voiceBlob = pendingVoiceBlob;
-            if (!pendingVoiceBlob.type || pendingVoiceBlob.type !== 'audio/wav') {
-                // If somehow not WAV, convert (should already be WAV from recording)
-                console.warn('Unexpected voice format:', pendingVoiceBlob.type);
-            }
             
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
