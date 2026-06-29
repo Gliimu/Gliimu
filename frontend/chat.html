@@ -19,6 +19,41 @@
 </head>
 <body>
 
+  <!-- ============================================
+       STICKY NAVIGATION BUTTON (Dropdown)
+       ============================================ -->
+  <div class="sticky-nav" id="stickyNav">
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+      <i class="fas fa-ellipsis-v"></i>
+    </button>
+    <div class="nav-dropdown" id="navDropdown">
+      <button class="nav-btn" onclick="window.location.href='/user'" aria-label="Dashboard">
+        <i class="fas fa-tachometer-alt"></i>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-btn" onclick="window.location.href='/hub.html'" aria-label="Hub">
+        <i class="fas fa-newspaper"></i>
+        <span>Hub</span>
+      </button>
+      <button class="nav-btn" onclick="window.location.href='/user-course.html'" aria-label="Courses">
+        <i class="fas fa-graduation-cap"></i>
+        <span>Courses</span>
+      </button>
+      <button class="nav-btn" onclick="window.location.href='/virtualroom.html'" aria-label="Virtual Classroom">
+        <i class="fas fa-video"></i>
+        <span>Classroom</span>
+      </button>
+      <button class="nav-btn" onclick="reportIssue()" aria-label="Report issue">
+        <i class="fas fa-flag"></i>
+        <span>Report</span>
+      </button>
+      <button class="nav-btn home-nav" onclick="window.location.href='/user'" aria-label="Home">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+      </button>
+    </div>
+  </div>
+
   <div class="chat-app">
     
     <!-- ==========================================
@@ -27,8 +62,7 @@
     <aside class="chat-sidebar" id="chatSidebar">
       <div class="sidebar-header">
         <div class="logo-area">
-          <img src="icons/logo.png" alt="Gliimu" class="sidebar-logo" id="sidebarLogo">
-          <h3>💬 Community Chat</h3>
+          <h3>💬 Channels</h3>
         </div>
         <button class="close-sidebar" id="closeSidebarBtn" aria-label="Close sidebar">
           <i class="fas fa-times"></i>
