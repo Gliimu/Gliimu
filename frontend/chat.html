@@ -281,49 +281,58 @@
       </div>
     </div>
 
-    <!-- ==========================================
-    CONTEXT MENU - React with emojis
-    ========================================== -->
-    <div class="context-menu" id="contextMenu" style="display: none;">
-      <!-- View Profile -->
-      <div class="context-item" id="contextViewProfile">
-        <i class="fas fa-user-circle"></i> View Profile
-      </div>
-      
-      <div class="context-divider"></div>
-      
-      <!-- Reply -->
-      <div class="context-item" id="contextReply">
-        <i class="fas fa-reply"></i> Reply
-      </div>
-      
-      <!-- Copy -->
-      <div class="context-item" id="contextCopy">
-        <i class="fas fa-copy"></i> Copy
-      </div>
-      
-      <div class="context-divider"></div>
-      
-      <!-- React - Emojis Only -->
-      <div class="context-item react-item" id="reactStar" data-reaction="⭐">
-        <span style="font-size:20px;">⭐</span> Star
-      </div>
-      <div class="context-item react-item" id="reactHeart" data-reaction="❤️">
-        <span style="font-size:20px;">❤️</span> Like
-      </div>
-      <div class="context-item react-item" id="reactHaha" data-reaction="😂">
-        <span style="font-size:20px;">😂</span> Haha
-      </div>
-      
-      <div class="context-divider"></div>
-      
-      <!-- Report -->
-      <div class="context-item" id="contextReport">
-        <i class="fas fa-flag"></i> Report
-      </div>
+   <!-- ==========================================
+CONTEXT MENU - Updated with React Submenu
+========================================== -->
+<div class="context-menu" id="contextMenu" style="display: none;">
+    <!-- View Portfolio -->
+    <div class="context-item" id="contextViewPortfolio">
+        <i class="fas fa-user-circle"></i> Portfolio
     </div>
-
-  </div>
+    
+    <div class="context-divider"></div>
+    
+    <!-- Reply -->
+    <div class="context-item" id="contextReply">
+        <i class="fas fa-reply"></i> Reply
+    </div>
+    
+    <!-- Copy -->
+    <div class="context-item" id="contextCopy">
+        <i class="fas fa-copy"></i> Copy
+    </div>
+    
+    <div class="context-divider"></div>
+    
+    <!-- React (with submenu) -->
+    <div class="context-item" id="contextReact">
+        <i class="fas fa-smile"></i> React
+        <i class="fas fa-chevron-right" style="margin-left:auto; font-size:12px; color:var(--text-tertiary);"></i>
+    </div>
+    
+    <!-- React Submenu - Emojis Only -->
+    <div class="react-submenu" id="reactSubmenu">
+        <div class="context-item react-item" id="reactHeart">
+            <span style="font-size:20px;">❤️</span>
+        </div>
+        <div class="context-item react-item" id="reactStar">
+            <span style="font-size:20px;">⭐</span>
+        </div>
+        <div class="context-item react-item" id="reactAngry">
+            <span style="font-size:20px;">😡</span>
+        </div>
+        <div class="context-item react-item" id="reactHaha">
+            <span style="font-size:20px;">😂</span>
+        </div>
+    </div>
+    
+    <div class="context-divider"></div>
+    
+    <!-- Report -->
+    <div class="context-item" id="contextReport">
+        <i class="fas fa-flag"></i> Report
+    </div>
+</div>
 
   <!-- ==========================================
   SCRIPTS
