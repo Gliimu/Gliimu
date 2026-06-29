@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Updated: 5 Channels with Access Control
+// FIXED: Chat loading, 5 channels with access control
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -91,22 +91,8 @@ const CHANNEL_CONFIG = {
     }
 };
 
-// Get available channels based on user role
-function getAvailableChannels() {
-    const role = currentUserRole || 'student';
-    const available = [];
-    
-    for (const [key, config] of Object.entries(CHANNEL_CONFIG)) {
-        if (config.access.includes('all') || config.access.includes(role)) {
-            available.push(key);
-        }
-    }
-    
-    return available;
-}
-
 // ============================================
-// UNREAD COUNTS - 5 CHANNELS
+// UNREAD COUNTS
 // ============================================
 
 let unreadCounts = {
@@ -153,15 +139,6 @@ function initTheme() {
     
     console.log('🎨 Theme initialized:', theme, 'mode');
 }
-
-window.toggleTheme = function() {
-    isDarkMode = !isDarkMode;
-    document.body.classList.toggle('dark-mode', isDarkMode);
-    const theme = isDarkMode ? 'dark' : 'light';
-    localStorage.setItem('theme', theme);
-    localStorage.setItem('dashboard_theme', theme);
-    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
-};
 
 // ============================================
 // LOAD/SAVE MENTION TOASTS
@@ -218,6 +195,23 @@ async function checkReplyColumn() {
 }
 
 // ============================================
+// GET AVAILABLE CHANNELS
+// ============================================
+
+function getAvailableChannels() {
+    const role = currentUserRole || 'student';
+    const available = [];
+    
+    for (const [key, config] of Object.entries(CHANNEL_CONFIG)) {
+        if (config.access.includes('all') || config.access.includes(role)) {
+            available.push(key);
+        }
+    }
+    
+    return available;
+}
+
+// ============================================
 // INIT
 // ============================================
 
@@ -256,7 +250,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateUserUI();
     await loadUserAvatars();
     await checkReplyColumn();
+    
+    // Render channels FIRST
     renderChannels();
+    
+    // Then load messages
     await loadMessages();
     setupRealtimeSubscription();
     await setupPresenceTracking();
@@ -272,15 +270,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
-// RENDER CHANNELS - Only show accessible ones
+// RENDER CHANNELS
 // ============================================
 
 function renderChannels() {
     const container = document.getElementById('channelsList');
-    if (!container) return;
+    if (!container) {
+        console.error('❌ channelsList element not found');
+        return;
+    }
     
     const available = getAvailableChannels();
     console.log('📢 Available channels:', available);
+    
+    if (available.length === 0) {
+        container.innerHTML = `<div class="empty-state-text">No channels available for your role</div>`;
+        return;
+    }
     
     let html = '';
     for (const key of available) {
@@ -289,7 +295,7 @@ function renderChannels() {
         html += `
             <div class="channel-item ${isActive ? 'active' : ''}" data-channel="${key}">
                 <span class="channel-name">${config.label}</span>
-                <span class="channel-badge" id="badge-${key}">0</span>
+                <span class="channel-badge" id="badge-${key}" style="display:none;">0</span>
             </div>
         `;
     }
@@ -300,7 +306,9 @@ function renderChannels() {
     container.querySelectorAll('.channel-item').forEach(el => {
         el.addEventListener('click', () => {
             const channel = el.dataset.channel;
-            if (channel) switchChannel(channel);
+            if (channel && channel !== currentChannel) {
+                switchChannel(channel);
+            }
         });
     });
 }
@@ -543,13 +551,18 @@ function updateOnlineUsersList(users) {
 
 async function loadMessages() {
     const container = document.getElementById('messagesContainer');
-    if (!container) return;
+    if (!container) {
+        console.error('❌ messagesContainer element not found');
+        return;
+    }
     
     try {
         let selectQuery = '*';
         if (!hasReplyColumn) {
             selectQuery = 'id, channel, sender_id, sender_name, message, type, file_url, file_name, created_at';
         }
+        
+        console.log('📨 Loading messages for channel:', currentChannel);
         
         const { data: messages, error } = await supabase
             .from('chat_messages')
@@ -558,40 +571,64 @@ async function loadMessages() {
             .order('created_at', { ascending: true })
             .limit(100);
         
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Error loading messages:', error);
+            showToast('❌ Failed to load messages', 'error');
+            return;
+        }
+        
+        console.log('📨 Loaded', messages?.length || 0, 'messages');
         
         if (messages && messages.length > 0) {
             allMessages = messages;
             lastMessageId = messages[messages.length - 1].id;
             renderMessages();
         } else {
-            await insertWelcomeMessage();
+            // Check if we need to insert a welcome message
+            const hasWelcome = messages && messages.some(m => m.sender_id === null);
+            if (!hasWelcome) {
+                await insertWelcomeMessage();
+            }
             renderMessages();
         }
         
         scrollToBottom();
+        
     } catch (error) {
-        console.error('Error loading messages:', error);
-        showToast('❌ Failed to load messages', 'error');
+        console.error('❌ Exception loading messages:', error);
+        showToast('❌ Error loading messages', 'error');
     }
 }
 
 async function insertWelcomeMessage() {
     const config = CHANNEL_CONFIG[currentChannel];
+    if (!config) return;
+    
     const welcome = {
         channel: currentChannel,
         sender_id: null,
         sender_name: 'System',
-        message: `👋 Welcome to ${config ? config.label : '#' + currentChannel}! ${config ? config.description : ''}`,
+        message: `👋 Welcome to ${config.label}! ${config.description}`,
         type: 'text',
         created_at: new Date().toISOString()
     };
-    await supabase.from('chat_messages').insert([welcome]);
+    
+    try {
+        const { error } = await supabase.from('chat_messages').insert([welcome]);
+        if (error) {
+            console.warn('Could not insert welcome message:', error);
+        }
+    } catch (error) {
+        console.warn('Could not insert welcome message:', error);
+    }
 }
 
 function renderMessages() {
     const container = document.getElementById('messagesContainer');
-    if (!container) return;
+    if (!container) {
+        console.error('❌ messagesContainer element not found');
+        return;
+    }
     
     if (allMessages.length === 0) {
         const config = CHANNEL_CONFIG[currentChannel];
@@ -599,7 +636,7 @@ function renderMessages() {
             <div class="welcome-message">
                 <i class="fas fa-comments"></i>
                 <h3>👋 Welcome to ${config ? config.label : '#' + currentChannel}</h3>
-                <p>${config ? config.description : ''}</p>
+                <p>${config ? config.description : 'Start the conversation!'}</p>
             </div>
         `;
         return;
@@ -1595,8 +1632,10 @@ function setupRealtimeSubscription() {
 // ============================================
 
 function switchChannel(channel) {
+    console.log('📢 Switching to channel:', channel);
     currentChannel = channel;
     
+    // Update UI
     document.querySelectorAll('.channel-item').forEach(el => {
         el.classList.toggle('active', el.dataset.channel === channel);
     });
@@ -1604,7 +1643,9 @@ function switchChannel(channel) {
     const config = CHANNEL_CONFIG[channel];
     
     const nameEl = document.getElementById('channelName');
-    if (nameEl) nameEl.textContent = config ? config.label.replace(/[^a-zA-Z0-9 ]/g, '').trim() : channel;
+    if (nameEl) {
+        nameEl.textContent = config ? config.label.replace(/[^a-zA-Z0-9 ]/g, '').trim() : channel;
+    }
     
     const iconEl = document.getElementById('channelIcon');
     if (iconEl) {
@@ -1887,14 +1928,6 @@ function setupEventListeners() {
     const cancelVoice = document.getElementById('cancelVoiceBtn');
     if (cancelFile) cancelFile.addEventListener('click', cancelFilePreview);
     if (cancelVoice) cancelVoice.addEventListener('click', cancelVoicePreview);
-    
-    // Channel clicks are handled in renderChannels
-    // But we also need to handle clicks on existing channel items
-    
-    const infoToggle = document.getElementById('infoToggleBtn');
-    if (infoToggle) {
-        infoToggle.addEventListener('click', openChannelModal);
-    }
     
     const contextReply = document.getElementById('contextReply');
     const contextCopy = document.getElementById('contextCopy');
