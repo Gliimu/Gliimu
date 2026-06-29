@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Fixed: Role detection from users table
+// With Sticky Nav & Role-Based Channel Access
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -168,29 +168,52 @@ function initTheme() {
 }
 
 // ============================================
+// STICKY NAVIGATION
+// ============================================
+
+function toggleNav() {
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    if (dropdown) dropdown.classList.toggle('open');
+    if (toggle) toggle.classList.toggle('active');
+}
+
+// Close nav when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('stickyNav');
+    if (nav && !nav.contains(e.target)) {
+        const dropdown = document.getElementById('navDropdown');
+        const toggle = document.getElementById('navToggle');
+        if (dropdown) dropdown.classList.remove('open');
+        if (toggle) toggle.classList.remove('active');
+    }
+});
+
+function reportIssue() {
+    showToast('📝 Report an issue? Our team will investigate.', 'info');
+}
+
+// ============================================
 // GET AVAILABLE CHANNELS
 // ============================================
 
 function getAvailableChannels() {
-    // FIXED: Use the role from the users table
-    const role = currentUserRole || 'student';
-    const available = [];
-    
     // Map dashboard roles to channel access roles
     // student, instructor, admin, board
-    // Also handle: crm, secretary, manager -> map to admin for channel access
-    let accessRole = role;
-    if (['crm', 'secretary', 'manager'].includes(role)) {
+    // crm, secretary, manager -> map to admin for channel access
+    let accessRole = currentUserRole || 'student';
+    if (['crm', 'secretary', 'manager'].includes(accessRole)) {
         accessRole = 'admin';
     }
     
+    const available = [];
     for (const [key, config] of Object.entries(CHANNEL_CONFIG)) {
         if (config.access.includes('all') || config.access.includes(accessRole)) {
             available.push(key);
         }
     }
     
-    console.log('📢 Available channels for role:', role, '->', available);
+    console.log('📢 Available channels for role:', currentUserRole, '->', available);
     return available;
 }
 
@@ -318,6 +341,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     fixMobileViewport();
     loadMentionToasts();
     
+    // Setup sticky nav toggle
+    const navToggle = document.getElementById('navToggle');
+    if (navToggle) {
+        navToggle.addEventListener('click', toggleNav);
+    }
+    
     const container = document.getElementById('messagesContainer');
     if (container) {
         container.innerHTML = `
@@ -330,7 +359,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        // FIXED: Use getCurrentUserWithRole to fetch role from users table
         currentUser = await getCurrentUserWithRole();
         currentUserRole = currentUser?.role || 'student';
         console.log('👤 User loaded:', currentUser?.email, 'Role:', currentUserRole);
@@ -2023,5 +2051,7 @@ window.scrollToMessage = scrollToMessage;
 window.refreshOnlineUsers = refreshOnlineUsers;
 window.showToast = showToast;
 window.toggleTheme = toggleTheme;
+window.toggleNav = toggleNav;
+window.reportIssue = reportIssue;
 
 console.log('✅ Chat.js loaded');
