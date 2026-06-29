@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// Updated: Context Menu with View Profile, Reply, Copy, React, Report
+// Complete Updated Version
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -1427,20 +1427,6 @@ function showContextMenu(event, userId, userName) {
     const x = event.clientX || event.touches?.[0]?.clientX || 0;
     const y = event.clientY || event.touches?.[0]?.clientY || 0;
     
-    // Show all menu items
-    document.querySelectorAll('.context-item').forEach(item => {
-        item.style.display = 'flex';
-    });
-    document.querySelectorAll('.context-divider').forEach(item => {
-        item.style.display = 'block';
-    });
-    
-    // Hide react submenu by default
-    const reactSubmenu = document.getElementById('reactSubmenu');
-    if (reactSubmenu) {
-        reactSubmenu.style.display = 'none';
-    }
-    
     menu.style.display = 'block';
     menu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
     menu.style.top = `${Math.min(y, window.innerHeight - 320)}px`;
@@ -1466,19 +1452,10 @@ function viewProfile() {
         return;
     }
     
-    supabase
-        .from('users')
-        .select('name, email, role, avatar_url, wallet_balance, created_at')
-        .eq('id', contextTargetUserId)
-        .single()
-        .then(({ data, error }) => {
-            if (error) {
-                showToast('Error loading profile', 'error');
-                return;
-            }
-            showUserProfileModal(data);
-            hideContextMenu();
-        });
+    // Navigate to user's portfolio page
+    const username = contextTargetUserName.toLowerCase().replace(/\s+/g, '-');
+    window.location.href = `/u/${username}`;
+    hideContextMenu();
 }
 
 function replyToUser() {
@@ -1506,14 +1483,6 @@ function copyUserMessage() {
     hideContextMenu();
 }
 
-function toggleReactSubmenu() {
-    const submenu = document.getElementById('reactSubmenu');
-    if (submenu) {
-        const isVisible = submenu.style.display === 'flex';
-        submenu.style.display = isVisible ? 'none' : 'flex';
-    }
-}
-
 function reactToMessage(reaction) {
     if (!contextTargetMessageId) {
         showToast('No message to react to', 'error');
@@ -1521,26 +1490,48 @@ function reactToMessage(reaction) {
         return;
     }
     
+    // Toggle reaction - remove if already present
     const reactions = JSON.parse(localStorage.getItem('message_reactions_' + contextTargetMessageId) || '{}');
-    reactions[currentUser.id] = reaction;
+    const userId = currentUser.id;
+    
+    if (reactions[userId] === reaction) {
+        // Remove reaction if already set
+        delete reactions[userId];
+        showToast('Reaction removed', 'info');
+    } else {
+        // Add or update reaction
+        reactions[userId] = reaction;
+        showToast(`Reacted with ${reaction}`, 'success');
+    }
+    
     localStorage.setItem('message_reactions_' + contextTargetMessageId, JSON.stringify(reactions));
     
+    // Update UI
     const element = document.querySelector(`.message-group[data-message-id="${contextTargetMessageId}"]`);
     if (element) {
         element.classList.add('reacted-flash');
         setTimeout(() => element.classList.remove('reacted-flash'), 1000);
         
         let reactionBadge = element.querySelector('.reaction-badge');
-        if (!reactionBadge) {
-            reactionBadge = document.createElement('div');
-            reactionBadge.className = 'reaction-badge';
-            element.querySelector('.message-content').appendChild(reactionBadge);
+        if (reactions[userId]) {
+            if (!reactionBadge) {
+                reactionBadge = document.createElement('div');
+                reactionBadge.className = 'reaction-badge';
+                element.querySelector('.message-content').appendChild(reactionBadge);
+            }
+            reactionBadge.textContent = reactions[userId];
+            reactionBadge.style.display = 'inline-block';
+        } else if (reactionBadge) {
+            // Check if any other reactions exist
+            const otherReactions = Object.values(reactions);
+            if (otherReactions.length > 0) {
+                reactionBadge.textContent = otherReactions[otherReactions.length - 1];
+            } else {
+                reactionBadge.style.display = 'none';
+            }
         }
-        reactionBadge.textContent = reaction;
-        reactionBadge.style.display = 'inline-block';
     }
     
-    showToast(`Reacted with ${reaction}`, 'success');
     hideContextMenu();
 }
 
@@ -1548,81 +1539,6 @@ function reportUser() {
     if (!contextTargetUserName) return;
     showToast(`🚩 Reported @${contextTargetUserName} to moderators`, 'info');
     hideContextMenu();
-}
-
-// ============================================
-// USER PROFILE MODAL
-// ============================================
-
-function showUserProfileModal(user) {
-    let modal = document.getElementById('userProfileModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'userProfileModal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-content user-profile-modal">
-                <div class="modal-header">
-                    <h3>👤 User Profile</h3>
-                    <button class="modal-close" id="closeUserProfileModal">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="user-profile-avatar">
-                        <img src="" alt="User Avatar" id="userProfileAvatar">
-                    </div>
-                    <h4 id="userProfileName">User Name</h4>
-                    <p id="userProfileEmail">user@email.com</p>
-                    <div class="user-profile-details">
-                        <div class="profile-detail">
-                            <span class="detail-label">Role</span>
-                            <span class="detail-value" id="userProfileRole">Student</span>
-                        </div>
-                        <div class="profile-detail">
-                            <span class="detail-label">Wallet Balance</span>
-                            <span class="detail-value" id="userProfileWallet">₦0</span>
-                        </div>
-                        <div class="profile-detail">
-                            <span class="detail-label">Member Since</span>
-                            <span class="detail-value" id="userProfileJoined">Today</span>
-                        </div>
-                    </div>
-                    <div class="profile-actions">
-                        <button class="btn-primary" onclick="window.location.href='/user'">View Full Profile</button>
-                        <button class="btn-outline" onclick="closeUserProfileModal()">Close</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        
-        document.getElementById('closeUserProfileModal').addEventListener('click', closeUserProfileModal);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeUserProfileModal();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeUserProfileModal();
-        });
-    }
-    
-    document.getElementById('userProfileAvatar').src = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=fbb040&color=fff`;
-    document.getElementById('userProfileName').textContent = user.name || 'User';
-    document.getElementById('userProfileEmail').textContent = user.email || 'No email';
-    document.getElementById('userProfileRole').textContent = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Student';
-    document.getElementById('userProfileWallet').textContent = `₦${(user.wallet_balance || 0).toLocaleString()}`;
-    document.getElementById('userProfileJoined').textContent = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Today';
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeUserProfileModal() {
-    const modal = document.getElementById('userProfileModal');
-    if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    }
 }
 
 // ============================================
@@ -2156,7 +2072,6 @@ function setupEventListeners() {
     const contextViewProfile = document.getElementById('contextViewProfile');
     const contextReply = document.getElementById('contextReply');
     const contextCopy = document.getElementById('contextCopy');
-    const contextReact = document.getElementById('contextReact');
     const contextReport = document.getElementById('contextReport');
     
     const reactStar = document.getElementById('reactStar');
@@ -2166,7 +2081,6 @@ function setupEventListeners() {
     if (contextViewProfile) contextViewProfile.addEventListener('click', viewProfile);
     if (contextReply) contextReply.addEventListener('click', replyToUser);
     if (contextCopy) contextCopy.addEventListener('click', copyUserMessage);
-    if (contextReact) contextReact.addEventListener('click', toggleReactSubmenu);
     if (contextReport) contextReport.addEventListener('click', reportUser);
     
     if (reactStar) reactStar.addEventListener('click', () => reactToMessage('⭐'));
@@ -2176,8 +2090,6 @@ function setupEventListeners() {
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.context-menu')) {
             hideContextMenu();
-            const submenu = document.getElementById('reactSubmenu');
-            if (submenu) submenu.style.display = 'none';
         }
     });
     
@@ -2215,6 +2127,5 @@ window.showToast = showToast;
 window.toggleTheme = toggleTheme;
 window.toggleNav = toggleNav;
 window.reportIssue = reportIssue;
-window.closeUserProfileModal = closeUserProfileModal;
 
 console.log('✅ Chat.js loaded');
