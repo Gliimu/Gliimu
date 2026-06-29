@@ -136,13 +136,14 @@ let unreadCounts = {
 // ============================================
 
 function initTheme() {
+    // Get theme from localStorage
     const dashboardTheme = localStorage.getItem('dashboard_theme');
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
+    // Determine theme priority: dashboard_theme > theme > system > default light
     let theme = 'light';
     
-    // Check dashboard_theme first (highest priority)
     if (dashboardTheme === 'dark') {
         theme = 'dark';
     } else if (dashboardTheme === 'light') {
@@ -154,14 +155,16 @@ function initTheme() {
     } else if (systemPrefersDark) {
         theme = 'dark';
     }
-    // Default is 'light'
+    // Default: 'light'
     
-    // Apply theme to body
+    // IMPORTANT: Remove any existing dark-mode class first
+    document.body.classList.remove('dark-mode');
+    
+    // Then add if needed
     if (theme === 'dark') {
         document.body.classList.add('dark-mode');
         isDarkMode = true;
     } else {
-        document.body.classList.remove('dark-mode');
         isDarkMode = false;
     }
     
@@ -171,16 +174,6 @@ function initTheme() {
     
     console.log('🎨 Theme initialized:', theme, 'mode');
 }
-
-// Expose toggleTheme for settings page integration
-window.toggleTheme = function() {
-    isDarkMode = !isDarkMode;
-    document.body.classList.toggle('dark-mode', isDarkMode);
-    const theme = isDarkMode ? 'dark' : 'light';
-    localStorage.setItem('theme', theme);
-    localStorage.setItem('dashboard_theme', theme);
-    showToast(`Switched to ${isDarkMode ? '🌙 Dark' : '☀️ Light'} mode`, 'info');
-};
 
 // ============================================
 // STICKY NAVIGATION
