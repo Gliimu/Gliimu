@@ -1838,3 +1838,164 @@ body.dark-mode .voice-play-btn {
     background: var(--brand-purple);
     color: white;
 }
+
+/* ============================================
+   STICKY NAVIGATION (from user-course)
+   ============================================ */
+
+.sticky-nav {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.nav-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--brand-gold);
+    border: none;
+    color: var(--brand-purple-dark);
+    font-size: 1.1rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+.nav-toggle:hover {
+    transform: scale(1.08);
+    background: var(--brand-gold-dark);
+}
+
+.nav-toggle.active {
+    background: var(--brand-purple-dark);
+    color: white;
+}
+
+.nav-toggle.active i {
+    transform: rotate(90deg);
+}
+
+.nav-dropdown {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    animation: navSlideDown 0.25s ease;
+}
+
+.nav-dropdown.open {
+    display: flex;
+}
+
+@keyframes navSlideDown {
+    from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.nav-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    position: relative;
+}
+
+.nav-btn:hover {
+    transform: scale(1.08);
+    border-color: var(--brand-gold);
+    color: var(--brand-gold);
+}
+
+.nav-btn span {
+    display: none;
+    position: absolute;
+    right: 54px;
+    background: var(--bg-card);
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    white-space: nowrap;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.nav-btn:hover span {
+    display: block;
+}
+
+.nav-btn.home-nav {
+    background: var(--brand-purple);
+    color: white;
+    border-color: var(--brand-purple);
+}
+
+.nav-btn.home-nav:hover {
+    background: var(--brand-purple-dark);
+    border-color: var(--brand-purple-dark);
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .sticky-nav {
+        top: 12px;
+        right: 12px;
+    }
+
+    .nav-toggle {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+    }
+
+    .nav-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 0.75rem;
+    }
+
+    .nav-btn span {
+        display: none !important;
+    }
+}
+
+body.dark-mode .nav-btn {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .nav-btn.home-nav {
+    background: var(--brand-purple);
+    color: white;
+}
+
+body.dark-mode .nav-btn.home-nav:hover {
+    background: var(--brand-purple-dark);
+}
+
+body.dark-mode .nav-btn span {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
