@@ -126,7 +126,6 @@
         <div class="channel-info">
           <i class="fas fa-hashtag" id="channelIcon"></i>
           <h2 id="channelName">general</h2>
-          <!-- Info button moved here - next to channel name -->
           <button class="action-btn info-btn-inline" id="infoToggleBtn" aria-label="Channel info">
             <i class="fas fa-info-circle"></i>
           </button>
@@ -299,15 +298,30 @@
     </div>
 
     <!-- ==========================================
-    CONTEXT MENU
+    CONTEXT MENU - Updated with more options
     ========================================== -->
     <div class="context-menu" id="contextMenu" style="display: none;">
+      <div class="context-item" id="contextViewProfile">
+        <i class="fas fa-user-circle"></i> View Profile
+      </div>
+      <div class="context-divider"></div>
       <div class="context-item" id="contextReply">
         <i class="fas fa-reply"></i> Reply
       </div>
       <div class="context-item" id="contextCopy">
         <i class="fas fa-copy"></i> Copy
       </div>
+      <div class="context-divider"></div>
+      <div class="context-item" id="contextStar">
+        <i class="fas fa-star"></i> Star
+      </div>
+      <div class="context-item" id="contextHeart">
+        <i class="fas fa-heart" style="color:#ef4444;"></i> Like ❤️
+      </div>
+      <div class="context-item" id="contextLaugh">
+        <i class="fas fa-laugh" style="color:#f59e0b;"></i> Haha 😂
+      </div>
+      <div class="context-divider"></div>
       <div class="context-item" id="contextReport">
         <i class="fas fa-flag"></i> Report
       </div>
