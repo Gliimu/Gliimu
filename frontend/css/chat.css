@@ -1999,3 +1999,47 @@ body.dark-mode .nav-btn span {
     border-color: var(--border-color);
     color: var(--text-primary);
 }
+
+/* ============================================
+   INFO BUTTON INLINE (next to channel name)
+   ============================================ */
+
+.channel-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.channel-info .info-btn-inline {
+    background: none;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-left: -2px;
+}
+
+.channel-info .info-btn-inline:hover {
+    background: rgba(44, 47, 120, 0.06);
+    color: var(--brand-purple);
+}
+
+body.dark-mode .channel-info .info-btn-inline:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--brand-gold);
+}
+
+/* Remove the old info button from chat-actions */
+.chat-actions .action-btn.info-btn {
+    display: none;
+}
