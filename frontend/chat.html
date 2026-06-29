@@ -57,57 +57,55 @@
   <div class="chat-app">
     
     <!-- ==========================================
-    LEFT SIDEBAR - Channels Only
+    LEFT SIDEBAR - Channels (Collapsible) + Online Users
     ========================================== -->
     <aside class="chat-sidebar" id="chatSidebar">
       <div class="sidebar-header">
         <div class="logo-area">
-          <h3>💬 Channels</h3>
+          <h3>💬 Chat</h3>
         </div>
         <button class="close-sidebar" id="closeSidebarBtn" aria-label="Close sidebar">
           <i class="fas fa-times"></i>
         </button>
       </div>
       
-      <!-- Channels -->
-      <div class="sidebar-section">
-        <div class="section-header">
+      <!-- Channels - Collapsible -->
+      <div class="sidebar-section channels-section">
+        <div class="section-header collapsible-header" id="channelsToggle">
           <i class="fas fa-hashtag"></i>
           <span>Channels</span>
+          <span class="channel-count" id="channelCount">0</span>
+          <i class="fas fa-chevron-down collapse-icon"></i>
         </div>
         <div class="channels-list" id="channelsList">
-          <!-- General - Everyone -->
-          <div class="channel-item active" data-channel="general">
-            <span class="channel-name">💬 general</span>
-            <span class="channel-badge" id="badge-general">0</span>
-          </div>
-          
-          <!-- Students - Students, Instructors, Admin, Board -->
-          <div class="channel-item" data-channel="students">
-            <span class="channel-name">🎓 students</span>
-            <span class="channel-badge" id="badge-students">0</span>
-          </div>
-          
-          <!-- Instructors - Instructors, Admin, Board -->
-          <div class="channel-item" data-channel="instructors">
-            <span class="channel-name">👨‍🏫 instructors</span>
-            <span class="channel-badge" id="badge-instructors">0</span>
-          </div>
-          
-          <!-- Admin - Admin, Board -->
-          <div class="channel-item" data-channel="admin">
-            <span class="channel-name">⚙️ admin</span>
-            <span class="channel-badge" id="badge-admin">0</span>
-          </div>
-          
-          <!-- Boardroom - Board Only -->
-          <div class="channel-item" data-channel="boardroom">
-            <span class="channel-name">🤝 boardroom</span>
-            <span class="channel-badge" id="badge-boardroom">0</span>
-          </div>
+          <!-- Populated by JS -->
         </div>
       </div>
       
+      <!-- Online Users - Always visible on wider screens -->
+      <div class="sidebar-section online-users-section">
+        <div class="section-header">
+          <i class="fas fa-circle" style="color: #22c55e; font-size: 10px;"></i>
+          <span>Online · <span id="onlineCount">0</span></span>
+        </div>
+        <div class="online-users-list" id="onlineUsersList">
+          <div class="empty-state-text">No users online</div>
+        </div>
+      </div>
+      
+      <!-- Current User -->
+      <div class="current-user" id="currentUserCard">
+        <div class="user-avatar-large">
+          <i class="fas fa-user-circle"></i>
+        </div>
+        <div class="user-info-compact">
+          <div class="user-display-name" id="currentUserName">Guest User</div>
+          <div class="user-status-text" id="userStatusText">Join to chat</div>
+        </div>
+        <button class="logout-btn" id="logoutBtn" style="display: none;" aria-label="Logout">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+      </div>
     </aside>
     
     <!-- Sidebar Overlay -->
@@ -322,13 +320,13 @@
       
       <!-- React - Emojis Only -->
       <div class="context-item react-item" id="reactStar" data-reaction="⭐">
-        <span style="font-size:20px;"></span>
+        <span style="font-size:20px;">⭐</span> Star
       </div>
       <div class="context-item react-item" id="reactHeart" data-reaction="❤️">
-        <span style="font-size:20px;"></span>
+        <span style="font-size:20px;">❤️</span> Like
       </div>
       <div class="context-item react-item" id="reactHaha" data-reaction="😂">
-        <span style="font-size:20px;"></span>
+        <span style="font-size:20px;">😂</span> Haha
       </div>
       
       <div class="context-divider"></div>
