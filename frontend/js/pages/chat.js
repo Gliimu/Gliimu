@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// With Sticky Nav & Role-Based Channel Access
+// Updated: Context Menu with View Profile, Reply, Copy, React, Report
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -198,9 +198,6 @@ function reportIssue() {
 // ============================================
 
 function getAvailableChannels() {
-    // Map dashboard roles to channel access roles
-    // student, instructor, admin, board
-    // crm, secretary, manager -> map to admin for channel access
     let accessRole = currentUserRole || 'student';
     if (['crm', 'secretary', 'manager'].includes(accessRole)) {
         accessRole = 'admin';
@@ -290,7 +287,6 @@ function renderChannels() {
         return;
     }
     
-    // If current channel is not available, switch to first available
     if (!available.includes(currentChannel)) {
         currentChannel = available[0];
     }
@@ -309,7 +305,6 @@ function renderChannels() {
     
     container.innerHTML = html;
     
-    // Update header
     const config = CHANNEL_CONFIG[currentChannel];
     const nameEl = document.getElementById('channelName');
     if (nameEl) nameEl.textContent = config ? config.label.replace(/[^a-zA-Z0-9 ]/g, '').trim() : currentChannel;
@@ -319,7 +314,6 @@ function renderChannels() {
         iconEl.className = `fas ${config ? config.icon : 'fa-hashtag'}`;
     }
     
-    // Add click listeners
     container.querySelectorAll('.channel-item').forEach(el => {
         el.addEventListener('click', () => {
             const channel = el.dataset.channel;
@@ -341,7 +335,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     fixMobileViewport();
     loadMentionToasts();
     
-    // Setup sticky nav toggle
     const navToggle = document.getElementById('navToggle');
     if (navToggle) {
         navToggle.addEventListener('click', toggleNav);
@@ -376,10 +369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadUserAvatars();
     await checkReplyColumn();
     
-    // Render channels FIRST with correct role
     renderChannels();
-    
-    // Then load messages
     await loadMessages();
     setupRealtimeSubscription();
     await setupPresenceTracking();
@@ -1405,12 +1395,13 @@ function attachMessageEvents() {
 }
 
 // ============================================
-// CONTEXT MENU
+// CONTEXT MENU - Updated Structure
 // ============================================
 
 let contextTargetUserId = null;
 let contextTargetUserName = null;
 let contextTargetMessageId = null;
+let contextTargetAvatarUrl = null;
 
 function showContextMenu(event, userId, userName) {
     const menu = document.getElementById('contextMenu');
@@ -1420,6 +1411,9 @@ function showContextMenu(event, userId, userName) {
     contextTargetUserName = userName;
     
     const avatar = event.currentTarget || event.target;
+    const avatarImg = avatar.querySelector('img');
+    contextTargetAvatarUrl = avatarImg ? avatarImg.src : null;
+    
     const messageGroup = avatar.closest('.message-group');
     if (messageGroup) {
         contextTargetMessageId = messageGroup.dataset.messageId;
@@ -1433,9 +1427,23 @@ function showContextMenu(event, userId, userName) {
     const x = event.clientX || event.touches?.[0]?.clientX || 0;
     const y = event.clientY || event.touches?.[0]?.clientY || 0;
     
+    // Show all menu items
+    document.querySelectorAll('.context-item').forEach(item => {
+        item.style.display = 'flex';
+    });
+    document.querySelectorAll('.context-divider').forEach(item => {
+        item.style.display = 'block';
+    });
+    
+    // Hide react submenu by default
+    const reactSubmenu = document.getElementById('reactSubmenu');
+    if (reactSubmenu) {
+        reactSubmenu.style.display = 'none';
+    }
+    
     menu.style.display = 'block';
-    menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - 150)}px`;
+    menu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 320)}px`;
 }
 
 function hideContextMenu() {
@@ -1444,6 +1452,33 @@ function hideContextMenu() {
     contextTargetUserId = null;
     contextTargetUserName = null;
     contextTargetMessageId = null;
+    contextTargetAvatarUrl = null;
+}
+
+// ============================================
+// CONTEXT MENU ACTIONS
+// ============================================
+
+function viewProfile() {
+    if (!contextTargetUserId || !contextTargetUserName) {
+        showToast('User not found', 'error');
+        hideContextMenu();
+        return;
+    }
+    
+    supabase
+        .from('users')
+        .select('name, email, role, avatar_url, wallet_balance, created_at')
+        .eq('id', contextTargetUserId)
+        .single()
+        .then(({ data, error }) => {
+            if (error) {
+                showToast('Error loading profile', 'error');
+                return;
+            }
+            showUserProfileModal(data);
+            hideContextMenu();
+        });
 }
 
 function replyToUser() {
@@ -1471,10 +1506,123 @@ function copyUserMessage() {
     hideContextMenu();
 }
 
+function toggleReactSubmenu() {
+    const submenu = document.getElementById('reactSubmenu');
+    if (submenu) {
+        const isVisible = submenu.style.display === 'flex';
+        submenu.style.display = isVisible ? 'none' : 'flex';
+    }
+}
+
+function reactToMessage(reaction) {
+    if (!contextTargetMessageId) {
+        showToast('No message to react to', 'error');
+        hideContextMenu();
+        return;
+    }
+    
+    const reactions = JSON.parse(localStorage.getItem('message_reactions_' + contextTargetMessageId) || '{}');
+    reactions[currentUser.id] = reaction;
+    localStorage.setItem('message_reactions_' + contextTargetMessageId, JSON.stringify(reactions));
+    
+    const element = document.querySelector(`.message-group[data-message-id="${contextTargetMessageId}"]`);
+    if (element) {
+        element.classList.add('reacted-flash');
+        setTimeout(() => element.classList.remove('reacted-flash'), 1000);
+        
+        let reactionBadge = element.querySelector('.reaction-badge');
+        if (!reactionBadge) {
+            reactionBadge = document.createElement('div');
+            reactionBadge.className = 'reaction-badge';
+            element.querySelector('.message-content').appendChild(reactionBadge);
+        }
+        reactionBadge.textContent = reaction;
+        reactionBadge.style.display = 'inline-block';
+    }
+    
+    showToast(`Reacted with ${reaction}`, 'success');
+    hideContextMenu();
+}
+
 function reportUser() {
     if (!contextTargetUserName) return;
     showToast(`🚩 Reported @${contextTargetUserName} to moderators`, 'info');
     hideContextMenu();
+}
+
+// ============================================
+// USER PROFILE MODAL
+// ============================================
+
+function showUserProfileModal(user) {
+    let modal = document.getElementById('userProfileModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'userProfileModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content user-profile-modal">
+                <div class="modal-header">
+                    <h3>👤 User Profile</h3>
+                    <button class="modal-close" id="closeUserProfileModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="user-profile-avatar">
+                        <img src="" alt="User Avatar" id="userProfileAvatar">
+                    </div>
+                    <h4 id="userProfileName">User Name</h4>
+                    <p id="userProfileEmail">user@email.com</p>
+                    <div class="user-profile-details">
+                        <div class="profile-detail">
+                            <span class="detail-label">Role</span>
+                            <span class="detail-value" id="userProfileRole">Student</span>
+                        </div>
+                        <div class="profile-detail">
+                            <span class="detail-label">Wallet Balance</span>
+                            <span class="detail-value" id="userProfileWallet">₦0</span>
+                        </div>
+                        <div class="profile-detail">
+                            <span class="detail-label">Member Since</span>
+                            <span class="detail-value" id="userProfileJoined">Today</span>
+                        </div>
+                    </div>
+                    <div class="profile-actions">
+                        <button class="btn-primary" onclick="window.location.href='/user'">View Full Profile</button>
+                        <button class="btn-outline" onclick="closeUserProfileModal()">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        document.getElementById('closeUserProfileModal').addEventListener('click', closeUserProfileModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeUserProfileModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeUserProfileModal();
+        });
+    }
+    
+    document.getElementById('userProfileAvatar').src = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=fbb040&color=fff`;
+    document.getElementById('userProfileName').textContent = user.name || 'User';
+    document.getElementById('userProfileEmail').textContent = user.email || 'No email';
+    document.getElementById('userProfileRole').textContent = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Student';
+    document.getElementById('userProfileWallet').textContent = `₦${(user.wallet_balance || 0).toLocaleString()}`;
+    document.getElementById('userProfileJoined').textContent = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Today';
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeUserProfileModal() {
+    const modal = document.getElementById('userProfileModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
 // ============================================
@@ -1582,7 +1730,6 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
             const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
@@ -1712,7 +1859,6 @@ function switchChannel(channel) {
     console.log('📢 Switching to channel:', channel);
     currentChannel = channel;
     
-    // Update UI
     document.querySelectorAll('.channel-item').forEach(el => {
         el.classList.toggle('active', el.dataset.channel === channel);
     });
@@ -2006,16 +2152,32 @@ function setupEventListeners() {
     if (cancelFile) cancelFile.addEventListener('click', cancelFilePreview);
     if (cancelVoice) cancelVoice.addEventListener('click', cancelVoicePreview);
     
+    // Context menu items
+    const contextViewProfile = document.getElementById('contextViewProfile');
     const contextReply = document.getElementById('contextReply');
     const contextCopy = document.getElementById('contextCopy');
+    const contextReact = document.getElementById('contextReact');
     const contextReport = document.getElementById('contextReport');
+    
+    const reactStar = document.getElementById('reactStar');
+    const reactHeart = document.getElementById('reactHeart');
+    const reactHaha = document.getElementById('reactHaha');
+    
+    if (contextViewProfile) contextViewProfile.addEventListener('click', viewProfile);
     if (contextReply) contextReply.addEventListener('click', replyToUser);
     if (contextCopy) contextCopy.addEventListener('click', copyUserMessage);
+    if (contextReact) contextReact.addEventListener('click', toggleReactSubmenu);
     if (contextReport) contextReport.addEventListener('click', reportUser);
+    
+    if (reactStar) reactStar.addEventListener('click', () => reactToMessage('⭐'));
+    if (reactHeart) reactHeart.addEventListener('click', () => reactToMessage('❤️'));
+    if (reactHaha) reactHaha.addEventListener('click', () => reactToMessage('😂'));
     
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.context-menu')) {
             hideContextMenu();
+            const submenu = document.getElementById('reactSubmenu');
+            if (submenu) submenu.style.display = 'none';
         }
     });
     
@@ -2053,5 +2215,6 @@ window.showToast = showToast;
 window.toggleTheme = toggleTheme;
 window.toggleNav = toggleNav;
 window.reportIssue = reportIssue;
+window.closeUserProfileModal = closeUserProfileModal;
 
 console.log('✅ Chat.js loaded');
