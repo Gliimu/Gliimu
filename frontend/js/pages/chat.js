@@ -1,6 +1,6 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// FIXED: Recording, Uploading, and Playback Pipeline
+// Complete Production Version
 // ============================================
 
 import { supabase, getCurrentUser } from '../modules/supabase.js';
@@ -30,13 +30,14 @@ let shownMentionToasts = new Set();
 let presenceInitialized = false;
 let onlineInterval = null;
 
-// AUDIO RECORDING - FIXED
-let mediaRecorder = null;
+// Audio recording - WAV for universal compatibility
+let audioContext = null;
 let audioChunks = [];
 let isRecording = false;
 let recordingStartTime = null;
 let recordingTimer = null;
 let mediaStream = null;
+let scriptProcessor = null;
 
 // Voice preview
 let voicePreviewAudio = null;
@@ -771,7 +772,7 @@ function scrollToMessage(messageId) {
 }
 
 // ============================================
-// VOICE PLAYBACK - FIXED PIPELINE
+// VOICE PLAYBACK - UNIVERSAL
 // ============================================
 
 async function playVoiceMessage(btn, audioUrl, isWav) {
@@ -829,7 +830,73 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         
         console.log('🔊 Loading voice from:', freshUrl, 'WAV:', isWav);
         
-        // FETCH THE AUDIO AS A BLOB
+        // For WAV files, use direct URL approach (works best on all devices)
+        if (isWav) {
+            console.log('🎵 Playing WAV directly');
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        }
+        
+        // For WebM files, try multiple approaches
+        console.log('🎵 Playing WebM with fallback chain');
+        
+        // Approach 1: Direct URL
+        try {
+            audioEl.src = freshUrl;
+            audioEl.load();
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(resolve, 5000);
+                const onReady = () => {
+                    clearTimeout(timeout);
+                    audioEl.removeEventListener('canplaythrough', onReady);
+                    audioEl.removeEventListener('loadeddata', onReady);
+                    resolve();
+                };
+                audioEl.addEventListener('canplaythrough', onReady);
+                audioEl.addEventListener('loadeddata', onReady);
+                if (audioEl.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        } catch (directErr) {
+            console.log('Direct URL failed, trying blob:', directErr);
+        }
+        
+        // Approach 2: Blob fetch
         const response = await fetch(freshUrl, {
             cache: 'no-cache',
             headers: {
@@ -849,7 +916,6 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         
         console.log('📦 Audio blob size:', blob.size, 'bytes, type:', blob.type);
         
-        // CREATE A BLOB URL AND PLAY IT
         const blobUrl = URL.createObjectURL(blob);
         audioEl.src = blobUrl;
         audioEl.load();
@@ -882,17 +948,32 @@ async function loadAndPlayVoice(btn, audioUrl, isWav) {
         console.error('Load error:', err);
         icon.className = 'fas fa-play';
         btn.disabled = false;
-        showToast('❌ Could not play voice message', 'error');
+        
+        // Final fallback: try direct URL one more time
+        try {
+            const freshUrl = audioUrl.split('?')[0] + '?t=' + Date.now();
+            audioEl.src = freshUrl;
+            audioEl.load();
+            await audioEl.play();
+            icon.className = 'fas fa-pause';
+            btn.disabled = false;
+            audioEl.onended = () => {
+                icon.className = 'fas fa-play';
+            };
+            return;
+        } catch (finalErr) {
+            console.error('Final fallback failed:', finalErr);
+            showToast('❌ Could not play voice message', 'error');
+        }
     }
 }
 
 // ============================================
-// VOICE RECORDING - FIXED PIPELINE
+// VOICE RECORDING - WAV FOR ALL DEVICES
 // ============================================
 
 async function startVoiceRecording() {
     try {
-        // Request microphone access
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: true,
@@ -905,53 +986,33 @@ async function startVoiceRecording() {
         
         mediaStream = stream;
         
-        // Use MediaRecorder for reliable recording
-        // Try to use WAV format for universal compatibility
-        let mimeType = 'audio/webm';
-        if (MediaRecorder.isTypeSupported('audio/wav')) {
-            mimeType = 'audio/wav';
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            mimeType = 'audio/mp4';
-        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-            mimeType = 'audio/webm;codecs=opus';
-        }
+        // Create audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
         
-        console.log('🎤 Using MIME type:', mimeType);
+        // Create script processor for raw audio capture
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        const wavChunks = [];
         
-        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-        audioChunks = [];
-        
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-                audioChunks.push(e.data);
+        processor.onaudioprocess = (event) => {
+            if (!isRecording) return;
+            const inputData = event.inputBuffer.getChannelData(0);
+            // Convert float32 to int16 PCM
+            const pcmData = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+                const s = Math.max(-1, Math.min(1, inputData[i]));
+                pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
+            wavChunks.push(pcmData);
         };
         
-        mediaRecorder.onstop = () => {
-            const mime = mediaRecorder.mimeType || 'audio/webm';
-            const blob = new Blob(audioChunks, { type: mime });
-            
-            console.log('🎤 Recording stopped. Blob size:', blob.size, 'bytes, type:', blob.type);
-            
-            if (blob.size > 1000) {
-                pendingVoiceBlob = blob;
-                pendingVoiceUrl = URL.createObjectURL(blob);
-                showVoicePreview();
-                setupVoicePreviewPlayback();
-                showToast('✅ Voice recorded! Tap play to preview', 'success');
-            } else {
-                showToast('❌ Recording too short', 'error');
-            }
-            
-            // Clean up stream
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(t => t.stop());
-                mediaStream = null;
-            }
-        };
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+        
+        // Store cleanup
+        scriptProcessor = processor;
         
         // Start recording
-        mediaRecorder.start(1000);
         isRecording = true;
         recordingStartTime = Date.now();
         
@@ -969,6 +1030,9 @@ async function startVoiceRecording() {
             if (dur) dur.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         }, 1000);
         
+        // Override stop to capture WAV
+        window._wavChunks = wavChunks;
+        
         if (navigator.vibrate) navigator.vibrate(50);
         showToast('🎤 Recording... Tap stop to preview', 'info');
         
@@ -985,16 +1049,62 @@ async function startVoiceRecording() {
 }
 
 function stopVoiceRecording() {
-    if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        if (recordingTimer) clearInterval(recordingTimer);
-        
-        const btn = document.getElementById('voiceRecordBtn');
-        if (btn) {
-            btn.classList.remove('recording');
-            btn.innerHTML = '<i class="fas fa-microphone"></i>';
+    if (!isRecording) return;
+    
+    isRecording = false;
+    if (recordingTimer) clearInterval(recordingTimer);
+    
+    const btn = document.getElementById('voiceRecordBtn');
+    if (btn) {
+        btn.classList.remove('recording');
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+    }
+    
+    // Get the recorded chunks
+    const wavChunks = window._wavChunks || [];
+    window._wavChunks = [];
+    
+    // Clean up audio resources
+    if (scriptProcessor) {
+        scriptProcessor.disconnect();
+        scriptProcessor = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+    }
+    
+    // Create WAV blob
+    if (wavChunks.length > 0) {
+        const totalLength = wavChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        if (totalLength > 0) {
+            const combinedPCM = new Int16Array(totalLength);
+            let offset = 0;
+            for (const chunk of wavChunks) {
+                combinedPCM.set(chunk, offset);
+                offset += chunk.length;
+            }
+            
+            const wavBlob = createWavBlob(combinedPCM, 44100);
+            if (wavBlob.size > 1000) {
+                pendingVoiceBlob = wavBlob;
+                pendingVoiceUrl = URL.createObjectURL(wavBlob);
+                showVoicePreview();
+                setupVoicePreviewPlayback();
+                console.log('🎤 WAV recorded:', wavBlob.size, 'bytes');
+                showToast('✅ Voice recorded! Tap play to preview', 'success');
+            } else {
+                showToast('❌ Recording too short', 'error');
+            }
+        } else {
+            showToast('❌ Recording failed', 'error');
         }
+    } else {
+        showToast('❌ No audio captured', 'error');
     }
 }
 
@@ -1003,6 +1113,51 @@ function toggleVoiceRecording() {
         stopVoiceRecording();
     } else {
         startVoiceRecording();
+    }
+}
+
+// Helper: Create WAV blob from PCM data
+function createWavBlob(pcmData, sampleRate) {
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+    const blockAlign = numChannels * bitsPerSample / 8;
+    const dataSize = pcmData.length * 2;
+    const headerSize = 44;
+    const totalSize = headerSize + dataSize;
+    
+    const buffer = new ArrayBuffer(totalSize);
+    const view = new DataView(buffer);
+    
+    // RIFF header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, totalSize - 8, true);
+    writeString(view, 8, 'WAVE');
+    
+    // Format chunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    
+    // Data chunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    // Write PCM data
+    const pcmView = new Int16Array(buffer, headerSize, pcmData.length);
+    pcmView.set(pcmData);
+    
+    return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
     }
 }
 
@@ -1283,17 +1438,14 @@ function closeMediaViewer() {
 }
 
 // ============================================
-// SEND MESSAGE - FIXED UPLOAD PIPELINE
+// SEND MESSAGE
 // ============================================
 
 async function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     
-    if (!text && !pendingFile && !pendingVoiceBlob) {
-        showToast('Please type a message or attach a file', 'info');
-        return;
-    }
+    if (!text && !pendingFile && !pendingVoiceBlob) return;
     if (!currentUser) {
         showToast('🔒 Please login', 'error');
         return;
@@ -1317,7 +1469,6 @@ async function sendMessage() {
     }
     
     try {
-        // Handle File Upload
         if (pendingFile) {
             const file = pendingFile;
             const ext = file.name.split('.').pop();
@@ -1345,7 +1496,7 @@ async function sendMessage() {
                 }
                 messageText = '';
             } else {
-                showToast('❌ File upload failed: ' + uploadError.message, 'error');
+                showToast('❌ File upload failed', 'error');
                 pendingFile = null;
                 hideFilePreview();
                 return;
@@ -1354,27 +1505,16 @@ async function sendMessage() {
             hideFilePreview();
         }
         
-        // Handle Voice Upload - FIXED
+        // VOICE - ALWAYS UPLOAD AS WAV
         if (pendingVoiceBlob) {
-            // Validate the blob
-            if (pendingVoiceBlob.size === 0) {
-                showToast('❌ Voice recording is empty', 'error');
-                pendingVoiceBlob = null;
-                hideVoicePreview();
-                return;
-            }
+            let voiceBlob = pendingVoiceBlob;
             
-            // Use the recorded format (webm or wav)
-            const extension = pendingVoiceBlob.type === 'audio/wav' ? 'wav' : 'webm';
-            const contentType = pendingVoiceBlob.type || 'audio/webm';
-            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.${extension}`;
-            
-            console.log('📤 Uploading voice:', path, 'size:', pendingVoiceBlob.size, 'type:', contentType);
+            const path = `chat_uploads/${currentUser.id}/voice_${Date.now()}.wav`;
             
             const { error: uploadError } = await supabase.storage
                 .from('chat-files')
-                .upload(path, pendingVoiceBlob, {
-                    contentType: contentType,
+                .upload(path, voiceBlob, {
+                    contentType: 'audio/wav',
                     cacheControl: 'no-cache, no-store, must-revalidate'
                 });
             
@@ -1386,9 +1526,8 @@ async function sendMessage() {
                 fileUrl = publicUrl + '?t=' + Date.now();
                 messageType = 'voice';
                 messageText = '';
-                console.log('✅ Voice uploaded successfully:', fileUrl);
+                console.log('📤 Voice uploaded as WAV:', path);
             } else {
-                console.error('❌ Voice upload error:', uploadError);
                 showToast('❌ Voice upload failed: ' + uploadError.message, 'error');
                 pendingVoiceBlob = null;
                 hideVoicePreview();
@@ -1398,7 +1537,6 @@ async function sendMessage() {
             hideVoicePreview();
         }
         
-        // Build and send message
         const message = {
             channel: currentChannel,
             sender_id: currentUser.id,
@@ -1445,7 +1583,7 @@ async function sendMessage() {
         
     } catch (error) {
         console.error('Send error:', error);
-        showToast('❌ Failed to send: ' + error.message, 'error');
+        showToast('❌ Failed to send', 'error');
     } finally {
         if (sendBtn) {
             sendBtn.innerHTML = originalHtml;
