@@ -1,10 +1,37 @@
 // ============================================
 // 💬 COMMUNITY CHAT - GLIIMU
-// FIXED: Chat loading, 5 channels with access control
+// Fixed: Role detection from users table
 // ============================================
 
-import { supabase, getCurrentUser } from '../modules/supabase.js';
+import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
+
+// ============================================
+// GET USER WITH ROLE
+// ============================================
+
+async function getCurrentUserWithRole() {
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) return null;
+        
+        const { data: profile } = await supabase
+            .from('users')
+            .select('role, name, avatar_url')
+            .eq('id', user.id)
+            .single();
+        
+        return {
+            ...user,
+            role: profile?.role || 'student',
+            name: profile?.name || user.user_metadata?.name || 'User',
+            avatar: profile?.avatar_url || null
+        };
+    } catch (e) {
+        console.error('Error getting user with role:', e);
+        return null;
+    }
+}
 
 // ============================================
 // STATE
@@ -141,6 +168,33 @@ function initTheme() {
 }
 
 // ============================================
+// GET AVAILABLE CHANNELS
+// ============================================
+
+function getAvailableChannels() {
+    // FIXED: Use the role from the users table
+    const role = currentUserRole || 'student';
+    const available = [];
+    
+    // Map dashboard roles to channel access roles
+    // student, instructor, admin, board
+    // Also handle: crm, secretary, manager -> map to admin for channel access
+    let accessRole = role;
+    if (['crm', 'secretary', 'manager'].includes(role)) {
+        accessRole = 'admin';
+    }
+    
+    for (const [key, config] of Object.entries(CHANNEL_CONFIG)) {
+        if (config.access.includes('all') || config.access.includes(accessRole)) {
+            available.push(key);
+        }
+    }
+    
+    console.log('📢 Available channels for role:', role, '->', available);
+    return available;
+}
+
+// ============================================
 // LOAD/SAVE MENTION TOASTS
 // ============================================
 
@@ -195,20 +249,62 @@ async function checkReplyColumn() {
 }
 
 // ============================================
-// GET AVAILABLE CHANNELS
+// RENDER CHANNELS
 // ============================================
 
-function getAvailableChannels() {
-    const role = currentUserRole || 'student';
-    const available = [];
-    
-    for (const [key, config] of Object.entries(CHANNEL_CONFIG)) {
-        if (config.access.includes('all') || config.access.includes(role)) {
-            available.push(key);
-        }
+function renderChannels() {
+    const container = document.getElementById('channelsList');
+    if (!container) {
+        console.error('❌ channelsList element not found');
+        return;
     }
     
-    return available;
+    const available = getAvailableChannels();
+    console.log('📢 Rendering channels:', available);
+    
+    if (available.length === 0) {
+        container.innerHTML = `<div class="empty-state-text">No channels available for your role</div>`;
+        return;
+    }
+    
+    // If current channel is not available, switch to first available
+    if (!available.includes(currentChannel)) {
+        currentChannel = available[0];
+    }
+    
+    let html = '';
+    for (const key of available) {
+        const config = CHANNEL_CONFIG[key];
+        const isActive = key === currentChannel;
+        html += `
+            <div class="channel-item ${isActive ? 'active' : ''}" data-channel="${key}">
+                <span class="channel-name">${config.label}</span>
+                <span class="channel-badge" id="badge-${key}" style="display:none;">0</span>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Update header
+    const config = CHANNEL_CONFIG[currentChannel];
+    const nameEl = document.getElementById('channelName');
+    if (nameEl) nameEl.textContent = config ? config.label.replace(/[^a-zA-Z0-9 ]/g, '').trim() : currentChannel;
+    
+    const iconEl = document.getElementById('channelIcon');
+    if (iconEl) {
+        iconEl.className = `fas ${config ? config.icon : 'fa-hashtag'}`;
+    }
+    
+    // Add click listeners
+    container.querySelectorAll('.channel-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const channel = el.dataset.channel;
+            if (channel && channel !== currentChannel) {
+                switchChannel(channel);
+            }
+        });
+    });
 }
 
 // ============================================
@@ -234,9 +330,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        currentUser = await getCurrentUser();
-        currentUserRole = currentUser?.user_metadata?.role || currentUser?.role || 'student';
-        console.log('👤 User role:', currentUserRole);
+        // FIXED: Use getCurrentUserWithRole to fetch role from users table
+        currentUser = await getCurrentUserWithRole();
+        currentUserRole = currentUser?.role || 'student';
+        console.log('👤 User loaded:', currentUser?.email, 'Role:', currentUserRole);
     } catch (err) {
         console.error('Error getting user:', err);
         currentUser = null;
@@ -251,7 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadUserAvatars();
     await checkReplyColumn();
     
-    // Render channels FIRST
+    // Render channels FIRST with correct role
     renderChannels();
     
     // Then load messages
@@ -268,50 +365,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     console.log('✅ Chat ready');
 });
-
-// ============================================
-// RENDER CHANNELS
-// ============================================
-
-function renderChannels() {
-    const container = document.getElementById('channelsList');
-    if (!container) {
-        console.error('❌ channelsList element not found');
-        return;
-    }
-    
-    const available = getAvailableChannels();
-    console.log('📢 Available channels:', available);
-    
-    if (available.length === 0) {
-        container.innerHTML = `<div class="empty-state-text">No channels available for your role</div>`;
-        return;
-    }
-    
-    let html = '';
-    for (const key of available) {
-        const config = CHANNEL_CONFIG[key];
-        const isActive = key === currentChannel;
-        html += `
-            <div class="channel-item ${isActive ? 'active' : ''}" data-channel="${key}">
-                <span class="channel-name">${config.label}</span>
-                <span class="channel-badge" id="badge-${key}" style="display:none;">0</span>
-            </div>
-        `;
-    }
-    
-    container.innerHTML = html;
-    
-    // Add click listeners
-    container.querySelectorAll('.channel-item').forEach(el => {
-        el.addEventListener('click', () => {
-            const channel = el.dataset.channel;
-            if (channel && channel !== currentChannel) {
-                switchChannel(channel);
-            }
-        });
-    });
-}
 
 // ============================================
 // MOBILE FIX
@@ -357,7 +410,7 @@ function updateUserUI() {
     const sendBtn = document.getElementById('sendBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     
-    const name = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User';
+    const name = currentUser.name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User';
     
     if (nameEl) nameEl.textContent = `👤 ${name}`;
     if (statusEl) statusEl.textContent = '🟢 Online';
@@ -433,9 +486,9 @@ async function markUserOnline() {
     if (!currentUser) return;
     
     try {
-        const name = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User';
-        const role = currentUser.user_metadata?.role || currentUserRole || 'student';
-        const avatar = currentUser.user_metadata?.avatar_url || null;
+        const name = currentUser.name || currentUser.user_metadata?.name || 'User';
+        const role = currentUser.role || currentUserRole || 'student';
+        const avatar = currentUser.avatar || currentUser.user_metadata?.avatar_url || null;
         
         const { error } = await supabase
             .from('online_users')
@@ -584,11 +637,7 @@ async function loadMessages() {
             lastMessageId = messages[messages.length - 1].id;
             renderMessages();
         } else {
-            // Check if we need to insert a welcome message
-            const hasWelcome = messages && messages.some(m => m.sender_id === null);
-            if (!hasWelcome) {
-                await insertWelcomeMessage();
-            }
+            await insertWelcomeMessage();
             renderMessages();
         }
         
@@ -664,7 +713,7 @@ function renderMessages() {
         const initials = getInitials(senderName);
         
         const mentionKey = `mention_${msg.id}`;
-        const mentionName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
+        const mentionName = currentUser.name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0];
         const hasMention = msg.message && msg.message.includes(`@${mentionName}`);
         if (hasMention && !isSelf && !shownMentionToasts.has(mentionKey)) {
             saveMentionToast(mentionKey);
@@ -1538,7 +1587,7 @@ async function sendMessage() {
         const message = {
             channel: currentChannel,
             sender_id: currentUser.id,
-            sender_name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
+            sender_name: currentUser.name || currentUser.user_metadata?.name || 'User',
             message: messageText,
             type: messageType,
             file_url: fileUrl,
