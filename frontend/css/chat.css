@@ -1,26 +1,36 @@
 /* ============================================
    💬 COMMUNITY CHAT - GLIIMU
-   Clean Version - No Animations, No Badges
+   Complete Styles - Fixed Theme
+   ============================================ */
+
+/* ============================================
+   CSS VARIABLES - Light Mode (Default)
    ============================================ */
 
 :root {
     --brand-purple: #2c2f78;
     --brand-purple-dark: #1a1c4a;
     --brand-gold: #fbb040;
+    --brand-gold-dark: #e6a030;
     
-    /* Light Mode - High Contrast */
+    /* Light Mode Colors */
     --bg-primary: #ffffff;
     --bg-secondary: #f0f2f5;
     --bg-card: #ffffff;
     --bg-input: #f0f2f5;
     --bg-hover: rgba(44, 47, 120, 0.06);
+    --bg-active: rgba(44, 47, 120, 0.12);
     
     --text-primary: #0f172a;
     --text-secondary: #334155;
     --text-tertiary: #64748b;
+    --text-inverse: #ffffff;
     
     --border-color: #e2e8f0;
+    --border-light: #f1f5f9;
+    
     --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
     --shadow-xl: 0 12px 40px rgba(0,0,0,0.15);
     
@@ -31,7 +41,22 @@
     --success: #10b981;
     --danger: #ef4444;
     --online: #22c55e;
+    
+    /* Message Colors */
+    --msg-self: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
+    --msg-self-text: #ffffff;
+    --msg-other: #ffffff;
+    --msg-other-text: #0f172a;
+    --msg-system: rgba(44, 47, 120, 0.08);
+    --msg-system-text: #64748b;
+    
+    /* Voice Wave */
+    --voice-wave-color: var(--brand-purple);
 }
+
+/* ============================================
+   DARK MODE - Only when body has class
+   ============================================ */
 
 body.dark-mode {
     --bg-primary: #0f172a;
@@ -39,14 +64,32 @@ body.dark-mode {
     --bg-card: #1e293b;
     --bg-input: #1e293b;
     --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(255, 255, 255, 0.10);
     
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
     --text-tertiary: #64748b;
+    --text-inverse: #0f172a;
     
     --border-color: #1e293b;
-    --online: #22c55e;
+    --border-light: #334155;
+    
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+    --shadow-xl: 0 12px 40px rgba(0,0,0,0.6);
+    
+    --msg-other: #1e293b;
+    --msg-other-text: #f1f5f9;
+    --msg-system: rgba(255, 255, 255, 0.06);
+    --msg-system-text: #94a3b8;
+    
+    --voice-wave-color: var(--brand-gold);
 }
+
+/* ============================================
+   RESET
+   ============================================ */
 
 * {
     margin: 0;
@@ -455,12 +498,8 @@ body.dark-mode .chat-main {
 }
 
 .online-users-list .user-item.current-user-item {
-    background: rgba(44, 47, 120, 0.06);
+    background: var(--bg-hover);
     border-radius: var(--radius);
-}
-
-body.dark-mode .online-users-list .user-item.current-user-item {
-    background: rgba(255, 255, 255, 0.04);
 }
 
 .sidebar-overlay {
@@ -556,11 +595,6 @@ body.dark-mode .online-users-list .user-item.current-user-item {
     color: var(--brand-purple);
 }
 
-body.dark-mode .info-btn-inline:hover {
-    background: var(--bg-hover);
-    color: var(--brand-gold);
-}
-
 /* ============================================
    MESSAGES
    ============================================ */
@@ -615,16 +649,12 @@ body.dark-mode .info-btn-inline:hover {
 .message-system {
     text-align: center;
     padding: 6px 16px;
-    background: rgba(44, 47, 120, 0.08);
+    background: var(--msg-system);
     border-radius: 20px;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--msg-system-text);
     margin: 4px auto;
     max-width: 80%;
-}
-
-body.dark-mode .message-system {
-    background: rgba(255, 255, 255, 0.06);
 }
 
 .message-group {
@@ -679,15 +709,15 @@ body.dark-mode .message-system {
 }
 
 .message-group.self .message-bubble {
-    background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-dark));
-    color: white;
+    background: var(--msg-self);
+    color: var(--msg-self-text);
     border-bottom-right-radius: 4px;
 }
 
 .message-group.other .message-bubble {
-    background: var(--bg-card);
+    background: var(--msg-other);
     border: 1px solid var(--border-color);
-    color: var(--text-primary);
+    color: var(--msg-other-text);
     border-bottom-left-radius: 4px;
 }
 
@@ -737,7 +767,7 @@ body.dark-mode .message-system {
 }
 
 /* ============================================
-   VOICE MESSAGE - Static (No Animation)
+   VOICE MESSAGE
    ============================================ */
 
 .voice-message {
@@ -784,7 +814,7 @@ body.dark-mode .message-system {
 
 .voice-wave span {
     width: 3px;
-    background: var(--brand-purple);
+    background: var(--voice-wave-color);
     border-radius: 2px;
     height: 12px;
     transition: height 0.15s ease;
@@ -1384,7 +1414,7 @@ body.dark-mode .voice-play-btn {
     padding: 6px 0;
     font-size: 13px;
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border-light, #f1f5f9);
+    border-bottom: 1px solid var(--border-light);
 }
 
 .modal-rules ul li:last-child {
@@ -1435,6 +1465,11 @@ body.dark-mode .voice-play-btn {
     gap: 10px;
     padding: 6px 10px;
     border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.modal-online-list .user-item:hover {
+    background: var(--bg-hover);
 }
 
 .modal-online-list .user-item .user-avatar {
@@ -1584,7 +1619,7 @@ body.dark-mode .voice-play-btn {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    box-shadow: var(--shadow-xl);
     padding: 6px;
     min-width: 200px;
     z-index: 100;
@@ -1625,7 +1660,7 @@ body.dark-mode .voice-play-btn {
     text-align: center;
 }
 
-.context-item#contextViewProfile i {
+.context-item#contextViewPortfolio i {
     color: var(--brand-purple);
 }
 
@@ -1647,17 +1682,34 @@ body.dark-mode .voice-play-btn {
     background: rgba(239, 68, 68, 0.08);
 }
 
-body.dark-mode .context-menu {
-    background: var(--bg-card);
-    border-color: var(--border-color);
+/* React Submenu - Horizontal */
+.react-submenu {
+    display: none;
+    flex-direction: row;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    margin: 2px 8px;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
-body.dark-mode .context-divider {
-    background: var(--border-color);
+.react-submenu .context-item {
+    padding: 6px 8px;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    flex: 1;
+    min-width: 36px;
+    max-width: 48px;
 }
 
-body.dark-mode .context-item:hover {
+.react-submenu .context-item:hover {
     background: var(--bg-hover);
+}
+
+.react-submenu .context-item span {
+    font-size: 22px;
 }
 
 /* ============================================
@@ -1673,11 +1725,6 @@ body.dark-mode .context-item:hover {
     border-radius: var(--radius-full);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
-}
-
-body.dark-mode .reaction-badge {
-    background: #1e293b;
-    border-color: #1e293b;
 }
 
 /* ============================================
@@ -1808,8 +1855,9 @@ body.dark-mode .reaction-badge {
 
 .nav-btn:hover {
     transform: scale(1.08);
-    border-color: var(--brand-gold);
-    color: var(--brand-gold);
+    border-color: var(--brand-gold-dark);
+    color: var(--brand-gold-dark);
+    background: var(--bg-primary);
 }
 
 .nav-btn span {
@@ -1842,25 +1890,16 @@ body.dark-mode .reaction-badge {
     color: white;
 }
 
-body.dark-mode .nav-btn {
+body.dark-mode .nav-btn:hover {
     background: var(--bg-card);
-    border-color: var(--border-color);
-    color: var(--text-secondary);
-}
-
-body.dark-mode .nav-btn.home-nav {
-    background: var(--brand-purple);
-    color: white;
+    border-color: var(--brand-gold-dark);
+    color: var(--brand-gold-dark);
 }
 
 body.dark-mode .nav-btn.home-nav:hover {
     background: var(--brand-purple-dark);
-}
-
-body.dark-mode .nav-btn span {
-    background: var(--bg-card);
-    border-color: var(--border-color);
-    color: var(--text-primary);
+    border-color: var(--brand-purple-dark);
+    color: white;
 }
 
 /* ============================================
@@ -1902,7 +1941,7 @@ body.dark-mode .nav-btn span {
 }
 
 /* ============================================
-   RESPONSIVE - TABLETS & MOBILE
+   RESPONSIVE
    ============================================ */
 
 @media (max-width: 1024px) {
@@ -2048,10 +2087,6 @@ body.dark-mode .nav-btn span {
         display: none !important;
     }
 }
-
-/* ============================================
-   RESPONSIVE - SMALL PHONES (400px and below)
-   ============================================ */
 
 @media (max-width: 400px) {
     .chat-header {
@@ -2222,10 +2257,6 @@ body.dark-mode .nav-btn span {
     }
 }
 
-/* ============================================
-   RESPONSIVE - LANDSCAPE
-   ============================================ */
-
 @media (max-height: 500px) and (orientation: landscape) {
     .chat-sidebar {
         width: 240px;
@@ -2285,11 +2316,14 @@ body.dark-mode .nav-btn span {
         --text-tertiary: #64748b;
         
         --border-color: #1e293b;
-    }
-    
-    body:not(.light-mode) .message-group.other .message-bubble {
-        background: #1e293b;
-        color: #f1f5f9;
+        --border-light: #334155;
+        
+        --msg-other: #1e293b;
+        --msg-other-text: #f1f5f9;
+        --msg-system: rgba(255, 255, 255, 0.06);
+        --msg-system-text: #94a3b8;
+        
+        --voice-wave-color: var(--brand-gold);
     }
     
     body:not(.light-mode) .message-system {
@@ -2303,6 +2337,10 @@ body.dark-mode .nav-btn span {
     body:not(.light-mode) .reaction-badge {
         background: #1e293b;
         border-color: #1e293b;
+    }
+    
+    body:not(.light-mode) .react-submenu {
+        background: var(--bg-input);
     }
 }
 
@@ -2352,89 +2390,4 @@ body.dark-mode ::-webkit-scrollbar-thumb {
 
 body.dark-mode ::-webkit-scrollbar-thumb:hover {
     background: var(--brand-gold-dark);
-}
-
-/* ============================================
-   REACT SUBMENU
-   ============================================ */
-
-.react-submenu {
-    display: none;
-    flex-direction: column;
-    gap: 2px;
-    padding: 4px 6px;
-    background: var(--bg-secondary);
-    border-radius: var(--radius-sm);
-    margin: 2px 8px;
-}
-
-.react-submenu .context-item {
-    padding: 6px 10px;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-}
-
-.react-submenu .context-item:hover {
-    background: var(--bg-hover);
-}
-
-.react-submenu .context-item span {
-    font-size: 22px;
-}
-
-body.dark-mode .react-submenu {
-    background: var(--bg-input);
-}
-
-/* ============================================
-   STICKY NAV - Hover Contrast Fix
-   ============================================ */
-
-.nav-btn:hover {
-    transform: scale(1.08);
-    border-color: var(--brand-gold);
-    color: var(--brand-gold);
-    background: var(--bg-primary);
-}
-
-body.dark-mode .nav-btn:hover {
-    background: #1e293b;
-    border-color: var(--brand-gold);
-    color: var(--brand-gold);
-}
-
-.nav-btn.home-nav:hover {
-    background: var(--brand-purple-dark);
-    border-color: var(--brand-purple-dark);
-    color: white;
-}
-
-body.dark-mode .nav-btn.home-nav:hover {
-    background: var(--brand-purple-dark);
-    border-color: var(--brand-purple-dark);
-    color: white;
-}
-
-/* ============================================
-   ONLINE USERS - Clickable
-   ============================================ */
-
-.online-users-list .user-item,
-.modal-online-list .user-item {
-    cursor: pointer;
-}
-
-.online-users-list .user-item:hover,
-.modal-online-list .user-item:hover {
-    background: var(--bg-hover);
-}
-
-body.dark-mode .online-users-list .user-item:hover,
-body.dark-mode .modal-online-list .user-item:hover {
-    background: var(--bg-hover);
-}
-
-/* Remove you badge */
-.you-badge {
-    display: none !important;
 }
