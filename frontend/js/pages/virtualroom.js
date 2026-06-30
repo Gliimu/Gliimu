@@ -33,7 +33,49 @@ const state = {
     offerSent: false,
     answerReceived: false,
     hasReceivedOffer: false,
+    isProcessing: false,
+    pendingOffers: [],
 };
+
+// ============================================
+// WEBRTC CONFIG WITH MORE TURN SERVERS
+// ============================================
+
+function getRTCConfig() {
+    return {
+        iceServers: [
+            // Google STUN
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            // OpenRelay TURN (free)
+            { 
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            // Additional TURN servers
+            {
+                urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
+                username: 'webrtc',
+                credential: 'webrtc'
+            }
+        ],
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: 'all'
+    };
+}
 
 // ============================================
 // DOM REFS
@@ -274,7 +316,7 @@ async function joinSession(sessionCode) {
         await setupSignalingChannel();
         await setupWebRTC(false);
 
-        // 🔥 CRITICAL: Viewer requests offer from host after joining
+        // Request offer from host after joining
         setTimeout(function() {
             requestOfferFromHost();
         }, 3000);
@@ -347,7 +389,6 @@ async function setupSignalingChannel() {
             console.log('📡 Signaling channel status:', status);
             if (status === 'SUBSCRIBED') {
                 state.signalingReady = true;
-                // If we're the host and ready, send the offer
                 if (state.isHost && !state.offerSent) {
                     setTimeout(function() {
                         sendOffer();
@@ -399,17 +440,7 @@ function requestOfferFromHost() {
 
 async function setupWebRTC(isHost) {
     try {
-        var config = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-            ]
-        };
-
-        state.peerConnection = new RTCPeerConnection(config);
+        state.peerConnection = new RTCPeerConnection(getRTCConfig());
 
         // Add audio track
         if (state.audioStream) {
@@ -485,9 +516,19 @@ async function setupWebRTC(isHost) {
         };
 
         state.peerConnection.onconnectionstatechange = function() {
-            console.log('Connection state:', state.peerConnection.connectionState);
-            if (state.peerConnection.connectionState === 'connected') {
-                showToast('📹 Video connected!', 'success');
+            var stateStr = state.peerConnection.connectionState;
+            console.log('Connection state:', stateStr);
+            
+            if (stateStr === 'connected' || stateStr === 'completed') {
+                showToast('📹 Connected!', 'success');
+                if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected!';
+                if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
+            } else if (stateStr === 'failed') {
+                console.warn('Connection failed, retrying...');
+                // Try to reconnect
+                if (!state.isHost) {
+                    requestOfferFromHost();
+                }
             }
         };
 
@@ -525,7 +566,7 @@ async function sendOffer() {
 }
 
 // ============================================
-// SIGNALING HANDLER
+// SIGNALING HANDLER - FIXED
 // ============================================
 
 function handleSignalingMessage(message) {
@@ -537,7 +578,6 @@ function handleSignalingMessage(message) {
     try {
         switch (message.type) {
             case 'request_offer':
-                // 🔥 Host receives request from viewer, send offer
                 if (state.isHost) {
                     console.log('📤 Viewer requested offer, sending...');
                     // Reset offer sent flag to allow re-sending
@@ -574,14 +614,22 @@ function handleSignalingMessage(message) {
 
             case 'answer':
                 console.log('📨 Received answer');
-                state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
-                    .then(function() {
-                        state.answerReceived = true;
-                        console.log('✅ Answer processed');
-                    })
-                    .catch(function(err) {
-                        console.error('Set remote desc error:', err);
-                    });
+                // Only process if we're in the right state
+                if (state.peerConnection.signalingState === 'have-local-offer' || 
+                    state.peerConnection.signalingState === 'stable') {
+                    state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                        .then(function() {
+                            state.answerReceived = true;
+                            console.log('✅ Answer processed');
+                        })
+                        .catch(function(err) {
+                            console.error('Set remote desc error:', err);
+                        });
+                } else {
+                    console.log('Skipping answer - wrong state:', state.peerConnection.signalingState);
+                    // Queue it for later
+                    state.pendingOffers.push(message);
+                }
                 break;
 
             case 'ice_candidate':
@@ -684,7 +732,7 @@ async function toggleScreenShare() {
             console.log('Screen track added');
         }
 
-        // 🔥 Broadcast to all viewers that screen is now available
+        // Broadcast to viewers
         broadcastScreenAvailable();
 
         showToast('Screen sharing started!', 'success');
@@ -706,7 +754,6 @@ async function toggleScreenShare() {
 }
 
 function broadcastScreenAvailable() {
-    // Send a signal to all viewers that screen is available
     sendSignalingMessage({
         type: 'screen_available',
         userId: state.currentUser.id,
