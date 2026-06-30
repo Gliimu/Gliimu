@@ -296,11 +296,13 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// AUDIO STREAM
+// AUDIO STREAM (Viewer only needs audio to hear host)
 // ============================================
 
 async function getAudioStream() {
     try {
+        // Viewer: audio only (to hear host, not speak)
+        // Host: audio + screen share
         state.localStream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             video: false
@@ -452,12 +454,30 @@ async function connectToHost() {
         state.hostFound = true;
         console.log('Found host peer_id:', state.hostPeerId);
 
+        // Call host with audio stream
         var call = state.peer.call(state.hostPeerId, state.localStream);
         
         call.on('stream', function(remoteStream) {
             console.log('Stream received from host!');
             
-            var hasVideo = remoteStream.getVideoTracks().length > 0;
+            // CHECK FOR VIDEO TRACK - FIX: Detect video properly
+            var hasVideo = false;
+            var videoTracks = remoteStream.getVideoTracks();
+            if (videoTracks && videoTracks.length > 0) {
+                hasVideo = true;
+                console.log('Video track detected!', videoTracks.length, 'tracks');
+            }
+            
+            // Also check if any track has video content
+            if (!hasVideo) {
+                // Sometimes tracks are added but not enabled
+                remoteStream.getTracks().forEach(function(track) {
+                    if (track.kind === 'video') {
+                        hasVideo = true;
+                        console.log('Video track found in getTracks():', track);
+                    }
+                });
+            }
             
             if (hasVideo) {
                 console.log('Screen stream received with audio!');
@@ -466,14 +486,33 @@ async function connectToHost() {
                 DOM.screenVideo.classList.add('active');
                 DOM.screenPlaceholder.style.display = 'none';
                 DOM.hostIndicator.classList.add('active');
-                DOM.screenVideo.play().catch(function(e) { console.warn('Video play error:', e); });
+                DOM.screenVideo.play().then(function() {
+                    console.log('Video playing successfully');
+                }).catch(function(e) { 
+                    console.warn('Video play error:', e);
+                });
                 if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
                 if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
             } else {
-                console.log('Audio only stream received');
-                DOM.screenPlaceholder.style.display = 'none';
+                console.log('Audio only stream received - waiting for screen share');
+                // Still show connected but no screen
+                DOM.screenPlaceholder.style.display = 'flex';
                 if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected to host';
                 if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
+                // Keep listening for video track to be added
+                remoteStream.onaddtrack = function(event) {
+                    if (event.track.kind === 'video') {
+                        console.log('Video track added later!');
+                        DOM.screenVideo.srcObject = remoteStream;
+                        DOM.screenVideo.style.display = 'block';
+                        DOM.screenVideo.classList.add('active');
+                        DOM.screenPlaceholder.style.display = 'none';
+                        DOM.hostIndicator.classList.add('active');
+                        DOM.screenVideo.play().catch(function(e) {});
+                        if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
+                        if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
+                    }
+                };
             }
         });
 
@@ -547,8 +586,16 @@ function handleIncomingCall(call) {
 // ============================================
 
 function getCombinedStream() {
-    if (state.combinedStream && state.combinedStream.active) {
-        return state.combinedStream;
+    // Check if we already have a valid combined stream
+    if (state.combinedStream) {
+        // Check if it still has video track
+        var hasVideo = false;
+        state.combinedStream.getTracks().forEach(function(t) {
+            if (t.kind === 'video') hasVideo = true;
+        });
+        if (hasVideo) {
+            return state.combinedStream;
+        }
     }
     
     if (!state.screenStream || !state.localStream) {
@@ -559,15 +606,20 @@ function getCombinedStream() {
         var videoTrack = state.screenStream.getVideoTracks()[0];
         var audioTrack = state.localStream.getAudioTracks()[0];
         
-        if (!videoTrack || !audioTrack) {
+        if (!videoTrack) {
+            console.warn('No video track available');
             return state.screenStream || state.localStream;
         }
         
+        // Create new combined stream
         state.combinedStream = new MediaStream();
         state.combinedStream.addTrack(videoTrack);
-        state.combinedStream.addTrack(audioTrack);
+        if (audioTrack) {
+            state.combinedStream.addTrack(audioTrack);
+        }
         
         console.log('Combined stream created (video + audio)');
+        console.log('Tracks:', state.combinedStream.getTracks().length);
         return state.combinedStream;
     } catch (e) {
         console.warn('Could not combine streams:', e);
@@ -649,6 +701,7 @@ async function toggleScreenShare() {
         state.isSharing = true;
         if (DOM.screenBtn) DOM.screenBtn.classList.add('active');
 
+        // Show screen locally
         DOM.screenVideo.srcObject = state.screenStream;
         DOM.screenVideo.style.display = 'block';
         DOM.screenVideo.classList.add('active');
@@ -656,8 +709,11 @@ async function toggleScreenShare() {
         DOM.hostIndicator.classList.add('active');
         await DOM.screenVideo.play();
 
+        // Create combined stream
         var combinedStream = getCombinedStream();
+        console.log('Combined stream ready, tracks:', combinedStream ? combinedStream.getTracks().length : 0);
 
+        // Send combined stream to all viewers
         state.participants.forEach(function(participant, userId) {
             if (userId !== state.currentUser.id && participant.peer_id) {
                 try {
