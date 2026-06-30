@@ -1,5 +1,5 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - PeerJS + Auto Daily.co Fallback
+// 🎥 VIRTUAL ROOM - FIXED CALL FLOW
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -30,11 +30,7 @@ const state = {
     timerInterval: null,
     starRating: 0,
     hasRated: false,
-    hasTipped: false,
     viewerCount: 0,
-    tipsTotal: 0,
-    gpTipsTotal: 0,
-    starsCount: 0,
     handRaised: false,
     isMuted: false,
     isCameraOff: false,
@@ -44,13 +40,14 @@ const state = {
     connectionAttempts: 0,
     maxConnectionAttempts: 3,
     usingDailyFallback: false,
-    dailyCallFrame: null,
-    dailyInitialized: false,
     peerjsFailed: false,
+    callInProgress: false,
+    hostStreamReceived: false,
+    viewerStreamsReceived: new Set(),
 };
 
 // ============================================
-// DOM REFS
+// DOM REFS (same as before - keep them)
 // ============================================
 
 const DOM = {};
@@ -91,18 +88,16 @@ function cacheDOM() {
     DOM.liveDot = document.getElementById('liveDot');
     DOM.dailyContainer = document.getElementById('dailyContainer');
     DOM.dailyFrameContainer = document.getElementById('dailyFrameContainer');
-    DOM.dailyOverlay = document.getElementById('dailyOverlay');
 }
 
 // ============================================
-// INIT
+// INIT (same as before)
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🎥 Virtual Room initializing...');
     cacheDOM();
 
-    // Fix mobile viewport
     const setVH = () => {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -127,7 +122,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sessionCode = params.get('code');
         const mode = params.get('mode');
 
-        // Check for saved session
         const savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -154,7 +148,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupRealtimeSubscriptions();
         setupChatIframe();
         startTimer();
-
         saveSessionState();
 
         console.log('✅ Virtual Room ready');
@@ -176,7 +169,6 @@ async function createNewSession() {
     try {
         showLoading(true);
         DOM.loadingText.textContent = 'Creating session...';
-        updateProgress(10);
 
         const sessionCode = generateSessionCode();
         
@@ -186,26 +178,26 @@ async function createNewSession() {
                 host_id: state.currentUser.id,
                 title: `${state.userProfile.name || 'User'}'s Session`,
                 session_code: sessionCode,
-                status: 'waiting',
+                status: 'live',
                 start_time: new Date().toISOString()
             })
             .select()
             .single();
 
         if (error) throw error;
-        updateProgress(30);
 
         state.sessionId = session.id;
         state.sessionCode = session.session_code;
         state.isHost = true;
-        state.isLive = false;
+        state.isLive = true;
 
         DOM.roomTitle.textContent = session.title;
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
+        DOM.hostName.textContent = state.userProfile.name || 'Host';
+        DOM.hostStatusText.textContent = 'You are the host - waiting for viewers...';
 
-        // Add host as participant
         await supabase
             .from('session_participants')
             .insert({
@@ -214,33 +206,17 @@ async function createNewSession() {
                 role: 'host',
                 is_active: true
             });
-        updateProgress(50);
 
-        // Start camera
         await startLocalStream();
-        updateProgress(70);
-
-        // Initialize PeerJS with retry
+        
+        // Initialize PeerJS as HOST
         const peerConnected = await initPeerJS(true);
         if (!peerConnected) {
-            // PeerJS failed, try Daily.co fallback
-            console.log('⚠️ PeerJS failed, switching to Daily.co...');
+            console.log('⚠️ PeerJS failed, switching to Daily.co fallback...');
             await initDailyFallback(true);
         }
-        updateProgress(90);
-
-        // Update session status to live
-        await supabase
-            .from('virtual_sessions')
-            .update({ status: 'live' })
-            .eq('id', state.sessionId);
-
-        state.isLive = true;
-        DOM.liveStatus.textContent = 'LIVE';
-        DOM.liveDot.style.background = '#10b981';
 
         saveSessionState();
-        updateProgress(100);
 
         showToast(`Session created! Code: ${state.sessionCode}`, 'success');
         setTimeout(() => DOM.shareModal.classList.add('active'), 1500);
@@ -268,7 +244,6 @@ async function joinSession(sessionCode) {
     try {
         showLoading(true);
         DOM.loadingText.textContent = 'Joining session...';
-        updateProgress(10);
 
         const { data: session, error } = await supabase
             .from('virtual_sessions')
@@ -292,12 +267,12 @@ async function joinSession(sessionCode) {
         state.sessionCode = session.session_code;
         state.isHost = false;
         state.isLive = session.status === 'live';
-        updateProgress(30);
 
         DOM.roomTitle.textContent = session.title || 'Live Session';
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
+        DOM.hostStatusText.textContent = 'Connecting to host...';
 
         // Get host info
         const { data: host } = await supabase
@@ -320,23 +295,17 @@ async function joinSession(sessionCode) {
                 role: 'viewer',
                 is_active: true
             }, { onConflict: 'session_id,user_id' });
-        updateProgress(50);
 
         await startLocalStream();
-        updateProgress(70);
 
-        // Try PeerJS first
+        // Initialize PeerJS as VIEWER
         const peerConnected = await initPeerJS(false);
         if (!peerConnected) {
-            // PeerJS failed, try Daily.co
-            console.log('⚠️ PeerJS failed, switching to Daily.co...');
+            console.log('⚠️ PeerJS failed, switching to Daily.co fallback...');
             await initDailyFallback(false);
         }
-        updateProgress(90);
 
         await loadParticipants();
-        updateProgress(100);
-
         saveSessionState();
 
         setTimeout(() => {
@@ -359,7 +328,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// PEERJS INITIALIZATION
+// PEERJS - FIXED CALL FLOW
 // ============================================
 
 async function initPeerJS(isHost) {
@@ -375,12 +344,12 @@ async function initPeerJS(isHost) {
                 port: 443,
                 path: '/',
                 secure: true,
+                debug: 2,
                 config: {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
                         { urls: 'stun:stun1.l.google.com:19302' },
                         { urls: 'stun:stun2.l.google.com:19302' },
-                        // Free TURN from OpenRelay (limited)
                         { 
                             urls: 'turn:openrelay.metered.ca:80',
                             username: 'openrelayproject',
@@ -395,7 +364,6 @@ async function initPeerJS(isHost) {
                 }
             });
 
-            // Connection timeout
             const timeout = setTimeout(() => {
                 if (state.peer && !state.peer.open) {
                     console.warn('⏰ PeerJS connection timeout');
@@ -409,7 +377,6 @@ async function initPeerJS(isHost) {
                 state.peerId = id;
                 console.log('✅ PeerJS connected:', id);
 
-                // Register peer ID
                 await supabase
                     .from('session_participants')
                     .update({ peer_id: id })
@@ -420,10 +387,24 @@ async function initPeerJS(isHost) {
                 DOM.connectionStatus.style.color = '#10b981';
 
                 if (isHost) {
-                    state.peer.on('connection', handlePeerConnection);
+                    // HOST: Wait for incoming calls from viewers
+                    console.log('📞 Host waiting for viewer calls...');
                     state.peer.on('call', handleIncomingCall);
-                    // Host waits for connections
+                    
+                    // Also listen for connections (for data channel)
+                    state.peer.on('connection', (conn) => {
+                        console.log('📡 Data connection from:', conn.peer);
+                        conn.on('data', handleDataChannelMessage);
+                    });
+
+                    // After a short delay, broadcast that host is ready
+                    setTimeout(() => {
+                        broadcastHostReady();
+                    }, 2000);
+
                 } else {
+                    // VIEWER: Connect to host
+                    console.log('📞 Viewer connecting to host...');
                     await connectToHost();
                 }
 
@@ -453,9 +434,32 @@ async function initPeerJS(isHost) {
     });
 }
 
+// HOST: Broadcast that host is ready
+function broadcastHostReady() {
+    console.log('📢 Broadcasting host ready...');
+    
+    // Get all participants and send them a signal
+    state.participants.forEach((participant, userId) => {
+        if (userId !== state.currentUser.id && participant.peer_id) {
+            try {
+                const conn = state.peer.connect(participant.peer_id);
+                conn.on('open', () => {
+                    conn.send(JSON.stringify({
+                        type: 'host_ready',
+                        peerId: state.peerId
+                    }));
+                });
+            } catch (e) {
+                console.warn('Could not connect to viewer:', participant.peer_id);
+            }
+        }
+    });
+}
+
+// VIEWER: Connect to host
 async function connectToHost() {
     try {
-        // Get host peer ID
+        // Get host peer ID from database
         const { data: host } = await supabase
             .from('session_participants')
             .select('peer_id, user_id')
@@ -463,49 +467,152 @@ async function connectToHost() {
             .eq('role', 'host')
             .single();
 
-        if (host?.peer_id) {
-            state.hostPeerId = host.peer_id;
-            
-            const call = state.peer.call(host.peer_id, state.localStream);
-            call.on('stream', (remoteStream) => {
-                DOM.hostVideo.srcObject = remoteStream;
-                DOM.hostVideo.play().catch(() => {});
-                DOM.hostVideo.parentElement.classList.add('has-video');
-                DOM.hostPlaceholder.style.display = 'none';
-                DOM.connectionStatus.textContent = '🟢 Connected';
-                DOM.connectionStatus.style.color = '#10b981';
-            });
-            call.on('close', () => {
-                DOM.hostVideo.parentElement.classList.remove('has-video');
-                DOM.hostPlaceholder.style.display = 'flex';
-                DOM.hostStatusText.textContent = 'Host disconnected';
-                DOM.connectionStatus.textContent = '🔴 Disconnected';
-                DOM.connectionStatus.style.color = '#ef4444';
-            });
+        if (!host || !host.peer_id) {
+            console.warn('⚠️ Host not found or no peer ID');
+            // Retry after delay
+            setTimeout(() => {
+                if (!state.hostStreamReceived) {
+                    connectToHost();
+                }
+            }, 3000);
+            return;
         }
+
+        state.hostPeerId = host.peer_id;
+        console.log('📞 Calling host:', state.hostPeerId);
+
+        // Try to establish data connection first
+        try {
+            const conn = state.peer.connect(state.hostPeerId);
+            conn.on('open', () => {
+                console.log('📡 Data connection to host established');
+                conn.send(JSON.stringify({
+                    type: 'viewer_ready',
+                    peerId: state.peerId,
+                    name: state.userProfile.name || 'Viewer'
+                }));
+            });
+            conn.on('data', handleDataChannelMessage);
+        } catch (e) {
+            console.warn('Data connection failed, proceeding with call only:', e);
+        }
+
+        // Call the host for video/audio
+        const call = state.peer.call(state.hostPeerId, state.localStream);
+        
+        call.on('stream', (remoteStream) => {
+            console.log('📺 Host stream received!');
+            DOM.hostVideo.srcObject = remoteStream;
+            DOM.hostVideo.play().catch(() => {});
+            DOM.hostVideo.parentElement.classList.add('has-video');
+            DOM.hostPlaceholder.style.display = 'none';
+            DOM.hostStatusText.textContent = 'Connected to host';
+            DOM.connectionStatus.textContent = '🟢 Connected';
+            DOM.connectionStatus.style.color = '#10b981';
+            state.hostStreamReceived = true;
+        });
+
+        call.on('close', () => {
+            console.log('📺 Host stream closed');
+            DOM.hostVideo.parentElement.classList.remove('has-video');
+            DOM.hostPlaceholder.style.display = 'flex';
+            DOM.hostStatusText.textContent = 'Host disconnected';
+            DOM.connectionStatus.textContent = '🔴 Disconnected';
+            DOM.connectionStatus.style.color = '#ef4444';
+            state.hostStreamReceived = false;
+        });
+
+        call.on('error', (err) => {
+            console.error('📞 Call error:', err);
+            // Retry after delay
+            if (!state.hostStreamReceived) {
+                setTimeout(() => {
+                    connectToHost();
+                }, 3000);
+            }
+        });
+
     } catch (error) {
         console.error('❌ Connect to host error:', error);
+        if (!state.hostStreamReceived) {
+            setTimeout(() => {
+                connectToHost();
+            }, 3000);
+        }
     }
 }
 
+// HOST: Handle incoming call from viewer
 function handleIncomingCall(call) {
+    console.log('📞 Incoming call from:', call.peer);
+    
+    // Answer with host's stream
     call.answer(state.localStream);
+    
+    // Send viewer's stream to host's display
     call.on('stream', (remoteStream) => {
-        DOM.hostVideo.srcObject = remoteStream;
-        DOM.hostVideo.play().catch(() => {});
-        DOM.hostVideo.parentElement.classList.add('has-video');
-        DOM.hostPlaceholder.style.display = 'none';
-        DOM.connectionStatus.textContent = '🟢 Connected';
+        console.log('📺 Viewer stream received from:', call.peer);
+        
+        // Store viewer stream
+        const viewerId = call.peer;
+        state.viewerStreams.set(viewerId, remoteStream);
+        
+        // Add to viewer thumbnails
+        renderViewerThumbnails();
+        
+        // Update connection status
+        DOM.connectionStatus.textContent = `🟢 ${state.viewerStreams.size} viewer(s) connected`;
         DOM.connectionStatus.style.color = '#10b981';
+        DOM.hostStatusText.textContent = `You are the host - ${state.viewerStreams.size} viewer(s)`;
+    });
+
+    call.on('close', () => {
+        console.log('📺 Viewer stream closed:', call.peer);
+        state.viewerStreams.delete(call.peer);
+        renderViewerThumbnails();
     });
 }
 
-function handlePeerConnection(conn) {
-    console.log('📡 Peer connected:', conn.peer);
+// Data channel handler
+function handleDataChannelMessage(data) {
+    try {
+        const message = JSON.parse(data);
+        console.log('📨 Data message:', message.type);
+        
+        switch (message.type) {
+            case 'host_ready':
+                // Viewer received host ready signal
+                if (!state.isHost && !state.hostStreamReceived) {
+                    console.log('📞 Host ready, connecting...');
+                    connectToHost();
+                }
+                break;
+                
+            case 'viewer_ready':
+                // Host received viewer ready
+                if (state.isHost) {
+                    console.log('👤 Viewer ready:', message.name);
+                    showToast(`👤 ${message.name || 'Viewer'} joined`, 'info');
+                }
+                break;
+                
+            case 'hand_raised':
+                if (state.isHost) {
+                    showToast(`🙋 ${message.name || 'A viewer'} raised their hand!`, 'warning');
+                    sendToChatIframe({
+                        type: 'system_message',
+                        message: `🙋 ${message.name || 'A viewer'} raised their hand`
+                    });
+                }
+                break;
+        }
+    } catch (e) {
+        console.warn('Data message error:', e);
+    }
 }
 
 // ============================================
-// DAILY.CO FALLBACK
+// DAILY.CO FALLBACK (same as before)
 // ============================================
 
 async function initDailyFallback(isHost) {
@@ -515,23 +622,6 @@ async function initDailyFallback(isHost) {
         DOM.dailyContainer.style.display = 'block';
         DOM.videoGrid.style.display = 'none';
 
-        // Load Daily.co script
-        if (!document.querySelector('#daily-js')) {
-            const script = document.createElement('script');
-            script.id = 'daily-js';
-            script.src = 'https://unpkg.com/@daily-co/daily-js@0.48.0/daily-js.min.js';
-            document.head.appendChild(script);
-            
-            await new Promise((resolve) => {
-                script.onload = resolve;
-                script.onerror = resolve;
-                setTimeout(resolve, 5000);
-            });
-        }
-
-        // Use a free room on Daily.co's public instance
-        // Note: Daily.co's free tier requires an API key, but we can use their public instance
-        // For now, we'll use a free public Jitsi fallback as a backup
         const roomName = `glimu-${state.sessionCode}`;
         const jitsiUrl = `https://meet.jit.si/${roomName}`;
         
@@ -544,12 +634,8 @@ async function initDailyFallback(isHost) {
             ></iframe>
         `;
 
-        DOM.dailyOverlay.style.display = 'none';
         DOM.hostStatusText.textContent = 'Using backup video service';
-
         showToast('📹 Using backup video service', 'info');
-
-        // Update connection status
         DOM.connectionStatus.textContent = '🟢 Connected (Backup)';
         DOM.connectionStatus.style.color = '#f59e0b';
 
@@ -557,13 +643,12 @@ async function initDailyFallback(isHost) {
 
     } catch (error) {
         console.error('❌ Daily fallback error:', error);
-        showToast('Could not initialize video. Using chat only.', 'warning');
         useFallbackMode();
     }
 }
 
 // ============================================
-// SESSION RECOVERY
+// SESSION RECOVERY (same as before)
 // ============================================
 
 async function recoverSession(savedData) {
@@ -611,7 +696,6 @@ async function recoverSession(savedData) {
 
         await startLocalStream();
         
-        // Try PeerJS reconnect
         const peerConnected = await initPeerJS(state.isHost);
         if (!peerConnected) {
             await initDailyFallback(state.isHost);
@@ -637,8 +721,16 @@ async function recoverSession(savedData) {
 async function startLocalStream() {
     try {
         state.localStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-            audio: { echoCancellation: true, noiseSuppression: true }
+            video: { 
+                facingMode: 'user', 
+                width: { ideal: 640 }, 
+                height: { ideal: 480 } 
+            },
+            audio: { 
+                echoCancellation: true, 
+                noiseSuppression: true,
+                autoGainControl: true
+            }
         });
 
         DOM.localVideo.srcObject = state.localStream;
@@ -650,10 +742,16 @@ async function startLocalStream() {
         updateLocalControls();
         console.log('🎥 Camera started');
 
+        // Update peer connection if it exists
+        if (state.peer && state.peer.open) {
+            // If we already have a peer connection, update the stream
+            // This is handled by the call flow
+        }
+
     } catch (err) {
         console.error('❌ Camera error:', err);
-        if (err.name !== 'NotReadableError') {
-            showToast('Could not access camera', 'warning');
+        if (err.name !== 'NotReadableError' && err.name !== 'NotFoundError') {
+            showToast('Could not access camera: ' + err.message, 'warning');
         }
         DOM.pipVideo.style.display = 'block';
         DOM.pipPlaceholder.style.display = 'flex';
@@ -698,7 +796,7 @@ function updateLocalControls() {
 }
 
 // ============================================
-// SCREEN SHARE
+// SCREEN SHARE (same as before)
 // ============================================
 
 async function toggleScreenShare() {
@@ -805,7 +903,7 @@ function renderViewerThumbnails() {
 
     DOM.viewerThumbnails.innerHTML = viewers.map(viewer => {
         const handRaised = viewer.hand_raised || false;
-        const hasStream = state.viewerStreams.has(viewer.user_id);
+        const hasStream = state.viewerStreams.has(viewer.peer_id) || state.viewerStreams.has(viewer.user_id);
 
         return `
             <div class="viewer-thumbnail" data-user-id="${viewer.user_id}">
@@ -822,8 +920,16 @@ function renderViewerThumbnails() {
     // Attach viewer streams
     viewers.forEach(viewer => {
         const videoEl = document.getElementById(`viewer_${viewer.user_id}`);
-        if (videoEl && state.viewerStreams.has(viewer.user_id)) {
-            videoEl.srcObject = state.viewerStreams.get(viewer.user_id);
+        if (!videoEl) return;
+        
+        // Try to find stream by peer_id or user_id
+        let stream = state.viewerStreams.get(viewer.peer_id);
+        if (!stream) {
+            stream = state.viewerStreams.get(viewer.user_id);
+        }
+        
+        if (stream) {
+            videoEl.srcObject = stream;
             videoEl.style.display = 'block';
             videoEl.play().catch(() => {});
         }
@@ -847,6 +953,21 @@ async function toggleRaiseHand() {
     showToast(state.handRaised ? 'Hand raised! 🙋' : 'Hand lowered', 'info');
 
     if (state.handRaised) {
+        // Send to host via data channel if available
+        if (state.peer && state.hostPeerId) {
+            try {
+                const conn = state.peer.connect(state.hostPeerId);
+                conn.on('open', () => {
+                    conn.send(JSON.stringify({
+                        type: 'hand_raised',
+                        name: state.userProfile.name || 'A viewer'
+                    }));
+                });
+            } catch (e) {
+                console.warn('Could not send hand raise to host:', e);
+            }
+        }
+        
         sendToChatIframe({
             type: 'system_message',
             message: `🙋 ${state.userProfile.name || 'A viewer'} raised their hand`
@@ -1018,7 +1139,7 @@ function setupRealtimeSubscriptions() {
 }
 
 // ============================================
-// CHAT IFRAME
+// CHAT IFRAME (same as before)
 // ============================================
 
 function setupChatIframe() {
@@ -1134,11 +1255,6 @@ function saveSessionState() {
     } catch (e) {}
 }
 
-function updateProgress(percent) {
-    DOM.loadingProgress.style.display = 'block';
-    DOM.loadingProgressBar.style.width = `${Math.min(percent, 100)}%`;
-}
-
 function showLoading(show) {
     DOM.loadingOverlay.style.display = show ? 'flex' : 'none';
 }
@@ -1157,11 +1273,11 @@ function setupUI() {
     if (state.isHost) {
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
-        DOM.hostStatusText.textContent = 'You are the host';
+        DOM.hostStatusText.textContent = 'You are the host - waiting for viewers...';
     } else {
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
-        DOM.hostStatusText.textContent = 'Waiting for host...';
+        DOM.hostStatusText.textContent = 'Connecting to host...';
     }
 }
 
@@ -1193,7 +1309,6 @@ function setupEventListeners() {
     document.getElementById('copyLinkBtn')?.addEventListener('click', copyShareLink);
     document.getElementById('returnBtn')?.addEventListener('click', () => window.location.href = '/user');
 
-    // Tip options
     document.querySelectorAll('.tip-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const amount = parseInt(btn.dataset.amount);
@@ -1210,7 +1325,6 @@ function setupEventListeners() {
         }
     });
 
-    // Star rating
     document.querySelectorAll('.star').forEach(star => {
         star.addEventListener('click', () => {
             const value = parseInt(star.dataset.value);
@@ -1222,14 +1336,12 @@ function setupEventListeners() {
     });
     document.getElementById('submitStars')?.addEventListener('click', submitRating);
 
-    // Click outside modals
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
         });
     });
 
-    // Save session on page unload
     window.addEventListener('beforeunload', () => {
         if (state.sessionId && !state.sessionEnded) {
             saveSessionState();
@@ -1338,7 +1450,7 @@ function leaveRoom() {
 // ============================================
 
 window.leaveRoom = leaveRoom;
-window.joinWithCode = window.joinWithCode;
+window.joinWithCode = joinWithCode;
 window.toggleChatSidebar = toggleChatSidebar;
 
 console.log('🎥 Virtual Room loaded with PeerJS + Daily fallback');
