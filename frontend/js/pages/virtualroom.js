@@ -1,6 +1,10 @@
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
+// ============================================
+// STATE
+// ============================================
+
 const state = {
     currentUser: null,
     userProfile: null,
@@ -25,7 +29,13 @@ const state = {
     isMuted: false,
     participantsSubscription: null,
     sessionSubscription: null,
+    peerConnected: false,
+    hostFound: false,
 };
+
+// ============================================
+// DOM REFS
+// ============================================
 
 const DOM = {};
 
@@ -54,6 +64,10 @@ function cacheDOM() {
     DOM.micBtn = document.getElementById('micBtn');
 }
 
+// ============================================
+// INIT
+// ============================================
+
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Virtual Room initializing...');
     cacheDOM();
@@ -75,6 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sessionCode = params.get('code');
         const mode = params.get('mode');
 
+        // Check saved session
         const savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -117,6 +132,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// ============================================
+// SESSION MANAGEMENT
+// ============================================
+
 async function createNewSession() {
     try {
         showLoading(true);
@@ -124,50 +143,66 @@ async function createNewSession() {
 
         sessionStorage.removeItem('glimu_session');
 
+        // 1. Generate session code
         const sessionCode = generateSessionCode();
         state.sessionCode = sessionCode;
         state.isHost = true;
 
-        if (DOM.roomTitle) DOM.roomTitle.textContent = (state.userProfile.name || 'User') + '\'s Session';
+        // 2. Create session in database FIRST
+        const { data: session, error } = await supabase
+            .from('virtual_sessions')
+            .insert({
+                host_id: state.currentUser.id,
+                title: (state.userProfile.name || 'User') + '\'s Session',
+                session_code: sessionCode,
+                status: 'live',
+                start_time: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Database insert error:', error);
+            showToast('Failed to create session', 'error');
+            return;
+        }
+
+        state.sessionId = session.id;
+        state.isLive = true;
+
+        console.log('Session created in DB:', state.sessionId);
+
+        // 3. Add host as participant
+        await supabase
+            .from('session_participants')
+            .insert({
+                session_id: state.sessionId,
+                user_id: state.currentUser.id,
+                role: 'host',
+                is_active: true,
+                last_seen: new Date().toISOString()
+            });
+
+        // 4. Update UI
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
         if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
         if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Ready to share your screen';
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'Click "Share Screen" to start';
+        if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
+        // 5. Get audio stream
         await getAudioStream();
+
+        // 6. Initialize PeerJS (with sessionId now set)
         await initPeerJS(true);
 
-        try {
-            const { data: session, error } = await supabase
-                .from('virtual_sessions')
-                .insert({
-                    host_id: state.currentUser.id,
-                    title: (state.userProfile.name || 'User') + '\'s Session',
-                    session_code: sessionCode,
-                    status: 'live',
-                    start_time: new Date().toISOString()
-                })
-                .select()
-                .single();
-
-            if (!error && session) {
-                state.sessionId = session.id;
-                state.isLive = true;
-                if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
-                if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
-                saveSessionState();
-                console.log('Session saved:', session.id);
-            }
-        } catch (dbError) {
-            console.warn('Database save failed:', dbError);
-        }
-
-        if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+        saveSessionState();
 
         setTimeout(function() {
             sendToChatIframe({
                 type: 'session_info',
-                sessionId: state.sessionId || 'pending',
+                sessionId: state.sessionId,
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
                 roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
@@ -200,49 +235,61 @@ async function joinSession(sessionCode) {
         state.sessionCode = sessionCode;
         state.isHost = false;
 
-        if (DOM.roomTitle) DOM.roomTitle.textContent = 'Loading Session...';
+        // 1. Get session from database FIRST
+        const { data: session, error } = await supabase
+            .from('virtual_sessions')
+            .select('*')
+            .eq('session_code', sessionCode.toUpperCase())
+            .single();
+
+        if (error || !session) {
+            showToast('Session not found', 'error');
+            setTimeout(function() { window.location.href = '/user'; }, 2000);
+            return;
+        }
+
+        if (session.status === 'ended') {
+            showToast('Session has ended', 'error');
+            setTimeout(function() { window.location.href = '/user'; }, 2000);
+            return;
+        }
+
+        state.sessionId = session.id;
+        state.isLive = session.status === 'live';
+
+        console.log('Session found in DB:', state.sessionId);
+
+        // 2. Add viewer as participant
+        await supabase
+            .from('session_participants')
+            .upsert({
+                session_id: state.sessionId,
+                user_id: state.currentUser.id,
+                role: 'viewer',
+                is_active: true,
+                last_seen: new Date().toISOString()
+            }, { onConflict: 'session_id,user_id' });
+
+        // 3. Update UI
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
         if (DOM.hostControls) DOM.hostControls.style.display = 'none';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
         if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Waiting for host...';
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'The host will start sharing their screen shortly';
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
+        // 4. Get audio stream
         await getAudioStream();
+
+        // 5. Initialize PeerJS (with sessionId now set)
         await initPeerJS(false);
 
-        try {
-            const { data: session, error } = await supabase
-                .from('virtual_sessions')
-                .select('*')
-                .eq('session_code', sessionCode.toUpperCase())
-                .single();
-
-            if (!error && session) {
-                state.sessionId = session.id;
-                state.isLive = session.status === 'live';
-                if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
-                
-                await supabase
-                    .from('session_participants')
-                    .upsert({
-                        session_id: state.sessionId,
-                        user_id: state.currentUser.id,
-                        role: 'viewer',
-                        is_active: true,
-                        last_seen: new Date().toISOString()
-                    }, { onConflict: 'session_id,user_id' });
-                
-                saveSessionState();
-                console.log('Session joined from database:', session.id);
-            }
-        } catch (dbError) {
-            console.warn('Database fetch failed:', dbError);
-        }
+        saveSessionState();
 
         setTimeout(function() {
             sendToChatIframe({
                 type: 'session_info',
-                sessionId: state.sessionId || 'pending',
+                sessionId: state.sessionId,
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
                 roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
@@ -261,6 +308,10 @@ async function joinSession(sessionCode) {
     }
 }
 
+// ============================================
+// AUDIO STREAM
+// ============================================
+
 async function getAudioStream() {
     try {
         state.localStream = await navigator.mediaDevices.getUserMedia({
@@ -273,12 +324,22 @@ async function getAudioStream() {
     }
 }
 
-async function initPeerJS(isHost) {
+// ============================================
+// PEERJS - FIXED
+// ============================================
+
+function initPeerJS(isHost) {
     return new Promise(function(resolve) {
         try {
+            if (!state.sessionId) {
+                console.error('Cannot initialize PeerJS: sessionId is null');
+                resolve(false);
+                return;
+            }
+
             const peerId = 'glimu_' + state.currentUser.id + '_' + Date.now();
 
-            console.log('Connecting to PeerJS...');
+            console.log('Connecting to PeerJS...', 'sessionId:', state.sessionId);
 
             state.peer = new Peer(peerId, {
                 host: '0.peerjs.com',
@@ -307,16 +368,24 @@ async function initPeerJS(isHost) {
             state.peer.on('open', async function(id) {
                 clearTimeout(timeout);
                 state.peerId = id;
+                state.peerConnected = true;
                 console.log('PeerJS connected:', id);
 
+                // Save peer_id to database - NOW sessionId IS SET
                 try {
-                    await supabase
+                    const { error } = await supabase
                         .from('session_participants')
                         .update({ peer_id: id })
                         .eq('session_id', state.sessionId)
                         .eq('user_id', state.currentUser.id);
+
+                    if (error) {
+                        console.warn('Could not update peer_id:', error);
+                    } else {
+                        console.log('Peer ID saved to database');
+                    }
                 } catch (e) {
-                    console.warn('Could not update peer_id:', e);
+                    console.warn('Error saving peer_id:', e);
                 }
 
                 if (isHost) {
@@ -328,9 +397,10 @@ async function initPeerJS(isHost) {
                     });
                     console.log('Host waiting for connections...');
                 } else {
+                    // Viewer: wait a moment then connect to host
                     setTimeout(function() {
                         connectToHost();
-                    }, 2000);
+                    }, 3000);
                 }
 
                 resolve(true);
@@ -339,7 +409,21 @@ async function initPeerJS(isHost) {
             state.peer.on('error', function(err) {
                 clearTimeout(timeout);
                 console.error('PeerJS error:', err.message);
+                // Retry if connection lost
+                if (err.message.includes('Lost connection') || err.message.includes('disconnected')) {
+                    console.log('Attempting to reconnect...');
+                    setTimeout(function() {
+                        if (state.peer) {
+                            state.peer.reconnect();
+                        }
+                    }, 3000);
+                }
                 resolve(false);
+            });
+
+            state.peer.on('disconnected', function() {
+                console.warn('PeerJS disconnected, attempting to reconnect...');
+                state.peer.reconnect();
             });
 
         } catch (err) {
@@ -349,7 +433,17 @@ async function initPeerJS(isHost) {
     });
 }
 
+// ============================================
+// CONNECT TO HOST
+// ============================================
+
 async function connectToHost() {
+    if (!state.sessionId) {
+        console.warn('Cannot connect: sessionId is null');
+        setTimeout(connectToHost, 3000);
+        return;
+    }
+
     try {
         const { data: host, error } = await supabase
             .from('session_participants')
@@ -358,33 +452,49 @@ async function connectToHost() {
             .eq('role', 'host')
             .maybeSingle();
 
-        if (error || !host || !host.peer_id) {
-            console.warn('Host not found. Retrying...');
+        if (error) {
+            console.warn('Error getting host:', error);
+            setTimeout(connectToHost, 3000);
+            return;
+        }
+
+        if (!host || !host.peer_id) {
+            console.warn('Host not found or no peer ID. Retrying...');
             setTimeout(connectToHost, 3000);
             return;
         }
 
         state.hostPeerId = host.peer_id;
-        console.log('Calling host:', state.hostPeerId);
+        state.hostFound = true;
+        console.log('Found host peer_id:', state.hostPeerId);
 
+        // Call host with audio stream
         var call = state.peer.call(state.hostPeerId, state.localStream);
         
         call.on('stream', function(remoteStream) {
             console.log('Host audio stream received!');
+            DOM.screenPlaceholder.style.display = 'none';
+            if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected to host';
+            if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
         });
 
         call.on('close', function() {
             console.log('Host disconnected');
+            state.hostFound = false;
             showToast('Host disconnected', 'warning');
             DOM.screenVideo.classList.remove('active');
+            DOM.screenVideo.style.display = 'none';
             DOM.screenPlaceholder.style.display = 'flex';
             if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host disconnected';
             if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to reconnect...';
+            setTimeout(connectToHost, 5000);
         });
 
+        // Establish data channel for hand raises, etc.
         try {
             var conn = state.peer.connect(state.hostPeerId);
             conn.on('open', function() {
+                console.log('Data channel established');
                 conn.send(JSON.stringify({
                     type: 'viewer_ready',
                     peerId: state.peerId
@@ -403,9 +513,14 @@ async function connectToHost() {
     }
 }
 
+// ============================================
+// HANDLE INCOMING CALL (Host)
+// ============================================
+
 function handleIncomingCall(call) {
     console.log('Incoming call from:', call.peer);
     
+    // Send screen if sharing, otherwise just audio
     var streamToSend = state.isSharing && state.screenStream ? state.screenStream : state.localStream;
     
     call.answer(streamToSend);
@@ -419,30 +534,44 @@ function handleIncomingCall(call) {
     });
 }
 
+// ============================================
+// DATA MESSAGES
+// ============================================
+
 function handleDataMessage(data) {
-    console.log('Data:', data.type);
+    console.log('Data message:', data.type);
     
     switch (data.type) {
         case 'viewer_ready':
             if (state.isHost) {
-                console.log('Viewer ready');
+                console.log('Viewer ready, peerId:', data.peerId);
                 if (state.isSharing && state.screenStream) {
-                    sendScreenToViewer(data.peerId);
+                    // Send screen to new viewer
+                    try {
+                        var call = state.peer.call(data.peerId, state.screenStream);
+                        console.log('Screen sent to viewer:', data.peerId);
+                    } catch (e) {
+                        console.warn('Could not send screen:', e);
+                    }
                 }
             }
             break;
             
         case 'hand_raised':
             if (state.isHost) {
-                showToast('Hand raised!', 'warning');
+                showToast('🙋 Viewer raised their hand!', 'warning');
                 sendToChatIframe({
                     type: 'system_message',
-                    message: 'A viewer raised their hand'
+                    message: '🙋 A viewer raised their hand'
                 });
             }
             break;
     }
 }
+
+// ============================================
+// SCREEN SHARE (Host Only)
+// ============================================
 
 async function toggleScreenShare() {
     if (!state.isHost) {
@@ -476,6 +605,7 @@ async function toggleScreenShare() {
         state.isSharing = true;
         if (DOM.screenBtn) DOM.screenBtn.classList.add('active');
 
+        // Show screen locally
         DOM.screenVideo.srcObject = state.screenStream;
         DOM.screenVideo.style.display = 'block';
         DOM.screenVideo.classList.add('active');
@@ -483,7 +613,17 @@ async function toggleScreenShare() {
         DOM.hostIndicator.classList.add('active');
         await DOM.screenVideo.play();
 
-        broadcastScreenToAll();
+        // Broadcast to all viewers
+        state.participants.forEach(function(participant, userId) {
+            if (userId !== state.currentUser.id && participant.peer_id) {
+                try {
+                    var call = state.peer.call(participant.peer_id, state.screenStream);
+                    console.log('Screen sent to viewer:', participant.peer_id);
+                } catch (e) {
+                    console.warn('Could not send screen:', e);
+                }
+            }
+        });
 
         showToast('Screen sharing started!', 'success');
 
@@ -503,61 +643,51 @@ async function toggleScreenShare() {
     }
 }
 
-function broadcastScreenToAll() {
-    state.participants.forEach(function(participant, userId) {
-        if (userId !== state.currentUser.id && participant.peer_id) {
-            sendScreenToViewer(participant.peer_id);
-        }
-    });
-}
-
-function sendScreenToViewer(peerId) {
-    if (!state.isSharing || !state.screenStream) return;
-    
-    try {
-        var call = state.peer.call(peerId, state.screenStream);
-        call.on('stream', function(stream) {
-            console.log('Screen sent to viewer:', peerId);
-        });
-    } catch (e) {
-        console.warn('Could not send screen to viewer:', peerId);
-    }
-}
+// ============================================
+// RAISE HAND
+// ============================================
 
 async function toggleRaiseHand() {
+    if (!state.sessionId) {
+        showToast('No active session', 'warning');
+        return;
+    }
+
     state.handRaised = !state.handRaised;
 
-    if (state.sessionId) {
-        await supabase
-            .from('session_participants')
-            .update({ hand_raised: state.handRaised })
-            .eq('session_id', state.sessionId)
-            .eq('user_id', state.currentUser.id);
-    }
+    await supabase
+        .from('session_participants')
+        .update({ hand_raised: state.handRaised })
+        .eq('session_id', state.sessionId)
+        .eq('user_id', state.currentUser.id);
 
     var btn = document.getElementById('raiseHandBtn');
     if (btn) btn.classList.toggle('active', state.handRaised);
-    showToast(state.handRaised ? 'Hand raised!' : 'Hand lowered', 'info');
+    showToast(state.handRaised ? 'Hand raised! 🙋' : 'Hand lowered', 'info');
 
-    if (state.handRaised) {
-        if (state.hostPeerId && state.peer) {
-            try {
-                var conn = state.peer.connect(state.hostPeerId);
-                conn.on('open', function() {
-                    conn.send(JSON.stringify({
-                        type: 'hand_raised',
-                        name: state.userProfile.name || 'A viewer'
-                    }));
-                });
-            } catch (e) {}
+    if (state.handRaised && state.hostPeerId) {
+        try {
+            var conn = state.peer.connect(state.hostPeerId);
+            conn.on('open', function() {
+                conn.send(JSON.stringify({
+                    type: 'hand_raised',
+                    name: state.userProfile.name || 'A viewer'
+                }));
+            });
+        } catch (e) {
+            console.warn('Could not send hand raise:', e);
         }
         
         sendToChatIframe({
             type: 'system_message',
-            message: 'A viewer raised their hand'
+            message: '🙋 ' + (state.userProfile.name || 'A viewer') + ' raised their hand'
         });
     }
 }
+
+// ============================================
+// TIPPING
+// ============================================
 
 async function sendTip(amount, emoji) {
     if (!state.sessionId) {
@@ -572,7 +702,7 @@ async function sendTip(amount, emoji) {
             .eq('id', state.sessionId)
             .single();
 
-        if (!session) {
+        if (error || !session) {
             showToast('Session not found', 'error');
             return;
         }
@@ -580,7 +710,7 @@ async function sendTip(amount, emoji) {
         var userBalance = state.userProfile.wallet_balance || 0;
 
         if (amount > userBalance) {
-            showToast('Insufficient wallet balance', 'error');
+            showToast('Insufficient wallet balance (₦' + userBalance + ')', 'error');
             return;
         }
 
@@ -616,6 +746,10 @@ async function sendTip(amount, emoji) {
     }
 }
 
+// ============================================
+// SESSION END
+// ============================================
+
 async function endSession() {
     if (!state.isHost) {
         showToast('Only hosts can end sessions', 'warning');
@@ -649,6 +783,10 @@ async function endSession() {
         showToast('Failed to end session', 'error');
     }
 }
+
+// ============================================
+// SESSION RECOVERY
+// ============================================
 
 async function recoverSession(savedData) {
     try {
@@ -707,6 +845,10 @@ async function recoverSession(savedData) {
     }
 }
 
+// ============================================
+// PARTICIPANTS
+// ============================================
+
 async function loadParticipants() {
     try {
         if (!state.sessionId) return;
@@ -731,10 +873,16 @@ async function loadParticipants() {
         state.viewerCount = viewers.length;
         if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
 
+        // If host and sharing, send screen to any viewer without one
         if (state.isHost && state.isSharing && state.screenStream) {
             viewers.forEach(function(viewer) {
                 if (viewer.peer_id) {
-                    sendScreenToViewer(viewer.peer_id);
+                    try {
+                        var call = state.peer.call(viewer.peer_id, state.screenStream);
+                        console.log('Screen sent to viewer:', viewer.peer_id);
+                    } catch (e) {
+                        console.warn('Could not send screen:', e);
+                    }
                 }
             });
         }
@@ -743,6 +891,10 @@ async function loadParticipants() {
         console.warn('Load participants error:', error);
     }
 }
+
+// ============================================
+// REALTIME SUBSCRIPTIONS
+// ============================================
 
 function setupRealtimeSubscriptions() {
     if (!state.sessionId) return;
@@ -777,6 +929,10 @@ function setupRealtimeSubscriptions() {
         .subscribe();
 }
 
+// ============================================
+// CHAT IFRAME
+// ============================================
+
 function setupChatIframe() {
     var iframe = DOM.chatIframe;
     if (!iframe) return;
@@ -784,7 +940,7 @@ function setupChatIframe() {
     window.addEventListener('message', function(event) {
         if (event.source !== iframe.contentWindow) return;
         var data = event.data;
-        console.log('Chat:', data.type);
+        console.log('Chat message:', data.type);
 
         switch (data.type) {
             case 'chat_ready':
@@ -801,13 +957,13 @@ function setupChatIframe() {
                 state.unreadCount++;
                 break;
             case 'hand_raised':
-                showToast('Hand raised!', 'warning');
+                showToast('🙋 Viewer raised their hand!', 'warning');
                 break;
             case 'tip_sent':
-                showToast('Tip sent!', 'success');
+                showToast('🎁 Tip sent!', 'success');
                 break;
             case 'star_rated':
-                showToast('Star rated!', 'success');
+                showToast('⭐ Star rated!', 'success');
                 break;
         }
     });
@@ -835,6 +991,10 @@ function sendToChatIframe(data) {
         }
     }
 }
+
+// ============================================
+// HELPERS
+// ============================================
 
 function generateSessionCode() {
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -983,9 +1143,9 @@ async function shareToChat() {
         showToast('No session code', 'warning');
         return;
     }
-    var message = 'Join my live session! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+    var message = '🎥 Join my live session! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
     sendToChatIframe({ type: 'send_message', message: message });
-    showToast('Session code sent to chat!', 'success');
+    showToast('📤 Session code sent to chat!', 'success');
     if (DOM.shareModal) DOM.shareModal.classList.remove('active');
 }
 
@@ -994,12 +1154,12 @@ async function copyShareLink() {
     if (!link) return;
     try {
         await navigator.clipboard.writeText(link);
-        showToast('Link copied!', 'success');
+        showToast('📋 Link copied!', 'success');
     } catch {
         if (DOM.shareLinkInput) {
             DOM.shareLinkInput.select();
             document.execCommand('copy');
-            showToast('Link copied!', 'success');
+            showToast('📋 Link copied!', 'success');
         }
     }
 }
