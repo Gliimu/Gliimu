@@ -61,7 +61,7 @@
     <div class="virtual-room" id="app">
         
         <!-- ==========================================
-        TOP BAR - WhatsApp/Discord Style
+        TOP BAR - WhatsApp Style
         ========================================== -->
         <div class="top-bar">
             <div class="top-bar-left">
@@ -98,7 +98,7 @@
         </div>
 
         <!-- ==========================================
-        MAIN CONTENT - Video Grid
+        MAIN CONTENT - Video + Chat Sidebar
         ========================================== -->
         <div class="main-content">
             
@@ -122,7 +122,7 @@
                     <div class="video-quality" id="videoQuality">HD</div>
                 </div>
 
-                <!-- Viewer Thumbnails -->
+                <!-- Viewer Thumbnails (right side) -->
                 <div class="viewer-thumbnails" id="viewerThumbnails">
                     <!-- Populated by JS -->
                 </div>
@@ -139,7 +139,7 @@
         </div>
 
         <!-- ==========================================
-        CONTROLS - Discord/Zoom Style
+        CONTROLS BAR
         ========================================== -->
         <div class="controls-bar" id="controlsBar">
             
@@ -208,7 +208,7 @@
         </div>
 
         <!-- ==========================================
-        CHAT SIDEBAR - WhatsApp Style
+        CHAT SIDEBAR - IFRAME (Uses existing chat)
         ========================================== -->
         <div class="chat-sidebar" id="chatSidebar">
             <div class="chat-sidebar-header">
@@ -221,38 +221,22 @@
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-
-            <div class="chat-messages" id="chatMessages">
-                <div class="system-message">
-                    <i class="fas fa-info-circle"></i> Welcome to the live session!
-                </div>
-            </div>
-
-            <div class="chat-composer">
-                <div class="composer-wrapper">
-                    <button class="composer-btn" id="chatAttachBtn">
-                        <i class="fas fa-paperclip"></i>
-                    </button>
-                    <input type="file" id="chatFileInput" style="display:none;" accept="image/*">
-                    <input type="text" id="chatInput" placeholder="Type a message..." class="chat-input">
-                    <button class="composer-btn" id="chatEmojiBtn">
-                        <i class="far fa-smile"></i>
-                    </button>
-                    <button class="send-btn" id="chatSendBtn">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-                <div class="emoji-picker" id="chatEmojiPicker">
-                    <div class="emoji-grid" id="chatEmojiGrid"></div>
-                </div>
-            </div>
+            
+            <!-- IFRAME: Loads the existing chat page -->
+            <iframe 
+                id="chatIframe"
+                src="/chat.html?embedded=1&channel=session_{{sessionId}}"
+                class="chat-iframe"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                allow="microphone; camera; clipboard-read; clipboard-write"
+            ></iframe>
         </div>
 
         <!-- Chat Overlay -->
         <div class="chat-overlay" id="chatOverlay"></div>
 
         <!-- ==========================================
-        WHITEBOARD
+        WHITEBOARD OVERLAY
         ========================================== -->
         <div class="whiteboard-overlay" id="whiteboardOverlay">
             <div class="whiteboard-toolbar">
