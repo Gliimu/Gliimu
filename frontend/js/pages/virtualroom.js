@@ -32,6 +32,7 @@ const state = {
     signalingReady: false,
     offerSent: false,
     answerReceived: false,
+    hasReceivedOffer: false,
 };
 
 // ============================================
@@ -188,11 +189,7 @@ async function createNewSession() {
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
         await getAudioStream();
-
-        // Setup signaling
         await setupSignalingChannel();
-
-        // Setup WebRTC as host
         await setupWebRTC(true);
 
         saveSessionState();
@@ -274,12 +271,13 @@ async function joinSession(sessionCode) {
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
         await getAudioStream();
-
-        // Setup signaling
         await setupSignalingChannel();
-
-        // Setup WebRTC as viewer
         await setupWebRTC(false);
+
+        // 🔥 CRITICAL: Viewer requests offer from host after joining
+        setTimeout(function() {
+            requestOfferFromHost();
+        }, 3000);
 
         saveSessionState();
 
@@ -373,6 +371,25 @@ function sendSignalingMessage(message) {
         payload: message
     }).catch(function(err) {
         console.warn('Could not send signal:', err);
+    });
+}
+
+// ============================================
+// VIEWER REQUESTS OFFER FROM HOST
+// ============================================
+
+function requestOfferFromHost() {
+    if (state.isHost) return;
+    if (!state.signalingReady) {
+        setTimeout(requestOfferFromHost, 2000);
+        return;
+    }
+
+    console.log('📤 Viewer requesting offer from host...');
+    sendSignalingMessage({
+        type: 'request_offer',
+        userId: state.currentUser.id,
+        sessionId: state.sessionId
     });
 }
 
@@ -519,7 +536,21 @@ function handleSignalingMessage(message) {
 
     try {
         switch (message.type) {
+            case 'request_offer':
+                // 🔥 Host receives request from viewer, send offer
+                if (state.isHost) {
+                    console.log('📤 Viewer requested offer, sending...');
+                    // Reset offer sent flag to allow re-sending
+                    state.offerSent = false;
+                    setTimeout(function() {
+                        sendOffer();
+                    }, 500);
+                }
+                break;
+
             case 'offer':
+                state.hasReceivedOffer = true;
+                console.log('📨 Received offer, sending answer...');
                 state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
                     .then(function() {
                         return state.peerConnection.createAnswer();
@@ -542,10 +573,11 @@ function handleSignalingMessage(message) {
                 break;
 
             case 'answer':
+                console.log('📨 Received answer');
                 state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
                     .then(function() {
                         state.answerReceived = true;
-                        console.log('✅ Answer received');
+                        console.log('✅ Answer processed');
                     })
                     .catch(function(err) {
                         console.error('Set remote desc error:', err);
@@ -652,6 +684,9 @@ async function toggleScreenShare() {
             console.log('Screen track added');
         }
 
+        // 🔥 Broadcast to all viewers that screen is now available
+        broadcastScreenAvailable();
+
         showToast('Screen sharing started!', 'success');
 
         state.screenStream.getVideoTracks()[0].onended = function() {
@@ -668,6 +703,15 @@ async function toggleScreenShare() {
         state.isSharing = false;
         if (DOM.screenBtn) DOM.screenBtn.classList.remove('active');
     }
+}
+
+function broadcastScreenAvailable() {
+    // Send a signal to all viewers that screen is available
+    sendSignalingMessage({
+        type: 'screen_available',
+        userId: state.currentUser.id,
+        sessionId: state.sessionId
+    });
 }
 
 function sendScreenToViewer() {
