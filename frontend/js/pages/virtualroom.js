@@ -1,6 +1,6 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - SIMPLIFIED + SCREEN SHARE
-// Network Resilient with Screen Sharing
+// 🎥 VIRTUAL ROOM - WITH SESSION RECOVERY
+// Host can refresh/reconnect without losing session
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -32,7 +32,13 @@ const state = {
     hasRated: false,
     sessionSubscription: null,
     timerInterval: null,
+    heartbeatInterval: null,
     classStartTime: Date.now(),
+    isReconnecting: false,
+    reconnectAttempts: 0,
+    maxReconnectAttempts: 10,
+    hostLastSeen: null,
+    isHostOnline: false,
 };
 
 // ============================================
@@ -93,6 +99,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const params = new URLSearchParams(window.location.search);
         const sessionCode = params.get('code');
         const mode = params.get('mode');
+        const isReconnect = params.get('reconnect') === 'true';
+
+        // Check if we're recovering a session
+        const savedSession = sessionStorage.getItem('glimu_session');
+        
+        if (savedSession && !isReconnect) {
+            try {
+                const sessionData = JSON.parse(savedSession);
+                // If we have a saved session and we're not already reconnecting
+                if (sessionData.sessionId && sessionData.sessionCode) {
+                    console.log('🔄 Found saved session, reconnecting...');
+                    await recoverSession(sessionData);
+                    return;
+                }
+            } catch (e) {
+                console.warn('Could not recover session:', e);
+            }
+        }
 
         if (mode === 'host') {
             await createNewSession();
@@ -107,6 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupEventListeners();
         setupRealtimeSubscriptions();
         setupChatIframe();
+        setupHeartbeat();
         startTimer();
 
         console.log('✅ Virtual Room ready');
@@ -121,6 +146,276 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
+// SESSION RECOVERY
+// ============================================
+
+async function recoverSession(savedData) {
+    try {
+        showLoading(true);
+        DOM.loadingText.textContent = 'Recovering session...';
+
+        // Check if session still exists
+        const { data: session, error } = await supabase
+            .from('virtual_sessions')
+            .select('*')
+            .eq('id', savedData.sessionId)
+            .single();
+
+        if (error || !session) {
+            console.warn('Session no longer exists, creating new one');
+            sessionStorage.removeItem('glimu_session');
+            await createNewSession();
+            return;
+        }
+
+        if (session.status === 'ended') {
+            showToast('Session has ended', 'error');
+            sessionStorage.removeItem('glimu_session');
+            setTimeout(() => window.location.href = '/user', 2000);
+            return;
+        }
+
+        state.sessionId = session.id;
+        state.sessionCode = session.session_code;
+        state.isHost = savedData.isHost || false;
+        state.isLive = session.status === 'live';
+        state.isReconnecting = true;
+
+        DOM.roomTitle.textContent = session.title || 'Live Session';
+        DOM.shareCodeDisplay.textContent = state.sessionCode;
+        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+
+        // Update participant status
+        await supabase
+            .from('session_participants')
+            .update({ 
+                is_active: true, 
+                left_at: null,
+                joined_at: new Date().toISOString()
+            })
+            .eq('session_id', state.sessionId)
+            .eq('user_id', state.currentUser.id);
+
+        if (state.isHost) {
+            DOM.hostControls.style.display = 'flex';
+            DOM.viewerControls.style.display = 'none';
+            DOM.hostStatusText.textContent = 'You are the host (reconnected)';
+            
+            // If host, update session status back to live
+            await supabase
+                .from('virtual_sessions')
+                .update({ status: 'live' })
+                .eq('id', state.sessionId);
+        } else {
+            DOM.hostControls.style.display = 'none';
+            DOM.viewerControls.style.display = 'flex';
+            DOM.hostStatusText.textContent = 'Reconnecting to host...';
+        }
+
+        await startLocalStream();
+        await loadParticipants();
+        
+        showToast('🔄 Session recovered!', 'success');
+
+        // Clear reconnect flag after successful recovery
+        state.isReconnecting = false;
+        
+        // Save session state again
+        saveSessionState();
+
+        // Notify chat
+        sendToChatIframe({
+            type: 'system_message',
+            message: `🔄 ${state.userProfile.name || 'Someone'} reconnected to the session`
+        });
+
+        console.log('✅ Session recovered:', state.sessionCode);
+
+    } catch (error) {
+        console.error('❌ Session recovery failed:', error);
+        showToast('Could not recover session, creating new one', 'warning');
+        sessionStorage.removeItem('glimu_session');
+        await createNewSession();
+    }
+}
+
+function saveSessionState() {
+    try {
+        sessionStorage.setItem('glimu_session', JSON.stringify({
+            sessionId: state.sessionId,
+            sessionCode: state.sessionCode,
+            isHost: state.isHost,
+            timestamp: Date.now()
+        }));
+    } catch (e) {
+        console.warn('Could not save session state:', e);
+    }
+}
+
+// ============================================
+// HEARTBEAT SYSTEM
+// ============================================
+
+function setupHeartbeat() {
+    // Clear existing heartbeat
+    if (state.heartbeatInterval) {
+        clearInterval(state.heartbeatInterval);
+    }
+
+    // Heartbeat every 15 seconds
+    state.heartbeatInterval = setInterval(async () => {
+        if (!state.sessionId || state.sessionEnded) return;
+
+        try {
+            // Update last_seen for this participant
+            await supabase
+                .from('session_participants')
+                .update({ 
+                    last_seen: new Date().toISOString(),
+                    is_active: true
+                })
+                .eq('session_id', state.sessionId)
+                .eq('user_id', state.currentUser.id);
+
+            // If host, also update session heartbeat
+            if (state.isHost) {
+                await supabase
+                    .from('virtual_sessions')
+                    .update({ 
+                        last_heartbeat: new Date().toISOString(),
+                        status: 'live'
+                    })
+                    .eq('id', state.sessionId);
+            }
+
+            // Check if host is still online (for viewers)
+            if (!state.isHost) {
+                await checkHostOnline();
+            }
+
+        } catch (error) {
+            console.warn('Heartbeat error:', error);
+        }
+    }, 15000);
+
+    // Also handle page visibility changes (tab switching)
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+}
+
+async function checkHostOnline() {
+    try {
+        const { data: host } = await supabase
+            .from('session_participants')
+            .select('last_seen, user_id')
+            .eq('session_id', state.sessionId)
+            .eq('role', 'host')
+            .single();
+
+        if (host) {
+            const lastSeen = new Date(host.last_seen);
+            const now = new Date();
+            const diffSeconds = (now - lastSeen) / 1000;
+            
+            const wasOnline = state.isHostOnline;
+            state.isHostOnline = diffSeconds < 45; // Host seen within 45 seconds
+            
+            if (!wasOnline && state.isHostOnline) {
+                // Host came back online
+                DOM.hostStatusText.textContent = 'Host is back online';
+                DOM.hostPlaceholder.style.opacity = '1';
+                showToast('🟢 Host is back online!', 'success');
+                sendToChatIframe({
+                    type: 'system_message',
+                    message: '🟢 Host is back online!'
+                });
+            } else if (wasOnline && !state.isHostOnline) {
+                // Host went offline
+                DOM.hostStatusText.textContent = 'Host is offline (reconnecting...)';
+                DOM.hostPlaceholder.style.opacity = '0.5';
+                showToast('🔴 Host disconnected. Waiting for reconnection...', 'warning');
+                
+                // Start reconnection attempts
+                attemptReconnect();
+            }
+        }
+    } catch (error) {
+        console.warn('Check host online error:', error);
+    }
+}
+
+function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+        // Tab became visible again - refresh connection
+        console.log('👁️ Tab visible, refreshing connection...');
+        if (state.sessionId) {
+            // Re-activate participant
+            supabase
+                .from('session_participants')
+                .update({ 
+                    is_active: true,
+                    last_seen: new Date().toISOString()
+                })
+                .eq('session_id', state.sessionId)
+                .eq('user_id', state.currentUser.id)
+                .then(() => {
+                    // Reload participants to refresh view
+                    loadParticipants();
+                    
+                    // If host, ensure session is still live
+                    if (state.isHost) {
+                        supabase
+                            .from('virtual_sessions')
+                            .update({ status: 'live' })
+                            .eq('id', state.sessionId);
+                    }
+                });
+        }
+    }
+}
+
+// ============================================
+// RECONNECTION ATTEMPTS (Viewers)
+// ============================================
+
+async function attemptReconnect() {
+    if (state.reconnectAttempts >= state.maxReconnectAttempts) {
+        DOM.hostStatusText.textContent = 'Host is offline. Waiting...';
+        showToast('Host has been offline for too long', 'warning');
+        return;
+    }
+
+    state.reconnectAttempts++;
+    console.log(`🔄 Reconnect attempt ${state.reconnectAttempts}/${state.maxReconnectAttempts}`);
+
+    // Wait and try to check host again
+    setTimeout(async () => {
+        await checkHostOnline();
+        
+        // If host is still offline, try re-joining the session
+        if (!state.isHostOnline && state.sessionCode) {
+            try {
+                // Try to re-join the session
+                await supabase
+                    .from('session_participants')
+                    .update({ 
+                        is_active: true,
+                        joined_at: new Date().toISOString()
+                    })
+                    .eq('session_id', state.sessionId)
+                    .eq('user_id', state.currentUser.id);
+                
+                // Reload participants
+                await loadParticipants();
+                
+                showToast('🔄 Attempting to reconnect...', 'info');
+            } catch (error) {
+                console.warn('Reconnect attempt failed:', error);
+            }
+        }
+    }, 5000);
+}
+
+// ============================================
 // SESSION MANAGEMENT
 // ============================================
 
@@ -129,7 +424,13 @@ async function createNewSession() {
         showLoading(true);
         DOM.loadingText.textContent = 'Creating session...';
 
+        // Clear any old session state
+        sessionStorage.removeItem('glimu_session');
+
         const sessionCode = generateSessionCode();
+        
+        // Add last_heartbeat column if not exists (run once in SQL)
+        // ALTER TABLE virtual_sessions ADD COLUMN IF NOT EXISTS last_heartbeat TIMESTAMPTZ;
         
         const { data: session, error } = await supabase
             .from('virtual_sessions')
@@ -138,7 +439,8 @@ async function createNewSession() {
                 title: `${state.userProfile.name || 'User'}'s Session`,
                 session_code: sessionCode,
                 status: 'live',
-                start_time: new Date().toISOString()
+                start_time: new Date().toISOString(),
+                last_heartbeat: new Date().toISOString()
             })
             .select()
             .single();
@@ -149,30 +451,34 @@ async function createNewSession() {
         state.sessionCode = session.session_code;
         state.isHost = true;
         state.isLive = true;
+        state.isHostOnline = true;
 
         DOM.roomTitle.textContent = session.title;
         DOM.shareCodeDisplay.textContent = state.sessionCode;
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
+        DOM.hostStatusText.textContent = 'You are the host';
 
-        // Add host as participant
+        // Add host as participant with last_seen
         await supabase
             .from('session_participants')
             .insert({
                 session_id: state.sessionId,
                 user_id: state.currentUser.id,
                 role: 'host',
-                is_active: true
+                is_active: true,
+                last_seen: new Date().toISOString()
             });
 
-        // Start camera
         await startLocalStream();
+        
+        // Save session state for recovery
+        saveSessionState();
 
         showToast(`Session created! Code: ${state.sessionCode}`, 'success');
         setTimeout(() => DOM.shareModal.classList.add('active'), 1500);
 
-        // Update chat iframe
         setTimeout(() => {
             sendToChatIframe({
                 type: 'session_info',
@@ -196,6 +502,9 @@ async function joinSession(sessionCode) {
     try {
         showLoading(true);
         DOM.loadingText.textContent = 'Joining session...';
+
+        // Clear any old session state
+        sessionStorage.removeItem('glimu_session');
 
         const { data: session, error } = await supabase
             .from('virtual_sessions')
@@ -223,23 +532,28 @@ async function joinSession(sessionCode) {
         DOM.shareCodeDisplay.textContent = state.sessionCode;
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
 
-        // Add viewer
+        // Add or update viewer with last_seen
         await supabase
             .from('session_participants')
             .upsert({
                 session_id: state.sessionId,
                 user_id: state.currentUser.id,
                 role: 'viewer',
-                is_active: true
+                is_active: true,
+                last_seen: new Date().toISOString(),
+                joined_at: new Date().toISOString()
             }, { onConflict: 'session_id,user_id' });
 
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
+        DOM.hostStatusText.textContent = 'Connecting to host...';
 
         await startLocalStream();
         await loadParticipants();
+        
+        // Save session state for recovery
+        saveSessionState();
 
-        // Update chat iframe
         setTimeout(() => {
             sendToChatIframe({
                 type: 'session_info',
@@ -249,6 +563,9 @@ async function joinSession(sessionCode) {
                 roomTitle: DOM.roomTitle.textContent
             });
         }, 2000);
+
+        // Check if host is online
+        await checkHostOnline();
 
         console.log('📡 Joined session:', sessionCode);
 
@@ -260,7 +577,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// HELPERS
+// GENERATE SESSION CODE
 // ============================================
 
 function generateSessionCode() {
@@ -293,7 +610,6 @@ async function startLocalStream() {
 
     } catch (err) {
         console.error('❌ Camera error:', err);
-        // Don't show error if it's just "Device in use" - user might be using camera elsewhere
         if (err.name !== 'NotReadableError') {
             showToast('Could not access camera', 'warning');
         }
@@ -333,7 +649,6 @@ async function toggleScreenShare() {
     }
 
     if (state.isScreenSharing) {
-        // Stop screen share
         if (state.screenStream) {
             state.screenStream.getTracks().forEach(t => t.stop());
             state.screenStream = null;
@@ -341,11 +656,10 @@ async function toggleScreenShare() {
         state.isScreenSharing = false;
         document.getElementById('screenBtn').classList.remove('active');
         showToast('Screen share stopped', 'info');
-        
-        // Switch back to camera
         if (state.localStream) {
             DOM.hostVideo.srcObject = state.localStream;
         }
+        DOM.hostStatusText.textContent = 'You are the host';
         return;
     }
 
@@ -359,11 +673,9 @@ async function toggleScreenShare() {
         document.getElementById('screenBtn').classList.add('active');
         showToast('Screen sharing started!', 'success');
 
-        // Show screen on host video
         DOM.hostVideo.srcObject = state.screenStream;
         DOM.hostStatusText.textContent = 'Screen sharing';
 
-        // When user stops sharing via browser UI
         state.screenStream.getVideoTracks()[0].onended = () => {
             if (state.isScreenSharing) {
                 toggleScreenShare();
@@ -399,7 +711,6 @@ async function loadParticipants() {
         state.viewerCount = viewers.length;
         DOM.viewerCount.textContent = viewers.length;
 
-        // Update host name
         const host = data.find(p => p.role === 'host');
         if (host) {
             DOM.hostName.textContent = host.users?.name || 'Host';
@@ -553,6 +864,9 @@ async function endSession() {
         state.isLive = false;
         DOM.sessionEndedOverlay.classList.add('active');
 
+        // Clear saved session
+        sessionStorage.removeItem('glimu_session');
+
         cleanup();
         showToast('Session ended', 'success');
 
@@ -588,7 +902,14 @@ function setupRealtimeSubscriptions() {
             if (payload.new.status === 'ended') {
                 state.sessionEnded = true;
                 DOM.sessionEndedOverlay.classList.add('active');
+                sessionStorage.removeItem('glimu_session');
                 cleanup();
+            }
+            // Update host status if heartbeat updated
+            if (payload.new.last_heartbeat) {
+                state.isHostOnline = true;
+                DOM.hostStatusText.textContent = state.isScreenSharing ? 'Screen sharing' : 'Host is online';
+                DOM.hostPlaceholder.style.opacity = '1';
             }
         })
         .subscribe();
@@ -709,11 +1030,9 @@ function setupUI() {
     if (state.isHost) {
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
-        DOM.hostStatusText.textContent = 'You are the host';
     } else {
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
-        DOM.hostStatusText.textContent = 'Waiting for host...';
     }
 }
 
@@ -751,7 +1070,6 @@ function setupEventListeners() {
         }
     });
 
-    // Star rating
     document.querySelectorAll('.star').forEach(star => {
         star.addEventListener('click', () => {
             const value = parseInt(star.dataset.value);
@@ -763,11 +1081,17 @@ function setupEventListeners() {
     });
     document.getElementById('submitStars')?.addEventListener('click', submitRating);
 
-    // Click outside modals
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
         });
+    });
+
+    // Handle page refresh/close - save state
+    window.addEventListener('beforeunload', () => {
+        if (state.sessionId && !state.sessionEnded) {
+            saveSessionState();
+        }
     });
 }
 
@@ -851,6 +1175,9 @@ function cleanup() {
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
     }
+    if (state.heartbeatInterval) {
+        clearInterval(state.heartbeatInterval);
+    }
     if (state.sessionSubscription) {
         state.sessionSubscription.unsubscribe();
     }
@@ -869,6 +1196,7 @@ function leaveRoom() {
             .then(() => {});
     }
 
+    sessionStorage.removeItem('glimu_session');
     window.location.href = '/user';
 }
 
@@ -880,4 +1208,4 @@ window.leaveRoom = leaveRoom;
 window.joinWithCode = window.joinWithCode;
 window.toggleChatSidebar = toggleChatSidebar;
 
-console.log('🎥 Virtual Room loaded');
+console.log('🎥 Virtual Room loaded with session recovery');
