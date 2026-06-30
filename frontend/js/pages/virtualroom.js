@@ -1,10 +1,10 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - Complete
-// WhatsApp + Discord + Zoom + Skype Fusion
-// With Chat IFrame Integration
+// 🎥 VIRTUAL ROOM - FIXED VERSION
+// Uses Supabase Realtime + Simple WebRTC
+// No PeerJS - More Reliable
 // ============================================
 
-import { supabase, getCurrentUser, getUserProfile, updateWalletBalance } from '../modules/supabase.js';
+import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ============================================
@@ -20,14 +20,14 @@ const state = {
     isLive: false,
     sessionEnded: false,
     localStream: null,
-    peer: null,
-    peerId: null,
-    hostPeerId: null,
+    peerConnection: null,
+    dataChannel: null,
     participants: new Map(),
     viewerStreams: new Map(),
     chatSubscription: null,
     sessionSubscription: null,
     participantsSubscription: null,
+    signalingSubscription: null,
     classStartTime: Date.now(),
     timerInterval: null,
     starRating: 0,
@@ -38,8 +38,6 @@ const state = {
     wbPainting: false,
     wbColor: '#fbb040',
     wbTool: 'pen',
-    wbHistory: [],
-    wbHistoryIndex: -1,
     viewerCount: 0,
     tipsTotal: 0,
     gpTipsTotal: 0,
@@ -52,8 +50,11 @@ const state = {
     unreadCount: 0,
     chatIframeReady: false,
     activeViewerId: null,
-    screenStream: null,
     isScreenSharing: false,
+    iceCandidates: [],
+    connectionAttempts: 0,
+    maxConnectionAttempts: 5,
+    isConnecting: false,
 };
 
 // ============================================
@@ -69,7 +70,6 @@ function cacheDOM() {
     DOM.hostStars = document.getElementById('hostStars');
     DOM.hostTips = document.getElementById('hostTips');
     DOM.localVideo = document.getElementById('localVideo');
-    DOM.localVideoCard = document.getElementById('localVideoCard');
     DOM.pipVideo = document.getElementById('pipVideo');
     DOM.pipPlaceholder = document.getElementById('pipPlaceholder');
     DOM.videoGrid = document.getElementById('videoGrid');
@@ -81,7 +81,6 @@ function cacheDOM() {
     DOM.classTimer = document.getElementById('classTimer');
     DOM.viewerCount = document.getElementById('viewerCount');
     DOM.participantCount = document.getElementById('participantCount');
-    DOM.tipCount = document.getElementById('tipCount');
     DOM.chatSidebar = document.getElementById('chatSidebar');
     DOM.chatOverlay = document.getElementById('chatOverlay');
     DOM.chatIframe = document.getElementById('chatIframe');
@@ -117,7 +116,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     cacheDOM();
 
     try {
-        // Get current user
         state.currentUser = await getCurrentUser();
         if (!state.currentUser) {
             showLoginScreen();
@@ -130,10 +128,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Update balance display
         updateBalanceDisplay();
 
-        // Get session from URL
         const params = new URLSearchParams(window.location.search);
         const sessionCode = params.get('code');
         const mode = params.get('mode');
@@ -147,13 +143,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Setup UI
         setupUI();
         setupEventListeners();
         setupRealtimeSubscriptions();
         setupChatIframe();
 
-        // Start timer
         startTimer();
 
         console.log('✅ Virtual Room ready');
@@ -161,7 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('❌ Initialization error:', error);
-        showToast('Failed to initialize room', 'error');
+        showToast('Failed to initialize room: ' + error.message, 'error');
         showLoading(false);
         useFallbackMode();
     }
@@ -176,7 +170,6 @@ async function createNewSession() {
         showLoading(true);
         DOM.loadingText.textContent = 'Creating your session...';
 
-        // Check if host can create session
         const canHost = await checkHostEligibility();
         if (!canHost) {
             showToast('You are on cooldown. Please wait 48 hours.', 'error');
@@ -184,52 +177,66 @@ async function createNewSession() {
             return;
         }
 
-        // Call Supabase function to create session
-        const { data, error } = await supabase.rpc('create_session', {
-            p_host_id: state.currentUser.id,
-            p_title: `${state.userProfile.name || 'User'}'s Session`,
-            p_description: 'Live learning session'
-        });
+        const sessionCode = generateSessionCode();
+        
+        const { data: session, error } = await supabase
+            .from('virtual_sessions')
+            .insert({
+                host_id: state.currentUser.id,
+                title: `${state.userProfile.name || 'User'}'s Session`,
+                session_code: sessionCode,
+                status: 'waiting',
+                start_time: new Date().toISOString()
+            })
+            .select()
+            .single();
 
         if (error) throw error;
 
-        state.sessionId = data;
-        state.isHost = true;
-        state.isLive = true;
-
-        // Get session details
-        const { data: session, error: sessionError } = await supabase
-            .from('virtual_sessions')
-            .select('*')
-            .eq('id', state.sessionId)
-            .single();
-
-        if (sessionError) throw sessionError;
-
+        state.sessionId = session.id;
         state.sessionCode = session.session_code;
+        state.isHost = true;
+        state.isLive = false;
+
         DOM.roomTitle.textContent = session.title || 'Live Session';
         DOM.shareCodeDisplay.textContent = state.sessionCode;
 
-        // Update UI for host
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
 
-        // Start local stream
         await startLocalStream();
+        await setupWebRTC(true);
 
-        // Initialize PeerJS
-        await initPeerJS(true);
-
-        // Update session status to live
         await supabase
             .from('virtual_sessions')
-            .update({ status: 'live', start_time: new Date().toISOString() })
+            .update({ status: 'live' })
             .eq('id', state.sessionId);
 
-        // Show share info
+        state.isLive = true;
+
+        await supabase
+            .from('session_participants')
+            .insert({
+                session_id: state.sessionId,
+                user_id: state.currentUser.id,
+                role: 'host',
+                is_active: true,
+                joined_at: new Date().toISOString()
+            });
+
+        // Update chat iframe with session info
+        setTimeout(() => {
+            sendToChatIframe({
+                type: 'session_info',
+                sessionId: state.sessionId,
+                sessionCode: state.sessionCode,
+                isHost: state.isHost,
+                roomTitle: DOM.roomTitle.textContent
+            });
+        }, 2000);
+
         showToast(`Session created! Code: ${state.sessionCode}`, 'success');
         
-        // Auto-open share modal for host
         setTimeout(() => {
             DOM.shareModal.classList.add('active');
         }, 1500);
@@ -238,7 +245,7 @@ async function createNewSession() {
 
     } catch (error) {
         console.error('❌ Create session error:', error);
-        showToast('Failed to create session', 'error');
+        showToast('Failed to create session: ' + error.message, 'error');
         useFallbackMode();
     }
 }
@@ -248,7 +255,6 @@ async function joinSession(sessionCode) {
         showLoading(true);
         DOM.loadingText.textContent = 'Joining session...';
 
-        // Get session by code
         const { data: session, error } = await supabase
             .from('virtual_sessions')
             .select('*')
@@ -274,7 +280,6 @@ async function joinSession(sessionCode) {
         DOM.roomTitle.textContent = session.title || 'Live Session';
         DOM.shareCodeDisplay.textContent = state.sessionCode;
 
-        // Add viewer to participants
         await supabase
             .from('session_participants')
             .upsert({
@@ -283,181 +288,389 @@ async function joinSession(sessionCode) {
                 role: 'viewer',
                 is_active: true,
                 joined_at: new Date().toISOString()
-            });
+            }, { onConflict: 'session_id,user_id' });
 
-        // Update viewer count
         await updateViewerCount();
 
-        // Update UI for viewer
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
 
-        // Show local video
         DOM.pipVideo.style.display = 'block';
         await startLocalStream();
 
-        // Initialize PeerJS
-        await initPeerJS(false);
-
-        // Load host stream
-        await loadHostStream(session.host_id);
-
-        // Load participants
+        await setupWebRTC(false);
         await loadParticipants();
+
+        // Update chat iframe
+        setTimeout(() => {
+            sendToChatIframe({
+                type: 'session_info',
+                sessionId: state.sessionId,
+                sessionCode: state.sessionCode,
+                isHost: state.isHost,
+                roomTitle: DOM.roomTitle.textContent
+            });
+        }, 2000);
 
         console.log('📡 Joined session:', sessionCode);
 
     } catch (error) {
         console.error('❌ Join session error:', error);
-        showToast('Failed to join session', 'error');
+        showToast('Failed to join session: ' + error.message, 'error');
         useFallbackMode();
     }
 }
 
 // ============================================
-// PEERJS (WebRTC)
+// GENERATE SESSION CODE
 // ============================================
 
-async function initPeerJS(isHost) {
-    return new Promise((resolve) => {
-        try {
-            const peerId = `glimu_${state.currentUser.id}_${Date.now()}`;
-
-            state.peer = new Peer(peerId, {
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                }
-            });
-
-            state.peer.on('open', async (id) => {
-                state.peerId = id;
-                console.log('🔗 PeerJS connected:', id);
-
-                // Register peer ID
-                await supabase
-                    .from('session_participants')
-                    .update({ peer_id: id })
-                    .eq('session_id', state.sessionId)
-                    .eq('user_id', state.currentUser.id);
-
-                if (isHost) {
-                    // Host waits for connections
-                    state.peer.on('connection', handlePeerConnection);
-                    state.peer.on('call', handleIncomingCall);
-                } else {
-                    // Viewer connects to host
-                    await connectToHost();
-                }
-
-                resolve();
-            });
-
-            state.peer.on('error', (err) => {
-                console.error('❌ PeerJS error:', err);
-                showToast('Connection issue. Using chat-only mode.', 'warning');
-                useFallbackMode();
-                resolve();
-            });
-
-        } catch (err) {
-            console.error('❌ PeerJS init error:', err);
-            useFallbackMode();
-            resolve();
-        }
-    });
+function generateSessionCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = 'GLM-';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
 }
 
-async function connectToHost() {
-    try {
-        // Get host peer ID
-        const { data: host } = await supabase
-            .from('session_participants')
-            .select('peer_id, user_id')
-            .eq('session_id', state.sessionId)
-            .eq('role', 'host')
-            .single();
+// ============================================
+// WEBRTC WITH SUPABASE REALTIME
+// ============================================
 
-        if (host?.peer_id) {
-            state.hostPeerId = host.peer_id;
+async function setupWebRTC(isHost) {
+    if (state.isConnecting) {
+        console.log('⏳ Already connecting, skipping...');
+        return;
+    }
+    
+    state.isConnecting = true;
+    state.connectionAttempts = 0;
+
+    try {
+        const config = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ],
+            iceCandidatePoolSize: 10
+        };
+
+        state.peerConnection = new RTCPeerConnection(config);
+
+        if (state.localStream) {
+            state.localStream.getTracks().forEach(track => {
+                state.peerConnection.addTrack(track, state.localStream);
+            });
+        }
+
+        if (isHost) {
+            state.dataChannel = state.peerConnection.createDataChannel('signaling');
+            state.dataChannel.onopen = () => {
+                console.log('📡 Data channel opened');
+                state.dataChannel.send(JSON.stringify({
+                    type: 'host_ready',
+                    userId: state.currentUser.id,
+                    name: state.userProfile.name || 'Host'
+                }));
+            };
+            state.dataChannel.onmessage = handleDataChannelMessage;
+        } else {
+            state.peerConnection.ondatachannel = (event) => {
+                state.dataChannel = event.channel;
+                state.dataChannel.onmessage = handleDataChannelMessage;
+                state.dataChannel.onopen = () => {
+                    console.log('📡 Data channel opened');
+                    state.dataChannel.send(JSON.stringify({
+                        type: 'viewer_ready',
+                        userId: state.currentUser.id,
+                        name: state.userProfile.name || 'Viewer'
+                    }));
+                };
+            };
+        }
+
+        state.peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                sendSignalingMessage({
+                    type: 'ice_candidate',
+                    candidate: event.candidate,
+                    userId: state.currentUser.id
+                });
+            }
+        };
+
+        state.peerConnection.oniceconnectionstatechange = () => {
+            const state = state.peerConnection.iceConnectionState;
+            console.log('🔗 ICE state:', state);
             
-            // Call host
-            const call = state.peer.call(host.peer_id, state.localStream);
-            call.on('stream', (remoteStream) => {
-                DOM.hostVideo.srcObject = remoteStream;
+            if (state === 'connected' || state === 'completed') {
+                console.log('✅ WebRTC connected');
+                showLoading(false);
+            } else if (state === 'failed' || state === 'disconnected') {
+                console.warn('⚠️ WebRTC connection failed');
+                if (state.connectionAttempts < state.maxConnectionAttempts) {
+                    state.connectionAttempts++;
+                    console.log(`🔄 Retrying connection (${state.connectionAttempts}/${state.maxConnectionAttempts})...`);
+                    setTimeout(() => {
+                        reconnectWebRTC(isHost);
+                    }, 3000);
+                } else {
+                    useFallbackMode();
+                }
+            }
+        };
+
+        state.peerConnection.ontrack = (event) => {
+            console.log('📺 Remote stream received');
+            if (isHost) {
+                // Viewer stream
+                const viewerId = event.streams[0].id || 'viewer';
+                state.viewerStreams.set(viewerId, event.streams[0]);
+                renderViewerThumbnails();
+            } else {
+                // Host stream
+                DOM.hostVideo.srcObject = event.streams[0];
                 DOM.hostVideo.play().catch(() => {});
                 DOM.hostVideo.parentElement.classList.add('has-video');
                 DOM.hostPlaceholder.style.display = 'none';
-            });
-            call.on('close', () => {
-                DOM.hostVideo.parentElement.classList.remove('has-video');
-                DOM.hostPlaceholder.style.display = 'flex';
-            });
+            }
+        };
+
+        setupSignalingSubscription();
+
+        if (isHost) {
+            // Host creates offer after a short delay
+            setTimeout(async () => {
+                try {
+                    const offer = await state.peerConnection.createOffer();
+                    await state.peerConnection.setLocalDescription(offer);
+                    
+                    sendSignalingMessage({
+                        type: 'offer',
+                        sdp: offer,
+                        userId: state.currentUser.id,
+                        sessionId: state.sessionId
+                    });
+                    console.log('📤 Offer sent');
+                } catch (err) {
+                    console.error('❌ Error creating offer:', err);
+                }
+            }, 1000);
         }
+
+        state.isConnecting = false;
+        console.log('🔗 WebRTC setup complete');
+
     } catch (error) {
-        console.error('❌ Connect to host error:', error);
+        console.error('❌ WebRTC setup error:', error);
+        state.isConnecting = false;
+        useFallbackMode();
     }
 }
 
-function handleIncomingCall(call) {
-    call.answer(state.localStream);
-    call.on('stream', (remoteStream) => {
-        DOM.hostVideo.srcObject = remoteStream;
-        DOM.hostVideo.play().catch(() => {});
-        DOM.hostVideo.parentElement.classList.add('has-video');
-        DOM.hostPlaceholder.style.display = 'none';
+async function reconnectWebRTC(isHost) {
+    console.log('🔄 Reconnecting WebRTC...');
+    if (state.peerConnection) {
+        state.peerConnection.close();
+        state.peerConnection = null;
+    }
+    await setupWebRTC(isHost);
+}
+
+// ============================================
+// SIGNALING VIA SUPABASE REALTIME
+// ============================================
+
+function setupSignalingSubscription() {
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
+    }
+
+    const channelName = `signaling_${state.sessionId}`;
+    state.signalingSubscription = supabase
+        .channel(channelName)
+        .on('broadcast', { event: 'signal' }, (payload) => {
+            handleSignalingMessage(payload.payload);
+        })
+        .subscribe((status) => {
+            console.log('📡 Signaling channel status:', status);
+        });
+}
+
+function sendSignalingMessage(message) {
+    if (!state.sessionId) return;
+    
+    const channelName = `signaling_${state.sessionId}`;
+    supabase.channel(channelName).send({
+        type: 'broadcast',
+        event: 'signal',
+        payload: message
+    }).catch(err => {
+        console.warn('⚠️ Failed to send signaling message:', err);
     });
 }
 
-function handlePeerConnection(conn) {
-    console.log('📡 Peer connected:', conn.peer);
-    
-    conn.on('data', (data) => {
-        handlePeerData(data, conn.peer);
-    });
+function handleSignalingMessage(message) {
+    console.log('📨 Signaling:', message.type, 'from', message.userId);
+
+    if (message.userId === state.currentUser.id) return;
+
+    const pc = state.peerConnection;
+    if (!pc) {
+        console.warn('⚠️ No peer connection for signaling');
+        return;
+    }
+
+    try {
+        switch (message.type) {
+            case 'offer':
+                pc.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                    .then(() => pc.createAnswer())
+                    .then(answer => pc.setLocalDescription(answer))
+                    .then(() => {
+                        sendSignalingMessage({
+                            type: 'answer',
+                            sdp: pc.localDescription,
+                            userId: state.currentUser.id,
+                            sessionId: state.sessionId
+                        });
+                    })
+                    .catch(err => console.error('❌ Answer error:', err));
+                break;
+
+            case 'answer':
+                pc.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                    .catch(err => console.error('❌ Set remote desc error:', err));
+                break;
+
+            case 'ice_candidate':
+                if (message.candidate) {
+                    pc.addIceCandidate(new RTCIceCandidate(message.candidate))
+                        .catch(err => console.warn('⚠️ ICE candidate error:', err));
+                }
+                break;
+
+            case 'host_ready':
+                if (!state.isHost) {
+                    // Request offer from host
+                    sendSignalingMessage({
+                        type: 'request_offer',
+                        userId: state.currentUser.id
+                    });
+                }
+                break;
+
+            case 'request_offer':
+                if (state.isHost && state.isLive) {
+                    pc.createOffer()
+                        .then(offer => pc.setLocalDescription(offer))
+                        .then(() => {
+                            sendSignalingMessage({
+                                type: 'offer',
+                                sdp: pc.localDescription,
+                                userId: state.currentUser.id,
+                                sessionId: state.sessionId
+                            });
+                        })
+                        .catch(err => console.error('❌ Offer error:', err));
+                }
+                break;
+
+            case 'viewer_ready':
+                if (state.isHost && state.isLive) {
+                    pc.createOffer()
+                        .then(offer => pc.setLocalDescription(offer))
+                        .then(() => {
+                            sendSignalingMessage({
+                                type: 'offer',
+                                sdp: pc.localDescription,
+                                userId: state.currentUser.id,
+                                sessionId: state.sessionId
+                            });
+                        })
+                        .catch(err => console.error('❌ Offer error:', err));
+                }
+                break;
+        }
+    } catch (error) {
+        console.error('❌ Signaling handling error:', error);
+    }
 }
 
-function handlePeerData(data, peerId) {
-    console.log('📨 Peer data:', data);
-    
-    switch (data.type) {
-        case 'mute_audio':
-            if (state.localStream) {
-                const audioTrack = state.localStream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = !data.value;
-                    state.isMuted = data.value;
-                    updateLocalControls();
+// ============================================
+// DATA CHANNEL HANDLER
+// ============================================
+
+function handleDataChannelMessage(event) {
+    try {
+        const data = JSON.parse(event.data);
+        console.log('📨 Data channel:', data.type);
+        
+        switch (data.type) {
+            case 'hand_raised':
+                if (state.isHost) {
+                    showToast(`🙋 ${data.name || 'A viewer'} raised their hand!`, 'warning');
+                    sendToChatIframe({
+                        type: 'system_message',
+                        message: `🙋 ${data.name || 'A viewer'} raised their hand`
+                    });
+                    // Update participant state
+                    const participant = state.participants.get(data.userId);
+                    if (participant) {
+                        participant.hand_raised = true;
+                        state.participants.set(data.userId, participant);
+                        renderViewerThumbnails();
+                        renderParticipantsModal();
+                    }
                 }
-            }
-            break;
-            
-        case 'mute_video':
-            if (state.localStream) {
-                const videoTrack = state.localStream.getVideoTracks()[0];
-                if (videoTrack) {
-                    videoTrack.enabled = !data.value;
-                    state.isCameraOff = data.value;
-                    updateLocalControls();
+                break;
+                
+            case 'tip_sent':
+                showToast(`🎁 ${data.name || 'Someone'} sent a tip!`, 'success');
+                updateHostStats();
+                break;
+                
+            case 'star_rated':
+                showToast(`⭐ ${data.name || 'Someone'} rated ${data.stars} stars!`, 'success');
+                updateHostStats();
+                break;
+                
+            case 'mute_audio':
+                if (state.localStream) {
+                    const audioTrack = state.localStream.getAudioTracks()[0];
+                    if (audioTrack) {
+                        audioTrack.enabled = !data.value;
+                        state.isMuted = data.value;
+                        updateLocalControls();
+                        showToast(data.value ? 'You have been muted by the host' : 'You have been unmuted', 'info');
+                    }
                 }
-            }
-            break;
-            
-        case 'whiteboard_update':
-            // Handle whiteboard sync
-            handleWhiteboardSync(data);
-            break;
-            
-        case 'screen_share':
-            // Handle screen share
-            handleScreenShare(data, peerId);
-            break;
+                break;
+                
+            case 'mute_all':
+                if (state.localStream) {
+                    const audioTrack = state.localStream.getAudioTracks()[0];
+                    if (audioTrack) {
+                        audioTrack.enabled = !data.value;
+                        state.isMuted = data.value;
+                        updateLocalControls();
+                        showToast(data.value ? 'All viewers have been muted' : 'All viewers have been unmuted', 'info');
+                    }
+                }
+                break;
+                
+            case 'screen_share':
+                handleScreenShare(data);
+                break;
+                
+            case 'whiteboard_update':
+                handleWhiteboardSync(data);
+                break;
+        }
+    } catch (error) {
+        console.error('❌ Data channel error:', error);
     }
 }
 
@@ -473,7 +686,10 @@ async function startLocalStream() {
                 width: { ideal: 640 }, 
                 height: { ideal: 480 } 
             },
-            audio: true
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true
+            }
         });
 
         DOM.localVideo.srcObject = state.localStream;
@@ -482,14 +698,13 @@ async function startLocalStream() {
         DOM.pipVideo.classList.add('has-video');
         DOM.pipPlaceholder.style.display = 'none';
 
-        // Update mic/cam status
         updateLocalControls();
-
         console.log('🎥 Local stream started');
 
     } catch (err) {
         console.error('❌ Camera error:', err);
-        showToast('Could not access camera/microphone', 'warning');
+        showToast('Could not access camera/microphone. Please check permissions.', 'warning');
+        DOM.pipVideo.style.display = 'block';
         DOM.pipVideo.classList.remove('has-video');
         DOM.pipPlaceholder.style.display = 'flex';
     }
@@ -506,16 +721,12 @@ function toggleMicrophone() {
     updateLocalControls();
     showToast(state.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
     
-    // Notify host if viewer
-    if (!state.isHost && state.peer) {
-        const conn = state.peer.connect(state.hostPeerId);
-        conn.on('open', () => {
-            conn.send({
-                type: 'audio_status',
-                muted: state.isMuted,
-                userId: state.currentUser.id
-            });
-        });
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+        state.dataChannel.send(JSON.stringify({
+            type: 'mute_audio',
+            value: state.isMuted,
+            userId: state.currentUser.id
+        }));
     }
 }
 
@@ -530,18 +741,6 @@ function toggleCamera() {
     DOM.pipVideo.classList.toggle('camera-off', state.isCameraOff);
     updateLocalControls();
     showToast(state.isCameraOff ? 'Camera off' : 'Camera on', 'info');
-    
-    // Notify host if viewer
-    if (!state.isHost && state.peer) {
-        const conn = state.peer.connect(state.hostPeerId);
-        conn.on('open', () => {
-            conn.send({
-                type: 'video_status',
-                off: state.isCameraOff,
-                userId: state.currentUser.id
-            });
-        });
-    }
 }
 
 function updateLocalControls() {
@@ -556,111 +755,6 @@ function updateLocalControls() {
     if (camIcon) {
         camIcon.className = state.isCameraOff ? 'fas fa-video-slash' : 'fas fa-video';
         DOM.pipCamControl.classList.toggle('off', state.isCameraOff);
-    }
-}
-
-// ============================================
-// SCREEN SHARE
-// ============================================
-
-async function toggleScreenShare() {
-    if (!state.isHost) {
-        showToast('Only hosts can share screens', 'warning');
-        return;
-    }
-
-    if (state.isScreenSharing) {
-        // Stop screen share
-        if (state.screenStream) {
-            state.screenStream.getTracks().forEach(t => track.stop());
-            state.screenStream = null;
-        }
-        state.isScreenSharing = false;
-        document.getElementById('screenBtn').classList.remove('active');
-        showToast('Screen share stopped', 'info');
-        return;
-    }
-
-    try {
-        state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always' },
-            audio: false
-        });
-
-        state.isScreenSharing = true;
-        document.getElementById('screenBtn').classList.add('active');
-        showToast('Screen sharing started', 'success');
-
-        // Broadcast to all viewers
-        state.participants.forEach((participant, userId) => {
-            if (userId !== state.currentUser.id) {
-                const conn = state.peer.connect(participant.peer_id);
-                conn.on('open', () => {
-                    conn.send({
-                        type: 'screen_share',
-                        stream: true
-                    });
-                });
-            }
-        });
-
-        // Display screen on host video
-        DOM.hostVideo.srcObject = state.screenStream;
-        DOM.videoQuality.textContent = 'SCREEN';
-
-        state.screenStream.getVideoTracks()[0].onended = () => {
-            toggleScreenShare();
-        };
-
-    } catch (err) {
-        console.error('Screen share error:', err);
-        showToast('Screen share cancelled or failed', 'warning');
-        state.isScreenSharing = false;
-        document.getElementById('screenBtn').classList.remove('active');
-    }
-}
-
-function handleScreenShare(data, peerId) {
-    if (data.stream) {
-        // Request screen stream from host
-        const call = state.peer.call(peerId, null);
-        call.on('stream', (stream) => {
-            DOM.hostVideo.srcObject = stream;
-            DOM.videoQuality.textContent = 'SCREEN';
-        });
-    }
-}
-
-// ============================================
-// HOST STREAM LOADING (for viewers)
-// ============================================
-
-async function loadHostStream(hostId) {
-    try {
-        // Get host participant
-        const { data: host } = await supabase
-            .from('session_participants')
-            .select('peer_id')
-            .eq('session_id', state.sessionId)
-            .eq('user_id', hostId)
-            .single();
-
-        if (host?.peer_id) {
-            state.hostPeerId = host.peer_id;
-            const call = state.peer.call(host.peer_id, state.localStream);
-            call.on('stream', (stream) => {
-                DOM.hostVideo.srcObject = stream;
-                DOM.hostVideo.play().catch(() => {});
-                DOM.hostVideo.parentElement.classList.add('has-video');
-                DOM.hostPlaceholder.style.display = 'none';
-            });
-            call.on('close', () => {
-                DOM.hostVideo.parentElement.classList.remove('has-video');
-                DOM.hostPlaceholder.style.display = 'flex';
-            });
-        }
-    } catch (error) {
-        console.error('❌ Load host stream error:', error);
     }
 }
 
@@ -689,13 +783,14 @@ function renderViewerThumbnails() {
         const isMuted = viewer.is_muted || false;
         const isVideoOff = viewer.is_video_off || false;
         const handRaised = viewer.hand_raised || false;
+        const hasStream = state.viewerStreams.has(viewer.user_id);
 
         return `
             <div class="viewer-thumbnail ${isActive ? 'active' : ''}" 
                  data-user-id="${viewer.user_id}"
-                 onclick="switchViewer('${viewer.user_id}')">
-                <video id="viewer_${viewer.user_id}" autoplay playsinline muted></video>
-                <div class="thumb-placeholder" style="${isVideoOff ? 'display:flex' : 'display:none'}">
+                 onclick="window.switchViewer('${viewer.user_id}')">
+                <video id="viewer_${viewer.user_id}" autoplay playsinline muted ${hasStream ? '' : 'style="display:none;"'}></video>
+                <div class="thumb-placeholder" style="${hasStream ? 'display:none' : 'display:flex'}">
                     <i class="fas fa-user-circle"></i>
                 </div>
                 <div class="thumb-name">${viewer.name || 'Viewer'}</div>
@@ -705,7 +800,7 @@ function renderViewerThumbnails() {
                     ${isVideoOff ? '<i class="status-icon video-off fas fa-video-slash"></i>' : ''}
                 </div>
                 ${state.isHost ? `
-                    <button class="mute-btn" onclick="event.stopPropagation(); toggleViewerMute('${viewer.user_id}')">
+                    <button class="mute-btn" onclick="event.stopPropagation(); window.toggleViewerMute('${viewer.user_id}')">
                         ${isMuted ? 'Unmute' : 'Mute'}
                     </button>
                 ` : ''}
@@ -718,12 +813,14 @@ function renderViewerThumbnails() {
         const videoEl = document.getElementById(`viewer_${viewer.user_id}`);
         if (videoEl && state.viewerStreams.has(viewer.user_id)) {
             videoEl.srcObject = state.viewerStreams.get(viewer.user_id);
+            videoEl.style.display = 'block';
+            videoEl.play().catch(() => {});
         }
     });
 }
 
 // ============================================
-// VIEWER MANAGEMENT
+// PARTICIPANTS
 // ============================================
 
 async function loadParticipants() {
@@ -744,16 +841,12 @@ async function loadParticipants() {
             });
         });
 
-        // Update counts
         const viewerCount = data.filter(p => p.role !== 'host').length;
         state.viewerCount = viewerCount;
         DOM.viewerCount.textContent = viewerCount;
         DOM.participantCount.textContent = data.length;
 
-        // Render thumbnails
         renderViewerThumbnails();
-
-        // Update participants modal
         renderParticipantsModal();
 
     } catch (error) {
@@ -783,12 +876,11 @@ function switchViewer(userId) {
     if (state.activeViewerId === userId) {
         state.activeViewerId = null;
         // Switch back to host
-        if (state.isHost && state.screenStream && state.isScreenSharing) {
-            DOM.hostVideo.srcObject = state.screenStream;
-            DOM.videoQuality.textContent = 'SCREEN';
+        if (state.isHost && state.isScreenSharing) {
+            // Show screen share
         } else {
             // Reload host stream
-            loadHostStream(state.participants.get(userId)?.user_id);
+            loadHostStream();
         }
         renderViewerThumbnails();
         return;
@@ -803,8 +895,14 @@ function switchViewer(userId) {
     }
 }
 
+function loadHostStream() {
+    // Host stream is already in DOM.hostVideo
+    // This is a placeholder for reconnecting
+    console.log('🔄 Loading host stream...');
+}
+
 // ============================================
-// HOST CONTROLS - MUTE
+// HOST CONTROLS
 // ============================================
 
 async function toggleViewerMute(userId) {
@@ -815,30 +913,26 @@ async function toggleViewerMute(userId) {
 
     const isMuted = !viewer.is_muted;
 
-    // Update in database
     await supabase
         .from('session_participants')
         .update({ is_muted: isMuted })
         .eq('session_id', state.sessionId)
         .eq('user_id', userId);
 
-    // Send mute command via PeerJS
-    if (viewer.peer_id) {
-        const conn = state.peer.connect(viewer.peer_id);
-        conn.on('open', () => {
-            conn.send({
-                type: 'mute_audio',
-                value: isMuted
-            });
-        });
-    }
-
-    // Update local state
     viewer.is_muted = isMuted;
     state.participants.set(userId, viewer);
 
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+        state.dataChannel.send(JSON.stringify({
+            type: 'mute_audio',
+            value: isMuted,
+            userId: userId
+        }));
+    }
+
     showToast(`${isMuted ? 'Muted' : 'Unmuted'} ${viewer.name || 'Viewer'}`, 'info');
     renderViewerThumbnails();
+    renderParticipantsModal();
 }
 
 async function toggleMuteAll() {
@@ -851,11 +945,27 @@ async function toggleMuteAll() {
     const newMuteState = !allMuted;
 
     for (const viewer of viewers) {
-        await toggleViewerMute(viewer.user_id);
+        await supabase
+            .from('session_participants')
+            .update({ is_muted: newMuteState })
+            .eq('session_id', state.sessionId)
+            .eq('user_id', viewer.user_id);
+        
+        viewer.is_muted = newMuteState;
+        state.participants.set(viewer.user_id, viewer);
+    }
+
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+        state.dataChannel.send(JSON.stringify({
+            type: 'mute_all',
+            value: newMuteState
+        }));
     }
 
     document.getElementById('muteAllBtn').classList.toggle('active', newMuteState);
     showToast(newMuteState ? 'All viewers muted' : 'All viewers unmuted', 'info');
+    renderViewerThumbnails();
+    renderParticipantsModal();
 }
 
 // ============================================
@@ -877,19 +987,79 @@ async function toggleRaiseHand() {
     if (state.handRaised) {
         showToast('Hand raised! 🙋', 'success');
         
-        // Notify host via chat iframe
+        if (state.dataChannel && state.dataChannel.readyState === 'open') {
+            state.dataChannel.send(JSON.stringify({
+                type: 'hand_raised',
+                userId: state.currentUser.id,
+                name: state.userProfile.name || 'A viewer'
+            }));
+        }
+        
         sendToChatIframe({
             type: 'system_message',
             message: `🙋 ${state.userProfile.name || 'A viewer'} raised their hand`
         });
-
-        // Also notify via toast
-        if (!state.isHost) {
-            showToast('Host has been notified', 'info');
-        }
     } else {
         showToast('Hand lowered', 'info');
     }
+}
+
+// ============================================
+// SCREEN SHARE
+// ============================================
+
+async function toggleScreenShare() {
+    if (!state.isHost) {
+        showToast('Only hosts can share screens', 'warning');
+        return;
+    }
+
+    if (state.isScreenSharing) {
+        if (state.screenStream) {
+            state.screenStream.getTracks().forEach(t => t.stop());
+            state.screenStream = null;
+        }
+        state.isScreenSharing = false;
+        document.getElementById('screenBtn').classList.remove('active');
+        showToast('Screen share stopped', 'info');
+        return;
+    }
+
+    try {
+        state.screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'always' },
+            audio: false
+        });
+
+        state.isScreenSharing = true;
+        document.getElementById('screenBtn').classList.add('active');
+        showToast('Screen sharing started', 'success');
+
+        // Add screen track to peer connection
+        const screenTrack = state.screenStream.getVideoTracks()[0];
+        const sender = state.peerConnection.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+            sender.replaceTrack(screenTrack);
+        }
+
+        // Update video quality indicator
+        DOM.videoQuality.textContent = 'SCREEN';
+
+        screenTrack.onended = () => {
+            toggleScreenShare();
+        };
+
+    } catch (err) {
+        console.error('Screen share error:', err);
+        showToast('Screen share cancelled or failed', 'warning');
+        state.isScreenSharing = false;
+        document.getElementById('screenBtn').classList.remove('active');
+    }
+}
+
+function handleScreenShare(data) {
+    // Handled by peer connection track replacement
+    console.log('📺 Screen share:', data);
 }
 
 // ============================================
@@ -902,7 +1072,6 @@ async function sendTip(amount, currency) {
         return;
     }
 
-    // Get host ID
     const { data: session } = await supabase
         .from('virtual_sessions')
         .select('host_id')
@@ -929,7 +1098,6 @@ async function sendTip(amount, currency) {
     }
 
     try {
-        // Deduct from user
         const newBalance = currency === 'wallet' ? userBalance - amount : userBalance;
         const newGP = currency === 'gp' ? userGP - amount : userGP;
 
@@ -941,7 +1109,6 @@ async function sendTip(amount, currency) {
             })
             .eq('id', state.currentUser.id);
 
-        // Record tip
         await supabase
             .from('session_tips')
             .insert({
@@ -953,7 +1120,6 @@ async function sendTip(amount, currency) {
                 tip_type: currency === 'wallet' ? 'wallet' : 'gp'
             });
 
-        // Update session tips total
         if (currency === 'wallet') {
             state.tipsTotal += amount;
             await supabase
@@ -968,7 +1134,6 @@ async function sendTip(amount, currency) {
                 .eq('id', state.sessionId);
         }
 
-        // Update host wallet/GP
         if (currency === 'wallet') {
             const { data: host } = await supabase
                 .from('users')
@@ -1000,10 +1165,18 @@ async function sendTip(amount, currency) {
         showToast(`Tip sent! ${amount} ${currency === 'wallet' ? '₦' : 'GP'}`, 'success');
         DOM.tipModal.classList.remove('active');
 
-        // Update host stats
         updateHostStats();
 
-        // Notify host via chat iframe
+        if (state.dataChannel && state.dataChannel.readyState === 'open') {
+            state.dataChannel.send(JSON.stringify({
+                type: 'tip_sent',
+                userId: state.currentUser.id,
+                name: state.userProfile.name || 'A viewer',
+                amount: amount,
+                currency: currency
+            }));
+        }
+
         sendToChatIframe({
             type: 'system_message',
             message: `🎁 ${state.userProfile.name || 'A viewer'} sent a tip!`
@@ -1023,7 +1196,6 @@ function updateBalanceDisplay() {
 }
 
 function updateHostStats() {
-    // Update host stars and tips from session data
     supabase
         .from('virtual_sessions')
         .select('stars_count, tips_total, avg_rating, total_ratings')
@@ -1038,7 +1210,7 @@ function updateHostStats() {
 }
 
 // ============================================
-// STAR RATING SYSTEM
+// STAR RATING
 // ============================================
 
 function setupStarRating() {
@@ -1066,14 +1238,12 @@ async function submitRating() {
     }
 
     try {
-        // Record rating
         await supabase
             .from('session_participants')
             .update({ star_rating: state.starRating })
             .eq('session_id', state.sessionId)
             .eq('user_id', state.currentUser.id);
 
-        // Update session stats
         const { data: session } = await supabase
             .from('virtual_sessions')
             .select('stars_count, total_ratings, avg_rating')
@@ -1097,11 +1267,17 @@ async function submitRating() {
         DOM.starModal.classList.remove('active');
 
         showToast(`Rated ${state.starRating} stars! ⭐`, 'success');
-
-        // Update host stats
         DOM.hostStars.textContent = newStarsCount;
 
-        // Notify host via chat iframe
+        if (state.dataChannel && state.dataChannel.readyState === 'open') {
+            state.dataChannel.send(JSON.stringify({
+                type: 'star_rated',
+                userId: state.currentUser.id,
+                name: state.userProfile.name || 'A viewer',
+                stars: state.starRating
+            }));
+        }
+
         sendToChatIframe({
             type: 'system_message',
             message: `⭐ ${state.userProfile.name || 'A viewer'} rated ${state.starRating} stars!`
@@ -1231,7 +1407,6 @@ async function endSession() {
         showLoading(true);
         DOM.loadingText.textContent = 'Ending session...';
 
-        // Update session status
         await supabase
             .from('virtual_sessions')
             .update({
@@ -1240,10 +1415,8 @@ async function endSession() {
             })
             .eq('id', state.sessionId);
 
-        // Update host streak
         await updateHostStreak(state.sessionId);
 
-        // Show ended overlay
         const { data: session } = await supabase
             .from('virtual_sessions')
             .select('*')
@@ -1258,9 +1431,7 @@ async function endSession() {
         state.sessionEnded = true;
         state.isLive = false;
 
-        // Cleanup
         cleanup();
-
         showToast('Session ended successfully', 'success');
 
     } catch (error) {
@@ -1293,7 +1464,6 @@ function handleSessionUpdate(session) {
 function setupRealtimeSubscriptions() {
     if (!state.sessionId) return;
 
-    // Participants
     state.participantsSubscription = supabase
         .channel(`session_participants_${state.sessionId}`)
         .on('postgres_changes', {
@@ -1307,7 +1477,6 @@ function setupRealtimeSubscriptions() {
         })
         .subscribe();
 
-    // Session updates
     state.sessionSubscription = supabase
         .channel(`session_${state.sessionId}`)
         .on('postgres_changes', {
@@ -1330,18 +1499,16 @@ function setupChatIframe() {
     const iframe = DOM.chatIframe;
     if (!iframe) return;
 
-    // Listen for messages from the iframe
     window.addEventListener('message', (event) => {
         if (event.source !== iframe.contentWindow) return;
 
         const data = event.data;
-        console.log('📨 Chat iframe message:', data);
+        console.log('📨 Chat iframe:', data.type);
 
         switch (data.type) {
             case 'chat_ready':
                 console.log('💬 Chat iframe ready');
                 state.chatIframeReady = true;
-                // Send session info
                 sendToChatIframe({
                     type: 'session_info',
                     sessionId: state.sessionId,
@@ -1356,18 +1523,9 @@ function setupChatIframe() {
                 updateUnreadBadge();
                 break;
 
-            case 'message_read':
-                state.unreadCount = 0;
-                updateUnreadBadge();
-                break;
-
             case 'hand_raised':
                 if (state.isHost) {
                     showToast(`🙋 ${data.sender} raised their hand!`, 'warning');
-                    sendToChatIframe({
-                        type: 'system_message',
-                        message: `🙋 ${data.sender} raised their hand`
-                    });
                 }
                 break;
 
@@ -1395,7 +1553,6 @@ function setupChatIframe() {
         }
     });
 
-    // Send initial info when iframe loads
     iframe.addEventListener('load', () => {
         setTimeout(() => {
             sendToChatIframe({
@@ -1456,7 +1613,6 @@ function initWhiteboard() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Mouse events
     canvas.addEventListener('mousedown', (e) => {
         state.wbPainting = true;
         const rect = canvas.getBoundingClientRect();
@@ -1464,16 +1620,6 @@ function initWhiteboard() {
         const y = (e.clientY - rect.top) * (canvas.height / rect.height);
         ctx.beginPath();
         ctx.moveTo(x, y);
-        
-        // Start recording stroke
-        state.wbHistory = state.wbHistory.slice(0, state.wbHistoryIndex + 1);
-        state.wbHistory.push({
-            type: 'start',
-            x, y,
-            color: ctx.strokeStyle,
-            lineWidth: ctx.lineWidth
-        });
-        state.wbHistoryIndex = state.wbHistory.length - 1;
     });
 
     canvas.addEventListener('mousemove', (e) => {
@@ -1485,25 +1631,16 @@ function initWhiteboard() {
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(x, y);
-        
-        // Record stroke point
-        state.wbHistory.push({
-            type: 'point',
-            x, y
-        });
-        state.wbHistoryIndex = state.wbHistory.length - 1;
     });
 
     canvas.addEventListener('mouseup', () => { 
         state.wbPainting = false;
-        // Broadcast whiteboard update
         broadcastWhiteboardUpdate();
     });
     canvas.addEventListener('mouseleave', () => { 
         state.wbPainting = false;
     });
 
-    // Touch events
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         state.wbPainting = true;
@@ -1551,8 +1688,6 @@ function setWbTool(tool) {
         ctx.clearRect(0, 0, DOM.wbCanvas.width, DOM.wbCanvas.height);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, DOM.wbCanvas.width, DOM.wbCanvas.height);
-        state.wbHistory = [];
-        state.wbHistoryIndex = -1;
         broadcastWhiteboardUpdate();
         return;
     } else if (tool === 'text') {
@@ -1589,24 +1724,17 @@ function toggleWhiteboard() {
 }
 
 function broadcastWhiteboardUpdate() {
-    if (!state.isHost) return;
+    if (!state.isHost || !DOM.wbCanvas) return;
     
-    // Get canvas data
     const canvas = DOM.wbCanvas;
     const dataUrl = canvas.toDataURL('image/png');
     
-    // Broadcast to all viewers
-    state.participants.forEach((participant, userId) => {
-        if (userId !== state.currentUser.id) {
-            const conn = state.peer.connect(participant.peer_id);
-            conn.on('open', () => {
-                conn.send({
-                    type: 'whiteboard_update',
-                    data: dataUrl
-                });
-            });
-        }
-    });
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+        state.dataChannel.send(JSON.stringify({
+            type: 'whiteboard_update',
+            data: dataUrl
+        }));
+    }
 }
 
 function handleWhiteboardSync(data) {
@@ -1627,7 +1755,6 @@ function handleWhiteboardSync(data) {
 // ============================================
 
 function setupUI() {
-    // Show/hide controls
     if (state.isHost) {
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
@@ -1637,34 +1764,27 @@ function setupUI() {
         DOM.pipVideo.style.display = 'block';
     }
 
-    // Setup star rating
     setupStarRating();
-
-    // Init whiteboard
     initWhiteboard();
 
-    // Show chat iframe
-    DOM.chatIframe.src = `/chat.html?embedded=1&channel=session_${state.sessionId || 'temp'}`;
+    // Set chat iframe src
+    DOM.chatIframe.src = `/chat.html?embedded=1`;
 }
 
 function setupEventListeners() {
-    // Navigation
     document.getElementById('backBtn')?.addEventListener('click', leaveRoom);
     document.getElementById('leaveBtn')?.addEventListener('click', leaveRoom);
 
-    // Media controls
     document.getElementById('micBtn')?.addEventListener('click', toggleMicrophone);
     document.getElementById('camBtn')?.addEventListener('click', toggleCamera);
     DOM.pipMicControl?.addEventListener('click', toggleMicrophone);
     DOM.pipCamControl?.addEventListener('click', toggleCamera);
 
-    // Host controls
     document.getElementById('screenBtn')?.addEventListener('click', toggleScreenShare);
     document.getElementById('endSessionBtn')?.addEventListener('click', endSession);
     document.getElementById('whiteboardBtn')?.addEventListener('click', toggleWhiteboard);
     document.getElementById('muteAllBtn')?.addEventListener('click', toggleMuteAll);
 
-    // Viewer controls
     document.getElementById('raiseHandBtn')?.addEventListener('click', toggleRaiseHand);
     document.getElementById('tipBtn')?.addEventListener('click', () => {
         DOM.tipModal.classList.add('active');
@@ -1677,26 +1797,22 @@ function setupEventListeners() {
         DOM.starModal.classList.add('active');
     });
 
-    // Share
     document.getElementById('shareBtn')?.addEventListener('click', () => {
         DOM.shareModal.classList.add('active');
     });
     document.getElementById('shareToChatBtn')?.addEventListener('click', shareToChat);
     document.getElementById('copyCodeBtn')?.addEventListener('click', copySessionCode);
     
-    // Share buttons
     document.getElementById('shareWhatsApp')?.addEventListener('click', () => shareVia('whatsapp'));
     document.getElementById('shareTwitter')?.addEventListener('click', () => shareVia('twitter'));
     document.getElementById('shareFacebook')?.addEventListener('click', () => shareVia('facebook'));
     document.getElementById('shareEmail')?.addEventListener('click', () => shareVia('email'));
     document.getElementById('shareCopyLink')?.addEventListener('click', copyShareLink);
 
-    // Chat toggle
     document.getElementById('chatToggleBtn')?.addEventListener('click', toggleChatSidebar);
     document.getElementById('closeChatBtn')?.addEventListener('click', toggleChatSidebar);
     DOM.chatOverlay?.addEventListener('click', toggleChatSidebar);
 
-    // Participants
     document.getElementById('participantsBtn')?.addEventListener('click', () => {
         DOM.participantsModal.classList.add('active');
         loadParticipants();
@@ -1705,7 +1821,6 @@ function setupEventListeners() {
         DOM.participantsModal.classList.remove('active');
     });
 
-    // Tip modal
     document.getElementById('closeTipModal')?.addEventListener('click', () => {
         DOM.tipModal.classList.remove('active');
     });
@@ -1726,18 +1841,15 @@ function setupEventListeners() {
         sendTip(amount, currency);
     });
 
-    // Star modal
     document.getElementById('closeStarModal')?.addEventListener('click', () => {
         DOM.starModal.classList.remove('active');
     });
     document.getElementById('submitStars')?.addEventListener('click', submitRating);
 
-    // Share modal
     document.getElementById('closeShareModal')?.addEventListener('click', () => {
         DOM.shareModal.classList.remove('active');
     });
 
-    // Whiteboard
     document.getElementById('closeWhiteboard')?.addEventListener('click', toggleWhiteboard);
     document.querySelectorAll('.wb-tool').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1749,12 +1861,10 @@ function setupEventListeners() {
         setWbColor(e.target.value);
     });
 
-    // Return to dashboard
     document.getElementById('returnBtn')?.addEventListener('click', () => {
         window.location.href = '/user';
     });
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (DOM.tipModal.classList.contains('active')) DOM.tipModal.classList.remove('active');
@@ -1778,7 +1888,6 @@ function setupEventListeners() {
         }
     });
 
-    // Click outside modals to close
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
@@ -1793,7 +1902,6 @@ function toggleChatSidebar() {
     if (DOM.chatSidebar.classList.contains('open')) {
         state.unreadCount = 0;
         updateUnreadBadge();
-        // Focus chat input in iframe
         sendToChatIframe({ type: 'focus_input' });
     }
 }
@@ -1839,7 +1947,6 @@ async function copySessionCode() {
         await navigator.clipboard.writeText(state.sessionCode);
         showToast('📋 Session code copied!', 'success');
     } catch (e) {
-        // Fallback
         const textarea = document.createElement('textarea');
         textarea.value = state.sessionCode;
         document.body.appendChild(textarea);
@@ -1881,7 +1988,6 @@ async function copyShareLink() {
         await navigator.clipboard.writeText(url);
         showToast('📋 Link copied!', 'success');
     } catch (e) {
-        // Fallback
         const textarea = document.createElement('textarea');
         textarea.value = url;
         document.body.appendChild(textarea);
@@ -1911,7 +2017,6 @@ function renderParticipantsModal() {
     DOM.participantsModalList.innerHTML = participants.map(p => {
         const isHost = p.role === 'host';
         const isMuted = p.is_muted || false;
-        const isVideoOff = p.is_video_off || false;
         const handRaised = p.hand_raised || false;
         const isCurrentUser = p.user_id === state.currentUser.id;
 
@@ -1925,7 +2030,6 @@ function renderParticipantsModal() {
                 <div class="status">
                     ${handRaised ? '🙋' : ''}
                     ${isMuted ? '🔇' : ''}
-                    ${isVideoOff ? '📹❌' : ''}
                     ${isHost ? '👑' : ''}
                 </div>
             </div>
@@ -2009,8 +2113,9 @@ function cleanup() {
     if (state.screenStream) {
         state.screenStream.getTracks().forEach(t => t.stop());
     }
-    if (state.peer) {
-        state.peer.destroy();
+    if (state.peerConnection) {
+        state.peerConnection.close();
+        state.peerConnection = null;
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
@@ -2021,6 +2126,9 @@ function cleanup() {
     if (state.sessionSubscription) {
         state.sessionSubscription.unsubscribe();
     }
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
+    }
 }
 
 function leaveRoom() {
@@ -2028,7 +2136,6 @@ function leaveRoom() {
 
     cleanup();
 
-    // Mark participant as inactive
     if (state.sessionId) {
         supabase
             .from('session_participants')
