@@ -1,5 +1,5 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - DAILY.CO COMPLETE
+// 🎥 VIRTUAL ROOM - DAILY.CO FIXED
 // Branded, Professional, Free Tier
 // ============================================
 
@@ -39,6 +39,9 @@ const state = {
     dailyCallFrame: null,
     dailyInitialized: false,
     isConnecting: false,
+    scriptLoadAttempts: 0,
+    maxScriptAttempts: 3,
+    scriptLoaded: false,
 };
 
 // ============================================
@@ -69,6 +72,11 @@ function cacheDOM() {
     DOM.waitingText = document.getElementById('waitingText');
     DOM.waitingSubText = document.getElementById('waitingSubText');
     DOM.dailyFrameContainer = document.getElementById('dailyFrameContainer');
+    DOM.connectionStatus = document.getElementById('connectionStatus');
+    DOM.hostStatusText = document.getElementById('hostStatusText');
+    DOM.hostName = document.getElementById('hostName');
+    DOM.hostStars = document.getElementById('hostStars');
+    DOM.hostTips = document.getElementById('hostTips');
 }
 
 // ============================================
@@ -180,6 +188,7 @@ async function createNewSession() {
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
+        DOM.hostName.textContent = state.userProfile.name || 'Host';
         DOM.waitingText.textContent = 'Starting your session...';
         DOM.waitingSubText.textContent = 'Video will start shortly';
 
@@ -290,8 +299,71 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// DAILY.CO VIDEO INTEGRATION
+// DAILY.CO VIDEO INTEGRATION - FIXED
 // ============================================
+
+async function loadDailyScript() {
+    return new Promise((resolve, reject) => {
+        // Check if already loaded
+        if (window.Daily) {
+            state.scriptLoaded = true;
+            resolve();
+            return;
+        }
+
+        // Check if script tag already exists
+        let script = document.querySelector('#daily-js');
+        if (script) {
+            // Wait for it to load
+            script.addEventListener('load', () => {
+                state.scriptLoaded = true;
+                resolve();
+            });
+            script.addEventListener('error', () => {
+                reject(new Error('Daily.co script failed to load'));
+            });
+            return;
+        }
+
+        // Create new script tag
+        script = document.createElement('script');
+        script.id = 'daily-js';
+        // Use the correct Daily.co CDN URL
+        script.src = 'https://unpkg.com/@daily-co/daily-js@0.48.0/dist/daily.js';
+        script.async = true;
+        script.crossOrigin = 'anonymous';
+
+        script.onload = () => {
+            console.log('✅ Daily.co script loaded');
+            state.scriptLoaded = true;
+            resolve();
+        };
+
+        script.onerror = () => {
+            console.error('❌ Failed to load Daily.co script');
+            // Try alternate CDN
+            const altScript = document.createElement('script');
+            altScript.id = 'daily-js-alt';
+            altScript.src = 'https://cdn.jsdelivr.net/npm/@daily-co/daily-js@0.48.0/dist/daily.js';
+            altScript.async = true;
+            altScript.crossOrigin = 'anonymous';
+            
+            altScript.onload = () => {
+                console.log('✅ Daily.co script loaded (alternate)');
+                state.scriptLoaded = true;
+                resolve();
+            };
+            
+            altScript.onerror = () => {
+                reject(new Error('Daily.co script failed to load from both CDNs'));
+            };
+            
+            document.head.appendChild(altScript);
+        };
+
+        document.head.appendChild(script);
+    });
+}
 
 async function initDailyVideo(isHost) {
     if (state.dailyInitialized) {
@@ -299,33 +371,40 @@ async function initDailyVideo(isHost) {
         return;
     }
 
+    if (state.isConnecting) {
+        console.log('⏳ Already connecting, skipping...');
+        return;
+    }
+
     try {
         state.isConnecting = true;
         console.log('📹 Initializing Daily.co video...');
 
-        // Load Daily.co script
-        if (!document.querySelector('#daily-js')) {
-            const script = document.createElement('script');
-            script.id = 'daily-js';
-            script.src = 'https://unpkg.com/@daily-co/daily-js@0.48.0/daily-js.min.js';
-            document.head.appendChild(script);
-            
-            await new Promise((resolve) => {
-                script.onload = resolve;
-                script.onerror = () => {
-                    console.error('Failed to load Daily.co script');
-                    resolve();
-                };
-                setTimeout(resolve, 10000);
-            });
+        // Load the script with retries
+        if (!state.scriptLoaded) {
+            state.scriptLoadAttempts++;
+            try {
+                await loadDailyScript();
+            } catch (error) {
+                console.error('❌ Script load error:', error);
+                if (state.scriptLoadAttempts < state.maxScriptAttempts) {
+                    console.log(`🔄 Retry ${state.scriptLoadAttempts}/${state.maxScriptAttempts}...`);
+                    state.isConnecting = false;
+                    setTimeout(() => initDailyVideo(isHost), 3000);
+                    return;
+                } else {
+                    showToast('Could not load video service. Using chat only.', 'warning');
+                    state.isConnecting = false;
+                    return;
+                }
+            }
         }
 
-        // Check if Daily is available
+        // Verify Daily is available
         if (typeof Daily === 'undefined') {
-            console.error('Daily.co script not loaded');
-            showToast('Video service loading, please wait...', 'warning');
-            // Retry after delay
-            setTimeout(() => initDailyVideo(isHost), 2000);
+            console.error('Daily.co still not available after loading');
+            showToast('Video service unavailable. Using chat only.', 'warning');
+            state.isConnecting = false;
             return;
         }
 
@@ -340,7 +419,6 @@ async function initDailyVideo(isHost) {
                 roomName: roomName,
                 maxParticipants: 12,
                 videoCodec: 'VP8',
-                // Custom branding
                 branding: {
                     logoUrl: '/icons/logo.png',
                     logoClickUrl: 'https://glimu.com',
@@ -352,23 +430,19 @@ async function initDailyVideo(isHost) {
                         backgroundAccent: '#1a1a2e'
                     }
                 },
-                // UI controls
                 showParticipantsBar: true,
                 showLocalVideo: true,
-                showLeaveButton: false, // We handle leave ourselves
+                showLeaveButton: false,
                 showFullscreenButton: true,
                 showRecordingButton: false,
                 showScreenshareButton: true,
                 showChat: true,
                 showSettingsButton: true,
-                // Start settings
                 startAudioOff: false,
                 startVideoOff: false,
                 startWithDeviceAudio: true,
                 startWithDeviceVideo: true,
-                // Language
                 lang: 'en',
-                // URL room config
                 url: `https://${DAILY_CONFIG.domain}/${roomName}`
             }
         });
@@ -389,11 +463,14 @@ async function initDailyVideo(isHost) {
             state.dailyInitialized = true;
             state.isConnecting = false;
             DOM.videoOverlay.classList.add('hidden');
-            DOM.connectionStatus.textContent = '🟢 Connected';
-            DOM.connectionStatus.style.color = '#10b981';
-            DOM.hostStatusText.textContent = isHost ? 'You are the host' : 'Connected';
+            if (DOM.connectionStatus) {
+                DOM.connectionStatus.textContent = '🟢 Connected';
+                DOM.connectionStatus.style.color = '#10b981';
+            }
+            if (DOM.hostStatusText) {
+                DOM.hostStatusText.textContent = isHost ? 'You are the host' : 'Connected';
+            }
             
-            // Notify chat
             sendToChatIframe({
                 type: 'system_message',
                 message: '📹 Video connected'
@@ -674,7 +751,6 @@ async function endSession() {
     if (!confirm('End this session?')) return;
 
     try {
-        // Leave Daily meeting
         if (state.dailyCallFrame) {
             try {
                 state.dailyCallFrame.leave();
@@ -873,9 +949,11 @@ function setupUI() {
     if (state.isHost) {
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
+        DOM.hostStatusText.textContent = 'You are the host';
     } else {
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
+        DOM.hostStatusText.textContent = 'Connecting to host...';
     }
 }
 
