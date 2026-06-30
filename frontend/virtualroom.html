@@ -6,65 +6,18 @@
     <title>🎥 Virtual Room | Gliimu Institute</title>
     <link rel="icon" type="image/png" href="icons/logo.png">
     
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
     <link rel="stylesheet" href="css/virtualroom.css">
 </head>
 <body>
 
-    <!-- ============================================
-    STICKY NAVIGATION
-    ============================================ -->
-    <div class="sticky-nav" id="stickyNav">
-        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-            <i class="fas fa-ellipsis-v"></i>
-        </button>
-        <div class="nav-dropdown" id="navDropdown">
-            <button class="nav-btn" onclick="window.location.href='/user'">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>Dashboard</span>
-            </button>
-            <button class="nav-btn" onclick="window.location.href='/hub.html'">
-                <i class="fas fa-newspaper"></i>
-                <span>Hub</span>
-            </button>
-            <button class="nav-btn" onclick="window.location.href='/user-course.html'">
-                <i class="fas fa-graduation-cap"></i>
-                <span>Courses</span>
-            </button>
-            <button class="nav-btn" onclick="window.location.href='/chat.html'">
-                <i class="fas fa-comments"></i>
-                <span>Chat</span>
-            </button>
-            <button class="nav-btn" onclick="reportIssue()">
-                <i class="fas fa-flag"></i>
-                <span>Report</span>
-            </button>
-            <button class="nav-btn home-nav" onclick="window.location.href='/user'">
-                <i class="fas fa-home"></i>
-                <span>Home</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- ============================================
-    MAIN CONTAINER
-    ============================================ -->
     <div class="virtual-room" id="app">
         
-        <!-- ==========================================
-        TOP BAR
-        ========================================== -->
+        <!-- Top Bar -->
         <div class="top-bar">
             <div class="top-bar-left">
-                <button class="icon-btn" id="backBtn" title="Leave">
-                    <i class="fas fa-arrow-left"></i>
-                </button>
+                <button class="icon-btn" id="backBtn"><i class="fas fa-arrow-left"></i></button>
                 <div class="room-info">
                     <div class="room-avatar">
                         <i class="fas fa-video"></i>
@@ -73,41 +26,27 @@
                     <div>
                         <div class="room-title" id="roomTitle">Loading...</div>
                         <div class="room-meta">
-                            <span id="viewerCount">0</span> watching
-                            <span class="dot-separator">·</span>
-                            <span id="classTimer">00:00</span>
+                            <span id="viewerCount">0</span> watching · <span id="classTimer">00:00</span>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="top-bar-right">
-                <button class="icon-btn" id="shareBtn" title="Share Session">
-                    <i class="fas fa-share-alt"></i>
-                </button>
-                <button class="icon-btn" id="participantsBtn" title="Participants">
-                    <i class="fas fa-users"></i>
-                    <span class="badge" id="participantCount">0</span>
-                </button>
-                <button class="icon-btn danger" id="leaveBtn" title="Leave">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
+                <button class="icon-btn" id="shareBtn"><i class="fas fa-share-alt"></i></button>
+                <button class="icon-btn" id="participantsBtn"><i class="fas fa-users"></i><span class="badge" id="participantCount">0</span></button>
+                <button class="icon-btn danger" id="leaveBtn"><i class="fas fa-sign-out-alt"></i></button>
             </div>
         </div>
 
-        <!-- ==========================================
-        MAIN CONTENT
-        ========================================== -->
+        <!-- Main Content -->
         <div class="main-content">
-            
-            <!-- Video Grid -->
             <div class="video-grid" id="videoGrid">
-                
                 <!-- Host Video -->
                 <div class="video-card host-card" id="hostVideoCard">
                     <video id="hostVideo" autoplay playsinline></video>
                     <div class="video-placeholder" id="hostPlaceholder">
                         <i class="fas fa-user-circle"></i>
-                        <span>Host is offline</span>
+                        <span id="hostStatusText">Host is offline</span>
                     </div>
                     <div class="video-overlay">
                         <div class="participant-name" id="hostName">Host</div>
@@ -115,15 +54,6 @@
                             <span><i class="fas fa-star"></i> <span id="hostStars">0</span></span>
                             <span><i class="fas fa-gift"></i> <span id="hostTips">₦0</span></span>
                         </div>
-                    </div>
-                    <div class="video-quality" id="videoQuality">HD</div>
-                </div>
-
-                <!-- Viewer Thumbnails -->
-                <div class="viewer-thumbnails" id="viewerThumbnails">
-                    <div class="empty-thumbnails">
-                        <i class="fas fa-users"></i>
-                        <span>No viewers yet</span>
                     </div>
                 </div>
             </div>
@@ -136,233 +66,84 @@
             </div>
         </div>
 
-        <!-- ==========================================
-        CONTROLS BAR
-        ========================================== -->
-        <div class="controls-bar" id="controlsBar">
-            
-            <!-- Host Controls -->
+        <!-- Controls -->
+        <div class="controls-bar">
             <div class="controls-host" id="hostControls" style="display:none;">
-                <button class="control-btn" id="micBtn" title="Microphone">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button class="control-btn" id="camBtn" title="Camera">
-                    <i class="fas fa-video"></i>
-                </button>
-                <button class="control-btn" id="screenBtn" title="Share Screen">
-                    <i class="fas fa-desktop"></i>
-                </button>
-                <button class="control-btn" id="whiteboardBtn" title="Whiteboard">
-                    <i class="fas fa-chalkboard"></i>
-                </button>
-                <button class="control-btn" id="muteAllBtn" title="Mute All Viewers">
-                    <i class="fas fa-microphone-slash"></i>
-                </button>
-                <button class="control-btn danger" id="endSessionBtn" title="End Session">
-                    <i class="fas fa-stop-circle"></i>
-                </button>
+                <button class="control-btn" id="micBtn"><i class="fas fa-microphone"></i></button>
+                <button class="control-btn" id="camBtn"><i class="fas fa-video"></i></button>
+                <button class="control-btn danger" id="endSessionBtn"><i class="fas fa-stop-circle"></i></button>
             </div>
-
-            <!-- Viewer Controls -->
             <div class="controls-viewer" id="viewerControls" style="display:none;">
-                <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
-                    <i class="fas fa-hand-paper"></i>
-                </button>
-                <button class="control-btn" id="tipBtn" title="Send Tip">
-                    <i class="fas fa-gift"></i>
-                </button>
-                <button class="control-btn" id="starBtn" title="Rate Session">
-                    <i class="fas fa-star"></i>
-                </button>
+                <button class="control-btn" id="raiseHandBtn"><i class="fas fa-hand-paper"></i></button>
+                <button class="control-btn" id="tipBtn"><i class="fas fa-gift"></i></button>
+                <button class="control-btn" id="starBtn"><i class="fas fa-star"></i></button>
             </div>
-
             <div class="controls-divider"></div>
-
-            <!-- Chat Toggle -->
-            <button class="control-btn chat-toggle" id="chatToggleBtn" title="Toggle Chat">
-                <i class="fas fa-comment-dots"></i>
-                <span class="badge-small" id="unreadBadge" style="display:none;">0</span>
-            </button>
+            <button class="control-btn chat-toggle" id="chatToggleBtn"><i class="fas fa-comment-dots"></i></button>
         </div>
 
-        <!-- ==========================================
-        PIP VIDEO
-        ========================================== -->
+        <!-- PIP Video -->
         <div class="pip-video" id="pipVideo" style="display:none;">
             <video id="localVideo" autoplay muted playsinline></video>
-            <div class="pip-placeholder" id="pipPlaceholder">
-                <i class="fas fa-user-circle"></i>
-            </div>
-            <div class="pip-controls">
-                <button class="pip-control" id="pipMicControl">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button class="pip-control" id="pipCamControl">
-                    <i class="fas fa-video"></i>
-                </button>
-            </div>
+            <div class="pip-placeholder" id="pipPlaceholder"><i class="fas fa-user-circle"></i></div>
             <div class="pip-name">You</div>
         </div>
 
-        <!-- ==========================================
-        CHAT SIDEBAR - IFRAME
-        ========================================== -->
+        <!-- Chat Sidebar (IFrame) -->
         <div class="chat-sidebar" id="chatSidebar">
             <div class="chat-sidebar-header">
-                <div class="chat-header-info">
-                    <i class="fas fa-comment-dots"></i>
-                    <span>Live Chat</span>
-                    <span class="chat-count" id="chatCount">0</span>
-                </div>
-                <button class="close-chat" id="closeChatBtn">
-                    <i class="fas fa-times"></i>
-                </button>
+                <span>💬 Live Chat</span>
+                <button class="close-chat" id="closeChatBtn"><i class="fas fa-times"></i></button>
             </div>
-            
-            <iframe 
-                id="chatIframe"
-                src="/chat.html?embedded=1"
-                class="chat-iframe"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                allow="microphone; camera; clipboard-read; clipboard-write"
-            ></iframe>
+            <iframe id="chatIframe" src="/chat.html?embedded=1" class="chat-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
         </div>
 
-        <!-- Chat Overlay -->
-        <div class="chat-overlay" id="chatOverlay"></div>
-
-        <!-- ==========================================
-        WHITEBOARD
-        ========================================== -->
-        <div class="whiteboard-overlay" id="whiteboardOverlay">
-            <div class="whiteboard-toolbar">
-                <button class="wb-tool active" data-tool="pen"><i class="fas fa-pen"></i></button>
-                <button class="wb-tool" data-tool="eraser"><i class="fas fa-eraser"></i></button>
-                <input type="color" class="wb-color" value="#fbb040">
-                <button class="wb-tool" data-tool="clear"><i class="fas fa-trash"></i></button>
-                <button class="wb-tool" data-tool="text"><i class="fas fa-font"></i></button>
-                <div class="wb-divider"></div>
-                <button class="wb-tool" id="closeWhiteboard"><i class="fas fa-times"></i></button>
-            </div>
-            <canvas id="whiteboardCanvas"></canvas>
-        </div>
-
-        <!-- ==========================================
-        TIP MODAL
-        ========================================== -->
+        <!-- Modals -->
         <div class="modal-overlay" id="tipModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeTipModal"><i class="fas fa-times"></i></button>
-                <div class="modal-icon"><i class="fas fa-gift"></i></div>
                 <h3>Send a Tip</h3>
-                <p>Support the host with GP or Wallet balance</p>
                 <div class="tip-options">
                     <button class="tip-option" data-amount="50" data-currency="gp">50 GP</button>
                     <button class="tip-option" data-amount="100" data-currency="gp">100 GP</button>
-                    <button class="tip-option" data-amount="200" data-currency="gp">200 GP</button>
-                    <button class="tip-option" data-amount="500" data-currency="gp">500 GP</button>
                     <button class="tip-option wallet" data-amount="100" data-currency="wallet">₦100</button>
                     <button class="tip-option wallet" data-amount="500" data-currency="wallet">₦500</button>
-                    <button class="tip-option wallet" data-amount="1000" data-currency="wallet">₦1,000</button>
-                    <button class="tip-option wallet" data-amount="2000" data-currency="wallet">₦2,000</button>
                 </div>
-                <div class="tip-custom">
-                    <input type="number" id="customTipAmount" placeholder="Custom" min="1">
-                    <select id="tipCurrency">
-                        <option value="gp">GP Points</option>
-                        <option value="wallet">Wallet (₦)</option>
-                    </select>
-                    <button id="sendCustomTip" class="primary-btn">Send</button>
-                </div>
-                <div class="tip-balance">
-                    <span>💰 Wallet: <strong id="userBalance">₦0</strong></span>
-                    <span>⭐ GP: <strong id="userGP">0</strong></span>
-                </div>
+                <button id="sendCustomTip" class="primary-btn">Send</button>
             </div>
         </div>
 
-        <!-- ==========================================
-        STAR MODAL
-        ========================================== -->
         <div class="modal-overlay" id="starModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeStarModal"><i class="fas fa-times"></i></button>
-                <div class="modal-icon"><i class="fas fa-star"></i></div>
                 <h3>Rate This Session</h3>
-                <p>How many stars does the host deserve?</p>
-                <div class="star-rating" id="starRating">
+                <div class="star-rating">
                     <button class="star" data-value="1">⭐</button>
                     <button class="star" data-value="2">⭐</button>
                     <button class="star" data-value="3">⭐</button>
                     <button class="star" data-value="4">⭐</button>
                     <button class="star" data-value="5">⭐</button>
                 </div>
-                <p class="star-hint">You can give 1-5 stars</p>
-                <button id="submitStars" class="primary-btn">Submit Rating</button>
+                <button id="submitStars" class="primary-btn">Submit</button>
             </div>
         </div>
 
-        <!-- ==========================================
-        PARTICIPANTS MODAL
-        ========================================== -->
-        <div class="modal-overlay" id="participantsModal">
-            <div class="modal-content">
-                <button class="modal-close" id="closeParticipantsModal"><i class="fas fa-times"></i></button>
-                <h3><i class="fas fa-users"></i> Participants</h3>
-                <div class="participants-modal-list" id="participantsModalList">
-                    <div class="empty-state-text">Loading...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==========================================
-        SHARE MODAL
-        ========================================== -->
         <div class="modal-overlay" id="shareModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeShareModal"><i class="fas fa-times"></i></button>
-                <div class="modal-icon"><i class="fas fa-share-alt"></i></div>
                 <h3>Share Session</h3>
-                <p>Invite others to join this session</p>
                 <div class="share-code">
                     <span id="shareCodeDisplay">GLM-XXXXXX</span>
                     <button id="copyCodeBtn" class="primary-btn small">Copy</button>
                 </div>
-                <div class="share-actions">
-                    <button class="share-btn" id="shareWhatsApp"><i class="fab fa-whatsapp"></i></button>
-                    <button class="share-btn" id="shareTwitter"><i class="fab fa-twitter"></i></button>
-                    <button class="share-btn" id="shareFacebook"><i class="fab fa-facebook"></i></button>
-                    <button class="share-btn" id="shareEmail"><i class="fas fa-envelope"></i></button>
-                    <button class="share-btn" id="shareCopyLink"><i class="fas fa-link"></i></button>
-                </div>
-                <button class="primary-btn full" id="shareToChatBtn">
-                    <i class="fas fa-comment"></i> Send to Chat
-                </button>
+                <button class="primary-btn full" id="shareToChatBtn"><i class="fas fa-comment"></i> Send to Chat</button>
             </div>
         </div>
 
-        <!-- ==========================================
-        SESSION ENDED OVERLAY
-        ========================================== -->
         <div class="session-ended-overlay" id="sessionEndedOverlay">
             <div class="session-ended-content">
                 <i class="fas fa-check-circle"></i>
                 <h2>Session Ended</h2>
-                <p id="sessionSummary">Thanks for joining!</p>
-                <div class="session-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Stars</span>
-                        <span class="stat-value" id="finalStars">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Viewers</span>
-                        <span class="stat-value" id="finalViewers">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Tips</span>
-                        <span class="stat-value" id="finalTips">₦0</span>
-                    </div>
-                </div>
                 <button class="primary-btn" id="returnBtn">Return to Dashboard</button>
             </div>
         </div>
