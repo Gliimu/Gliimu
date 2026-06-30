@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/virtualroom.css">
+    
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -37,16 +40,31 @@
         <!-- Main Content -->
         <div class="main-content">
             
-            <!-- Video Container -->
-            <div class="video-container" id="videoContainer">
-                <div id="jitsiFrameContainer" style="width:100%;height:100%;"></div>
-                <div class="video-overlay-brand" id="videoOverlay">
-                    <div class="brand-overlay-content">
-                        <img src="/icons/logo.png" alt="Gliimu" class="brand-logo" onerror="this.style.display='none'">
-                        <h3 id="waitingText">Connecting to video...</h3>
-                        <p id="waitingSubText">Please wait</p>
-                        <div class="loading-spinner-small"></div>
+            <!-- Screen Share Container -->
+            <div class="screen-container" id="screenContainer">
+                <!-- Screen Video -->
+                <video id="screenVideo" autoplay playsinline></video>
+                
+                <!-- Placeholder -->
+                <div class="screen-placeholder" id="screenPlaceholder">
+                    <i class="fas fa-desktop"></i>
+                    <h3 id="placeholderTitle">Waiting for host to share...</h3>
+                    <p id="placeholderText">The host will start sharing their screen shortly</p>
+                    <div class="loading-dots">
+                        <span></span><span></span><span></span>
                     </div>
+                </div>
+
+                <!-- Host Indicator -->
+                <div class="screen-host-indicator" id="hostIndicator">
+                    <i class="fas fa-circle"></i>
+                    <span>Host is sharing</span>
+                </div>
+
+                <!-- Viewer Waiting -->
+                <div class="viewer-waiting" id="viewerWaiting" style="display:none;">
+                    <i class="fas fa-hourglass-half"></i>
+                    <p>Waiting for host to start sharing...</p>
                 </div>
             </div>
 
@@ -60,17 +78,43 @@
 
         <!-- Controls -->
         <div class="controls-bar" id="controlsBar">
+            <!-- Host Controls -->
             <div class="controls-host" id="hostControls" style="display:none;">
-                <button class="control-btn" id="endSessionBtn"><i class="fas fa-stop-circle"></i></button>
+                <button class="control-btn" id="screenBtn" title="Share Screen">
+                    <i class="fas fa-desktop"></i>
+                    <span class="btn-label">Share</span>
+                </button>
+                <button class="control-btn" id="micBtn" title="Microphone">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="control-btn danger" id="endSessionBtn" title="End Session">
+                    <i class="fas fa-stop-circle"></i>
+                </button>
             </div>
+
+            <!-- Viewer Controls -->
             <div class="controls-viewer" id="viewerControls" style="display:none;">
-                <button class="control-btn" id="raiseHandBtn"><i class="fas fa-hand-paper"></i></button>
-                <button class="control-btn" id="tipBtn"><i class="fas fa-heart"></i></button>
-                <button class="control-btn" id="starBtn"><i class="fas fa-star"></i></button>
-                <button class="control-btn" id="hahaBtn"><i class="fas fa-laugh"></i></button>
+                <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
+                    <i class="fas fa-hand-paper"></i>
+                </button>
+                <button class="control-btn heart-btn" id="tipHeart" title="Send Heart Tip (₦200)">
+                    <i class="fas fa-heart"></i>
+                    <span class="btn-label">₦200</span>
+                </button>
+                <button class="control-btn star-btn" id="tipStar" title="Send Star Tip (₦500)">
+                    <i class="fas fa-star"></i>
+                    <span class="btn-label">₦500</span>
+                </button>
+                <button class="control-btn haha-btn" id="tipHaha" title="Send Haha Tip (₦1,250)">
+                    <i class="fas fa-laugh"></i>
+                    <span class="btn-label">₦1,250</span>
+                </button>
             </div>
+
             <div class="controls-divider"></div>
-            <button class="control-btn chat-toggle" id="chatToggleBtn"><i class="fas fa-comment-dots"></i></button>
+            <button class="control-btn chat-toggle" id="chatToggleBtn" title="Toggle Chat">
+                <i class="fas fa-comment-dots"></i>
+            </button>
         </div>
 
         <!-- Chat Sidebar -->
@@ -95,36 +139,6 @@
                 <button class="primary-btn full" id="shareToChatBtn">
                     <i class="fas fa-comment"></i> Send to Chat
                 </button>
-            </div>
-        </div>
-
-        <!-- Tip Modal -->
-        <div class="modal-overlay" id="tipModal">
-            <div class="modal-content">
-                <button class="modal-close" id="closeTipModal"><i class="fas fa-times"></i></button>
-                <h3>💝 Send a Tip</h3>
-                <div class="tip-options">
-                    <button class="tip-option" data-amount="200" data-emoji="❤️">❤️ ₦200</button>
-                    <button class="tip-option" data-amount="500" data-emoji="⭐">⭐ ₦500</button>
-                    <button class="tip-option" data-amount="1250" data-emoji="😂">😂 ₦1,250</button>
-                </div>
-                <button id="sendCustomTip" class="primary-btn full">Custom Amount</button>
-            </div>
-        </div>
-
-        <!-- Star Modal -->
-        <div class="modal-overlay" id="starModal">
-            <div class="modal-content">
-                <button class="modal-close" id="closeStarModal"><i class="fas fa-times"></i></button>
-                <h3>⭐ Rate This Session</h3>
-                <div class="star-rating">
-                    <button class="star" data-value="1">⭐</button>
-                    <button class="star" data-value="2">⭐</button>
-                    <button class="star" data-value="3">⭐</button>
-                    <button class="star" data-value="4">⭐</button>
-                    <button class="star" data-value="5">⭐</button>
-                </div>
-                <button id="submitStars" class="primary-btn full">Submit Rating</button>
             </div>
         </div>
 
