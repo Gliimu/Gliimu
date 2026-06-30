@@ -1,5 +1,5 @@
 /* ============================================
-   VIRTUAL ROOM - DAILY.CO BRANDED
+   VIRTUAL ROOM - COMPLETE STYLES
    ============================================ */
 
 :root {
@@ -9,11 +9,12 @@
     --bg-sidebar: #ffffff;
     --bg-header: #ffffff;
     --bg-controls: #ffffff;
+    --bg-hover: #f1f5f9;
     --text-primary: #1a1a2e;
     --text-secondary: #64748b;
     --text-muted: #94a3b8;
     --border-color: #e2e8f0;
-    --shadow-color: rgba(0, 0, 0, 0.08);
+    --shadow-color: rgba(0,  0, 0, 0.08);
     --accent: #fbb040;
     --accent-dark: #d4912a;
     --danger: #ef4444;
@@ -33,6 +34,7 @@
     --bg-sidebar: #1a1a2e;
     --bg-header: #1e293b;
     --bg-controls: #1e293b;
+    --bg-hover: rgba(255, 255, 255, 0.05);
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
     --text-muted: #64748b;
@@ -152,19 +154,19 @@ body {
     background: var(--video-bg);
 }
 
-#dailyFrameContainer {
+#jitsiFrameContainer {
     width: 100%;
     height: 100%;
 }
 
-#dailyFrameContainer iframe {
+#jitsiFrameContainer iframe {
     width: 100% !important;
     height: 100% !important;
     border: none !important;
     background: var(--video-bg) !important;
 }
 
-/* ===== BRAND OVERLAY (Shown before video starts) ===== */
+/* ===== BRAND OVERLAY ===== */
 .video-overlay-brand {
     position: absolute;
     top: 0;
@@ -235,23 +237,18 @@ body {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
-.controls-left,
-.controls-right {
-    display: flex;
-    gap: 6px;
-}
-
-.controls-center {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
 .controls-host,
 .controls-viewer {
     display: flex;
     gap: 8px;
     align-items: center;
+}
+
+.controls-divider {
+    width: 1px;
+    height: 32px;
+    background: var(--border-color);
+    margin: 0 8px;
 }
 
 .control-btn {
@@ -275,18 +272,9 @@ body {
 .control-btn.active { background: var(--accent); color: #111; }
 .control-btn.danger:hover { background: var(--danger); color: #fff; }
 
-.control-btn.heart-btn { background: rgba(239, 68, 68, 0.15); color: var(--heart); }
-.control-btn.heart-btn:hover { background: var(--heart); color: #fff; }
-.control-btn.star-btn { background: rgba(251, 176, 64, 0.15); color: var(--star); }
-.control-btn.star-btn:hover { background: var(--star); color: #111; }
-.control-btn.haha-btn { background: rgba(139, 92, 246, 0.15); color: var(--haha); }
-.control-btn.haha-btn:hover { background: var(--haha); color: #fff; }
-
-.controls-divider {
-    width: 1px;
-    height: 32px;
-    background: var(--border-color);
-    margin: 0 8px;
+.control-btn.chat-toggle {
+    background: var(--bg-hover);
+    position: relative;
 }
 
 /* ===== CHAT SIDEBAR ===== */
@@ -570,7 +558,6 @@ body {
     .room-meta { font-size: 9px; }
     .controls-bar { padding: 6px 10px; min-height: 52px; }
     .control-btn { width: 38px; height: 38px; font-size: 0.95rem; }
-    .controls-center { gap: 4px; }
     .chat-sidebar { max-width: 100%; }
     .modal-content { padding: 20px; }
     .brand-logo { width: 60px; height: 60px; }
@@ -583,7 +570,6 @@ body {
     .room-title { font-size: 11px; max-width: 80px; }
     .controls-bar { padding: 4px 8px; min-height: 48px; }
     .control-btn { width: 34px; height: 34px; font-size: 0.85rem; }
-    .controls-center { gap: 3px; }
     .tip-options { grid-template-columns: repeat(3, 1fr); }
     .brand-logo { width: 50px; height: 50px; }
 }
