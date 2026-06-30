@@ -31,6 +31,7 @@ const state = {
     sessionSubscription: null,
     peerConnected: false,
     hostFound: false,
+    combinedStream: null,
 };
 
 // ============================================
@@ -89,7 +90,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sessionCode = params.get('code');
         const mode = params.get('mode');
 
-        // Check saved session
         const savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -143,12 +143,10 @@ async function createNewSession() {
 
         sessionStorage.removeItem('glimu_session');
 
-        // 1. Generate session code
         const sessionCode = generateSessionCode();
         state.sessionCode = sessionCode;
         state.isHost = true;
 
-        // 2. Create session in database FIRST
         const { data: session, error } = await supabase
             .from('virtual_sessions')
             .insert({
@@ -172,7 +170,6 @@ async function createNewSession() {
 
         console.log('Session created in DB:', state.sessionId);
 
-        // 3. Add host as participant
         await supabase
             .from('session_participants')
             .insert({
@@ -183,7 +180,6 @@ async function createNewSession() {
                 last_seen: new Date().toISOString()
             });
 
-        // 4. Update UI
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
         if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
@@ -191,10 +187,7 @@ async function createNewSession() {
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'Click "Share Screen" to start';
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
-        // 5. Get audio stream
         await getAudioStream();
-
-        // 6. Initialize PeerJS (with sessionId now set)
         await initPeerJS(true);
 
         saveSessionState();
@@ -235,7 +228,6 @@ async function joinSession(sessionCode) {
         state.sessionCode = sessionCode;
         state.isHost = false;
 
-        // 1. Get session from database FIRST
         const { data: session, error } = await supabase
             .from('virtual_sessions')
             .select('*')
@@ -259,7 +251,6 @@ async function joinSession(sessionCode) {
 
         console.log('Session found in DB:', state.sessionId);
 
-        // 2. Add viewer as participant
         await supabase
             .from('session_participants')
             .upsert({
@@ -270,7 +261,6 @@ async function joinSession(sessionCode) {
                 last_seen: new Date().toISOString()
             }, { onConflict: 'session_id,user_id' });
 
-        // 3. Update UI
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
         if (DOM.hostControls) DOM.hostControls.style.display = 'none';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
@@ -278,10 +268,7 @@ async function joinSession(sessionCode) {
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'The host will start sharing their screen shortly';
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
-        // 4. Get audio stream
         await getAudioStream();
-
-        // 5. Initialize PeerJS (with sessionId now set)
         await initPeerJS(false);
 
         saveSessionState();
@@ -325,7 +312,7 @@ async function getAudioStream() {
 }
 
 // ============================================
-// PEERJS - FIXED
+// PEERJS
 // ============================================
 
 function initPeerJS(isHost) {
@@ -339,7 +326,7 @@ function initPeerJS(isHost) {
 
             const peerId = 'glimu_' + state.currentUser.id + '_' + Date.now();
 
-            console.log('Connecting to PeerJS...', 'sessionId:', state.sessionId);
+            console.log('Connecting to PeerJS... sessionId:', state.sessionId);
 
             state.peer = new Peer(peerId, {
                 host: '0.peerjs.com',
@@ -371,7 +358,6 @@ function initPeerJS(isHost) {
                 state.peerConnected = true;
                 console.log('PeerJS connected:', id);
 
-                // Save peer_id to database - NOW sessionId IS SET
                 try {
                     const { error } = await supabase
                         .from('session_participants')
@@ -397,7 +383,6 @@ function initPeerJS(isHost) {
                     });
                     console.log('Host waiting for connections...');
                 } else {
-                    // Viewer: wait a moment then connect to host
                     setTimeout(function() {
                         connectToHost();
                     }, 3000);
@@ -409,7 +394,6 @@ function initPeerJS(isHost) {
             state.peer.on('error', function(err) {
                 clearTimeout(timeout);
                 console.error('PeerJS error:', err.message);
-                // Retry if connection lost
                 if (err.message.includes('Lost connection') || err.message.includes('disconnected')) {
                     console.log('Attempting to reconnect...');
                     setTimeout(function() {
@@ -434,7 +418,7 @@ function initPeerJS(isHost) {
 }
 
 // ============================================
-// CONNECT TO HOST
+// CONNECT TO HOST (Viewer)
 // ============================================
 
 async function connectToHost() {
@@ -468,14 +452,31 @@ async function connectToHost() {
         state.hostFound = true;
         console.log('Found host peer_id:', state.hostPeerId);
 
-        // Call host with audio stream
+        // Call host for audio + screen (combined stream)
         var call = state.peer.call(state.hostPeerId, state.localStream);
         
         call.on('stream', function(remoteStream) {
-            console.log('Host audio stream received!');
-            DOM.screenPlaceholder.style.display = 'none';
-            if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected to host';
-            if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
+            console.log('Stream received from host!');
+            
+            // Check if the stream has video (screen share)
+            var hasVideo = remoteStream.getVideoTracks().length > 0;
+            
+            if (hasVideo) {
+                console.log('Screen stream received with audio!');
+                DOM.screenVideo.srcObject = remoteStream;
+                DOM.screenVideo.style.display = 'block';
+                DOM.screenVideo.classList.add('active');
+                DOM.screenPlaceholder.style.display = 'none';
+                DOM.hostIndicator.classList.add('active');
+                DOM.screenVideo.play().catch(function(e) { console.warn('Video play error:', e); });
+                if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
+                if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
+            } else {
+                console.log('Audio only stream received (host not sharing screen yet)');
+                DOM.screenPlaceholder.style.display = 'none';
+                if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected to host';
+                if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
+            }
         });
 
         call.on('close', function() {
@@ -490,7 +491,7 @@ async function connectToHost() {
             setTimeout(connectToHost, 5000);
         });
 
-        // Establish data channel for hand raises, etc.
+        // Data channel for messages
         try {
             var conn = state.peer.connect(state.hostPeerId);
             conn.on('open', function() {
@@ -520,8 +521,20 @@ async function connectToHost() {
 function handleIncomingCall(call) {
     console.log('Incoming call from:', call.peer);
     
-    // Send screen if sharing, otherwise just audio
-    var streamToSend = state.isSharing && state.screenStream ? state.screenStream : state.localStream;
+    // Determine what stream to send
+    var streamToSend = null;
+    
+    if (state.isSharing && state.screenStream) {
+        // Combine screen + audio into one stream
+        streamToSend = getCombinedStream();
+        console.log('Sending screen + audio to viewer');
+    } else if (state.localStream) {
+        streamToSend = state.localStream;
+        console.log('Sending audio only to viewer');
+    } else {
+        console.warn('No stream available to send');
+        return;
+    }
     
     call.answer(streamToSend);
     
@@ -535,6 +548,40 @@ function handleIncomingCall(call) {
 }
 
 // ============================================
+// COMBINE SCREEN + AUDIO INTO ONE STREAM
+// ============================================
+
+function getCombinedStream() {
+    if (state.combinedStream && state.combinedStream.active) {
+        return state.combinedStream;
+    }
+    
+    if (!state.screenStream || !state.localStream) {
+        return state.screenStream || state.localStream;
+    }
+    
+    try {
+        var videoTrack = state.screenStream.getVideoTracks()[0];
+        var audioTrack = state.localStream.getAudioTracks()[0];
+        
+        if (!videoTrack || !audioTrack) {
+            return state.screenStream || state.localStream;
+        }
+        
+        // Create a new combined stream
+        state.combinedStream = new MediaStream();
+        state.combinedStream.addTrack(videoTrack);
+        state.combinedStream.addTrack(audioTrack);
+        
+        console.log('Combined stream created (video + audio)');
+        return state.combinedStream;
+    } catch (e) {
+        console.warn('Could not combine streams:', e);
+        return state.screenStream || state.localStream;
+    }
+}
+
+// ============================================
 // DATA MESSAGES
 // ============================================
 
@@ -545,13 +592,16 @@ function handleDataMessage(data) {
         case 'viewer_ready':
             if (state.isHost) {
                 console.log('Viewer ready, peerId:', data.peerId);
+                // Call viewer with combined stream
                 if (state.isSharing && state.screenStream) {
-                    // Send screen to new viewer
-                    try {
-                        var call = state.peer.call(data.peerId, state.screenStream);
-                        console.log('Screen sent to viewer:', data.peerId);
-                    } catch (e) {
-                        console.warn('Could not send screen:', e);
+                    var stream = getCombinedStream();
+                    if (stream) {
+                        try {
+                            var call = state.peer.call(data.peerId, stream);
+                            console.log('Screen + audio sent to viewer:', data.peerId);
+                        } catch (e) {
+                            console.warn('Could not send stream:', e);
+                        }
                     }
                 }
             }
@@ -584,6 +634,7 @@ async function toggleScreenShare() {
             state.screenStream.getTracks().forEach(function(t) { t.stop(); });
             state.screenStream = null;
         }
+        state.combinedStream = null;
         state.isSharing = false;
         if (DOM.screenBtn) DOM.screenBtn.classList.remove('active');
         DOM.screenVideo.classList.remove('active');
@@ -593,6 +644,20 @@ async function toggleScreenShare() {
         if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Screen sharing stopped';
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'Click "Share Screen" to start again';
         showToast('Screen share stopped', 'info');
+        
+        // Notify viewers that screen sharing stopped via data channel
+        state.participants.forEach(function(participant, userId) {
+            if (userId !== state.currentUser.id && participant.peer_id) {
+                try {
+                    var conn = state.peer.connect(participant.peer_id);
+                    conn.on('open', function() {
+                        conn.send(JSON.stringify({
+                            type: 'screen_stopped'
+                        }));
+                    });
+                } catch (e) {}
+            }
+        });
         return;
     }
 
@@ -613,12 +678,15 @@ async function toggleScreenShare() {
         DOM.hostIndicator.classList.add('active');
         await DOM.screenVideo.play();
 
-        // Broadcast to all viewers
+        // Create combined stream with audio
+        var combinedStream = getCombinedStream();
+
+        // Send combined stream to all viewers
         state.participants.forEach(function(participant, userId) {
             if (userId !== state.currentUser.id && participant.peer_id) {
                 try {
-                    var call = state.peer.call(participant.peer_id, state.screenStream);
-                    console.log('Screen sent to viewer:', participant.peer_id);
+                    var call = state.peer.call(participant.peer_id, combinedStream || state.screenStream);
+                    console.log('Screen + audio sent to viewer:', participant.peer_id);
                 } catch (e) {
                     console.warn('Could not send screen:', e);
                 }
@@ -763,6 +831,7 @@ async function endSession() {
             state.screenStream.getTracks().forEach(function(t) { t.stop(); });
             state.screenStream = null;
         }
+        state.combinedStream = null;
 
         if (state.sessionId) {
             await supabase
@@ -873,15 +942,16 @@ async function loadParticipants() {
         state.viewerCount = viewers.length;
         if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
 
-        // If host and sharing, send screen to any viewer without one
+        // If host and sharing, send combined stream to any new viewers
         if (state.isHost && state.isSharing && state.screenStream) {
+            var combinedStream = getCombinedStream();
             viewers.forEach(function(viewer) {
                 if (viewer.peer_id) {
                     try {
-                        var call = state.peer.call(viewer.peer_id, state.screenStream);
-                        console.log('Screen sent to viewer:', viewer.peer_id);
+                        var call = state.peer.call(viewer.peer_id, combinedStream || state.screenStream);
+                        console.log('Screen + audio sent to new viewer:', viewer.peer_id);
                     } catch (e) {
-                        console.warn('Could not send screen:', e);
+                        console.warn('Could not send screen to new viewer:', e);
                     }
                 }
             });
@@ -1028,185 +1098,4 @@ function startTimer() {
         var elapsed = Math.floor((Date.now() - state.classStartTime) / 1000);
         var mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
         var secs = String(elapsed % 60).padStart(2, '0');
-        if (DOM.classTimer) DOM.classTimer.textContent = mins + ':' + secs;
-    }, 1000);
-}
-
-function setupUI() {
-    if (state.isHost) {
-        if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
-        if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
-    } else {
-        if (DOM.hostControls) DOM.hostControls.style.display = 'none';
-        if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
-    }
-}
-
-function setupEventListeners() {
-    document.getElementById('backBtn').addEventListener('click', leaveRoom);
-    document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
-    document.getElementById('endSessionBtn').addEventListener('click', endSession);
-    document.getElementById('raiseHandBtn').addEventListener('click', toggleRaiseHand);
-    
-    document.getElementById('tipHeart').addEventListener('click', function() { sendTip(200, '❤️'); });
-    document.getElementById('tipStar').addEventListener('click', function() { sendTip(500, '⭐'); });
-    document.getElementById('tipHaha').addEventListener('click', function() { sendTip(1250, '😂'); });
-    
-    document.getElementById('chatToggleBtn').addEventListener('click', toggleChatSidebar);
-    document.getElementById('closeChatBtn').addEventListener('click', toggleChatSidebar);
-    document.getElementById('shareBtn').addEventListener('click', function() {
-        if (DOM.shareModal) DOM.shareModal.classList.add('active');
-    });
-    document.getElementById('closeShareModal').addEventListener('click', function() {
-        if (DOM.shareModal) DOM.shareModal.classList.remove('active');
-    });
-    document.getElementById('shareToChatBtn').addEventListener('click', shareToChat);
-    document.getElementById('copyLinkBtn').addEventListener('click', copyShareLink);
-    document.getElementById('returnBtn').addEventListener('click', function() {
-        window.location.href = '/user';
-    });
-
-    DOM.screenBtn.addEventListener('click', toggleScreenShare);
-    DOM.micBtn.addEventListener('click', toggleMicrophone);
-
-    document.querySelectorAll('.modal-overlay').forEach(function(modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) modal.classList.remove('active');
-        });
-    });
-
-    window.addEventListener('beforeunload', function() {
-        if (state.sessionId && !state.sessionEnded) {
-            saveSessionState();
-        }
-    });
-}
-
-function toggleMicrophone() {
-    if (!state.localStream) return;
-    var track = state.localStream.getAudioTracks()[0];
-    if (!track) return;
-    state.isMuted = !track.enabled;
-    track.enabled = !track.enabled;
-    DOM.micBtn.classList.toggle('active', !state.isMuted);
-    showToast(state.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
-}
-
-function toggleChatSidebar() {
-    if (DOM.chatSidebar) DOM.chatSidebar.classList.toggle('open');
-}
-
-function showLoginScreen() {
-    var container = document.querySelector('.virtual-room');
-    if (container) {
-        container.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;padding:40px;background:var(--bg-primary);">' +
-            '<i class="fas fa-sign-in-alt" style="font-size:64px;color:var(--danger);margin-bottom:20px;"></i>' +
-            '<h2>Sign In Required</h2>' +
-            '<p style="color:var(--text-secondary);margin-bottom:24px;">Please sign in to access the virtual room.</p>' +
-            '<button onclick="window.location.href=\'/signin.html\'" class="primary-btn">Sign In</button>' +
-            '</div>';
-    }
-}
-
-function showSessionSelection() {
-    if (DOM.loadingText) DOM.loadingText.textContent = 'Start or Join a Session';
-    if (DOM.loadingSubText) DOM.loadingSubText.textContent = 'Create your own session or join with a code';
-    
-    var spinner = DOM.loadingOverlay.querySelector('.loading-spinner');
-    if (spinner) spinner.style.display = 'none';
-
-    if (DOM.loadingOverlay) {
-        DOM.loadingOverlay.innerHTML += '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;width:100%;max-width:320px;">' +
-            '<button onclick="window.location.href=\'?mode=host\'" class="primary-btn" style="width:100%;">' +
-            '<i class="fas fa-desktop"></i> Go Live (Share Screen)' +
-            '</button>' +
-            '<div style="display:flex;gap:8px;width:100%;">' +
-            '<input type="text" id="sessionCodeInput" placeholder="Enter session code" style="flex:1;padding:10px 14px;border-radius:12px;border:2px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);font-family:inherit;">' +
-            '<button onclick="handleJoinWithCode()" class="primary-btn" style="flex-shrink:0;">' +
-            '<i class="fas fa-sign-in-alt"></i> Join' +
-            '</button>' +
-            '</div></div>';
-    }
-
-    window.handleJoinWithCode = function() {
-        var code = document.getElementById('sessionCodeInput').value.trim();
-        if (code) {
-            window.location.href = '?code=' + code;
-        } else {
-            showToast('Enter a session code', 'warning');
-        }
-    };
-}
-
-async function shareToChat() {
-    if (!state.sessionCode) {
-        showToast('No session code', 'warning');
-        return;
-    }
-    var message = '🎥 Join my live session! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
-    sendToChatIframe({ type: 'send_message', message: message });
-    showToast('📤 Session code sent to chat!', 'success');
-    if (DOM.shareModal) DOM.shareModal.classList.remove('active');
-}
-
-async function copyShareLink() {
-    var link = DOM.shareLinkInput ? DOM.shareLinkInput.value : '';
-    if (!link) return;
-    try {
-        await navigator.clipboard.writeText(link);
-        showToast('📋 Link copied!', 'success');
-    } catch {
-        if (DOM.shareLinkInput) {
-            DOM.shareLinkInput.select();
-            document.execCommand('copy');
-            showToast('📋 Link copied!', 'success');
-        }
-    }
-}
-
-function cleanup() {
-    if (state.screenStream) {
-        state.screenStream.getTracks().forEach(function(t) { t.stop(); });
-        state.screenStream = null;
-    }
-    if (state.localStream) {
-        state.localStream.getTracks().forEach(function(t) { t.stop(); });
-        state.localStream = null;
-    }
-    if (state.peer) {
-        state.peer.destroy();
-        state.peer = null;
-    }
-    if (state.timerInterval) {
-        clearInterval(state.timerInterval);
-    }
-    if (state.participantsSubscription) {
-        state.participantsSubscription.unsubscribe();
-    }
-    if (state.sessionSubscription) {
-        state.sessionSubscription.unsubscribe();
-    }
-}
-
-function leaveRoom() {
-    if (!confirm('Leave the session?')) return;
-    cleanup();
-
-    if (state.sessionId) {
-        supabase
-            .from('session_participants')
-            .update({ is_active: false, left_at: new Date().toISOString() })
-            .eq('session_id', state.sessionId)
-            .eq('user_id', state.currentUser.id)
-            .then(function() {});
-    }
-
-    sessionStorage.removeItem('glimu_session');
-    window.location.href = '/user';
-}
-
-window.leaveRoom = leaveRoom;
-window.toggleChatSidebar = toggleChatSidebar;
-window.handleJoinWithCode = window.handleJoinWithCode;
-
-console.log('Virtual Room loaded - Screen Share Only');
+        if (DOM.classTimer) DOM.classTimer.textContent
