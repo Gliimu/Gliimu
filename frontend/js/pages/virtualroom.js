@@ -1,7 +1,7 @@
 // ============================================
-// VIRTUAL CLASSROOM - COMPLETE
-// Go Live + Professional Zoom Feel
-// With Tipping, Star Rating, Streak System
+// 🎥 VIRTUAL ROOM - Complete
+// WhatsApp + Discord + Zoom + Skype Fusion
+// With Chat IFrame Integration
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile, updateWalletBalance } from '../modules/supabase.js';
@@ -24,6 +24,7 @@ const state = {
     peerId: null,
     hostPeerId: null,
     participants: new Map(),
+    viewerStreams: new Map(),
     chatSubscription: null,
     sessionSubscription: null,
     participantsSubscription: null,
@@ -37,6 +38,8 @@ const state = {
     wbPainting: false,
     wbColor: '#fbb040',
     wbTool: 'pen',
+    wbHistory: [],
+    wbHistoryIndex: -1,
     viewerCount: 0,
     tipsTotal: 0,
     gpTipsTotal: 0,
@@ -46,6 +49,11 @@ const state = {
     handRaised: false,
     isMuted: false,
     isCameraOff: false,
+    unreadCount: 0,
+    chatIframeReady: false,
+    activeViewerId: null,
+    screenStream: null,
+    isScreenSharing: false,
 };
 
 // ============================================
@@ -62,24 +70,29 @@ function cacheDOM() {
     DOM.hostTips = document.getElementById('hostTips');
     DOM.localVideo = document.getElementById('localVideo');
     DOM.localVideoCard = document.getElementById('localVideoCard');
-    DOM.localPlaceholder = document.getElementById('localPlaceholder');
+    DOM.pipVideo = document.getElementById('pipVideo');
+    DOM.pipPlaceholder = document.getElementById('pipPlaceholder');
     DOM.videoGrid = document.getElementById('videoGrid');
+    DOM.viewerThumbnails = document.getElementById('viewerThumbnails');
     DOM.loadingOverlay = document.getElementById('loadingOverlay');
     DOM.loadingText = document.getElementById('loadingText');
     DOM.loadingSubText = document.getElementById('loadingSubText');
     DOM.roomTitle = document.getElementById('roomTitle');
     DOM.classTimer = document.getElementById('classTimer');
     DOM.viewerCount = document.getElementById('viewerCount');
+    DOM.participantCount = document.getElementById('participantCount');
     DOM.tipCount = document.getElementById('tipCount');
-    DOM.chatMessages = document.getElementById('chatMessages');
-    DOM.chatInput = document.getElementById('chatInput');
-    DOM.sendChatBtn = document.getElementById('sendChatBtn');
     DOM.chatSidebar = document.getElementById('chatSidebar');
-    DOM.participantsList = document.getElementById('participantsList');
+    DOM.chatOverlay = document.getElementById('chatOverlay');
+    DOM.chatIframe = document.getElementById('chatIframe');
+    DOM.chatCount = document.getElementById('chatCount');
+    DOM.unreadBadge = document.getElementById('unreadBadge');
     DOM.whiteboardOverlay = document.getElementById('whiteboardOverlay');
     DOM.wbCanvas = document.getElementById('whiteboardCanvas');
     DOM.tipModal = document.getElementById('tipModal');
     DOM.starModal = document.getElementById('starModal');
+    DOM.participantsModal = document.getElementById('participantsModal');
+    DOM.shareModal = document.getElementById('shareModal');
     DOM.sessionEndedOverlay = document.getElementById('sessionEndedOverlay');
     DOM.finalStars = document.getElementById('finalStars');
     DOM.finalViewers = document.getElementById('finalViewers');
@@ -88,9 +101,11 @@ function cacheDOM() {
     DOM.userGP = document.getElementById('userGP');
     DOM.viewerControls = document.getElementById('viewerControls');
     DOM.hostControls = document.getElementById('hostControls');
-    DOM.userRoleLabel = document.getElementById('userRoleLabel');
-    DOM.localMicControl = document.getElementById('localMicControl');
-    DOM.localCamControl = document.getElementById('localCamControl');
+    DOM.shareCodeDisplay = document.getElementById('shareCodeDisplay');
+    DOM.participantsModalList = document.getElementById('participantsModalList');
+    DOM.pipMicControl = document.getElementById('pipMicControl');
+    DOM.pipCamControl = document.getElementById('pipCamControl');
+    DOM.videoQuality = document.getElementById('videoQuality');
 }
 
 // ============================================
@@ -98,7 +113,7 @@ function cacheDOM() {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🎥 Virtual Classroom initializing...');
+    console.log('🎥 Virtual Room initializing...');
     cacheDOM();
 
     try {
@@ -121,14 +136,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Get session from URL
         const params = new URLSearchParams(window.location.search);
         const sessionCode = params.get('code');
-        const mode = params.get('mode'); // 'host' or 'join'
+        const mode = params.get('mode');
 
         if (mode === 'host') {
             await createNewSession();
         } else if (sessionCode) {
             await joinSession(sessionCode);
         } else {
-            // Show session selection
             showSessionSelection();
             return;
         }
@@ -137,16 +151,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupUI();
         setupEventListeners();
         setupRealtimeSubscriptions();
+        setupChatIframe();
 
         // Start timer
         startTimer();
 
-        console.log('✅ Virtual Classroom ready');
+        console.log('✅ Virtual Room ready');
         showLoading(false);
 
     } catch (error) {
         console.error('❌ Initialization error:', error);
-        showToast('Failed to initialize classroom', 'error');
+        showToast('Failed to initialize room', 'error');
         showLoading(false);
         useFallbackMode();
     }
@@ -161,11 +176,11 @@ async function createNewSession() {
         showLoading(true);
         DOM.loadingText.textContent = 'Creating your session...';
 
-        // Check if host can create session (streak check)
+        // Check if host can create session
         const canHost = await checkHostEligibility();
         if (!canHost) {
             showToast('You are on cooldown. Please wait 48 hours.', 'error');
-            setTimeout(() => window.location.href = '/dashboard', 2000);
+            setTimeout(() => window.location.href = '/user', 2000);
             return;
         }
 
@@ -193,11 +208,11 @@ async function createNewSession() {
 
         state.sessionCode = session.session_code;
         DOM.roomTitle.textContent = session.title || 'Live Session';
+        DOM.shareCodeDisplay.textContent = state.sessionCode;
 
         // Update UI for host
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
-        DOM.userRoleLabel.textContent = 'Host';
 
         // Start local stream
         await startLocalStream();
@@ -213,7 +228,11 @@ async function createNewSession() {
 
         // Show share info
         showToast(`Session created! Code: ${state.sessionCode}`, 'success');
-        showSharePrompt();
+        
+        // Auto-open share modal for host
+        setTimeout(() => {
+            DOM.shareModal.classList.add('active');
+        }, 1500);
 
         console.log('📡 Session created:', state.sessionCode);
 
@@ -238,13 +257,13 @@ async function joinSession(sessionCode) {
 
         if (error || !session) {
             showToast('Session not found', 'error');
-            setTimeout(() => window.location.href = '/dashboard', 2000);
+            setTimeout(() => window.location.href = '/user', 2000);
             return;
         }
 
         if (session.status === 'ended') {
             showToast('This session has ended', 'error');
-            setTimeout(() => window.location.href = '/dashboard', 2000);
+            setTimeout(() => window.location.href = '/user', 2000);
             return;
         }
 
@@ -253,6 +272,7 @@ async function joinSession(sessionCode) {
         state.isHost = false;
         state.isLive = session.status === 'live';
         DOM.roomTitle.textContent = session.title || 'Live Session';
+        DOM.shareCodeDisplay.textContent = state.sessionCode;
 
         // Add viewer to participants
         await supabase
@@ -271,10 +291,9 @@ async function joinSession(sessionCode) {
         // Update UI for viewer
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
-        DOM.userRoleLabel.textContent = 'Viewer';
 
-        // Show local video (viewer can share too)
-        DOM.localVideoCard.style.display = 'block';
+        // Show local video
+        DOM.pipVideo.style.display = 'block';
         await startLocalStream();
 
         // Initialize PeerJS
@@ -282,6 +301,9 @@ async function joinSession(sessionCode) {
 
         // Load host stream
         await loadHostStream(session.host_id);
+
+        // Load participants
+        await loadParticipants();
 
         console.log('📡 Joined session:', sessionCode);
 
@@ -371,9 +393,11 @@ async function connectToHost() {
                 DOM.hostVideo.srcObject = remoteStream;
                 DOM.hostVideo.play().catch(() => {});
                 DOM.hostVideo.parentElement.classList.add('has-video');
+                DOM.hostPlaceholder.style.display = 'none';
             });
             call.on('close', () => {
                 DOM.hostVideo.parentElement.classList.remove('has-video');
+                DOM.hostPlaceholder.style.display = 'flex';
             });
         }
     } catch (error) {
@@ -387,11 +411,54 @@ function handleIncomingCall(call) {
         DOM.hostVideo.srcObject = remoteStream;
         DOM.hostVideo.play().catch(() => {});
         DOM.hostVideo.parentElement.classList.add('has-video');
+        DOM.hostPlaceholder.style.display = 'none';
     });
 }
 
 function handlePeerConnection(conn) {
     console.log('📡 Peer connected:', conn.peer);
+    
+    conn.on('data', (data) => {
+        handlePeerData(data, conn.peer);
+    });
+}
+
+function handlePeerData(data, peerId) {
+    console.log('📨 Peer data:', data);
+    
+    switch (data.type) {
+        case 'mute_audio':
+            if (state.localStream) {
+                const audioTrack = state.localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !data.value;
+                    state.isMuted = data.value;
+                    updateLocalControls();
+                }
+            }
+            break;
+            
+        case 'mute_video':
+            if (state.localStream) {
+                const videoTrack = state.localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !data.value;
+                    state.isCameraOff = data.value;
+                    updateLocalControls();
+                }
+            }
+            break;
+            
+        case 'whiteboard_update':
+            // Handle whiteboard sync
+            handleWhiteboardSync(data);
+            break;
+            
+        case 'screen_share':
+            // Handle screen share
+            handleScreenShare(data, peerId);
+            break;
+    }
 }
 
 // ============================================
@@ -401,14 +468,19 @@ function handlePeerConnection(conn) {
 async function startLocalStream() {
     try {
         state.localStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            video: { 
+                facingMode: 'user', 
+                width: { ideal: 640 }, 
+                height: { ideal: 480 } 
+            },
             audio: true
         });
 
         DOM.localVideo.srcObject = state.localStream;
         await DOM.localVideo.play();
-        DOM.localVideoCard.style.display = 'block';
-        DOM.localVideoCard.classList.add('has-video');
+        DOM.pipVideo.style.display = 'block';
+        DOM.pipVideo.classList.add('has-video');
+        DOM.pipPlaceholder.style.display = 'none';
 
         // Update mic/cam status
         updateLocalControls();
@@ -418,8 +490,8 @@ async function startLocalStream() {
     } catch (err) {
         console.error('❌ Camera error:', err);
         showToast('Could not access camera/microphone', 'warning');
-        DOM.localVideoCard.classList.remove('has-video');
-        DOM.localPlaceholder.style.display = 'flex';
+        DOM.pipVideo.classList.remove('has-video');
+        DOM.pipPlaceholder.style.display = 'flex';
     }
 }
 
@@ -433,6 +505,18 @@ function toggleMicrophone() {
 
     updateLocalControls();
     showToast(state.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
+    
+    // Notify host if viewer
+    if (!state.isHost && state.peer) {
+        const conn = state.peer.connect(state.hostPeerId);
+        conn.on('open', () => {
+            conn.send({
+                type: 'audio_status',
+                muted: state.isMuted,
+                userId: state.currentUser.id
+            });
+        });
+    }
 }
 
 function toggleCamera() {
@@ -443,23 +527,107 @@ function toggleCamera() {
     state.isCameraOff = !videoTrack.enabled;
     videoTrack.enabled = !videoTrack.enabled;
 
-    DOM.localVideoCard.classList.toggle('camera-off', state.isCameraOff);
+    DOM.pipVideo.classList.toggle('camera-off', state.isCameraOff);
     updateLocalControls();
     showToast(state.isCameraOff ? 'Camera off' : 'Camera on', 'info');
+    
+    // Notify host if viewer
+    if (!state.isHost && state.peer) {
+        const conn = state.peer.connect(state.hostPeerId);
+        conn.on('open', () => {
+            conn.send({
+                type: 'video_status',
+                off: state.isCameraOff,
+                userId: state.currentUser.id
+            });
+        });
+    }
 }
 
 function updateLocalControls() {
-    const micIcon = DOM.localMicControl?.querySelector('i');
-    const camIcon = DOM.localCamControl?.querySelector('i');
+    const micIcon = DOM.pipMicControl?.querySelector('i');
+    const camIcon = DOM.pipCamControl?.querySelector('i');
 
     if (micIcon) {
         micIcon.className = state.isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
-        DOM.localMicControl.classList.toggle('off', state.isMuted);
+        DOM.pipMicControl.classList.toggle('off', state.isMuted);
     }
 
     if (camIcon) {
         camIcon.className = state.isCameraOff ? 'fas fa-video-slash' : 'fas fa-video';
-        DOM.localCamControl.classList.toggle('off', state.isCameraOff);
+        DOM.pipCamControl.classList.toggle('off', state.isCameraOff);
+    }
+}
+
+// ============================================
+// SCREEN SHARE
+// ============================================
+
+async function toggleScreenShare() {
+    if (!state.isHost) {
+        showToast('Only hosts can share screens', 'warning');
+        return;
+    }
+
+    if (state.isScreenSharing) {
+        // Stop screen share
+        if (state.screenStream) {
+            state.screenStream.getTracks().forEach(t => track.stop());
+            state.screenStream = null;
+        }
+        state.isScreenSharing = false;
+        document.getElementById('screenBtn').classList.remove('active');
+        showToast('Screen share stopped', 'info');
+        return;
+    }
+
+    try {
+        state.screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'always' },
+            audio: false
+        });
+
+        state.isScreenSharing = true;
+        document.getElementById('screenBtn').classList.add('active');
+        showToast('Screen sharing started', 'success');
+
+        // Broadcast to all viewers
+        state.participants.forEach((participant, userId) => {
+            if (userId !== state.currentUser.id) {
+                const conn = state.peer.connect(participant.peer_id);
+                conn.on('open', () => {
+                    conn.send({
+                        type: 'screen_share',
+                        stream: true
+                    });
+                });
+            }
+        });
+
+        // Display screen on host video
+        DOM.hostVideo.srcObject = state.screenStream;
+        DOM.videoQuality.textContent = 'SCREEN';
+
+        state.screenStream.getVideoTracks()[0].onended = () => {
+            toggleScreenShare();
+        };
+
+    } catch (err) {
+        console.error('Screen share error:', err);
+        showToast('Screen share cancelled or failed', 'warning');
+        state.isScreenSharing = false;
+        document.getElementById('screenBtn').classList.remove('active');
+    }
+}
+
+function handleScreenShare(data, peerId) {
+    if (data.stream) {
+        // Request screen stream from host
+        const call = state.peer.call(peerId, null);
+        call.on('stream', (stream) => {
+            DOM.hostVideo.srcObject = stream;
+            DOM.videoQuality.textContent = 'SCREEN';
+        });
     }
 }
 
@@ -497,128 +665,65 @@ async function loadHostStream(hostId) {
 }
 
 // ============================================
-// CHAT
+// VIEWER THUMBNAILS
 // ============================================
 
-async function sendChatMessage() {
-    const text = DOM.chatInput.value.trim();
-    if (!text) return;
+function renderViewerThumbnails() {
+    if (!DOM.viewerThumbnails) return;
 
-    const message = {
-        session_id: state.sessionId,
-        user_id: state.currentUser.id,
-        user_name: state.userProfile.name || 'User',
-        message: text,
-        created_at: new Date().toISOString()
-    };
+    const viewers = Array.from(state.participants.values())
+        .filter(p => p.user_id !== state.currentUser.id && p.role !== 'host');
 
-    try {
-        const { error } = await supabase
-            .from('session_chat')
-            .insert(message);
-
-        if (error) throw error;
-        DOM.chatInput.value = '';
-    } catch (error) {
-        console.error('❌ Send message error:', error);
-        // Display locally as fallback
-        displayChatMessage(message, true);
-    }
-}
-
-function displayChatMessage(message, isLocal = false) {
-    const isSelf = message.user_id === state.currentUser.id;
-
-    const div = document.createElement('div');
-    div.className = `chat-message ${isSelf ? 'self' : 'other'}`;
-
-    if (!isSelf) {
-        const sender = document.createElement('div');
-        sender.className = 'chat-sender';
-        sender.textContent = message.user_name || 'User';
-        div.appendChild(sender);
+    if (viewers.length === 0) {
+        DOM.viewerThumbnails.innerHTML = `
+            <div class="empty-thumbnails">
+                <i class="fas fa-users"></i>
+                <span>No viewers yet</span>
+            </div>
+        `;
+        return;
     }
 
-    const bubble = document.createElement('div');
-    bubble.className = 'chat-bubble';
+    DOM.viewerThumbnails.innerHTML = viewers.map(viewer => {
+        const isActive = state.activeViewerId === viewer.user_id;
+        const isMuted = viewer.is_muted || false;
+        const isVideoOff = viewer.is_video_off || false;
+        const handRaised = viewer.hand_raised || false;
 
-    const text = document.createElement('div');
-    text.textContent = message.message;
-    bubble.appendChild(text);
+        return `
+            <div class="viewer-thumbnail ${isActive ? 'active' : ''}" 
+                 data-user-id="${viewer.user_id}"
+                 onclick="switchViewer('${viewer.user_id}')">
+                <video id="viewer_${viewer.user_id}" autoplay playsinline muted></video>
+                <div class="thumb-placeholder" style="${isVideoOff ? 'display:flex' : 'display:none'}">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <div class="thumb-name">${viewer.name || 'Viewer'}</div>
+                <div class="thumb-status">
+                    ${handRaised ? '<i class="status-icon hand-raised fas fa-hand-paper"></i>' : ''}
+                    ${isMuted ? '<i class="status-icon muted fas fa-microphone-slash"></i>' : ''}
+                    ${isVideoOff ? '<i class="status-icon video-off fas fa-video-slash"></i>' : ''}
+                </div>
+                ${state.isHost ? `
+                    <button class="mute-btn" onclick="event.stopPropagation(); toggleViewerMute('${viewer.user_id}')">
+                        ${isMuted ? 'Unmute' : 'Mute'}
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
 
-    const time = document.createElement('div');
-    time.className = 'chat-time';
-    const date = new Date(message.created_at || Date.now());
-    time.textContent = date.toLocaleTimeString();
-    bubble.appendChild(time);
-
-    div.appendChild(bubble);
-    DOM.chatMessages.appendChild(div);
-    DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
-}
-
-function sendSystemMessage(text) {
-    const div = document.createElement('div');
-    div.className = 'system-message';
-    div.innerHTML = `<i class="fas fa-info-circle"></i> ${text}`;
-    DOM.chatMessages.appendChild(div);
-    DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
-}
-
-// ============================================
-// REAL-TIME SUBSCRIPTIONS
-// ============================================
-
-function setupRealtimeSubscriptions() {
-    if (!state.sessionId) return;
-
-    // Session chat
-    const chatChannel = supabase
-        .channel(`session_chat_${state.sessionId}`)
-        .on('postgres_changes', {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'session_chat',
-            filter: `session_id=eq.${state.sessionId}`
-        }, (payload) => {
-            displayChatMessage(payload.new);
-        })
-        .subscribe();
-
-    // Participants
-    const participantsChannel = supabase
-        .channel(`session_participants_${state.sessionId}`)
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'session_participants',
-            filter: `session_id=eq.${state.sessionId}`
-        }, () => {
-            loadParticipants();
-            updateViewerCount();
-        })
-        .subscribe();
-
-    // Session updates
-    const sessionChannel = supabase
-        .channel(`session_${state.sessionId}`)
-        .on('postgres_changes', {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'virtual_sessions',
-            filter: `id=eq.${state.sessionId}`
-        }, (payload) => {
-            handleSessionUpdate(payload.new);
-        })
-        .subscribe();
-
-    state.chatSubscription = chatChannel;
-    state.participantsSubscription = participantsChannel;
-    state.sessionSubscription = sessionChannel;
+    // Attach viewer streams
+    viewers.forEach(viewer => {
+        const videoEl = document.getElementById(`viewer_${viewer.user_id}`);
+        if (videoEl && state.viewerStreams.has(viewer.user_id)) {
+            videoEl.srcObject = state.viewerStreams.get(viewer.user_id);
+        }
+    });
 }
 
 // ============================================
-// PARTICIPANTS
+// VIEWER MANAGEMENT
 // ============================================
 
 async function loadParticipants() {
@@ -632,22 +737,24 @@ async function loadParticipants() {
         if (error) throw error;
 
         state.participants.clear();
-        data.forEach(p => state.participants.set(p.user_id, p));
+        data.forEach(p => {
+            state.participants.set(p.user_id, {
+                ...p,
+                name: p.users?.name || 'User'
+            });
+        });
 
-        DOM.participantsList.innerHTML = data.map(p => `
-            <div class="participant-item">
-                <div class="participant-avatar">
-                    ${p.users?.name?.[0] || 'U'}
-                </div>
-                <div class="participant-details">
-                    <div class="participant-name">${p.users?.name || 'User'} ${p.role === 'host' ? '👑' : ''}</div>
-                    <div class="participant-role">${p.role === 'host' ? 'Host' : 'Viewer'}</div>
-                </div>
-                <div class="participant-status">
-                    ${p.hand_raised ? '<i class="fas fa-hand-paper status-icon hand-raised"></i>' : ''}
-                </div>
-            </div>
-        `).join('') || '<p style="text-align:center;color:var(--text-muted);padding:20px;">No participants</p>';
+        // Update counts
+        const viewerCount = data.filter(p => p.role !== 'host').length;
+        state.viewerCount = viewerCount;
+        DOM.viewerCount.textContent = viewerCount;
+        DOM.participantCount.textContent = data.length;
+
+        // Render thumbnails
+        renderViewerThumbnails();
+
+        // Update participants modal
+        renderParticipantsModal();
 
     } catch (error) {
         console.error('❌ Load participants error:', error);
@@ -669,6 +776,119 @@ async function updateViewerCount() {
         }
     } catch (error) {
         console.error('❌ Update viewer count error:', error);
+    }
+}
+
+function switchViewer(userId) {
+    if (state.activeViewerId === userId) {
+        state.activeViewerId = null;
+        // Switch back to host
+        if (state.isHost && state.screenStream && state.isScreenSharing) {
+            DOM.hostVideo.srcObject = state.screenStream;
+            DOM.videoQuality.textContent = 'SCREEN';
+        } else {
+            // Reload host stream
+            loadHostStream(state.participants.get(userId)?.user_id);
+        }
+        renderViewerThumbnails();
+        return;
+    }
+
+    state.activeViewerId = userId;
+    const viewer = state.participants.get(userId);
+    if (viewer && state.viewerStreams.has(userId)) {
+        DOM.hostVideo.srcObject = state.viewerStreams.get(userId);
+        DOM.videoQuality.textContent = 'VIEWER';
+        renderViewerThumbnails();
+    }
+}
+
+// ============================================
+// HOST CONTROLS - MUTE
+// ============================================
+
+async function toggleViewerMute(userId) {
+    if (!state.isHost) return;
+
+    const viewer = state.participants.get(userId);
+    if (!viewer) return;
+
+    const isMuted = !viewer.is_muted;
+
+    // Update in database
+    await supabase
+        .from('session_participants')
+        .update({ is_muted: isMuted })
+        .eq('session_id', state.sessionId)
+        .eq('user_id', userId);
+
+    // Send mute command via PeerJS
+    if (viewer.peer_id) {
+        const conn = state.peer.connect(viewer.peer_id);
+        conn.on('open', () => {
+            conn.send({
+                type: 'mute_audio',
+                value: isMuted
+            });
+        });
+    }
+
+    // Update local state
+    viewer.is_muted = isMuted;
+    state.participants.set(userId, viewer);
+
+    showToast(`${isMuted ? 'Muted' : 'Unmuted'} ${viewer.name || 'Viewer'}`, 'info');
+    renderViewerThumbnails();
+}
+
+async function toggleMuteAll() {
+    if (!state.isHost) return;
+
+    const viewers = Array.from(state.participants.values())
+        .filter(p => p.role !== 'host');
+
+    const allMuted = viewers.every(v => v.is_muted);
+    const newMuteState = !allMuted;
+
+    for (const viewer of viewers) {
+        await toggleViewerMute(viewer.user_id);
+    }
+
+    document.getElementById('muteAllBtn').classList.toggle('active', newMuteState);
+    showToast(newMuteState ? 'All viewers muted' : 'All viewers unmuted', 'info');
+}
+
+// ============================================
+// RAISE HAND
+// ============================================
+
+async function toggleRaiseHand() {
+    state.handRaised = !state.handRaised;
+
+    await supabase
+        .from('session_participants')
+        .update({ hand_raised: state.handRaised })
+        .eq('session_id', state.sessionId)
+        .eq('user_id', state.currentUser.id);
+
+    const btn = document.getElementById('raiseHandBtn');
+    btn?.classList.toggle('active', state.handRaised);
+
+    if (state.handRaised) {
+        showToast('Hand raised! 🙋', 'success');
+        
+        // Notify host via chat iframe
+        sendToChatIframe({
+            type: 'system_message',
+            message: `🙋 ${state.userProfile.name || 'A viewer'} raised their hand`
+        });
+
+        // Also notify via toast
+        if (!state.isHost) {
+            showToast('Host has been notified', 'info');
+        }
+    } else {
+        showToast('Hand lowered', 'info');
     }
 }
 
@@ -783,6 +1003,12 @@ async function sendTip(amount, currency) {
         // Update host stats
         updateHostStats();
 
+        // Notify host via chat iframe
+        sendToChatIframe({
+            type: 'system_message',
+            message: `🎁 ${state.userProfile.name || 'A viewer'} sent a tip!`
+        });
+
     } catch (error) {
         console.error('❌ Send tip error:', error);
         showToast('Failed to send tip', 'error');
@@ -797,7 +1023,18 @@ function updateBalanceDisplay() {
 }
 
 function updateHostStats() {
-    DOM.hostTips.textContent = `₦${state.tipsTotal}`;
+    // Update host stars and tips from session data
+    supabase
+        .from('virtual_sessions')
+        .select('stars_count, tips_total, avg_rating, total_ratings')
+        .eq('id', state.sessionId)
+        .single()
+        .then(({ data }) => {
+            if (data) {
+                DOM.hostStars.textContent = data.stars_count || 0;
+                DOM.hostTips.textContent = `₦${data.tips_total || 0}`;
+            }
+        });
 }
 
 // ============================================
@@ -864,6 +1101,12 @@ async function submitRating() {
         // Update host stats
         DOM.hostStars.textContent = newStarsCount;
 
+        // Notify host via chat iframe
+        sendToChatIframe({
+            type: 'system_message',
+            message: `⭐ ${state.userProfile.name || 'A viewer'} rated ${state.starRating} stars!`
+        });
+
     } catch (error) {
         console.error('❌ Submit rating error:', error);
         showToast('Failed to submit rating', 'error');
@@ -884,9 +1127,7 @@ async function checkHostEligibility() {
 
         if (error && error.code !== 'PGRST116') throw error;
 
-        // If no streak record, user is eligible
         if (!streak) {
-            // Create streak record
             await supabase
                 .from('host_streaks')
                 .insert({
@@ -902,7 +1143,6 @@ async function checkHostEligibility() {
             return true;
         }
 
-        // Check if banned
         if (streak.ban_until && new Date(streak.ban_until) > new Date()) {
             const hoursLeft = Math.ceil((new Date(streak.ban_until) - new Date()) / (1000 * 60 * 60));
             showToast(`You're on cooldown. ${hoursLeft} hours remaining.`, 'error');
@@ -913,13 +1153,12 @@ async function checkHostEligibility() {
 
     } catch (error) {
         console.error('❌ Check eligibility error:', error);
-        return true; // Allow on error
+        return true;
     }
 }
 
 async function updateHostStreak(sessionId) {
     try {
-        // Get session stats
         const { data: session } = await supabase
             .from('virtual_sessions')
             .select('stars_count, total_ratings, avg_rating, tips_total')
@@ -929,9 +1168,8 @@ async function updateHostStreak(sessionId) {
         if (!session) return;
 
         const avgRating = session.avg_rating || 0;
-        const passed = avgRating >= 3.5; // Pass threshold
+        const passed = avgRating >= 3.5;
 
-        // Get current streak
         const { data: streak } = await supabase
             .from('host_streaks')
             .select('*')
@@ -946,7 +1184,6 @@ async function updateHostStreak(sessionId) {
             if (newStreak > bestStreak) bestStreak = newStreak;
         } else {
             newStreak = 0;
-            // Ban for 48 hours if streak < 5
             if ((streak?.current_streak || 0) < 5) {
                 const banUntil = new Date();
                 banUntil.setHours(banUntil.getHours() + 48);
@@ -1050,6 +1287,151 @@ function handleSessionUpdate(session) {
 }
 
 // ============================================
+// REALTIME SUBSCRIPTIONS
+// ============================================
+
+function setupRealtimeSubscriptions() {
+    if (!state.sessionId) return;
+
+    // Participants
+    state.participantsSubscription = supabase
+        .channel(`session_participants_${state.sessionId}`)
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'session_participants',
+            filter: `session_id=eq.${state.sessionId}`
+        }, () => {
+            loadParticipants();
+            updateViewerCount();
+        })
+        .subscribe();
+
+    // Session updates
+    state.sessionSubscription = supabase
+        .channel(`session_${state.sessionId}`)
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'virtual_sessions',
+            filter: `id=eq.${state.sessionId}`
+        }, (payload) => {
+            handleSessionUpdate(payload.new);
+            updateHostStats();
+        })
+        .subscribe();
+}
+
+// ============================================
+// CHAT IFRAME COMMUNICATION
+// ============================================
+
+function setupChatIframe() {
+    const iframe = DOM.chatIframe;
+    if (!iframe) return;
+
+    // Listen for messages from the iframe
+    window.addEventListener('message', (event) => {
+        if (event.source !== iframe.contentWindow) return;
+
+        const data = event.data;
+        console.log('📨 Chat iframe message:', data);
+
+        switch (data.type) {
+            case 'chat_ready':
+                console.log('💬 Chat iframe ready');
+                state.chatIframeReady = true;
+                // Send session info
+                sendToChatIframe({
+                    type: 'session_info',
+                    sessionId: state.sessionId,
+                    sessionCode: state.sessionCode,
+                    isHost: state.isHost,
+                    roomTitle: DOM.roomTitle.textContent
+                });
+                break;
+
+            case 'message_sent':
+                state.unreadCount++;
+                updateUnreadBadge();
+                break;
+
+            case 'message_read':
+                state.unreadCount = 0;
+                updateUnreadBadge();
+                break;
+
+            case 'hand_raised':
+                if (state.isHost) {
+                    showToast(`🙋 ${data.sender} raised their hand!`, 'warning');
+                    sendToChatIframe({
+                        type: 'system_message',
+                        message: `🙋 ${data.sender} raised their hand`
+                    });
+                }
+                break;
+
+            case 'tip_sent':
+                showToast(`🎁 ${data.sender} sent a tip!`, 'success');
+                updateHostStats();
+                break;
+
+            case 'star_rated':
+                showToast(`⭐ ${data.sender} rated ${data.stars} stars!`, 'success');
+                updateHostStats();
+                break;
+
+            case 'viewer_joined':
+                showToast(`👤 ${data.sender} joined the session`, 'info');
+                updateViewerCount();
+                loadParticipants();
+                break;
+
+            case 'viewer_left':
+                showToast(`👤 ${data.sender} left the session`, 'info');
+                updateViewerCount();
+                loadParticipants();
+                break;
+        }
+    });
+
+    // Send initial info when iframe loads
+    iframe.addEventListener('load', () => {
+        setTimeout(() => {
+            sendToChatIframe({
+                type: 'session_info',
+                sessionId: state.sessionId,
+                sessionCode: state.sessionCode,
+                isHost: state.isHost,
+                roomTitle: DOM.roomTitle.textContent
+            });
+        }, 1500);
+    });
+}
+
+function sendToChatIframe(data) {
+    const iframe = DOM.chatIframe;
+    if (iframe && iframe.contentWindow && state.chatIframeReady) {
+        try {
+            iframe.contentWindow.postMessage(data, '*');
+        } catch (e) {
+            console.warn('Could not send to iframe:', e);
+        }
+    }
+}
+
+function updateUnreadBadge() {
+    if (state.unreadCount > 0) {
+        DOM.unreadBadge.style.display = 'block';
+        DOM.unreadBadge.textContent = state.unreadCount;
+        DOM.chatCount.textContent = state.unreadCount;
+    } else {
+        DOM.unreadBadge.style.display = 'none';
+        DOM.chatCount.textContent = '0';
+    }
+}
+
+// ============================================
 // WHITEBOARD
 // ============================================
 
@@ -1082,6 +1464,16 @@ function initWhiteboard() {
         const y = (e.clientY - rect.top) * (canvas.height / rect.height);
         ctx.beginPath();
         ctx.moveTo(x, y);
+        
+        // Start recording stroke
+        state.wbHistory = state.wbHistory.slice(0, state.wbHistoryIndex + 1);
+        state.wbHistory.push({
+            type: 'start',
+            x, y,
+            color: ctx.strokeStyle,
+            lineWidth: ctx.lineWidth
+        });
+        state.wbHistoryIndex = state.wbHistory.length - 1;
     });
 
     canvas.addEventListener('mousemove', (e) => {
@@ -1093,10 +1485,23 @@ function initWhiteboard() {
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(x, y);
+        
+        // Record stroke point
+        state.wbHistory.push({
+            type: 'point',
+            x, y
+        });
+        state.wbHistoryIndex = state.wbHistory.length - 1;
     });
 
-    canvas.addEventListener('mouseup', () => { state.wbPainting = false; });
-    canvas.addEventListener('mouseleave', () => { state.wbPainting = false; });
+    canvas.addEventListener('mouseup', () => { 
+        state.wbPainting = false;
+        // Broadcast whiteboard update
+        broadcastWhiteboardUpdate();
+    });
+    canvas.addEventListener('mouseleave', () => { 
+        state.wbPainting = false;
+    });
 
     // Touch events
     canvas.addEventListener('touchstart', (e) => {
@@ -1123,7 +1528,10 @@ function initWhiteboard() {
         ctx.moveTo(x, y);
     });
 
-    canvas.addEventListener('touchend', () => { state.wbPainting = false; });
+    canvas.addEventListener('touchend', () => { 
+        state.wbPainting = false;
+        broadcastWhiteboardUpdate();
+    });
 
     state.wbCtx = ctx;
 }
@@ -1143,11 +1551,23 @@ function setWbTool(tool) {
         ctx.clearRect(0, 0, DOM.wbCanvas.width, DOM.wbCanvas.height);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, DOM.wbCanvas.width, DOM.wbCanvas.height);
+        state.wbHistory = [];
+        state.wbHistoryIndex = -1;
+        broadcastWhiteboardUpdate();
+        return;
+    } else if (tool === 'text') {
+        const text = prompt('Enter text:');
+        if (text) {
+            ctx.font = '24px Space Grotesk';
+            ctx.fillStyle = state.wbColor;
+            ctx.fillText(text, 50, 50);
+            broadcastWhiteboardUpdate();
+        }
         return;
     }
 
     document.querySelectorAll('.wb-tool').forEach(btn => btn.classList.remove('active'));
-    if (tool !== 'clear') {
+    if (tool !== 'clear' && tool !== 'text') {
         const activeBtn = document.querySelector(`.wb-tool[data-tool="${tool}"]`);
         if (activeBtn) activeBtn.classList.add('active');
     }
@@ -1168,27 +1588,37 @@ function toggleWhiteboard() {
     }
 }
 
-// ============================================
-// RAISE HAND
-// ============================================
+function broadcastWhiteboardUpdate() {
+    if (!state.isHost) return;
+    
+    // Get canvas data
+    const canvas = DOM.wbCanvas;
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    // Broadcast to all viewers
+    state.participants.forEach((participant, userId) => {
+        if (userId !== state.currentUser.id) {
+            const conn = state.peer.connect(participant.peer_id);
+            conn.on('open', () => {
+                conn.send({
+                    type: 'whiteboard_update',
+                    data: dataUrl
+                });
+            });
+        }
+    });
+}
 
-async function toggleRaiseHand() {
-    state.handRaised = !state.handRaised;
-
-    await supabase
-        .from('session_participants')
-        .update({ hand_raised: state.handRaised })
-        .eq('session_id', state.sessionId)
-        .eq('user_id', state.currentUser.id);
-
-    const btn = document.getElementById('raiseHandBtn');
-    btn?.classList.toggle('active', state.handRaised);
-
-    if (state.handRaised) {
-        showToast('Hand raised! 👋', 'success');
-        sendSystemMessage(`${state.userProfile.name || 'A viewer'} raised their hand`);
-    } else {
-        showToast('Hand lowered', 'info');
+function handleWhiteboardSync(data) {
+    if (data.data) {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = DOM.wbCanvas;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = data.data;
     }
 }
 
@@ -1201,13 +1631,10 @@ function setupUI() {
     if (state.isHost) {
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
-        DOM.userRoleLabel.textContent = 'Host';
-        document.getElementById('liveBadge').querySelector('span').textContent = 'LIVE';
     } else {
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
-        DOM.userRoleLabel.textContent = 'Viewer';
-        DOM.localVideoCard.style.display = 'block';
+        DOM.pipVideo.style.display = 'block';
     }
 
     // Setup star rating
@@ -1215,6 +1642,9 @@ function setupUI() {
 
     // Init whiteboard
     initWhiteboard();
+
+    // Show chat iframe
+    DOM.chatIframe.src = `/chat.html?embedded=1&channel=session_${state.sessionId || 'temp'}`;
 }
 
 function setupEventListeners() {
@@ -1225,15 +1655,14 @@ function setupEventListeners() {
     // Media controls
     document.getElementById('micBtn')?.addEventListener('click', toggleMicrophone);
     document.getElementById('camBtn')?.addEventListener('click', toggleCamera);
-    DOM.localMicControl?.addEventListener('click', toggleMicrophone);
-    DOM.localCamControl?.addEventListener('click', toggleCamera);
+    DOM.pipMicControl?.addEventListener('click', toggleMicrophone);
+    DOM.pipCamControl?.addEventListener('click', toggleCamera);
 
     // Host controls
-    document.getElementById('screenBtn')?.addEventListener('click', () => {
-        showToast('Screen sharing coming soon!', 'info');
-    });
+    document.getElementById('screenBtn')?.addEventListener('click', toggleScreenShare);
     document.getElementById('endSessionBtn')?.addEventListener('click', endSession);
     document.getElementById('whiteboardBtn')?.addEventListener('click', toggleWhiteboard);
+    document.getElementById('muteAllBtn')?.addEventListener('click', toggleMuteAll);
 
     // Viewer controls
     document.getElementById('raiseHandBtn')?.addEventListener('click', toggleRaiseHand);
@@ -1248,26 +1677,32 @@ function setupEventListeners() {
         DOM.starModal.classList.add('active');
     });
 
-    // Chat
-    DOM.sendChatBtn?.addEventListener('click', sendChatMessage);
-    DOM.chatInput?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendChatMessage();
+    // Share
+    document.getElementById('shareBtn')?.addEventListener('click', () => {
+        DOM.shareModal.classList.add('active');
     });
+    document.getElementById('shareToChatBtn')?.addEventListener('click', shareToChat);
+    document.getElementById('copyCodeBtn')?.addEventListener('click', copySessionCode);
+    
+    // Share buttons
+    document.getElementById('shareWhatsApp')?.addEventListener('click', () => shareVia('whatsapp'));
+    document.getElementById('shareTwitter')?.addEventListener('click', () => shareVia('twitter'));
+    document.getElementById('shareFacebook')?.addEventListener('click', () => shareVia('facebook'));
+    document.getElementById('shareEmail')?.addEventListener('click', () => shareVia('email'));
+    document.getElementById('shareCopyLink')?.addEventListener('click', copyShareLink);
 
-    // Sidebar
-    document.getElementById('viewersBtn')?.addEventListener('click', toggleSidebar);
-    document.getElementById('closeChatBtn')?.addEventListener('click', toggleSidebar);
+    // Chat toggle
+    document.getElementById('chatToggleBtn')?.addEventListener('click', toggleChatSidebar);
+    document.getElementById('closeChatBtn')?.addEventListener('click', toggleChatSidebar);
+    DOM.chatOverlay?.addEventListener('click', toggleChatSidebar);
 
-    // Chat tabs
-    document.querySelectorAll('.chat-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            const tabName = tab.dataset.tab;
-            DOM.chatMessages.style.display = tabName === 'chat' ? 'flex' : 'none';
-            DOM.participantsList.style.display = tabName === 'participants' ? 'flex' : 'none';
-            if (tabName === 'participants') loadParticipants();
-        });
+    // Participants
+    document.getElementById('participantsBtn')?.addEventListener('click', () => {
+        DOM.participantsModal.classList.add('active');
+        loadParticipants();
+    });
+    document.getElementById('closeParticipantsModal')?.addEventListener('click', () => {
+        DOM.participantsModal.classList.remove('active');
     });
 
     // Tip modal
@@ -1277,7 +1712,7 @@ function setupEventListeners() {
     document.querySelectorAll('.tip-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const amount = parseInt(btn.dataset.amount);
-            const currency = btn.classList.contains('wallet') ? 'wallet' : 'gp';
+            const currency = btn.dataset.currency || 'gp';
             sendTip(amount, currency);
         });
     });
@@ -1297,6 +1732,11 @@ function setupEventListeners() {
     });
     document.getElementById('submitStars')?.addEventListener('click', submitRating);
 
+    // Share modal
+    document.getElementById('closeShareModal')?.addEventListener('click', () => {
+        DOM.shareModal.classList.remove('active');
+    });
+
     // Whiteboard
     document.getElementById('closeWhiteboard')?.addEventListener('click', toggleWhiteboard);
     document.querySelectorAll('.wb-tool').forEach(btn => {
@@ -1311,7 +1751,7 @@ function setupEventListeners() {
 
     // Return to dashboard
     document.getElementById('returnBtn')?.addEventListener('click', () => {
-        window.location.href = '/dashboard';
+        window.location.href = '/user';
     });
 
     // Keyboard shortcuts
@@ -1319,8 +1759,10 @@ function setupEventListeners() {
         if (e.key === 'Escape') {
             if (DOM.tipModal.classList.contains('active')) DOM.tipModal.classList.remove('active');
             if (DOM.starModal.classList.contains('active')) DOM.starModal.classList.remove('active');
+            if (DOM.shareModal.classList.contains('active')) DOM.shareModal.classList.remove('active');
             if (DOM.whiteboardOverlay.classList.contains('active')) toggleWhiteboard();
-            if (DOM.chatSidebar.classList.contains('open')) toggleSidebar();
+            if (DOM.chatSidebar.classList.contains('open')) toggleChatSidebar();
+            if (DOM.participantsModal.classList.contains('active')) DOM.participantsModal.classList.remove('active');
         }
         if (e.key === 'm' && e.ctrlKey) {
             e.preventDefault();
@@ -1329,6 +1771,10 @@ function setupEventListeners() {
         if (e.key === 'v' && e.ctrlKey) {
             e.preventDefault();
             toggleCamera();
+        }
+        if (e.key === 'c' && e.ctrlKey && e.shiftKey) {
+            e.preventDefault();
+            toggleChatSidebar();
         }
     });
 
@@ -1340,8 +1786,16 @@ function setupEventListeners() {
     });
 }
 
-function toggleSidebar() {
+function toggleChatSidebar() {
     DOM.chatSidebar.classList.toggle('open');
+    DOM.chatOverlay.classList.toggle('active');
+    
+    if (DOM.chatSidebar.classList.contains('open')) {
+        state.unreadCount = 0;
+        updateUnreadBadge();
+        // Focus chat input in iframe
+        sendToChatIframe({ type: 'focus_input' });
+    }
 }
 
 function startTimer() {
@@ -1358,16 +1812,159 @@ function showLoading(show) {
     DOM.loadingOverlay.style.display = show ? 'flex' : 'none';
 }
 
+// ============================================
+// SHARE FUNCTIONS
+// ============================================
+
+async function shareToChat() {
+    if (!state.sessionCode) {
+        showToast('No session code to share', 'warning');
+        return;
+    }
+
+    const message = `🎥 Join my live session! Use code: **${state.sessionCode}**\n\nClick here: ${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+
+    sendToChatIframe({
+        type: 'send_message',
+        message: message
+    });
+
+    showToast('📤 Session code sent to chat!', 'success');
+    DOM.shareModal.classList.remove('active');
+}
+
+async function copySessionCode() {
+    if (!state.sessionCode) return;
+    try {
+        await navigator.clipboard.writeText(state.sessionCode);
+        showToast('📋 Session code copied!', 'success');
+    } catch (e) {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = state.sessionCode;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('📋 Session code copied!', 'success');
+    }
+}
+
+function shareVia(platform) {
+    const url = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+    const text = `🎥 Join my live session on Gliimu! Use code: ${state.sessionCode}`;
+    let shareUrl = '';
+
+    switch (platform) {
+        case 'whatsapp':
+            shareUrl = `https://wa.me/?text=${encodeURIComponent(text + '\n' + url)}`;
+            break;
+        case 'twitter':
+            shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+            break;
+        case 'facebook':
+            shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+            break;
+        case 'email':
+            shareUrl = `mailto:?subject=Join my live session!&body=${encodeURIComponent(text + '\n\n' + url)}`;
+            break;
+    }
+
+    if (shareUrl) {
+        window.open(shareUrl, '_blank', 'width=600,height=500');
+    }
+}
+
+async function copyShareLink() {
+    const url = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+    try {
+        await navigator.clipboard.writeText(url);
+        showToast('📋 Link copied!', 'success');
+    } catch (e) {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('📋 Link copied!', 'success');
+    }
+}
+
+// ============================================
+// PARTICIPANTS MODAL
+// ============================================
+
+function renderParticipantsModal() {
+    if (!DOM.participantsModalList) return;
+
+    const participants = Array.from(state.participants.values());
+    
+    if (participants.length === 0) {
+        DOM.participantsModalList.innerHTML = `
+            <div class="empty-state-text">No participants</div>
+        `;
+        return;
+    }
+
+    DOM.participantsModalList.innerHTML = participants.map(p => {
+        const isHost = p.role === 'host';
+        const isMuted = p.is_muted || false;
+        const isVideoOff = p.is_video_off || false;
+        const handRaised = p.hand_raised || false;
+        const isCurrentUser = p.user_id === state.currentUser.id;
+
+        return `
+            <div class="participant-modal-item">
+                <div class="avatar">${p.name?.[0] || 'U'}</div>
+                <div class="info">
+                    <div class="name">${p.name || 'User'} ${isCurrentUser ? '(You)' : ''}</div>
+                    <div class="role">${isHost ? '👑 Host' : 'Viewer'}</div>
+                </div>
+                <div class="status">
+                    ${handRaised ? '🙋' : ''}
+                    ${isMuted ? '🔇' : ''}
+                    ${isVideoOff ? '📹❌' : ''}
+                    ${isHost ? '👑' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ============================================
+// FALLBACK MODE
+// ============================================
+
+function useFallbackMode() {
+    showLoading(false);
+    sendToChatIframe({
+        type: 'system_message',
+        message: '⚠️ Connected in chat-only mode. Video may be limited.'
+    });
+    DOM.hostPlaceholder.style.display = 'flex';
+    DOM.hostPlaceholder.querySelector('span').textContent = 'Host connection limited';
+}
+
+// ============================================
+// SHOW LOGIN SCREEN
+// ============================================
+
 function showLoginScreen() {
-    document.querySelector('.classroom-container').innerHTML = `
-        <div class="access-denied" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;padding:40px;">
+    document.querySelector('.virtual-room').innerHTML = `
+        <div class="access-denied" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;padding:40px;background:var(--bg-primary);">
             <i class="fas fa-sign-in-alt" style="font-size:64px;color:var(--danger);margin-bottom:20px;"></i>
-            <h2>Sign In Required</h2>
-            <p style="color:var(--text-secondary);margin-bottom:24px;">Please sign in to access the virtual classroom.</p>
+            <h2 style="margin-bottom:8px;">Sign In Required</h2>
+            <p style="color:var(--text-secondary);margin-bottom:24px;">Please sign in to access the virtual room.</p>
             <button onclick="window.location.href='/signin.html'" class="primary-btn">Sign In</button>
         </div>
     `;
 }
+
+// ============================================
+// SHOW SESSION SELECTION
+// ============================================
 
 function showSessionSelection() {
     DOM.loadingText.textContent = 'Start or Join a Session';
@@ -1401,37 +1998,22 @@ function showSessionSelection() {
     };
 }
 
-function showSharePrompt() {
-    if (state.isHost && state.sessionCode) {
-        setTimeout(() => {
-            if (confirm(`Session created! Share code: ${state.sessionCode}\n\nCopy to clipboard?`)) {
-                navigator.clipboard.writeText(state.sessionCode).then(() => {
-                    showToast('Session code copied!', 'success');
-                }).catch(() => {});
-            }
-        }, 1500);
-    }
-}
-
-function useFallbackMode() {
-    showLoading(false);
-    sendSystemMessage('⚠️ Connected in chat-only mode. Video may be limited.');
-    DOM.hostPlaceholder.style.display = 'flex';
-    DOM.hostPlaceholder.querySelector('span').textContent = 'Host connection limited';
-}
+// ============================================
+// CLEANUP
+// ============================================
 
 function cleanup() {
     if (state.localStream) {
         state.localStream.getTracks().forEach(t => t.stop());
+    }
+    if (state.screenStream) {
+        state.screenStream.getTracks().forEach(t => t.stop());
     }
     if (state.peer) {
         state.peer.destroy();
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
-    }
-    if (state.chatSubscription) {
-        state.chatSubscription.unsubscribe();
     }
     if (state.participantsSubscription) {
         state.participantsSubscription.unsubscribe();
@@ -1456,18 +2038,22 @@ function leaveRoom() {
             .then(() => {});
     }
 
-    window.location.href = '/dashboard';
+    window.location.href = '/user';
 }
 
 // ============================================
 // EXPOSE GLOBALS
 // ============================================
 
-window.toggleSidebar = toggleSidebar;
+window.toggleChatSidebar = toggleChatSidebar;
 window.toggleWhiteboard = toggleWhiteboard;
 window.setWbTool = setWbTool;
 window.setWbColor = setWbColor;
 window.leaveRoom = leaveRoom;
+window.switchViewer = switchViewer;
+window.toggleViewerMute = toggleViewerMute;
 window.joinWithCode = window.joinWithCode;
+window.shareToChat = shareToChat;
+window.copySessionCode = copySessionCode;
 
-console.log('🎥 Virtual Classroom loaded successfully');
+console.log('🎥 Virtual Room loaded successfully');
