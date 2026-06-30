@@ -1,5 +1,5 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - FIXED CALL FLOW
+// 🎥 VIRTUAL ROOM - FULLY FIXED
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -23,7 +23,6 @@ const state = {
     hostPeerId: null,
     participants: new Map(),
     viewerStreams: new Map(),
-    chatSubscription: null,
     sessionSubscription: null,
     participantsSubscription: null,
     classStartTime: Date.now(),
@@ -40,14 +39,12 @@ const state = {
     connectionAttempts: 0,
     maxConnectionAttempts: 3,
     usingDailyFallback: false,
-    peerjsFailed: false,
-    callInProgress: false,
     hostStreamReceived: false,
-    viewerStreamsReceived: new Set(),
+    reconnectTimeout: null,
 };
 
 // ============================================
-// DOM REFS (same as before - keep them)
+// DOM REFS
 // ============================================
 
 const DOM = {};
@@ -64,13 +61,10 @@ function cacheDOM() {
     DOM.pipPlaceholder = document.getElementById('pipPlaceholder');
     DOM.pipMicControl = document.getElementById('pipMicControl');
     DOM.pipCamControl = document.getElementById('pipCamControl');
-    DOM.videoGrid = document.getElementById('videoGrid');
     DOM.viewerThumbnails = document.getElementById('viewerThumbnails');
     DOM.loadingOverlay = document.getElementById('loadingOverlay');
     DOM.loadingText = document.getElementById('loadingText');
     DOM.loadingSubText = document.getElementById('loadingSubText');
-    DOM.loadingProgress = document.getElementById('loadingProgress');
-    DOM.loadingProgressBar = document.getElementById('loadingProgressBar');
     DOM.roomTitle = document.getElementById('roomTitle');
     DOM.classTimer = document.getElementById('classTimer');
     DOM.viewerCount = document.getElementById('viewerCount');
@@ -91,13 +85,14 @@ function cacheDOM() {
 }
 
 // ============================================
-// INIT (same as before)
+// INIT
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🎥 Virtual Room initializing...');
     cacheDOM();
 
+    // Fix mobile viewport
     const setVH = () => {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -122,16 +117,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sessionCode = params.get('code');
         const mode = params.get('mode');
 
+        // Check saved session
         const savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
                 const sessionData = JSON.parse(savedSession);
-                if (sessionData.sessionId && sessionData.sessionCode) {
+                if (sessionData.sessionId) {
                     console.log('🔄 Found saved session, recovering...');
                     await recoverSession(sessionData);
                     return;
                 }
-            } catch (e) {}
+            } catch (e) {
+                sessionStorage.removeItem('glimu_session');
+            }
         }
 
         if (mode === 'host') {
@@ -198,13 +196,16 @@ async function createNewSession() {
         DOM.hostName.textContent = state.userProfile.name || 'Host';
         DOM.hostStatusText.textContent = 'You are the host - waiting for viewers...';
 
+        // Add host as participant
         await supabase
             .from('session_participants')
             .insert({
                 session_id: state.sessionId,
                 user_id: state.currentUser.id,
                 role: 'host',
-                is_active: true
+                is_active: true,
+                peer_id: null,
+                last_seen: new Date().toISOString()
             });
 
         await startLocalStream();
@@ -293,7 +294,9 @@ async function joinSession(sessionCode) {
                 session_id: state.sessionId,
                 user_id: state.currentUser.id,
                 role: 'viewer',
-                is_active: true
+                is_active: true,
+                peer_id: null,
+                last_seen: new Date().toISOString()
             }, { onConflict: 'session_id,user_id' });
 
         await startLocalStream();
@@ -328,7 +331,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// PEERJS - FIXED CALL FLOW
+// PEERJS - SIMPLIFIED AND FIXED
 // ============================================
 
 async function initPeerJS(isHost) {
@@ -344,7 +347,6 @@ async function initPeerJS(isHost) {
                 port: 443,
                 path: '/',
                 secure: true,
-                debug: 2,
                 config: {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
@@ -359,6 +361,11 @@ async function initPeerJS(isHost) {
                             urls: 'turn:openrelay.metered.ca:443',
                             username: 'openrelayproject',
                             credential: 'openrelayproject' 
+                        },
+                        { 
+                            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject' 
                         }
                     ]
                 }
@@ -370,42 +377,58 @@ async function initPeerJS(isHost) {
                     state.peer.destroy();
                     resolve(false);
                 }
-            }, 15000);
+            }, 20000);
 
             state.peer.on('open', async (id) => {
                 clearTimeout(timeout);
                 state.peerId = id;
                 console.log('✅ PeerJS connected:', id);
 
-                await supabase
-                    .from('session_participants')
-                    .update({ peer_id: id })
-                    .eq('session_id', state.sessionId)
-                    .eq('user_id', state.currentUser.id);
+                // Update peer_id in database
+                try {
+                    await supabase
+                        .from('session_participants')
+                        .update({ 
+                            peer_id: id,
+                            last_seen: new Date().toISOString()
+                        })
+                        .eq('session_id', state.sessionId)
+                        .eq('user_id', state.currentUser.id);
+                } catch (e) {
+                    console.warn('Could not update peer_id:', e);
+                }
 
                 DOM.connectionStatus.textContent = '🟢 Connected';
                 DOM.connectionStatus.style.color = '#10b981';
 
                 if (isHost) {
-                    // HOST: Wait for incoming calls from viewers
+                    // HOST: Wait for incoming calls
                     console.log('📞 Host waiting for viewer calls...');
                     state.peer.on('call', handleIncomingCall);
                     
-                    // Also listen for connections (for data channel)
+                    // Also listen for data connections
                     state.peer.on('connection', (conn) => {
                         console.log('📡 Data connection from:', conn.peer);
-                        conn.on('data', handleDataChannelMessage);
+                        conn.on('data', (data) => {
+                            try {
+                                const msg = JSON.parse(data);
+                                handleDataChannelMessage(msg, conn.peer);
+                            } catch (e) {}
+                        });
                     });
 
-                    // After a short delay, broadcast that host is ready
+                    // Broadcast host ready after a delay
                     setTimeout(() => {
                         broadcastHostReady();
-                    }, 2000);
+                    }, 3000);
 
                 } else {
                     // VIEWER: Connect to host
                     console.log('📞 Viewer connecting to host...');
-                    await connectToHost();
+                    // Wait a moment for host to be ready
+                    setTimeout(() => {
+                        connectToHost();
+                    }, 2000);
                 }
 
                 resolve(true);
@@ -415,15 +438,18 @@ async function initPeerJS(isHost) {
                 clearTimeout(timeout);
                 console.error('❌ PeerJS error:', err.message);
                 
-                if (state.connectionAttempts < state.maxConnectionAttempts) {
-                    console.log(`🔄 Retry ${state.connectionAttempts}/${state.maxConnectionAttempts}...`);
-                    setTimeout(() => {
-                        initPeerJS(isHost);
-                    }, 2000);
-                } else {
-                    state.peerjsFailed = true;
-                    resolve(false);
+                if (err.message.includes('Lost connection') || err.message.includes('disconnected')) {
+                    if (state.connectionAttempts < state.maxConnectionAttempts) {
+                        console.log(`🔄 Retry ${state.connectionAttempts}/${state.maxConnectionAttempts}...`);
+                        setTimeout(() => {
+                            initPeerJS(isHost);
+                        }, 3000);
+                        return;
+                    }
                 }
+                
+                state.peerjsFailed = true;
+                resolve(false);
             });
 
         } catch (err) {
@@ -438,43 +464,39 @@ async function initPeerJS(isHost) {
 function broadcastHostReady() {
     console.log('📢 Broadcasting host ready...');
     
-    // Get all participants and send them a signal
-    state.participants.forEach((participant, userId) => {
-        if (userId !== state.currentUser.id && participant.peer_id) {
-            try {
-                const conn = state.peer.connect(participant.peer_id);
-                conn.on('open', () => {
-                    conn.send(JSON.stringify({
-                        type: 'host_ready',
-                        peerId: state.peerId
-                    }));
-                });
-            } catch (e) {
-                console.warn('Could not connect to viewer:', participant.peer_id);
-            }
-        }
-    });
+    // Update host status in database
+    supabase
+        .from('session_participants')
+        .update({ 
+            last_seen: new Date().toISOString()
+        })
+        .eq('session_id', state.sessionId)
+        .eq('user_id', state.currentUser.id)
+        .then(() => {
+            console.log('✅ Host status updated');
+        });
 }
 
-// VIEWER: Connect to host
+// VIEWER: Connect to host with retry
 async function connectToHost() {
     try {
         // Get host peer ID from database
-        const { data: host } = await supabase
+        const { data: host, error } = await supabase
             .from('session_participants')
             .select('peer_id, user_id')
             .eq('session_id', state.sessionId)
             .eq('role', 'host')
             .single();
 
+        if (error) {
+            console.warn('⚠️ Error getting host:', error);
+            retryConnectToHost();
+            return;
+        }
+
         if (!host || !host.peer_id) {
             console.warn('⚠️ Host not found or no peer ID');
-            // Retry after delay
-            setTimeout(() => {
-                if (!state.hostStreamReceived) {
-                    connectToHost();
-                }
-            }, 3000);
+            retryConnectToHost();
             return;
         }
 
@@ -492,7 +514,12 @@ async function connectToHost() {
                     name: state.userProfile.name || 'Viewer'
                 }));
             });
-            conn.on('data', handleDataChannelMessage);
+            conn.on('data', (data) => {
+                try {
+                    const msg = JSON.parse(data);
+                    handleDataChannelMessage(msg, conn.peer);
+                } catch (e) {}
+            });
         } catch (e) {
             console.warn('Data connection failed, proceeding with call only:', e);
         }
@@ -520,25 +547,29 @@ async function connectToHost() {
             DOM.connectionStatus.textContent = '🔴 Disconnected';
             DOM.connectionStatus.style.color = '#ef4444';
             state.hostStreamReceived = false;
+            retryConnectToHost();
         });
 
         call.on('error', (err) => {
             console.error('📞 Call error:', err);
-            // Retry after delay
-            if (!state.hostStreamReceived) {
-                setTimeout(() => {
-                    connectToHost();
-                }, 3000);
-            }
+            retryConnectToHost();
         });
 
     } catch (error) {
         console.error('❌ Connect to host error:', error);
-        if (!state.hostStreamReceived) {
-            setTimeout(() => {
-                connectToHost();
-            }, 3000);
-        }
+        retryConnectToHost();
+    }
+}
+
+function retryConnectToHost() {
+    if (state.reconnectTimeout) {
+        clearTimeout(state.reconnectTimeout);
+    }
+    if (!state.hostStreamReceived && !state.sessionEnded) {
+        state.reconnectTimeout = setTimeout(() => {
+            console.log('🔄 Retrying connection to host...');
+            connectToHost();
+        }, 5000);
     }
 }
 
@@ -561,9 +592,9 @@ function handleIncomingCall(call) {
         renderViewerThumbnails();
         
         // Update connection status
-        DOM.connectionStatus.textContent = `🟢 ${state.viewerStreams.size} viewer(s) connected`;
+        DOM.connectionStatus.textContent = `🟢 ${state.viewerStreams.size} viewer(s)`;
         DOM.connectionStatus.style.color = '#10b981';
-        DOM.hostStatusText.textContent = `You are the host - ${state.viewerStreams.size} viewer(s)`;
+        DOM.hostStatusText.textContent = `${state.viewerStreams.size} viewer(s) connected`;
     });
 
     call.on('close', () => {
@@ -574,70 +605,82 @@ function handleIncomingCall(call) {
 }
 
 // Data channel handler
-function handleDataChannelMessage(data) {
-    try {
-        const message = JSON.parse(data);
-        console.log('📨 Data message:', message.type);
-        
-        switch (message.type) {
-            case 'host_ready':
-                // Viewer received host ready signal
-                if (!state.isHost && !state.hostStreamReceived) {
-                    console.log('📞 Host ready, connecting...');
-                    connectToHost();
-                }
-                break;
-                
-            case 'viewer_ready':
-                // Host received viewer ready
-                if (state.isHost) {
-                    console.log('👤 Viewer ready:', message.name);
-                    showToast(`👤 ${message.name || 'Viewer'} joined`, 'info');
-                }
-                break;
-                
-            case 'hand_raised':
-                if (state.isHost) {
-                    showToast(`🙋 ${message.name || 'A viewer'} raised their hand!`, 'warning');
-                    sendToChatIframe({
-                        type: 'system_message',
-                        message: `🙋 ${message.name || 'A viewer'} raised their hand`
-                    });
-                }
-                break;
-        }
-    } catch (e) {
-        console.warn('Data message error:', e);
+function handleDataChannelMessage(message, peerId) {
+    console.log('📨 Data message:', message.type);
+    
+    switch (message.type) {
+        case 'viewer_ready':
+            if (state.isHost) {
+                console.log('👤 Viewer ready:', message.name);
+                showToast(`👤 ${message.name || 'Viewer'} joined`, 'info');
+                // Broadcast host ready back
+                setTimeout(() => {
+                    try {
+                        const conn = state.peer.connect(peerId);
+                        conn.on('open', () => {
+                            conn.send(JSON.stringify({
+                                type: 'host_ready',
+                                peerId: state.peerId
+                            }));
+                        });
+                    } catch (e) {}
+                }, 1000);
+            }
+            break;
+            
+        case 'host_ready':
+            if (!state.isHost && !state.hostStreamReceived) {
+                console.log('📞 Host ready, connecting...');
+                connectToHost();
+            }
+            break;
+            
+        case 'hand_raised':
+            if (state.isHost) {
+                showToast(`🙋 ${message.name || 'A viewer'} raised their hand!`, 'warning');
+                sendToChatIframe({
+                    type: 'system_message',
+                    message: `🙋 ${message.name || 'A viewer'} raised their hand`
+                });
+            }
+            break;
     }
 }
 
 // ============================================
-// DAILY.CO FALLBACK (same as before)
+// DAILY.CO FALLBACK
 // ============================================
 
 async function initDailyFallback(isHost) {
     try {
         console.log('📹 Initializing Daily.co fallback...');
         state.usingDailyFallback = true;
-        DOM.dailyContainer.style.display = 'block';
-        DOM.videoGrid.style.display = 'none';
+        
+        if (DOM.dailyContainer) {
+            DOM.dailyContainer.style.display = 'block';
+            DOM.videoGrid.style.display = 'none';
+        }
 
         const roomName = `glimu-${state.sessionCode}`;
         const jitsiUrl = `https://meet.jit.si/${roomName}`;
         
-        DOM.dailyFrameContainer.innerHTML = `
-            <iframe 
-                src="${jitsiUrl}"
-                style="width:100%;height:100%;border:0;"
-                allow="camera; microphone; fullscreen; display-capture"
-                allowfullscreen
-            ></iframe>
-        `;
+        if (DOM.dailyFrameContainer) {
+            DOM.dailyFrameContainer.innerHTML = `
+                <iframe 
+                    src="${jitsiUrl}"
+                    style="width:100%;height:100%;border:0;"
+                    allow="camera; microphone; fullscreen; display-capture"
+                    allowfullscreen
+                ></iframe>
+            `;
+        }
 
         DOM.hostStatusText.textContent = 'Using backup video service';
         showToast('📹 Using backup video service', 'info');
-        DOM.connectionStatus.textContent = '🟢 Connected (Backup)';
-        DOM.connectionStatus.style.color = '#f59e0b';
+        if (DOM.connectionStatus) {
+            DOM.connectionStatus.textContent = '🟢 Connected (Backup)';
+            DOM.connectionStatus.style.color = '#f59e0b';
+        }
 
         console.log('✅ Daily.co fallback initialized');
 
@@ -648,7 +691,7 @@ async function initDailyFallback(isHost) {
 }
 
 // ============================================
-// SESSION RECOVERY (same as before)
+// SESSION RECOVERY
 // ============================================
 
 async function recoverSession(savedData) {
@@ -678,7 +721,10 @@ async function recoverSession(savedData) {
 
         await supabase
             .from('session_participants')
-            .update({ is_active: true })
+            .update({ 
+                is_active: true,
+                last_seen: new Date().toISOString()
+            })
             .eq('session_id', state.sessionId)
             .eq('user_id', state.currentUser.id);
 
@@ -742,12 +788,6 @@ async function startLocalStream() {
         updateLocalControls();
         console.log('🎥 Camera started');
 
-        // Update peer connection if it exists
-        if (state.peer && state.peer.open) {
-            // If we already have a peer connection, update the stream
-            // This is handled by the call flow
-        }
-
     } catch (err) {
         console.error('❌ Camera error:', err);
         if (err.name !== 'NotReadableError' && err.name !== 'NotFoundError') {
@@ -764,7 +804,7 @@ function toggleMicrophone() {
     if (!track) return;
     state.isMuted = !track.enabled;
     track.enabled = !track.enabled;
-    document.getElementById('micBtn').classList.toggle('off', state.isMuted);
+    document.getElementById('micBtn')?.classList.toggle('off', state.isMuted);
     DOM.pipMicControl?.classList.toggle('off', state.isMuted);
     showToast(state.isMuted ? 'Muted' : 'Unmuted', 'info');
 }
@@ -796,7 +836,7 @@ function updateLocalControls() {
 }
 
 // ============================================
-// SCREEN SHARE (same as before)
+// SCREEN SHARE
 // ============================================
 
 async function toggleScreenShare() {
@@ -816,7 +856,7 @@ async function toggleScreenShare() {
             state.screenStream = null;
         }
         state.isScreenSharing = false;
-        document.getElementById('screenBtn').classList.remove('active');
+        document.getElementById('screenBtn')?.classList.remove('active');
         showToast('Screen share stopped', 'info');
         if (state.localStream) {
             DOM.hostVideo.srcObject = state.localStream;
@@ -831,7 +871,7 @@ async function toggleScreenShare() {
         });
 
         state.isScreenSharing = true;
-        document.getElementById('screenBtn').classList.add('active');
+        document.getElementById('screenBtn')?.classList.add('active');
         showToast('Screen sharing started!', 'success');
 
         DOM.hostVideo.srcObject = state.screenStream;
@@ -848,7 +888,7 @@ async function toggleScreenShare() {
             showToast('Screen share cancelled', 'warning');
         }
         state.isScreenSharing = false;
-        document.getElementById('screenBtn').classList.remove('active');
+        document.getElementById('screenBtn')?.classList.remove('active');
     }
 }
 
@@ -903,7 +943,7 @@ function renderViewerThumbnails() {
 
     DOM.viewerThumbnails.innerHTML = viewers.map(viewer => {
         const handRaised = viewer.hand_raised || false;
-        const hasStream = state.viewerStreams.has(viewer.peer_id) || state.viewerStreams.has(viewer.user_id);
+        const hasStream = state.viewerStreams.has(viewer.peer_id);
 
         return `
             <div class="viewer-thumbnail" data-user-id="${viewer.user_id}">
@@ -922,12 +962,7 @@ function renderViewerThumbnails() {
         const videoEl = document.getElementById(`viewer_${viewer.user_id}`);
         if (!videoEl) return;
         
-        // Try to find stream by peer_id or user_id
-        let stream = state.viewerStreams.get(viewer.peer_id);
-        if (!stream) {
-            stream = state.viewerStreams.get(viewer.user_id);
-        }
-        
+        const stream = state.viewerStreams.get(viewer.peer_id);
         if (stream) {
             videoEl.srcObject = stream;
             videoEl.style.display = 'block';
@@ -949,23 +984,20 @@ async function toggleRaiseHand() {
         .eq('session_id', state.sessionId)
         .eq('user_id', state.currentUser.id);
 
-    document.getElementById('raiseHandBtn').classList.toggle('active', state.handRaised);
+    document.getElementById('raiseHandBtn')?.classList.toggle('active', state.handRaised);
     showToast(state.handRaised ? 'Hand raised! 🙋' : 'Hand lowered', 'info');
 
-    if (state.handRaised) {
-        // Send to host via data channel if available
-        if (state.peer && state.hostPeerId) {
-            try {
-                const conn = state.peer.connect(state.hostPeerId);
-                conn.on('open', () => {
-                    conn.send(JSON.stringify({
-                        type: 'hand_raised',
-                        name: state.userProfile.name || 'A viewer'
-                    }));
-                });
-            } catch (e) {
-                console.warn('Could not send hand raise to host:', e);
-            }
+    if (state.handRaised && state.hostPeerId) {
+        try {
+            const conn = state.peer.connect(state.hostPeerId);
+            conn.on('open', () => {
+                conn.send(JSON.stringify({
+                    type: 'hand_raised',
+                    name: state.userProfile.name || 'A viewer'
+                }));
+            });
+        } catch (e) {
+            console.warn('Could not send hand raise to host:', e);
         }
         
         sendToChatIframe({
@@ -979,7 +1011,7 @@ async function toggleRaiseHand() {
 // TIPPING
 // ============================================
 
-async function sendTip(amount, currency, emoji) {
+async function sendTip(amount, emoji) {
     if (!state.sessionId) {
         showToast('No active session', 'error');
         return;
@@ -1139,7 +1171,7 @@ function setupRealtimeSubscriptions() {
 }
 
 // ============================================
-// CHAT IFRAME (same as before)
+// CHAT IFRAME
 // ============================================
 
 function setupChatIframe() {
@@ -1159,8 +1191,7 @@ function setupChatIframe() {
                     sessionId: state.sessionId,
                     sessionCode: state.sessionCode,
                     isHost: state.isHost,
-                    roomTitle: DOM.roomTitle.textContent,
-                    usingDailyFallback: state.usingDailyFallback
+                    roomTitle: DOM.roomTitle.textContent
                 });
                 break;
             case 'message_sent':
@@ -1185,8 +1216,7 @@ function setupChatIframe() {
                 sessionId: state.sessionId,
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
-                roomTitle: DOM.roomTitle.textContent,
-                usingDailyFallback: state.usingDailyFallback
+                roomTitle: DOM.roomTitle.textContent
             });
         }, 1500);
     });
@@ -1256,7 +1286,9 @@ function saveSessionState() {
 }
 
 function showLoading(show) {
-    DOM.loadingOverlay.style.display = show ? 'flex' : 'none';
+    if (DOM.loadingOverlay) {
+        DOM.loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
 }
 
 function startTimer() {
@@ -1309,22 +1341,23 @@ function setupEventListeners() {
     document.getElementById('copyLinkBtn')?.addEventListener('click', copyShareLink);
     document.getElementById('returnBtn')?.addEventListener('click', () => window.location.href = '/user');
 
+    // Tip options: Heart (₦200), Star (₦500), Haha (₦1250)
     document.querySelectorAll('.tip-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const amount = parseInt(btn.dataset.amount);
-            const currency = btn.dataset.currency || 'wallet';
             const emoji = btn.dataset.emoji || '❤️';
-            sendTip(amount, currency, emoji);
+            sendTip(amount, emoji);
         });
     });
 
     document.getElementById('sendCustomTip')?.addEventListener('click', () => {
         const amount = parseInt(prompt('Enter amount (₦):'));
         if (amount > 0) {
-            sendTip(amount, 'wallet', '💝');
+            sendTip(amount, '💝');
         }
     });
 
+    // Star rating
     document.querySelectorAll('.star').forEach(star => {
         star.addEventListener('click', () => {
             const value = parseInt(star.dataset.value);
@@ -1336,12 +1369,14 @@ function setupEventListeners() {
     });
     document.getElementById('submitStars')?.addEventListener('click', submitRating);
 
+    // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
         });
     });
 
+    // Save session on page unload
     window.addEventListener('beforeunload', () => {
         if (state.sessionId && !state.sessionEnded) {
             saveSessionState();
@@ -1350,51 +1385,59 @@ function setupEventListeners() {
 }
 
 function toggleChatSidebar() {
-    DOM.chatSidebar.classList.toggle('open');
+    DOM.chatSidebar?.classList.toggle('open');
 }
 
 function useFallbackMode() {
     showLoading(false);
     DOM.hostStatusText.textContent = 'Chat-only mode';
-    DOM.connectionStatus.textContent = '🔴 Chat Only';
-    DOM.connectionStatus.style.color = '#f59e0b';
+    if (DOM.connectionStatus) {
+        DOM.connectionStatus.textContent = '🔴 Chat Only';
+        DOM.connectionStatus.style.color = '#f59e0b';
+    }
     showToast('⚠️ Connected in chat-only mode', 'warning');
 }
 
 function showLoginScreen() {
-    document.querySelector('.virtual-room').innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;padding:40px;background:var(--bg-primary);">
-            <i class="fas fa-sign-in-alt" style="font-size:64px;color:var(--danger);margin-bottom:20px;"></i>
-            <h2>Sign In Required</h2>
-            <p style="color:var(--text-secondary);margin-bottom:24px;">Please sign in to access the virtual room.</p>
-            <button onclick="window.location.href='/signin.html'" class="primary-btn">Sign In</button>
-        </div>
-    `;
+    const container = document.querySelector('.virtual-room');
+    if (container) {
+        container.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;padding:40px;background:var(--bg-primary);">
+                <i class="fas fa-sign-in-alt" style="font-size:64px;color:var(--danger);margin-bottom:20px;"></i>
+                <h2>Sign In Required</h2>
+                <p style="color:var(--text-secondary);margin-bottom:24px;">Please sign in to access the virtual room.</p>
+                <button onclick="window.location.href='/signin.html'" class="primary-btn">Sign In</button>
+            </div>
+        `;
+    }
 }
 
 function showSessionSelection() {
     DOM.loadingText.textContent = 'Start or Join a Session';
     DOM.loadingSubText.textContent = 'Create your own session or join with a code';
-    DOM.loadingOverlay.querySelector('.loading-spinner').style.display = 'none';
+    const spinner = DOM.loadingOverlay?.querySelector('.loading-spinner');
+    if (spinner) spinner.style.display = 'none';
 
-    DOM.loadingOverlay.innerHTML += `
-        <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;width:100%;max-width:320px;">
-            <button onclick="window.location.href='?mode=host'" class="primary-btn" style="width:100%;">
-                <i class="fas fa-video"></i> Go Live
-            </button>
-            <div style="display:flex;gap:8px;width:100%;">
-                <input type="text" id="sessionCodeInput" placeholder="Enter session code" 
-                       style="flex:1;padding:10px 14px;border-radius:12px;border:2px solid var(--border-color);
-                              background:var(--bg-input);color:var(--text-primary);font-family:inherit;">
-                <button onclick="joinWithCode()" class="primary-btn" style="flex-shrink:0;">
-                    <i class="fas fa-sign-in-alt"></i> Join
+    if (DOM.loadingOverlay) {
+        DOM.loadingOverlay.innerHTML += `
+            <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;width:100%;max-width:320px;">
+                <button onclick="window.location.href='?mode=host'" class="primary-btn" style="width:100%;">
+                    <i class="fas fa-video"></i> Go Live
                 </button>
+                <div style="display:flex;gap:8px;width:100%;">
+                    <input type="text" id="sessionCodeInput" placeholder="Enter session code" 
+                           style="flex:1;padding:10px 14px;border-radius:12px;border:2px solid var(--border-color);
+                                  background:var(--bg-input);color:var(--text-primary);font-family:inherit;">
+                    <button onclick="handleJoinWithCode()" class="primary-btn" style="flex-shrink:0;">
+                        <i class="fas fa-sign-in-alt"></i> Join
+                    </button>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    }
 
-    window.joinWithCode = () => {
-        const code = document.getElementById('sessionCodeInput').value.trim();
+    window.handleJoinWithCode = () => {
+        const code = document.getElementById('sessionCodeInput')?.value.trim();
         if (code) {
             window.location.href = `?code=${code}`;
         } else {
@@ -1419,6 +1462,9 @@ function cleanup() {
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
+    }
+    if (state.reconnectTimeout) {
+        clearTimeout(state.reconnectTimeout);
     }
     if (state.participantsSubscription) {
         state.participantsSubscription.unsubscribe();
@@ -1450,7 +1496,7 @@ function leaveRoom() {
 // ============================================
 
 window.leaveRoom = leaveRoom;
-window.joinWithCode = joinWithCode;
 window.toggleChatSidebar = toggleChatSidebar;
+window.handleJoinWithCode = window.handleJoinWithCode;
 
 console.log('🎥 Virtual Room loaded with PeerJS + Daily fallback');
