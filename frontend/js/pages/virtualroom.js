@@ -29,6 +29,9 @@ const state = {
     signalingSubscription: null,
     peerConnection: null,
     dataChannel: null,
+    signalingReady: false,
+    offerSent: false,
+    answerReceived: false,
 };
 
 // ============================================
@@ -186,10 +189,10 @@ async function createNewSession() {
 
         await getAudioStream();
 
-        // Start signaling channel for WebRTC
+        // Setup signaling
         await setupSignalingChannel();
 
-        // Setup WebRTC
+        // Setup WebRTC as host
         await setupWebRTC(true);
 
         saveSessionState();
@@ -272,10 +275,10 @@ async function joinSession(sessionCode) {
 
         await getAudioStream();
 
-        // Start signaling channel for WebRTC
+        // Setup signaling
         await setupSignalingChannel();
 
-        // Setup WebRTC
+        // Setup WebRTC as viewer
         await setupWebRTC(false);
 
         saveSessionState();
@@ -319,13 +322,12 @@ async function getAudioStream() {
 }
 
 // ============================================
-// SIGNALING CHANNEL - FIXED WITH PROPER AUTH
+// SIGNALING CHANNEL
 // ============================================
 
 async function setupSignalingChannel() {
     if (!state.sessionId) return;
 
-    // Clean up old subscription
     if (state.signalingSubscription) {
         state.signalingSubscription.unsubscribe();
         state.signalingSubscription = null;
@@ -333,7 +335,6 @@ async function setupSignalingChannel() {
 
     var channelName = 'signaling_' + state.sessionId;
     
-    // Create channel with proper config
     state.signalingSubscription = supabase
         .channel(channelName, {
             config: {
@@ -341,11 +342,20 @@ async function setupSignalingChannel() {
             }
         })
         .on('broadcast', { event: 'signal' }, function(payload) {
-            console.log('📨 Signal received:', payload.payload.type);
+            console.log('📨 Signal received:', payload.payload.type, 'from:', payload.payload.userId);
             handleSignalingMessage(payload.payload);
         })
         .subscribe(function(status) {
             console.log('📡 Signaling channel status:', status);
+            if (status === 'SUBSCRIBED') {
+                state.signalingReady = true;
+                // If we're the host and ready, send the offer
+                if (state.isHost && !state.offerSent) {
+                    setTimeout(function() {
+                        sendOffer();
+                    }, 1000);
+                }
+            }
         });
 }
 
@@ -355,7 +365,6 @@ function sendSignalingMessage(message) {
         return;
     }
 
-    // Add timestamp to prevent duplicate processing
     message.timestamp = Date.now();
 
     state.signalingSubscription.send({
@@ -393,7 +402,6 @@ async function setupWebRTC(isHost) {
         }
 
         if (isHost) {
-            // Host: Create data channel
             state.dataChannel = state.peerConnection.createDataChannel('signaling');
             state.dataChannel.onopen = function() {
                 console.log('Data channel open');
@@ -405,7 +413,6 @@ async function setupWebRTC(isHost) {
                 } catch (e) {}
             };
         } else {
-            // Viewer: Listen for data channel
             state.peerConnection.ondatachannel = function(event) {
                 state.dataChannel = event.channel;
                 state.dataChannel.onmessage = function(event) {
@@ -424,7 +431,6 @@ async function setupWebRTC(isHost) {
             };
         }
 
-        // Handle ICE candidates
         state.peerConnection.onicecandidate = function(event) {
             if (event.candidate) {
                 sendSignalingMessage({
@@ -435,62 +441,38 @@ async function setupWebRTC(isHost) {
             }
         };
 
-        // Handle remote stream
         state.peerConnection.ontrack = function(event) {
-            console.log('Remote stream received');
+            console.log('📺 Remote stream received!');
             var stream = event.streams[0];
             
             if (stream) {
                 var hasVideo = stream.getVideoTracks().length > 0;
+                console.log('Has video:', hasVideo);
+                
                 if (hasVideo) {
-                    console.log('Video track detected!');
+                    console.log('✅ Video track detected!');
                     DOM.screenVideo.srcObject = stream;
                     DOM.screenVideo.style.display = 'block';
                     DOM.screenVideo.classList.add('active');
                     DOM.screenPlaceholder.style.display = 'none';
                     DOM.hostIndicator.classList.add('active');
-                    DOM.screenVideo.play().catch(function(e) {});
+                    DOM.screenVideo.play().catch(function(e) {
+                        console.warn('Video play error:', e);
+                    });
                     if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
                     if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
                 } else {
                     console.log('Audio only stream');
-                    DOM.screenPlaceholder.style.display = 'flex';
-                    if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected to host';
-                    if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
                 }
             }
         };
 
-        // Connection state changes
         state.peerConnection.onconnectionstatechange = function() {
-            var state = state.peerConnection.connectionState;
-            console.log('Connection state:', state);
-            if (state === 'connected') {
-                showToast('Connected!', 'success');
-            } else if (state === 'failed' || state === 'disconnected') {
-                showToast('Connection lost. Reconnecting...', 'warning');
+            console.log('Connection state:', state.peerConnection.connectionState);
+            if (state.peerConnection.connectionState === 'connected') {
+                showToast('📹 Video connected!', 'success');
             }
         };
-
-        // If host, create offer
-        if (isHost) {
-            setTimeout(async function() {
-                try {
-                    var offer = await state.peerConnection.createOffer();
-                    await state.peerConnection.setLocalDescription(offer);
-                    
-                    sendSignalingMessage({
-                        type: 'offer',
-                        sdp: offer,
-                        userId: state.currentUser.id,
-                        sessionId: state.sessionId
-                    });
-                    console.log('Offer sent');
-                } catch (err) {
-                    console.error('Error creating offer:', err);
-                }
-            }, 2000);
-        }
 
         console.log('WebRTC setup complete');
 
@@ -501,12 +483,39 @@ async function setupWebRTC(isHost) {
 }
 
 // ============================================
+// SEND OFFER (Host)
+// ============================================
+
+async function sendOffer() {
+    if (!state.isHost || state.offerSent) return;
+    if (!state.peerConnection) return;
+
+    try {
+        var offer = await state.peerConnection.createOffer();
+        await state.peerConnection.setLocalDescription(offer);
+        
+        sendSignalingMessage({
+            type: 'offer',
+            sdp: offer,
+            userId: state.currentUser.id,
+            sessionId: state.sessionId
+        });
+        state.offerSent = true;
+        console.log('✅ Offer sent');
+    } catch (err) {
+        console.error('Error creating offer:', err);
+    }
+}
+
+// ============================================
 // SIGNALING HANDLER
 // ============================================
 
 function handleSignalingMessage(message) {
     if (message.userId === state.currentUser.id) return;
     if (!state.peerConnection) return;
+
+    console.log('Processing signal:', message.type);
 
     try {
         switch (message.type) {
@@ -525,7 +534,7 @@ function handleSignalingMessage(message) {
                             userId: state.currentUser.id,
                             sessionId: state.sessionId
                         });
-                        console.log('Answer sent');
+                        console.log('✅ Answer sent');
                     })
                     .catch(function(err) {
                         console.error('Answer error:', err);
@@ -534,8 +543,12 @@ function handleSignalingMessage(message) {
 
             case 'answer':
                 state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                    .then(function() {
+                        state.answerReceived = true;
+                        console.log('✅ Answer received');
+                    })
                     .catch(function(err) {
-                        console.error('Set remote description error:', err);
+                        console.error('Set remote desc error:', err);
                     });
                 break;
 
@@ -563,7 +576,7 @@ function handleDataChannelMessage(data) {
     switch (data.type) {
         case 'viewer_ready':
             if (state.isHost) {
-                console.log('Viewer ready:', data.userId);
+                console.log('👤 Viewer ready:', data.userId);
                 if (state.isSharing && state.screenStream) {
                     sendScreenToViewer();
                 }
@@ -618,7 +631,6 @@ async function toggleScreenShare() {
         state.isSharing = true;
         if (DOM.screenBtn) DOM.screenBtn.classList.add('active');
 
-        // Show screen locally
         DOM.screenVideo.srcObject = state.screenStream;
         DOM.screenVideo.style.display = 'block';
         DOM.screenVideo.classList.add('active');
@@ -634,10 +646,10 @@ async function toggleScreenShare() {
         
         if (sender) {
             sender.replaceTrack(screenTrack);
-            console.log('Screen track added to existing connection');
+            console.log('Screen track replaced');
         } else {
             state.peerConnection.addTrack(screenTrack, state.screenStream);
-            console.log('Screen track added to new connection');
+            console.log('Screen track added');
         }
 
         showToast('Screen sharing started!', 'success');
@@ -672,7 +684,7 @@ function sendScreenToViewer() {
             console.log('Screen sent to viewer');
         } else {
             state.peerConnection.addTrack(screenTrack, state.screenStream);
-            console.log('Screen added to connection');
+            console.log('Screen added for viewer');
         }
     } catch (e) {
         console.warn('Could not send screen:', e);
