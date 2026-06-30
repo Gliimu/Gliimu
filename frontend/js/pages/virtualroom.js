@@ -29,8 +29,6 @@ const state = {
     signalingSubscription: null,
     peerConnection: null,
     dataChannel: null,
-    hostPeerId: null,
-    viewerConnections: new Map(),
 };
 
 // ============================================
@@ -186,10 +184,12 @@ async function createNewSession() {
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'Click "Share Screen" to start';
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
-        // Get audio stream for microphone
         await getAudioStream();
 
-        // Setup WebRTC as host
+        // Start signaling channel for WebRTC
+        await setupSignalingChannel();
+
+        // Setup WebRTC
         await setupWebRTC(true);
 
         saveSessionState();
@@ -270,10 +270,12 @@ async function joinSession(sessionCode) {
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'The host will start sharing their screen shortly';
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
-        // Get audio stream for listening
         await getAudioStream();
 
-        // Setup WebRTC as viewer
+        // Start signaling channel for WebRTC
+        await setupSignalingChannel();
+
+        // Setup WebRTC
         await setupWebRTC(false);
 
         saveSessionState();
@@ -301,7 +303,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// GET AUDIO STREAM
+// AUDIO STREAM
 // ============================================
 
 async function getAudioStream() {
@@ -317,7 +319,56 @@ async function getAudioStream() {
 }
 
 // ============================================
-// WEBRTC WITH SUPABASE REALTIME
+// SIGNALING CHANNEL - FIXED WITH PROPER AUTH
+// ============================================
+
+async function setupSignalingChannel() {
+    if (!state.sessionId) return;
+
+    // Clean up old subscription
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
+        state.signalingSubscription = null;
+    }
+
+    var channelName = 'signaling_' + state.sessionId;
+    
+    // Create channel with proper config
+    state.signalingSubscription = supabase
+        .channel(channelName, {
+            config: {
+                broadcast: { ack: true }
+            }
+        })
+        .on('broadcast', { event: 'signal' }, function(payload) {
+            console.log('📨 Signal received:', payload.payload.type);
+            handleSignalingMessage(payload.payload);
+        })
+        .subscribe(function(status) {
+            console.log('📡 Signaling channel status:', status);
+        });
+}
+
+function sendSignalingMessage(message) {
+    if (!state.sessionId || !state.signalingSubscription) {
+        console.warn('Cannot send signal: no subscription');
+        return;
+    }
+
+    // Add timestamp to prevent duplicate processing
+    message.timestamp = Date.now();
+
+    state.signalingSubscription.send({
+        type: 'broadcast',
+        event: 'signal',
+        payload: message
+    }).catch(function(err) {
+        console.warn('Could not send signal:', err);
+    });
+}
+
+// ============================================
+// WEBRTC SETUP
 // ============================================
 
 async function setupWebRTC(isHost) {
@@ -410,8 +461,16 @@ async function setupWebRTC(isHost) {
             }
         };
 
-        // Setup signaling via Supabase
-        setupSignalingSubscription();
+        // Connection state changes
+        state.peerConnection.onconnectionstatechange = function() {
+            var state = state.peerConnection.connectionState;
+            console.log('Connection state:', state);
+            if (state === 'connected') {
+                showToast('Connected!', 'success');
+            } else if (state === 'failed' || state === 'disconnected') {
+                showToast('Connection lost. Reconnecting...', 'warning');
+            }
+        };
 
         // If host, create offer
         if (isHost) {
@@ -437,39 +496,13 @@ async function setupWebRTC(isHost) {
 
     } catch (error) {
         console.error('WebRTC setup error:', error);
-        showToast('Could not establish video connection', 'warning');
+        showToast('Could not establish connection', 'warning');
     }
 }
 
 // ============================================
-// SIGNALING VIA SUPABASE REALTIME
+// SIGNALING HANDLER
 // ============================================
-
-function setupSignalingSubscription() {
-    if (state.signalingSubscription) {
-        state.signalingSubscription.unsubscribe();
-    }
-
-    var channelName = 'signaling_' + state.sessionId;
-    state.signalingSubscription = supabase
-        .channel(channelName)
-        .on('broadcast', { event: 'signal' }, function(payload) {
-            handleSignalingMessage(payload.payload);
-        })
-        .subscribe();
-}
-
-function sendSignalingMessage(message) {
-    if (!state.sessionId) return;
-    var channelName = 'signaling_' + state.sessionId;
-    supabase.channel(channelName).send({
-        type: 'broadcast',
-        event: 'signal',
-        payload: message
-    }).catch(function(err) {
-        console.warn('Could not send signal:', err);
-    });
-}
 
 function handleSignalingMessage(message) {
     if (message.userId === state.currentUser.id) return;
@@ -521,7 +554,7 @@ function handleSignalingMessage(message) {
 }
 
 // ============================================
-// DATA CHANNEL MESSAGES
+// DATA CHANNEL
 // ============================================
 
 function handleDataChannelMessage(data) {
@@ -531,7 +564,6 @@ function handleDataChannelMessage(data) {
         case 'viewer_ready':
             if (state.isHost) {
                 console.log('Viewer ready:', data.userId);
-                // If host is sharing, send screen to viewer
                 if (state.isSharing && state.screenStream) {
                     sendScreenToViewer();
                 }
@@ -551,7 +583,7 @@ function handleDataChannelMessage(data) {
 }
 
 // ============================================
-// SCREEN SHARE (Host Only)
+// SCREEN SHARE
 // ============================================
 
 async function toggleScreenShare() {
@@ -625,10 +657,6 @@ async function toggleScreenShare() {
         if (DOM.screenBtn) DOM.screenBtn.classList.remove('active');
     }
 }
-
-// ============================================
-// SEND SCREEN TO VIEWER
-// ============================================
 
 function sendScreenToViewer() {
     if (!state.isSharing || !state.screenStream || !state.peerConnection) return;
@@ -838,6 +866,7 @@ async function recoverSession(savedData) {
         }
 
         await getAudioStream();
+        await setupSignalingChannel();
         await setupWebRTC(state.isHost);
         await loadParticipants();
         showToast('Session recovered!', 'success');
@@ -1181,6 +1210,7 @@ function cleanup() {
     }
     if (state.signalingSubscription) {
         state.signalingSubscription.unsubscribe();
+        state.signalingSubscription = null;
     }
 }
 
