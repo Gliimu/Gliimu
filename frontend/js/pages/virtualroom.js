@@ -1,6 +1,5 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - WITH SESSION RECOVERY
-// Host can refresh/reconnect without losing session
+// 🎥 VIRTUAL ROOM - PeerJS + Auto Daily.co Fallback
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -19,26 +18,35 @@ const state = {
     isLive: false,
     sessionEnded: false,
     localStream: null,
-    screenStream: null,
-    isScreenSharing: false,
-    participants: [],
+    peer: null,
+    peerId: null,
+    hostPeerId: null,
+    participants: new Map(),
+    viewerStreams: new Map(),
+    chatSubscription: null,
+    sessionSubscription: null,
+    participantsSubscription: null,
+    classStartTime: Date.now(),
+    timerInterval: null,
+    starRating: 0,
+    hasRated: false,
+    hasTipped: false,
     viewerCount: 0,
+    tipsTotal: 0,
+    gpTipsTotal: 0,
+    starsCount: 0,
     handRaised: false,
     isMuted: false,
     isCameraOff: false,
-    chatIframeReady: false,
     unreadCount: 0,
-    starRating: 0,
-    hasRated: false,
-    sessionSubscription: null,
-    timerInterval: null,
-    heartbeatInterval: null,
-    classStartTime: Date.now(),
-    isReconnecting: false,
-    reconnectAttempts: 0,
-    maxReconnectAttempts: 10,
-    hostLastSeen: null,
-    isHostOnline: false,
+    chatIframeReady: false,
+    isScreenSharing: false,
+    connectionAttempts: 0,
+    maxConnectionAttempts: 3,
+    usingDailyFallback: false,
+    dailyCallFrame: null,
+    dailyInitialized: false,
+    peerjsFailed: false,
 };
 
 // ============================================
@@ -57,9 +65,15 @@ function cacheDOM() {
     DOM.localVideo = document.getElementById('localVideo');
     DOM.pipVideo = document.getElementById('pipVideo');
     DOM.pipPlaceholder = document.getElementById('pipPlaceholder');
+    DOM.pipMicControl = document.getElementById('pipMicControl');
+    DOM.pipCamControl = document.getElementById('pipCamControl');
+    DOM.videoGrid = document.getElementById('videoGrid');
+    DOM.viewerThumbnails = document.getElementById('viewerThumbnails');
     DOM.loadingOverlay = document.getElementById('loadingOverlay');
     DOM.loadingText = document.getElementById('loadingText');
     DOM.loadingSubText = document.getElementById('loadingSubText');
+    DOM.loadingProgress = document.getElementById('loadingProgress');
+    DOM.loadingProgressBar = document.getElementById('loadingProgressBar');
     DOM.roomTitle = document.getElementById('roomTitle');
     DOM.classTimer = document.getElementById('classTimer');
     DOM.viewerCount = document.getElementById('viewerCount');
@@ -69,10 +83,15 @@ function cacheDOM() {
     DOM.starModal = document.getElementById('starModal');
     DOM.shareModal = document.getElementById('shareModal');
     DOM.sessionEndedOverlay = document.getElementById('sessionEndedOverlay');
-    DOM.shareCodeDisplay = document.getElementById('shareCodeDisplay');
     DOM.shareLinkInput = document.getElementById('shareLinkInput');
     DOM.viewerControls = document.getElementById('viewerControls');
     DOM.hostControls = document.getElementById('hostControls');
+    DOM.connectionStatus = document.getElementById('connectionStatus');
+    DOM.liveStatus = document.getElementById('liveStatus');
+    DOM.liveDot = document.getElementById('liveDot');
+    DOM.dailyContainer = document.getElementById('dailyContainer');
+    DOM.dailyFrameContainer = document.getElementById('dailyFrameContainer');
+    DOM.dailyOverlay = document.getElementById('dailyOverlay');
 }
 
 // ============================================
@@ -82,6 +101,14 @@ function cacheDOM() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🎥 Virtual Room initializing...');
     cacheDOM();
+
+    // Fix mobile viewport
+    const setVH = () => {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    setVH();
+    window.addEventListener('resize', setVH);
 
     try {
         state.currentUser = await getCurrentUser();
@@ -99,23 +126,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const params = new URLSearchParams(window.location.search);
         const sessionCode = params.get('code');
         const mode = params.get('mode');
-        const isReconnect = params.get('reconnect') === 'true';
 
-        // Check if we're recovering a session
+        // Check for saved session
         const savedSession = sessionStorage.getItem('glimu_session');
-        
-        if (savedSession && !isReconnect) {
+        if (savedSession && !sessionCode && !mode) {
             try {
                 const sessionData = JSON.parse(savedSession);
-                // If we have a saved session and we're not already reconnecting
                 if (sessionData.sessionId && sessionData.sessionCode) {
-                    console.log('🔄 Found saved session, reconnecting...');
+                    console.log('🔄 Found saved session, recovering...');
                     await recoverSession(sessionData);
                     return;
                 }
-            } catch (e) {
-                console.warn('Could not recover session:', e);
-            }
+            } catch (e) {}
         }
 
         if (mode === 'host') {
@@ -131,8 +153,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupEventListeners();
         setupRealtimeSubscriptions();
         setupChatIframe();
-        setupHeartbeat();
         startTimer();
+
+        saveSessionState();
 
         console.log('✅ Virtual Room ready');
         showLoading(false);
@@ -146,276 +169,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
-// SESSION RECOVERY
-// ============================================
-
-async function recoverSession(savedData) {
-    try {
-        showLoading(true);
-        DOM.loadingText.textContent = 'Recovering session...';
-
-        // Check if session still exists
-        const { data: session, error } = await supabase
-            .from('virtual_sessions')
-            .select('*')
-            .eq('id', savedData.sessionId)
-            .single();
-
-        if (error || !session) {
-            console.warn('Session no longer exists, creating new one');
-            sessionStorage.removeItem('glimu_session');
-            await createNewSession();
-            return;
-        }
-
-        if (session.status === 'ended') {
-            showToast('Session has ended', 'error');
-            sessionStorage.removeItem('glimu_session');
-            setTimeout(() => window.location.href = '/user', 2000);
-            return;
-        }
-
-        state.sessionId = session.id;
-        state.sessionCode = session.session_code;
-        state.isHost = savedData.isHost || false;
-        state.isLive = session.status === 'live';
-        state.isReconnecting = true;
-
-        DOM.roomTitle.textContent = session.title || 'Live Session';
-        DOM.shareCodeDisplay.textContent = state.sessionCode;
-        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
-
-        // Update participant status
-        await supabase
-            .from('session_participants')
-            .update({ 
-                is_active: true, 
-                left_at: null,
-                joined_at: new Date().toISOString()
-            })
-            .eq('session_id', state.sessionId)
-            .eq('user_id', state.currentUser.id);
-
-        if (state.isHost) {
-            DOM.hostControls.style.display = 'flex';
-            DOM.viewerControls.style.display = 'none';
-            DOM.hostStatusText.textContent = 'You are the host (reconnected)';
-            
-            // If host, update session status back to live
-            await supabase
-                .from('virtual_sessions')
-                .update({ status: 'live' })
-                .eq('id', state.sessionId);
-        } else {
-            DOM.hostControls.style.display = 'none';
-            DOM.viewerControls.style.display = 'flex';
-            DOM.hostStatusText.textContent = 'Reconnecting to host...';
-        }
-
-        await startLocalStream();
-        await loadParticipants();
-        
-        showToast('🔄 Session recovered!', 'success');
-
-        // Clear reconnect flag after successful recovery
-        state.isReconnecting = false;
-        
-        // Save session state again
-        saveSessionState();
-
-        // Notify chat
-        sendToChatIframe({
-            type: 'system_message',
-            message: `🔄 ${state.userProfile.name || 'Someone'} reconnected to the session`
-        });
-
-        console.log('✅ Session recovered:', state.sessionCode);
-
-    } catch (error) {
-        console.error('❌ Session recovery failed:', error);
-        showToast('Could not recover session, creating new one', 'warning');
-        sessionStorage.removeItem('glimu_session');
-        await createNewSession();
-    }
-}
-
-function saveSessionState() {
-    try {
-        sessionStorage.setItem('glimu_session', JSON.stringify({
-            sessionId: state.sessionId,
-            sessionCode: state.sessionCode,
-            isHost: state.isHost,
-            timestamp: Date.now()
-        }));
-    } catch (e) {
-        console.warn('Could not save session state:', e);
-    }
-}
-
-// ============================================
-// HEARTBEAT SYSTEM
-// ============================================
-
-function setupHeartbeat() {
-    // Clear existing heartbeat
-    if (state.heartbeatInterval) {
-        clearInterval(state.heartbeatInterval);
-    }
-
-    // Heartbeat every 15 seconds
-    state.heartbeatInterval = setInterval(async () => {
-        if (!state.sessionId || state.sessionEnded) return;
-
-        try {
-            // Update last_seen for this participant
-            await supabase
-                .from('session_participants')
-                .update({ 
-                    last_seen: new Date().toISOString(),
-                    is_active: true
-                })
-                .eq('session_id', state.sessionId)
-                .eq('user_id', state.currentUser.id);
-
-            // If host, also update session heartbeat
-            if (state.isHost) {
-                await supabase
-                    .from('virtual_sessions')
-                    .update({ 
-                        last_heartbeat: new Date().toISOString(),
-                        status: 'live'
-                    })
-                    .eq('id', state.sessionId);
-            }
-
-            // Check if host is still online (for viewers)
-            if (!state.isHost) {
-                await checkHostOnline();
-            }
-
-        } catch (error) {
-            console.warn('Heartbeat error:', error);
-        }
-    }, 15000);
-
-    // Also handle page visibility changes (tab switching)
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-}
-
-async function checkHostOnline() {
-    try {
-        const { data: host } = await supabase
-            .from('session_participants')
-            .select('last_seen, user_id')
-            .eq('session_id', state.sessionId)
-            .eq('role', 'host')
-            .single();
-
-        if (host) {
-            const lastSeen = new Date(host.last_seen);
-            const now = new Date();
-            const diffSeconds = (now - lastSeen) / 1000;
-            
-            const wasOnline = state.isHostOnline;
-            state.isHostOnline = diffSeconds < 45; // Host seen within 45 seconds
-            
-            if (!wasOnline && state.isHostOnline) {
-                // Host came back online
-                DOM.hostStatusText.textContent = 'Host is back online';
-                DOM.hostPlaceholder.style.opacity = '1';
-                showToast('🟢 Host is back online!', 'success');
-                sendToChatIframe({
-                    type: 'system_message',
-                    message: '🟢 Host is back online!'
-                });
-            } else if (wasOnline && !state.isHostOnline) {
-                // Host went offline
-                DOM.hostStatusText.textContent = 'Host is offline (reconnecting...)';
-                DOM.hostPlaceholder.style.opacity = '0.5';
-                showToast('🔴 Host disconnected. Waiting for reconnection...', 'warning');
-                
-                // Start reconnection attempts
-                attemptReconnect();
-            }
-        }
-    } catch (error) {
-        console.warn('Check host online error:', error);
-    }
-}
-
-function handleVisibilityChange() {
-    if (document.visibilityState === 'visible') {
-        // Tab became visible again - refresh connection
-        console.log('👁️ Tab visible, refreshing connection...');
-        if (state.sessionId) {
-            // Re-activate participant
-            supabase
-                .from('session_participants')
-                .update({ 
-                    is_active: true,
-                    last_seen: new Date().toISOString()
-                })
-                .eq('session_id', state.sessionId)
-                .eq('user_id', state.currentUser.id)
-                .then(() => {
-                    // Reload participants to refresh view
-                    loadParticipants();
-                    
-                    // If host, ensure session is still live
-                    if (state.isHost) {
-                        supabase
-                            .from('virtual_sessions')
-                            .update({ status: 'live' })
-                            .eq('id', state.sessionId);
-                    }
-                });
-        }
-    }
-}
-
-// ============================================
-// RECONNECTION ATTEMPTS (Viewers)
-// ============================================
-
-async function attemptReconnect() {
-    if (state.reconnectAttempts >= state.maxReconnectAttempts) {
-        DOM.hostStatusText.textContent = 'Host is offline. Waiting...';
-        showToast('Host has been offline for too long', 'warning');
-        return;
-    }
-
-    state.reconnectAttempts++;
-    console.log(`🔄 Reconnect attempt ${state.reconnectAttempts}/${state.maxReconnectAttempts}`);
-
-    // Wait and try to check host again
-    setTimeout(async () => {
-        await checkHostOnline();
-        
-        // If host is still offline, try re-joining the session
-        if (!state.isHostOnline && state.sessionCode) {
-            try {
-                // Try to re-join the session
-                await supabase
-                    .from('session_participants')
-                    .update({ 
-                        is_active: true,
-                        joined_at: new Date().toISOString()
-                    })
-                    .eq('session_id', state.sessionId)
-                    .eq('user_id', state.currentUser.id);
-                
-                // Reload participants
-                await loadParticipants();
-                
-                showToast('🔄 Attempting to reconnect...', 'info');
-            } catch (error) {
-                console.warn('Reconnect attempt failed:', error);
-            }
-        }
-    }, 5000);
-}
-
-// ============================================
 // SESSION MANAGEMENT
 // ============================================
 
@@ -423,14 +176,9 @@ async function createNewSession() {
     try {
         showLoading(true);
         DOM.loadingText.textContent = 'Creating session...';
-
-        // Clear any old session state
-        sessionStorage.removeItem('glimu_session');
+        updateProgress(10);
 
         const sessionCode = generateSessionCode();
-        
-        // Add last_heartbeat column if not exists (run once in SQL)
-        // ALTER TABLE virtual_sessions ADD COLUMN IF NOT EXISTS last_heartbeat TIMESTAMPTZ;
         
         const { data: session, error } = await supabase
             .from('virtual_sessions')
@@ -438,43 +186,61 @@ async function createNewSession() {
                 host_id: state.currentUser.id,
                 title: `${state.userProfile.name || 'User'}'s Session`,
                 session_code: sessionCode,
-                status: 'live',
-                start_time: new Date().toISOString(),
-                last_heartbeat: new Date().toISOString()
+                status: 'waiting',
+                start_time: new Date().toISOString()
             })
             .select()
             .single();
 
         if (error) throw error;
+        updateProgress(30);
 
         state.sessionId = session.id;
         state.sessionCode = session.session_code;
         state.isHost = true;
-        state.isLive = true;
-        state.isHostOnline = true;
+        state.isLive = false;
 
         DOM.roomTitle.textContent = session.title;
-        DOM.shareCodeDisplay.textContent = state.sessionCode;
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
-        DOM.hostStatusText.textContent = 'You are the host';
 
-        // Add host as participant with last_seen
+        // Add host as participant
         await supabase
             .from('session_participants')
             .insert({
                 session_id: state.sessionId,
                 user_id: state.currentUser.id,
                 role: 'host',
-                is_active: true,
-                last_seen: new Date().toISOString()
+                is_active: true
             });
+        updateProgress(50);
 
+        // Start camera
         await startLocalStream();
-        
-        // Save session state for recovery
+        updateProgress(70);
+
+        // Initialize PeerJS with retry
+        const peerConnected = await initPeerJS(true);
+        if (!peerConnected) {
+            // PeerJS failed, try Daily.co fallback
+            console.log('⚠️ PeerJS failed, switching to Daily.co...');
+            await initDailyFallback(true);
+        }
+        updateProgress(90);
+
+        // Update session status to live
+        await supabase
+            .from('virtual_sessions')
+            .update({ status: 'live' })
+            .eq('id', state.sessionId);
+
+        state.isLive = true;
+        DOM.liveStatus.textContent = 'LIVE';
+        DOM.liveDot.style.background = '#10b981';
+
         saveSessionState();
+        updateProgress(100);
 
         showToast(`Session created! Code: ${state.sessionCode}`, 'success');
         setTimeout(() => DOM.shareModal.classList.add('active'), 1500);
@@ -493,7 +259,7 @@ async function createNewSession() {
 
     } catch (error) {
         console.error('❌ Create session error:', error);
-        showToast('Failed to create session', 'error');
+        showToast('Failed to create session: ' + error.message, 'error');
         useFallbackMode();
     }
 }
@@ -502,9 +268,7 @@ async function joinSession(sessionCode) {
     try {
         showLoading(true);
         DOM.loadingText.textContent = 'Joining session...';
-
-        // Clear any old session state
-        sessionStorage.removeItem('glimu_session');
+        updateProgress(10);
 
         const { data: session, error } = await supabase
             .from('virtual_sessions')
@@ -528,30 +292,51 @@ async function joinSession(sessionCode) {
         state.sessionCode = session.session_code;
         state.isHost = false;
         state.isLive = session.status === 'live';
-        DOM.roomTitle.textContent = session.title || 'Live Session';
-        DOM.shareCodeDisplay.textContent = state.sessionCode;
-        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+        updateProgress(30);
 
-        // Add or update viewer with last_seen
+        DOM.roomTitle.textContent = session.title || 'Live Session';
+        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+        DOM.hostControls.style.display = 'none';
+        DOM.viewerControls.style.display = 'flex';
+
+        // Get host info
+        const { data: host } = await supabase
+            .from('session_participants')
+            .select('users(name)')
+            .eq('session_id', state.sessionId)
+            .eq('role', 'host')
+            .single();
+
+        if (host?.users) {
+            DOM.hostName.textContent = host.users.name || 'Host';
+        }
+
+        // Add viewer
         await supabase
             .from('session_participants')
             .upsert({
                 session_id: state.sessionId,
                 user_id: state.currentUser.id,
                 role: 'viewer',
-                is_active: true,
-                last_seen: new Date().toISOString(),
-                joined_at: new Date().toISOString()
+                is_active: true
             }, { onConflict: 'session_id,user_id' });
-
-        DOM.hostControls.style.display = 'none';
-        DOM.viewerControls.style.display = 'flex';
-        DOM.hostStatusText.textContent = 'Connecting to host...';
+        updateProgress(50);
 
         await startLocalStream();
+        updateProgress(70);
+
+        // Try PeerJS first
+        const peerConnected = await initPeerJS(false);
+        if (!peerConnected) {
+            // PeerJS failed, try Daily.co
+            console.log('⚠️ PeerJS failed, switching to Daily.co...');
+            await initDailyFallback(false);
+        }
+        updateProgress(90);
+
         await loadParticipants();
-        
-        // Save session state for recovery
+        updateProgress(100);
+
         saveSessionState();
 
         setTimeout(() => {
@@ -564,9 +349,6 @@ async function joinSession(sessionCode) {
             });
         }, 2000);
 
-        // Check if host is online
-        await checkHostOnline();
-
         console.log('📡 Joined session:', sessionCode);
 
     } catch (error) {
@@ -577,20 +359,279 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// GENERATE SESSION CODE
+// PEERJS INITIALIZATION
 // ============================================
 
-function generateSessionCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = 'GLM-';
-    for (let i = 0; i < 6; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
+async function initPeerJS(isHost) {
+    return new Promise((resolve) => {
+        try {
+            state.connectionAttempts++;
+            const peerId = `glimu_${state.currentUser.id}_${Date.now()}`;
+
+            console.log(`🔗 Connecting to PeerJS (attempt ${state.connectionAttempts})...`);
+
+            state.peer = new Peer(peerId, {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        // Free TURN from OpenRelay (limited)
+                        { 
+                            urls: 'turn:openrelay.metered.ca:80',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject' 
+                        },
+                        { 
+                            urls: 'turn:openrelay.metered.ca:443',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject' 
+                        }
+                    ]
+                }
+            });
+
+            // Connection timeout
+            const timeout = setTimeout(() => {
+                if (state.peer && !state.peer.open) {
+                    console.warn('⏰ PeerJS connection timeout');
+                    state.peer.destroy();
+                    resolve(false);
+                }
+            }, 15000);
+
+            state.peer.on('open', async (id) => {
+                clearTimeout(timeout);
+                state.peerId = id;
+                console.log('✅ PeerJS connected:', id);
+
+                // Register peer ID
+                await supabase
+                    .from('session_participants')
+                    .update({ peer_id: id })
+                    .eq('session_id', state.sessionId)
+                    .eq('user_id', state.currentUser.id);
+
+                DOM.connectionStatus.textContent = '🟢 Connected';
+                DOM.connectionStatus.style.color = '#10b981';
+
+                if (isHost) {
+                    state.peer.on('connection', handlePeerConnection);
+                    state.peer.on('call', handleIncomingCall);
+                    // Host waits for connections
+                } else {
+                    await connectToHost();
+                }
+
+                resolve(true);
+            });
+
+            state.peer.on('error', (err) => {
+                clearTimeout(timeout);
+                console.error('❌ PeerJS error:', err.message);
+                
+                if (state.connectionAttempts < state.maxConnectionAttempts) {
+                    console.log(`🔄 Retry ${state.connectionAttempts}/${state.maxConnectionAttempts}...`);
+                    setTimeout(() => {
+                        initPeerJS(isHost);
+                    }, 2000);
+                } else {
+                    state.peerjsFailed = true;
+                    resolve(false);
+                }
+            });
+
+        } catch (err) {
+            console.error('❌ PeerJS init error:', err);
+            state.peerjsFailed = true;
+            resolve(false);
+        }
+    });
+}
+
+async function connectToHost() {
+    try {
+        // Get host peer ID
+        const { data: host } = await supabase
+            .from('session_participants')
+            .select('peer_id, user_id')
+            .eq('session_id', state.sessionId)
+            .eq('role', 'host')
+            .single();
+
+        if (host?.peer_id) {
+            state.hostPeerId = host.peer_id;
+            
+            const call = state.peer.call(host.peer_id, state.localStream);
+            call.on('stream', (remoteStream) => {
+                DOM.hostVideo.srcObject = remoteStream;
+                DOM.hostVideo.play().catch(() => {});
+                DOM.hostVideo.parentElement.classList.add('has-video');
+                DOM.hostPlaceholder.style.display = 'none';
+                DOM.connectionStatus.textContent = '🟢 Connected';
+                DOM.connectionStatus.style.color = '#10b981';
+            });
+            call.on('close', () => {
+                DOM.hostVideo.parentElement.classList.remove('has-video');
+                DOM.hostPlaceholder.style.display = 'flex';
+                DOM.hostStatusText.textContent = 'Host disconnected';
+                DOM.connectionStatus.textContent = '🔴 Disconnected';
+                DOM.connectionStatus.style.color = '#ef4444';
+            });
+        }
+    } catch (error) {
+        console.error('❌ Connect to host error:', error);
     }
-    return code;
+}
+
+function handleIncomingCall(call) {
+    call.answer(state.localStream);
+    call.on('stream', (remoteStream) => {
+        DOM.hostVideo.srcObject = remoteStream;
+        DOM.hostVideo.play().catch(() => {});
+        DOM.hostVideo.parentElement.classList.add('has-video');
+        DOM.hostPlaceholder.style.display = 'none';
+        DOM.connectionStatus.textContent = '🟢 Connected';
+        DOM.connectionStatus.style.color = '#10b981';
+    });
+}
+
+function handlePeerConnection(conn) {
+    console.log('📡 Peer connected:', conn.peer);
 }
 
 // ============================================
-// CAMERA / MIC
+// DAILY.CO FALLBACK
+// ============================================
+
+async function initDailyFallback(isHost) {
+    try {
+        console.log('📹 Initializing Daily.co fallback...');
+        state.usingDailyFallback = true;
+        DOM.dailyContainer.style.display = 'block';
+        DOM.videoGrid.style.display = 'none';
+
+        // Load Daily.co script
+        if (!document.querySelector('#daily-js')) {
+            const script = document.createElement('script');
+            script.id = 'daily-js';
+            script.src = 'https://unpkg.com/@daily-co/daily-js@0.48.0/daily-js.min.js';
+            document.head.appendChild(script);
+            
+            await new Promise((resolve) => {
+                script.onload = resolve;
+                script.onerror = resolve;
+                setTimeout(resolve, 5000);
+            });
+        }
+
+        // Use a free room on Daily.co's public instance
+        // Note: Daily.co's free tier requires an API key, but we can use their public instance
+        // For now, we'll use a free public Jitsi fallback as a backup
+        const roomName = `glimu-${state.sessionCode}`;
+        const jitsiUrl = `https://meet.jit.si/${roomName}`;
+        
+        DOM.dailyFrameContainer.innerHTML = `
+            <iframe 
+                src="${jitsiUrl}"
+                style="width:100%;height:100%;border:0;"
+                allow="camera; microphone; fullscreen; display-capture"
+                allowfullscreen
+            ></iframe>
+        `;
+
+        DOM.dailyOverlay.style.display = 'none';
+        DOM.hostStatusText.textContent = 'Using backup video service';
+
+        showToast('📹 Using backup video service', 'info');
+
+        // Update connection status
+        DOM.connectionStatus.textContent = '🟢 Connected (Backup)';
+        DOM.connectionStatus.style.color = '#f59e0b';
+
+        console.log('✅ Daily.co fallback initialized');
+
+    } catch (error) {
+        console.error('❌ Daily fallback error:', error);
+        showToast('Could not initialize video. Using chat only.', 'warning');
+        useFallbackMode();
+    }
+}
+
+// ============================================
+// SESSION RECOVERY
+// ============================================
+
+async function recoverSession(savedData) {
+    try {
+        showLoading(true);
+        DOM.loadingText.textContent = 'Recovering session...';
+
+        const { data: session, error } = await supabase
+            .from('virtual_sessions')
+            .select('*')
+            .eq('id', savedData.sessionId)
+            .single();
+
+        if (error || !session || session.status === 'ended') {
+            sessionStorage.removeItem('glimu_session');
+            await createNewSession();
+            return;
+        }
+
+        state.sessionId = session.id;
+        state.sessionCode = session.session_code;
+        state.isHost = savedData.isHost || false;
+        state.isLive = session.status === 'live';
+
+        DOM.roomTitle.textContent = session.title || 'Live Session';
+        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+
+        await supabase
+            .from('session_participants')
+            .update({ is_active: true })
+            .eq('session_id', state.sessionId)
+            .eq('user_id', state.currentUser.id);
+
+        if (state.isHost) {
+            DOM.hostControls.style.display = 'flex';
+            DOM.viewerControls.style.display = 'none';
+            await supabase
+                .from('virtual_sessions')
+                .update({ status: 'live' })
+                .eq('id', state.sessionId);
+        } else {
+            DOM.hostControls.style.display = 'none';
+            DOM.viewerControls.style.display = 'flex';
+        }
+
+        await startLocalStream();
+        
+        // Try PeerJS reconnect
+        const peerConnected = await initPeerJS(state.isHost);
+        if (!peerConnected) {
+            await initDailyFallback(state.isHost);
+        }
+
+        await loadParticipants();
+        showToast('🔄 Session recovered!', 'success');
+        saveSessionState();
+
+        console.log('✅ Session recovered:', state.sessionCode);
+
+    } catch (error) {
+        console.error('❌ Session recovery failed:', error);
+        sessionStorage.removeItem('glimu_session');
+        await createNewSession();
+    }
+}
+
+// ============================================
+// STREAM MANAGEMENT
 // ============================================
 
 async function startLocalStream() {
@@ -606,6 +647,7 @@ async function startLocalStream() {
         DOM.pipVideo.classList.add('has-video');
         DOM.pipPlaceholder.style.display = 'none';
 
+        updateLocalControls();
         console.log('🎥 Camera started');
 
     } catch (err) {
@@ -625,6 +667,7 @@ function toggleMicrophone() {
     state.isMuted = !track.enabled;
     track.enabled = !track.enabled;
     document.getElementById('micBtn').classList.toggle('off', state.isMuted);
+    DOM.pipMicControl?.classList.toggle('off', state.isMuted);
     showToast(state.isMuted ? 'Muted' : 'Unmuted', 'info');
 }
 
@@ -635,7 +678,23 @@ function toggleCamera() {
     state.isCameraOff = !track.enabled;
     track.enabled = !track.enabled;
     DOM.pipVideo.classList.toggle('camera-off', state.isCameraOff);
+    DOM.pipCamControl?.classList.toggle('off', state.isCameraOff);
     showToast(state.isCameraOff ? 'Camera off' : 'Camera on', 'info');
+}
+
+function updateLocalControls() {
+    const micIcon = DOM.pipMicControl?.querySelector('i');
+    const camIcon = DOM.pipCamControl?.querySelector('i');
+
+    if (micIcon) {
+        micIcon.className = state.isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+        DOM.pipMicControl.classList.toggle('off', state.isMuted);
+    }
+
+    if (camIcon) {
+        camIcon.className = state.isCameraOff ? 'fas fa-video-slash' : 'fas fa-video';
+        DOM.pipCamControl.classList.toggle('off', state.isCameraOff);
+    }
 }
 
 // ============================================
@@ -645,6 +704,11 @@ function toggleCamera() {
 async function toggleScreenShare() {
     if (!state.isHost) {
         showToast('Only hosts can share screens', 'warning');
+        return;
+    }
+
+    if (state.usingDailyFallback) {
+        showToast('Screen sharing via backup video', 'info');
         return;
     }
 
@@ -659,7 +723,6 @@ async function toggleScreenShare() {
         if (state.localStream) {
             DOM.hostVideo.srcObject = state.localStream;
         }
-        DOM.hostStatusText.textContent = 'You are the host';
         return;
     }
 
@@ -674,7 +737,6 @@ async function toggleScreenShare() {
         showToast('Screen sharing started!', 'success');
 
         DOM.hostVideo.srcObject = state.screenStream;
-        DOM.hostStatusText.textContent = 'Screen sharing';
 
         state.screenStream.getVideoTracks()[0].onended = () => {
             if (state.isScreenSharing) {
@@ -685,7 +747,7 @@ async function toggleScreenShare() {
     } catch (err) {
         console.error('Screen share error:', err);
         if (err.name !== 'AbortError') {
-            showToast('Screen share cancelled or failed', 'warning');
+            showToast('Screen share cancelled', 'warning');
         }
         state.isScreenSharing = false;
         document.getElementById('screenBtn').classList.remove('active');
@@ -706,19 +768,66 @@ async function loadParticipants() {
 
         if (error) throw error;
 
-        state.participants = data || [];
+        state.participants.clear();
+        data.forEach(p => {
+            state.participants.set(p.user_id, {
+                ...p,
+                name: p.users?.name || 'User'
+            });
+        });
+
         const viewers = data.filter(p => p.role !== 'host');
         state.viewerCount = viewers.length;
         DOM.viewerCount.textContent = viewers.length;
 
-        const host = data.find(p => p.role === 'host');
-        if (host) {
-            DOM.hostName.textContent = host.users?.name || 'Host';
-        }
+        renderViewerThumbnails();
 
     } catch (error) {
         console.error('❌ Load participants error:', error);
     }
+}
+
+function renderViewerThumbnails() {
+    if (!DOM.viewerThumbnails) return;
+
+    const viewers = Array.from(state.participants.values())
+        .filter(p => p.user_id !== state.currentUser.id && p.role !== 'host');
+
+    if (viewers.length === 0) {
+        DOM.viewerThumbnails.innerHTML = `
+            <div class="empty-thumbnails">
+                <i class="fas fa-users"></i>
+                <span>No viewers yet</span>
+            </div>
+        `;
+        return;
+    }
+
+    DOM.viewerThumbnails.innerHTML = viewers.map(viewer => {
+        const handRaised = viewer.hand_raised || false;
+        const hasStream = state.viewerStreams.has(viewer.user_id);
+
+        return `
+            <div class="viewer-thumbnail" data-user-id="${viewer.user_id}">
+                <video id="viewer_${viewer.user_id}" autoplay playsinline muted ${hasStream ? '' : 'style="display:none;"'}></video>
+                <div class="thumb-placeholder" style="${hasStream ? 'display:none' : 'display:flex'}">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <div class="thumb-name">${viewer.name || 'Viewer'}</div>
+                ${handRaised ? '<div class="hand-raise-indicator">🙋</div>' : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Attach viewer streams
+    viewers.forEach(viewer => {
+        const videoEl = document.getElementById(`viewer_${viewer.user_id}`);
+        if (videoEl && state.viewerStreams.has(viewer.user_id)) {
+            videoEl.srcObject = state.viewerStreams.get(viewer.user_id);
+            videoEl.style.display = 'block';
+            videoEl.play().catch(() => {});
+        }
+    });
 }
 
 // ============================================
@@ -746,10 +855,10 @@ async function toggleRaiseHand() {
 }
 
 // ============================================
-// TIP / STAR
+// TIPPING
 // ============================================
 
-async function sendTip(amount, currency) {
+async function sendTip(amount, currency, emoji) {
     if (!state.sessionId) {
         showToast('No active session', 'error');
         return;
@@ -768,23 +877,17 @@ async function sendTip(amount, currency) {
         }
 
         const userBalance = state.userProfile.wallet_balance || 0;
-        const userGP = state.userProfile.gp_points || 0;
 
-        if (currency === 'wallet' && amount > userBalance) {
+        if (amount > userBalance) {
             showToast('Insufficient wallet balance', 'error');
             return;
         }
-        if (currency === 'gp' && amount > userGP) {
-            showToast('Insufficient GP points', 'error');
-            return;
-        }
 
-        const newBalance = currency === 'wallet' ? userBalance - amount : userBalance;
-        const newGP = currency === 'gp' ? userGP - amount : userGP;
+        const newBalance = userBalance - amount;
 
         await supabase
             .from('users')
-            .update({ wallet_balance: newBalance, gp_points: newGP })
+            .update({ wallet_balance: newBalance })
             .eq('id', state.currentUser.id);
 
         await supabase
@@ -793,19 +896,18 @@ async function sendTip(amount, currency) {
                 session_id: state.sessionId,
                 from_user: state.currentUser.id,
                 to_host: session.host_id,
-                amount: currency === 'wallet' ? amount : 0,
-                gp_amount: currency === 'gp' ? amount : 0
+                amount: amount,
+                tip_type: 'wallet'
             });
 
         state.userProfile.wallet_balance = newBalance;
-        state.userProfile.gp_points = newGP;
 
-        showToast(`Tip sent! ${amount} ${currency === 'wallet' ? '₦' : 'GP'}`, 'success');
+        showToast(`${emoji} Tip sent! ₦${amount}`, 'success');
         DOM.tipModal.classList.remove('active');
 
         sendToChatIframe({
             type: 'system_message',
-            message: `🎁 ${state.userProfile.name || 'Someone'} sent a tip!`
+            message: `${emoji} ${state.userProfile.name || 'Someone'} sent ₦${amount}`
         });
 
     } catch (error) {
@@ -813,6 +915,10 @@ async function sendTip(amount, currency) {
         showToast('Failed to send tip', 'error');
     }
 }
+
+// ============================================
+// STAR RATING
+// ============================================
 
 async function submitRating() {
     if (!state.starRating || state.hasRated) {
@@ -864,9 +970,7 @@ async function endSession() {
         state.isLive = false;
         DOM.sessionEndedOverlay.classList.add('active');
 
-        // Clear saved session
         sessionStorage.removeItem('glimu_session');
-
         cleanup();
         showToast('Session ended', 'success');
 
@@ -883,8 +987,8 @@ async function endSession() {
 function setupRealtimeSubscriptions() {
     if (!state.sessionId) return;
 
-    state.sessionSubscription = supabase
-        .channel(`session_${state.sessionId}`)
+    state.participantsSubscription = supabase
+        .channel(`session_participants_${state.sessionId}`)
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
@@ -893,6 +997,10 @@ function setupRealtimeSubscriptions() {
         }, () => {
             loadParticipants();
         })
+        .subscribe();
+
+    state.sessionSubscription = supabase
+        .channel(`session_${state.sessionId}`)
         .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
@@ -904,12 +1012,6 @@ function setupRealtimeSubscriptions() {
                 DOM.sessionEndedOverlay.classList.add('active');
                 sessionStorage.removeItem('glimu_session');
                 cleanup();
-            }
-            // Update host status if heartbeat updated
-            if (payload.new.last_heartbeat) {
-                state.isHostOnline = true;
-                DOM.hostStatusText.textContent = state.isScreenSharing ? 'Screen sharing' : 'Host is online';
-                DOM.hostPlaceholder.style.opacity = '1';
             }
         })
         .subscribe();
@@ -936,7 +1038,8 @@ function setupChatIframe() {
                     sessionId: state.sessionId,
                     sessionCode: state.sessionCode,
                     isHost: state.isHost,
-                    roomTitle: DOM.roomTitle.textContent
+                    roomTitle: DOM.roomTitle.textContent,
+                    usingDailyFallback: state.usingDailyFallback
                 });
                 break;
             case 'message_sent':
@@ -961,7 +1064,8 @@ function setupChatIframe() {
                 sessionId: state.sessionId,
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
-                roomTitle: DOM.roomTitle.textContent
+                roomTitle: DOM.roomTitle.textContent,
+                usingDailyFallback: state.usingDailyFallback
             });
         }, 1500);
     });
@@ -993,22 +1097,6 @@ async function shareToChat() {
     DOM.shareModal.classList.remove('active');
 }
 
-async function copySessionCode() {
-    if (!state.sessionCode) return;
-    try {
-        await navigator.clipboard.writeText(state.sessionCode);
-        showToast('📋 Code copied!', 'success');
-    } catch {
-        const textarea = document.createElement('textarea');
-        textarea.value = state.sessionCode;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showToast('📋 Code copied!', 'success');
-    }
-}
-
 async function copyShareLink() {
     const link = DOM.shareLinkInput.value;
     if (!link) return;
@@ -1023,80 +1111,36 @@ async function copyShareLink() {
 }
 
 // ============================================
-// UI HELPERS
+// HELPERS
 // ============================================
 
-function setupUI() {
-    if (state.isHost) {
-        DOM.hostControls.style.display = 'flex';
-        DOM.viewerControls.style.display = 'none';
-    } else {
-        DOM.hostControls.style.display = 'none';
-        DOM.viewerControls.style.display = 'flex';
+function generateSessionCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = 'GLM-';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+    return code;
 }
 
-function setupEventListeners() {
-    document.getElementById('backBtn')?.addEventListener('click', leaveRoom);
-    document.getElementById('leaveBtn')?.addEventListener('click', leaveRoom);
-    document.getElementById('micBtn')?.addEventListener('click', toggleMicrophone);
-    document.getElementById('camBtn')?.addEventListener('click', toggleCamera);
-    document.getElementById('screenBtn')?.addEventListener('click', toggleScreenShare);
-    document.getElementById('endSessionBtn')?.addEventListener('click', endSession);
-    document.getElementById('raiseHandBtn')?.addEventListener('click', toggleRaiseHand);
-    document.getElementById('tipBtn')?.addEventListener('click', () => DOM.tipModal.classList.add('active'));
-    document.getElementById('starBtn')?.addEventListener('click', () => {
-        if (state.hasRated) {
-            showToast('Already rated', 'warning');
-            return;
-        }
-        DOM.starModal.classList.add('active');
-    });
-    document.getElementById('chatToggleBtn')?.addEventListener('click', toggleChatSidebar);
-    document.getElementById('closeChatBtn')?.addEventListener('click', toggleChatSidebar);
-    document.getElementById('shareBtn')?.addEventListener('click', () => DOM.shareModal.classList.add('active'));
-    document.getElementById('closeShareModal')?.addEventListener('click', () => DOM.shareModal.classList.remove('active'));
-    document.getElementById('closeTipModal')?.addEventListener('click', () => DOM.tipModal.classList.remove('active'));
-    document.getElementById('closeStarModal')?.addEventListener('click', () => DOM.starModal.classList.remove('active'));
-    document.getElementById('shareToChatBtn')?.addEventListener('click', shareToChat);
-    document.getElementById('copyCodeBtn')?.addEventListener('click', copySessionCode);
-    document.getElementById('copyLinkBtn')?.addEventListener('click', copyShareLink);
-    document.getElementById('returnBtn')?.addEventListener('click', () => window.location.href = '/user');
-    document.getElementById('sendCustomTip')?.addEventListener('click', () => {
-        const amount = parseInt(prompt('Enter amount:'));
-        if (amount > 0) {
-            const currency = confirm('Wallet (OK) or GP (Cancel)') ? 'wallet' : 'gp';
-            sendTip(amount, currency);
-        }
-    });
-
-    document.querySelectorAll('.star').forEach(star => {
-        star.addEventListener('click', () => {
-            const value = parseInt(star.dataset.value);
-            state.starRating = value;
-            document.querySelectorAll('.star').forEach(s => {
-                s.classList.toggle('selected', parseInt(s.dataset.value) <= value);
-            });
-        });
-    });
-    document.getElementById('submitStars')?.addEventListener('click', submitRating);
-
-    document.querySelectorAll('.modal-overlay').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.remove('active');
-        });
-    });
-
-    // Handle page refresh/close - save state
-    window.addEventListener('beforeunload', () => {
-        if (state.sessionId && !state.sessionEnded) {
-            saveSessionState();
-        }
-    });
+function saveSessionState() {
+    try {
+        sessionStorage.setItem('glimu_session', JSON.stringify({
+            sessionId: state.sessionId,
+            sessionCode: state.sessionCode,
+            isHost: state.isHost,
+            timestamp: Date.now()
+        }));
+    } catch (e) {}
 }
 
-function toggleChatSidebar() {
-    DOM.chatSidebar.classList.toggle('open');
+function updateProgress(percent) {
+    DOM.loadingProgress.style.display = 'block';
+    DOM.loadingProgressBar.style.width = `${Math.min(percent, 100)}%`;
+}
+
+function showLoading(show) {
+    DOM.loadingOverlay.style.display = show ? 'flex' : 'none';
 }
 
 function startTimer() {
@@ -1109,8 +1153,100 @@ function startTimer() {
     }, 1000);
 }
 
-function showLoading(show) {
-    DOM.loadingOverlay.style.display = show ? 'flex' : 'none';
+function setupUI() {
+    if (state.isHost) {
+        DOM.hostControls.style.display = 'flex';
+        DOM.viewerControls.style.display = 'none';
+        DOM.hostStatusText.textContent = 'You are the host';
+    } else {
+        DOM.hostControls.style.display = 'none';
+        DOM.viewerControls.style.display = 'flex';
+        DOM.hostStatusText.textContent = 'Waiting for host...';
+    }
+}
+
+function setupEventListeners() {
+    document.getElementById('backBtn')?.addEventListener('click', leaveRoom);
+    document.getElementById('leaveBtn')?.addEventListener('click', leaveRoom);
+    document.getElementById('micBtn')?.addEventListener('click', toggleMicrophone);
+    document.getElementById('camBtn')?.addEventListener('click', toggleCamera);
+    document.getElementById('screenBtn')?.addEventListener('click', toggleScreenShare);
+    document.getElementById('endSessionBtn')?.addEventListener('click', endSession);
+    document.getElementById('raiseHandBtn')?.addEventListener('click', toggleRaiseHand);
+    
+    document.getElementById('tipBtn')?.addEventListener('click', () => DOM.tipModal.classList.add('active'));
+    document.getElementById('starBtn')?.addEventListener('click', () => {
+        if (state.hasRated) {
+            showToast('Already rated', 'warning');
+            return;
+        }
+        DOM.starModal.classList.add('active');
+    });
+    
+    document.getElementById('chatToggleBtn')?.addEventListener('click', toggleChatSidebar);
+    document.getElementById('closeChatBtn')?.addEventListener('click', toggleChatSidebar);
+    document.getElementById('shareBtn')?.addEventListener('click', () => DOM.shareModal.classList.add('active'));
+    document.getElementById('closeShareModal')?.addEventListener('click', () => DOM.shareModal.classList.remove('active'));
+    document.getElementById('closeTipModal')?.addEventListener('click', () => DOM.tipModal.classList.remove('active'));
+    document.getElementById('closeStarModal')?.addEventListener('click', () => DOM.starModal.classList.remove('active'));
+    document.getElementById('shareToChatBtn')?.addEventListener('click', shareToChat);
+    document.getElementById('copyLinkBtn')?.addEventListener('click', copyShareLink);
+    document.getElementById('returnBtn')?.addEventListener('click', () => window.location.href = '/user');
+
+    // Tip options
+    document.querySelectorAll('.tip-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const amount = parseInt(btn.dataset.amount);
+            const currency = btn.dataset.currency || 'wallet';
+            const emoji = btn.dataset.emoji || '❤️';
+            sendTip(amount, currency, emoji);
+        });
+    });
+
+    document.getElementById('sendCustomTip')?.addEventListener('click', () => {
+        const amount = parseInt(prompt('Enter amount (₦):'));
+        if (amount > 0) {
+            sendTip(amount, 'wallet', '💝');
+        }
+    });
+
+    // Star rating
+    document.querySelectorAll('.star').forEach(star => {
+        star.addEventListener('click', () => {
+            const value = parseInt(star.dataset.value);
+            state.starRating = value;
+            document.querySelectorAll('.star').forEach(s => {
+                s.classList.toggle('selected', parseInt(s.dataset.value) <= value);
+            });
+        });
+    });
+    document.getElementById('submitStars')?.addEventListener('click', submitRating);
+
+    // Click outside modals
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.remove('active');
+        });
+    });
+
+    // Save session on page unload
+    window.addEventListener('beforeunload', () => {
+        if (state.sessionId && !state.sessionEnded) {
+            saveSessionState();
+        }
+    });
+}
+
+function toggleChatSidebar() {
+    DOM.chatSidebar.classList.toggle('open');
+}
+
+function useFallbackMode() {
+    showLoading(false);
+    DOM.hostStatusText.textContent = 'Chat-only mode';
+    DOM.connectionStatus.textContent = '🔴 Chat Only';
+    DOM.connectionStatus.style.color = '#f59e0b';
+    showToast('⚠️ Connected in chat-only mode', 'warning');
 }
 
 function showLoginScreen() {
@@ -1155,12 +1291,6 @@ function showSessionSelection() {
     };
 }
 
-function useFallbackMode() {
-    showLoading(false);
-    DOM.hostStatusText.textContent = 'Chat-only mode';
-    showToast('⚠️ Connected in chat-only mode', 'warning');
-}
-
 // ============================================
 // CLEANUP
 // ============================================
@@ -1172,11 +1302,14 @@ function cleanup() {
     if (state.screenStream) {
         state.screenStream.getTracks().forEach(t => t.stop());
     }
+    if (state.peer) {
+        state.peer.destroy();
+    }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
     }
-    if (state.heartbeatInterval) {
-        clearInterval(state.heartbeatInterval);
+    if (state.participantsSubscription) {
+        state.participantsSubscription.unsubscribe();
     }
     if (state.sessionSubscription) {
         state.sessionSubscription.unsubscribe();
@@ -1201,11 +1334,11 @@ function leaveRoom() {
 }
 
 // ============================================
-// EXPOSE
+// EXPOSE GLOBALS
 // ============================================
 
 window.leaveRoom = leaveRoom;
 window.joinWithCode = window.joinWithCode;
 window.toggleChatSidebar = toggleChatSidebar;
 
-console.log('🎥 Virtual Room loaded with session recovery');
+console.log('🎥 Virtual Room loaded with PeerJS + Daily fallback');
