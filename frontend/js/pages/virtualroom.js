@@ -1,5 +1,5 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - FULLY FIXED VERSION
+// 🎥 VIRTUAL ROOM - WITH FIXED SESSION RECOVERY
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -42,6 +42,7 @@ const state = {
     hostStreamReceived: false,
     reconnectTimeout: null,
     peerIdSaved: false,
+    isRecovering: false,
 };
 
 // ============================================
@@ -116,20 +117,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         const params = new URLSearchParams(window.location.search);
         const sessionCode = params.get('code');
         const mode = params.get('mode');
+        const forceNew = params.get('new') === 'true';
 
+        // Check for saved session - ONLY if not forcing new and no session code in URL
         const savedSession = sessionStorage.getItem('glimu_session');
-        if (savedSession && !sessionCode && !mode) {
+        
+        if (savedSession && !forceNew && !sessionCode && !mode) {
             try {
                 const sessionData = JSON.parse(savedSession);
-                if (sessionData.sessionId) {
-                    console.log('🔄 Found saved session, recovering...');
-                    await recoverSession(sessionData);
-                    return;
+                // Check if session is still valid (not too old - 1 hour max)
+                const sessionAge = Date.now() - (sessionData.timestamp || 0);
+                const maxAge = 60 * 60 * 1000; // 1 hour
+                
+                if (sessionData.sessionId && sessionAge < maxAge) {
+                    console.log('🔄 Found saved session, attempting recovery...');
+                    const recovered = await attemptSessionRecovery(sessionData);
+                    if (recovered) {
+                        return;
+                    }
                 }
+                // If recovery failed or session is too old, clear it
+                console.log('🗑️ Saved session expired or invalid, clearing...');
+                clearSavedSession();
             } catch (e) {
-                sessionStorage.removeItem('glimu_session');
+                console.warn('Could not parse saved session:', e);
+                clearSavedSession();
             }
         }
+
+        // Clear any stale session data
+        clearSavedSession();
 
         if (mode === 'host') {
             await createNewSession();
@@ -159,6 +176,119 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
+// SESSION RECOVERY - IMPROVED
+// ============================================
+
+async function attemptSessionRecovery(savedData) {
+    if (state.isRecovering) return false;
+    state.isRecovering = true;
+
+    try {
+        console.log('🔍 Checking if session can be recovered...');
+        
+        // Check if session still exists in database
+        const { data: session, error } = await supabase
+            .from('virtual_sessions')
+            .select('*')
+            .eq('id', savedData.sessionId)
+            .single();
+
+        if (error || !session) {
+            console.log('❌ Session not found in database');
+            clearSavedSession();
+            state.isRecovering = false;
+            return false;
+        }
+
+        // Don't recover ended sessions
+        if (session.status === 'ended') {
+            console.log('❌ Session has ended');
+            clearSavedSession();
+            state.isRecovering = false;
+            return false;
+        }
+
+        // Check if user is still a participant
+        const { data: participant, error: pError } = await supabase
+            .from('session_participants')
+            .select('*')
+            .eq('session_id', savedData.sessionId)
+            .eq('user_id', state.currentUser.id)
+            .single();
+
+        if (pError || !participant) {
+            console.log('❌ User is not a participant in this session');
+            clearSavedSession();
+            state.isRecovering = false;
+            return false;
+        }
+
+        console.log('✅ Session valid, recovering...');
+        
+        // Restore session state
+        state.sessionId = session.id;
+        state.sessionCode = session.session_code;
+        state.isHost = savedData.isHost || false;
+        state.isLive = session.status === 'live';
+
+        DOM.roomTitle.textContent = session.title || 'Live Session';
+        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+
+        // Re-activate participant
+        await supabase
+            .from('session_participants')
+            .update({ 
+                is_active: true,
+                last_seen: new Date().toISOString(),
+                left_at: null
+            })
+            .eq('session_id', state.sessionId)
+            .eq('user_id', state.currentUser.id);
+
+        if (state.isHost) {
+            DOM.hostControls.style.display = 'flex';
+            DOM.viewerControls.style.display = 'none';
+            // If host, ensure session is live
+            await supabase
+                .from('virtual_sessions')
+                .update({ status: 'live' })
+                .eq('id', state.sessionId);
+        } else {
+            DOM.hostControls.style.display = 'none';
+            DOM.viewerControls.style.display = 'flex';
+        }
+
+        await startLocalStream();
+        
+        const peerConnected = await initPeerJS(state.isHost);
+        if (!peerConnected) {
+            await initDailyFallback(state.isHost);
+        }
+
+        await loadParticipants();
+        showToast('🔄 Session recovered successfully!', 'success');
+        saveSessionState();
+
+        state.isRecovering = false;
+        console.log('✅ Session recovered:', state.sessionCode);
+        return true;
+
+    } catch (error) {
+        console.error('❌ Session recovery failed:', error);
+        clearSavedSession();
+        state.isRecovering = false;
+        return false;
+    }
+}
+
+function clearSavedSession() {
+    try {
+        sessionStorage.removeItem('glimu_session');
+        console.log('🗑️ Saved session cleared');
+    } catch (e) {}
+}
+
+// ============================================
 // SESSION MANAGEMENT
 // ============================================
 
@@ -166,6 +296,9 @@ async function createNewSession() {
     try {
         showLoading(true);
         DOM.loadingText.textContent = 'Creating session...';
+
+        // Clear any old session data
+        clearSavedSession();
 
         const sessionCode = generateSessionCode();
         
@@ -187,6 +320,7 @@ async function createNewSession() {
         state.sessionCode = session.session_code;
         state.isHost = true;
         state.isLive = true;
+        state.sessionEnded = false;
 
         DOM.roomTitle.textContent = session.title;
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
@@ -194,8 +328,9 @@ async function createNewSession() {
         DOM.viewerControls.style.display = 'none';
         DOM.hostName.textContent = state.userProfile.name || 'Host';
         DOM.hostStatusText.textContent = 'You are the host - waiting for viewers...';
+        DOM.sessionEndedOverlay.classList.remove('active');
 
-        // Add host as participant with peer_id as null initially
+        // Add host as participant
         await supabase
             .from('session_participants')
             .insert({
@@ -209,7 +344,6 @@ async function createNewSession() {
 
         await startLocalStream();
         
-        // Initialize PeerJS as HOST
         const peerConnected = await initPeerJS(true);
         if (!peerConnected) {
             console.log('⚠️ PeerJS failed, switching to Daily.co fallback...');
@@ -245,6 +379,9 @@ async function joinSession(sessionCode) {
         showLoading(true);
         DOM.loadingText.textContent = 'Joining session...';
 
+        // Clear any old session data
+        clearSavedSession();
+
         const { data: session, error } = await supabase
             .from('virtual_sessions')
             .select('*')
@@ -267,14 +404,16 @@ async function joinSession(sessionCode) {
         state.sessionCode = session.session_code;
         state.isHost = false;
         state.isLive = session.status === 'live';
+        state.sessionEnded = false;
 
         DOM.roomTitle.textContent = session.title || 'Live Session';
         DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
         DOM.hostControls.style.display = 'none';
         DOM.viewerControls.style.display = 'flex';
         DOM.hostStatusText.textContent = 'Connecting to host...';
+        DOM.sessionEndedOverlay.classList.remove('active');
 
-        // Add viewer with peer_id as null initially
+        // Add viewer
         await supabase
             .from('session_participants')
             .upsert({
@@ -288,7 +427,6 @@ async function joinSession(sessionCode) {
 
         await startLocalStream();
 
-        // Initialize PeerJS as VIEWER
         const peerConnected = await initPeerJS(false);
         if (!peerConnected) {
             console.log('⚠️ PeerJS failed, switching to Daily.co fallback...');
@@ -318,7 +456,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// PEERJS - WITH PEER ID SAVE RETRY
+// PEERJS - (Keep the same as before)
 // ============================================
 
 async function initPeerJS(isHost) {
@@ -366,14 +504,12 @@ async function initPeerJS(isHost) {
                 state.peerId = id;
                 console.log('✅ PeerJS connected:', id);
 
-                // SAVE PEER ID TO DATABASE WITH RETRY
                 await savePeerIdWithRetry(id);
 
                 DOM.connectionStatus.textContent = '🟢 Connected';
                 DOM.connectionStatus.style.color = '#10b981';
 
                 if (isHost) {
-                    // HOST: Wait for incoming calls
                     console.log('📞 Host waiting for viewer calls...');
                     state.peer.on('call', handleIncomingCall);
                     
@@ -387,13 +523,11 @@ async function initPeerJS(isHost) {
                         });
                     });
 
-                    // After host is ready, try to connect to existing viewers
                     setTimeout(() => {
                         connectToViewers();
                     }, 3000);
 
                 } else {
-                    // VIEWER: Connect to host
                     console.log('📞 Viewer connecting to host...');
                     setTimeout(() => {
                         connectToHost();
@@ -427,7 +561,6 @@ async function initPeerJS(isHost) {
     });
 }
 
-// SAVE PEER ID WITH RETRY
 async function savePeerIdWithRetry(peerId, attempt = 0) {
     try {
         console.log(`💾 Saving peer_id: ${peerId} (attempt ${attempt + 1})`);
@@ -463,7 +596,6 @@ async function savePeerIdWithRetry(peerId, attempt = 0) {
     }
 }
 
-// HOST: Connect to existing viewers
 function connectToViewers() {
     console.log('📢 Connecting to existing viewers...');
     
@@ -484,16 +616,14 @@ function connectToViewers() {
     });
 }
 
-// VIEWER: Connect to host
 async function connectToHost() {
     try {
-        // Try to get host peer ID from database
         const { data: host, error } = await supabase
             .from('session_participants')
             .select('peer_id, user_id')
             .eq('session_id', state.sessionId)
             .eq('role', 'host')
-            .maybeSingle();  // Use maybeSingle to avoid 406 error
+            .maybeSingle();
 
         if (error) {
             console.warn('⚠️ Error getting host:', error);
@@ -510,7 +640,6 @@ async function connectToHost() {
         state.hostPeerId = host.peer_id;
         console.log('📞 Calling host:', state.hostPeerId);
 
-        // Establish data connection
         try {
             const conn = state.peer.connect(state.hostPeerId);
             conn.on('open', () => {
@@ -531,7 +660,6 @@ async function connectToHost() {
             console.warn('Data connection failed, proceeding with call only:', e);
         }
 
-        // Call the host for video/audio
         const call = state.peer.call(state.hostPeerId, state.localStream);
         
         call.on('stream', (remoteStream) => {
@@ -580,7 +708,6 @@ function retryConnectToHost() {
     }
 }
 
-// HOST: Handle incoming call from viewer
 function handleIncomingCall(call) {
     console.log('📞 Incoming call from:', call.peer);
     
@@ -680,77 +807,7 @@ async function initDailyFallback(isHost) {
 }
 
 // ============================================
-// SESSION RECOVERY
-// ============================================
-
-async function recoverSession(savedData) {
-    try {
-        showLoading(true);
-        DOM.loadingText.textContent = 'Recovering session...';
-
-        const { data: session, error } = await supabase
-            .from('virtual_sessions')
-            .select('*')
-            .eq('id', savedData.sessionId)
-            .single();
-
-        if (error || !session || session.status === 'ended') {
-            sessionStorage.removeItem('glimu_session');
-            await createNewSession();
-            return;
-        }
-
-        state.sessionId = session.id;
-        state.sessionCode = session.session_code;
-        state.isHost = savedData.isHost || false;
-        state.isLive = session.status === 'live';
-
-        DOM.roomTitle.textContent = session.title || 'Live Session';
-        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
-
-        await supabase
-            .from('session_participants')
-            .update({ 
-                is_active: true,
-                last_seen: new Date().toISOString()
-            })
-            .eq('session_id', state.sessionId)
-            .eq('user_id', state.currentUser.id);
-
-        if (state.isHost) {
-            DOM.hostControls.style.display = 'flex';
-            DOM.viewerControls.style.display = 'none';
-            await supabase
-                .from('virtual_sessions')
-                .update({ status: 'live' })
-                .eq('id', state.sessionId);
-        } else {
-            DOM.hostControls.style.display = 'none';
-            DOM.viewerControls.style.display = 'flex';
-        }
-
-        await startLocalStream();
-        
-        const peerConnected = await initPeerJS(state.isHost);
-        if (!peerConnected) {
-            await initDailyFallback(state.isHost);
-        }
-
-        await loadParticipants();
-        showToast('🔄 Session recovered!', 'success');
-        saveSessionState();
-
-        console.log('✅ Session recovered:', state.sessionCode);
-
-    } catch (error) {
-        console.error('❌ Session recovery failed:', error);
-        sessionStorage.removeItem('glimu_session');
-        await createNewSession();
-    }
-}
-
-// ============================================
-// STREAM MANAGEMENT
+// STREAM MANAGEMENT (Keep existing)
 // ============================================
 
 async function startLocalStream() {
@@ -1090,7 +1147,7 @@ async function submitRating() {
 }
 
 // ============================================
-// SESSION END
+// SESSION END - CLEAR SAVED SESSION
 // ============================================
 
 async function endSession() {
@@ -1111,7 +1168,9 @@ async function endSession() {
         state.isLive = false;
         DOM.sessionEndedOverlay.classList.add('active');
 
-        sessionStorage.removeItem('glimu_session');
+        // CLEAR THE SAVED SESSION
+        clearSavedSession();
+
         cleanup();
         showToast('Session ended', 'success');
 
@@ -1151,7 +1210,7 @@ function setupRealtimeSubscriptions() {
             if (payload.new.status === 'ended') {
                 state.sessionEnded = true;
                 DOM.sessionEndedOverlay.classList.add('active');
-                sessionStorage.removeItem('glimu_session');
+                clearSavedSession();
                 cleanup();
             }
         })
@@ -1472,7 +1531,8 @@ function leaveRoom() {
             .then(() => {});
     }
 
-    sessionStorage.removeItem('glimu_session');
+    // Clear saved session when leaving
+    clearSavedSession();
     window.location.href = '/user';
 }
 
