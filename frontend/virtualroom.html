@@ -12,9 +12,6 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- PeerJS -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/virtualroom.css">
 </head>
@@ -61,7 +58,7 @@
     <div class="virtual-room" id="app">
         
         <!-- ==========================================
-        TOP BAR - WhatsApp Style
+        TOP BAR
         ========================================== -->
         <div class="top-bar">
             <div class="top-bar-left">
@@ -98,14 +95,14 @@
         </div>
 
         <!-- ==========================================
-        MAIN CONTENT - Video + Chat Sidebar
+        MAIN CONTENT
         ========================================== -->
         <div class="main-content">
             
             <!-- Video Grid -->
             <div class="video-grid" id="videoGrid">
                 
-                <!-- Host Video (Main) -->
+                <!-- Host Video -->
                 <div class="video-card host-card" id="hostVideoCard">
                     <video id="hostVideo" autoplay playsinline></video>
                     <div class="video-placeholder" id="hostPlaceholder">
@@ -122,15 +119,16 @@
                     <div class="video-quality" id="videoQuality">HD</div>
                 </div>
 
-                <!-- Viewer Thumbnails (right side) -->
+                <!-- Viewer Thumbnails -->
                 <div class="viewer-thumbnails" id="viewerThumbnails">
-                    <!-- Populated by JS -->
+                    <div class="empty-thumbnails">
+                        <i class="fas fa-users"></i>
+                        <span>No viewers yet</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- ==========================================
-            LOADING OVERLAY
-            ========================================== -->
+            <!-- Loading -->
             <div class="loading-overlay" id="loadingOverlay">
                 <div class="loading-spinner"></div>
                 <h3 id="loadingText">Connecting...</h3>
@@ -144,7 +142,7 @@
         <div class="controls-bar" id="controlsBar">
             
             <!-- Host Controls -->
-            <div class="controls-host" id="hostControls">
+            <div class="controls-host" id="hostControls" style="display:none;">
                 <button class="control-btn" id="micBtn" title="Microphone">
                     <i class="fas fa-microphone"></i>
                 </button>
@@ -166,7 +164,7 @@
             </div>
 
             <!-- Viewer Controls -->
-            <div class="controls-viewer" id="viewerControls">
+            <div class="controls-viewer" id="viewerControls" style="display:none;">
                 <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
                     <i class="fas fa-hand-paper"></i>
                 </button>
@@ -178,7 +176,6 @@
                 </button>
             </div>
 
-            <!-- Divider -->
             <div class="controls-divider"></div>
 
             <!-- Chat Toggle -->
@@ -189,9 +186,9 @@
         </div>
 
         <!-- ==========================================
-        YOUR VIDEO (Picture-in-Picture)
+        PIP VIDEO
         ========================================== -->
-        <div class="pip-video" id="pipVideo">
+        <div class="pip-video" id="pipVideo" style="display:none;">
             <video id="localVideo" autoplay muted playsinline></video>
             <div class="pip-placeholder" id="pipPlaceholder">
                 <i class="fas fa-user-circle"></i>
@@ -208,7 +205,7 @@
         </div>
 
         <!-- ==========================================
-        CHAT SIDEBAR - IFRAME (Uses existing chat)
+        CHAT SIDEBAR - IFRAME
         ========================================== -->
         <div class="chat-sidebar" id="chatSidebar">
             <div class="chat-sidebar-header">
@@ -222,12 +219,11 @@
                 </button>
             </div>
             
-            <!-- IFRAME: Loads the existing chat page -->
             <iframe 
                 id="chatIframe"
-                src="/chat.html?embedded=1&channel=session_{{sessionId}}"
+                src="/chat.html?embedded=1"
                 class="chat-iframe"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 allow="microphone; camera; clipboard-read; clipboard-write"
             ></iframe>
         </div>
@@ -236,7 +232,7 @@
         <div class="chat-overlay" id="chatOverlay"></div>
 
         <!-- ==========================================
-        WHITEBOARD OVERLAY
+        WHITEBOARD
         ========================================== -->
         <div class="whiteboard-overlay" id="whiteboardOverlay">
             <div class="whiteboard-toolbar">
@@ -314,34 +310,8 @@
                 <button class="modal-close" id="closeParticipantsModal"><i class="fas fa-times"></i></button>
                 <h3><i class="fas fa-users"></i> Participants</h3>
                 <div class="participants-modal-list" id="participantsModalList">
-                    <!-- Populated by JS -->
+                    <div class="empty-state-text">Loading...</div>
                 </div>
-            </div>
-        </div>
-
-        <!-- ==========================================
-        SESSION ENDED OVERLAY
-        ========================================== -->
-        <div class="session-ended-overlay" id="sessionEndedOverlay">
-            <div class="session-ended-content">
-                <i class="fas fa-check-circle"></i>
-                <h2>Session Ended</h2>
-                <p id="sessionSummary">Thanks for joining!</p>
-                <div class="session-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Stars</span>
-                        <span class="stat-value" id="finalStars">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Viewers</span>
-                        <span class="stat-value" id="finalViewers">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Tips</span>
-                        <span class="stat-value" id="finalTips">₦0</span>
-                    </div>
-                </div>
-                <button class="primary-btn" id="returnBtn">Return to Dashboard</button>
             </div>
         </div>
 
@@ -368,6 +338,32 @@
                 <button class="primary-btn full" id="shareToChatBtn">
                     <i class="fas fa-comment"></i> Send to Chat
                 </button>
+            </div>
+        </div>
+
+        <!-- ==========================================
+        SESSION ENDED OVERLAY
+        ========================================== -->
+        <div class="session-ended-overlay" id="sessionEndedOverlay">
+            <div class="session-ended-content">
+                <i class="fas fa-check-circle"></i>
+                <h2>Session Ended</h2>
+                <p id="sessionSummary">Thanks for joining!</p>
+                <div class="session-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Stars</span>
+                        <span class="stat-value" id="finalStars">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Viewers</span>
+                        <span class="stat-value" id="finalViewers">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Tips</span>
+                        <span class="stat-value" id="finalTips">₦0</span>
+                    </div>
+                </div>
+                <button class="primary-btn" id="returnBtn">Return to Dashboard</button>
             </div>
         </div>
     </div>
