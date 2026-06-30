@@ -1,5 +1,5 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - FULLY FIXED
+// 🎥 VIRTUAL ROOM - FULLY FIXED VERSION
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -41,6 +41,7 @@ const state = {
     usingDailyFallback: false,
     hostStreamReceived: false,
     reconnectTimeout: null,
+    peerIdSaved: false,
 };
 
 // ============================================
@@ -92,7 +93,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('🎥 Virtual Room initializing...');
     cacheDOM();
 
-    // Fix mobile viewport
     const setVH = () => {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -117,7 +117,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sessionCode = params.get('code');
         const mode = params.get('mode');
 
-        // Check saved session
         const savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -196,7 +195,7 @@ async function createNewSession() {
         DOM.hostName.textContent = state.userProfile.name || 'Host';
         DOM.hostStatusText.textContent = 'You are the host - waiting for viewers...';
 
-        // Add host as participant
+        // Add host as participant with peer_id as null initially
         await supabase
             .from('session_participants')
             .insert({
@@ -275,19 +274,7 @@ async function joinSession(sessionCode) {
         DOM.viewerControls.style.display = 'flex';
         DOM.hostStatusText.textContent = 'Connecting to host...';
 
-        // Get host info
-        const { data: host } = await supabase
-            .from('session_participants')
-            .select('users(name)')
-            .eq('session_id', state.sessionId)
-            .eq('role', 'host')
-            .single();
-
-        if (host?.users) {
-            DOM.hostName.textContent = host.users.name || 'Host';
-        }
-
-        // Add viewer
+        // Add viewer with peer_id as null initially
         await supabase
             .from('session_participants')
             .upsert({
@@ -331,7 +318,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// PEERJS - SIMPLIFIED AND FIXED
+// PEERJS - WITH PEER ID SAVE RETRY
 // ============================================
 
 async function initPeerJS(isHost) {
@@ -361,11 +348,6 @@ async function initPeerJS(isHost) {
                             urls: 'turn:openrelay.metered.ca:443',
                             username: 'openrelayproject',
                             credential: 'openrelayproject' 
-                        },
-                        { 
-                            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                            username: 'openrelayproject',
-                            credential: 'openrelayproject' 
                         }
                     ]
                 }
@@ -384,19 +366,8 @@ async function initPeerJS(isHost) {
                 state.peerId = id;
                 console.log('✅ PeerJS connected:', id);
 
-                // Update peer_id in database
-                try {
-                    await supabase
-                        .from('session_participants')
-                        .update({ 
-                            peer_id: id,
-                            last_seen: new Date().toISOString()
-                        })
-                        .eq('session_id', state.sessionId)
-                        .eq('user_id', state.currentUser.id);
-                } catch (e) {
-                    console.warn('Could not update peer_id:', e);
-                }
+                // SAVE PEER ID TO DATABASE WITH RETRY
+                await savePeerIdWithRetry(id);
 
                 DOM.connectionStatus.textContent = '🟢 Connected';
                 DOM.connectionStatus.style.color = '#10b981';
@@ -406,7 +377,6 @@ async function initPeerJS(isHost) {
                     console.log('📞 Host waiting for viewer calls...');
                     state.peer.on('call', handleIncomingCall);
                     
-                    // Also listen for data connections
                     state.peer.on('connection', (conn) => {
                         console.log('📡 Data connection from:', conn.peer);
                         conn.on('data', (data) => {
@@ -417,15 +387,14 @@ async function initPeerJS(isHost) {
                         });
                     });
 
-                    // Broadcast host ready after a delay
+                    // After host is ready, try to connect to existing viewers
                     setTimeout(() => {
-                        broadcastHostReady();
+                        connectToViewers();
                     }, 3000);
 
                 } else {
                     // VIEWER: Connect to host
                     console.log('📞 Viewer connecting to host...');
-                    // Wait a moment for host to be ready
                     setTimeout(() => {
                         connectToHost();
                     }, 2000);
@@ -438,14 +407,12 @@ async function initPeerJS(isHost) {
                 clearTimeout(timeout);
                 console.error('❌ PeerJS error:', err.message);
                 
-                if (err.message.includes('Lost connection') || err.message.includes('disconnected')) {
-                    if (state.connectionAttempts < state.maxConnectionAttempts) {
-                        console.log(`🔄 Retry ${state.connectionAttempts}/${state.maxConnectionAttempts}...`);
-                        setTimeout(() => {
-                            initPeerJS(isHost);
-                        }, 3000);
-                        return;
-                    }
+                if (state.connectionAttempts < state.maxConnectionAttempts) {
+                    console.log(`🔄 Retry ${state.connectionAttempts}/${state.maxConnectionAttempts}...`);
+                    setTimeout(() => {
+                        initPeerJS(isHost);
+                    }, 3000);
+                    return;
                 }
                 
                 state.peerjsFailed = true;
@@ -460,33 +427,73 @@ async function initPeerJS(isHost) {
     });
 }
 
-// HOST: Broadcast that host is ready
-function broadcastHostReady() {
-    console.log('📢 Broadcasting host ready...');
-    
-    // Update host status in database
-    supabase
-        .from('session_participants')
-        .update({ 
-            last_seen: new Date().toISOString()
-        })
-        .eq('session_id', state.sessionId)
-        .eq('user_id', state.currentUser.id)
-        .then(() => {
-            console.log('✅ Host status updated');
-        });
+// SAVE PEER ID WITH RETRY
+async function savePeerIdWithRetry(peerId, attempt = 0) {
+    try {
+        console.log(`💾 Saving peer_id: ${peerId} (attempt ${attempt + 1})`);
+        
+        const { error } = await supabase
+            .from('session_participants')
+            .update({ 
+                peer_id: peerId,
+                last_seen: new Date().toISOString()
+            })
+            .eq('session_id', state.sessionId)
+            .eq('user_id', state.currentUser.id);
+
+        if (error) {
+            console.warn('⚠️ Save peer_id error:', error);
+            if (attempt < 3) {
+                setTimeout(() => {
+                    savePeerIdWithRetry(peerId, attempt + 1);
+                }, 1000);
+                return;
+            }
+        } else {
+            state.peerIdSaved = true;
+            console.log('✅ Peer ID saved successfully');
+        }
+    } catch (e) {
+        console.warn('⚠️ Save peer_id exception:', e);
+        if (attempt < 3) {
+            setTimeout(() => {
+                savePeerIdWithRetry(peerId, attempt + 1);
+            }, 1000);
+        }
+    }
 }
 
-// VIEWER: Connect to host with retry
+// HOST: Connect to existing viewers
+function connectToViewers() {
+    console.log('📢 Connecting to existing viewers...');
+    
+    state.participants.forEach((participant, userId) => {
+        if (userId !== state.currentUser.id && participant.peer_id) {
+            try {
+                const conn = state.peer.connect(participant.peer_id);
+                conn.on('open', () => {
+                    conn.send(JSON.stringify({
+                        type: 'host_ready',
+                        peerId: state.peerId
+                    }));
+                });
+            } catch (e) {
+                console.warn('Could not connect to viewer:', participant.peer_id);
+            }
+        }
+    });
+}
+
+// VIEWER: Connect to host
 async function connectToHost() {
     try {
-        // Get host peer ID from database
+        // Try to get host peer ID from database
         const { data: host, error } = await supabase
             .from('session_participants')
             .select('peer_id, user_id')
             .eq('session_id', state.sessionId)
             .eq('role', 'host')
-            .single();
+            .maybeSingle();  // Use maybeSingle to avoid 406 error
 
         if (error) {
             console.warn('⚠️ Error getting host:', error);
@@ -495,7 +502,7 @@ async function connectToHost() {
         }
 
         if (!host || !host.peer_id) {
-            console.warn('⚠️ Host not found or no peer ID');
+            console.warn('⚠️ Host not found or no peer ID yet. Waiting...');
             retryConnectToHost();
             return;
         }
@@ -503,7 +510,7 @@ async function connectToHost() {
         state.hostPeerId = host.peer_id;
         console.log('📞 Calling host:', state.hostPeerId);
 
-        // Try to establish data connection first
+        // Establish data connection
         try {
             const conn = state.peer.connect(state.hostPeerId);
             conn.on('open', () => {
@@ -569,7 +576,7 @@ function retryConnectToHost() {
         state.reconnectTimeout = setTimeout(() => {
             console.log('🔄 Retrying connection to host...');
             connectToHost();
-        }, 5000);
+        }, 3000);
     }
 }
 
@@ -577,21 +584,16 @@ function retryConnectToHost() {
 function handleIncomingCall(call) {
     console.log('📞 Incoming call from:', call.peer);
     
-    // Answer with host's stream
     call.answer(state.localStream);
     
-    // Send viewer's stream to host's display
     call.on('stream', (remoteStream) => {
         console.log('📺 Viewer stream received from:', call.peer);
         
-        // Store viewer stream
         const viewerId = call.peer;
         state.viewerStreams.set(viewerId, remoteStream);
         
-        // Add to viewer thumbnails
         renderViewerThumbnails();
         
-        // Update connection status
         DOM.connectionStatus.textContent = `🟢 ${state.viewerStreams.size} viewer(s)`;
         DOM.connectionStatus.style.color = '#10b981';
         DOM.hostStatusText.textContent = `${state.viewerStreams.size} viewer(s) connected`;
@@ -604,7 +606,6 @@ function handleIncomingCall(call) {
     });
 }
 
-// Data channel handler
 function handleDataChannelMessage(message, peerId) {
     console.log('📨 Data message:', message.type);
     
@@ -613,18 +614,6 @@ function handleDataChannelMessage(message, peerId) {
             if (state.isHost) {
                 console.log('👤 Viewer ready:', message.name);
                 showToast(`👤 ${message.name || 'Viewer'} joined`, 'info');
-                // Broadcast host ready back
-                setTimeout(() => {
-                    try {
-                        const conn = state.peer.connect(peerId);
-                        conn.on('open', () => {
-                            conn.send(JSON.stringify({
-                                type: 'host_ready',
-                                peerId: state.peerId
-                            }));
-                        });
-                    } catch (e) {}
-                }, 1000);
             }
             break;
             
@@ -658,7 +647,7 @@ async function initDailyFallback(isHost) {
         
         if (DOM.dailyContainer) {
             DOM.dailyContainer.style.display = 'block';
-            DOM.videoGrid.style.display = 'none';
+            if (DOM.videoGrid) DOM.videoGrid.style.display = 'none';
         }
 
         const roomName = `glimu-${state.sessionCode}`;
@@ -957,7 +946,6 @@ function renderViewerThumbnails() {
         `;
     }).join('');
 
-    // Attach viewer streams
     viewers.forEach(viewer => {
         const videoEl = document.getElementById(`viewer_${viewer.user_id}`);
         if (!videoEl) return;
@@ -1008,7 +996,7 @@ async function toggleRaiseHand() {
 }
 
 // ============================================
-// TIPPING
+// TIPPING - Heart ₦200, Star ₦500, Haha ₦1250
 // ============================================
 
 async function sendTip(amount, emoji) {
@@ -1341,7 +1329,7 @@ function setupEventListeners() {
     document.getElementById('copyLinkBtn')?.addEventListener('click', copyShareLink);
     document.getElementById('returnBtn')?.addEventListener('click', () => window.location.href = '/user');
 
-    // Tip options: Heart (₦200), Star (₦500), Haha (₦1250)
+    // Tip options: Heart ₦200, Star ₦500, Haha ₦1250
     document.querySelectorAll('.tip-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const amount = parseInt(btn.dataset.amount);
@@ -1357,7 +1345,6 @@ function setupEventListeners() {
         }
     });
 
-    // Star rating
     document.querySelectorAll('.star').forEach(star => {
         star.addEventListener('click', () => {
             const value = parseInt(star.dataset.value);
@@ -1369,14 +1356,12 @@ function setupEventListeners() {
     });
     document.getElementById('submitStars')?.addEventListener('click', submitRating);
 
-    // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
         });
     });
 
-    // Save session on page unload
     window.addEventListener('beforeunload', () => {
         if (state.sessionId && !state.sessionEnded) {
             saveSessionState();
