@@ -1,19 +1,10 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - DAILY.CO FIXED
-// Branded, Professional, Free Tier
+// 🎥 VIRTUAL ROOM - JITSI (100% FREE)
+// No credit card, no payment, works immediately
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
-
-// ============================================
-// DAILY.CO CONFIG
-// ============================================
-
-const DAILY_CONFIG = {
-    apiKey: 'f228794009453b48e6d462ec87184d988091839da36487abd378b1df094a6ffd',
-    domain: 'gliimu.daily.co',
-};
 
 // ============================================
 // STATE
@@ -36,12 +27,13 @@ const state = {
     classStartTime: Date.now(),
     starRating: 0,
     hasRated: false,
-    dailyCallFrame: null,
-    dailyInitialized: false,
+    jitsiInitialized: false,
     isConnecting: false,
     scriptLoadAttempts: 0,
     maxScriptAttempts: 3,
     scriptLoaded: false,
+    jitsiApi: null,
+    jitsiRoom: null,
 };
 
 // ============================================
@@ -111,7 +103,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sessionCode = params.get('code');
         const mode = params.get('mode');
 
-        // Check saved session
         const savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -202,8 +193,8 @@ async function createNewSession() {
                 last_seen: new Date().toISOString()
             });
 
-        // Initialize Daily.co video
-        await initDailyVideo(true);
+        // Initialize Jitsi video
+        await initJitsiVideo(true);
 
         saveSessionState();
         showToast(`Session created! Code: ${state.sessionCode}`, 'success');
@@ -274,8 +265,8 @@ async function joinSession(sessionCode) {
                 last_seen: new Date().toISOString()
             }, { onConflict: 'session_id,user_id' });
 
-        // Initialize Daily.co video
-        await initDailyVideo(false);
+        // Initialize Jitsi video
+        await initJitsiVideo(false);
 
         await loadParticipants();
         saveSessionState();
@@ -299,75 +290,54 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// DAILY.CO VIDEO INTEGRATION - FIXED
+// JITSI VIDEO INTEGRATION (100% FREE)
 // ============================================
 
-async function loadDailyScript() {
+async function loadJitsiScript() {
     return new Promise((resolve, reject) => {
         // Check if already loaded
-        if (window.Daily) {
+        if (window.JitsiMeetExternalAPI) {
             state.scriptLoaded = true;
             resolve();
             return;
         }
 
         // Check if script tag already exists
-        let script = document.querySelector('#daily-js');
+        let script = document.querySelector('#jitsi-js');
         if (script) {
-            // Wait for it to load
             script.addEventListener('load', () => {
                 state.scriptLoaded = true;
                 resolve();
             });
             script.addEventListener('error', () => {
-                reject(new Error('Daily.co script failed to load'));
+                reject(new Error('Jitsi script failed to load'));
             });
             return;
         }
 
         // Create new script tag
         script = document.createElement('script');
-        script.id = 'daily-js';
-        // Use the correct Daily.co CDN URL
-        script.src = 'https://unpkg.com/@daily-co/daily-js@0.48.0/dist/daily.js';
+        script.id = 'jitsi-js';
+        script.src = 'https://meet.jit.si/external_api.js';
         script.async = true;
-        script.crossOrigin = 'anonymous';
 
         script.onload = () => {
-            console.log('✅ Daily.co script loaded');
+            console.log('✅ Jitsi script loaded');
             state.scriptLoaded = true;
             resolve();
         };
 
         script.onerror = () => {
-            console.error('❌ Failed to load Daily.co script');
-            // Try alternate CDN
-            const altScript = document.createElement('script');
-            altScript.id = 'daily-js-alt';
-            altScript.src = 'https://cdn.jsdelivr.net/npm/@daily-co/daily-js@0.48.0/dist/daily.js';
-            altScript.async = true;
-            altScript.crossOrigin = 'anonymous';
-            
-            altScript.onload = () => {
-                console.log('✅ Daily.co script loaded (alternate)');
-                state.scriptLoaded = true;
-                resolve();
-            };
-            
-            altScript.onerror = () => {
-                reject(new Error('Daily.co script failed to load from both CDNs'));
-            };
-            
-            document.head.appendChild(altScript);
+            reject(new Error('Jitsi script failed to load'));
         };
 
         document.head.appendChild(script);
     });
 }
 
-async function initDailyVideo(isHost) {
-    if (state.dailyInitialized) {
-        console.log('📹 Daily already initialized');
+async function initJitsiVideo(isHost) {
+    if (state.jitsiInitialized) {
+        console.log('📹 Jitsi already initialized');
         return;
     }
 
@@ -378,19 +348,19 @@ async function initDailyVideo(isHost) {
 
     try {
         state.isConnecting = true;
-        console.log('📹 Initializing Daily.co video...');
+        console.log('📹 Initializing Jitsi video...');
 
-        // Load the script with retries
+        // Load the script
         if (!state.scriptLoaded) {
             state.scriptLoadAttempts++;
             try {
-                await loadDailyScript();
+                await loadJitsiScript();
             } catch (error) {
                 console.error('❌ Script load error:', error);
                 if (state.scriptLoadAttempts < state.maxScriptAttempts) {
                     console.log(`🔄 Retry ${state.scriptLoadAttempts}/${state.maxScriptAttempts}...`);
                     state.isConnecting = false;
-                    setTimeout(() => initDailyVideo(isHost), 3000);
+                    setTimeout(() => initJitsiVideo(isHost), 3000);
                     return;
                 } else {
                     showToast('Could not load video service. Using chat only.', 'warning');
@@ -400,122 +370,123 @@ async function initDailyVideo(isHost) {
             }
         }
 
-        // Verify Daily is available
-        if (typeof Daily === 'undefined') {
-            console.error('Daily.co still not available after loading');
+        // Verify Jitsi is available
+        if (typeof JitsiMeetExternalAPI === 'undefined') {
+            console.error('Jitsi still not available after loading');
             showToast('Video service unavailable. Using chat only.', 'warning');
             state.isConnecting = false;
             return;
         }
 
         const roomName = `glimu-${state.sessionCode}`;
-        console.log('📹 Creating Daily.co room:', roomName);
+        state.jitsiRoom = roomName;
+        console.log('📹 Creating Jitsi room:', roomName);
 
-        // Create the call frame
-        state.dailyCallFrame = Daily.createCallFrame({
-            iframeContainer: DOM.dailyFrameContainer,
-            dailyConfig: {
-                apiKey: DAILY_CONFIG.apiKey,
-                roomName: roomName,
-                maxParticipants: 12,
-                videoCodec: 'VP8',
-                branding: {
-                    logoUrl: '/icons/logo.png',
-                    logoClickUrl: 'https://glimu.com',
-                    hideLogo: false,
-                    colors: {
-                        accent: '#fbb040',
-                        accentText: '#1a1a2e',
-                        background: '#0a0a14',
-                        backgroundAccent: '#1a1a2e'
-                    }
-                },
-                showParticipantsBar: true,
-                showLocalVideo: true,
-                showLeaveButton: false,
-                showFullscreenButton: true,
-                showRecordingButton: false,
-                showScreenshareButton: true,
-                showChat: true,
-                showSettingsButton: true,
-                startAudioOff: false,
-                startVideoOff: false,
-                startWithDeviceAudio: true,
-                startWithDeviceVideo: true,
-                lang: 'en',
-                url: `https://${DAILY_CONFIG.domain}/${roomName}`
+        // Jitsi options - minimal and clean
+        const options = {
+            roomName: roomName,
+            parentNode: DOM.dailyFrameContainer,
+            configOverwrite: {
+                startWithVideoMuted: false,
+                startWithAudioMuted: false,
+                prejoinPageEnabled: false,
+                enableWelcomePage: false,
+                disableDeepLinking: true,
+                disableInviteFunctions: true,
+                // Remove Jitsi branding as much as possible
+                brandingDataUrl: '',
+                // Custom colors to match Gliimu
+                subject: `${state.userProfile.name || 'User'}'s Session`,
+                // Hide Jitsi watermark
+                enableWatermark: false,
+                // Disable Jitsi background
+                disableBackground: true,
+                // Custom UI
+                toolbarButtons: [
+                    'microphone', 'camera', 'desktop', 'fullscreen', 
+                    'fodeviceselection', 'hangup', 'chat', 'settings'
+                ]
+            },
+            interfaceConfigOverwrite: {
+                // Remove Jitsi branding
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_BRAND_WATERMARK: false,
+                BRAND_WATERMARK_LINK: '',
+                // Clean UI
+                DISABLE_VIDEO_BACKGROUND: true,
+                VERTICAL_FILMSTRIP: true,
+                // Hide Jitsi features we don't want
+                TOOLBAR_BUTTONS: [
+                    'microphone', 'camera', 'desktop', 'fullscreen', 
+                    'fodeviceselection', 'hangup', 'chat', 'settings'
+                ],
+                SETTINGS_SECTIONS: ['devices', 'language'],
+                DISABLE_FOCUS_INDICATOR: true,
+                // Custom colors
+                DEFAULT_BACKGROUND: '#0a0a14',
+                HIDE_INVITE_MORE_HEADER: true,
+                HIDE_DEEP_LINKING_LOGO: true
+            },
+            onload: () => {
+                console.log('📹 Jitsi loaded');
+                DOM.videoOverlay.classList.add('hidden');
+                state.jitsiInitialized = true;
+                state.isConnecting = false;
+                
+                if (DOM.connectionStatus) {
+                    DOM.connectionStatus.textContent = '🟢 Connected';
+                    DOM.connectionStatus.style.color = '#10b981';
+                }
+                if (DOM.hostStatusText) {
+                    DOM.hostStatusText.textContent = isHost ? 'You are the host' : 'Connected';
+                }
+                
+                sendToChatIframe({
+                    type: 'system_message',
+                    message: '📹 Video connected'
+                });
+                
+                showToast('📹 Video connected!', 'success');
+            }
+        };
+
+        // Create Jitsi API instance
+        state.jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', options);
+
+        // Event listeners
+        state.jitsiApi.addEventListeners({
+            'videoConferenceJoined': () => {
+                console.log('📹 Joined Jitsi conference');
+                DOM.videoOverlay.classList.add('hidden');
+                state.jitsiInitialized = true;
+                state.isConnecting = false;
+            },
+            'participantJoined': (event) => {
+                console.log('👤 Participant joined:', event);
+                const name = event.displayName || 'Someone';
+                if (state.isHost) {
+                    showToast(`👤 ${name} joined the session`, 'info');
+                }
+                loadParticipants();
+            },
+            'participantLeft': (event) => {
+                console.log('👤 Participant left:', event);
+                const name = event.displayName || 'Someone';
+                if (state.isHost) {
+                    showToast(`👤 ${name} left the session`, 'info');
+                }
+                loadParticipants();
+            },
+            'videoConferenceLeft': () => {
+                console.log('📹 Left Jitsi conference');
+                state.jitsiInitialized = false;
             }
         });
 
-        // Event handlers
-        state.dailyCallFrame.on('loading', () => {
-            console.log('📹 Daily loading...');
-            DOM.waitingText.textContent = 'Connecting to video...';
-            DOM.waitingSubText.textContent = 'Please wait';
-        });
-
-        state.dailyCallFrame.on('loaded', () => {
-            console.log('📹 Daily loaded');
-        });
-
-        state.dailyCallFrame.on('joined-meeting', () => {
-            console.log('📹 Joined Daily meeting!');
-            state.dailyInitialized = true;
-            state.isConnecting = false;
-            DOM.videoOverlay.classList.add('hidden');
-            if (DOM.connectionStatus) {
-                DOM.connectionStatus.textContent = '🟢 Connected';
-                DOM.connectionStatus.style.color = '#10b981';
-            }
-            if (DOM.hostStatusText) {
-                DOM.hostStatusText.textContent = isHost ? 'You are the host' : 'Connected';
-            }
-            
-            sendToChatIframe({
-                type: 'system_message',
-                message: '📹 Video connected'
-            });
-            
-            showToast('📹 Video connected!', 'success');
-        });
-
-        state.dailyCallFrame.on('participant-joined', (e) => {
-            console.log('👤 Participant joined:', e.participant);
-            const name = e.participant.user_name || 'Someone';
-            if (state.isHost) {
-                showToast(`👤 ${name} joined the session`, 'info');
-            }
-            loadParticipants();
-        });
-
-        state.dailyCallFrame.on('participant-left', (e) => {
-            console.log('👤 Participant left:', e.participant);
-            const name = e.participant.user_name || 'Someone';
-            if (state.isHost) {
-                showToast(`👤 ${name} left the session`, 'info');
-            }
-            loadParticipants();
-        });
-
-        state.dailyCallFrame.on('error', (e) => {
-            console.error('❌ Daily error:', e);
-            showToast('Video error: ' + (e.errorMsg || 'Unknown error'), 'error');
-            state.isConnecting = false;
-        });
-
-        state.dailyCallFrame.on('left-meeting', () => {
-            console.log('📹 Left Daily meeting');
-            state.dailyInitialized = false;
-        });
-
-        // Join the meeting
-        console.log('📹 Joining Daily meeting...');
-        await state.dailyCallFrame.join();
-
-        console.log('✅ Daily.co initialized successfully');
+        console.log('✅ Jitsi initialized successfully');
 
     } catch (error) {
-        console.error('❌ Daily.co error:', error);
+        console.error('❌ Jitsi error:', error);
         showToast('Failed to start video: ' + error.message, 'error');
         state.isConnecting = false;
         DOM.waitingText.textContent = 'Video unavailable';
@@ -573,8 +544,7 @@ async function recoverSession(savedData) {
             DOM.viewerControls.style.display = 'flex';
         }
 
-        // Reconnect to Daily
-        await initDailyVideo(state.isHost);
+        await initJitsiVideo(state.isHost);
 
         await loadParticipants();
         showToast('🔄 Session recovered!', 'success');
@@ -751,11 +721,12 @@ async function endSession() {
     if (!confirm('End this session?')) return;
 
     try {
-        if (state.dailyCallFrame) {
+        // Leave Jitsi
+        if (state.jitsiApi) {
             try {
-                state.dailyCallFrame.leave();
+                state.jitsiApi.executeCommand('hangup');
             } catch (e) {
-                console.warn('Error leaving Daily:', e);
+                console.warn('Error leaving Jitsi:', e);
             }
         }
 
@@ -1078,12 +1049,11 @@ function showSessionSelection() {
 // ============================================
 
 function cleanup() {
-    if (state.dailyCallFrame) {
+    if (state.jitsiApi) {
         try {
-            state.dailyCallFrame.leave();
-            state.dailyCallFrame.destroy();
+            state.jitsiApi.executeCommand('hangup');
         } catch (e) {}
-        state.dailyCallFrame = null;
+        state.jitsiApi = null;
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
@@ -1121,4 +1091,4 @@ window.leaveRoom = leaveRoom;
 window.toggleChatSidebar = toggleChatSidebar;
 window.handleJoinWithCode = window.handleJoinWithCode;
 
-console.log('🎥 Virtual Room loaded with Daily.co');
+console.log('🎥 Virtual Room loaded with Jitsi (100% Free)');
