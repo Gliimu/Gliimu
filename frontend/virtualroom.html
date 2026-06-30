@@ -19,21 +19,16 @@
             <div class="top-bar-left">
                 <button class="icon-btn" id="backBtn"><i class="fas fa-arrow-left"></i></button>
                 <div class="room-info">
-                    <div class="room-avatar">
-                        <i class="fas fa-video"></i>
-                        <span class="live-dot"></span>
-                    </div>
-                    <div>
-                        <div class="room-title" id="roomTitle">Loading...</div>
-                        <div class="room-meta">
-                            <span id="viewerCount">0</span> watching · <span id="classTimer">00:00</span>
-                        </div>
+                    <div class="room-title" id="roomTitle">Loading...</div>
+                    <div class="room-meta">
+                        <span id="viewerCount">0</span> watching · 
+                        <span class="live-dot"></span> LIVE · 
+                        <span id="classTimer">00:00</span>
                     </div>
                 </div>
             </div>
             <div class="top-bar-right">
                 <button class="icon-btn" id="shareBtn"><i class="fas fa-share-alt"></i></button>
-                <button class="icon-btn" id="participantsBtn"><i class="fas fa-users"></i><span class="badge" id="participantCount">0</span></button>
                 <button class="icon-btn danger" id="leaveBtn"><i class="fas fa-sign-out-alt"></i></button>
             </div>
         </div>
@@ -71,6 +66,7 @@
             <div class="controls-host" id="hostControls" style="display:none;">
                 <button class="control-btn" id="micBtn"><i class="fas fa-microphone"></i></button>
                 <button class="control-btn" id="camBtn"><i class="fas fa-video"></i></button>
+                <button class="control-btn" id="screenBtn"><i class="fas fa-desktop"></i></button>
                 <button class="control-btn danger" id="endSessionBtn"><i class="fas fa-stop-circle"></i></button>
             </div>
             <div class="controls-viewer" id="viewerControls" style="display:none;">
@@ -98,25 +94,46 @@
             <iframe id="chatIframe" src="/chat.html?embedded=1" class="chat-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
         </div>
 
-        <!-- Modals -->
+        <!-- Share Modal - Simplified -->
+        <div class="modal-overlay" id="shareModal">
+            <div class="modal-content">
+                <button class="modal-close" id="closeShareModal"><i class="fas fa-times"></i></button>
+                <h3>🔗 Share Session</h3>
+                <p>Copy the link or code below to invite others</p>
+                <div class="share-code">
+                    <span id="shareCodeDisplay">GLM-XXXXXX</span>
+                    <button id="copyCodeBtn" class="primary-btn small">Copy Code</button>
+                </div>
+                <div class="share-link">
+                    <input type="text" id="shareLinkInput" readonly value="">
+                    <button id="copyLinkBtn" class="primary-btn small">Copy Link</button>
+                </div>
+                <button class="primary-btn full" id="shareToChatBtn">
+                    <i class="fas fa-comment"></i> Send to Chat
+                </button>
+            </div>
+        </div>
+
+        <!-- Tip Modal -->
         <div class="modal-overlay" id="tipModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeTipModal"><i class="fas fa-times"></i></button>
-                <h3>Send a Tip</h3>
+                <h3>🎁 Send a Tip</h3>
                 <div class="tip-options">
                     <button class="tip-option" data-amount="50" data-currency="gp">50 GP</button>
                     <button class="tip-option" data-amount="100" data-currency="gp">100 GP</button>
                     <button class="tip-option wallet" data-amount="100" data-currency="wallet">₦100</button>
                     <button class="tip-option wallet" data-amount="500" data-currency="wallet">₦500</button>
                 </div>
-                <button id="sendCustomTip" class="primary-btn">Send</button>
+                <button id="sendCustomTip" class="primary-btn full">Custom Tip</button>
             </div>
         </div>
 
+        <!-- Star Modal -->
         <div class="modal-overlay" id="starModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeStarModal"><i class="fas fa-times"></i></button>
-                <h3>Rate This Session</h3>
+                <h3>⭐ Rate This Session</h3>
                 <div class="star-rating">
                     <button class="star" data-value="1">⭐</button>
                     <button class="star" data-value="2">⭐</button>
@@ -124,22 +141,11 @@
                     <button class="star" data-value="4">⭐</button>
                     <button class="star" data-value="5">⭐</button>
                 </div>
-                <button id="submitStars" class="primary-btn">Submit</button>
+                <button id="submitStars" class="primary-btn full">Submit Rating</button>
             </div>
         </div>
 
-        <div class="modal-overlay" id="shareModal">
-            <div class="modal-content">
-                <button class="modal-close" id="closeShareModal"><i class="fas fa-times"></i></button>
-                <h3>Share Session</h3>
-                <div class="share-code">
-                    <span id="shareCodeDisplay">GLM-XXXXXX</span>
-                    <button id="copyCodeBtn" class="primary-btn small">Copy</button>
-                </div>
-                <button class="primary-btn full" id="shareToChatBtn"><i class="fas fa-comment"></i> Send to Chat</button>
-            </div>
-        </div>
-
+        <!-- Session Ended -->
         <div class="session-ended-overlay" id="sessionEndedOverlay">
             <div class="session-ended-content">
                 <i class="fas fa-check-circle"></i>
