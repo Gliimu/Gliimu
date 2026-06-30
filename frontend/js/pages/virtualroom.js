@@ -1,6 +1,6 @@
 // ============================================
 // 🎥 VIRTUAL ROOM - JITSI (100% FREE)
-// Complete working version
+// Complete working version with DB fallback
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -34,6 +34,7 @@ const state = {
     jitsiRoom: null,
     scriptLoadAttempts: 0,
     maxScriptAttempts: 3,
+    dbSyncTimeout: null,
 };
 
 // ============================================
@@ -98,15 +99,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sessionCode = params.get('code');
         const mode = params.get('mode');
 
+        // Check saved session - with expiry check
         const savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
                 const sessionData = JSON.parse(savedSession);
-                if (sessionData.sessionId) {
-                    console.log('🔄 Found saved session, recovering...');
+                const age = Date.now() - (sessionData.timestamp || 0);
+                if (sessionData.sessionId && age < 60000) { // 1 minute max age
+                    console.log('🔄 Found recent saved session, recovering...');
                     await recoverSession(sessionData);
                     return;
                 }
+                sessionStorage.removeItem('glimu_session');
             } catch (e) {
                 sessionStorage.removeItem('glimu_session');
             }
@@ -139,78 +143,84 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
-// SESSION MANAGEMENT
+// SESSION MANAGEMENT - PRIORITIZE JITSI
 // ============================================
 
 async function createNewSession() {
     try {
         showLoading(true);
-        if (DOM.loadingText) DOM.loadingText.textContent = 'Creating session...';
+        if (DOM.loadingText) DOM.loadingText.textContent = 'Starting session...';
 
         sessionStorage.removeItem('glimu_session');
 
         const sessionCode = generateSessionCode();
-        
-        const { data: session, error } = await supabase
-            .from('virtual_sessions')
-            .insert({
-                host_id: state.currentUser.id,
-                title: `${state.userProfile.name || 'User'}'s Session`,
-                session_code: sessionCode,
-                status: 'live',
-                start_time: new Date().toISOString()
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        state.sessionId = session.id;
-        state.sessionCode = session.session_code;
+        state.sessionCode = sessionCode;
         state.isHost = true;
-        state.isLive = true;
 
-        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
-        if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+        // Update UI immediately
+        if (DOM.roomTitle) DOM.roomTitle.textContent = `${state.userProfile.name || 'User'}'s Session`;
         if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
         if (DOM.waitingText) DOM.waitingText.textContent = 'Starting your session...';
         if (DOM.waitingSubText) DOM.waitingSubText.textContent = 'Video will start shortly';
 
-        await supabase
-            .from('session_participants')
-            .insert({
-                session_id: state.sessionId,
-                user_id: state.currentUser.id,
-                role: 'host',
-                is_active: true,
-                last_seen: new Date().toISOString()
-            });
-
-        // Initialize Jitsi video
+        // 1. START JITSI FIRST (don't wait for DB)
         await initJitsiVideo(true);
 
-        saveSessionState();
-        showToast(`Session created! Code: ${state.sessionCode}`, 'success');
-        setTimeout(() => {
-            if (DOM.shareModal) DOM.shareModal.classList.add('active');
-        }, 1500);
+        // 2. THEN try to save to database (non-blocking)
+        try {
+            const { data: session, error } = await supabase
+                .from('virtual_sessions')
+                .insert({
+                    host_id: state.currentUser.id,
+                    title: `${state.userProfile.name || 'User'}'s Session`,
+                    session_code: sessionCode,
+                    status: 'live',
+                    start_time: new Date().toISOString()
+                })
+                .select()
+                .single();
 
+            if (!error && session) {
+                state.sessionId = session.id;
+                state.isLive = true;
+                if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
+                if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+                saveSessionState();
+                console.log('✅ Session saved to database:', session.id);
+            }
+        } catch (dbError) {
+            console.warn('⚠️ Database save failed, but Jitsi is running:', dbError);
+            showToast('Session started (chat features may be limited)', 'warning');
+        }
+
+        // Update share link with code
+        if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+
+        // Notify chat
         setTimeout(() => {
             sendToChatIframe({
                 type: 'session_info',
-                sessionId: state.sessionId,
+                sessionId: state.sessionId || 'pending',
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
                 roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
             });
         }, 2000);
 
-        console.log('📡 Session created:', state.sessionCode);
+        showToast(`Session started! Code: ${state.sessionCode}`, 'success');
+
+        setTimeout(() => {
+            if (DOM.shareModal) DOM.shareModal.classList.add('active');
+        }, 2000);
+
+        console.log('📡 Session started (Jitsi):', sessionCode);
 
     } catch (error) {
         console.error('❌ Create session error:', error);
-        showToast('Failed to create session: ' + error.message, 'error');
+        showToast('Failed to start session. Please try again.', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 
@@ -221,72 +231,76 @@ async function joinSession(sessionCode) {
 
         sessionStorage.removeItem('glimu_session');
 
-        const { data: session, error } = await supabase
-            .from('virtual_sessions')
-            .select('*')
-            .eq('session_code', sessionCode.toUpperCase())
-            .single();
-
-        if (error || !session) {
-            showToast('Session not found', 'error');
-            setTimeout(() => window.location.href = '/user', 2000);
-            return;
-        }
-
-        if (session.status === 'ended') {
-            showToast('Session has ended', 'error');
-            setTimeout(() => window.location.href = '/user', 2000);
-            return;
-        }
-
-        state.sessionId = session.id;
-        state.sessionCode = session.session_code;
+        state.sessionCode = sessionCode;
         state.isHost = false;
-        state.isLive = session.status === 'live';
 
-        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
-        if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+        // Update UI immediately
+        if (DOM.roomTitle) DOM.roomTitle.textContent = 'Loading Session...';
         if (DOM.hostControls) DOM.hostControls.style.display = 'none';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
         if (DOM.waitingText) DOM.waitingText.textContent = 'Waiting for host...';
         if (DOM.waitingSubText) DOM.waitingSubText.textContent = 'The session will begin shortly';
+        if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
 
-        await supabase
-            .from('session_participants')
-            .upsert({
-                session_id: state.sessionId,
-                user_id: state.currentUser.id,
-                role: 'viewer',
-                is_active: true,
-                last_seen: new Date().toISOString()
-            }, { onConflict: 'session_id,user_id' });
-
-        // Initialize Jitsi video
+        // 1. START JITSI FIRST
         await initJitsiVideo(false);
 
-        await loadParticipants();
-        saveSessionState();
+        // 2. Try to get session info from database (non-blocking)
+        try {
+            const { data: session, error } = await supabase
+                .from('virtual_sessions')
+                .select('*')
+                .eq('session_code', sessionCode.toUpperCase())
+                .single();
 
+            if (!error && session) {
+                state.sessionId = session.id;
+                state.isLive = session.status === 'live';
+                if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
+                
+                // Add viewer to participants
+                await supabase
+                    .from('session_participants')
+                    .upsert({
+                        session_id: state.sessionId,
+                        user_id: state.currentUser.id,
+                        role: 'viewer',
+                        is_active: true,
+                        last_seen: new Date().toISOString()
+                    }, { onConflict: 'session_id,user_id' });
+                
+                saveSessionState();
+                console.log('✅ Session joined from database:', session.id);
+            }
+        } catch (dbError) {
+            console.warn('⚠️ Database fetch failed, but Jitsi is running:', dbError);
+        }
+
+        // Notify chat
         setTimeout(() => {
             sendToChatIframe({
                 type: 'session_info',
-                sessionId: state.sessionId,
+                sessionId: state.sessionId || 'pending',
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
                 roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
             });
         }, 2000);
 
-        console.log('📡 Joined session:', sessionCode);
+        showToast('Connected to session!', 'success');
+
+        console.log('📡 Joined session (Jitsi):', sessionCode);
 
     } catch (error) {
         console.error('❌ Join session error:', error);
-        showToast('Failed to join session', 'error');
+        showToast('Failed to join session. Please try again.', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 
 // ============================================
-// JITSI VIDEO - FIXED
+// JITSI VIDEO
 // ============================================
 
 async function loadJitsiScript() {
@@ -369,7 +383,6 @@ async function initJitsiVideo(isHost) {
         state.jitsiRoom = roomName;
         console.log('📹 Creating Jitsi room:', roomName);
 
-        // Ensure container exists
         const container = DOM.jitsiContainer;
         if (!container) {
             console.error('❌ Jitsi container not found');
@@ -377,12 +390,17 @@ async function initJitsiVideo(isHost) {
             return;
         }
 
-        // Clear container
         container.innerHTML = '';
+
+        const displayName = state.userProfile.name || state.currentUser.email?.split('@')[0] || 'User';
 
         const options = {
             roomName: roomName,
             parentNode: container,
+            userInfo: {
+                displayName: displayName,
+                email: state.currentUser.email
+            },
             configOverwrite: {
                 startWithVideoMuted: false,
                 startWithAudioMuted: false,
@@ -413,6 +431,7 @@ async function initJitsiVideo(isHost) {
 
         state.jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', options);
 
+        // Hide overlay when Jitsi loads
         state.jitsiApi.addEventListeners({
             'videoConferenceJoined': () => {
                 console.log('📹 Joined Jitsi conference');
@@ -439,6 +458,12 @@ async function initJitsiVideo(isHost) {
             'videoConferenceLeft': () => {
                 console.log('📹 Left Jitsi conference');
                 state.jitsiInitialized = false;
+            },
+            'cameraError': (error) => {
+                console.warn('Camera error:', error);
+                if (!state.isHost) {
+                    showToast('Camera may be in use. Audio only.', 'warning');
+                }
             }
         });
 
@@ -448,6 +473,8 @@ async function initJitsiVideo(isHost) {
         console.error('❌ Jitsi error:', error);
         showToast('Video error: ' + error.message, 'error');
         state.isConnecting = false;
+        if (DOM.waitingText) DOM.waitingText.textContent = 'Video unavailable';
+        if (DOM.waitingSubText) DOM.waitingSubText.textContent = 'Using chat only mode';
     }
 }
 
@@ -492,10 +519,6 @@ async function recoverSession(savedData) {
         if (state.isHost) {
             if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
             if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
-            await supabase
-                .from('virtual_sessions')
-                .update({ status: 'live' })
-                .eq('id', state.sessionId);
         } else {
             if (DOM.hostControls) DOM.hostControls.style.display = 'none';
             if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
@@ -521,6 +544,8 @@ async function recoverSession(savedData) {
 
 async function loadParticipants() {
     try {
+        if (!state.sessionId) return;
+        
         const { data, error } = await supabase
             .from('session_participants')
             .select('*, users(name)')
@@ -542,7 +567,7 @@ async function loadParticipants() {
         if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
 
     } catch (error) {
-        console.error('❌ Load participants error:', error);
+        console.warn('⚠️ Load participants error:', error);
     }
 }
 
@@ -553,11 +578,13 @@ async function loadParticipants() {
 async function toggleRaiseHand() {
     state.handRaised = !state.handRaised;
 
-    await supabase
-        .from('session_participants')
-        .update({ hand_raised: state.handRaised })
-        .eq('session_id', state.sessionId)
-        .eq('user_id', state.currentUser.id);
+    if (state.sessionId) {
+        await supabase
+            .from('session_participants')
+            .update({ hand_raised: state.handRaised })
+            .eq('session_id', state.sessionId)
+            .eq('user_id', state.currentUser.id);
+    }
 
     const btn = document.getElementById('raiseHandBtn');
     if (btn) btn.classList.toggle('active', state.handRaised);
@@ -644,11 +671,13 @@ async function submitRating() {
     }
 
     try {
-        await supabase
-            .from('session_participants')
-            .update({ star_rating: state.starRating })
-            .eq('session_id', state.sessionId)
-            .eq('user_id', state.currentUser.id);
+        if (state.sessionId) {
+            await supabase
+                .from('session_participants')
+                .update({ star_rating: state.starRating })
+                .eq('session_id', state.sessionId)
+                .eq('user_id', state.currentUser.id);
+        }
 
         state.hasRated = true;
         if (DOM.starModal) DOM.starModal.classList.remove('active');
@@ -684,10 +713,12 @@ async function endSession() {
             } catch (e) {}
         }
 
-        await supabase
-            .from('virtual_sessions')
-            .update({ status: 'ended', end_time: new Date().toISOString() })
-            .eq('id', state.sessionId);
+        if (state.sessionId) {
+            await supabase
+                .from('virtual_sessions')
+                .update({ status: 'ended', end_time: new Date().toISOString() })
+                .eq('id', state.sessionId);
+        }
 
         state.sessionEnded = true;
         state.isLive = false;
@@ -757,7 +788,7 @@ function setupChatIframe() {
                 state.chatIframeReady = true;
                 sendToChatIframe({
                     type: 'session_info',
-                    sessionId: state.sessionId,
+                    sessionId: state.sessionId || 'pending',
                     sessionCode: state.sessionCode,
                     isHost: state.isHost,
                     roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
@@ -782,7 +813,7 @@ function setupChatIframe() {
         setTimeout(() => {
             sendToChatIframe({
                 type: 'session_info',
-                sessionId: state.sessionId,
+                sessionId: state.sessionId || 'pending',
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
                 roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
@@ -848,7 +879,7 @@ function generateSessionCode() {
 function saveSessionState() {
     try {
         sessionStorage.setItem('glimu_session', JSON.stringify({
-            sessionId: state.sessionId,
+            sessionId: state.sessionId || 'pending',
             sessionCode: state.sessionCode,
             isHost: state.isHost,
             timestamp: Date.now()
