@@ -8,6 +8,10 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
     <link rel="stylesheet" href="css/virtualroom.css">
 </head>
 <body>
@@ -22,7 +26,8 @@
                     <div class="room-title" id="roomTitle">Loading...</div>
                     <div class="room-meta">
                         <span id="viewerCount">0</span> watching · 
-                        <span class="live-dot"></span> LIVE · 
+                        <span class="live-dot" id="liveDot"></span> 
+                        <span id="liveStatus">LIVE</span> · 
                         <span id="classTimer">00:00</span>
                     </div>
                 </div>
@@ -35,13 +40,15 @@
 
         <!-- Main Content -->
         <div class="main-content">
+            
+            <!-- Video Grid -->
             <div class="video-grid" id="videoGrid">
                 <!-- Host Video -->
                 <div class="video-card host-card" id="hostVideoCard">
                     <video id="hostVideo" autoplay playsinline></video>
                     <div class="video-placeholder" id="hostPlaceholder">
                         <i class="fas fa-user-circle"></i>
-                        <span id="hostStatusText">Host is offline</span>
+                        <span id="hostStatusText">Waiting for host...</span>
                     </div>
                     <div class="video-overlay">
                         <div class="participant-name" id="hostName">Host</div>
@@ -49,6 +56,29 @@
                             <span><i class="fas fa-star"></i> <span id="hostStars">0</span></span>
                             <span><i class="fas fa-gift"></i> <span id="hostTips">₦0</span></span>
                         </div>
+                    </div>
+                    <div class="connection-status" id="connectionStatus">
+                        <i class="fas fa-wifi"></i> Connecting...
+                    </div>
+                </div>
+
+                <!-- Viewer Thumbnails -->
+                <div class="viewer-thumbnails" id="viewerThumbnails">
+                    <div class="empty-thumbnails">
+                        <i class="fas fa-users"></i>
+                        <span>No viewers yet</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily.co Fallback Container (hidden by default) -->
+            <div class="daily-container" id="dailyContainer" style="display:none;">
+                <div id="dailyFrameContainer" style="width:100%;height:100%;"></div>
+                <div class="daily-overlay" id="dailyOverlay">
+                    <div class="daily-loading">
+                        <i class="fas fa-video"></i>
+                        <h3>Connecting to video...</h3>
+                        <p>Using backup video service</p>
                     </div>
                 </div>
             </div>
@@ -58,11 +88,14 @@
                 <div class="loading-spinner"></div>
                 <h3 id="loadingText">Connecting...</h3>
                 <p id="loadingSubText">Please wait</p>
+                <div id="loadingProgress" style="margin-top:12px;width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;display:none;">
+                    <div id="loadingProgressBar" style="width:0%;height:100%;background:var(--accent);border-radius:4px;transition:width 0.3s;"></div>
+                </div>
             </div>
         </div>
 
         <!-- Controls -->
-        <div class="controls-bar">
+        <div class="controls-bar" id="controlsBar">
             <div class="controls-host" id="hostControls" style="display:none;">
                 <button class="control-btn" id="micBtn"><i class="fas fa-microphone"></i></button>
                 <button class="control-btn" id="camBtn"><i class="fas fa-video"></i></button>
@@ -71,8 +104,9 @@
             </div>
             <div class="controls-viewer" id="viewerControls" style="display:none;">
                 <button class="control-btn" id="raiseHandBtn"><i class="fas fa-hand-paper"></i></button>
-                <button class="control-btn" id="tipBtn"><i class="fas fa-gift"></i></button>
+                <button class="control-btn" id="tipBtn"><i class="fas fa-heart"></i></button>
                 <button class="control-btn" id="starBtn"><i class="fas fa-star"></i></button>
+                <button class="control-btn" id="hahaBtn"><i class="fas fa-laugh"></i></button>
             </div>
             <div class="controls-divider"></div>
             <button class="control-btn chat-toggle" id="chatToggleBtn"><i class="fas fa-comment-dots"></i></button>
@@ -82,10 +116,14 @@
         <div class="pip-video" id="pipVideo" style="display:none;">
             <video id="localVideo" autoplay muted playsinline></video>
             <div class="pip-placeholder" id="pipPlaceholder"><i class="fas fa-user-circle"></i></div>
+            <div class="pip-controls">
+                <button class="pip-control" id="pipMicControl"><i class="fas fa-microphone"></i></button>
+                <button class="pip-control" id="pipCamControl"><i class="fas fa-video"></i></button>
+            </div>
             <div class="pip-name">You</div>
         </div>
 
-        <!-- Chat Sidebar (IFrame) -->
+        <!-- Chat Sidebar -->
         <div class="chat-sidebar" id="chatSidebar">
             <div class="chat-sidebar-header">
                 <span>💬 Live Chat</span>
@@ -94,16 +132,12 @@
             <iframe id="chatIframe" src="/chat.html?embedded=1" class="chat-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
         </div>
 
-        <!-- Share Modal - Simplified -->
+        <!-- Share Modal -->
         <div class="modal-overlay" id="shareModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeShareModal"><i class="fas fa-times"></i></button>
                 <h3>🔗 Share Session</h3>
-                <p>Copy the link or code below to invite others</p>
-                <div class="share-code">
-                    <span id="shareCodeDisplay">GLM-XXXXXX</span>
-                    <button id="copyCodeBtn" class="primary-btn small">Copy Code</button>
-                </div>
+                <p>Copy the link below to invite others</p>
                 <div class="share-link">
                     <input type="text" id="shareLinkInput" readonly value="">
                     <button id="copyLinkBtn" class="primary-btn small">Copy Link</button>
@@ -118,14 +152,13 @@
         <div class="modal-overlay" id="tipModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeTipModal"><i class="fas fa-times"></i></button>
-                <h3>🎁 Send a Tip</h3>
+                <h3>💝 Send a Tip</h3>
                 <div class="tip-options">
-                    <button class="tip-option" data-amount="50" data-currency="gp">50 GP</button>
-                    <button class="tip-option" data-amount="100" data-currency="gp">100 GP</button>
-                    <button class="tip-option wallet" data-amount="100" data-currency="wallet">₦100</button>
-                    <button class="tip-option wallet" data-amount="500" data-currency="wallet">₦500</button>
+                    <button class="tip-option" data-amount="200" data-currency="wallet" data-emoji="❤️">❤️ ₦200</button>
+                    <button class="tip-option" data-amount="500" data-currency="wallet" data-emoji="⭐">⭐ ₦500</button>
+                    <button class="tip-option" data-amount="1250" data-currency="wallet" data-emoji="😂">😂 ₦1,250</button>
                 </div>
-                <button id="sendCustomTip" class="primary-btn full">Custom Tip</button>
+                <button id="sendCustomTip" class="primary-btn full">Custom Amount</button>
             </div>
         </div>
 
