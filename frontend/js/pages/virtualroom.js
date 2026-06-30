@@ -2,6 +2,89 @@ import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js
 import { showToast } from '../modules/toast.js';
 
 // ============================================
+// WEBRTC CONFIG WITH ALTERNATIVE TURN SERVERS
+// ============================================
+
+function getRTCConfig() {
+    return {
+        iceServers: [
+            // STUN servers (for NAT traversal)
+            { urls: 'stun:stun.cloudflare.com:3478' },
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun.nextcloud.com:3478' },
+            
+            // TURN servers (when STUN fails)
+            // 1. Jitsi TURN (often works)
+            {
+                urls: 'turn:turn.jitsi.net:3478',
+                username: 'jitsi',
+                credential: 'jitsi'
+            },
+            {
+                urls: 'turn:turn.jitsi.net:443?transport=tcp',
+                username: 'jitsi',
+                credential: 'jitsi'
+            },
+            
+            // 2. OpenRelay TURN (with multiple ports)
+            {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            
+            // 3. Numb TURN (community)
+            {
+                urls: 'turn:turn.numb.xyz:3478',
+                username: 'webrtc',
+                credential: 'webrtc'
+            },
+            {
+                urls: 'turn:turn.numb.xyz:443?transport=tcp',
+                username: 'webrtc',
+                credential: 'webrtc'
+            },
+            
+            // 4. AnyFirewall TURN
+            {
+                urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
+                username: 'webrtc',
+                credential: 'webrtc'
+            },
+            
+            // 5. Metered TURN (reliable)
+            {
+                urls: 'turn:global.turn.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:global.turn.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            }
+        ],
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
+    };
+}
+
+// ============================================
 // STATE
 // ============================================
 
@@ -35,47 +118,9 @@ const state = {
     hasReceivedOffer: false,
     isProcessing: false,
     pendingOffers: [],
+    connectionAttempts: 0,
+    maxConnectionAttempts: 3,
 };
-
-// ============================================
-// WEBRTC CONFIG WITH MORE TURN SERVERS
-// ============================================
-
-function getRTCConfig() {
-    return {
-        iceServers: [
-            // Google STUN
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            // OpenRelay TURN (free)
-            { 
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            // Additional TURN servers
-            {
-                urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
-                username: 'webrtc',
-                credential: 'webrtc'
-            }
-        ],
-        iceCandidatePoolSize: 10,
-        iceTransportPolicy: 'all'
-    };
-}
 
 // ============================================
 // DOM REFS
@@ -435,11 +480,14 @@ function requestOfferFromHost() {
 }
 
 // ============================================
-// WEBRTC SETUP
+// WEBRTC SETUP - WITH ALTERNATIVE TURN
 // ============================================
 
 async function setupWebRTC(isHost) {
     try {
+        state.connectionAttempts++;
+        console.log('🔗 Setting up WebRTC (attempt ' + state.connectionAttempts + ')...');
+        
         state.peerConnection = new RTCPeerConnection(getRTCConfig());
 
         // Add audio track
@@ -524,15 +572,29 @@ async function setupWebRTC(isHost) {
                 if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected!';
                 if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
             } else if (stateStr === 'failed') {
-                console.warn('Connection failed, retrying...');
-                // Try to reconnect
-                if (!state.isHost) {
-                    requestOfferFromHost();
+                console.warn('Connection failed');
+                if (state.connectionAttempts < state.maxConnectionAttempts) {
+                    showToast('Connection failed, retrying...', 'warning');
+                    setTimeout(function() {
+                        if (state.isHost) {
+                            state.offerSent = false;
+                            sendOffer();
+                        } else {
+                            requestOfferFromHost();
+                        }
+                    }, 3000);
+                } else {
+                    showToast('Could not establish connection', 'error');
                 }
             }
         };
 
-        console.log('WebRTC setup complete');
+        // ICE gathering state
+        state.peerConnection.onicegatheringstatechange = function() {
+            console.log('ICE gathering state:', state.peerConnection.iceGatheringState);
+        };
+
+        console.log('WebRTC setup complete with alternative TURN servers');
 
     } catch (error) {
         console.error('WebRTC setup error:', error);
@@ -566,7 +628,7 @@ async function sendOffer() {
 }
 
 // ============================================
-// SIGNALING HANDLER - FIXED
+// SIGNALING HANDLER
 // ============================================
 
 function handleSignalingMessage(message) {
@@ -580,7 +642,6 @@ function handleSignalingMessage(message) {
             case 'request_offer':
                 if (state.isHost) {
                     console.log('📤 Viewer requested offer, sending...');
-                    // Reset offer sent flag to allow re-sending
                     state.offerSent = false;
                     setTimeout(function() {
                         sendOffer();
@@ -614,7 +675,6 @@ function handleSignalingMessage(message) {
 
             case 'answer':
                 console.log('📨 Received answer');
-                // Only process if we're in the right state
                 if (state.peerConnection.signalingState === 'have-local-offer' || 
                     state.peerConnection.signalingState === 'stable') {
                     state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
@@ -627,7 +687,6 @@ function handleSignalingMessage(message) {
                         });
                 } else {
                     console.log('Skipping answer - wrong state:', state.peerConnection.signalingState);
-                    // Queue it for later
                     state.pendingOffers.push(message);
                 }
                 break;
@@ -1338,4 +1397,4 @@ window.leaveRoom = leaveRoom;
 window.toggleChatSidebar = toggleChatSidebar;
 window.handleJoinWithCode = window.handleJoinWithCode;
 
-console.log('Virtual Room loaded - WebRTC with Supabase Signaling');
+console.log('Virtual Room loaded - WebRTC with Alternative TURN Servers');
