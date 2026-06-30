@@ -22,16 +22,15 @@ const state = {
     classStartTime: Date.now(),
     screenStream: null,
     isSharing: false,
-    localStream: null,
-    peer: null,
-    peerId: null,
-    hostPeerId: null,
+    audioStream: null,
     isMuted: false,
     participantsSubscription: null,
     sessionSubscription: null,
-    peerConnected: false,
-    hostFound: false,
-    combinedStream: null,
+    signalingSubscription: null,
+    peerConnection: null,
+    dataChannel: null,
+    hostPeerId: null,
+    viewerConnections: new Map(),
 };
 
 // ============================================
@@ -187,8 +186,11 @@ async function createNewSession() {
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'Click "Share Screen" to start';
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
+        // Get audio stream for microphone
         await getAudioStream();
-        await initPeerJS(true);
+
+        // Setup WebRTC as host
+        await setupWebRTC(true);
 
         saveSessionState();
 
@@ -268,8 +270,11 @@ async function joinSession(sessionCode) {
         if (DOM.placeholderText) DOM.placeholderText.textContent = 'The host will start sharing their screen shortly';
         if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
 
+        // Get audio stream for listening
         await getAudioStream();
-        await initPeerJS(false);
+
+        // Setup WebRTC as viewer
+        await setupWebRTC(false);
 
         saveSessionState();
 
@@ -296,14 +301,12 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// AUDIO STREAM (Viewer only needs audio to hear host)
+// GET AUDIO STREAM
 // ============================================
 
 async function getAudioStream() {
     try {
-        // Viewer: audio only (to hear host, not speak)
-        // Host: audio + screen share
-        state.localStream = await navigator.mediaDevices.getUserMedia({
+        state.audioStream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             video: false
         });
@@ -314,340 +317,223 @@ async function getAudioStream() {
 }
 
 // ============================================
-// PEERJS
+// WEBRTC WITH SUPABASE REALTIME
 // ============================================
 
-function initPeerJS(isHost) {
-    return new Promise(function(resolve) {
-        try {
-            if (!state.sessionId) {
-                console.error('Cannot initialize PeerJS: sessionId is null');
-                resolve(false);
-                return;
-            }
-
-            var peerId = 'glimu_' + state.currentUser.id + '_' + Date.now();
-
-            console.log('Connecting to PeerJS... sessionId:', state.sessionId);
-
-            state.peer = new Peer(peerId, {
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' },
-                        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-                    ]
-                }
-            });
-
-            var timeout = setTimeout(function() {
-                if (state.peer && !state.peer.open) {
-                    console.warn('PeerJS connection timeout');
-                    state.peer.destroy();
-                    resolve(false);
-                }
-            }, 20000);
-
-            state.peer.on('open', async function(id) {
-                clearTimeout(timeout);
-                state.peerId = id;
-                state.peerConnected = true;
-                console.log('PeerJS connected:', id);
-
-                try {
-                    var { error } = await supabase
-                        .from('session_participants')
-                        .update({ peer_id: id })
-                        .eq('session_id', state.sessionId)
-                        .eq('user_id', state.currentUser.id);
-
-                    if (error) {
-                        console.warn('Could not update peer_id:', error);
-                    } else {
-                        console.log('Peer ID saved to database');
-                    }
-                } catch (e) {
-                    console.warn('Error saving peer_id:', e);
-                }
-
-                if (isHost) {
-                    state.peer.on('call', handleIncomingCall);
-                    state.peer.on('connection', function(conn) {
-                        conn.on('data', function(data) {
-                            try { handleDataMessage(JSON.parse(data)); } catch(e) {}
-                        });
-                    });
-                    console.log('Host waiting for connections...');
-                } else {
-                    setTimeout(function() {
-                        connectToHost();
-                    }, 3000);
-                }
-
-                resolve(true);
-            });
-
-            state.peer.on('error', function(err) {
-                clearTimeout(timeout);
-                console.error('PeerJS error:', err.message);
-                if (err.message.includes('Lost connection') || err.message.includes('disconnected')) {
-                    console.log('Attempting to reconnect...');
-                    setTimeout(function() {
-                        if (state.peer) {
-                            state.peer.reconnect();
-                        }
-                    }, 3000);
-                }
-                resolve(false);
-            });
-
-            state.peer.on('disconnected', function() {
-                console.warn('PeerJS disconnected, attempting to reconnect...');
-                state.peer.reconnect();
-            });
-
-        } catch (err) {
-            console.error('PeerJS init error:', err);
-            resolve(false);
-        }
-    });
-}
-
-// ============================================
-// CONNECT TO HOST (Viewer)
-// ============================================
-
-async function connectToHost() {
-    if (!state.sessionId) {
-        console.warn('Cannot connect: sessionId is null');
-        setTimeout(connectToHost, 3000);
-        return;
-    }
-
+async function setupWebRTC(isHost) {
     try {
-        var { data: host, error } = await supabase
-            .from('session_participants')
-            .select('peer_id, user_id')
-            .eq('session_id', state.sessionId)
-            .eq('role', 'host')
-            .maybeSingle();
+        var config = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+            ]
+        };
 
-        if (error) {
-            console.warn('Error getting host:', error);
-            setTimeout(connectToHost, 3000);
-            return;
+        state.peerConnection = new RTCPeerConnection(config);
+
+        // Add audio track
+        if (state.audioStream) {
+            state.audioStream.getTracks().forEach(function(track) {
+                state.peerConnection.addTrack(track, state.audioStream);
+            });
         }
 
-        if (!host || !host.peer_id) {
-            console.warn('Host not found or no peer ID. Retrying...');
-            setTimeout(connectToHost, 3000);
-            return;
-        }
-
-        state.hostPeerId = host.peer_id;
-        state.hostFound = true;
-        console.log('Found host peer_id:', state.hostPeerId);
-
-        // Call host with audio stream
-        var call = state.peer.call(state.hostPeerId, state.localStream);
-        
-        call.on('stream', function(remoteStream) {
-            console.log('Stream received from host!');
-            
-            // CHECK FOR VIDEO TRACK - FIX: Detect video properly
-            var hasVideo = false;
-            var videoTracks = remoteStream.getVideoTracks();
-            if (videoTracks && videoTracks.length > 0) {
-                hasVideo = true;
-                console.log('Video track detected!', videoTracks.length, 'tracks');
-            }
-            
-            // Also check if any track has video content
-            if (!hasVideo) {
-                // Sometimes tracks are added but not enabled
-                remoteStream.getTracks().forEach(function(track) {
-                    if (track.kind === 'video') {
-                        hasVideo = true;
-                        console.log('Video track found in getTracks():', track);
-                    }
-                });
-            }
-            
-            if (hasVideo) {
-                console.log('Screen stream received with audio!');
-                DOM.screenVideo.srcObject = remoteStream;
-                DOM.screenVideo.style.display = 'block';
-                DOM.screenVideo.classList.add('active');
-                DOM.screenPlaceholder.style.display = 'none';
-                DOM.hostIndicator.classList.add('active');
-                DOM.screenVideo.play().then(function() {
-                    console.log('Video playing successfully');
-                }).catch(function(e) { 
-                    console.warn('Video play error:', e);
-                });
-                if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
-                if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
-            } else {
-                console.log('Audio only stream received - waiting for screen share');
-                // Still show connected but no screen
-                DOM.screenPlaceholder.style.display = 'flex';
-                if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected to host';
-                if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
-                // Keep listening for video track to be added
-                remoteStream.onaddtrack = function(event) {
-                    if (event.track.kind === 'video') {
-                        console.log('Video track added later!');
-                        DOM.screenVideo.srcObject = remoteStream;
-                        DOM.screenVideo.style.display = 'block';
-                        DOM.screenVideo.classList.add('active');
-                        DOM.screenPlaceholder.style.display = 'none';
-                        DOM.hostIndicator.classList.add('active');
-                        DOM.screenVideo.play().catch(function(e) {});
-                        if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
-                        if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
-                    }
+        if (isHost) {
+            // Host: Create data channel
+            state.dataChannel = state.peerConnection.createDataChannel('signaling');
+            state.dataChannel.onopen = function() {
+                console.log('Data channel open');
+            };
+            state.dataChannel.onmessage = function(event) {
+                try {
+                    var data = JSON.parse(event.data);
+                    handleDataChannelMessage(data);
+                } catch (e) {}
+            };
+        } else {
+            // Viewer: Listen for data channel
+            state.peerConnection.ondatachannel = function(event) {
+                state.dataChannel = event.channel;
+                state.dataChannel.onmessage = function(event) {
+                    try {
+                        var data = JSON.parse(event.data);
+                        handleDataChannelMessage(data);
+                    } catch (e) {}
                 };
-            }
-        });
-
-        call.on('close', function() {
-            console.log('Host disconnected');
-            state.hostFound = false;
-            showToast('Host disconnected', 'warning');
-            DOM.screenVideo.classList.remove('active');
-            DOM.screenVideo.style.display = 'none';
-            DOM.screenPlaceholder.style.display = 'flex';
-            if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host disconnected';
-            if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to reconnect...';
-            setTimeout(connectToHost, 5000);
-        });
-
-        try {
-            var conn = state.peer.connect(state.hostPeerId);
-            conn.on('open', function() {
-                console.log('Data channel established');
-                conn.send(JSON.stringify({
-                    type: 'viewer_ready',
-                    peerId: state.peerId
-                }));
-            });
-            conn.on('data', function(data) {
-                try { handleDataMessage(JSON.parse(data)); } catch(e) {}
-            });
-        } catch (e) {
-            console.warn('Data connection failed:', e);
+                state.dataChannel.onopen = function() {
+                    console.log('Data channel open');
+                    state.dataChannel.send(JSON.stringify({
+                        type: 'viewer_ready',
+                        userId: state.currentUser.id
+                    }));
+                };
+            };
         }
+
+        // Handle ICE candidates
+        state.peerConnection.onicecandidate = function(event) {
+            if (event.candidate) {
+                sendSignalingMessage({
+                    type: 'ice_candidate',
+                    candidate: event.candidate,
+                    userId: state.currentUser.id
+                });
+            }
+        };
+
+        // Handle remote stream
+        state.peerConnection.ontrack = function(event) {
+            console.log('Remote stream received');
+            var stream = event.streams[0];
+            
+            if (stream) {
+                var hasVideo = stream.getVideoTracks().length > 0;
+                if (hasVideo) {
+                    console.log('Video track detected!');
+                    DOM.screenVideo.srcObject = stream;
+                    DOM.screenVideo.style.display = 'block';
+                    DOM.screenVideo.classList.add('active');
+                    DOM.screenPlaceholder.style.display = 'none';
+                    DOM.hostIndicator.classList.add('active');
+                    DOM.screenVideo.play().catch(function(e) {});
+                    if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
+                    if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
+                } else {
+                    console.log('Audio only stream');
+                    DOM.screenPlaceholder.style.display = 'flex';
+                    if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected to host';
+                    if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
+                }
+            }
+        };
+
+        // Setup signaling via Supabase
+        setupSignalingSubscription();
+
+        // If host, create offer
+        if (isHost) {
+            setTimeout(async function() {
+                try {
+                    var offer = await state.peerConnection.createOffer();
+                    await state.peerConnection.setLocalDescription(offer);
+                    
+                    sendSignalingMessage({
+                        type: 'offer',
+                        sdp: offer,
+                        userId: state.currentUser.id,
+                        sessionId: state.sessionId
+                    });
+                    console.log('Offer sent');
+                } catch (err) {
+                    console.error('Error creating offer:', err);
+                }
+            }, 2000);
+        }
+
+        console.log('WebRTC setup complete');
 
     } catch (error) {
-        console.error('Connect to host error:', error);
-        setTimeout(connectToHost, 3000);
+        console.error('WebRTC setup error:', error);
+        showToast('Could not establish video connection', 'warning');
     }
 }
 
 // ============================================
-// HANDLE INCOMING CALL (Host)
+// SIGNALING VIA SUPABASE REALTIME
 // ============================================
 
-function handleIncomingCall(call) {
-    console.log('Incoming call from:', call.peer);
-    
-    var streamToSend = null;
-    
-    if (state.isSharing && state.screenStream) {
-        streamToSend = getCombinedStream();
-        console.log('Sending screen + audio to viewer');
-    } else if (state.localStream) {
-        streamToSend = state.localStream;
-        console.log('Sending audio only to viewer');
-    } else {
-        console.warn('No stream available to send');
-        return;
+function setupSignalingSubscription() {
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
     }
-    
-    call.answer(streamToSend);
-    
-    call.on('stream', function(remoteStream) {
-        console.log('Viewer stream received');
-    });
 
-    call.on('close', function() {
-        console.log('Viewer disconnected');
+    var channelName = 'signaling_' + state.sessionId;
+    state.signalingSubscription = supabase
+        .channel(channelName)
+        .on('broadcast', { event: 'signal' }, function(payload) {
+            handleSignalingMessage(payload.payload);
+        })
+        .subscribe();
+}
+
+function sendSignalingMessage(message) {
+    if (!state.sessionId) return;
+    var channelName = 'signaling_' + state.sessionId;
+    supabase.channel(channelName).send({
+        type: 'broadcast',
+        event: 'signal',
+        payload: message
+    }).catch(function(err) {
+        console.warn('Could not send signal:', err);
     });
 }
 
-// ============================================
-// COMBINE SCREEN + AUDIO INTO ONE STREAM
-// ============================================
+function handleSignalingMessage(message) {
+    if (message.userId === state.currentUser.id) return;
+    if (!state.peerConnection) return;
 
-function getCombinedStream() {
-    // Check if we already have a valid combined stream
-    if (state.combinedStream) {
-        // Check if it still has video track
-        var hasVideo = false;
-        state.combinedStream.getTracks().forEach(function(t) {
-            if (t.kind === 'video') hasVideo = true;
-        });
-        if (hasVideo) {
-            return state.combinedStream;
-        }
-    }
-    
-    if (!state.screenStream || !state.localStream) {
-        return state.screenStream || state.localStream;
-    }
-    
     try {
-        var videoTrack = state.screenStream.getVideoTracks()[0];
-        var audioTrack = state.localStream.getAudioTracks()[0];
-        
-        if (!videoTrack) {
-            console.warn('No video track available');
-            return state.screenStream || state.localStream;
+        switch (message.type) {
+            case 'offer':
+                state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                    .then(function() {
+                        return state.peerConnection.createAnswer();
+                    })
+                    .then(function(answer) {
+                        return state.peerConnection.setLocalDescription(answer);
+                    })
+                    .then(function() {
+                        sendSignalingMessage({
+                            type: 'answer',
+                            sdp: state.peerConnection.localDescription,
+                            userId: state.currentUser.id,
+                            sessionId: state.sessionId
+                        });
+                        console.log('Answer sent');
+                    })
+                    .catch(function(err) {
+                        console.error('Answer error:', err);
+                    });
+                break;
+
+            case 'answer':
+                state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                    .catch(function(err) {
+                        console.error('Set remote description error:', err);
+                    });
+                break;
+
+            case 'ice_candidate':
+                if (message.candidate) {
+                    state.peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate))
+                        .catch(function(err) {
+                            console.warn('ICE candidate error:', err);
+                        });
+                }
+                break;
         }
-        
-        // Create new combined stream
-        state.combinedStream = new MediaStream();
-        state.combinedStream.addTrack(videoTrack);
-        if (audioTrack) {
-            state.combinedStream.addTrack(audioTrack);
-        }
-        
-        console.log('Combined stream created (video + audio)');
-        console.log('Tracks:', state.combinedStream.getTracks().length);
-        return state.combinedStream;
-    } catch (e) {
-        console.warn('Could not combine streams:', e);
-        return state.screenStream || state.localStream;
+    } catch (error) {
+        console.error('Signaling error:', error);
     }
 }
 
 // ============================================
-// DATA MESSAGES
+// DATA CHANNEL MESSAGES
 // ============================================
 
-function handleDataMessage(data) {
+function handleDataChannelMessage(data) {
     console.log('Data message:', data.type);
     
     switch (data.type) {
         case 'viewer_ready':
             if (state.isHost) {
-                console.log('Viewer ready, peerId:', data.peerId);
+                console.log('Viewer ready:', data.userId);
+                // If host is sharing, send screen to viewer
                 if (state.isSharing && state.screenStream) {
-                    var stream = getCombinedStream();
-                    if (stream) {
-                        try {
-                            var call = state.peer.call(data.peerId, stream);
-                            console.log('Screen + audio sent to viewer:', data.peerId);
-                        } catch (e) {
-                            console.warn('Could not send stream:', e);
-                        }
-                    }
+                    sendScreenToViewer();
                 }
             }
             break;
@@ -679,7 +565,6 @@ async function toggleScreenShare() {
             state.screenStream.getTracks().forEach(function(t) { t.stop(); });
             state.screenStream = null;
         }
-        state.combinedStream = null;
         state.isSharing = false;
         if (DOM.screenBtn) DOM.screenBtn.classList.remove('active');
         DOM.screenVideo.classList.remove('active');
@@ -709,21 +594,19 @@ async function toggleScreenShare() {
         DOM.hostIndicator.classList.add('active');
         await DOM.screenVideo.play();
 
-        // Create combined stream
-        var combinedStream = getCombinedStream();
-        console.log('Combined stream ready, tracks:', combinedStream ? combinedStream.getTracks().length : 0);
-
-        // Send combined stream to all viewers
-        state.participants.forEach(function(participant, userId) {
-            if (userId !== state.currentUser.id && participant.peer_id) {
-                try {
-                    var call = state.peer.call(participant.peer_id, combinedStream || state.screenStream);
-                    console.log('Screen + audio sent to viewer:', participant.peer_id);
-                } catch (e) {
-                    console.warn('Could not send screen:', e);
-                }
-            }
+        // Add screen track to peer connection
+        var screenTrack = state.screenStream.getVideoTracks()[0];
+        var sender = state.peerConnection.getSenders().find(function(s) {
+            return s.track && s.track.kind === 'video';
         });
+        
+        if (sender) {
+            sender.replaceTrack(screenTrack);
+            console.log('Screen track added to existing connection');
+        } else {
+            state.peerConnection.addTrack(screenTrack, state.screenStream);
+            console.log('Screen track added to new connection');
+        }
 
         showToast('Screen sharing started!', 'success');
 
@@ -740,6 +623,31 @@ async function toggleScreenShare() {
         }
         state.isSharing = false;
         if (DOM.screenBtn) DOM.screenBtn.classList.remove('active');
+    }
+}
+
+// ============================================
+// SEND SCREEN TO VIEWER
+// ============================================
+
+function sendScreenToViewer() {
+    if (!state.isSharing || !state.screenStream || !state.peerConnection) return;
+    
+    try {
+        var screenTrack = state.screenStream.getVideoTracks()[0];
+        var sender = state.peerConnection.getSenders().find(function(s) {
+            return s.track && s.track.kind === 'video';
+        });
+        
+        if (sender) {
+            sender.replaceTrack(screenTrack);
+            console.log('Screen sent to viewer');
+        } else {
+            state.peerConnection.addTrack(screenTrack, state.screenStream);
+            console.log('Screen added to connection');
+        }
+    } catch (e) {
+        console.warn('Could not send screen:', e);
     }
 }
 
@@ -765,19 +673,13 @@ async function toggleRaiseHand() {
     if (btn) btn.classList.toggle('active', state.handRaised);
     showToast(state.handRaised ? 'Hand raised! 🙋' : 'Hand lowered', 'info');
 
-    if (state.handRaised && state.hostPeerId) {
-        try {
-            var conn = state.peer.connect(state.hostPeerId);
-            conn.on('open', function() {
-                conn.send(JSON.stringify({
-                    type: 'hand_raised',
-                    name: state.userProfile.name || 'A viewer'
-                }));
-            });
-        } catch (e) {
-            console.warn('Could not send hand raise:', e);
-        }
-        
+    if (state.handRaised && state.dataChannel && state.dataChannel.readyState === 'open') {
+        state.dataChannel.send(JSON.stringify({
+            type: 'hand_raised'
+        }));
+    }
+    
+    if (state.handRaised) {
         sendToChatIframe({
             type: 'system_message',
             message: '🙋 ' + (state.userProfile.name || 'A viewer') + ' raised their hand'
@@ -863,7 +765,11 @@ async function endSession() {
             state.screenStream.getTracks().forEach(function(t) { t.stop(); });
             state.screenStream = null;
         }
-        state.combinedStream = null;
+
+        if (state.peerConnection) {
+            state.peerConnection.close();
+            state.peerConnection = null;
+        }
 
         if (state.sessionId) {
             await supabase
@@ -932,7 +838,7 @@ async function recoverSession(savedData) {
         }
 
         await getAudioStream();
-        await initPeerJS(state.isHost);
+        await setupWebRTC(state.isHost);
         await loadParticipants();
         showToast('Session recovered!', 'success');
         saveSessionState();
@@ -973,20 +879,6 @@ async function loadParticipants() {
         var viewers = data.filter(function(p) { return p.role !== 'host'; });
         state.viewerCount = viewers.length;
         if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
-
-        if (state.isHost && state.isSharing && state.screenStream) {
-            var combinedStream = getCombinedStream();
-            viewers.forEach(function(viewer) {
-                if (viewer.peer_id) {
-                    try {
-                        var call = state.peer.call(viewer.peer_id, combinedStream || state.screenStream);
-                        console.log('Screen + audio sent to new viewer:', viewer.peer_id);
-                    } catch (e) {
-                        console.warn('Could not send screen to new viewer:', e);
-                    }
-                }
-            });
-        }
 
     } catch (error) {
         console.warn('Load participants error:', error);
@@ -1184,8 +1076,8 @@ function setupEventListeners() {
 }
 
 function toggleMicrophone() {
-    if (!state.localStream) return;
-    var track = state.localStream.getAudioTracks()[0];
+    if (!state.audioStream) return;
+    var track = state.audioStream.getAudioTracks()[0];
     if (!track) return;
     state.isMuted = !track.enabled;
     track.enabled = !track.enabled;
@@ -1270,14 +1162,13 @@ function cleanup() {
         state.screenStream.getTracks().forEach(function(t) { t.stop(); });
         state.screenStream = null;
     }
-    if (state.localStream) {
-        state.localStream.getTracks().forEach(function(t) { t.stop(); });
-        state.localStream = null;
+    if (state.audioStream) {
+        state.audioStream.getTracks().forEach(function(t) { t.stop(); });
+        state.audioStream = null;
     }
-    state.combinedStream = null;
-    if (state.peer) {
-        state.peer.destroy();
-        state.peer = null;
+    if (state.peerConnection) {
+        state.peerConnection.close();
+        state.peerConnection = null;
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
@@ -1287,6 +1178,9 @@ function cleanup() {
     }
     if (state.sessionSubscription) {
         state.sessionSubscription.unsubscribe();
+    }
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
     }
 }
 
@@ -1311,4 +1205,4 @@ window.leaveRoom = leaveRoom;
 window.toggleChatSidebar = toggleChatSidebar;
 window.handleJoinWithCode = window.handleJoinWithCode;
 
-console.log('Virtual Room loaded - Screen Share Only');
+console.log('Virtual Room loaded - WebRTC with Supabase Signaling');
