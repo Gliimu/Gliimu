@@ -37,14 +37,14 @@
         <!-- Main Content -->
         <div class="main-content">
             
-            <!-- Daily.co Video Container -->
+            <!-- Video Container -->
             <div class="video-container" id="videoContainer">
-                <div id="dailyFrameContainer" style="width:100%;height:100%;"></div>
+                <div id="jitsiFrameContainer" style="width:100%;height:100%;"></div>
                 <div class="video-overlay-brand" id="videoOverlay">
                     <div class="brand-overlay-content">
-                        <img src="icons/logo.png" alt="Gliimu" class="brand-logo">
-                        <h3 id="waitingText">Waiting for host to start...</h3>
-                        <p id="waitingSubText">The session will begin shortly</p>
+                        <img src="icons/logo.png" alt="Gliimu" class="brand-logo" onerror="this.style.display='none'">
+                        <h3 id="waitingText">Connecting to video...</h3>
+                        <p id="waitingSubText">Please wait</p>
                         <div class="loading-spinner-small"></div>
                     </div>
                 </div>
@@ -61,10 +61,7 @@
         <!-- Controls -->
         <div class="controls-bar" id="controlsBar">
             <div class="controls-host" id="hostControls" style="display:none;">
-                <button class="control-btn" id="micBtn"><i class="fas fa-microphone"></i></button>
-                <button class="control-btn" id="camBtn"><i class="fas fa-video"></i></button>
-                <button class="control-btn" id="screenBtn"><i class="fas fa-desktop"></i></button>
-                <button class="control-btn danger" id="endSessionBtn"><i class="fas fa-stop-circle"></i></button>
+                <button class="control-btn" id="endSessionBtn"><i class="fas fa-stop-circle"></i></button>
             </div>
             <div class="controls-viewer" id="viewerControls" style="display:none;">
                 <button class="control-btn" id="raiseHandBtn"><i class="fas fa-hand-paper"></i></button>
