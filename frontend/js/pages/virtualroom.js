@@ -1,6 +1,6 @@
 // ============================================
-// 🎥 VIRTUAL ROOM - SIMPLIFIED NETWORK RESILIENT
-// No WebRTC - Just Chat + Basic Controls
+// 🎥 VIRTUAL ROOM - SIMPLIFIED + SCREEN SHARE
+// Network Resilient with Screen Sharing
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -19,6 +19,8 @@ const state = {
     isLive: false,
     sessionEnded: false,
     localStream: null,
+    screenStream: null,
+    isScreenSharing: false,
     participants: [],
     viewerCount: 0,
     handRaised: false,
@@ -55,7 +57,6 @@ function cacheDOM() {
     DOM.roomTitle = document.getElementById('roomTitle');
     DOM.classTimer = document.getElementById('classTimer');
     DOM.viewerCount = document.getElementById('viewerCount');
-    DOM.participantCount = document.getElementById('participantCount');
     DOM.chatSidebar = document.getElementById('chatSidebar');
     DOM.chatIframe = document.getElementById('chatIframe');
     DOM.tipModal = document.getElementById('tipModal');
@@ -63,6 +64,7 @@ function cacheDOM() {
     DOM.shareModal = document.getElementById('shareModal');
     DOM.sessionEndedOverlay = document.getElementById('sessionEndedOverlay');
     DOM.shareCodeDisplay = document.getElementById('shareCodeDisplay');
+    DOM.shareLinkInput = document.getElementById('shareLinkInput');
     DOM.viewerControls = document.getElementById('viewerControls');
     DOM.hostControls = document.getElementById('hostControls');
 }
@@ -150,6 +152,7 @@ async function createNewSession() {
 
         DOM.roomTitle.textContent = session.title;
         DOM.shareCodeDisplay.textContent = state.sessionCode;
+        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
         DOM.hostControls.style.display = 'flex';
         DOM.viewerControls.style.display = 'none';
 
@@ -218,6 +221,7 @@ async function joinSession(sessionCode) {
         state.isLive = session.status === 'live';
         DOM.roomTitle.textContent = session.title || 'Live Session';
         DOM.shareCodeDisplay.textContent = state.sessionCode;
+        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
 
         // Add viewer
         await supabase
@@ -289,7 +293,10 @@ async function startLocalStream() {
 
     } catch (err) {
         console.error('❌ Camera error:', err);
-        showToast('Could not access camera', 'warning');
+        // Don't show error if it's just "Device in use" - user might be using camera elsewhere
+        if (err.name !== 'NotReadableError') {
+            showToast('Could not access camera', 'warning');
+        }
         DOM.pipVideo.style.display = 'block';
         DOM.pipPlaceholder.style.display = 'flex';
     }
@@ -316,6 +323,64 @@ function toggleCamera() {
 }
 
 // ============================================
+// SCREEN SHARE
+// ============================================
+
+async function toggleScreenShare() {
+    if (!state.isHost) {
+        showToast('Only hosts can share screens', 'warning');
+        return;
+    }
+
+    if (state.isScreenSharing) {
+        // Stop screen share
+        if (state.screenStream) {
+            state.screenStream.getTracks().forEach(t => t.stop());
+            state.screenStream = null;
+        }
+        state.isScreenSharing = false;
+        document.getElementById('screenBtn').classList.remove('active');
+        showToast('Screen share stopped', 'info');
+        
+        // Switch back to camera
+        if (state.localStream) {
+            DOM.hostVideo.srcObject = state.localStream;
+        }
+        return;
+    }
+
+    try {
+        state.screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'always' },
+            audio: false
+        });
+
+        state.isScreenSharing = true;
+        document.getElementById('screenBtn').classList.add('active');
+        showToast('Screen sharing started!', 'success');
+
+        // Show screen on host video
+        DOM.hostVideo.srcObject = state.screenStream;
+        DOM.hostStatusText.textContent = 'Screen sharing';
+
+        // When user stops sharing via browser UI
+        state.screenStream.getVideoTracks()[0].onended = () => {
+            if (state.isScreenSharing) {
+                toggleScreenShare();
+            }
+        };
+
+    } catch (err) {
+        console.error('Screen share error:', err);
+        if (err.name !== 'AbortError') {
+            showToast('Screen share cancelled or failed', 'warning');
+        }
+        state.isScreenSharing = false;
+        document.getElementById('screenBtn').classList.remove('active');
+    }
+}
+
+// ============================================
 // PARTICIPANTS
 // ============================================
 
@@ -333,7 +398,6 @@ async function loadParticipants() {
         const viewers = data.filter(p => p.role !== 'host');
         state.viewerCount = viewers.length;
         DOM.viewerCount.textContent = viewers.length;
-        DOM.participantCount.textContent = data.length;
 
         // Update host name
         const host = data.find(p => p.role === 'host');
@@ -505,7 +569,6 @@ async function endSession() {
 function setupRealtimeSubscriptions() {
     if (!state.sessionId) return;
 
-    // Listen for participant changes
     state.sessionSubscription = supabase
         .channel(`session_${state.sessionId}`)
         .on('postgres_changes', {
@@ -595,6 +658,50 @@ function sendToChatIframe(data) {
 }
 
 // ============================================
+// SHARE FUNCTIONS
+// ============================================
+
+async function shareToChat() {
+    if (!state.sessionCode) {
+        showToast('No session code', 'warning');
+        return;
+    }
+    const message = `🎥 Join my live session! Code: **${state.sessionCode}**\n${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+    sendToChatIframe({ type: 'send_message', message });
+    showToast('📤 Session code sent to chat!', 'success');
+    DOM.shareModal.classList.remove('active');
+}
+
+async function copySessionCode() {
+    if (!state.sessionCode) return;
+    try {
+        await navigator.clipboard.writeText(state.sessionCode);
+        showToast('📋 Code copied!', 'success');
+    } catch {
+        const textarea = document.createElement('textarea');
+        textarea.value = state.sessionCode;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('📋 Code copied!', 'success');
+    }
+}
+
+async function copyShareLink() {
+    const link = DOM.shareLinkInput.value;
+    if (!link) return;
+    try {
+        await navigator.clipboard.writeText(link);
+        showToast('📋 Link copied!', 'success');
+    } catch {
+        DOM.shareLinkInput.select();
+        document.execCommand('copy');
+        showToast('📋 Link copied!', 'success');
+    }
+}
+
+// ============================================
 // UI HELPERS
 // ============================================
 
@@ -615,6 +722,7 @@ function setupEventListeners() {
     document.getElementById('leaveBtn')?.addEventListener('click', leaveRoom);
     document.getElementById('micBtn')?.addEventListener('click', toggleMicrophone);
     document.getElementById('camBtn')?.addEventListener('click', toggleCamera);
+    document.getElementById('screenBtn')?.addEventListener('click', toggleScreenShare);
     document.getElementById('endSessionBtn')?.addEventListener('click', endSession);
     document.getElementById('raiseHandBtn')?.addEventListener('click', toggleRaiseHand);
     document.getElementById('tipBtn')?.addEventListener('click', () => DOM.tipModal.classList.add('active'));
@@ -633,6 +741,7 @@ function setupEventListeners() {
     document.getElementById('closeStarModal')?.addEventListener('click', () => DOM.starModal.classList.remove('active'));
     document.getElementById('shareToChatBtn')?.addEventListener('click', shareToChat);
     document.getElementById('copyCodeBtn')?.addEventListener('click', copySessionCode);
+    document.getElementById('copyLinkBtn')?.addEventListener('click', copyShareLink);
     document.getElementById('returnBtn')?.addEventListener('click', () => window.location.href = '/user');
     document.getElementById('sendCustomTip')?.addEventListener('click', () => {
         const amount = parseInt(prompt('Enter amount:'));
@@ -729,43 +838,15 @@ function useFallbackMode() {
 }
 
 // ============================================
-// SHARE FUNCTIONS
-// ============================================
-
-async function shareToChat() {
-    if (!state.sessionCode) {
-        showToast('No session code', 'warning');
-        return;
-    }
-    const message = `🎥 Join my live session! Code: **${state.sessionCode}**\n${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
-    sendToChatIframe({ type: 'send_message', message });
-    showToast('📤 Session code sent to chat!', 'success');
-    DOM.shareModal.classList.remove('active');
-}
-
-async function copySessionCode() {
-    if (!state.sessionCode) return;
-    try {
-        await navigator.clipboard.writeText(state.sessionCode);
-        showToast('📋 Code copied!', 'success');
-    } catch {
-        const textarea = document.createElement('textarea');
-        textarea.value = state.sessionCode;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showToast('📋 Code copied!', 'success');
-    }
-}
-
-// ============================================
 // CLEANUP
 // ============================================
 
 function cleanup() {
     if (state.localStream) {
         state.localStream.getTracks().forEach(t => t.stop());
+    }
+    if (state.screenStream) {
+        state.screenStream.getTracks().forEach(t => t.stop());
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
