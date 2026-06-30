@@ -1,6 +1,6 @@
 // ============================================
 // 🎥 VIRTUAL ROOM - JITSI (100% FREE)
-// No credit card, no payment, works immediately
+// Complete working version
 // ============================================
 
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
@@ -29,11 +29,11 @@ const state = {
     hasRated: false,
     jitsiInitialized: false,
     isConnecting: false,
-    scriptLoadAttempts: 0,
-    maxScriptAttempts: 3,
     scriptLoaded: false,
     jitsiApi: null,
     jitsiRoom: null,
+    scriptLoadAttempts: 0,
+    maxScriptAttempts: 3,
 };
 
 // ============================================
@@ -46,6 +46,8 @@ function cacheDOM() {
     DOM.roomTitle = document.getElementById('roomTitle');
     DOM.classTimer = document.getElementById('classTimer');
     DOM.viewerCount = document.getElementById('viewerCount');
+    DOM.liveStatus = document.getElementById('liveStatus');
+    DOM.liveDot = document.getElementById('liveDot');
     DOM.chatSidebar = document.getElementById('chatSidebar');
     DOM.chatIframe = document.getElementById('chatIframe');
     DOM.tipModal = document.getElementById('tipModal');
@@ -58,17 +60,10 @@ function cacheDOM() {
     DOM.loadingOverlay = document.getElementById('loadingOverlay');
     DOM.loadingText = document.getElementById('loadingText');
     DOM.loadingSubText = document.getElementById('loadingSubText');
-    DOM.liveStatus = document.getElementById('liveStatus');
-    DOM.liveDot = document.getElementById('liveDot');
     DOM.videoOverlay = document.getElementById('videoOverlay');
     DOM.waitingText = document.getElementById('waitingText');
     DOM.waitingSubText = document.getElementById('waitingSubText');
-    DOM.dailyFrameContainer = document.getElementById('dailyFrameContainer');
-    DOM.connectionStatus = document.getElementById('connectionStatus');
-    DOM.hostStatusText = document.getElementById('hostStatusText');
-    DOM.hostName = document.getElementById('hostName');
-    DOM.hostStars = document.getElementById('hostStars');
-    DOM.hostTips = document.getElementById('hostTips');
+    DOM.jitsiContainer = document.getElementById('jitsiFrameContainer');
 }
 
 // ============================================
@@ -150,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function createNewSession() {
     try {
         showLoading(true);
-        DOM.loadingText.textContent = 'Creating session...';
+        if (DOM.loadingText) DOM.loadingText.textContent = 'Creating session...';
 
         sessionStorage.removeItem('glimu_session');
 
@@ -175,13 +170,12 @@ async function createNewSession() {
         state.isHost = true;
         state.isLive = true;
 
-        DOM.roomTitle.textContent = session.title;
-        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
-        DOM.hostControls.style.display = 'flex';
-        DOM.viewerControls.style.display = 'none';
-        DOM.hostName.textContent = state.userProfile.name || 'Host';
-        DOM.waitingText.textContent = 'Starting your session...';
-        DOM.waitingSubText.textContent = 'Video will start shortly';
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
+        if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+        if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
+        if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
+        if (DOM.waitingText) DOM.waitingText.textContent = 'Starting your session...';
+        if (DOM.waitingSubText) DOM.waitingSubText.textContent = 'Video will start shortly';
 
         await supabase
             .from('session_participants')
@@ -198,7 +192,9 @@ async function createNewSession() {
 
         saveSessionState();
         showToast(`Session created! Code: ${state.sessionCode}`, 'success');
-        setTimeout(() => DOM.shareModal.classList.add('active'), 1500);
+        setTimeout(() => {
+            if (DOM.shareModal) DOM.shareModal.classList.add('active');
+        }, 1500);
 
         setTimeout(() => {
             sendToChatIframe({
@@ -206,7 +202,7 @@ async function createNewSession() {
                 sessionId: state.sessionId,
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
-                roomTitle: DOM.roomTitle.textContent
+                roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
             });
         }, 2000);
 
@@ -221,7 +217,7 @@ async function createNewSession() {
 async function joinSession(sessionCode) {
     try {
         showLoading(true);
-        DOM.loadingText.textContent = 'Joining session...';
+        if (DOM.loadingText) DOM.loadingText.textContent = 'Joining session...';
 
         sessionStorage.removeItem('glimu_session');
 
@@ -248,12 +244,12 @@ async function joinSession(sessionCode) {
         state.isHost = false;
         state.isLive = session.status === 'live';
 
-        DOM.roomTitle.textContent = session.title || 'Live Session';
-        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
-        DOM.hostControls.style.display = 'none';
-        DOM.viewerControls.style.display = 'flex';
-        DOM.waitingText.textContent = 'Waiting for host...';
-        DOM.waitingSubText.textContent = 'The session will begin shortly';
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
+        if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+        if (DOM.hostControls) DOM.hostControls.style.display = 'none';
+        if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
+        if (DOM.waitingText) DOM.waitingText.textContent = 'Waiting for host...';
+        if (DOM.waitingSubText) DOM.waitingSubText.textContent = 'The session will begin shortly';
 
         await supabase
             .from('session_participants')
@@ -277,7 +273,7 @@ async function joinSession(sessionCode) {
                 sessionId: state.sessionId,
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
-                roomTitle: DOM.roomTitle.textContent
+                roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
             });
         }, 2000);
 
@@ -290,32 +286,27 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// JITSI VIDEO INTEGRATION (100% FREE)
+// JITSI VIDEO - FIXED
 // ============================================
 
 async function loadJitsiScript() {
     return new Promise((resolve, reject) => {
-        // Check if already loaded
         if (window.JitsiMeetExternalAPI) {
             state.scriptLoaded = true;
             resolve();
             return;
         }
 
-        // Check if script tag already exists
         let script = document.querySelector('#jitsi-js');
         if (script) {
             script.addEventListener('load', () => {
                 state.scriptLoaded = true;
                 resolve();
             });
-            script.addEventListener('error', () => {
-                reject(new Error('Jitsi script failed to load'));
-            });
+            script.addEventListener('error', () => reject(new Error('Jitsi script failed')));
             return;
         }
 
-        // Create new script tag
         script = document.createElement('script');
         script.id = 'jitsi-js';
         script.src = 'https://meet.jit.si/external_api.js';
@@ -342,7 +333,7 @@ async function initJitsiVideo(isHost) {
     }
 
     if (state.isConnecting) {
-        console.log('⏳ Already connecting, skipping...');
+        console.log('⏳ Already connecting...');
         return;
     }
 
@@ -350,7 +341,6 @@ async function initJitsiVideo(isHost) {
         state.isConnecting = true;
         console.log('📹 Initializing Jitsi video...');
 
-        // Load the script
         if (!state.scriptLoaded) {
             state.scriptLoadAttempts++;
             try {
@@ -358,21 +348,18 @@ async function initJitsiVideo(isHost) {
             } catch (error) {
                 console.error('❌ Script load error:', error);
                 if (state.scriptLoadAttempts < state.maxScriptAttempts) {
-                    console.log(`🔄 Retry ${state.scriptLoadAttempts}/${state.maxScriptAttempts}...`);
                     state.isConnecting = false;
                     setTimeout(() => initJitsiVideo(isHost), 3000);
                     return;
                 } else {
-                    showToast('Could not load video service. Using chat only.', 'warning');
+                    showToast('Could not load video. Using chat only.', 'warning');
                     state.isConnecting = false;
                     return;
                 }
             }
         }
 
-        // Verify Jitsi is available
         if (typeof JitsiMeetExternalAPI === 'undefined') {
-            console.error('Jitsi still not available after loading');
             showToast('Video service unavailable. Using chat only.', 'warning');
             state.isConnecting = false;
             return;
@@ -382,10 +369,20 @@ async function initJitsiVideo(isHost) {
         state.jitsiRoom = roomName;
         console.log('📹 Creating Jitsi room:', roomName);
 
-        // Jitsi options - minimal and clean
+        // Ensure container exists
+        const container = DOM.jitsiContainer;
+        if (!container) {
+            console.error('❌ Jitsi container not found');
+            state.isConnecting = false;
+            return;
+        }
+
+        // Clear container
+        container.innerHTML = '';
+
         const options = {
             roomName: roomName,
-            parentNode: DOM.dailyFrameContainer,
+            parentNode: container,
             configOverwrite: {
                 startWithVideoMuted: false,
                 startWithAudioMuted: false,
@@ -393,87 +390,49 @@ async function initJitsiVideo(isHost) {
                 enableWelcomePage: false,
                 disableDeepLinking: true,
                 disableInviteFunctions: true,
-                // Remove Jitsi branding as much as possible
-                brandingDataUrl: '',
-                // Custom colors to match Gliimu
-                subject: `${state.userProfile.name || 'User'}'s Session`,
-                // Hide Jitsi watermark
                 enableWatermark: false,
-                // Disable Jitsi background
                 disableBackground: true,
-                // Custom UI
                 toolbarButtons: [
                     'microphone', 'camera', 'desktop', 'fullscreen', 
                     'fodeviceselection', 'hangup', 'chat', 'settings'
                 ]
             },
             interfaceConfigOverwrite: {
-                // Remove Jitsi branding
                 SHOW_JITSI_WATERMARK: false,
                 SHOW_BRAND_WATERMARK: false,
                 BRAND_WATERMARK_LINK: '',
-                // Clean UI
                 DISABLE_VIDEO_BACKGROUND: true,
                 VERTICAL_FILMSTRIP: true,
-                // Hide Jitsi features we don't want
+                DEFAULT_BACKGROUND: '#0a0a14',
                 TOOLBAR_BUTTONS: [
                     'microphone', 'camera', 'desktop', 'fullscreen', 
                     'fodeviceselection', 'hangup', 'chat', 'settings'
-                ],
-                SETTINGS_SECTIONS: ['devices', 'language'],
-                DISABLE_FOCUS_INDICATOR: true,
-                // Custom colors
-                DEFAULT_BACKGROUND: '#0a0a14',
-                HIDE_INVITE_MORE_HEADER: true,
-                HIDE_DEEP_LINKING_LOGO: true
-            },
-            onload: () => {
-                console.log('📹 Jitsi loaded');
-                DOM.videoOverlay.classList.add('hidden');
-                state.jitsiInitialized = true;
-                state.isConnecting = false;
-                
-                if (DOM.connectionStatus) {
-                    DOM.connectionStatus.textContent = '🟢 Connected';
-                    DOM.connectionStatus.style.color = '#10b981';
-                }
-                if (DOM.hostStatusText) {
-                    DOM.hostStatusText.textContent = isHost ? 'You are the host' : 'Connected';
-                }
-                
-                sendToChatIframe({
-                    type: 'system_message',
-                    message: '📹 Video connected'
-                });
-                
-                showToast('📹 Video connected!', 'success');
+                ]
             }
         };
 
-        // Create Jitsi API instance
         state.jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', options);
 
-        // Event listeners
         state.jitsiApi.addEventListeners({
             'videoConferenceJoined': () => {
                 console.log('📹 Joined Jitsi conference');
-                DOM.videoOverlay.classList.add('hidden');
+                if (DOM.videoOverlay) DOM.videoOverlay.classList.add('hidden');
                 state.jitsiInitialized = true;
                 state.isConnecting = false;
+                showToast('📹 Video connected!', 'success');
+                loadParticipants();
             },
             'participantJoined': (event) => {
                 console.log('👤 Participant joined:', event);
-                const name = event.displayName || 'Someone';
                 if (state.isHost) {
-                    showToast(`👤 ${name} joined the session`, 'info');
+                    showToast(`👤 ${event.displayName || 'Someone'} joined`, 'info');
                 }
                 loadParticipants();
             },
             'participantLeft': (event) => {
                 console.log('👤 Participant left:', event);
-                const name = event.displayName || 'Someone';
                 if (state.isHost) {
-                    showToast(`👤 ${name} left the session`, 'info');
+                    showToast(`👤 ${event.displayName || 'Someone'} left`, 'info');
                 }
                 loadParticipants();
             },
@@ -483,14 +442,12 @@ async function initJitsiVideo(isHost) {
             }
         });
 
-        console.log('✅ Jitsi initialized successfully');
+        console.log('✅ Jitsi initialized');
 
     } catch (error) {
         console.error('❌ Jitsi error:', error);
-        showToast('Failed to start video: ' + error.message, 'error');
+        showToast('Video error: ' + error.message, 'error');
         state.isConnecting = false;
-        DOM.waitingText.textContent = 'Video unavailable';
-        DOM.waitingSubText.textContent = 'Using chat only mode';
     }
 }
 
@@ -501,7 +458,7 @@ async function initJitsiVideo(isHost) {
 async function recoverSession(savedData) {
     try {
         showLoading(true);
-        DOM.loadingText.textContent = 'Recovering session...';
+        if (DOM.loadingText) DOM.loadingText.textContent = 'Recovering session...';
 
         const { data: session, error } = await supabase
             .from('virtual_sessions')
@@ -520,8 +477,8 @@ async function recoverSession(savedData) {
         state.isHost = savedData.isHost || false;
         state.isLive = session.status === 'live';
 
-        DOM.roomTitle.textContent = session.title || 'Live Session';
-        DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
+        if (DOM.shareLinkInput) DOM.shareLinkInput.value = `${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
 
         await supabase
             .from('session_participants')
@@ -533,19 +490,18 @@ async function recoverSession(savedData) {
             .eq('user_id', state.currentUser.id);
 
         if (state.isHost) {
-            DOM.hostControls.style.display = 'flex';
-            DOM.viewerControls.style.display = 'none';
+            if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
+            if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
             await supabase
                 .from('virtual_sessions')
                 .update({ status: 'live' })
                 .eq('id', state.sessionId);
         } else {
-            DOM.hostControls.style.display = 'none';
-            DOM.viewerControls.style.display = 'flex';
+            if (DOM.hostControls) DOM.hostControls.style.display = 'none';
+            if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
         }
 
         await initJitsiVideo(state.isHost);
-
         await loadParticipants();
         showToast('🔄 Session recovered!', 'success');
         saveSessionState();
@@ -583,7 +539,7 @@ async function loadParticipants() {
 
         const viewers = data.filter(p => p.role !== 'host');
         state.viewerCount = viewers.length;
-        DOM.viewerCount.textContent = viewers.length;
+        if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
 
     } catch (error) {
         console.error('❌ Load participants error:', error);
@@ -603,7 +559,8 @@ async function toggleRaiseHand() {
         .eq('session_id', state.sessionId)
         .eq('user_id', state.currentUser.id);
 
-    document.getElementById('raiseHandBtn')?.classList.toggle('active', state.handRaised);
+    const btn = document.getElementById('raiseHandBtn');
+    if (btn) btn.classList.toggle('active', state.handRaised);
     showToast(state.handRaised ? 'Hand raised! 🙋' : 'Hand lowered', 'info');
 
     if (state.handRaised) {
@@ -615,7 +572,7 @@ async function toggleRaiseHand() {
 }
 
 // ============================================
-// TIPPING - Heart ₦200, Star ₦500, Haha ₦1250
+// TIPPING
 // ============================================
 
 async function sendTip(amount, emoji) {
@@ -663,7 +620,7 @@ async function sendTip(amount, emoji) {
         state.userProfile.wallet_balance = newBalance;
 
         showToast(`${emoji} Tip sent! ₦${amount}`, 'success');
-        DOM.tipModal.classList.remove('active');
+        if (DOM.tipModal) DOM.tipModal.classList.remove('active');
 
         sendToChatIframe({
             type: 'system_message',
@@ -694,7 +651,7 @@ async function submitRating() {
             .eq('user_id', state.currentUser.id);
 
         state.hasRated = true;
-        DOM.starModal.classList.remove('active');
+        if (DOM.starModal) DOM.starModal.classList.remove('active');
         showToast(`Rated ${state.starRating} stars! ⭐`, 'success');
 
         sendToChatIframe({
@@ -721,13 +678,10 @@ async function endSession() {
     if (!confirm('End this session?')) return;
 
     try {
-        // Leave Jitsi
         if (state.jitsiApi) {
             try {
                 state.jitsiApi.executeCommand('hangup');
-            } catch (e) {
-                console.warn('Error leaving Jitsi:', e);
-            }
+            } catch (e) {}
         }
 
         await supabase
@@ -737,7 +691,7 @@ async function endSession() {
 
         state.sessionEnded = true;
         state.isLive = false;
-        DOM.sessionEndedOverlay.classList.add('active');
+        if (DOM.sessionEndedOverlay) DOM.sessionEndedOverlay.classList.add('active');
         sessionStorage.removeItem('glimu_session');
         cleanup();
         showToast('Session ended', 'success');
@@ -777,7 +731,7 @@ function setupRealtimeSubscriptions() {
         }, (payload) => {
             if (payload.new.status === 'ended') {
                 state.sessionEnded = true;
-                DOM.sessionEndedOverlay.classList.add('active');
+                if (DOM.sessionEndedOverlay) DOM.sessionEndedOverlay.classList.add('active');
                 sessionStorage.removeItem('glimu_session');
                 cleanup();
             }
@@ -806,7 +760,7 @@ function setupChatIframe() {
                     sessionId: state.sessionId,
                     sessionCode: state.sessionCode,
                     isHost: state.isHost,
-                    roomTitle: DOM.roomTitle.textContent
+                    roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
                 });
                 break;
             case 'message_sent':
@@ -831,7 +785,7 @@ function setupChatIframe() {
                 sessionId: state.sessionId,
                 sessionCode: state.sessionCode,
                 isHost: state.isHost,
-                roomTitle: DOM.roomTitle.textContent
+                roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
             });
         }, 1500);
     });
@@ -860,19 +814,21 @@ async function shareToChat() {
     const message = `🎥 Join my live session! Code: **${state.sessionCode}**\n${window.location.origin}/virtualroom.html?code=${state.sessionCode}`;
     sendToChatIframe({ type: 'send_message', message });
     showToast('📤 Session code sent to chat!', 'success');
-    DOM.shareModal.classList.remove('active');
+    if (DOM.shareModal) DOM.shareModal.classList.remove('active');
 }
 
 async function copyShareLink() {
-    const link = DOM.shareLinkInput.value;
+    const link = DOM.shareLinkInput ? DOM.shareLinkInput.value : '';
     if (!link) return;
     try {
         await navigator.clipboard.writeText(link);
         showToast('📋 Link copied!', 'success');
     } catch {
-        DOM.shareLinkInput.select();
-        document.execCommand('copy');
-        showToast('📋 Link copied!', 'success');
+        if (DOM.shareLinkInput) {
+            DOM.shareLinkInput.select();
+            document.execCommand('copy');
+            showToast('📋 Link copied!', 'success');
+        }
     }
 }
 
@@ -912,19 +868,17 @@ function startTimer() {
         const elapsed = Math.floor((Date.now() - state.classStartTime) / 1000);
         const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
         const secs = String(elapsed % 60).padStart(2, '0');
-        DOM.classTimer.textContent = `${mins}:${secs}`;
+        if (DOM.classTimer) DOM.classTimer.textContent = `${mins}:${secs}`;
     }, 1000);
 }
 
 function setupUI() {
     if (state.isHost) {
-        DOM.hostControls.style.display = 'flex';
-        DOM.viewerControls.style.display = 'none';
-        DOM.hostStatusText.textContent = 'You are the host';
+        if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
+        if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
     } else {
-        DOM.hostControls.style.display = 'none';
-        DOM.viewerControls.style.display = 'flex';
-        DOM.hostStatusText.textContent = 'Connecting to host...';
+        if (DOM.hostControls) DOM.hostControls.style.display = 'none';
+        if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
     }
 }
 
@@ -934,21 +888,31 @@ function setupEventListeners() {
     document.getElementById('endSessionBtn')?.addEventListener('click', endSession);
     document.getElementById('raiseHandBtn')?.addEventListener('click', toggleRaiseHand);
     
-    document.getElementById('tipBtn')?.addEventListener('click', () => DOM.tipModal.classList.add('active'));
+    document.getElementById('tipBtn')?.addEventListener('click', () => {
+        if (DOM.tipModal) DOM.tipModal.classList.add('active');
+    });
     document.getElementById('starBtn')?.addEventListener('click', () => {
         if (state.hasRated) {
             showToast('Already rated', 'warning');
             return;
         }
-        DOM.starModal.classList.add('active');
+        if (DOM.starModal) DOM.starModal.classList.add('active');
     });
     
     document.getElementById('chatToggleBtn')?.addEventListener('click', toggleChatSidebar);
     document.getElementById('closeChatBtn')?.addEventListener('click', toggleChatSidebar);
-    document.getElementById('shareBtn')?.addEventListener('click', () => DOM.shareModal.classList.add('active'));
-    document.getElementById('closeShareModal')?.addEventListener('click', () => DOM.shareModal.classList.remove('active'));
-    document.getElementById('closeTipModal')?.addEventListener('click', () => DOM.tipModal.classList.remove('active'));
-    document.getElementById('closeStarModal')?.addEventListener('click', () => DOM.starModal.classList.remove('active'));
+    document.getElementById('shareBtn')?.addEventListener('click', () => {
+        if (DOM.shareModal) DOM.shareModal.classList.add('active');
+    });
+    document.getElementById('closeShareModal')?.addEventListener('click', () => {
+        if (DOM.shareModal) DOM.shareModal.classList.remove('active');
+    });
+    document.getElementById('closeTipModal')?.addEventListener('click', () => {
+        if (DOM.tipModal) DOM.tipModal.classList.remove('active');
+    });
+    document.getElementById('closeStarModal')?.addEventListener('click', () => {
+        if (DOM.starModal) DOM.starModal.classList.remove('active');
+    });
     document.getElementById('shareToChatBtn')?.addEventListener('click', shareToChat);
     document.getElementById('copyLinkBtn')?.addEventListener('click', copyShareLink);
     document.getElementById('returnBtn')?.addEventListener('click', () => window.location.href = '/user');
@@ -993,7 +957,7 @@ function setupEventListeners() {
 }
 
 function toggleChatSidebar() {
-    DOM.chatSidebar?.classList.toggle('open');
+    if (DOM.chatSidebar) DOM.chatSidebar.classList.toggle('open');
 }
 
 function showLoginScreen() {
@@ -1011,8 +975,9 @@ function showLoginScreen() {
 }
 
 function showSessionSelection() {
-    DOM.loadingText.textContent = 'Start or Join a Session';
-    DOM.loadingSubText.textContent = 'Create your own session or join with a code';
+    if (DOM.loadingText) DOM.loadingText.textContent = 'Start or Join a Session';
+    if (DOM.loadingSubText) DOM.loadingSubText.textContent = 'Create your own session or join with a code';
+    
     const spinner = DOM.loadingOverlay?.querySelector('.loading-spinner');
     if (spinner) spinner.style.display = 'none';
 
