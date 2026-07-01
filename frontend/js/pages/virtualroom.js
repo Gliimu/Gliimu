@@ -69,6 +69,7 @@ function cacheDOM() {
     DOM.uploadSlidesBtn = document.getElementById('uploadSlidesBtn');
     DOM.slideFileInput = document.getElementById('slideFileInput');
     DOM.micBtn = document.getElementById('micBtn');
+    DOM.uploadBtn = document.getElementById('uploadBtn');
 }
 
 // ============================================
@@ -189,6 +190,14 @@ async function createNewSession() {
         if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
         if (DOM.hostName) DOM.hostName.textContent = state.userProfile.name || 'Host';
+        
+        // 🔥 Hide upload button from viewers (only host sees it)
+        if (DOM.uploadBtn) DOM.uploadBtn.style.display = 'flex';
+
+        // Set share link
+        if (DOM.shareLinkInput) {
+            DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+        }
 
         // Start audio
         await initAudio(true);
@@ -263,6 +272,14 @@ async function joinSession(sessionCode) {
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Presentation';
         if (DOM.hostControls) DOM.hostControls.style.display = 'none';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
+        
+        // 🔥 Hide upload button from viewers
+        if (DOM.uploadBtn) DOM.uploadBtn.style.display = 'none';
+
+        // Set share link
+        if (DOM.shareLinkInput) {
+            DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+        }
 
         // Get host name
         var { data: host } = await supabase
@@ -305,14 +322,12 @@ async function joinSession(sessionCode) {
 
 async function initAudio(isHost) {
     try {
-        // Get audio stream
         state.audioStream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             video: false
         });
         console.log('✅ Audio stream acquired');
 
-        // Initialize PeerJS
         var peerId = 'glimu_' + state.currentUser.id + '_' + Date.now();
 
         state.peer = new Peer(peerId, {
@@ -329,7 +344,6 @@ async function initAudio(isHost) {
             }
         });
 
-        // Set timeout for PeerJS
         state.peerTimeout = setTimeout(function() {
             if (state.peer && !state.peer.open) {
                 console.warn('PeerJS timeout, using fallback');
@@ -498,15 +512,6 @@ function setupSlideSubscription() {
                 }
             }
         })
-        .on('postgres_changes', {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'session_slides',
-            filter: 'session_id=eq.' + state.sessionId
-        }, function() {
-            console.log('Slide deleted, reloading...');
-            loadSlides();
-        })
         .subscribe();
 }
 
@@ -556,7 +561,6 @@ function showSlide(index) {
     DOM.slideNav.style.display = 'flex';
     DOM.slideCounter.textContent = (index + 1) + ' / ' + state.slides.length;
 
-    // Update current slide in database (host only)
     if (state.isHost) {
         supabase
             .from('session_slides')
@@ -653,7 +657,6 @@ async function uploadSlides() {
             var ext = file.name.split('.').pop() || 'png';
             var path = 'slides/' + state.sessionId + '/' + Date.now() + '_' + i + '.' + ext;
 
-            // Upload to storage
             var { error: uploadError } = await supabase.storage
                 .from('presentation-files')
                 .upload(path, file, {
@@ -668,12 +671,10 @@ async function uploadSlides() {
                 continue;
             }
 
-            // Get public URL
             var { data: { publicUrl } } = supabase.storage
                 .from('presentation-files')
                 .getPublicUrl(path);
 
-            // Insert into database
             var isFirst = i === 0 && state.slides.length === 0;
 
             var { error: insertError } = await supabase
@@ -688,7 +689,6 @@ async function uploadSlides() {
             if (insertError) {
                 console.error('Insert error:', insertError);
                 failed++;
-                // Try to delete the uploaded file if insert fails
                 await supabase.storage
                     .from('presentation-files')
                     .remove([path]);
@@ -1054,6 +1054,50 @@ function sendToChatIframe(data) {
 }
 
 // ============================================
+// SHARE FUNCTIONS
+// ============================================
+
+async function shareToChat() {
+    if (!state.sessionCode) {
+        showToast('No session code to share', 'warning');
+        return;
+    }
+    
+    var message = '📊 Join my live presentation! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+    
+    console.log('📤 Sending to chat:', message);
+    
+    sendToChatIframe({ 
+        type: 'send_message', 
+        message: message 
+    });
+    
+    showToast('📤 Session code sent to chat!', 'success');
+    
+    if (DOM.shareModal) {
+        DOM.shareModal.classList.remove('active');
+    }
+}
+
+async function copyShareLink() {
+    var link = DOM.shareLinkInput ? DOM.shareLinkInput.value : '';
+    if (!link) {
+        showToast('No link to copy', 'warning');
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(link);
+        showToast('📋 Link copied!', 'success');
+    } catch {
+        if (DOM.shareLinkInput) {
+            DOM.shareLinkInput.select();
+            document.execCommand('copy');
+            showToast('📋 Link copied!', 'success');
+        }
+    }
+}
+
+// ============================================
 // HELPERS
 // ============================================
 
@@ -1245,32 +1289,6 @@ function showSessionSelection() {
             showToast('Enter a session code', 'warning');
         }
     };
-}
-
-async function shareToChat() {
-    if (!state.sessionCode) {
-        showToast('No session code', 'warning');
-        return;
-    }
-    var message = '📊 Join my live presentation! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
-    sendToChatIframe({ type: 'send_message', message: message });
-    showToast('📤 Session code sent to chat!', 'success');
-    if (DOM.shareModal) DOM.shareModal.classList.remove('active');
-}
-
-async function copyShareLink() {
-    var link = DOM.shareLinkInput ? DOM.shareLinkInput.value : '';
-    if (!link) return;
-    try {
-        await navigator.clipboard.writeText(link);
-        showToast('📋 Link copied!', 'success');
-    } catch {
-        if (DOM.shareLinkInput) {
-            DOM.shareLinkInput.select();
-            document.execCommand('copy');
-            showToast('📋 Link copied!', 'success');
-        }
-    }
 }
 
 function cleanup() {
