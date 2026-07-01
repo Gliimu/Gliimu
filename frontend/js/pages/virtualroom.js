@@ -25,6 +25,7 @@ const state = {
     isMuted: false,
     audioStream: null,
     audioActive: false,
+    remoteAudioElement: null,
     peerConnections: new Map(),
     participantsSubscription: null,
     sessionSubscription: null,
@@ -223,6 +224,9 @@ async function createNewSession() {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
 
+        // Create audio element for remote audio
+        createAudioElement();
+
         // Setup signaling channel
         await setupSignalingChannel();
 
@@ -304,6 +308,9 @@ async function joinSession(sessionCode) {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
 
+        // Create audio element for remote audio
+        createAudioElement();
+
         // Get host name
         var { data: host } = await supabase
             .from('session_participants')
@@ -343,7 +350,31 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// SIGNALING CHANNEL (Supabase Realtime)
+// CREATE AUDIO ELEMENT
+// ============================================
+
+function createAudioElement() {
+    // Remove existing audio element if any
+    if (state.remoteAudioElement) {
+        state.remoteAudioElement.remove();
+        state.remoteAudioElement = null;
+    }
+
+    // Create hidden audio element for remote audio
+    var audio = document.createElement('audio');
+    audio.id = 'remoteAudio';
+    audio.autoplay = true;
+    audio.style.display = 'none';
+    audio.setAttribute('playsinline', '');
+    audio.setAttribute('webkit-playsinline', '');
+    document.body.appendChild(audio);
+    
+    state.remoteAudioElement = audio;
+    console.log('🔊 Audio element created');
+}
+
+// ============================================
+// SIGNALING CHANNEL
 // ============================================
 
 async function setupSignalingChannel() {
@@ -437,7 +468,6 @@ async function initAudio(isHost) {
             DOM.hostStatus.style.color = '#10b981';
         }
 
-        // If host, wait for viewers to connect
         if (isHost) {
             console.log('Host waiting for viewers...');
         } else {
@@ -465,6 +495,12 @@ async function createOffer(targetUserId) {
     if (!state.audioStream || !state.isHost) return;
 
     try {
+        // Close existing connection if any
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
         peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
         // Add audio track
@@ -481,6 +517,18 @@ async function createOffer(targetUserId) {
                     senderId: state.currentUser.id,
                     targetUserId: targetUserId
                 });
+            }
+        };
+
+        // Connection state
+        peerConnection.onconnectionstatechange = function() {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                showToast('🎙️ Audio connected!', 'success');
+                if (DOM.hostStatus) {
+                    DOM.hostStatus.textContent = '🎙️ Audio connected';
+                    DOM.hostStatus.style.color = '#10b981';
+                }
             }
         };
 
@@ -506,6 +554,12 @@ async function handleOffer(message) {
     if (!state.audioStream) return;
 
     try {
+        // Close existing connection if any
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
         peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
         // Add audio track
@@ -525,15 +579,51 @@ async function handleOffer(message) {
             }
         };
 
-        // Handle remote stream
+        // Handle remote stream - ATTACH TO AUDIO ELEMENT
         peerConnection.ontrack = function(event) {
             console.log('🎵 Remote audio stream received!');
-            state.audioActive = true;
-            if (DOM.hostStatus) {
-                DOM.hostStatus.textContent = '🎙️ Audio connected';
-                DOM.hostStatus.style.color = '#10b981';
+            
+            // 🔥 CRITICAL FIX: Attach stream to audio element
+            if (state.remoteAudioElement) {
+                state.remoteAudioElement.srcObject = event.streams[0];
+                state.remoteAudioElement.play().then(function() {
+                    console.log('🔊 Audio playback started');
+                    state.audioActive = true;
+                    if (DOM.hostStatus) {
+                        DOM.hostStatus.textContent = '🎙️ Audio connected';
+                        DOM.hostStatus.style.color = '#10b981';
+                    }
+                    showToast('🎙️ Audio connected!', 'success');
+                }).catch(function(err) {
+                    console.warn('Audio play error:', err);
+                    // Try again with user interaction
+                    document.addEventListener('click', function playOnClick() {
+                        if (state.remoteAudioElement) {
+                            state.remoteAudioElement.play().catch(function() {});
+                        }
+                        document.removeEventListener('click', playOnClick);
+                    }, { once: true });
+                });
+            } else {
+                console.warn('No audio element found, creating one...');
+                createAudioElement();
+                if (state.remoteAudioElement) {
+                    state.remoteAudioElement.srcObject = event.streams[0];
+                    state.remoteAudioElement.play().catch(function() {});
+                }
             }
-            showToast('🎙️ Audio connected!', 'success');
+        };
+
+        // Connection state
+        peerConnection.onconnectionstatechange = function() {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                showToast('🎙️ Audio connected!', 'success');
+                if (DOM.hostStatus) {
+                    DOM.hostStatus.textContent = '🎙️ Audio connected';
+                    DOM.hostStatus.style.color = '#10b981';
+                }
+            }
         };
 
         // Set remote description
@@ -561,9 +651,14 @@ async function handleAnswer(message) {
     if (!peerConnection) return;
 
     try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
-        console.log('✅ Answer processed');
-
+        // Only process if we're in the right state
+        if (peerConnection.signalingState === 'have-local-offer' || 
+            peerConnection.signalingState === 'stable') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+            console.log('✅ Answer processed');
+        } else {
+            console.log('Skipping answer - wrong state:', peerConnection.signalingState);
+        }
     } catch (error) {
         console.error('Handle answer error:', error);
     }
@@ -960,6 +1055,12 @@ async function endSession() {
             state.audioStream = null;
         }
 
+        if (state.remoteAudioElement) {
+            state.remoteAudioElement.pause();
+            state.remoteAudioElement.srcObject = null;
+            state.remoteAudioElement = null;
+        }
+
         if (state.sessionId) {
             await supabase
                 .from('virtual_sessions')
@@ -1022,6 +1123,7 @@ async function recoverSession(savedData) {
             if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
         }
 
+        createAudioElement();
         await setupSignalingChannel();
         await initAudio(state.isHost);
         await loadSlides();
@@ -1406,6 +1508,11 @@ function cleanup() {
     if (state.audioStream) {
         state.audioStream.getTracks().forEach(function(t) { t.stop(); });
         state.audioStream = null;
+    }
+    if (state.remoteAudioElement) {
+        state.remoteAudioElement.pause();
+        state.remoteAudioElement.srcObject = null;
+        state.remoteAudioElement = null;
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
