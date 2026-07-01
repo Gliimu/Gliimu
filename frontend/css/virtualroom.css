@@ -1,5 +1,5 @@
 /* ============================================
-   VIRTUAL ROOM - CLASSROOM WITH CANVAS
+   VIRTUAL ROOM - COMPLETE STYLES
    ============================================ */
 
 :root {
@@ -19,6 +19,7 @@
     --accent-dark: #d4912a;
     --danger: #ef4444;
     --success: #10b981;
+    --warning: #f59e0b;
     --heart: #ef4444;
     --star: #fbb040;
     --haha: #8b5cf6;
@@ -89,10 +90,25 @@ body {
     justify-content: center;
     transition: all 0.2s;
     font-size: 14px;
+    position: relative;
 }
 
 .icon-btn:hover { background: var(--bg-hover); }
 .icon-btn.danger:hover { background: var(--danger); color: #fff; }
+
+.icon-btn .badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
 
 .room-title {
     font-size: 14px;
@@ -100,7 +116,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 140px;
+    max-width: 120px;
 }
 
 .room-meta {
@@ -118,6 +134,10 @@ body {
     background: var(--success);
     display: inline-block;
     animation: pulse-dot 1.5s infinite;
+}
+
+.room-meta .audio-status {
+    font-size: 12px;
 }
 
 @keyframes pulse-dot {
@@ -279,32 +299,65 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 25;
-    background: rgba(0,0,0,0.5);
+    z-index: 15;
+    background: #ffffff;
     display: none;
-    flex-direction: column;
-    backdrop-filter: blur(4px);
 }
 
 .canvas-container.active {
-    display: flex;
+    display: block;
 }
 
-.canvas-toolbar {
-    display: flex;
-    gap: 8px;
-    padding: 10px 16px;
+.canvas-container .canvas-watermark {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    color: rgba(0,0,0,0.15);
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 2;
+}
+
+#teachingCanvas {
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    background: #ffffff;
+    touch-action: none;
+    display: block;
+}
+
+/* ===== CANVAS TOOLBAR ===== */
+.canvas-toolbar-overlay {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
     background: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 8px 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    border: 1px solid var(--border-color);
+    display: none;
+    backdrop-filter: blur(8px);
+}
+
+.canvas-toolbar-overlay.active {
+    display: block;
+}
+
+.canvas-toolbar-inner {
+    display: flex;
+    gap: 6px;
     align-items: center;
-    flex-shrink: 0;
-    flex-wrap: wrap;
 }
 
 .canvas-tool {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     background: var(--bg-hover);
     border: 2px solid transparent;
     color: var(--text-primary);
@@ -319,7 +372,6 @@ body {
 .canvas-tool:hover {
     background: var(--accent);
     color: #111;
-    transform: scale(1.05);
 }
 
 .canvas-tool.active {
@@ -329,9 +381,9 @@ body {
 }
 
 .canvas-color {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     border: 2px solid var(--border-color);
     cursor: pointer;
     padding: 2px;
@@ -345,121 +397,6 @@ body {
     border-radius: 6px;
     border: none;
 }
-
-.canvas-divider {
-    width: 1px;
-    height: 30px;
-    background: var(--border-color);
-}
-
-#teachingCanvas {
-    flex: 1;
-    cursor: crosshair;
-    background: #ffffff;
-    touch-action: none;
-}
-
-/* ===== HOST INFO ===== */
-.host-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: var(--bg-card);
-    border-top: 1px solid var(--border-color);
-    flex-shrink: 0;
-    flex-wrap: wrap;
-}
-
-.host-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.host-avatar i {
-    font-size: 18px;
-    color: #fff;
-}
-
-.host-details {
-    flex: 1;
-    min-width: 0;
-}
-
-.host-name {
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.host-status {
-    font-size: 11px;
-    color: var(--success);
-}
-
-.host-stats {
-    display: flex;
-    gap: 12px;
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-
-.host-stats span {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.host-stats .fa-star { color: var(--star); }
-.host-stats .fa-gift { color: var(--accent); }
-
-.host-prep-status {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 12px;
-    border-radius: 20px;
-    background: var(--bg-hover);
-    color: var(--success);
-}
-
-.host-prep-status.prep-mode {
-    color: var(--warning);
-}
-
-/* ===== LOADING ===== */
-.loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.85);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 30;
-}
-
-.loading-overlay .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(255,255,255,0.1);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 12px;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-overlay h3 { color: #fff; margin-bottom: 4px; font-size: 16px; }
-.loading-overlay p { color: var(--text-muted); font-size: 12px; }
 
 /* ===== CONTROLS BAR ===== */
 .controls-bar {
@@ -599,6 +536,91 @@ body {
     min-height: 0;
 }
 
+/* ===== NOTIFICATION PANEL ===== */
+.notification-panel {
+    position: absolute;
+    top: 56px;
+    right: 12px;
+    width: 320px;
+    max-height: 400px;
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 35;
+    overflow: hidden;
+    display: none;
+}
+
+.notification-panel.active {
+    display: block;
+}
+
+.notif-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.notif-header span {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.notif-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.notif-list {
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.notif-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bg-hover);
+    margin-bottom: 4px;
+    font-size: 13px;
+    animation: slide-in 0.3s ease;
+}
+
+.notif-item .notif-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.notif-item .notif-text {
+    flex: 1;
+}
+
+.notif-item .notif-time {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.notif-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 20px;
+    font-size: 13px;
+}
+
+@keyframes slide-in {
+    from { opacity:0; transform:translateY(-10px); }
+    to { opacity:1; transform:translateY(0); }
+}
+
 /* ===== MODALS ===== */
 .modal-overlay {
     position: fixed;
@@ -727,7 +749,6 @@ body {
     cursor: pointer;
 }
 
-/* ===== SHARE ===== */
 .share-link {
     display: flex;
     gap: 8px;
@@ -748,7 +769,6 @@ body {
 
 .share-link input:focus { border-color: var(--accent); }
 
-/* ===== TIP OPTIONS ===== */
 .tip-options {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -844,14 +864,13 @@ body {
     .chat-sidebar { max-width: 100%; }
     .modal-content { padding: 20px; }
     .tip-options { grid-template-columns: repeat(3, 1fr); }
-    .host-info { padding: 8px 12px; gap: 8px; }
-    .host-stats { font-size: 10px; gap: 8px; }
     .slide-placeholder i { font-size: 40px; }
     .slide-placeholder h3 { font-size: 16px; }
     .slide-nav .nav-btn { width: 32px; height: 32px; font-size: 12px; }
-    .canvas-toolbar { padding: 6px 10px; gap: 4px; }
-    .canvas-tool { width: 32px; height: 32px; font-size: 12px; }
-    .canvas-color { width: 32px; height: 32px; }
+    .canvas-toolbar-overlay { top: 8px; padding: 6px 10px; }
+    .canvas-tool { width: 30px; height: 30px; font-size: 12px; }
+    .canvas-color { width: 30px; height: 30px; }
+    .notification-panel { width: 280px; right: 8px; }
 }
 
 @media (max-width: 420px) {
@@ -861,16 +880,11 @@ body {
     .controls-bar { padding: 4px 6px; min-height: 44px; }
     .control-btn { width: 36px; height: 36px; font-size: 0.8rem; }
     .control-btn .btn-label { display: none; }
-    .host-info { padding: 6px 10px; }
-    .host-avatar { width: 28px; height: 28px; }
-    .host-avatar i { font-size: 14px; }
-    .host-name { font-size: 12px; }
-    .host-stats { font-size: 9px; gap: 6px; }
-    .host-prep-status { font-size: 9px; padding: 2px 8px; }
     .slide-placeholder i { font-size: 32px; }
     .slide-placeholder h3 { font-size: 14px; }
     .canvas-tool { width: 28px; height: 28px; font-size: 10px; }
     .canvas-color { width: 28px; height: 28px; }
+    .notification-panel { width: 240px; right: 4px; }
 }
 
 @supports (padding: max(0px)) {
