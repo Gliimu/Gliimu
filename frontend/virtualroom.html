@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>📊 Live Presentation | Gliimu Institute</title>
+    <title>📚 Virtual Classroom | Gliimu Institute</title>
     <link rel="icon" type="image/png" href="icons/logo.png">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/virtualroom.css">
-    
-    <!-- PeerJS for Audio -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -24,14 +21,14 @@
                 <div class="room-info">
                     <div class="room-title" id="roomTitle">Loading...</div>
                     <div class="room-meta">
-                        <span id="viewerCount">0</span> watching · 
+                        <span id="viewerCount">0</span> here · 
                         <span class="live-dot"></span> LIVE · 
                         <span id="classTimer">00:00</span>
                     </div>
                 </div>
             </div>
             <div class="top-bar-right">
-                <button class="icon-btn" id="uploadBtn" title="Upload Slides"><i class="fas fa-upload"></i></button>
+                <button class="icon-btn" id="uploadBtn" title="Upload Slides" style="display:none;"><i class="fas fa-upload"></i></button>
                 <button class="icon-btn" id="shareBtn" title="Share"><i class="fas fa-share-alt"></i></button>
                 <button class="icon-btn danger" id="leaveBtn"><i class="fas fa-sign-out-alt"></i></button>
             </div>
@@ -56,10 +53,38 @@
                         <button class="nav-btn" id="prevSlide"><i class="fas fa-chevron-left"></i></button>
                         <button class="nav-btn" id="nextSlide"><i class="fas fa-chevron-right"></i></button>
                     </div>
+
+                    <!-- Prep Mode Overlay -->
+                    <div class="prep-overlay" id="prepOverlay" style="display:none;">
+                        <i class="fas fa-lock"></i>
+                        <h3>🔒 Host is Preparing</h3>
+                        <p>Please wait for the host to start the presentation</p>
+                    </div>
+                </div>
+
+                <!-- Canvas / Whiteboard -->
+                <div class="canvas-container" id="canvasContainer">
+                    <div class="canvas-toolbar">
+                        <button class="canvas-tool active" id="canvasPenBtn" title="Pen">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="canvas-tool" id="canvasEraserBtn" title="Eraser">
+                            <i class="fas fa-eraser"></i>
+                        </button>
+                        <input type="color" id="canvasColorPicker" value="#fbb040" class="canvas-color">
+                        <button class="canvas-tool" id="canvasClearBtn" title="Clear">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <div class="canvas-divider"></div>
+                        <button class="canvas-tool" id="canvasCloseBtn" title="Close Whiteboard">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <canvas id="teachingCanvas"></canvas>
                 </div>
 
                 <!-- Host Info -->
-                <div class="host-info" id="hostInfo">
+                <div class="host-info">
                     <div class="host-avatar"><i class="fas fa-user-circle"></i></div>
                     <div class="host-details">
                         <div class="host-name" id="hostName">Host</div>
@@ -69,6 +94,7 @@
                         <span><i class="fas fa-star"></i> <span id="hostStars">0</span></span>
                         <span><i class="fas fa-gift"></i> <span id="hostTips">₦0</span></span>
                     </div>
+                    <div class="host-prep-status" id="prepModeStatus">🔓 Live</div>
                 </div>
             </div>
 
@@ -88,6 +114,14 @@
                     <i class="fas fa-microphone"></i>
                     <span class="btn-label">Mic</span>
                 </button>
+                <button class="control-btn" id="prepModeBtn" title="Prep Mode (Block Viewers)">
+                    <i class="fas fa-lock"></i>
+                    <span class="btn-label">Prep</span>
+                </button>
+                <button class="control-btn" id="canvasToggleBtn" title="Whiteboard">
+                    <i class="fas fa-chalkboard"></i>
+                    <span class="btn-label">Board</span>
+                </button>
                 <button class="control-btn" id="prevSlideBtn" title="Previous Slide">
                     <i class="fas fa-chevron-left"></i>
                     <span class="btn-label">Prev</span>
@@ -104,6 +138,10 @@
 
             <!-- Viewer Controls -->
             <div class="controls-viewer" id="viewerControls" style="display:none;">
+                <button class="control-btn" id="viewerAudioMuteBtn" title="Mute Audio">
+                    <i class="fas fa-volume-up"></i>
+                    <span class="btn-label">Mute</span>
+                </button>
                 <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
                     <i class="fas fa-hand-paper"></i>
                     <span class="btn-label">Hand</span>
