@@ -33,17 +33,14 @@ const state = {
     slideSubscription: null,
     signalingSubscription: null,
     canvasSubscription: null,
-    // Canvas state
     canvasCtx: null,
     canvasDrawing: false,
     canvasColor: '#fbb040',
     canvasTool: 'pen',
     canvasLastX: 0,
     canvasLastY: 0,
-    // Keep alive
     keepAliveInterval: null,
     audioContext: null,
-    // Viewer audio mute
     viewerAudioMuted: false,
 };
 
@@ -117,13 +114,13 @@ function cacheDOM() {
     DOM.prepModeStatus = document.getElementById('prepModeStatus');
     DOM.canvasContainer = document.getElementById('canvasContainer');
     DOM.canvas = document.getElementById('teachingCanvas');
-    DOM.canvasTools = document.getElementById('canvasTools');
     DOM.canvasColorPicker = document.getElementById('canvasColorPicker');
     DOM.canvasPenBtn = document.getElementById('canvasPenBtn');
     DOM.canvasEraserBtn = document.getElementById('canvasEraserBtn');
     DOM.canvasClearBtn = document.getElementById('canvasClearBtn');
     DOM.canvasToggleBtn = document.getElementById('canvasToggleBtn');
     DOM.viewerAudioMuteBtn = document.getElementById('viewerAudioMuteBtn');
+    DOM.prepOverlay = document.getElementById('prepOverlay');
 }
 
 // ============================================
@@ -131,7 +128,7 @@ function cacheDOM() {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Virtual Room initializing...');
+    console.log('Virtual Classroom initializing...');
     cacheDOM();
 
     try {
@@ -151,22 +148,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         var sessionCode = params.get('code');
         var mode = params.get('mode');
 
-        // PERMANENT HOST LINK: If no code and user is host, generate their permanent code
-        if (!sessionCode && mode === 'host') {
-            sessionCode = 'GLM-HOST-' + state.currentUser.id.substring(0, 8);
-        }
-
-        // Check if it's a permanent host link
-        if (sessionCode && sessionCode.startsWith('GLM-HOST-')) {
-            // This is a host's permanent link
-            var hostIdFromCode = sessionCode.replace('GLM-HOST-', '');
-            // Check if current user matches the host ID
-            if (state.currentUser.id.startsWith(hostIdFromCode) || state.currentUser.id.includes(hostIdFromCode)) {
-                state.isHost = true;
-                mode = 'host';
-            }
-        }
-
+        // Check for saved session
         var savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -183,7 +165,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
 
+        // Determine if user is host (mode=host or they created the session)
         if (mode === 'host') {
+            state.isHost = true;
+        }
+
+        if (state.isHost) {
             await createNewSession(sessionCode);
         } else if (sessionCode) {
             await joinSession(sessionCode);
@@ -198,7 +185,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         startTimer();
         saveSessionState();
 
-        console.log('Virtual Room ready');
+        console.log('Virtual Classroom ready');
         showLoading(false);
 
     } catch (error) {
@@ -215,40 +202,16 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function createNewSession(customCode) {
     try {
         showLoading(true);
-        if (DOM.loadingText) DOM.loadingText.textContent = 'Starting session...';
+        if (DOM.loadingText) DOM.loadingText.textContent = 'Starting classroom...';
 
         sessionStorage.removeItem('glimu_session');
 
+        // Generate session code
         var sessionCode = customCode || generateSessionCode();
         state.sessionCode = sessionCode;
         state.isHost = true;
 
-        // Check if a session already exists for this host
-        var { data: existingSession } = await supabase
-            .from('virtual_sessions')
-            .select('*')
-            .eq('session_code', sessionCode)
-            .eq('status', 'live')
-            .maybeSingle();
-
-        if (existingSession) {
-            // Resume existing session
-            state.sessionId = existingSession.id;
-            state.isLive = true;
-            if (DOM.roomTitle) DOM.roomTitle.textContent = existingSession.title;
-            if (DOM.shareLinkInput) {
-                DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
-            }
-            console.log('Resumed existing session:', state.sessionId);
-            
-            // Load slides and setup
-            await setupSessionComponents();
-            saveSessionState();
-            showToast('Session resumed!', 'success');
-            return;
-        }
-
-        // Create new session
+        // Create session in database
         var { data: session, error } = await supabase
             .from('virtual_sessions')
             .insert({
@@ -256,22 +219,24 @@ async function createNewSession(customCode) {
                 title: (state.userProfile.name || 'User') + '\'s Classroom',
                 session_code: sessionCode,
                 status: 'live',
-                start_time: new Date().toISOString()
+                start_time: new Date().toISOString(),
+                prep_mode: false
             })
             .select()
             .single();
 
         if (error) {
             console.error('Database insert error:', error);
-            showToast('Failed to create session', 'error');
+            showToast('Failed to create classroom', 'error');
             return;
         }
 
         state.sessionId = session.id;
         state.isLive = true;
 
-        console.log('Session created in DB:', state.sessionId);
+        console.log('Classroom created in DB:', state.sessionId);
 
+        // Add host as participant
         await supabase
             .from('session_participants')
             .insert({
@@ -282,6 +247,7 @@ async function createNewSession(customCode) {
                 last_seen: new Date().toISOString()
             });
 
+        // Update UI
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
         if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
@@ -293,7 +259,15 @@ async function createNewSession(customCode) {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
 
-        await setupSessionComponents();
+        // Setup audio and slides
+        createAudioElement();
+        await setupSignalingChannel();
+        await initAudio(true);
+        await loadSlides();
+        setupSlideSubscription();
+        setupCanvas();
+        setupCanvasSubscription();
+        startKeepAlive();
 
         saveSessionState();
 
@@ -303,78 +277,59 @@ async function createNewSession(customCode) {
 
         showToast('Classroom ready! Code: ' + state.sessionCode, 'success');
 
-        console.log('Session started:', sessionCode);
+        console.log('Classroom started:', sessionCode);
 
     } catch (error) {
         console.error('Create session error:', error);
-        showToast('Failed to start session', 'error');
+        showToast('Failed to start classroom', 'error');
     } finally {
         showLoading(false);
     }
 }
 
-async function setupSessionComponents() {
-    // Create audio element for remote audio
-    createAudioElement();
-
-    // Setup signaling channel
-    await setupSignalingChannel();
-
-    // Start audio
-    await initAudio(true);
-
-    // Load existing slides
-    await loadSlides();
-
-    // Listen for slide changes
-    setupSlideSubscription();
-
-    // Setup canvas
-    setupCanvas();
-
-    // Setup canvas subscription
-    setupCanvasSubscription();
-
-    // Start keep-alive for iPhone audio
-    startKeepAlive();
-
-    // Update prep mode status
-    updatePrepModeUI();
-}
-
 async function joinSession(sessionCode) {
     try {
         showLoading(true);
-        if (DOM.loadingText) DOM.loadingText.textContent = 'Joining session...';
+        if (DOM.loadingText) DOM.loadingText.textContent = 'Joining classroom...';
 
         sessionStorage.removeItem('glimu_session');
 
         state.sessionCode = sessionCode;
         state.isHost = false;
 
+        // Find session by code
         var { data: session, error } = await supabase
             .from('virtual_sessions')
             .select('*')
             .eq('session_code', sessionCode.toUpperCase())
-            .single();
+            .maybeSingle();
 
-        if (error || !session) {
-            showToast('Session not found', 'error');
+        if (error) {
+            console.error('Session lookup error:', error);
+            showToast('Error finding session', 'error');
+            setTimeout(function() { window.location.href = '/user'; }, 2000);
+            return;
+        }
+
+        if (!session) {
+            showToast('Classroom not found', 'error');
             setTimeout(function() { window.location.href = '/user'; }, 2000);
             return;
         }
 
         if (session.status === 'ended') {
-            showToast('Session has ended', 'error');
+            showToast('Classroom has ended', 'error');
             setTimeout(function() { window.location.href = '/user'; }, 2000);
             return;
         }
 
         state.sessionId = session.id;
         state.isLive = session.status === 'live';
+        state.prepMode = session.prep_mode || false;
 
-        console.log('Session found in DB:', state.sessionId);
+        console.log('Classroom found in DB:', state.sessionId);
 
+        // Add viewer as participant
         await supabase
             .from('session_participants')
             .upsert({
@@ -385,6 +340,7 @@ async function joinSession(sessionCode) {
                 last_seen: new Date().toISOString()
             }, { onConflict: 'session_id,user_id' });
 
+        // Update UI
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Classroom';
         if (DOM.hostControls) DOM.hostControls.style.display = 'none';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
@@ -408,36 +364,28 @@ async function joinSession(sessionCode) {
             if (DOM.hostName) DOM.hostName.textContent = host.users.name || 'Host';
         }
 
-        // Create audio element
+        // Setup audio and slides
         createAudioElement();
-
-        // Setup signaling channel
         await setupSignalingChannel();
-
-        // Start audio
         await initAudio(false);
-
-        // Load slides
         await loadSlides();
-
-        // Listen for slide changes
         setupSlideSubscription();
-
-        // Setup canvas subscription (viewer only)
         setupCanvasSubscription();
 
-        // Show prep mode if active
-        checkPrepMode();
+        // Check prep mode
+        if (state.prepMode) {
+            showPrepOverlay();
+        }
 
         saveSessionState();
-
         showToast('Connected to classroom!', 'success');
 
-        console.log('Joined session:', sessionCode);
+        console.log('Joined classroom:', sessionCode);
 
     } catch (error) {
         console.error('Join session error:', error);
-        showToast('Failed to join session', 'error');
+        showToast('Failed to join classroom', 'error');
+        setTimeout(function() { window.location.href = '/user'; }, 2000);
     } finally {
         showLoading(false);
     }
@@ -450,14 +398,21 @@ async function joinSession(sessionCode) {
 async function togglePrepMode() {
     if (!state.isHost) return;
 
-    state.prepurMode = !state.prepMode;
+    state.prepMode = !state.prepMode;
     await supabase
         .from('virtual_sessions')
         .update({ prep_mode: state.prepMode })
         .eq('id', state.sessionId);
 
     updatePrepModeUI();
-    showToast(state.prepMode ? '🔒 Prep Mode ON - Viewers blocked' : '🔓 Prep Mode OFF - Viewers can see', 'info');
+    
+    if (state.prepMode) {
+        showToast('🔒 Prep Mode ON - Viewers blocked', 'info');
+    } else {
+        showToast('🔓 Prep Mode OFF - Viewers can see', 'info');
+        // Reload slides for viewers
+        await loadSlides();
+    }
 }
 
 function updatePrepModeUI() {
@@ -466,29 +421,33 @@ function updatePrepModeUI() {
     }
     if (DOM.prepModeStatus) {
         DOM.prepModeStatus.textContent = state.prepMode ? '🔒 Prep Mode' : '🔓 Live';
-        DOM.prepModeStatus.style.color = state.prepMode ? '#f59e0b' : '#10b981';
+        DOM.prepModeStatus.classList.toggle('prep-mode', state.prepMode);
+    }
+    if (state.prepMode && !state.isHost) {
+        showPrepOverlay();
+    } else {
+        hidePrepOverlay();
     }
 }
 
-async function checkPrepMode() {
-    try {
-        var { data: session } = await supabase
-            .from('virtual_sessions')
-            .select('prep_mode')
-            .eq('id', state.sessionId)
-            .single();
+function showPrepOverlay() {
+    if (DOM.prepOverlay) {
+        DOM.prepOverlay.classList.add('active');
+        DOM.prepOverlay.style.display = 'flex';
+    }
+    DOM.currentSlide.style.display = 'none';
+    DOM.slideNav.style.display = 'none';
+}
 
-        if (session) {
-            state.prepMode = session.prep_mode || false;
-            if (state.prepMode && !state.isHost) {
-                DOM.slidePlaceholder.style.display = 'flex';
-                DOM.slidePlaceholder.querySelector('h3').textContent = '🔒 Host is preparing...';
-                DOM.slidePlaceholder.querySelector('p').textContent = 'Please wait for the host to start the presentation';
-                DOM.currentSlide.style.display = 'none';
-                DOM.slideNav.style.display = 'none';
-            }
-        }
-    } catch (e) {}
+function hidePrepOverlay() {
+    if (DOM.prepOverlay) {
+        DOM.prepOverlay.classList.remove('active');
+        DOM.prepOverlay.style.display = 'none';
+    }
+    if (state.slides.length > 0) {
+        DOM.currentSlide.style.display = 'block';
+        DOM.slideNav.style.display = 'flex';
+    }
 }
 
 // ============================================
@@ -540,7 +499,6 @@ function startKeepAlive() {
         clearInterval(state.keepAliveInterval);
     }
 
-    // Create silent audio context for keep-alive
     try {
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     } catch (e) {
@@ -548,14 +506,11 @@ function startKeepAlive() {
     }
 
     state.keepAliveInterval = setInterval(function() {
-        // Send a tiny silent audio pulse to keep the connection alive
         if (state.audioContext && state.audioContext.state === 'suspended') {
             state.audioContext.resume().catch(function() {});
         }
-        // Also send a small data signal via WebRTC
         if (peerConnection && peerConnection.connectionState === 'connected') {
             try {
-                // Send a tiny data channel message to keep connection alive
                 var dc = peerConnection.createDataChannel('keepalive');
                 dc.onopen = function() {
                     dc.send('ping');
@@ -874,11 +829,10 @@ function setupCanvas() {
     var canvas = DOM.canvas;
     var ctx = canvas.getContext('2d');
 
-    // Set canvas size
     function resizeCanvas() {
         var rect = canvas.parentElement.getBoundingClientRect();
         canvas.width = rect.width;
-        canvas.height = rect.height;
+        canvas.height = rect.height - 56;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = state.canvasColor;
@@ -912,7 +866,6 @@ function setupCanvas() {
         ctx.beginPath();
         ctx.moveTo(x, y);
         
-        // Broadcast stroke to viewers (only host)
         if (state.isHost) {
             broadcastCanvasStroke({ x: x, y: y, tool: state.canvasTool, color: state.canvasColor });
         }
@@ -929,7 +882,7 @@ function setupCanvas() {
         state.canvasDrawing = false;
     });
 
-    // Touch events (mobile)
+    // Touch events
     canvas.addEventListener('touchstart', function(e) {
         e.preventDefault();
         state.canvasDrawing = true;
@@ -981,7 +934,7 @@ function setupCanvasSubscription() {
         .channel('canvas_' + state.sessionId)
         .on('broadcast', { event: 'stroke' }, function(payload) {
             if (payload.payload.senderId === state.currentUser.id) return;
-            if (state.isHost) return; // Hosts don't need to replay their own strokes
+            if (state.isHost) return;
             drawCanvasStroke(payload.payload);
         })
         .subscribe();
@@ -1056,12 +1009,11 @@ function toggleCanvas() {
         if (DOM.canvasToggleBtn) {
             DOM.canvasToggleBtn.classList.toggle('active');
         }
-        // Resize canvas when shown
         if (DOM.canvasContainer.classList.contains('active') && DOM.canvas) {
             setTimeout(function() {
                 var rect = DOM.canvas.parentElement.getBoundingClientRect();
                 DOM.canvas.width = rect.width;
-                DOM.canvas.height = rect.height;
+                DOM.canvas.height = rect.height - 56;
                 if (state.canvasCtx) {
                     state.canvasCtx.fillStyle = '#ffffff';
                     state.canvasCtx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
@@ -1164,15 +1116,12 @@ function showSlide(index) {
         return;
     }
 
-    // Check prep mode
     if (state.prepMode && !state.isHost) {
-        DOM.slidePlaceholder.style.display = 'flex';
-        DOM.slidePlaceholder.querySelector('h3').textContent = '🔒 Host is preparing...';
-        DOM.slidePlaceholder.querySelector('p').textContent = 'Please wait for the host to start the presentation';
-        DOM.currentSlide.style.display = 'none';
-        DOM.slideNav.style.display = 'none';
+        showPrepOverlay();
         return;
     }
+
+    hidePrepOverlay();
 
     var slide = state.slides[index];
     DOM.currentSlide.src = slide.image_url + '?t=' + Date.now();
@@ -1544,6 +1493,7 @@ async function recoverSession(savedData) {
         state.sessionCode = session.session_code;
         state.isHost = savedData.isHost || false;
         state.isLive = session.status === 'live';
+        state.prepMode = session.prep_mode || false;
 
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Classroom';
 
@@ -1651,18 +1601,12 @@ function setupRealtimeSubscriptions() {
                 sessionStorage.removeItem('glimu_session');
                 cleanup();
             }
-            // Check prep mode changes
             if (payload.new.prep_mode !== undefined) {
                 state.prepMode = payload.new.prep_mode;
                 if (state.prepMode && !state.isHost) {
-                    DOM.slidePlaceholder.style.display = 'flex';
-                    DOM.slidePlaceholder.querySelector('h3').textContent = '🔒 Host is preparing...';
-                    DOM.slidePlaceholder.querySelector('p').textContent = 'Please wait for the host to start the presentation';
-                    DOM.currentSlide.style.display = 'none';
-                    DOM.slideNav.style.display = 'none';
-                } else if (!state.isHost) {
-                    // Reload slides if prep mode is turned off
-                    loadSlides();
+                    showPrepOverlay();
+                } else {
+                    hidePrepOverlay();
                 }
             }
         })
@@ -1739,7 +1683,7 @@ async function shareToChat() {
         return;
     }
     
-    var message = '📊 Join my live classroom! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+    var message = '📚 Join my live classroom! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
     
     console.log('📤 Sending to chat:', message);
     
@@ -1874,6 +1818,9 @@ function setupEventListeners() {
         DOM.canvasColorPicker.addEventListener('change', function(e) {
             setCanvasColor(e.target.value);
         });
+    }
+    if (document.getElementById('canvasCloseBtn')) {
+        document.getElementById('canvasCloseBtn').addEventListener('click', toggleCanvas);
     }
 
     // Viewer audio mute
@@ -2048,4 +1995,4 @@ window.leaveRoom = leaveRoom;
 window.toggleChatSidebar = toggleChatSidebar;
 window.handleJoinWithCode = window.handleJoinWithCode;
 
-console.log('Virtual Room loaded - Classroom with Canvas');
+console.log('Virtual Classroom loaded - Complete');
