@@ -8,7 +8,6 @@ import { showToast } from '../modules/toast.js';
 function getRTCConfig() {
     return {
         iceServers: [
-            // STUN servers (for NAT traversal)
             { urls: 'stun:stun.cloudflare.com:3478' },
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
@@ -16,8 +15,7 @@ function getRTCConfig() {
             { urls: 'stun:stun3.l.google.com:19302' },
             { urls: 'stun:stun.nextcloud.com:3478' },
             
-            // TURN servers (when STUN fails)
-            // 1. Jitsi TURN (often works)
+            // TURN servers
             {
                 urls: 'turn:turn.jitsi.net:3478',
                 username: 'jitsi',
@@ -28,8 +26,6 @@ function getRTCConfig() {
                 username: 'jitsi',
                 credential: 'jitsi'
             },
-            
-            // 2. OpenRelay TURN (with multiple ports)
             {
                 urls: 'turn:openrelay.metered.ca:80',
                 username: 'openrelayproject',
@@ -41,31 +37,15 @@ function getRTCConfig() {
                 credential: 'openrelayproject'
             },
             {
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            
-            // 3. Numb TURN (community)
-            {
                 urls: 'turn:turn.numb.xyz:3478',
                 username: 'webrtc',
                 credential: 'webrtc'
             },
             {
-                urls: 'turn:turn.numb.xyz:443?transport=tcp',
-                username: 'webrtc',
-                credential: 'webrtc'
-            },
-            
-            // 4. AnyFirewall TURN
-            {
                 urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
                 username: 'webrtc',
                 credential: 'webrtc'
             },
-            
-            // 5. Metered TURN (reliable)
             {
                 urls: 'turn:global.turn.metered.ca:80',
                 username: 'openrelayproject',
@@ -116,10 +96,10 @@ const state = {
     offerSent: false,
     answerReceived: false,
     hasReceivedOffer: false,
-    isProcessing: false,
-    pendingOffers: [],
+    isConnected: false,
     connectionAttempts: 0,
-    maxConnectionAttempts: 3,
+    maxConnectionAttempts: 2,
+    viewersReady: new Set(),
 };
 
 // ============================================
@@ -160,6 +140,18 @@ function cacheDOM() {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Virtual Room initializing...');
     cacheDOM();
+
+    // 🔥 FIX: Click to enable autoplay
+    document.addEventListener('click', function enableAutoplay() {
+        console.log('👆 User clicked - enabling autoplay');
+        document.removeEventListener('click', enableAutoplay);
+        // Try to play any paused videos
+        document.querySelectorAll('video').forEach(function(v) {
+            if (v.paused) {
+                v.play().catch(function() {});
+            }
+        });
+    }, { once: true });
 
     try {
         state.currentUser = await getCurrentUser();
@@ -403,6 +395,7 @@ async function getAudioStream() {
         console.log('Audio stream acquired');
     } catch (err) {
         console.warn('Could not get audio:', err);
+        // Continue without audio - video will still work
     }
 }
 
@@ -480,7 +473,7 @@ function requestOfferFromHost() {
 }
 
 // ============================================
-// WEBRTC SETUP - WITH ALTERNATIVE TURN
+// WEBRTC SETUP
 // ============================================
 
 async function setupWebRTC(isHost) {
@@ -490,7 +483,6 @@ async function setupWebRTC(isHost) {
         
         state.peerConnection = new RTCPeerConnection(getRTCConfig());
 
-        // Add audio track
         if (state.audioStream) {
             state.audioStream.getTracks().forEach(function(track) {
                 state.peerConnection.addTrack(track, state.audioStream);
@@ -552,9 +544,27 @@ async function setupWebRTC(isHost) {
                     DOM.screenVideo.classList.add('active');
                     DOM.screenPlaceholder.style.display = 'none';
                     DOM.hostIndicator.classList.add('active');
-                    DOM.screenVideo.play().catch(function(e) {
-                        console.warn('Video play error:', e);
-                    });
+                    
+                    // 🔥 FIX: Try to play with user gesture
+                    var playVideo = function() {
+                        DOM.screenVideo.play().catch(function(e) {
+                            console.warn('Video play error:', e);
+                            // Show play button overlay
+                            showPlayButton();
+                        });
+                    };
+                    
+                    // If user already interacted, play immediately
+                    if (document.hasFocus()) {
+                        playVideo();
+                    } else {
+                        // Wait for user interaction
+                        document.addEventListener('click', function playOnClick() {
+                            playVideo();
+                            document.removeEventListener('click', playOnClick);
+                        }, { once: true });
+                    }
+                    
                     if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Host is sharing';
                     if (DOM.placeholderText) DOM.placeholderText.textContent = 'You are viewing the host\'s screen';
                 } else {
@@ -568,13 +578,31 @@ async function setupWebRTC(isHost) {
             console.log('Connection state:', stateStr);
             
             if (stateStr === 'connected' || stateStr === 'completed') {
+                state.isConnected = true;
                 showToast('📹 Connected!', 'success');
                 if (DOM.placeholderTitle) DOM.placeholderTitle.textContent = 'Connected!';
                 if (DOM.placeholderText) DOM.placeholderText.textContent = 'Waiting for host to share screen...';
             } else if (stateStr === 'failed') {
+                state.isConnected = false;
                 console.warn('Connection failed');
-                if (state.connectionAttempts < state.maxConnectionAttempts) {
+                // Only retry if not already trying
+                if (state.connectionAttempts < state.maxConnectionAttempts && !state.sessionEnded) {
                     showToast('Connection failed, retrying...', 'warning');
+                    setTimeout(function() {
+                        if (state.isHost && !state.sessionEnded) {
+                            state.offerSent = false;
+                            sendOffer();
+                        } else if (!state.isHost && !state.sessionEnded) {
+                            requestOfferFromHost();
+                        }
+                    }, 3000);
+                } else if (state.connectionAttempts >= state.maxConnectionAttempts) {
+                    showToast('Could not establish connection', 'error');
+                }
+            } else if (stateStr === 'disconnected') {
+                state.isConnected = false;
+                console.warn('Connection disconnected');
+                if (!state.sessionEnded) {
                     setTimeout(function() {
                         if (state.isHost) {
                             state.offerSent = false;
@@ -582,14 +610,11 @@ async function setupWebRTC(isHost) {
                         } else {
                             requestOfferFromHost();
                         }
-                    }, 3000);
-                } else {
-                    showToast('Could not establish connection', 'error');
+                    }, 5000);
                 }
             }
         };
 
-        // ICE gathering state
         state.peerConnection.onicegatheringstatechange = function() {
             console.log('ICE gathering state:', state.peerConnection.iceGatheringState);
         };
@@ -599,6 +624,30 @@ async function setupWebRTC(isHost) {
     } catch (error) {
         console.error('WebRTC setup error:', error);
         showToast('Could not establish connection', 'warning');
+    }
+}
+
+// ============================================
+// SHOW PLAY BUTTON (for autoplay blocked)
+// ============================================
+
+function showPlayButton() {
+    // Check if play button already exists
+    if (document.querySelector('.play-overlay-btn')) return;
+    
+    var overlay = document.createElement('div');
+    overlay.className = 'play-overlay-btn';
+    overlay.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;background:rgba(0,0,0,0.7);border-radius:50%;width:70px;height:70px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid var(--accent);';
+    overlay.innerHTML = '<i class="fas fa-play" style="font-size:28px;color:var(--accent);"></i>';
+    overlay.addEventListener('click', function() {
+        DOM.screenVideo.play().catch(function() {});
+        overlay.remove();
+    });
+    
+    var container = DOM.screenVideo.parentElement;
+    if (container) {
+        container.style.position = 'relative';
+        container.appendChild(overlay);
     }
 }
 
@@ -628,7 +677,7 @@ async function sendOffer() {
 }
 
 // ============================================
-// SIGNALING HANDLER
+// SIGNALING HANDLER - FIXED
 // ============================================
 
 function handleSignalingMessage(message) {
@@ -640,7 +689,7 @@ function handleSignalingMessage(message) {
     try {
         switch (message.type) {
             case 'request_offer':
-                if (state.isHost) {
+                if (state.isHost && !state.sessionEnded) {
                     console.log('📤 Viewer requested offer, sending...');
                     state.offerSent = false;
                     setTimeout(function() {
@@ -650,6 +699,10 @@ function handleSignalingMessage(message) {
                 break;
 
             case 'offer':
+                if (state.hasReceivedOffer) {
+                    console.log('⚠️ Already received offer, skipping');
+                    return;
+                }
                 state.hasReceivedOffer = true;
                 console.log('📨 Received offer, sending answer...');
                 state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
@@ -674,9 +727,9 @@ function handleSignalingMessage(message) {
                 break;
 
             case 'answer':
-                console.log('📨 Received answer');
-                if (state.peerConnection.signalingState === 'have-local-offer' || 
-                    state.peerConnection.signalingState === 'stable') {
+                // Only process if we're expecting an answer
+                if (state.isHost && !state.answerReceived) {
+                    console.log('📨 Received answer');
                     state.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp))
                         .then(function() {
                             state.answerReceived = true;
@@ -686,8 +739,7 @@ function handleSignalingMessage(message) {
                             console.error('Set remote desc error:', err);
                         });
                 } else {
-                    console.log('Skipping answer - wrong state:', state.peerConnection.signalingState);
-                    state.pendingOffers.push(message);
+                    console.log('⚠️ Ignoring answer - already received or not host');
                 }
                 break;
 
@@ -775,9 +827,8 @@ async function toggleScreenShare() {
         DOM.screenVideo.classList.add('active');
         DOM.screenPlaceholder.style.display = 'none';
         DOM.hostIndicator.classList.add('active');
-        await DOM.screenVideo.play();
+        DOM.screenVideo.play().catch(function() {});
 
-        // Add screen track to peer connection
         var screenTrack = state.screenStream.getVideoTracks()[0];
         var sender = state.peerConnection.getSenders().find(function(s) {
             return s.track && s.track.kind === 'video';
@@ -791,7 +842,6 @@ async function toggleScreenShare() {
             console.log('Screen track added');
         }
 
-        // Broadcast to viewers
         broadcastScreenAvailable();
 
         showToast('Screen sharing started!', 'success');
