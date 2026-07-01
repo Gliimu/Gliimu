@@ -267,7 +267,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// JITSI VIDEO - FIXED
+// JITSI VIDEO
 // ============================================
 
 async function loadJitsiScript() {
@@ -311,7 +311,6 @@ async function initJitsiVideo() {
     try {
         console.log('📹 Initializing Jitsi video...');
 
-        // Load script
         await loadJitsiScript();
 
         if (typeof JitsiMeetExternalAPI === 'undefined') {
@@ -370,6 +369,9 @@ async function initJitsiVideo() {
 
         state.jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', options);
 
+        // Store reference for screen sharing
+        window.jitsiApi = state.jitsiApi;
+
         state.jitsiApi.addEventListeners({
             'videoConferenceJoined': function() {
                 console.log('📹 Joined Jitsi conference');
@@ -398,6 +400,26 @@ async function initJitsiVideo() {
         console.error('❌ Jitsi error:', error);
         showToast('Video error: ' + error.message, 'error');
         showLoading(false);
+    }
+}
+
+// ============================================
+// SCREEN SHARE - TRIGGER JITSI
+// ============================================
+
+function toggleScreenShare() {
+    if (!state.jitsiApi) {
+        showToast('Video not ready yet', 'warning');
+        return;
+    }
+
+    try {
+        // Toggle screen sharing in Jitsi
+        state.jitsiApi.executeCommand('toggleShareScreen');
+        showToast('Screen sharing toggled', 'info');
+    } catch (e) {
+        console.error('Screen share error:', e);
+        showToast('Could not start screen share', 'error');
     }
 }
 
@@ -714,8 +736,10 @@ function startTimer() {
 function setupEventListeners() {
     document.getElementById('backBtn').addEventListener('click', leaveRoom);
     document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
-    document.getElementById('endSessionBtn')?.addEventListener('click', endSession);
     document.getElementById('raiseHandBtn').addEventListener('click', toggleRaiseHand);
+    
+    // Screen Share button
+    document.getElementById('screenShareBtn').addEventListener('click', toggleScreenShare);
     
     document.getElementById('tipHeart').addEventListener('click', function() { sendTip(200, '❤️'); });
     document.getElementById('tipStar').addEventListener('click', function() { sendTip(500, '⭐'); });
