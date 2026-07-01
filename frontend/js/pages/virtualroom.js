@@ -27,9 +27,12 @@ const state = {
     peerId: null,
     audioStream: null,
     hostPeerId: null,
+    audioConnected: false,
+    audioFallbackActive: false,
     participantsSubscription: null,
     sessionSubscription: null,
     slideSubscription: null,
+    peerTimeout: null,
 };
 
 // ============================================
@@ -190,6 +193,9 @@ async function createNewSession() {
         // Start audio
         await initAudio(true);
 
+        // Load existing slides
+        await loadSlides();
+
         // Listen for slide changes
         setupSlideSubscription();
 
@@ -273,6 +279,9 @@ async function joinSession(sessionCode) {
         // Start audio
         await initAudio(false);
 
+        // Load slides
+        await loadSlides();
+
         // Listen for slide changes
         setupSlideSubscription();
 
@@ -291,7 +300,7 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// AUDIO (PeerJS)
+// AUDIO (PeerJS with Fallback)
 // ============================================
 
 async function initAudio(isHost) {
@@ -301,7 +310,7 @@ async function initAudio(isHost) {
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             video: false
         });
-        console.log('Audio stream acquired');
+        console.log('✅ Audio stream acquired');
 
         // Initialize PeerJS
         var peerId = 'glimu_' + state.currentUser.id + '_' + Date.now();
@@ -315,18 +324,24 @@ async function initAudio(isHost) {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+                    { urls: 'stun:stun2.l.google.com:19302' }
                 ]
             }
         });
 
-        state.peer.on('open', async function(id) {
-            state.peerId = id;
-            console.log('PeerJS connected:', id);
+        // Set timeout for PeerJS
+        state.peerTimeout = setTimeout(function() {
+            if (state.peer && !state.peer.open) {
+                console.warn('PeerJS timeout, using fallback');
+                useAudioFallback(isHost);
+            }
+        }, 15000);
 
-            // Save peer ID to database
+        state.peer.on('open', async function(id) {
+            clearTimeout(state.peerTimeout);
+            state.peerId = id;
+            console.log('✅ PeerJS connected:', id);
+
             await supabase
                 .from('session_participants')
                 .update({ peer_id: id })
@@ -334,36 +349,63 @@ async function initAudio(isHost) {
                 .eq('user_id', state.currentUser.id);
 
             if (isHost) {
-                // Host: Wait for incoming calls
                 state.peer.on('call', handleIncomingCall);
                 console.log('Host waiting for audio connections...');
+                if (DOM.hostStatus) DOM.hostStatus.textContent = '🎙️ Audio ready';
             } else {
-                // Viewer: Connect to host
-                await connectToHost();
+                setTimeout(function() {
+                    connectToHostAudio();
+                }, 2000);
             }
         });
 
         state.peer.on('error', function(err) {
+            clearTimeout(state.peerTimeout);
             console.error('PeerJS error:', err.message);
+            if (!state.audioFallbackActive) {
+                useAudioFallback(isHost);
+            }
+        });
+
+        state.peer.on('disconnected', function() {
+            console.warn('PeerJS disconnected');
+            if (!state.audioFallbackActive) {
+                state.peer.reconnect();
+            }
         });
 
     } catch (err) {
         console.warn('Could not get audio:', err);
-        showToast('Audio unavailable. Using chat only.', 'warning');
+        useAudioFallback(false);
     }
 }
 
-async function connectToHost() {
+function useAudioFallback(isHost) {
+    if (state.audioFallbackActive) return;
+    state.audioFallbackActive = true;
+    
+    console.log('Using audio fallback - chat only');
+    showToast('Audio unavailable. Using chat only.', 'warning');
+    
+    if (DOM.hostStatus) {
+        DOM.hostStatus.textContent = '🎙️ Audio unavailable';
+        DOM.hostStatus.style.color = '#f59e0b';
+    }
+}
+
+async function connectToHostAudio() {
+    if (state.audioFallbackActive || state.audioConnected) return;
+    
     try {
-        var { data: host } = await supabase
+        var { data: host, error } = await supabase
             .from('session_participants')
             .select('peer_id')
             .eq('session_id', state.sessionId)
             .eq('role', 'host')
             .single();
 
-        if (!host || !host.peer_id) {
-            setTimeout(connectToHost, 3000);
+        if (error || !host || !host.peer_id) {
+            setTimeout(connectToHostAudio, 3000);
             return;
         }
 
@@ -372,19 +414,27 @@ async function connectToHost() {
 
         var call = state.peer.call(state.hostPeerId, state.audioStream);
         call.on('stream', function(remoteStream) {
-            console.log('Host audio stream received!');
-            // Audio plays automatically
-            if (DOM.hostStatus) DOM.hostStatus.textContent = '🟢 Audio connected';
+            console.log('✅ Host audio stream received!');
+            state.audioConnected = true;
+            if (DOM.hostStatus) {
+                DOM.hostStatus.textContent = '🎙️ Audio connected';
+                DOM.hostStatus.style.color = '#10b981';
+            }
+            showToast('🎙️ Audio connected!', 'success');
         });
         call.on('close', function() {
             console.log('Host audio disconnected');
-            if (DOM.hostStatus) DOM.hostStatus.textContent = '🔴 Audio disconnected';
-            setTimeout(connectToHost, 5000);
+            state.audioConnected = false;
+            if (DOM.hostStatus) {
+                DOM.hostStatus.textContent = '🎙️ Reconnecting...';
+                DOM.hostStatus.style.color = '#f59e0b';
+            }
+            setTimeout(connectToHostAudio, 5000);
         });
 
     } catch (error) {
         console.error('Connect to host error:', error);
-        setTimeout(connectToHost, 3000);
+        setTimeout(connectToHostAudio, 3000);
     }
 }
 
@@ -413,7 +463,10 @@ function toggleMicrophone() {
 function setupSlideSubscription() {
     if (state.slideSubscription) {
         state.slideSubscription.unsubscribe();
+        state.slideSubscription = null;
     }
+
+    if (!state.sessionId) return;
 
     state.slideSubscription = supabase
         .channel('slides_' + state.sessionId)
@@ -423,7 +476,7 @@ function setupSlideSubscription() {
             table: 'session_slides',
             filter: 'session_id=eq.' + state.sessionId
         }, function(payload) {
-            console.log('New slide uploaded:', payload.new);
+            console.log('New slide inserted:', payload.new);
             state.slides.push(payload.new);
             if (state.slides.length === 1) {
                 showSlide(0);
@@ -445,27 +498,45 @@ function setupSlideSubscription() {
                 }
             }
         })
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'session_slides',
+            filter: 'session_id=eq.' + state.sessionId
+        }, function() {
+            console.log('Slide deleted, reloading...');
+            loadSlides();
+        })
         .subscribe();
-
-    // Load existing slides
-    loadSlides();
 }
 
 async function loadSlides() {
     try {
+        if (!state.sessionId) return;
+        
         var { data: slides, error } = await supabase
             .from('session_slides')
             .select('*')
             .eq('session_id', state.sessionId)
-            .order('created_at', { ascending: true });
+            .order('order', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+            console.warn('Load slides error:', error);
+            return;
+        }
 
         state.slides = slides || [];
+        console.log('Loaded ' + state.slides.length + ' slides');
+
         if (state.slides.length > 0) {
             var currentIndex = state.slides.findIndex(function(s) { return s.is_current; });
             state.currentSlideIndex = currentIndex !== -1 ? currentIndex : 0;
             showSlide(state.currentSlideIndex);
+        } else {
+            DOM.currentSlide.style.display = 'none';
+            DOM.slidePlaceholder.style.display = 'flex';
+            DOM.slideCounter.textContent = '0 / 0';
+            DOM.slideNav.style.display = 'none';
         }
         updateUI();
     } catch (error) {
@@ -474,7 +545,9 @@ async function loadSlides() {
 }
 
 function showSlide(index) {
-    if (!state.slides.length || index < 0 || index >= state.slides.length) return;
+    if (!state.slides.length || index < 0 || index >= state.slides.length) {
+        return;
+    }
 
     var slide = state.slides[index];
     DOM.currentSlide.src = slide.image_url + '?t=' + Date.now();
@@ -513,6 +586,19 @@ function prevSlide() {
     }
 }
 
+function updateUI() {
+    if (state.slides.length > 0) {
+        DOM.slideNav.style.display = 'flex';
+    } else {
+        DOM.slideNav.style.display = 'none';
+        if (!DOM.currentSlide.src) {
+            DOM.currentSlide.style.display = 'none';
+            DOM.slidePlaceholder.style.display = 'flex';
+            DOM.slideCounter.textContent = '0 / 0';
+        }
+    }
+}
+
 // ============================================
 // SLIDE UPLOAD
 // ============================================
@@ -529,29 +615,20 @@ function openUploadModal() {
 }
 
 function handleFileSelect(files) {
-    var previewHtml = '';
     var fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
 
+    var previewHtml = '';
+    
     fileArray.forEach(function(file, index) {
         var reader = new FileReader();
         reader.onload = function(e) {
-            previewHtml += '<div class="preview-item"><img src="' + e.target.result + '"><button class="remove-item" data-index="' + index + '">×</button></div>';
+            previewHtml += '<div class="preview-item" data-index="' + index + '">' +
+                '<img src="' + e.target.result + '">' +
+                '<button class="remove-item" data-index="' + index + '">×</button>' +
+                '</div>';
             DOM.uploadPreview.innerHTML = previewHtml;
             DOM.uploadSlidesBtn.style.display = 'block';
-
-            // Add remove handlers
-            DOM.uploadPreview.querySelectorAll('.remove-item').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var idx = parseInt(this.dataset.index);
-                    // Remove from file list
-                    // Re-render preview
-                    var remaining = [];
-                    document.querySelectorAll('.preview-item').forEach(function(el, i) {
-                        if (i !== idx) remaining.push(el);
-                    });
-                    // Simple: just clear and re-add
-                });
-            });
         };
         reader.readAsDataURL(file);
     });
@@ -567,25 +644,36 @@ async function uploadSlides() {
     showLoading(true);
     if (DOM.loadingText) DOM.loadingText.textContent = 'Uploading slides...';
 
+    var uploaded = 0;
+    var failed = 0;
+
     try {
         for (var i = 0; i < files.length; i++) {
             var file = files[i];
-            var ext = file.name.split('.').pop();
+            var ext = file.name.split('.').pop() || 'png';
             var path = 'slides/' + state.sessionId + '/' + Date.now() + '_' + i + '.' + ext;
 
+            // Upload to storage
             var { error: uploadError } = await supabase.storage
                 .from('presentation-files')
-                .upload(path, file);
+                .upload(path, file, {
+                    cacheControl: 'public, max-age=31536000',
+                    upsert: false
+                });
 
             if (uploadError) {
-                console.error('Upload error:', uploadError);
+                console.error('Upload error for ' + file.name + ':', uploadError);
+                failed++;
+                showToast('Failed to upload: ' + file.name, 'error');
                 continue;
             }
 
+            // Get public URL
             var { data: { publicUrl } } = supabase.storage
                 .from('presentation-files')
                 .getPublicUrl(path);
 
+            // Insert into database
             var isFirst = i === 0 && state.slides.length === 0;
 
             var { error: insertError } = await supabase
@@ -599,34 +687,33 @@ async function uploadSlides() {
 
             if (insertError) {
                 console.error('Insert error:', insertError);
+                failed++;
+                // Try to delete the uploaded file if insert fails
+                await supabase.storage
+                    .from('presentation-files')
+                    .remove([path]);
+                continue;
             }
+
+            uploaded++;
         }
 
-        showToast('Slides uploaded successfully!', 'success');
-        DOM.uploadModal.classList.remove('active');
-        DOM.slideFileInput.value = '';
-        DOM.uploadPreview.innerHTML = '';
-        DOM.uploadSlidesBtn.style.display = 'none';
-
-        // Reload slides
-        await loadSlides();
+        if (uploaded > 0) {
+            showToast(uploaded + ' slide(s) uploaded successfully!', 'success');
+            DOM.uploadModal.classList.remove('active');
+            DOM.slideFileInput.value = '';
+            DOM.uploadPreview.innerHTML = '';
+            DOM.uploadSlidesBtn.style.display = 'none';
+            await loadSlides();
+        } else if (failed > 0 && uploaded === 0) {
+            showToast('Failed to upload slides. Check permissions.', 'error');
+        }
 
     } catch (error) {
         console.error('Upload slides error:', error);
-        showToast('Failed to upload slides', 'error');
+        showToast('Failed to upload slides: ' + error.message, 'error');
     } finally {
         showLoading(false);
-    }
-}
-
-function updateUI() {
-    if (state.slides.length > 0) {
-        DOM.slideNav.style.display = 'flex';
-    } else {
-        DOM.slideNav.style.display = 'none';
-        DOM.currentSlide.style.display = 'none';
-        DOM.slidePlaceholder.style.display = 'flex';
-        DOM.slideCounter.textContent = '0 / 0';
     }
 }
 
@@ -710,7 +797,6 @@ async function sendTip(amount, emoji) {
             message: emoji + ' ' + (state.userProfile.name || 'Someone') + ' sent ₦' + amount
         });
 
-        // Update host stats
         updateHostStats();
 
     } catch (error) {
@@ -723,13 +809,12 @@ async function updateHostStats() {
     try {
         var { data: session } = await supabase
             .from('virtual_sessions')
-            .select('stars_count, tips_total')
+            .select('tips_total')
             .eq('id', state.sessionId)
             .single();
 
-        if (session) {
-            if (DOM.hostStars) DOM.hostStars.textContent = session.stars_count || 0;
-            if (DOM.hostTips) DOM.hostTips.textContent = '₦' + (session.tips_total || 0);
+        if (session && DOM.hostTips) {
+            DOM.hostTips.textContent = '₦' + (session.tips_total || 0);
         }
     } catch (e) {}
 }
@@ -749,6 +834,12 @@ async function endSession() {
     try {
         if (state.peer) {
             state.peer.destroy();
+            state.peer = null;
+        }
+
+        if (state.audioStream) {
+            state.audioStream.getTracks().forEach(function(t) { t.stop(); });
+            state.audioStream = null;
         }
 
         if (state.sessionId) {
@@ -814,6 +905,7 @@ async function recoverSession(savedData) {
         }
 
         await initAudio(state.isHost);
+        await loadSlides();
         setupSlideSubscription();
         await loadParticipants();
         showToast('Session recovered!', 'success');
@@ -856,7 +948,6 @@ async function loadParticipants() {
         state.viewerCount = viewers.length;
         if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
 
-        // Get host name
         var host = data.find(function(p) { return p.role === 'host'; });
         if (host && DOM.hostName) DOM.hostName.textContent = host.name || 'Host';
 
@@ -1016,10 +1107,10 @@ function setupEventListeners() {
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && !e.target.closest('input')) {
             e.preventDefault();
             nextSlide();
-        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && !e.target.closest('input')) {
             e.preventDefault();
             prevSlide();
         }
@@ -1030,14 +1121,19 @@ function setupEventListeners() {
     document.getElementById('closeUploadModal').addEventListener('click', function() {
         DOM.uploadModal.classList.remove('active');
     });
-    DOM.uploadArea.addEventListener('click', function() {
-        DOM.slideFileInput.click();
-    });
+    
+    if (DOM.uploadArea) {
+        DOM.uploadArea.addEventListener('click', function() {
+            DOM.slideFileInput.click();
+        });
+    }
+    
     DOM.slideFileInput.addEventListener('change', function() {
         if (this.files.length > 0) {
             handleFileSelect(this.files);
         }
     });
+    
     DOM.uploadSlidesBtn.addEventListener('click', uploadSlides);
 
     // Tipping
@@ -1078,7 +1174,9 @@ function setupEventListeners() {
     });
 
     // Microphone
-    DOM.micBtn.addEventListener('click', toggleMicrophone);
+    if (DOM.micBtn) {
+        DOM.micBtn.addEventListener('click', toggleMicrophone);
+    }
 
     // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(function(modal) {
@@ -1177,7 +1275,9 @@ async function copyShareLink() {
 
 function cleanup() {
     if (state.peer) {
-        state.peer.destroy();
+        try {
+            state.peer.destroy();
+        } catch (e) {}
         state.peer = null;
     }
     if (state.audioStream) {
@@ -1189,12 +1289,19 @@ function cleanup() {
     }
     if (state.participantsSubscription) {
         state.participantsSubscription.unsubscribe();
+        state.participantsSubscription = null;
     }
     if (state.sessionSubscription) {
         state.sessionSubscription.unsubscribe();
+        state.sessionSubscription = null;
     }
     if (state.slideSubscription) {
         state.slideSubscription.unsubscribe();
+        state.slideSubscription = null;
+    }
+    if (state.peerTimeout) {
+        clearTimeout(state.peerTimeout);
+        state.peerTimeout = null;
     }
 }
 
