@@ -13,6 +13,7 @@ const state = {
     isHost: false,
     isLive: false,
     sessionEnded: false,
+    prepMode: false,
     participants: new Map(),
     viewerCount: 0,
     handRaised: false,
@@ -31,6 +32,19 @@ const state = {
     sessionSubscription: null,
     slideSubscription: null,
     signalingSubscription: null,
+    canvasSubscription: null,
+    // Canvas state
+    canvasCtx: null,
+    canvasDrawing: false,
+    canvasColor: '#fbb040',
+    canvasTool: 'pen',
+    canvasLastX: 0,
+    canvasLastY: 0,
+    // Keep alive
+    keepAliveInterval: null,
+    audioContext: null,
+    // Viewer audio mute
+    viewerAudioMuted: false,
 };
 
 // ============================================
@@ -99,6 +113,17 @@ function cacheDOM() {
     DOM.slideFileInput = document.getElementById('slideFileInput');
     DOM.micBtn = document.getElementById('micBtn');
     DOM.uploadBtn = document.getElementById('uploadBtn');
+    DOM.prepModeBtn = document.getElementById('prepModeBtn');
+    DOM.prepModeStatus = document.getElementById('prepModeStatus');
+    DOM.canvasContainer = document.getElementById('canvasContainer');
+    DOM.canvas = document.getElementById('teachingCanvas');
+    DOM.canvasTools = document.getElementById('canvasTools');
+    DOM.canvasColorPicker = document.getElementById('canvasColorPicker');
+    DOM.canvasPenBtn = document.getElementById('canvasPenBtn');
+    DOM.canvasEraserBtn = document.getElementById('canvasEraserBtn');
+    DOM.canvasClearBtn = document.getElementById('canvasClearBtn');
+    DOM.canvasToggleBtn = document.getElementById('canvasToggleBtn');
+    DOM.viewerAudioMuteBtn = document.getElementById('viewerAudioMuteBtn');
 }
 
 // ============================================
@@ -126,6 +151,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         var sessionCode = params.get('code');
         var mode = params.get('mode');
 
+        // PERMANENT HOST LINK: If no code and user is host, generate their permanent code
+        if (!sessionCode && mode === 'host') {
+            sessionCode = 'GLM-HOST-' + state.currentUser.id.substring(0, 8);
+        }
+
+        // Check if it's a permanent host link
+        if (sessionCode && sessionCode.startsWith('GLM-HOST-')) {
+            // This is a host's permanent link
+            var hostIdFromCode = sessionCode.replace('GLM-HOST-', '');
+            // Check if current user matches the host ID
+            if (state.currentUser.id.startsWith(hostIdFromCode) || state.currentUser.id.includes(hostIdFromCode)) {
+                state.isHost = true;
+                mode = 'host';
+            }
+        }
+
         var savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -143,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         if (mode === 'host') {
-            await createNewSession();
+            await createNewSession(sessionCode);
         } else if (sessionCode) {
             await joinSession(sessionCode);
         } else {
@@ -171,22 +212,48 @@ document.addEventListener('DOMContentLoaded', async function() {
 // SESSION MANAGEMENT
 // ============================================
 
-async function createNewSession() {
+async function createNewSession(customCode) {
     try {
         showLoading(true);
         if (DOM.loadingText) DOM.loadingText.textContent = 'Starting session...';
 
         sessionStorage.removeItem('glimu_session');
 
-        var sessionCode = generateSessionCode();
+        var sessionCode = customCode || generateSessionCode();
         state.sessionCode = sessionCode;
         state.isHost = true;
 
+        // Check if a session already exists for this host
+        var { data: existingSession } = await supabase
+            .from('virtual_sessions')
+            .select('*')
+            .eq('session_code', sessionCode)
+            .eq('status', 'live')
+            .maybeSingle();
+
+        if (existingSession) {
+            // Resume existing session
+            state.sessionId = existingSession.id;
+            state.isLive = true;
+            if (DOM.roomTitle) DOM.roomTitle.textContent = existingSession.title;
+            if (DOM.shareLinkInput) {
+                DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+            }
+            console.log('Resumed existing session:', state.sessionId);
+            
+            // Load slides and setup
+            await setupSessionComponents();
+            saveSessionState();
+            showToast('Session resumed!', 'success');
+            return;
+        }
+
+        // Create new session
         var { data: session, error } = await supabase
             .from('virtual_sessions')
             .insert({
                 host_id: state.currentUser.id,
-                title: (state.userProfile.name || 'User') + '\'s Presentation',
+                title: (state.userProfile.name || 'User') + '\'s Classroom',
                 session_code: sessionCode,
                 status: 'live',
                 start_time: new Date().toISOString()
@@ -220,24 +287,13 @@ async function createNewSession() {
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
         if (DOM.hostName) DOM.hostName.textContent = state.userProfile.name || 'Host';
         if (DOM.uploadBtn) DOM.uploadBtn.style.display = 'flex';
+        if (DOM.prepModeBtn) DOM.prepModeBtn.style.display = 'flex';
+        if (DOM.canvasToggleBtn) DOM.canvasToggleBtn.style.display = 'flex';
         if (DOM.shareLinkInput) {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
 
-        // Create audio element for remote audio
-        createAudioElement();
-
-        // Setup signaling channel
-        await setupSignalingChannel();
-
-        // Start audio
-        await initAudio(true);
-
-        // Load existing slides
-        await loadSlides();
-
-        // Listen for slide changes
-        setupSlideSubscription();
+        await setupSessionComponents();
 
         saveSessionState();
 
@@ -245,7 +301,7 @@ async function createNewSession() {
             if (DOM.shareModal) DOM.shareModal.classList.add('active');
         }, 2000);
 
-        showToast('Session started! Code: ' + state.sessionCode, 'success');
+        showToast('Classroom ready! Code: ' + state.sessionCode, 'success');
 
         console.log('Session started:', sessionCode);
 
@@ -255,6 +311,35 @@ async function createNewSession() {
     } finally {
         showLoading(false);
     }
+}
+
+async function setupSessionComponents() {
+    // Create audio element for remote audio
+    createAudioElement();
+
+    // Setup signaling channel
+    await setupSignalingChannel();
+
+    // Start audio
+    await initAudio(true);
+
+    // Load existing slides
+    await loadSlides();
+
+    // Listen for slide changes
+    setupSlideSubscription();
+
+    // Setup canvas
+    setupCanvas();
+
+    // Setup canvas subscription
+    setupCanvasSubscription();
+
+    // Start keep-alive for iPhone audio
+    startKeepAlive();
+
+    // Update prep mode status
+    updatePrepModeUI();
 }
 
 async function joinSession(sessionCode) {
@@ -300,16 +385,16 @@ async function joinSession(sessionCode) {
                 last_seen: new Date().toISOString()
             }, { onConflict: 'session_id,user_id' });
 
-        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Presentation';
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Classroom';
         if (DOM.hostControls) DOM.hostControls.style.display = 'none';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
         if (DOM.uploadBtn) DOM.uploadBtn.style.display = 'none';
+        if (DOM.prepModeBtn) DOM.prepModeBtn.style.display = 'none';
+        if (DOM.canvasToggleBtn) DOM.canvasToggleBtn.style.display = 'none';
+        if (DOM.viewerAudioMuteBtn) DOM.viewerAudioMuteBtn.style.display = 'flex';
         if (DOM.shareLinkInput) {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
-
-        // Create audio element for remote audio
-        createAudioElement();
 
         // Get host name
         var { data: host } = await supabase
@@ -323,6 +408,9 @@ async function joinSession(sessionCode) {
             if (DOM.hostName) DOM.hostName.textContent = host.users.name || 'Host';
         }
 
+        // Create audio element
+        createAudioElement();
+
         // Setup signaling channel
         await setupSignalingChannel();
 
@@ -335,9 +423,15 @@ async function joinSession(sessionCode) {
         // Listen for slide changes
         setupSlideSubscription();
 
+        // Setup canvas subscription (viewer only)
+        setupCanvasSubscription();
+
+        // Show prep mode if active
+        checkPrepMode();
+
         saveSessionState();
 
-        showToast('Connected to session!', 'success');
+        showToast('Connected to classroom!', 'success');
 
         console.log('Joined session:', sessionCode);
 
@@ -350,17 +444,63 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
+// PREP MODE
+// ============================================
+
+async function togglePrepMode() {
+    if (!state.isHost) return;
+
+    state.prepurMode = !state.prepMode;
+    await supabase
+        .from('virtual_sessions')
+        .update({ prep_mode: state.prepMode })
+        .eq('id', state.sessionId);
+
+    updatePrepModeUI();
+    showToast(state.prepMode ? '🔒 Prep Mode ON - Viewers blocked' : '🔓 Prep Mode OFF - Viewers can see', 'info');
+}
+
+function updatePrepModeUI() {
+    if (DOM.prepModeBtn) {
+        DOM.prepModeBtn.classList.toggle('active', state.prepMode);
+    }
+    if (DOM.prepModeStatus) {
+        DOM.prepModeStatus.textContent = state.prepMode ? '🔒 Prep Mode' : '🔓 Live';
+        DOM.prepModeStatus.style.color = state.prepMode ? '#f59e0b' : '#10b981';
+    }
+}
+
+async function checkPrepMode() {
+    try {
+        var { data: session } = await supabase
+            .from('virtual_sessions')
+            .select('prep_mode')
+            .eq('id', state.sessionId)
+            .single();
+
+        if (session) {
+            state.prepMode = session.prep_mode || false;
+            if (state.prepMode && !state.isHost) {
+                DOM.slidePlaceholder.style.display = 'flex';
+                DOM.slidePlaceholder.querySelector('h3').textContent = '🔒 Host is preparing...';
+                DOM.slidePlaceholder.querySelector('p').textContent = 'Please wait for the host to start the presentation';
+                DOM.currentSlide.style.display = 'none';
+                DOM.slideNav.style.display = 'none';
+            }
+        }
+    } catch (e) {}
+}
+
+// ============================================
 // CREATE AUDIO ELEMENT
 // ============================================
 
 function createAudioElement() {
-    // Remove existing audio element if any
     if (state.remoteAudioElement) {
         state.remoteAudioElement.remove();
         state.remoteAudioElement = null;
     }
 
-    // Create hidden audio element for remote audio
     var audio = document.createElement('audio');
     audio.id = 'remoteAudio';
     audio.autoplay = true;
@@ -371,6 +511,61 @@ function createAudioElement() {
     
     state.remoteAudioElement = audio;
     console.log('🔊 Audio element created');
+}
+
+// ============================================
+// VIEWER AUDIO MUTE
+// ============================================
+
+function toggleViewerAudio() {
+    state.viewerAudioMuted = !state.viewerAudioMuted;
+    if (state.remoteAudioElement) {
+        state.remoteAudioElement.muted = state.viewerAudioMuted;
+    }
+    if (DOM.viewerAudioMuteBtn) {
+        DOM.viewerAudioMuteBtn.classList.toggle('active', state.viewerAudioMuted);
+        DOM.viewerAudioMuteBtn.innerHTML = state.viewerAudioMuted ? 
+            '<i class="fas fa-volume-mute"></i><span class="btn-label">Unmute</span>' : 
+            '<i class="fas fa-volume-up"></i><span class="btn-label">Mute</span>';
+    }
+    showToast(state.viewerAudioMuted ? '🔇 Audio muted' : '🔊 Audio unmuted', 'info');
+}
+
+// ============================================
+// AUDIO KEEP-ALIVE (iPhone Fix)
+// ============================================
+
+function startKeepAlive() {
+    if (state.keepAliveInterval) {
+        clearInterval(state.keepAliveInterval);
+    }
+
+    // Create silent audio context for keep-alive
+    try {
+        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+        console.warn('AudioContext not available');
+    }
+
+    state.keepAliveInterval = setInterval(function() {
+        // Send a tiny silent audio pulse to keep the connection alive
+        if (state.audioContext && state.audioContext.state === 'suspended') {
+            state.audioContext.resume().catch(function() {});
+        }
+        // Also send a small data signal via WebRTC
+        if (peerConnection && peerConnection.connectionState === 'connected') {
+            try {
+                // Send a tiny data channel message to keep connection alive
+                var dc = peerConnection.createDataChannel('keepalive');
+                dc.onopen = function() {
+                    dc.send('ping');
+                    setTimeout(function() { dc.close(); }, 100);
+                };
+            } catch (e) {}
+        }
+    }, 30000);
+
+    console.log('🔊 Keep-alive started');
 }
 
 // ============================================
@@ -471,7 +666,6 @@ async function initAudio(isHost) {
         if (isHost) {
             console.log('Host waiting for viewers...');
         } else {
-            // Viewer: send ready signal to host
             setTimeout(function() {
                 console.log('Viewer sending ready signal...');
                 sendSignalingMessage({
@@ -495,7 +689,6 @@ async function createOffer(targetUserId) {
     if (!state.audioStream || !state.isHost) return;
 
     try {
-        // Close existing connection if any
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
@@ -503,12 +696,10 @@ async function createOffer(targetUserId) {
 
         peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
-        // Add audio track
         state.audioStream.getTracks().forEach(function(track) {
             peerConnection.addTrack(track, state.audioStream);
         });
 
-        // Handle ICE candidates
         peerConnection.onicecandidate = function(event) {
             if (event.candidate) {
                 sendSignalingMessage({
@@ -520,7 +711,6 @@ async function createOffer(targetUserId) {
             }
         };
 
-        // Connection state
         peerConnection.onconnectionstatechange = function() {
             console.log('Connection state:', peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected') {
@@ -532,7 +722,6 @@ async function createOffer(targetUserId) {
             }
         };
 
-        // Create offer
         var offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
@@ -554,7 +743,6 @@ async function handleOffer(message) {
     if (!state.audioStream) return;
 
     try {
-        // Close existing connection if any
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
@@ -562,12 +750,10 @@ async function handleOffer(message) {
 
         peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
-        // Add audio track
         state.audioStream.getTracks().forEach(function(track) {
             peerConnection.addTrack(track, state.audioStream);
         });
 
-        // Handle ICE candidates
         peerConnection.onicecandidate = function(event) {
             if (event.candidate) {
                 sendSignalingMessage({
@@ -579,11 +765,9 @@ async function handleOffer(message) {
             }
         };
 
-        // Handle remote stream - ATTACH TO AUDIO ELEMENT
         peerConnection.ontrack = function(event) {
             console.log('🎵 Remote audio stream received!');
             
-            // 🔥 CRITICAL FIX: Attach stream to audio element
             if (state.remoteAudioElement) {
                 state.remoteAudioElement.srcObject = event.streams[0];
                 state.remoteAudioElement.play().then(function() {
@@ -596,7 +780,6 @@ async function handleOffer(message) {
                     showToast('🎙️ Audio connected!', 'success');
                 }).catch(function(err) {
                     console.warn('Audio play error:', err);
-                    // Try again with user interaction
                     document.addEventListener('click', function playOnClick() {
                         if (state.remoteAudioElement) {
                             state.remoteAudioElement.play().catch(function() {});
@@ -605,7 +788,6 @@ async function handleOffer(message) {
                     }, { once: true });
                 });
             } else {
-                console.warn('No audio element found, creating one...');
                 createAudioElement();
                 if (state.remoteAudioElement) {
                     state.remoteAudioElement.srcObject = event.streams[0];
@@ -614,7 +796,6 @@ async function handleOffer(message) {
             }
         };
 
-        // Connection state
         peerConnection.onconnectionstatechange = function() {
             console.log('Connection state:', peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected') {
@@ -626,10 +807,8 @@ async function handleOffer(message) {
             }
         };
 
-        // Set remote description
         await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
 
-        // Create answer
         var answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
@@ -651,7 +830,6 @@ async function handleAnswer(message) {
     if (!peerConnection) return;
 
     try {
-        // Only process if we're in the right state
         if (peerConnection.signalingState === 'have-local-offer' || 
             peerConnection.signalingState === 'stable') {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
@@ -684,6 +862,213 @@ function toggleMicrophone() {
     track.enabled = !track.enabled;
     if (DOM.micBtn) DOM.micBtn.classList.toggle('off', state.isMuted);
     showToast(state.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
+}
+
+// ============================================
+// CANVAS / WHITEBOARD
+// ============================================
+
+function setupCanvas() {
+    if (!DOM.canvas) return;
+
+    var canvas = DOM.canvas;
+    var ctx = canvas.getContext('2d');
+
+    // Set canvas size
+    function resizeCanvas() {
+        var rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = state.canvasColor;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    state.canvasCtx = ctx;
+
+    // Mouse events
+    canvas.addEventListener('mousedown', function(e) {
+        state.canvasDrawing = true;
+        var rect = canvas.getBoundingClientRect();
+        state.canvasLastX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        state.canvasLastY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        ctx.beginPath();
+        ctx.moveTo(state.canvasLastX, state.canvasLastY);
+    });
+
+    canvas.addEventListener('mousemove', function(e) {
+        if (!state.canvasDrawing) return;
+        var rect = canvas.getBoundingClientRect();
+        var x = (e.clientX - rect.left) * (canvas.width / rect.width);
+        var y = (e.clientY - rect.top) * (canvas.height / rect.height);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        
+        // Broadcast stroke to viewers (only host)
+        if (state.isHost) {
+            broadcastCanvasStroke({ x: x, y: y, tool: state.canvasTool, color: state.canvasColor });
+        }
+    });
+
+    canvas.addEventListener('mouseup', function() {
+        state.canvasDrawing = false;
+        if (state.isHost) {
+            broadcastCanvasStroke({ type: 'end' });
+        }
+    });
+
+    canvas.addEventListener('mouseleave', function() {
+        state.canvasDrawing = false;
+    });
+
+    // Touch events (mobile)
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        state.canvasDrawing = true;
+        var rect = canvas.getBoundingClientRect();
+        var touch = e.touches[0];
+        state.canvasLastX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+        state.canvasLastY = (touch.clientY - rect.top) * (canvas.height / rect.height);
+        ctx.beginPath();
+        ctx.moveTo(state.canvasLastX, state.canvasLastY);
+    });
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (!state.canvasDrawing) return;
+        var rect = canvas.getBoundingClientRect();
+        var touch = e.touches[0];
+        var x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+        var y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        
+        if (state.isHost) {
+            broadcastCanvasStroke({ x: x, y: y, tool: state.canvasTool, color: state.canvasColor });
+        }
+    });
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        state.canvasDrawing = false;
+        if (state.isHost) {
+            broadcastCanvasStroke({ type: 'end' });
+        }
+    });
+
+    console.log('✅ Canvas initialized');
+}
+
+function setupCanvasSubscription() {
+    if (state.canvasSubscription) {
+        state.canvasSubscription.unsubscribe();
+        state.canvasSubscription = null;
+    }
+
+    if (!state.sessionId) return;
+
+    state.canvasSubscription = supabase
+        .channel('canvas_' + state.sessionId)
+        .on('broadcast', { event: 'stroke' }, function(payload) {
+            if (payload.payload.senderId === state.currentUser.id) return;
+            if (state.isHost) return; // Hosts don't need to replay their own strokes
+            drawCanvasStroke(payload.payload);
+        })
+        .subscribe();
+}
+
+function broadcastCanvasStroke(data) {
+    if (!state.sessionId || !state.isHost) return;
+    
+    data.senderId = state.currentUser.id;
+    data.timestamp = Date.now();
+
+    supabase.channel('canvas_' + state.sessionId).send({
+        type: 'broadcast',
+        event: 'stroke',
+        payload: data
+    }).catch(function(err) {
+        console.warn('Could not broadcast stroke:', err);
+    });
+}
+
+function drawCanvasStroke(data) {
+    if (!state.canvasCtx) return;
+    var ctx = state.canvasCtx;
+    var canvas = DOM.canvas;
+
+    if (data.type === 'end') {
+        return;
+    }
+
+    if (data.tool === 'eraser') {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 20;
+    } else {
+        ctx.strokeStyle = data.color || '#fbb040';
+        ctx.lineWidth = 3;
+    }
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineTo(data.x, data.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(data.x, data.y);
+}
+
+function setCanvasTool(tool) {
+    state.canvasTool = tool;
+    if (DOM.canvasPenBtn) DOM.canvasPenBtn.classList.toggle('active', tool === 'pen');
+    if (DOM.canvasEraserBtn) DOM.canvasEraserBtn.classList.toggle('active', tool === 'eraser');
+}
+
+function setCanvasColor(color) {
+    state.canvasColor = color;
+    if (state.canvasCtx && state.canvasTool !== 'eraser') {
+        state.canvasCtx.strokeStyle = color;
+    }
+}
+
+function clearCanvas() {
+    if (!state.canvasCtx || !DOM.canvas) return;
+    var canvas = DOM.canvas;
+    state.canvasCtx.fillStyle = '#ffffff';
+    state.canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+    if (state.isHost) {
+        broadcastCanvasStroke({ type: 'clear' });
+    }
+}
+
+function toggleCanvas() {
+    if (DOM.canvasContainer) {
+        DOM.canvasContainer.classList.toggle('active');
+        if (DOM.canvasToggleBtn) {
+            DOM.canvasToggleBtn.classList.toggle('active');
+        }
+        // Resize canvas when shown
+        if (DOM.canvasContainer.classList.contains('active') && DOM.canvas) {
+            setTimeout(function() {
+                var rect = DOM.canvas.parentElement.getBoundingClientRect();
+                DOM.canvas.width = rect.width;
+                DOM.canvas.height = rect.height;
+                if (state.canvasCtx) {
+                    state.canvasCtx.fillStyle = '#ffffff';
+                    state.canvasCtx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+                }
+            }, 100);
+        }
+    }
 }
 
 // ============================================
@@ -728,6 +1113,15 @@ function setupSlideSubscription() {
                 }
             }
         })
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'session_slides',
+            filter: 'session_id=eq.' + state.sessionId
+        }, function() {
+            console.log('Slide deleted, reloading...');
+            loadSlides();
+        })
         .subscribe();
 }
 
@@ -767,6 +1161,16 @@ async function loadSlides() {
 
 function showSlide(index) {
     if (!state.slides.length || index < 0 || index >= state.slides.length) {
+        return;
+    }
+
+    // Check prep mode
+    if (state.prepMode && !state.isHost) {
+        DOM.slidePlaceholder.style.display = 'flex';
+        DOM.slidePlaceholder.querySelector('h3').textContent = '🔒 Host is preparing...';
+        DOM.slidePlaceholder.querySelector('p').textContent = 'Please wait for the host to start the presentation';
+        DOM.currentSlide.style.display = 'none';
+        DOM.slideNav.style.display = 'none';
         return;
     }
 
@@ -816,6 +1220,35 @@ function updateUI() {
             DOM.slidePlaceholder.style.display = 'flex';
             DOM.slideCounter.textContent = '0 / 0';
         }
+    }
+}
+
+// ============================================
+// DELETE SLIDE
+// ============================================
+
+async function deleteSlide(slideId) {
+    if (!state.isHost) {
+        showToast('Only hosts can delete slides', 'warning');
+        return;
+    }
+
+    if (!confirm('Delete this slide?')) return;
+
+    try {
+        var { error } = await supabase
+            .from('session_slides')
+            .delete()
+            .eq('id', slideId);
+
+        if (error) throw error;
+
+        showToast('Slide deleted', 'success');
+        await loadSlides();
+
+    } catch (error) {
+        console.error('Delete slide error:', error);
+        showToast('Failed to delete slide', 'error');
     }
 }
 
@@ -1061,6 +1494,11 @@ async function endSession() {
             state.remoteAudioElement = null;
         }
 
+        if (state.keepAliveInterval) {
+            clearInterval(state.keepAliveInterval);
+            state.keepAliveInterval = null;
+        }
+
         if (state.sessionId) {
             await supabase
                 .from('virtual_sessions')
@@ -1107,7 +1545,7 @@ async function recoverSession(savedData) {
         state.isHost = savedData.isHost || false;
         state.isLive = session.status === 'live';
 
-        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Presentation';
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Classroom';
 
         await supabase
             .from('session_participants')
@@ -1128,6 +1566,9 @@ async function recoverSession(savedData) {
         await initAudio(state.isHost);
         await loadSlides();
         setupSlideSubscription();
+        setupCanvas();
+        setupCanvasSubscription();
+        startKeepAlive();
         await loadParticipants();
         showToast('Session recovered!', 'success');
         saveSessionState();
@@ -1210,6 +1651,20 @@ function setupRealtimeSubscriptions() {
                 sessionStorage.removeItem('glimu_session');
                 cleanup();
             }
+            // Check prep mode changes
+            if (payload.new.prep_mode !== undefined) {
+                state.prepMode = payload.new.prep_mode;
+                if (state.prepMode && !state.isHost) {
+                    DOM.slidePlaceholder.style.display = 'flex';
+                    DOM.slidePlaceholder.querySelector('h3').textContent = '🔒 Host is preparing...';
+                    DOM.slidePlaceholder.querySelector('p').textContent = 'Please wait for the host to start the presentation';
+                    DOM.currentSlide.style.display = 'none';
+                    DOM.slideNav.style.display = 'none';
+                } else if (!state.isHost) {
+                    // Reload slides if prep mode is turned off
+                    loadSlides();
+                }
+            }
         })
         .subscribe();
 }
@@ -1284,7 +1739,7 @@ async function shareToChat() {
         return;
     }
     
-    var message = '📊 Join my live presentation! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+    var message = '📊 Join my live classroom! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
     
     console.log('📤 Sending to chat:', message);
     
@@ -1397,6 +1852,35 @@ function setupEventListeners() {
     
     DOM.uploadSlidesBtn.addEventListener('click', uploadSlides);
 
+    // Prep Mode
+    if (DOM.prepModeBtn) {
+        DOM.prepModeBtn.addEventListener('click', togglePrepMode);
+    }
+
+    // Canvas
+    if (DOM.canvasToggleBtn) {
+        DOM.canvasToggleBtn.addEventListener('click', toggleCanvas);
+    }
+    if (DOM.canvasPenBtn) {
+        DOM.canvasPenBtn.addEventListener('click', function() { setCanvasTool('pen'); });
+    }
+    if (DOM.canvasEraserBtn) {
+        DOM.canvasEraserBtn.addEventListener('click', function() { setCanvasTool('eraser'); });
+    }
+    if (DOM.canvasClearBtn) {
+        DOM.canvasClearBtn.addEventListener('click', clearCanvas);
+    }
+    if (DOM.canvasColorPicker) {
+        DOM.canvasColorPicker.addEventListener('change', function(e) {
+            setCanvasColor(e.target.value);
+        });
+    }
+
+    // Viewer audio mute
+    if (DOM.viewerAudioMuteBtn) {
+        DOM.viewerAudioMuteBtn.addEventListener('click', toggleViewerAudio);
+    }
+
     document.getElementById('tipHeart').addEventListener('click', function() { sendTip(200, '❤️'); });
     document.getElementById('tipStar').addEventListener('click', function() { sendTip(500, '⭐'); });
     document.getElementById('tipHaha').addEventListener('click', function() { sendTip(1250, '😂'); });
@@ -1478,7 +1962,7 @@ function showSessionSelection() {
     if (DOM.loadingOverlay) {
         DOM.loadingOverlay.innerHTML += '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;width:100%;max-width:320px;">' +
             '<button onclick="window.location.href=\'?mode=host\'" class="primary-btn" style="width:100%;">' +
-            '<i class="fas fa-desktop"></i> Start Presentation' +
+            '<i class="fas fa-desktop"></i> Start Classroom' +
             '</button>' +
             '<div style="display:flex;gap:8px;width:100%;">' +
             '<input type="text" id="sessionCodeInput" placeholder="Enter session code" style="flex:1;padding:10px 14px;border-radius:12px;border:2px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);font-family:inherit;">' +
@@ -1514,6 +1998,10 @@ function cleanup() {
         state.remoteAudioElement.srcObject = null;
         state.remoteAudioElement = null;
     }
+    if (state.keepAliveInterval) {
+        clearInterval(state.keepAliveInterval);
+        state.keepAliveInterval = null;
+    }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
     }
@@ -1532,6 +2020,10 @@ function cleanup() {
     if (state.signalingSubscription) {
         state.signalingSubscription.unsubscribe();
         state.signalingSubscription = null;
+    }
+    if (state.canvasSubscription) {
+        state.canvasSubscription.unsubscribe();
+        state.canvasSubscription = null;
     }
 }
 
@@ -1556,4 +2048,4 @@ window.leaveRoom = leaveRoom;
 window.toggleChatSidebar = toggleChatSidebar;
 window.handleJoinWithCode = window.handleJoinWithCode;
 
-console.log('Virtual Room loaded - Presentation + Audio (WebRTC)');
+console.log('Virtual Room loaded - Classroom with Canvas');
