@@ -33,12 +33,11 @@
             </div>
         </div>
 
-        <!-- Main Content -->
+        <!-- Main Content - Jitsi Fullscreen -->
         <div class="main-content">
-            
-            <!-- Jitsi Video Container -->
             <div class="video-container" id="videoContainer">
-                <div id="jitsiFrameContainer" style="width:100%;height:100%;"></div>
+                <!-- Jitsi Iframe Container -->
+                <div id="jitsiFrameContainer"></div>
                 
                 <!-- Loading Overlay -->
                 <div class="loading-overlay" id="loadingOverlay">
@@ -49,12 +48,17 @@
             </div>
         </div>
 
-        <!-- Controls -->
+        <!-- Controls Bar -->
         <div class="controls-bar" id="controlsBar">
-            <div class="controls-viewer" id="viewerControls" style="display:flex;">
+            <!-- Host/Viewer Controls -->
+            <div class="controls-viewer" id="viewerControls">
                 <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
                     <i class="fas fa-hand-paper"></i>
                     <span class="btn-label">Hand</span>
+                </button>
+                <button class="control-btn" id="screenShareBtn" title="Share Screen">
+                    <i class="fas fa-desktop"></i>
+                    <span class="btn-label">Screen</span>
                 </button>
                 <button class="control-btn heart-btn" id="tipHeart" title="Send Heart (₦200)">
                     <i class="fas fa-heart"></i>
