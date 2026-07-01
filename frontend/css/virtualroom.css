@@ -1,5 +1,5 @@
 /* ============================================
-   VIRTUAL ROOM - PRESENTATION + AUDIO
+   VIRTUAL ROOM - CLASSROOM WITH CANVAS
    ============================================ */
 
 :root {
@@ -152,11 +152,13 @@ body {
     position: relative;
     background: var(--bg-primary);
     min-height: 200px;
+    overflow: hidden;
 }
 
 .slide-placeholder {
     text-align: center;
     color: var(--text-muted);
+    z-index: 5;
 }
 
 .slide-placeholder i {
@@ -184,6 +186,7 @@ body {
     background: #fff;
     padding: 8px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    z-index: 5;
 }
 
 .slide-counter {
@@ -195,7 +198,7 @@ body {
     border-radius: 20px;
     font-size: 12px;
     color: #fff;
-    z-index: 5;
+    z-index: 10;
     backdrop-filter: blur(4px);
 }
 
@@ -208,7 +211,7 @@ body {
     display: flex;
     justify-content: space-between;
     padding: 0 16px;
-    z-index: 5;
+    z-index: 10;
     pointer-events: none;
 }
 
@@ -231,20 +234,146 @@ body {
     color: #111;
 }
 
+/* ===== PREP OVERLAY ===== */
+.prep-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    backdrop-filter: blur(8px);
+}
+
+.prep-overlay i {
+    font-size: 56px;
+    color: var(--warning);
+    margin-bottom: 16px;
+}
+
+.prep-overlay h3 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.prep-overlay p {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.prep-overlay.active {
+    display: flex;
+}
+
+/* ===== CANVAS / WHITEBOARD ===== */
+.canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 25;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    backdrop-filter: blur(4px);
+}
+
+.canvas-container.active {
+    display: flex;
+}
+
+.canvas-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.canvas-tool {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--bg-hover);
+    border: 2px solid transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.canvas-tool:hover {
+    background: var(--accent);
+    color: #111;
+    transform: scale(1.05);
+}
+
+.canvas-tool.active {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent-dark);
+}
+
+.canvas-color {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    padding: 2px;
+    background: transparent;
+}
+
+.canvas-color::-webkit-color-swatch-wrapper {
+    padding: 2px;
+}
+.canvas-color::-webkit-color-swatch {
+    border-radius: 6px;
+    border: none;
+}
+
+.canvas-divider {
+    width: 1px;
+    height: 30px;
+    background: var(--border-color);
+}
+
+#teachingCanvas {
+    flex: 1;
+    cursor: crosshair;
+    background: #ffffff;
+    touch-action: none;
+}
+
 /* ===== HOST INFO ===== */
 .host-info {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 12px 20px;
+    gap: 12px;
+    padding: 10px 16px;
     background: var(--bg-card);
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 .host-avatar {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary), var(--accent));
     display: flex;
@@ -254,7 +383,7 @@ body {
 }
 
 .host-avatar i {
-    font-size: 20px;
+    font-size: 18px;
     color: #fff;
 }
 
@@ -264,7 +393,7 @@ body {
 }
 
 .host-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
 }
 
@@ -276,7 +405,7 @@ body {
 .host-stats {
     display: flex;
     gap: 12px;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
 }
 
@@ -288,6 +417,19 @@ body {
 
 .host-stats .fa-star { color: var(--star); }
 .host-stats .fa-gift { color: var(--accent); }
+
+.host-prep-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: var(--bg-hover);
+    color: var(--success);
+}
+
+.host-prep-status.prep-mode {
+    color: var(--warning);
+}
 
 /* ===== LOADING ===== */
 .loading-overlay {
@@ -301,7 +443,7 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    z-index: 20;
+    z-index: 30;
 }
 
 .loading-overlay .loading-spinner {
@@ -324,32 +466,33 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 16px;
+    padding: 6px 12px;
     background: var(--bg-controls);
     border-top: 1px solid var(--border-color);
     z-index: 10;
     flex-shrink: 0;
-    min-height: 60px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    min-height: 56px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
 }
 
 .controls-host,
 .controls-viewer {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .controls-divider {
     width: 1px;
-    height: 32px;
+    height: 28px;
     background: var(--border-color);
-    margin: 0 8px;
+    margin: 0 6px;
 }
 
 .control-btn {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--bg-hover);
     border: none;
@@ -359,16 +502,16 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 1rem;
     transition: all 0.2s;
-    gap: 2px;
+    gap: 1px;
     position: relative;
 }
 
 .control-btn .btn-label {
-    font-size: 7px;
+    font-size: 6px;
     font-weight: 600;
-    opacity: 0.7;
+    opacity: 0.6;
 }
 
 .control-btn:hover {
@@ -416,7 +559,7 @@ body {
     flex-direction: column;
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 30;
+    z-index: 40;
     box-shadow: -8px 0 40px var(--shadow-color);
     border-left: 1px solid var(--border-color);
 }
@@ -467,7 +610,7 @@ body {
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 40;
+    z-index: 50;
     backdrop-filter: blur(4px);
     padding: 20px;
 }
@@ -556,16 +699,18 @@ body {
     margin-bottom: 12px;
 }
 
-.upload-preview img {
+.upload-preview .preview-item {
+    position: relative;
     width: 80px;
     height: 80px;
+}
+
+.upload-preview .preview-item img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     border-radius: 8px;
     border: 2px solid var(--border-color);
-}
-
-.upload-preview .preview-item {
-    position: relative;
 }
 
 .upload-preview .remove-item {
@@ -637,7 +782,7 @@ body {
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 50;
+    z-index: 60;
     backdrop-filter: blur(8px);
 }
 
@@ -692,29 +837,44 @@ body {
     .icon-btn { width: 30px; height: 30px; font-size: 12px; }
     .room-title { font-size: 12px; max-width: 100px; }
     .room-meta { font-size: 9px; }
-    .controls-bar { padding: 6px 10px; min-height: 52px; }
-    .control-btn { width: 44px; height: 44px; font-size: 0.95rem; }
-    .control-btn .btn-label { font-size: 6px; }
+    .controls-bar { padding: 4px 8px; min-height: 48px; gap: 4px; }
+    .control-btn { width: 40px; height: 40px; font-size: 0.9rem; }
+    .control-btn .btn-label { font-size: 5px; }
+    .controls-host, .controls-viewer { gap: 3px; }
     .chat-sidebar { max-width: 100%; }
     .modal-content { padding: 20px; }
     .tip-options { grid-template-columns: repeat(3, 1fr); }
-    .host-info { padding: 8px 12px; flex-wrap: wrap; }
+    .host-info { padding: 8px 12px; gap: 8px; }
+    .host-stats { font-size: 10px; gap: 8px; }
+    .slide-placeholder i { font-size: 40px; }
+    .slide-placeholder h3 { font-size: 16px; }
     .slide-nav .nav-btn { width: 32px; height: 32px; font-size: 12px; }
+    .canvas-toolbar { padding: 6px 10px; gap: 4px; }
+    .canvas-tool { width: 32px; height: 32px; font-size: 12px; }
+    .canvas-color { width: 32px; height: 32px; }
 }
 
 @media (max-width: 420px) {
     .top-bar { padding: 4px 8px; min-height: 40px; }
     .icon-btn { width: 26px; height: 26px; font-size: 10px; }
     .room-title { font-size: 11px; max-width: 80px; }
-    .controls-bar { padding: 4px 8px; min-height: 48px; }
-    .control-btn { width: 38px; height: 38px; font-size: 0.85rem; }
+    .controls-bar { padding: 4px 6px; min-height: 44px; }
+    .control-btn { width: 36px; height: 36px; font-size: 0.8rem; }
     .control-btn .btn-label { display: none; }
-    .slide-placeholder i { font-size: 40px; }
-    .slide-placeholder h3 { font-size: 16px; }
+    .host-info { padding: 6px 10px; }
+    .host-avatar { width: 28px; height: 28px; }
+    .host-avatar i { font-size: 14px; }
+    .host-name { font-size: 12px; }
+    .host-stats { font-size: 9px; gap: 6px; }
+    .host-prep-status { font-size: 9px; padding: 2px 8px; }
+    .slide-placeholder i { font-size: 32px; }
+    .slide-placeholder h3 { font-size: 14px; }
+    .canvas-tool { width: 28px; height: 28px; font-size: 10px; }
+    .canvas-color { width: 28px; height: 28px; }
 }
 
 @supports (padding: max(0px)) {
     .controls-bar {
-        padding-bottom: max(8px, env(safe-area-inset-bottom));
+        padding-bottom: max(6px, env(safe-area-inset-bottom));
     }
 }
