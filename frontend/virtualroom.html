@@ -24,11 +24,16 @@
                         <span id="viewerCount">0</span> here · 
                         <span class="live-dot"></span> LIVE · 
                         <span id="classTimer">00:00</span>
+                        <span class="audio-status" id="audioStatus">🎙️</span>
                     </div>
                 </div>
             </div>
             <div class="top-bar-right">
                 <button class="icon-btn" id="uploadBtn" title="Upload Slides" style="display:none;"><i class="fas fa-upload"></i></button>
+                <button class="icon-btn" id="notifBtn" title="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge" id="notifBadge" style="display:none;">0</span>
+                </button>
                 <button class="icon-btn" id="shareBtn" title="Share"><i class="fas fa-share-alt"></i></button>
                 <button class="icon-btn danger" id="leaveBtn"><i class="fas fa-sign-out-alt"></i></button>
             </div>
@@ -54,47 +59,20 @@
                         <button class="nav-btn" id="nextSlide"><i class="fas fa-chevron-right"></i></button>
                     </div>
 
-                    <!-- Prep Mode Overlay -->
+                    <!-- Prep Overlay -->
                     <div class="prep-overlay" id="prepOverlay" style="display:none;">
                         <i class="fas fa-lock"></i>
                         <h3>🔒 Host is Preparing</h3>
                         <p>Please wait for the host to start the presentation</p>
                     </div>
-                </div>
 
-                <!-- Canvas / Whiteboard -->
-                <div class="canvas-container" id="canvasContainer">
-                    <div class="canvas-toolbar">
-                        <button class="canvas-tool active" id="canvasPenBtn" title="Pen">
-                            <i class="fas fa-pen"></i>
-                        </button>
-                        <button class="canvas-tool" id="canvasEraserBtn" title="Eraser">
-                            <i class="fas fa-eraser"></i>
-                        </button>
-                        <input type="color" id="canvasColorPicker" value="#fbb040" class="canvas-color">
-                        <button class="canvas-tool" id="canvasClearBtn" title="Clear">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <div class="canvas-divider"></div>
-                        <button class="canvas-tool" id="canvasCloseBtn" title="Close Whiteboard">
-                            <i class="fas fa-times"></i>
-                        </button>
+                    <!-- Canvas / Whiteboard -->
+                    <div class="canvas-container" id="canvasContainer">
+                        <canvas id="teachingCanvas"></canvas>
+                        <div class="canvas-watermark" id="canvasWatermark">
+                            <span>📝 Whiteboard</span>
+                        </div>
                     </div>
-                    <canvas id="teachingCanvas"></canvas>
-                </div>
-
-                <!-- Host Info -->
-                <div class="host-info">
-                    <div class="host-avatar"><i class="fas fa-user-circle"></i></div>
-                    <div class="host-details">
-                        <div class="host-name" id="hostName">Host</div>
-                        <div class="host-status" id="hostStatus">🟢 Online</div>
-                    </div>
-                    <div class="host-stats">
-                        <span><i class="fas fa-star"></i> <span id="hostStars">0</span></span>
-                        <span><i class="fas fa-gift"></i> <span id="hostTips">₦0</span></span>
-                    </div>
-                    <div class="host-prep-status" id="prepModeStatus">🔓 Live</div>
                 </div>
             </div>
 
@@ -114,7 +92,7 @@
                     <i class="fas fa-microphone"></i>
                     <span class="btn-label">Mic</span>
                 </button>
-                <button class="control-btn" id="prepModeBtn" title="Prep Mode (Block Viewers)">
+                <button class="control-btn" id="prepModeBtn" title="Prep Mode">
                     <i class="fas fa-lock"></i>
                     <span class="btn-label">Prep</span>
                 </button>
@@ -122,15 +100,15 @@
                     <i class="fas fa-chalkboard"></i>
                     <span class="btn-label">Board</span>
                 </button>
-                <button class="control-btn" id="prevSlideBtn" title="Previous Slide">
+                <button class="control-btn" id="prevSlideBtn" title="Previous">
                     <i class="fas fa-chevron-left"></i>
                     <span class="btn-label">Prev</span>
                 </button>
-                <button class="control-btn" id="nextSlideBtn" title="Next Slide">
+                <button class="control-btn" id="nextSlideBtn" title="Next">
                     <i class="fas fa-chevron-right"></i>
                     <span class="btn-label">Next</span>
                 </button>
-                <button class="control-btn danger" id="endSessionBtn" title="End Session">
+                <button class="control-btn danger" id="endSessionBtn" title="End">
                     <i class="fas fa-stop-circle"></i>
                     <span class="btn-label">End</span>
                 </button>
@@ -175,6 +153,25 @@
             <iframe id="chatIframe" src="/chat.html?embedded=1" class="chat-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
         </div>
 
+        <!-- ===== CANVAS TOOLBAR (Host Only) ===== -->
+        <div class="canvas-toolbar-overlay" id="canvasToolbarOverlay" style="display:none;">
+            <div class="canvas-toolbar-inner">
+                <button class="canvas-tool active" id="canvasPenBtn" title="Pen">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <button class="canvas-tool" id="canvasEraserBtn" title="Eraser">
+                    <i class="fas fa-eraser"></i>
+                </button>
+                <input type="color" id="canvasColorPicker" value="#fbb040" class="canvas-color">
+                <button class="canvas-tool" id="canvasClearBtn" title="Clear">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <button class="canvas-tool" id="canvasCloseBtn" title="Close Board">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
         <!-- ===== SLIDE UPLOAD MODAL ===== -->
         <div class="modal-overlay" id="uploadModal">
             <div class="modal-content">
@@ -189,6 +186,17 @@
                 </div>
                 <div class="upload-preview" id="uploadPreview"></div>
                 <button class="primary-btn full" id="uploadSlidesBtn" style="display:none;">Upload Slides</button>
+            </div>
+        </div>
+
+        <!-- ===== NOTIFICATION PANEL ===== -->
+        <div class="notification-panel" id="notifPanel" style="display:none;">
+            <div class="notif-header">
+                <span>🔔 Notifications</span>
+                <button class="notif-close" id="notifClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="notif-list" id="notifList">
+                <div class="notif-empty">No notifications yet</div>
             </div>
         </div>
 
