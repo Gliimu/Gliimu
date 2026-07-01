@@ -3,62 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>🎥 Virtual Room | Gliimu Institute</title>
+    <title>📊 Live Presentation | Gliimu Institute</title>
     <link rel="icon" type="image/png" href="icons/logo.png">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/virtualroom.css">
+    
+    <!-- PeerJS for Audio -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
     <div class="virtual-room" id="app">
         
-        <!-- Top Bar -->
+        <!-- ===== TOP BAR ===== -->
         <div class="top-bar">
             <div class="top-bar-left">
                 <button class="icon-btn" id="backBtn"><i class="fas fa-arrow-left"></i></button>
                 <div class="room-info">
                     <div class="room-title" id="roomTitle">Loading...</div>
                     <div class="room-meta">
-                        <span id="viewerCount">0</span> here · 
+                        <span id="viewerCount">0</span> watching · 
                         <span class="live-dot"></span> LIVE · 
                         <span id="classTimer">00:00</span>
                     </div>
                 </div>
             </div>
             <div class="top-bar-right">
-                <button class="icon-btn" id="shareBtn"><i class="fas fa-share-alt"></i></button>
+                <button class="icon-btn" id="uploadBtn" title="Upload Slides"><i class="fas fa-upload"></i></button>
+                <button class="icon-btn" id="shareBtn" title="Share"><i class="fas fa-share-alt"></i></button>
                 <button class="icon-btn danger" id="leaveBtn"><i class="fas fa-sign-out-alt"></i></button>
             </div>
         </div>
 
-        <!-- Main Content - Jitsi Fullscreen -->
+        <!-- ===== MAIN CONTENT ===== -->
         <div class="main-content">
-            <div class="video-container" id="videoContainer">
-                <!-- Jitsi Iframe Container -->
-                <div id="jitsiFrameContainer"></div>
+            
+            <!-- Presentation Area -->
+            <div class="presentation-container" id="presentationContainer">
                 
-                <!-- Loading Overlay -->
-                <div class="loading-overlay" id="loadingOverlay">
-                    <div class="loading-spinner"></div>
-                    <h3 id="loadingText">Connecting to video...</h3>
-                    <p id="loadingSubText">Please wait</p>
+                <!-- Slide Display -->
+                <div class="slide-display" id="slideDisplay">
+                    <div class="slide-placeholder" id="slidePlaceholder">
+                        <i class="fas fa-images"></i>
+                        <h3>No Slides Uploaded</h3>
+                        <p>Host can upload slides to begin</p>
+                    </div>
+                    <img id="currentSlide" style="display:none;" alt="Slide">
+                    <div class="slide-counter" id="slideCounter">0 / 0</div>
+                    <div class="slide-nav" id="slideNav" style="display:none;">
+                        <button class="nav-btn" id="prevSlide"><i class="fas fa-chevron-left"></i></button>
+                        <button class="nav-btn" id="nextSlide"><i class="fas fa-chevron-right"></i></button>
+                    </div>
                 </div>
+
+                <!-- Host Info -->
+                <div class="host-info" id="hostInfo">
+                    <div class="host-avatar"><i class="fas fa-user-circle"></i></div>
+                    <div class="host-details">
+                        <div class="host-name" id="hostName">Host</div>
+                        <div class="host-status" id="hostStatus">🟢 Online</div>
+                    </div>
+                    <div class="host-stats">
+                        <span><i class="fas fa-star"></i> <span id="hostStars">0</span></span>
+                        <span><i class="fas fa-gift"></i> <span id="hostTips">₦0</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== LOADING ===== -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+                <h3 id="loadingText">Connecting...</h3>
+                <p id="loadingSubText">Please wait</p>
             </div>
         </div>
 
-        <!-- Controls Bar -->
+        <!-- ===== CONTROLS BAR ===== -->
         <div class="controls-bar" id="controlsBar">
-            <!-- Host/Viewer Controls -->
-            <div class="controls-viewer" id="viewerControls">
+            <!-- Host Controls -->
+            <div class="controls-host" id="hostControls" style="display:none;">
+                <button class="control-btn" id="micBtn" title="Toggle Microphone">
+                    <i class="fas fa-microphone"></i>
+                    <span class="btn-label">Mic</span>
+                </button>
+                <button class="control-btn" id="prevSlideBtn" title="Previous Slide">
+                    <i class="fas fa-chevron-left"></i>
+                    <span class="btn-label">Prev</span>
+                </button>
+                <button class="control-btn" id="nextSlideBtn" title="Next Slide">
+                    <i class="fas fa-chevron-right"></i>
+                    <span class="btn-label">Next</span>
+                </button>
+                <button class="control-btn danger" id="endSessionBtn" title="End Session">
+                    <i class="fas fa-stop-circle"></i>
+                    <span class="btn-label">End</span>
+                </button>
+            </div>
+
+            <!-- Viewer Controls -->
+            <div class="controls-viewer" id="viewerControls" style="display:none;">
                 <button class="control-btn" id="raiseHandBtn" title="Raise Hand">
                     <i class="fas fa-hand-paper"></i>
                     <span class="btn-label">Hand</span>
-                </button>
-                <button class="control-btn" id="screenShareBtn" title="Share Screen">
-                    <i class="fas fa-desktop"></i>
-                    <span class="btn-label">Screen</span>
                 </button>
                 <button class="control-btn heart-btn" id="tipHeart" title="Send Heart (₦200)">
                     <i class="fas fa-heart"></i>
@@ -73,13 +121,14 @@
                     <span class="btn-label">₦1,250</span>
                 </button>
             </div>
+
             <div class="controls-divider"></div>
             <button class="control-btn chat-toggle" id="chatToggleBtn" title="Toggle Chat">
                 <i class="fas fa-comment-dots"></i>
             </button>
         </div>
 
-        <!-- Chat Sidebar -->
+        <!-- ===== CHAT SIDEBAR ===== -->
         <div class="chat-sidebar" id="chatSidebar">
             <div class="chat-sidebar-header">
                 <span>💬 Live Chat</span>
@@ -88,7 +137,24 @@
             <iframe id="chatIframe" src="/chat.html?embedded=1" class="chat-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
         </div>
 
-        <!-- Share Modal -->
+        <!-- ===== SLIDE UPLOAD MODAL ===== -->
+        <div class="modal-overlay" id="uploadModal">
+            <div class="modal-content">
+                <button class="modal-close" id="closeUploadModal"><i class="fas fa-times"></i></button>
+                <h3>📤 Upload Slides</h3>
+                <p>Select images to upload (JPG, PNG, WebP)</p>
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Drag & drop images here or click to browse</p>
+                    <input type="file" id="slideFileInput" accept="image/*" multiple style="display:none;">
+                    <button class="primary-btn" id="browseBtn">Browse Files</button>
+                </div>
+                <div class="upload-preview" id="uploadPreview"></div>
+                <button class="primary-btn full" id="uploadSlidesBtn" style="display:none;">Upload Slides</button>
+            </div>
+        </div>
+
+        <!-- ===== SHARE MODAL ===== -->
         <div class="modal-overlay" id="shareModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeShareModal"><i class="fas fa-times"></i></button>
@@ -104,7 +170,7 @@
             </div>
         </div>
 
-        <!-- Tip Modal -->
+        <!-- ===== TIP MODAL ===== -->
         <div class="modal-overlay" id="tipModal">
             <div class="modal-content">
                 <button class="modal-close" id="closeTipModal"><i class="fas fa-times"></i></button>
@@ -118,7 +184,7 @@
             </div>
         </div>
 
-        <!-- Session Ended -->
+        <!-- ===== SESSION ENDED ===== -->
         <div class="session-ended-overlay" id="sessionEndedOverlay">
             <div class="session-ended-content">
                 <i class="fas fa-check-circle"></i>
