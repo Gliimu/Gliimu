@@ -14,11 +14,13 @@ const state = {
     isLive: false,
     sessionEnded: false,
     prepMode: false,
+    canvasActive: false,
     participants: new Map(),
     viewerCount: 0,
     handRaised: false,
     chatIframeReady: false,
     unreadCount: 0,
+    notifications: [],
     timerInterval: null,
     classStartTime: Date.now(),
     slides: [],
@@ -42,6 +44,7 @@ const state = {
     keepAliveInterval: null,
     audioContext: null,
     viewerAudioMuted: false,
+    isCanvasViewer: false,
 };
 
 // ============================================
@@ -85,6 +88,7 @@ function cacheDOM() {
     DOM.roomTitle = document.getElementById('roomTitle');
     DOM.classTimer = document.getElementById('classTimer');
     DOM.viewerCount = document.getElementById('viewerCount');
+    DOM.audioStatus = document.getElementById('audioStatus');
     DOM.chatSidebar = document.getElementById('chatSidebar');
     DOM.chatIframe = document.getElementById('chatIframe');
     DOM.shareModal = document.getElementById('shareModal');
@@ -111,7 +115,6 @@ function cacheDOM() {
     DOM.micBtn = document.getElementById('micBtn');
     DOM.uploadBtn = document.getElementById('uploadBtn');
     DOM.prepModeBtn = document.getElementById('prepModeBtn');
-    DOM.prepModeStatus = document.getElementById('prepModeStatus');
     DOM.canvasContainer = document.getElementById('canvasContainer');
     DOM.canvas = document.getElementById('teachingCanvas');
     DOM.canvasColorPicker = document.getElementById('canvasColorPicker');
@@ -119,8 +122,15 @@ function cacheDOM() {
     DOM.canvasEraserBtn = document.getElementById('canvasEraserBtn');
     DOM.canvasClearBtn = document.getElementById('canvasClearBtn');
     DOM.canvasToggleBtn = document.getElementById('canvasToggleBtn');
+    DOM.canvasToolbarOverlay = document.getElementById('canvasToolbarOverlay');
     DOM.viewerAudioMuteBtn = document.getElementById('viewerAudioMuteBtn');
     DOM.prepOverlay = document.getElementById('prepOverlay');
+    DOM.notifBtn = document.getElementById('notifBtn');
+    DOM.notifBadge = document.getElementById('notifBadge');
+    DOM.notifPanel = document.getElementById('notifPanel');
+    DOM.notifList = document.getElementById('notifList');
+    DOM.notifClose = document.getElementById('notifClose');
+    DOM.canvasWatermark = document.getElementById('canvasWatermark');
 }
 
 // ============================================
@@ -148,7 +158,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         var sessionCode = params.get('code');
         var mode = params.get('mode');
 
-        // Check for saved session
         var savedSession = sessionStorage.getItem('glimu_session');
         if (savedSession && !sessionCode && !mode) {
             try {
@@ -165,7 +174,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
 
-        // Determine if user is host (mode=host or they created the session)
         if (mode === 'host') {
             state.isHost = true;
         }
@@ -206,12 +214,10 @@ async function createNewSession(customCode) {
 
         sessionStorage.removeItem('glimu_session');
 
-        // Generate session code
         var sessionCode = customCode || generateSessionCode();
         state.sessionCode = sessionCode;
         state.isHost = true;
 
-        // Create session in database
         var { data: session, error } = await supabase
             .from('virtual_sessions')
             .insert({
@@ -236,7 +242,6 @@ async function createNewSession(customCode) {
 
         console.log('Classroom created in DB:', state.sessionId);
 
-        // Add host as participant
         await supabase
             .from('session_participants')
             .insert({
@@ -251,7 +256,6 @@ async function createNewSession(customCode) {
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
         if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
-        if (DOM.hostName) DOM.hostName.textContent = state.userProfile.name || 'Host';
         if (DOM.uploadBtn) DOM.uploadBtn.style.display = 'flex';
         if (DOM.prepModeBtn) DOM.prepModeBtn.style.display = 'flex';
         if (DOM.canvasToggleBtn) DOM.canvasToggleBtn.style.display = 'flex';
@@ -259,7 +263,7 @@ async function createNewSession(customCode) {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
 
-        // Setup audio and slides
+        // Setup
         createAudioElement();
         await setupSignalingChannel();
         await initAudio(true);
@@ -297,21 +301,13 @@ async function joinSession(sessionCode) {
         state.sessionCode = sessionCode;
         state.isHost = false;
 
-        // Find session by code
         var { data: session, error } = await supabase
             .from('virtual_sessions')
             .select('*')
             .eq('session_code', sessionCode.toUpperCase())
             .maybeSingle();
 
-        if (error) {
-            console.error('Session lookup error:', error);
-            showToast('Error finding session', 'error');
-            setTimeout(function() { window.location.href = '/user'; }, 2000);
-            return;
-        }
-
-        if (!session) {
+        if (error || !session) {
             showToast('Classroom not found', 'error');
             setTimeout(function() { window.location.href = '/user'; }, 2000);
             return;
@@ -329,7 +325,6 @@ async function joinSession(sessionCode) {
 
         console.log('Classroom found in DB:', state.sessionId);
 
-        // Add viewer as participant
         await supabase
             .from('session_participants')
             .upsert({
@@ -364,7 +359,7 @@ async function joinSession(sessionCode) {
             if (DOM.hostName) DOM.hostName.textContent = host.users.name || 'Host';
         }
 
-        // Setup audio and slides
+        // Setup
         createAudioElement();
         await setupSignalingChannel();
         await initAudio(false);
@@ -372,7 +367,9 @@ async function joinSession(sessionCode) {
         setupSlideSubscription();
         setupCanvasSubscription();
 
-        // Check prep mode
+        // Viewer canvas should follow host
+        state.isCanvasViewer = true;
+
         if (state.prepMode) {
             showPrepOverlay();
         }
@@ -392,6 +389,60 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+
+function addNotification(icon, text, type) {
+    var notification = {
+        id: Date.now(),
+        icon: icon,
+        text: text,
+        type: type,
+        time: new Date().toLocaleTimeString()
+    };
+
+    state.notifications.unshift(notification);
+    if (state.notifications.length > 20) {
+        state.notifications.pop();
+    }
+
+    updateNotificationUI();
+}
+
+function updateNotificationUI() {
+    var count = state.notifications.length;
+    if (DOM.notifBadge) {
+        if (count > 0) {
+            DOM.notifBadge.style.display = 'block';
+            DOM.notifBadge.textContent = count > 9 ? '9+' : count;
+        } else {
+            DOM.notifBadge.style.display = 'none';
+        }
+    }
+
+    if (DOM.notifList) {
+        if (state.notifications.length === 0) {
+            DOM.notifList.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+            return;
+        }
+
+        DOM.notifList.innerHTML = state.notifications.map(function(n) {
+            return '<div class="notif-item">' +
+                '<span class="notif-icon">' + n.icon + '</span>' +
+                '<span class="notif-text">' + n.text + '</span>' +
+                '<span class="notif-time">' + n.time + '</span>' +
+                '</div>';
+        }).join('');
+    }
+}
+
+function toggleNotifications() {
+    if (DOM.notifPanel) {
+        DOM.notifPanel.classList.toggle('active');
+    }
+}
+
+// ============================================
 // PREP MODE
 // ============================================
 
@@ -404,29 +455,26 @@ async function togglePrepMode() {
         .update({ prep_mode: state.prepMode })
         .eq('id', state.sessionId);
 
-    updatePrepModeUI();
-    
-    if (state.prepMode) {
-        showToast('🔒 Prep Mode ON - Viewers blocked', 'info');
-    } else {
-        showToast('🔓 Prep Mode OFF - Viewers can see', 'info');
-        // Reload slides for viewers
-        await loadSlides();
-    }
-}
-
-function updatePrepModeUI() {
     if (DOM.prepModeBtn) {
         DOM.prepModeBtn.classList.toggle('active', state.prepMode);
     }
-    if (DOM.prepModeStatus) {
-        DOM.prepModeStatus.textContent = state.prepMode ? '🔒 Prep Mode' : '🔓 Live';
-        DOM.prepModeStatus.classList.toggle('prep-mode', state.prepMode);
-    }
-    if (state.prepMode && !state.isHost) {
-        showPrepOverlay();
+
+    if (state.prepMode) {
+        showToast('🔒 Prep Mode ON - Viewers blocked', 'info');
+        addNotification('🔒', 'Prep mode activated', 'system');
     } else {
-        hidePrepOverlay();
+        showToast('🔓 Prep Mode OFF - Viewers can see', 'info');
+        addNotification('🔓', 'Prep mode deactivated', 'system');
+        await loadSlides();
+    }
+
+    // Broadcast prep mode change to viewers
+    if (state.isHost) {
+        sendSignalingMessage({
+            type: 'prep_mode_change',
+            prepMode: state.prepMode,
+            senderId: state.currentUser.id
+        });
     }
 }
 
@@ -444,379 +492,10 @@ function hidePrepOverlay() {
         DOM.prepOverlay.classList.remove('active');
         DOM.prepOverlay.style.display = 'none';
     }
-    if (state.slides.length > 0) {
+    if (state.slides.length > 0 && !state.prepMode) {
         DOM.currentSlide.style.display = 'block';
         DOM.slideNav.style.display = 'flex';
     }
-}
-
-// ============================================
-// CREATE AUDIO ELEMENT
-// ============================================
-
-function createAudioElement() {
-    if (state.remoteAudioElement) {
-        state.remoteAudioElement.remove();
-        state.remoteAudioElement = null;
-    }
-
-    var audio = document.createElement('audio');
-    audio.id = 'remoteAudio';
-    audio.autoplay = true;
-    audio.style.display = 'none';
-    audio.setAttribute('playsinline', '');
-    audio.setAttribute('webkit-playsinline', '');
-    document.body.appendChild(audio);
-    
-    state.remoteAudioElement = audio;
-    console.log('🔊 Audio element created');
-}
-
-// ============================================
-// VIEWER AUDIO MUTE
-// ============================================
-
-function toggleViewerAudio() {
-    state.viewerAudioMuted = !state.viewerAudioMuted;
-    if (state.remoteAudioElement) {
-        state.remoteAudioElement.muted = state.viewerAudioMuted;
-    }
-    if (DOM.viewerAudioMuteBtn) {
-        DOM.viewerAudioMuteBtn.classList.toggle('active', state.viewerAudioMuted);
-        DOM.viewerAudioMuteBtn.innerHTML = state.viewerAudioMuted ? 
-            '<i class="fas fa-volume-mute"></i><span class="btn-label">Unmute</span>' : 
-            '<i class="fas fa-volume-up"></i><span class="btn-label">Mute</span>';
-    }
-    showToast(state.viewerAudioMuted ? '🔇 Audio muted' : '🔊 Audio unmuted', 'info');
-}
-
-// ============================================
-// AUDIO KEEP-ALIVE (iPhone Fix)
-// ============================================
-
-function startKeepAlive() {
-    if (state.keepAliveInterval) {
-        clearInterval(state.keepAliveInterval);
-    }
-
-    try {
-        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {
-        console.warn('AudioContext not available');
-    }
-
-    state.keepAliveInterval = setInterval(function() {
-        if (state.audioContext && state.audioContext.state === 'suspended') {
-            state.audioContext.resume().catch(function() {});
-        }
-        if (peerConnection && peerConnection.connectionState === 'connected') {
-            try {
-                var dc = peerConnection.createDataChannel('keepalive');
-                dc.onopen = function() {
-                    dc.send('ping');
-                    setTimeout(function() { dc.close(); }, 100);
-                };
-            } catch (e) {}
-        }
-    }, 30000);
-
-    console.log('🔊 Keep-alive started');
-}
-
-// ============================================
-// SIGNALING CHANNEL
-// ============================================
-
-async function setupSignalingChannel() {
-    if (!state.sessionId) return;
-
-    if (state.signalingSubscription) {
-        state.signalingSubscription.unsubscribe();
-        state.signalingSubscription = null;
-    }
-
-    var channelName = 'webrtc_' + state.sessionId;
-    
-    state.signalingSubscription = supabase
-        .channel(channelName, {
-            config: {
-                broadcast: { ack: true }
-            }
-        })
-        .on('broadcast', { event: 'signal' }, function(payload) {
-            console.log('📨 Signal received:', payload.payload.type);
-            handleSignalingMessage(payload.payload);
-        })
-        .subscribe(function(status) {
-            console.log('📡 Signaling channel status:', status);
-        });
-}
-
-function sendSignalingMessage(message) {
-    if (!state.sessionId || !state.signalingSubscription) {
-        console.warn('Cannot send signal: no subscription');
-        return;
-    }
-
-    message.timestamp = Date.now();
-    message.senderId = state.currentUser.id;
-
-    state.signalingSubscription.send({
-        type: 'broadcast',
-        event: 'signal',
-        payload: message
-    }).catch(function(err) {
-        console.warn('Could not send signal:', err);
-    });
-}
-
-function handleSignalingMessage(message) {
-    if (message.senderId === state.currentUser.id) return;
-    if (!state.audioStream) return;
-
-    console.log('Processing signal:', message.type, 'from:', message.senderId);
-
-    try {
-        switch (message.type) {
-            case 'offer':
-                handleOffer(message);
-                break;
-            case 'answer':
-                handleAnswer(message);
-                break;
-            case 'ice_candidate':
-                handleIceCandidate(message);
-                break;
-            case 'viewer_ready':
-                if (state.isHost) {
-                    console.log('👤 Viewer ready, sending offer...');
-                    createOffer(message.senderId);
-                }
-                break;
-        }
-    } catch (error) {
-        console.error('Signal handling error:', error);
-    }
-}
-
-// ============================================
-// WEBRTC AUDIO
-// ============================================
-
-var peerConnection = null;
-
-async function initAudio(isHost) {
-    try {
-        state.audioStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            video: false
-        });
-        console.log('✅ Audio stream acquired');
-
-        if (DOM.hostStatus) {
-            DOM.hostStatus.textContent = '🎙️ Audio ready';
-            DOM.hostStatus.style.color = '#10b981';
-        }
-
-        if (isHost) {
-            console.log('Host waiting for viewers...');
-        } else {
-            setTimeout(function() {
-                console.log('Viewer sending ready signal...');
-                sendSignalingMessage({
-                    type: 'viewer_ready',
-                    senderId: state.currentUser.id
-                });
-            }, 2000);
-        }
-
-    } catch (err) {
-        console.warn('Could not get audio:', err);
-        if (DOM.hostStatus) {
-            DOM.hostStatus.textContent = '🎙️ Audio unavailable';
-            DOM.hostStatus.style.color = '#f59e0b';
-        }
-        showToast('Audio unavailable. Using chat only.', 'warning');
-    }
-}
-
-async function createOffer(targetUserId) {
-    if (!state.audioStream || !state.isHost) return;
-
-    try {
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-
-        peerConnection = new RTCPeerConnection(RTC_CONFIG);
-
-        state.audioStream.getTracks().forEach(function(track) {
-            peerConnection.addTrack(track, state.audioStream);
-        });
-
-        peerConnection.onicecandidate = function(event) {
-            if (event.candidate) {
-                sendSignalingMessage({
-                    type: 'ice_candidate',
-                    candidate: event.candidate,
-                    senderId: state.currentUser.id,
-                    targetUserId: targetUserId
-                });
-            }
-        };
-
-        peerConnection.onconnectionstatechange = function() {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-                showToast('🎙️ Audio connected!', 'success');
-                if (DOM.hostStatus) {
-                    DOM.hostStatus.textContent = '🎙️ Audio connected';
-                    DOM.hostStatus.style.color = '#10b981';
-                }
-            }
-        };
-
-        var offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-
-        sendSignalingMessage({
-            type: 'offer',
-            sdp: offer,
-            senderId: state.currentUser.id,
-            targetUserId: targetUserId
-        });
-
-        console.log('✅ Offer sent to:', targetUserId);
-
-    } catch (error) {
-        console.error('Create offer error:', error);
-    }
-}
-
-async function handleOffer(message) {
-    if (!state.audioStream) return;
-
-    try {
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-
-        peerConnection = new RTCPeerConnection(RTC_CONFIG);
-
-        state.audioStream.getTracks().forEach(function(track) {
-            peerConnection.addTrack(track, state.audioStream);
-        });
-
-        peerConnection.onicecandidate = function(event) {
-            if (event.candidate) {
-                sendSignalingMessage({
-                    type: 'ice_candidate',
-                    candidate: event.candidate,
-                    senderId: state.currentUser.id,
-                    targetUserId: message.senderId
-                });
-            }
-        };
-
-        peerConnection.ontrack = function(event) {
-            console.log('🎵 Remote audio stream received!');
-            
-            if (state.remoteAudioElement) {
-                state.remoteAudioElement.srcObject = event.streams[0];
-                state.remoteAudioElement.play().then(function() {
-                    console.log('🔊 Audio playback started');
-                    state.audioActive = true;
-                    if (DOM.hostStatus) {
-                        DOM.hostStatus.textContent = '🎙️ Audio connected';
-                        DOM.hostStatus.style.color = '#10b981';
-                    }
-                    showToast('🎙️ Audio connected!', 'success');
-                }).catch(function(err) {
-                    console.warn('Audio play error:', err);
-                    document.addEventListener('click', function playOnClick() {
-                        if (state.remoteAudioElement) {
-                            state.remoteAudioElement.play().catch(function() {});
-                        }
-                        document.removeEventListener('click', playOnClick);
-                    }, { once: true });
-                });
-            } else {
-                createAudioElement();
-                if (state.remoteAudioElement) {
-                    state.remoteAudioElement.srcObject = event.streams[0];
-                    state.remoteAudioElement.play().catch(function() {});
-                }
-            }
-        };
-
-        peerConnection.onconnectionstatechange = function() {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-                showToast('🎙️ Audio connected!', 'success');
-                if (DOM.hostStatus) {
-                    DOM.hostStatus.textContent = '🎙️ Audio connected';
-                    DOM.hostStatus.style.color = '#10b981';
-                }
-            }
-        };
-
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
-
-        var answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-
-        sendSignalingMessage({
-            type: 'answer',
-            sdp: answer,
-            senderId: state.currentUser.id,
-            targetUserId: message.senderId
-        });
-
-        console.log('✅ Answer sent');
-
-    } catch (error) {
-        console.error('Handle offer error:', error);
-    }
-}
-
-async function handleAnswer(message) {
-    if (!peerConnection) return;
-
-    try {
-        if (peerConnection.signalingState === 'have-local-offer' || 
-            peerConnection.signalingState === 'stable') {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
-            console.log('✅ Answer processed');
-        } else {
-            console.log('Skipping answer - wrong state:', peerConnection.signalingState);
-        }
-    } catch (error) {
-        console.error('Handle answer error:', error);
-    }
-}
-
-async function handleIceCandidate(message) {
-    if (!peerConnection) return;
-
-    try {
-        if (message.candidate) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
-        }
-    } catch (error) {
-        console.warn('ICE candidate error:', error);
-    }
-}
-
-function toggleMicrophone() {
-    if (!state.audioStream) return;
-    var track = state.audioStream.getAudioTracks()[0];
-    if (!track) return;
-    state.isMuted = !track.enabled;
-    track.enabled = !track.enabled;
-    if (DOM.micBtn) DOM.micBtn.classList.toggle('off', state.isMuted);
-    showToast(state.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
 }
 
 // ============================================
@@ -832,7 +511,7 @@ function setupCanvas() {
     function resizeCanvas() {
         var rect = canvas.parentElement.getBoundingClientRect();
         canvas.width = rect.width;
-        canvas.height = rect.height - 56;
+        canvas.height = rect.height;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = state.canvasColor;
@@ -845,6 +524,19 @@ function setupCanvas() {
     window.addEventListener('resize', resizeCanvas);
 
     state.canvasCtx = ctx;
+
+    // Only enable drawing for host
+    if (state.isHost) {
+        enableCanvasDrawing();
+    }
+
+    console.log('✅ Canvas initialized');
+}
+
+function enableCanvasDrawing() {
+    var canvas = DOM.canvas;
+    var ctx = state.canvasCtx;
+    if (!canvas || !ctx) return;
 
     // Mouse events
     canvas.addEventListener('mousedown', function(e) {
@@ -918,8 +610,6 @@ function setupCanvas() {
             broadcastCanvasStroke({ type: 'end' });
         }
     });
-
-    console.log('✅ Canvas initialized');
 }
 
 function setupCanvasSubscription() {
@@ -934,8 +624,20 @@ function setupCanvasSubscription() {
         .channel('canvas_' + state.sessionId)
         .on('broadcast', { event: 'stroke' }, function(payload) {
             if (payload.payload.senderId === state.currentUser.id) return;
-            if (state.isHost) return;
             drawCanvasStroke(payload.payload);
+        })
+        .on('broadcast', { event: 'canvas_toggle' }, function(payload) {
+            if (payload.payload.senderId === state.currentUser.id) return;
+            // Viewers: show/hide canvas when host toggles
+            if (payload.payload.active) {
+                showCanvasForViewer();
+            } else {
+                hideCanvasForViewer();
+            }
+        })
+        .on('broadcast', { event: 'canvas_clear' }, function(payload) {
+            if (payload.payload.senderId === state.currentUser.id) return;
+            clearCanvasLocal();
         })
         .subscribe();
 }
@@ -980,6 +682,116 @@ function drawCanvasStroke(data) {
     ctx.moveTo(data.x, data.y);
 }
 
+function clearCanvasLocal() {
+    if (!state.canvasCtx || !DOM.canvas) return;
+    var canvas = DOM.canvas;
+    state.canvasCtx.fillStyle = '#ffffff';
+    state.canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function clearCanvas() {
+    if (!state.isHost) return;
+    clearCanvasLocal();
+    if (state.isHost) {
+        supabase.channel('canvas_' + state.sessionId).send({
+            type: 'broadcast',
+            event: 'canvas_clear',
+            payload: { senderId: state.currentUser.id }
+        });
+    }
+}
+
+function toggleCanvas() {
+    if (!state.isHost) return;
+
+    state.canvasActive = !state.canvasActive;
+
+    if (state.canvasActive) {
+        showCanvas();
+        showToast('📝 Whiteboard opened', 'info');
+        addNotification('📝', 'Whiteboard opened', 'system');
+    } else {
+        hideCanvas();
+        showToast('📝 Whiteboard closed', 'info');
+        addNotification('📝', 'Whiteboard closed', 'system');
+    }
+
+    // Broadcast to viewers
+    supabase.channel('canvas_' + state.sessionId).send({
+        type: 'broadcast',
+        event: 'canvas_toggle',
+        payload: { 
+            active: state.canvasActive,
+            senderId: state.currentUser.id 
+        }
+    });
+
+    if (DOM.canvasToggleBtn) {
+        DOM.canvasToggleBtn.classList.toggle('active', state.canvasActive);
+    }
+    if (DOM.canvasToolbarOverlay) {
+        DOM.canvasToolbarOverlay.classList.toggle('active', state.canvasActive);
+    }
+}
+
+function showCanvas() {
+    if (DOM.canvasContainer) {
+        DOM.canvasContainer.classList.add('active');
+        DOM.canvasContainer.style.display = 'block';
+    }
+    // Resize canvas
+    setTimeout(function() {
+        if (DOM.canvas) {
+            var rect = DOM.canvas.parentElement.getBoundingClientRect();
+            DOM.canvas.width = rect.width;
+            DOM.canvas.height = rect.height;
+            if (state.canvasCtx) {
+                state.canvasCtx.fillStyle = '#ffffff';
+                state.canvasCtx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+            }
+        }
+    }, 100);
+}
+
+function hideCanvas() {
+    if (DOM.canvasContainer) {
+        DOM.canvasContainer.classList.remove('active');
+        DOM.canvasContainer.style.display = 'none';
+    }
+    if (DOM.canvasToolbarOverlay) {
+        DOM.canvasToolbarOverlay.classList.remove('active');
+    }
+}
+
+function showCanvasForViewer() {
+    state.isCanvasViewer = true;
+    if (DOM.canvasContainer) {
+        DOM.canvasContainer.classList.add('active');
+        DOM.canvasContainer.style.display = 'block';
+        DOM.canvasWatermark.style.display = 'block';
+    }
+    // Resize canvas
+    setTimeout(function() {
+        if (DOM.canvas) {
+            var rect = DOM.canvas.parentElement.getBoundingClientRect();
+            DOM.canvas.width = rect.width;
+            DOM.canvas.height = rect.height;
+            if (state.canvasCtx) {
+                state.canvasCtx.fillStyle = '#ffffff';
+                state.canvasCtx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+            }
+        }
+    }, 100);
+}
+
+function hideCanvasForViewer() {
+    state.isCanvasViewer = false;
+    if (DOM.canvasContainer) {
+        DOM.canvasContainer.classList.remove('active');
+        DOM.canvasContainer.style.display = 'none';
+    }
+}
+
 function setCanvasTool(tool) {
     state.canvasTool = tool;
     if (DOM.canvasPenBtn) DOM.canvasPenBtn.classList.toggle('active', tool === 'pen');
@@ -993,34 +805,375 @@ function setCanvasColor(color) {
     }
 }
 
-function clearCanvas() {
-    if (!state.canvasCtx || !DOM.canvas) return;
-    var canvas = DOM.canvas;
-    state.canvasCtx.fillStyle = '#ffffff';
-    state.canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-    if (state.isHost) {
-        broadcastCanvasStroke({ type: 'clear' });
+// ============================================
+// AUDIO FUNCTIONS
+// ============================================
+
+function createAudioElement() {
+    if (state.remoteAudioElement) {
+        state.remoteAudioElement.remove();
+        state.remoteAudioElement = null;
+    }
+
+    var audio = document.createElement('audio');
+    audio.id = 'remoteAudio';
+    audio.autoplay = true;
+    audio.style.display = 'none';
+    audio.setAttribute('playsinline', '');
+    audio.setAttribute('webkit-playsinline', '');
+    document.body.appendChild(audio);
+    
+    state.remoteAudioElement = audio;
+    console.log('🔊 Audio element created');
+}
+
+function toggleViewerAudio() {
+    state.viewerAudioMuted = !state.viewerAudioMuted;
+    if (state.remoteAudioElement) {
+        state.remoteAudioElement.muted = state.viewerAudioMuted;
+    }
+    if (DOM.viewerAudioMuteBtn) {
+        DOM.viewerAudioMuteBtn.classList.toggle('active', state.viewerAudioMuted);
+        DOM.viewerAudioMuteBtn.innerHTML = state.viewerAudioMuted ? 
+            '<i class="fas fa-volume-mute"></i><span class="btn-label">Unmute</span>' : 
+            '<i class="fas fa-volume-up"></i><span class="btn-label">Mute</span>';
+    }
+    if (DOM.audioStatus) {
+        DOM.audioStatus.textContent = state.viewerAudioMuted ? '🔇' : '🎙️';
+    }
+    showToast(state.viewerAudioMuted ? '🔇 Audio muted' : '🔊 Audio unmuted', 'info');
+}
+
+function startKeepAlive() {
+    if (state.keepAliveInterval) {
+        clearInterval(state.keepAliveInterval);
+    }
+
+    try {
+        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+        console.warn('AudioContext not available');
+    }
+
+    state.keepAliveInterval = setInterval(function() {
+        if (state.audioContext && state.audioContext.state === 'suspended') {
+            state.audioContext.resume().catch(function() {});
+        }
+        if (peerConnection && peerConnection.connectionState === 'connected') {
+            try {
+                var dc = peerConnection.createDataChannel('keepalive');
+                dc.onopen = function() {
+                    dc.send('ping');
+                    setTimeout(function() { dc.close(); }, 100);
+                };
+            } catch (e) {}
+        }
+    }, 30000);
+
+    console.log('🔊 Keep-alive started');
+}
+
+// ============================================
+// SIGNALING CHANNEL (WebRTC)
+// ============================================
+
+// ... [Signaling and WebRTC functions remain the same as before]
+// [Continued in next message due to length]
+
+var peerConnection = null;
+
+async function setupSignalingChannel() {
+    if (!state.sessionId) return;
+
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
+        state.signalingSubscription = null;
+    }
+
+    var channelName = 'webrtc_' + state.sessionId;
+    
+    state.signalingSubscription = supabase
+        .channel(channelName, {
+            config: {
+                broadcast: { ack: true }
+            }
+        })
+        .on('broadcast', { event: 'signal' }, function(payload) {
+            console.log('📨 Signal received:', payload.payload.type);
+            handleSignalingMessage(payload.payload);
+        })
+        .subscribe(function(status) {
+            console.log('📡 Signaling channel status:', status);
+        });
+}
+
+function sendSignalingMessage(message) {
+    if (!state.sessionId || !state.signalingSubscription) {
+        console.warn('Cannot send signal: no subscription');
+        return;
+    }
+
+    message.timestamp = Date.now();
+    message.senderId = state.currentUser.id;
+
+    state.signalingSubscription.send({
+        type: 'broadcast',
+        event: 'signal',
+        payload: message
+    }).catch(function(err) {
+        console.warn('Could not send signal:', err);
+    });
+}
+
+function handleSignalingMessage(message) {
+    if (message.senderId === state.currentUser.id) return;
+    if (!state.audioStream) return;
+
+    console.log('Processing signal:', message.type, 'from:', message.senderId);
+
+    try {
+        switch (message.type) {
+            case 'offer':
+                handleOffer(message);
+                break;
+            case 'answer':
+                handleAnswer(message);
+                break;
+            case 'ice_candidate':
+                handleIceCandidate(message);
+                break;
+            case 'viewer_ready':
+                if (state.isHost) {
+                    console.log('👤 Viewer ready, sending offer...');
+                    createOffer(message.senderId);
+                }
+                break;
+            case 'prep_mode_change':
+                state.prepMode = message.prepMode;
+                if (state.prepMode && !state.isHost) {
+                    showPrepOverlay();
+                } else if (!state.isHost) {
+                    hidePrepOverlay();
+                    loadSlides();
+                }
+                break;
+        }
+    } catch (error) {
+        console.error('Signal handling error:', error);
     }
 }
 
-function toggleCanvas() {
-    if (DOM.canvasContainer) {
-        DOM.canvasContainer.classList.toggle('active');
-        if (DOM.canvasToggleBtn) {
-            DOM.canvasToggleBtn.classList.toggle('active');
+// ============================================
+// WEBRTC AUDIO
+// ============================================
+
+async function initAudio(isHost) {
+    try {
+        state.audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false
+        });
+        console.log('✅ Audio stream acquired');
+
+        if (DOM.audioStatus) {
+            DOM.audioStatus.textContent = '🎙️';
         }
-        if (DOM.canvasContainer.classList.contains('active') && DOM.canvas) {
+
+        if (isHost) {
+            console.log('Host waiting for viewers...');
+        } else {
             setTimeout(function() {
-                var rect = DOM.canvas.parentElement.getBoundingClientRect();
-                DOM.canvas.width = rect.width;
-                DOM.canvas.height = rect.height - 56;
-                if (state.canvasCtx) {
-                    state.canvasCtx.fillStyle = '#ffffff';
-                    state.canvasCtx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
-                }
-            }, 100);
+                console.log('Viewer sending ready signal...');
+                sendSignalingMessage({
+                    type: 'viewer_ready',
+                    senderId: state.currentUser.id
+                });
+            }, 2000);
         }
+
+    } catch (err) {
+        console.warn('Could not get audio:', err);
+        if (DOM.audioStatus) {
+            DOM.audioStatus.textContent = '🔇';
+        }
+        showToast('Audio unavailable. Using chat only.', 'warning');
     }
+}
+
+async function createOffer(targetUserId) {
+    if (!state.audioStream || !state.isHost) return;
+
+    try {
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        peerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+        state.audioStream.getTracks().forEach(function(track) {
+            peerConnection.addTrack(track, state.audioStream);
+        });
+
+        peerConnection.onicecandidate = function(event) {
+            if (event.candidate) {
+                sendSignalingMessage({
+                    type: 'ice_candidate',
+                    candidate: event.candidate,
+                    senderId: state.currentUser.id,
+                    targetUserId: targetUserId
+                });
+            }
+        };
+
+        peerConnection.onconnectionstatechange = function() {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                showToast('🎙️ Audio connected!', 'success');
+                if (DOM.audioStatus) {
+                    DOM.audioStatus.textContent = '🎙️';
+                }
+            }
+        };
+
+        var offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        sendSignalingMessage({
+            type: 'offer',
+            sdp: offer,
+            senderId: state.currentUser.id,
+            targetUserId: targetUserId
+        });
+
+        console.log('✅ Offer sent to:', targetUserId);
+
+    } catch (error) {
+        console.error('Create offer error:', error);
+    }
+}
+
+async function handleOffer(message) {
+    if (!state.audioStream) return;
+
+    try {
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        peerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+        state.audioStream.getTracks().forEach(function(track) {
+            peerConnection.addTrack(track, state.audioStream);
+        });
+
+        peerConnection.onicecandidate = function(event) {
+            if (event.candidate) {
+                sendSignalingMessage({
+                    type: 'ice_candidate',
+                    candidate: event.candidate,
+                    senderId: state.currentUser.id,
+                    targetUserId: message.senderId
+                });
+            }
+        };
+
+        peerConnection.ontrack = function(event) {
+            console.log('🎵 Remote audio stream received!');
+            
+            if (state.remoteAudioElement) {
+                state.remoteAudioElement.srcObject = event.streams[0];
+                state.remoteAudioElement.play().then(function() {
+                    console.log('🔊 Audio playback started');
+                    state.audioActive = true;
+                    if (DOM.audioStatus) {
+                        DOM.audioStatus.textContent = '🎙️';
+                    }
+                    showToast('🎙️ Audio connected!', 'success');
+                }).catch(function(err) {
+                    console.warn('Audio play error:', err);
+                    document.addEventListener('click', function playOnClick() {
+                        if (state.remoteAudioElement) {
+                            state.remoteAudioElement.play().catch(function() {});
+                        }
+                        document.removeEventListener('click', playOnClick);
+                    }, { once: true });
+                });
+            } else {
+                createAudioElement();
+                if (state.remoteAudioElement) {
+                    state.remoteAudioElement.srcObject = event.streams[0];
+                    state.remoteAudioElement.play().catch(function() {});
+                }
+            }
+        };
+
+        peerConnection.onconnectionstatechange = function() {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                showToast('🎙️ Audio connected!', 'success');
+                if (DOM.audioStatus) {
+                    DOM.audioStatus.textContent = '🎙️';
+                }
+            }
+        };
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+
+        var answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        sendSignalingMessage({
+            type: 'answer',
+            sdp: answer,
+            senderId: state.currentUser.id,
+            targetUserId: message.senderId
+        });
+
+        console.log('✅ Answer sent');
+
+    } catch (error) {
+        console.error('Handle offer error:', error);
+    }
+}
+
+async function handleAnswer(message) {
+    if (!peerConnection) return;
+
+    try {
+        if (peerConnection.signalingState === 'have-local-offer' || 
+            peerConnection.signalingState === 'stable') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+            console.log('✅ Answer processed');
+        } else {
+            console.log('Skipping answer - wrong state:', peerConnection.signalingState);
+        }
+    } catch (error) {
+        console.error('Handle answer error:', error);
+    }
+}
+
+async function handleIceCandidate(message) {
+    if (!peerConnection) return;
+
+    try {
+        if (message.candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        }
+    } catch (error) {
+        console.warn('ICE candidate error:', error);
+    }
+}
+
+function toggleMicrophone() {
+    if (!state.audioStream) return;
+    var track = state.audioStream.getAudioTracks()[0];
+    if (!track) return;
+    state.isMuted = !track.enabled;
+    track.enabled = !track.enabled;
+    if (DOM.micBtn) DOM.micBtn.classList.toggle('off', state.isMuted);
+    showToast(state.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
 }
 
 // ============================================
@@ -1334,6 +1487,7 @@ async function toggleRaiseHand() {
             type: 'system_message',
             message: '🙋 ' + (state.userProfile.name || 'A viewer') + ' raised their hand'
         });
+        addNotification('🙋', (state.userProfile.name || 'A viewer') + ' raised their hand', 'action');
     }
 }
 
@@ -1391,6 +1545,8 @@ async function sendTip(amount, emoji) {
             type: 'system_message',
             message: emoji + ' ' + (state.userProfile.name || 'Someone') + ' sent ₦' + amount
         });
+
+        addNotification(emoji, (state.userProfile.name || 'Someone') + ' sent ₦' + amount, 'tip');
 
         updateHostStats();
 
@@ -1642,9 +1798,11 @@ function setupChatIframe() {
                 break;
             case 'hand_raised':
                 showToast('🙋 Viewer raised their hand!', 'warning');
+                addNotification('🙋', 'Viewer raised their hand', 'action');
                 break;
             case 'tip_sent':
                 showToast('🎁 Tip sent!', 'success');
+                addNotification('🎁', 'Tip received', 'tip');
                 break;
         }
     });
@@ -1685,14 +1843,13 @@ async function shareToChat() {
     
     var message = '📚 Join my live classroom! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
     
-    console.log('📤 Sending to chat:', message);
-    
     sendToChatIframe({ 
         type: 'send_message', 
         message: message 
     });
     
     showToast('📤 Session code sent to chat!', 'success');
+    addNotification('📤', 'Session code shared', 'system');
     
     if (DOM.shareModal) {
         DOM.shareModal.classList.remove('active');
@@ -1820,13 +1977,34 @@ function setupEventListeners() {
         });
     }
     if (document.getElementById('canvasCloseBtn')) {
-        document.getElementById('canvasCloseBtn').addEventListener('click', toggleCanvas);
+        document.getElementById('canvasCloseBtn').addEventListener('click', function() {
+            if (state.isHost) {
+                toggleCanvas();
+            }
+        });
     }
 
     // Viewer audio mute
     if (DOM.viewerAudioMuteBtn) {
         DOM.viewerAudioMuteBtn.addEventListener('click', toggleViewerAudio);
     }
+
+    // Notifications
+    if (DOM.notifBtn) {
+        DOM.notifBtn.addEventListener('click', toggleNotifications);
+    }
+    if (DOM.notifClose) {
+        DOM.notifClose.addEventListener('click', function() {
+            if (DOM.notifPanel) DOM.notifPanel.classList.remove('active');
+        });
+    }
+    document.addEventListener('click', function(e) {
+        if (DOM.notifPanel && DOM.notifBtn && 
+            !DOM.notifPanel.contains(e.target) && 
+            !DOM.notifBtn.contains(e.target)) {
+            DOM.notifPanel.classList.remove('active');
+        }
+    });
 
     document.getElementById('tipHeart').addEventListener('click', function() { sendTip(200, '❤️'); });
     document.getElementById('tipStar').addEventListener('click', function() { sendTip(500, '⭐'); });
