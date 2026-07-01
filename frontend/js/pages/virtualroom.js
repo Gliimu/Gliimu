@@ -20,9 +20,16 @@ const state = {
     unreadCount: 0,
     timerInterval: null,
     classStartTime: Date.now(),
-    jitsiInitialized: false,
-    jitsiApi: null,
-    jitsiRoom: null,
+    slides: [],
+    currentSlideIndex: 0,
+    isMuted: false,
+    peer: null,
+    peerId: null,
+    audioStream: null,
+    hostPeerId: null,
+    participantsSubscription: null,
+    sessionSubscription: null,
+    slideSubscription: null,
 };
 
 // ============================================
@@ -43,7 +50,22 @@ function cacheDOM() {
     DOM.loadingOverlay = document.getElementById('loadingOverlay');
     DOM.loadingText = document.getElementById('loadingText');
     DOM.loadingSubText = document.getElementById('loadingSubText');
-    DOM.jitsiContainer = document.getElementById('jitsiFrameContainer');
+    DOM.hostControls = document.getElementById('hostControls');
+    DOM.viewerControls = document.getElementById('viewerControls');
+    DOM.hostName = document.getElementById('hostName');
+    DOM.hostStatus = document.getElementById('hostStatus');
+    DOM.hostStars = document.getElementById('hostStars');
+    DOM.hostTips = document.getElementById('hostTips');
+    DOM.currentSlide = document.getElementById('currentSlide');
+    DOM.slidePlaceholder = document.getElementById('slidePlaceholder');
+    DOM.slideCounter = document.getElementById('slideCounter');
+    DOM.slideNav = document.getElementById('slideNav');
+    DOM.uploadModal = document.getElementById('uploadModal');
+    DOM.uploadArea = document.getElementById('uploadArea');
+    DOM.uploadPreview = document.getElementById('uploadPreview');
+    DOM.uploadSlidesBtn = document.getElementById('uploadSlidesBtn');
+    DOM.slideFileInput = document.getElementById('slideFileInput');
+    DOM.micBtn = document.getElementById('micBtn');
 }
 
 // ============================================
@@ -98,6 +120,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         setupEventListeners();
         setupChatIframe();
+        setupRealtimeSubscriptions();
         startTimer();
         saveSessionState();
 
@@ -130,7 +153,7 @@ async function createNewSession() {
             .from('virtual_sessions')
             .insert({
                 host_id: state.currentUser.id,
-                title: (state.userProfile.name || 'User') + '\'s Session',
+                title: (state.userProfile.name || 'User') + '\'s Presentation',
                 session_code: sessionCode,
                 status: 'live',
                 start_time: new Date().toISOString()
@@ -160,28 +183,23 @@ async function createNewSession() {
             });
 
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title;
-        if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+        if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
+        if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
+        if (DOM.hostName) DOM.hostName.textContent = state.userProfile.name || 'Host';
 
-        // Start Jitsi
-        await initJitsiVideo();
+        // Start audio
+        await initAudio(true);
+
+        // Listen for slide changes
+        setupSlideSubscription();
 
         saveSessionState();
 
         setTimeout(function() {
-            sendToChatIframe({
-                type: 'session_info',
-                sessionId: state.sessionId,
-                sessionCode: state.sessionCode,
-                isHost: state.isHost,
-                roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
-            });
+            if (DOM.shareModal) DOM.shareModal.classList.add('active');
         }, 2000);
 
         showToast('Session started! Code: ' + state.sessionCode, 'success');
-
-        setTimeout(function() {
-            if (DOM.shareModal) DOM.shareModal.classList.add('active');
-        }, 2000);
 
         console.log('Session started:', sessionCode);
 
@@ -236,23 +254,29 @@ async function joinSession(sessionCode) {
                 last_seen: new Date().toISOString()
             }, { onConflict: 'session_id,user_id' });
 
-        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
-        if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Presentation';
+        if (DOM.hostControls) DOM.hostControls.style.display = 'none';
+        if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
 
-        // Start Jitsi
-        await initJitsiVideo();
+        // Get host name
+        var { data: host } = await supabase
+            .from('session_participants')
+            .select('users(name)')
+            .eq('session_id', state.sessionId)
+            .eq('role', 'host')
+            .single();
+
+        if (host?.users) {
+            if (DOM.hostName) DOM.hostName.textContent = host.users.name || 'Host';
+        }
+
+        // Start audio
+        await initAudio(false);
+
+        // Listen for slide changes
+        setupSlideSubscription();
 
         saveSessionState();
-
-        setTimeout(function() {
-            sendToChatIframe({
-                type: 'session_info',
-                sessionId: state.sessionId,
-                sessionCode: state.sessionCode,
-                isHost: state.isHost,
-                roomTitle: DOM.roomTitle ? DOM.roomTitle.textContent : 'Session'
-            });
-        }, 2000);
 
         showToast('Connected to session!', 'success');
 
@@ -267,244 +291,342 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// JITSI VIDEO
+// AUDIO (PeerJS)
 // ============================================
 
-async function loadJitsiScript() {
-    return new Promise(function(resolve, reject) {
-        if (window.JitsiMeetExternalAPI) {
-            resolve();
-            return;
-        }
-
-        var script = document.querySelector('#jitsi-js');
-        if (script) {
-            script.addEventListener('load', resolve);
-            script.addEventListener('error', function() { reject(new Error('Jitsi script failed')); });
-            return;
-        }
-
-        script = document.createElement('script');
-        script.id = 'jitsi-js';
-        script.src = 'https://meet.jit.si/external_api.js';
-        script.async = true;
-
-        script.onload = function() {
-            console.log('✅ Jitsi script loaded');
-            resolve();
-        };
-
-        script.onerror = function() {
-            reject(new Error('Jitsi script failed to load'));
-        };
-
-        document.head.appendChild(script);
-    });
-}
-
-async function initJitsiVideo() {
-    if (state.jitsiInitialized) {
-        console.log('📹 Jitsi already initialized');
-        return;
-    }
-
+async function initAudio(isHost) {
     try {
-        console.log('📹 Initializing Jitsi video...');
+        // Get audio stream
+        state.audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false
+        });
+        console.log('Audio stream acquired');
 
-        await loadJitsiScript();
+        // Initialize PeerJS
+        var peerId = 'glimu_' + state.currentUser.id + '_' + Date.now();
 
-        if (typeof JitsiMeetExternalAPI === 'undefined') {
-            showToast('Video service unavailable. Using chat only.', 'warning');
-            return;
-        }
-
-        var roomName = 'glimu-' + state.sessionCode;
-        state.jitsiRoom = roomName;
-        console.log('📹 Creating Jitsi room:', roomName);
-
-        var container = DOM.jitsiContainer;
-        if (!container) {
-            console.error('❌ Jitsi container not found');
-            return;
-        }
-
-        container.innerHTML = '';
-
-        var displayName = state.userProfile.name || state.currentUser.email?.split('@')[0] || 'User';
-
-        var options = {
-            roomName: roomName,
-            parentNode: container,
-            userInfo: {
-                displayName: displayName,
-                email: state.currentUser.email
-            },
-            configOverwrite: {
-                startWithVideoMuted: false,
-                startWithAudioMuted: false,
-                prejoinPageEnabled: false,
-                enableWelcomePage: false,
-                disableDeepLinking: true,
-                disableInviteFunctions: true,
-                enableWatermark: false,
-                disableBackground: true,
-                toolbarButtons: [
-                    'microphone', 'camera', 'desktop', 'fullscreen', 
-                    'fodeviceselection', 'hangup', 'chat', 'settings'
+        state.peer = new Peer(peerId, {
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
                 ]
-            },
-            interfaceConfigOverwrite: {
-                SHOW_JITSI_WATERMARK: false,
-                SHOW_BRAND_WATERMARK: false,
-                BRAND_WATERMARK_LINK: '',
-                DISABLE_VIDEO_BACKGROUND: true,
-                VERTICAL_FILMSTRIP: true,
-                DEFAULT_BACKGROUND: '#0a0a14',
-                TOOLBAR_BUTTONS: [
-                    'microphone', 'camera', 'desktop', 'fullscreen', 
-                    'fodeviceselection', 'hangup', 'chat', 'settings'
-                ]
-            }
-        };
-
-        state.jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', options);
-
-        // Store reference for screen sharing
-        window.jitsiApi = state.jitsiApi;
-
-        state.jitsiApi.addEventListeners({
-            'videoConferenceJoined': function() {
-                console.log('📹 Joined Jitsi conference');
-                state.jitsiInitialized = true;
-                showToast('📹 Video connected!', 'success');
-                loadParticipants();
-                showLoading(false);
-            },
-            'participantJoined': function(event) {
-                console.log('👤 Participant joined:', event);
-                loadParticipants();
-            },
-            'participantLeft': function(event) {
-                console.log('👤 Participant left:', event);
-                loadParticipants();
-            },
-            'videoConferenceLeft': function() {
-                console.log('📹 Left Jitsi conference');
-                state.jitsiInitialized = false;
             }
         });
 
-        console.log('✅ Jitsi initialized');
+        state.peer.on('open', async function(id) {
+            state.peerId = id;
+            console.log('PeerJS connected:', id);
+
+            // Save peer ID to database
+            await supabase
+                .from('session_participants')
+                .update({ peer_id: id })
+                .eq('session_id', state.sessionId)
+                .eq('user_id', state.currentUser.id);
+
+            if (isHost) {
+                // Host: Wait for incoming calls
+                state.peer.on('call', handleIncomingCall);
+                console.log('Host waiting for audio connections...');
+            } else {
+                // Viewer: Connect to host
+                await connectToHost();
+            }
+        });
+
+        state.peer.on('error', function(err) {
+            console.error('PeerJS error:', err.message);
+        });
+
+    } catch (err) {
+        console.warn('Could not get audio:', err);
+        showToast('Audio unavailable. Using chat only.', 'warning');
+    }
+}
+
+async function connectToHost() {
+    try {
+        var { data: host } = await supabase
+            .from('session_participants')
+            .select('peer_id')
+            .eq('session_id', state.sessionId)
+            .eq('role', 'host')
+            .single();
+
+        if (!host || !host.peer_id) {
+            setTimeout(connectToHost, 3000);
+            return;
+        }
+
+        state.hostPeerId = host.peer_id;
+        console.log('Calling host for audio...');
+
+        var call = state.peer.call(state.hostPeerId, state.audioStream);
+        call.on('stream', function(remoteStream) {
+            console.log('Host audio stream received!');
+            // Audio plays automatically
+            if (DOM.hostStatus) DOM.hostStatus.textContent = '🟢 Audio connected';
+        });
+        call.on('close', function() {
+            console.log('Host audio disconnected');
+            if (DOM.hostStatus) DOM.hostStatus.textContent = '🔴 Audio disconnected';
+            setTimeout(connectToHost, 5000);
+        });
 
     } catch (error) {
-        console.error('❌ Jitsi error:', error);
-        showToast('Video error: ' + error.message, 'error');
+        console.error('Connect to host error:', error);
+        setTimeout(connectToHost, 3000);
+    }
+}
+
+function handleIncomingCall(call) {
+    console.log('Incoming audio call from:', call.peer);
+    call.answer(state.audioStream);
+    call.on('stream', function(remoteStream) {
+        console.log('Viewer audio stream received');
+    });
+}
+
+function toggleMicrophone() {
+    if (!state.audioStream) return;
+    var track = state.audioStream.getAudioTracks()[0];
+    if (!track) return;
+    state.isMuted = !track.enabled;
+    track.enabled = !track.enabled;
+    if (DOM.micBtn) DOM.micBtn.classList.toggle('off', state.isMuted);
+    showToast(state.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
+}
+
+// ============================================
+// SLIDE MANAGEMENT
+// ============================================
+
+function setupSlideSubscription() {
+    if (state.slideSubscription) {
+        state.slideSubscription.unsubscribe();
+    }
+
+    state.slideSubscription = supabase
+        .channel('slides_' + state.sessionId)
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'session_slides',
+            filter: 'session_id=eq.' + state.sessionId
+        }, function(payload) {
+            console.log('New slide uploaded:', payload.new);
+            state.slides.push(payload.new);
+            if (state.slides.length === 1) {
+                showSlide(0);
+            }
+            updateUI();
+        })
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'session_slides',
+            filter: 'session_id=eq.' + state.sessionId
+        }, function(payload) {
+            console.log('Slide updated:', payload.new);
+            if (payload.new.is_current) {
+                var index = state.slides.findIndex(function(s) { return s.id === payload.new.id; });
+                if (index !== -1) {
+                    state.currentSlideIndex = index;
+                    showSlide(index);
+                }
+            }
+        })
+        .subscribe();
+
+    // Load existing slides
+    loadSlides();
+}
+
+async function loadSlides() {
+    try {
+        var { data: slides, error } = await supabase
+            .from('session_slides')
+            .select('*')
+            .eq('session_id', state.sessionId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        state.slides = slides || [];
+        if (state.slides.length > 0) {
+            var currentIndex = state.slides.findIndex(function(s) { return s.is_current; });
+            state.currentSlideIndex = currentIndex !== -1 ? currentIndex : 0;
+            showSlide(state.currentSlideIndex);
+        }
+        updateUI();
+    } catch (error) {
+        console.error('Load slides error:', error);
+    }
+}
+
+function showSlide(index) {
+    if (!state.slides.length || index < 0 || index >= state.slides.length) return;
+
+    var slide = state.slides[index];
+    DOM.currentSlide.src = slide.image_url + '?t=' + Date.now();
+    DOM.currentSlide.style.display = 'block';
+    DOM.slidePlaceholder.style.display = 'none';
+    DOM.slideNav.style.display = 'flex';
+    DOM.slideCounter.textContent = (index + 1) + ' / ' + state.slides.length;
+
+    // Update current slide in database (host only)
+    if (state.isHost) {
+        supabase
+            .from('session_slides')
+            .update({ is_current: false })
+            .eq('session_id', state.sessionId)
+            .then(function() {
+                supabase
+                    .from('session_slides')
+                    .update({ is_current: true })
+                    .eq('id', slide.id)
+                    .then(function() {});
+            });
+    }
+}
+
+function nextSlide() {
+    if (state.currentSlideIndex < state.slides.length - 1) {
+        state.currentSlideIndex++;
+        showSlide(state.currentSlideIndex);
+    }
+}
+
+function prevSlide() {
+    if (state.currentSlideIndex > 0) {
+        state.currentSlideIndex--;
+        showSlide(state.currentSlideIndex);
+    }
+}
+
+// ============================================
+// SLIDE UPLOAD
+// ============================================
+
+function openUploadModal() {
+    if (!state.isHost) {
+        showToast('Only hosts can upload slides', 'warning');
+        return;
+    }
+    DOM.uploadModal.classList.add('active');
+    DOM.uploadPreview.innerHTML = '';
+    DOM.uploadSlidesBtn.style.display = 'none';
+    DOM.slideFileInput.value = '';
+}
+
+function handleFileSelect(files) {
+    var previewHtml = '';
+    var fileArray = Array.from(files);
+
+    fileArray.forEach(function(file, index) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            previewHtml += '<div class="preview-item"><img src="' + e.target.result + '"><button class="remove-item" data-index="' + index + '">×</button></div>';
+            DOM.uploadPreview.innerHTML = previewHtml;
+            DOM.uploadSlidesBtn.style.display = 'block';
+
+            // Add remove handlers
+            DOM.uploadPreview.querySelectorAll('.remove-item').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var idx = parseInt(this.dataset.index);
+                    // Remove from file list
+                    // Re-render preview
+                    var remaining = [];
+                    document.querySelectorAll('.preview-item').forEach(function(el, i) {
+                        if (i !== idx) remaining.push(el);
+                    });
+                    // Simple: just clear and re-add
+                });
+            });
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function uploadSlides() {
+    var files = DOM.slideFileInput.files;
+    if (!files || files.length === 0) {
+        showToast('Select images to upload', 'warning');
+        return;
+    }
+
+    showLoading(true);
+    if (DOM.loadingText) DOM.loadingText.textContent = 'Uploading slides...';
+
+    try {
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            var ext = file.name.split('.').pop();
+            var path = 'slides/' + state.sessionId + '/' + Date.now() + '_' + i + '.' + ext;
+
+            var { error: uploadError } = await supabase.storage
+                .from('presentation-files')
+                .upload(path, file);
+
+            if (uploadError) {
+                console.error('Upload error:', uploadError);
+                continue;
+            }
+
+            var { data: { publicUrl } } = supabase.storage
+                .from('presentation-files')
+                .getPublicUrl(path);
+
+            var isFirst = i === 0 && state.slides.length === 0;
+
+            var { error: insertError } = await supabase
+                .from('session_slides')
+                .insert({
+                    session_id: state.sessionId,
+                    image_url: publicUrl,
+                    is_current: isFirst,
+                    order: state.slides.length + i
+                });
+
+            if (insertError) {
+                console.error('Insert error:', insertError);
+            }
+        }
+
+        showToast('Slides uploaded successfully!', 'success');
+        DOM.uploadModal.classList.remove('active');
+        DOM.slideFileInput.value = '';
+        DOM.uploadPreview.innerHTML = '';
+        DOM.uploadSlidesBtn.style.display = 'none';
+
+        // Reload slides
+        await loadSlides();
+
+    } catch (error) {
+        console.error('Upload slides error:', error);
+        showToast('Failed to upload slides', 'error');
+    } finally {
         showLoading(false);
     }
 }
 
-// ============================================
-// SCREEN SHARE - TRIGGER JITSI
-// ============================================
-
-function toggleScreenShare() {
-    if (!state.jitsiApi) {
-        showToast('Video not ready yet', 'warning');
-        return;
-    }
-
-    try {
-        // Toggle screen sharing in Jitsi
-        state.jitsiApi.executeCommand('toggleShareScreen');
-        showToast('Screen sharing toggled', 'info');
-    } catch (e) {
-        console.error('Screen share error:', e);
-        showToast('Could not start screen share', 'error');
-    }
-}
-
-// ============================================
-// SESSION RECOVERY
-// ============================================
-
-async function recoverSession(savedData) {
-    try {
-        showLoading(true);
-        if (DOM.loadingText) DOM.loadingText.textContent = 'Recovering session...';
-
-        var { data: session, error } = await supabase
-            .from('virtual_sessions')
-            .select('*')
-            .eq('id', savedData.sessionId)
-            .single();
-
-        if (error || !session || session.status === 'ended') {
-            sessionStorage.removeItem('glimu_session');
-            await createNewSession();
-            return;
-        }
-
-        state.sessionId = session.id;
-        state.sessionCode = session.session_code;
-        state.isHost = savedData.isHost || false;
-        state.isLive = session.status === 'live';
-
-        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Session';
-        if (DOM.shareLinkInput) DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
-
-        await supabase
-            .from('session_participants')
-            .update({ 
-                is_active: true,
-                last_seen: new Date().toISOString()
-            })
-            .eq('session_id', state.sessionId)
-            .eq('user_id', state.currentUser.id);
-
-        await initJitsiVideo();
-        await loadParticipants();
-        showToast('Session recovered!', 'success');
-        saveSessionState();
-
-        console.log('Session recovered:', state.sessionCode);
-
-    } catch (error) {
-        console.error('Session recovery failed:', error);
-        sessionStorage.removeItem('glimu_session');
-        await createNewSession();
-    }
-}
-
-// ============================================
-// PARTICIPANTS
-// ============================================
-
-async function loadParticipants() {
-    try {
-        if (!state.sessionId) return;
-        
-        var { data, error } = await supabase
-            .from('session_participants')
-            .select('*, users(name)')
-            .eq('session_id', state.sessionId)
-            .eq('is_active', true);
-
-        if (error) throw error;
-
-        state.participants.clear();
-        data.forEach(function(p) {
-            state.participants.set(p.user_id, {
-                ...p,
-                name: p.users ? p.users.name : 'User'
-            });
-        });
-
-        var viewers = data.filter(function(p) { return p.role !== 'host'; });
-        state.viewerCount = viewers.length;
-        if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
-
-    } catch (error) {
-        console.warn('Load participants error:', error);
+function updateUI() {
+    if (state.slides.length > 0) {
+        DOM.slideNav.style.display = 'flex';
+    } else {
+        DOM.slideNav.style.display = 'none';
+        DOM.currentSlide.style.display = 'none';
+        DOM.slidePlaceholder.style.display = 'flex';
+        DOM.slideCounter.textContent = '0 / 0';
     }
 }
 
@@ -588,10 +710,28 @@ async function sendTip(amount, emoji) {
             message: emoji + ' ' + (state.userProfile.name || 'Someone') + ' sent ₦' + amount
         });
 
+        // Update host stats
+        updateHostStats();
+
     } catch (error) {
         console.error('Tip error:', error);
         showToast('Failed to send tip', 'error');
     }
+}
+
+async function updateHostStats() {
+    try {
+        var { data: session } = await supabase
+            .from('virtual_sessions')
+            .select('stars_count, tips_total')
+            .eq('id', state.sessionId)
+            .single();
+
+        if (session) {
+            if (DOM.hostStars) DOM.hostStars.textContent = session.stars_count || 0;
+            if (DOM.hostTips) DOM.hostTips.textContent = '₦' + (session.tips_total || 0);
+        }
+    } catch (e) {}
 }
 
 // ============================================
@@ -607,10 +747,8 @@ async function endSession() {
     if (!confirm('End this session?')) return;
 
     try {
-        if (state.jitsiApi) {
-            try {
-                state.jitsiApi.executeCommand('hangup');
-            } catch (e) {}
+        if (state.peer) {
+            state.peer.destroy();
         }
 
         if (state.sessionId) {
@@ -631,6 +769,137 @@ async function endSession() {
         console.error('End session error:', error);
         showToast('Failed to end session', 'error');
     }
+}
+
+// ============================================
+// SESSION RECOVERY
+// ============================================
+
+async function recoverSession(savedData) {
+    try {
+        showLoading(true);
+        if (DOM.loadingText) DOM.loadingText.textContent = 'Recovering session...';
+
+        var { data: session, error } = await supabase
+            .from('virtual_sessions')
+            .select('*')
+            .eq('id', savedData.sessionId)
+            .single();
+
+        if (error || !session || session.status === 'ended') {
+            sessionStorage.removeItem('glimu_session');
+            await createNewSession();
+            return;
+        }
+
+        state.sessionId = session.id;
+        state.sessionCode = session.session_code;
+        state.isHost = savedData.isHost || false;
+        state.isLive = session.status === 'live';
+
+        if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Presentation';
+
+        await supabase
+            .from('session_participants')
+            .update({ is_active: true, last_seen: new Date().toISOString() })
+            .eq('session_id', state.sessionId)
+            .eq('user_id', state.currentUser.id);
+
+        if (state.isHost) {
+            if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
+            if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
+        } else {
+            if (DOM.hostControls) DOM.hostControls.style.display = 'none';
+            if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
+        }
+
+        await initAudio(state.isHost);
+        setupSlideSubscription();
+        await loadParticipants();
+        showToast('Session recovered!', 'success');
+        saveSessionState();
+
+        console.log('Session recovered:', state.sessionCode);
+
+    } catch (error) {
+        console.error('Session recovery failed:', error);
+        sessionStorage.removeItem('glimu_session');
+        await createNewSession();
+    }
+}
+
+// ============================================
+// PARTICIPANTS
+// ============================================
+
+async function loadParticipants() {
+    try {
+        if (!state.sessionId) return;
+        
+        var { data, error } = await supabase
+            .from('session_participants')
+            .select('*, users(name)')
+            .eq('session_id', state.sessionId)
+            .eq('is_active', true);
+
+        if (error) throw error;
+
+        state.participants.clear();
+        data.forEach(function(p) {
+            state.participants.set(p.user_id, {
+                ...p,
+                name: p.users ? p.users.name : 'User'
+            });
+        });
+
+        var viewers = data.filter(function(p) { return p.role !== 'host'; });
+        state.viewerCount = viewers.length;
+        if (DOM.viewerCount) DOM.viewerCount.textContent = viewers.length;
+
+        // Get host name
+        var host = data.find(function(p) { return p.role === 'host'; });
+        if (host && DOM.hostName) DOM.hostName.textContent = host.name || 'Host';
+
+    } catch (error) {
+        console.warn('Load participants error:', error);
+    }
+}
+
+// ============================================
+// REALTIME SUBSCRIPTIONS
+// ============================================
+
+function setupRealtimeSubscriptions() {
+    if (!state.sessionId) return;
+
+    state.participantsSubscription = supabase
+        .channel('session_participants_' + state.sessionId)
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'session_participants',
+            filter: 'session_id=eq.' + state.sessionId
+        }, function() {
+            loadParticipants();
+        })
+        .subscribe();
+
+    state.sessionSubscription = supabase
+        .channel('session_' + state.sessionId)
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'virtual_sessions',
+            filter: 'id=eq.' + state.sessionId
+        }, function(payload) {
+            if (payload.new.status === 'ended') {
+                state.sessionEnded = true;
+                if (DOM.sessionEndedOverlay) DOM.sessionEndedOverlay.classList.add('active');
+                sessionStorage.removeItem('glimu_session');
+                cleanup();
+            }
+        })
+        .subscribe();
 }
 
 // ============================================
@@ -734,27 +1003,73 @@ function startTimer() {
 }
 
 function setupEventListeners() {
+    // Navigation
     document.getElementById('backBtn').addEventListener('click', leaveRoom);
     document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
-    document.getElementById('raiseHandBtn').addEventListener('click', toggleRaiseHand);
-    
-    // Screen Share button
-    document.getElementById('screenShareBtn').addEventListener('click', toggleScreenShare);
-    
+    document.getElementById('endSessionBtn').addEventListener('click', endSession);
+
+    // Slide controls
+    document.getElementById('nextSlideBtn').addEventListener('click', nextSlide);
+    document.getElementById('prevSlideBtn').addEventListener('click', prevSlide);
+    document.getElementById('nextSlide').addEventListener('click', nextSlide);
+    document.getElementById('prevSlide').addEventListener('click', prevSlide);
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            nextSlide();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            prevSlide();
+        }
+    });
+
+    // Upload
+    document.getElementById('uploadBtn').addEventListener('click', openUploadModal);
+    document.getElementById('closeUploadModal').addEventListener('click', function() {
+        DOM.uploadModal.classList.remove('active');
+    });
+    DOM.uploadArea.addEventListener('click', function() {
+        DOM.slideFileInput.click();
+    });
+    DOM.slideFileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            handleFileSelect(this.files);
+        }
+    });
+    DOM.uploadSlidesBtn.addEventListener('click', uploadSlides);
+
+    // Tipping
     document.getElementById('tipHeart').addEventListener('click', function() { sendTip(200, '❤️'); });
     document.getElementById('tipStar').addEventListener('click', function() { sendTip(500, '⭐'); });
     document.getElementById('tipHaha').addEventListener('click', function() { sendTip(1250, '😂'); });
-    
+    document.getElementById('sendCustomTip').addEventListener('click', function() {
+        var amount = parseInt(prompt('Enter amount (₦):'));
+        if (amount > 0) {
+            sendTip(amount, '💝');
+        }
+    });
+    document.getElementById('closeTipModal').addEventListener('click', function() {
+        if (DOM.tipModal) DOM.tipModal.classList.remove('active');
+    });
+    document.getElementById('tipBtn')?.addEventListener('click', function() {
+        if (DOM.tipModal) DOM.tipModal.classList.add('active');
+    });
+
+    // Raise Hand
+    document.getElementById('raiseHandBtn').addEventListener('click', toggleRaiseHand);
+
+    // Chat
     document.getElementById('chatToggleBtn').addEventListener('click', toggleChatSidebar);
     document.getElementById('closeChatBtn').addEventListener('click', toggleChatSidebar);
+
+    // Share
     document.getElementById('shareBtn').addEventListener('click', function() {
         if (DOM.shareModal) DOM.shareModal.classList.add('active');
     });
     document.getElementById('closeShareModal').addEventListener('click', function() {
         if (DOM.shareModal) DOM.shareModal.classList.remove('active');
-    });
-    document.getElementById('closeTipModal').addEventListener('click', function() {
-        if (DOM.tipModal) DOM.tipModal.classList.remove('active');
     });
     document.getElementById('shareToChatBtn').addEventListener('click', shareToChat);
     document.getElementById('copyLinkBtn').addEventListener('click', copyShareLink);
@@ -762,24 +1077,22 @@ function setupEventListeners() {
         window.location.href = '/user';
     });
 
+    // Microphone
+    DOM.micBtn.addEventListener('click', toggleMicrophone);
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(function(modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) modal.classList.remove('active');
+        });
+    });
+
+    // Tip options
     document.querySelectorAll('.tip-option').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var amount = parseInt(btn.dataset.amount);
             var emoji = btn.dataset.emoji || '❤️';
             sendTip(amount, emoji);
-        });
-    });
-
-    document.getElementById('sendCustomTip').addEventListener('click', function() {
-        var amount = parseInt(prompt('Enter amount (₦):'));
-        if (amount > 0) {
-            sendTip(amount, '💝');
-        }
-    });
-
-    document.querySelectorAll('.modal-overlay').forEach(function(modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) modal.classList.remove('active');
         });
     });
 
@@ -816,7 +1129,7 @@ function showSessionSelection() {
     if (DOM.loadingOverlay) {
         DOM.loadingOverlay.innerHTML += '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;width:100%;max-width:320px;">' +
             '<button onclick="window.location.href=\'?mode=host\'" class="primary-btn" style="width:100%;">' +
-            '<i class="fas fa-video"></i> Go Live' +
+            '<i class="fas fa-desktop"></i> Start Presentation' +
             '</button>' +
             '<div style="display:flex;gap:8px;width:100%;">' +
             '<input type="text" id="sessionCodeInput" placeholder="Enter session code" style="flex:1;padding:10px 14px;border-radius:12px;border:2px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);font-family:inherit;">' +
@@ -841,7 +1154,7 @@ async function shareToChat() {
         showToast('No session code', 'warning');
         return;
     }
-    var message = '🎥 Join my live session! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
+    var message = '📊 Join my live presentation! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
     sendToChatIframe({ type: 'send_message', message: message });
     showToast('📤 Session code sent to chat!', 'success');
     if (DOM.shareModal) DOM.shareModal.classList.remove('active');
@@ -863,14 +1176,25 @@ async function copyShareLink() {
 }
 
 function cleanup() {
-    if (state.jitsiApi) {
-        try {
-            state.jitsiApi.executeCommand('hangup');
-        } catch (e) {}
-        state.jitsiApi = null;
+    if (state.peer) {
+        state.peer.destroy();
+        state.peer = null;
+    }
+    if (state.audioStream) {
+        state.audioStream.getTracks().forEach(function(t) { t.stop(); });
+        state.audioStream = null;
     }
     if (state.timerInterval) {
         clearInterval(state.timerInterval);
+    }
+    if (state.participantsSubscription) {
+        state.participantsSubscription.unsubscribe();
+    }
+    if (state.sessionSubscription) {
+        state.sessionSubscription.unsubscribe();
+    }
+    if (state.slideSubscription) {
+        state.slideSubscription.unsubscribe();
     }
 }
 
@@ -895,4 +1219,4 @@ window.leaveRoom = leaveRoom;
 window.toggleChatSidebar = toggleChatSidebar;
 window.handleJoinWithCode = window.handleJoinWithCode;
 
-console.log('Virtual Room loaded - Jitsi (100% Free)');
+console.log('Virtual Room loaded - Presentation + Audio (100% Free)');
