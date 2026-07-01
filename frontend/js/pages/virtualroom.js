@@ -23,16 +23,44 @@ const state = {
     slides: [],
     currentSlideIndex: 0,
     isMuted: false,
-    peer: null,
-    peerId: null,
     audioStream: null,
-    hostPeerId: null,
-    audioConnected: false,
-    audioFallbackActive: false,
+    audioActive: false,
+    peerConnections: new Map(),
     participantsSubscription: null,
     sessionSubscription: null,
     slideSubscription: null,
-    peerTimeout: null,
+    signalingSubscription: null,
+};
+
+// ============================================
+// WEBRTC CONFIG
+// ============================================
+
+const RTC_CONFIG = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.nextcloud.com:3478' },
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:turn.jitsi.net:3478',
+            username: 'jitsi',
+            credential: 'jitsi'
+        }
+    ],
+    iceCandidatePoolSize: 5
 };
 
 // ============================================
@@ -190,14 +218,13 @@ async function createNewSession() {
         if (DOM.hostControls) DOM.hostControls.style.display = 'flex';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'none';
         if (DOM.hostName) DOM.hostName.textContent = state.userProfile.name || 'Host';
-        
-        // 🔥 Hide upload button from viewers (only host sees it)
         if (DOM.uploadBtn) DOM.uploadBtn.style.display = 'flex';
-
-        // Set share link
         if (DOM.shareLinkInput) {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
+
+        // Setup signaling channel
+        await setupSignalingChannel();
 
         // Start audio
         await initAudio(true);
@@ -272,11 +299,7 @@ async function joinSession(sessionCode) {
         if (DOM.roomTitle) DOM.roomTitle.textContent = session.title || 'Live Presentation';
         if (DOM.hostControls) DOM.hostControls.style.display = 'none';
         if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
-        
-        // 🔥 Hide upload button from viewers
         if (DOM.uploadBtn) DOM.uploadBtn.style.display = 'none';
-
-        // Set share link
         if (DOM.shareLinkInput) {
             DOM.shareLinkInput.value = window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
         }
@@ -292,6 +315,9 @@ async function joinSession(sessionCode) {
         if (host?.users) {
             if (DOM.hostName) DOM.hostName.textContent = host.users.name || 'Host';
         }
+
+        // Setup signaling channel
+        await setupSignalingChannel();
 
         // Start audio
         await initAudio(false);
@@ -317,8 +343,86 @@ async function joinSession(sessionCode) {
 }
 
 // ============================================
-// AUDIO (PeerJS with Fallback)
+// SIGNALING CHANNEL (Supabase Realtime)
 // ============================================
+
+async function setupSignalingChannel() {
+    if (!state.sessionId) return;
+
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
+        state.signalingSubscription = null;
+    }
+
+    var channelName = 'webrtc_' + state.sessionId;
+    
+    state.signalingSubscription = supabase
+        .channel(channelName, {
+            config: {
+                broadcast: { ack: true }
+            }
+        })
+        .on('broadcast', { event: 'signal' }, function(payload) {
+            console.log('📨 Signal received:', payload.payload.type);
+            handleSignalingMessage(payload.payload);
+        })
+        .subscribe(function(status) {
+            console.log('📡 Signaling channel status:', status);
+        });
+}
+
+function sendSignalingMessage(message) {
+    if (!state.sessionId || !state.signalingSubscription) {
+        console.warn('Cannot send signal: no subscription');
+        return;
+    }
+
+    message.timestamp = Date.now();
+    message.senderId = state.currentUser.id;
+
+    state.signalingSubscription.send({
+        type: 'broadcast',
+        event: 'signal',
+        payload: message
+    }).catch(function(err) {
+        console.warn('Could not send signal:', err);
+    });
+}
+
+function handleSignalingMessage(message) {
+    if (message.senderId === state.currentUser.id) return;
+    if (!state.audioStream) return;
+
+    console.log('Processing signal:', message.type, 'from:', message.senderId);
+
+    try {
+        switch (message.type) {
+            case 'offer':
+                handleOffer(message);
+                break;
+            case 'answer':
+                handleAnswer(message);
+                break;
+            case 'ice_candidate':
+                handleIceCandidate(message);
+                break;
+            case 'viewer_ready':
+                if (state.isHost) {
+                    console.log('👤 Viewer ready, sending offer...');
+                    createOffer(message.senderId);
+                }
+                break;
+        }
+    } catch (error) {
+        console.error('Signal handling error:', error);
+    }
+}
+
+// ============================================
+// WEBRTC AUDIO
+// ============================================
+
+var peerConnection = null;
 
 async function initAudio(isHost) {
     try {
@@ -328,136 +432,153 @@ async function initAudio(isHost) {
         });
         console.log('✅ Audio stream acquired');
 
-        var peerId = 'glimu_' + state.currentUser.id + '_' + Date.now();
+        if (DOM.hostStatus) {
+            DOM.hostStatus.textContent = '🎙️ Audio ready';
+            DOM.hostStatus.style.color = '#10b981';
+        }
 
-        state.peer = new Peer(peerId, {
-            host: '0.peerjs.com',
-            port: 443,
-            path: '/',
-            secure: true,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' }
-                ]
-            }
-        });
-
-        state.peerTimeout = setTimeout(function() {
-            if (state.peer && !state.peer.open) {
-                console.warn('PeerJS timeout, using fallback');
-                useAudioFallback(isHost);
-            }
-        }, 15000);
-
-        state.peer.on('open', async function(id) {
-            clearTimeout(state.peerTimeout);
-            state.peerId = id;
-            console.log('✅ PeerJS connected:', id);
-
-            await supabase
-                .from('session_participants')
-                .update({ peer_id: id })
-                .eq('session_id', state.sessionId)
-                .eq('user_id', state.currentUser.id);
-
-            if (isHost) {
-                state.peer.on('call', handleIncomingCall);
-                console.log('Host waiting for audio connections...');
-                if (DOM.hostStatus) DOM.hostStatus.textContent = '🎙️ Audio ready';
-            } else {
-                setTimeout(function() {
-                    connectToHostAudio();
-                }, 2000);
-            }
-        });
-
-        state.peer.on('error', function(err) {
-            clearTimeout(state.peerTimeout);
-            console.error('PeerJS error:', err.message);
-            if (!state.audioFallbackActive) {
-                useAudioFallback(isHost);
-            }
-        });
-
-        state.peer.on('disconnected', function() {
-            console.warn('PeerJS disconnected');
-            if (!state.audioFallbackActive) {
-                state.peer.reconnect();
-            }
-        });
+        // If host, wait for viewers to connect
+        if (isHost) {
+            console.log('Host waiting for viewers...');
+        } else {
+            // Viewer: send ready signal to host
+            setTimeout(function() {
+                console.log('Viewer sending ready signal...');
+                sendSignalingMessage({
+                    type: 'viewer_ready',
+                    senderId: state.currentUser.id
+                });
+            }, 2000);
+        }
 
     } catch (err) {
         console.warn('Could not get audio:', err);
-        useAudioFallback(false);
-    }
-}
-
-function useAudioFallback(isHost) {
-    if (state.audioFallbackActive) return;
-    state.audioFallbackActive = true;
-    
-    console.log('Using audio fallback - chat only');
-    showToast('Audio unavailable. Using chat only.', 'warning');
-    
-    if (DOM.hostStatus) {
-        DOM.hostStatus.textContent = '🎙️ Audio unavailable';
-        DOM.hostStatus.style.color = '#f59e0b';
-    }
-}
-
-async function connectToHostAudio() {
-    if (state.audioFallbackActive || state.audioConnected) return;
-    
-    try {
-        var { data: host, error } = await supabase
-            .from('session_participants')
-            .select('peer_id')
-            .eq('session_id', state.sessionId)
-            .eq('role', 'host')
-            .single();
-
-        if (error || !host || !host.peer_id) {
-            setTimeout(connectToHostAudio, 3000);
-            return;
+        if (DOM.hostStatus) {
+            DOM.hostStatus.textContent = '🎙️ Audio unavailable';
+            DOM.hostStatus.style.color = '#f59e0b';
         }
+        showToast('Audio unavailable. Using chat only.', 'warning');
+    }
+}
 
-        state.hostPeerId = host.peer_id;
-        console.log('Calling host for audio...');
+async function createOffer(targetUserId) {
+    if (!state.audioStream || !state.isHost) return;
 
-        var call = state.peer.call(state.hostPeerId, state.audioStream);
-        call.on('stream', function(remoteStream) {
-            console.log('✅ Host audio stream received!');
-            state.audioConnected = true;
+    try {
+        peerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+        // Add audio track
+        state.audioStream.getTracks().forEach(function(track) {
+            peerConnection.addTrack(track, state.audioStream);
+        });
+
+        // Handle ICE candidates
+        peerConnection.onicecandidate = function(event) {
+            if (event.candidate) {
+                sendSignalingMessage({
+                    type: 'ice_candidate',
+                    candidate: event.candidate,
+                    senderId: state.currentUser.id,
+                    targetUserId: targetUserId
+                });
+            }
+        };
+
+        // Create offer
+        var offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        sendSignalingMessage({
+            type: 'offer',
+            sdp: offer,
+            senderId: state.currentUser.id,
+            targetUserId: targetUserId
+        });
+
+        console.log('✅ Offer sent to:', targetUserId);
+
+    } catch (error) {
+        console.error('Create offer error:', error);
+    }
+}
+
+async function handleOffer(message) {
+    if (!state.audioStream) return;
+
+    try {
+        peerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+        // Add audio track
+        state.audioStream.getTracks().forEach(function(track) {
+            peerConnection.addTrack(track, state.audioStream);
+        });
+
+        // Handle ICE candidates
+        peerConnection.onicecandidate = function(event) {
+            if (event.candidate) {
+                sendSignalingMessage({
+                    type: 'ice_candidate',
+                    candidate: event.candidate,
+                    senderId: state.currentUser.id,
+                    targetUserId: message.senderId
+                });
+            }
+        };
+
+        // Handle remote stream
+        peerConnection.ontrack = function(event) {
+            console.log('🎵 Remote audio stream received!');
+            state.audioActive = true;
             if (DOM.hostStatus) {
                 DOM.hostStatus.textContent = '🎙️ Audio connected';
                 DOM.hostStatus.style.color = '#10b981';
             }
             showToast('🎙️ Audio connected!', 'success');
-        });
-        call.on('close', function() {
-            console.log('Host audio disconnected');
-            state.audioConnected = false;
-            if (DOM.hostStatus) {
-                DOM.hostStatus.textContent = '🎙️ Reconnecting...';
-                DOM.hostStatus.style.color = '#f59e0b';
-            }
-            setTimeout(connectToHostAudio, 5000);
+        };
+
+        // Set remote description
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+
+        // Create answer
+        var answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        sendSignalingMessage({
+            type: 'answer',
+            sdp: answer,
+            senderId: state.currentUser.id,
+            targetUserId: message.senderId
         });
 
+        console.log('✅ Answer sent');
+
     } catch (error) {
-        console.error('Connect to host error:', error);
-        setTimeout(connectToHostAudio, 3000);
+        console.error('Handle offer error:', error);
     }
 }
 
-function handleIncomingCall(call) {
-    console.log('Incoming audio call from:', call.peer);
-    call.answer(state.audioStream);
-    call.on('stream', function(remoteStream) {
-        console.log('Viewer audio stream received');
-    });
+async function handleAnswer(message) {
+    if (!peerConnection) return;
+
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+        console.log('✅ Answer processed');
+
+    } catch (error) {
+        console.error('Handle answer error:', error);
+    }
+}
+
+async function handleIceCandidate(message) {
+    if (!peerConnection) return;
+
+    try {
+        if (message.candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        }
+    } catch (error) {
+        console.warn('ICE candidate error:', error);
+    }
 }
 
 function toggleMicrophone() {
@@ -649,7 +770,6 @@ async function uploadSlides() {
     if (DOM.loadingText) DOM.loadingText.textContent = 'Uploading slides...';
 
     var uploaded = 0;
-    var failed = 0;
 
     try {
         for (var i = 0; i < files.length; i++) {
@@ -665,8 +785,7 @@ async function uploadSlides() {
                 });
 
             if (uploadError) {
-                console.error('Upload error for ' + file.name + ':', uploadError);
-                failed++;
+                console.error('Upload error:', uploadError);
                 showToast('Failed to upload: ' + file.name, 'error');
                 continue;
             }
@@ -688,7 +807,6 @@ async function uploadSlides() {
 
             if (insertError) {
                 console.error('Insert error:', insertError);
-                failed++;
                 await supabase.storage
                     .from('presentation-files')
                     .remove([path]);
@@ -705,13 +823,13 @@ async function uploadSlides() {
             DOM.uploadPreview.innerHTML = '';
             DOM.uploadSlidesBtn.style.display = 'none';
             await loadSlides();
-        } else if (failed > 0 && uploaded === 0) {
+        } else {
             showToast('Failed to upload slides. Check permissions.', 'error');
         }
 
     } catch (error) {
         console.error('Upload slides error:', error);
-        showToast('Failed to upload slides: ' + error.message, 'error');
+        showToast('Failed to upload slides', 'error');
     } finally {
         showLoading(false);
     }
@@ -832,9 +950,9 @@ async function endSession() {
     if (!confirm('End this session?')) return;
 
     try {
-        if (state.peer) {
-            state.peer.destroy();
-            state.peer = null;
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
         }
 
         if (state.audioStream) {
@@ -904,6 +1022,7 @@ async function recoverSession(savedData) {
             if (DOM.viewerControls) DOM.viewerControls.style.display = 'flex';
         }
 
+        await setupSignalingChannel();
         await initAudio(state.isHost);
         await loadSlides();
         setupSlideSubscription();
@@ -1138,18 +1257,15 @@ function startTimer() {
 }
 
 function setupEventListeners() {
-    // Navigation
     document.getElementById('backBtn').addEventListener('click', leaveRoom);
     document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
     document.getElementById('endSessionBtn').addEventListener('click', endSession);
 
-    // Slide controls
     document.getElementById('nextSlideBtn').addEventListener('click', nextSlide);
     document.getElementById('prevSlideBtn').addEventListener('click', prevSlide);
     document.getElementById('nextSlide').addEventListener('click', nextSlide);
     document.getElementById('prevSlide').addEventListener('click', prevSlide);
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
         if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && !e.target.closest('input')) {
             e.preventDefault();
@@ -1160,7 +1276,6 @@ function setupEventListeners() {
         }
     });
 
-    // Upload
     document.getElementById('uploadBtn').addEventListener('click', openUploadModal);
     document.getElementById('closeUploadModal').addEventListener('click', function() {
         DOM.uploadModal.classList.remove('active');
@@ -1180,7 +1295,6 @@ function setupEventListeners() {
     
     DOM.uploadSlidesBtn.addEventListener('click', uploadSlides);
 
-    // Tipping
     document.getElementById('tipHeart').addEventListener('click', function() { sendTip(200, '❤️'); });
     document.getElementById('tipStar').addEventListener('click', function() { sendTip(500, '⭐'); });
     document.getElementById('tipHaha').addEventListener('click', function() { sendTip(1250, '😂'); });
@@ -1193,18 +1307,12 @@ function setupEventListeners() {
     document.getElementById('closeTipModal').addEventListener('click', function() {
         if (DOM.tipModal) DOM.tipModal.classList.remove('active');
     });
-    document.getElementById('tipBtn')?.addEventListener('click', function() {
-        if (DOM.tipModal) DOM.tipModal.classList.add('active');
-    });
 
-    // Raise Hand
     document.getElementById('raiseHandBtn').addEventListener('click', toggleRaiseHand);
 
-    // Chat
     document.getElementById('chatToggleBtn').addEventListener('click', toggleChatSidebar);
     document.getElementById('closeChatBtn').addEventListener('click', toggleChatSidebar);
 
-    // Share
     document.getElementById('shareBtn').addEventListener('click', function() {
         if (DOM.shareModal) DOM.shareModal.classList.add('active');
     });
@@ -1217,19 +1325,16 @@ function setupEventListeners() {
         window.location.href = '/user';
     });
 
-    // Microphone
     if (DOM.micBtn) {
         DOM.micBtn.addEventListener('click', toggleMicrophone);
     }
 
-    // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(function(modal) {
         modal.addEventListener('click', function(e) {
             if (e.target === modal) modal.classList.remove('active');
         });
     });
 
-    // Tip options
     document.querySelectorAll('.tip-option').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var amount = parseInt(btn.dataset.amount);
@@ -1292,11 +1397,11 @@ function showSessionSelection() {
 }
 
 function cleanup() {
-    if (state.peer) {
+    if (peerConnection) {
         try {
-            state.peer.destroy();
+            peerConnection.close();
         } catch (e) {}
-        state.peer = null;
+        peerConnection = null;
     }
     if (state.audioStream) {
         state.audioStream.getTracks().forEach(function(t) { t.stop(); });
@@ -1317,9 +1422,9 @@ function cleanup() {
         state.slideSubscription.unsubscribe();
         state.slideSubscription = null;
     }
-    if (state.peerTimeout) {
-        clearTimeout(state.peerTimeout);
-        state.peerTimeout = null;
+    if (state.signalingSubscription) {
+        state.signalingSubscription.unsubscribe();
+        state.signalingSubscription = null;
     }
 }
 
@@ -1344,4 +1449,4 @@ window.leaveRoom = leaveRoom;
 window.toggleChatSidebar = toggleChatSidebar;
 window.handleJoinWithCode = window.handleJoinWithCode;
 
-console.log('Virtual Room loaded - Presentation + Audio (100% Free)');
+console.log('Virtual Room loaded - Presentation + Audio (WebRTC)');
