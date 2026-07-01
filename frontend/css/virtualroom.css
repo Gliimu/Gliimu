@@ -1,13 +1,14 @@
 /* ============================================
-   VIRTUAL ROOM - JITSI FULLSCREEN
+   VIRTUAL ROOM - PRESENTATION + AUDIO
    ============================================ */
 
 :root {
-    --bg-primary: #0a0a14;
+    --bg-primary: #0f172a;
     --bg-secondary: #1a1a2e;
+    --bg-card: #1e293b;
     --bg-sidebar: #1a1a2e;
-    --bg-header: #1a1a2e;
-    --bg-controls: #1a1a2e;
+    --bg-header: #1e293b;
+    --bg-controls: #1e293b;
     --bg-hover: rgba(255,255,255,0.05);
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
@@ -132,35 +133,163 @@ body {
     background: var(--bg-primary);
 }
 
-.video-container {
+/* ===== PRESENTATION CONTAINER ===== */
+.presentation-container {
     width: 100%;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    position: relative;
+}
+
+/* ===== SLIDE DISPLAY ===== */
+.slide-display {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
     background: var(--bg-primary);
+    min-height: 200px;
 }
 
-#jitsiFrameContainer {
-    width: 100%;
-    height: 100%;
+.slide-placeholder {
+    text-align: center;
+    color: var(--text-muted);
 }
 
-#jitsiFrameContainer iframe {
-    width: 100% !important;
-    height: 100% !important;
-    border: none !important;
-    background: var(--bg-primary) !important;
-    display: block !important;
+.slide-placeholder i {
+    font-size: 64px;
+    opacity: 0.3;
+    margin-bottom: 16px;
 }
 
-/* Force Jitsi video to fill container */
-#jitsiFrameContainer video {
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: contain !important;
+.slide-placeholder h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-secondary);
 }
 
-/* ===== LOADING OVERLAY ===== */
+.slide-placeholder p {
+    font-size: 14px;
+}
+
+#currentSlide {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+.slide-counter {
+    position: absolute;
+    bottom: 16px;
+    right: 20px;
+    background: rgba(0,0,0,0.7);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #fff;
+    z-index: 5;
+    backdrop-filter: blur(4px);
+}
+
+.slide-nav {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.slide-nav .nav-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    pointer-events: auto;
+    backdrop-filter: blur(4px);
+    transition: all 0.2s;
+}
+
+.slide-nav .nav-btn:hover {
+    background: var(--accent);
+    color: #111;
+}
+
+/* ===== HOST INFO ===== */
+.host-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.host-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.host-avatar i {
+    font-size: 20px;
+    color: #fff;
+}
+
+.host-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.host-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.host-status {
+    font-size: 11px;
+    color: var(--success);
+}
+
+.host-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.host-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.host-stats .fa-star { color: var(--star); }
+.host-stats .fa-gift { color: var(--accent); }
+
+/* ===== LOADING ===== */
 .loading-overlay {
     position: absolute;
     top: 0;
@@ -204,6 +333,7 @@ body {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
+.controls-host,
 .controls-viewer {
     display: flex;
     gap: 6px;
@@ -249,6 +379,7 @@ body {
 
 .control-btn:active { transform: scale(0.95); }
 .control-btn.active { background: var(--accent); color: #111; }
+.control-btn.off { background: var(--danger); color: #fff; }
 
 .control-btn.heart-btn {
     background: rgba(239,68,68,0.12);
@@ -268,13 +399,9 @@ body {
 }
 .control-btn.haha-btn:hover { background: var(--haha); color: #fff; }
 
-.control-btn.chat-toggle {
-    background: var(--bg-hover);
-}
-.control-btn.chat-toggle:hover {
-    background: var(--accent);
-    color: #111;
-}
+.control-btn.danger:hover { background: var(--danger); color: #fff; }
+.control-btn.chat-toggle { background: var(--bg-hover); }
+.control-btn.chat-toggle:hover { background: var(--accent); color: #111; }
 
 /* ===== CHAT SIDEBAR ===== */
 .chat-sidebar {
@@ -351,7 +478,7 @@ body {
     background: var(--bg-secondary);
     border-radius: 20px;
     padding: 24px;
-    max-width: 420px;
+    max-width: 480px;
     width: 100%;
     max-height: 85vh;
     overflow-y: auto;
@@ -394,6 +521,68 @@ body {
     margin-bottom: 16px;
 }
 
+/* ===== UPLOAD AREA ===== */
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 16px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 16px;
+}
+
+.upload-area:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.upload-area i {
+    font-size: 48px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.upload-area p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.upload-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.upload-preview img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+}
+
+.upload-preview .preview-item {
+    position: relative;
+}
+
+.upload-preview .remove-item {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--danger);
+    border: none;
+    color: #fff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+/* ===== SHARE ===== */
 .share-link {
     display: flex;
     gap: 8px;
@@ -414,6 +603,7 @@ body {
 
 .share-link input:focus { border-color: var(--accent); }
 
+/* ===== TIP OPTIONS ===== */
 .tip-options {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -508,6 +698,8 @@ body {
     .chat-sidebar { max-width: 100%; }
     .modal-content { padding: 20px; }
     .tip-options { grid-template-columns: repeat(3, 1fr); }
+    .host-info { padding: 8px 12px; flex-wrap: wrap; }
+    .slide-nav .nav-btn { width: 32px; height: 32px; font-size: 12px; }
 }
 
 @media (max-width: 420px) {
@@ -517,6 +709,8 @@ body {
     .controls-bar { padding: 4px 8px; min-height: 48px; }
     .control-btn { width: 38px; height: 38px; font-size: 0.85rem; }
     .control-btn .btn-label { display: none; }
+    .slide-placeholder i { font-size: 40px; }
+    .slide-placeholder h3 { font-size: 16px; }
 }
 
 @supports (padding: max(0px)) {
