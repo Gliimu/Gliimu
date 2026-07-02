@@ -1,3 +1,8 @@
+// ============================================
+// 🎥 VIRTUAL CLASSROOM - Complete
+// Slides, Whiteboard, Audio, Realtime Sync
+// ============================================
+
 import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
@@ -367,7 +372,6 @@ async function joinSession(sessionCode) {
         setupSlideSubscription();
         setupCanvasSubscription();
 
-        // Viewer canvas should follow host
         state.isCanvasViewer = true;
 
         if (state.prepMode) {
@@ -468,7 +472,6 @@ async function togglePrepMode() {
         await loadSlides();
     }
 
-    // Broadcast prep mode change to viewers
     if (state.isHost) {
         sendSignalingMessage({
             type: 'prep_mode_change',
@@ -525,7 +528,6 @@ function setupCanvas() {
 
     state.canvasCtx = ctx;
 
-    // Only enable drawing for host
     if (state.isHost) {
         enableCanvasDrawing();
     }
@@ -557,7 +559,7 @@ function enableCanvasDrawing() {
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(x, y);
-        
+
         if (state.isHost) {
             broadcastCanvasStroke({ x: x, y: y, tool: state.canvasTool, color: state.canvasColor });
         }
@@ -597,7 +599,7 @@ function enableCanvasDrawing() {
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(x, y);
-        
+
         if (state.isHost) {
             broadcastCanvasStroke({ x: x, y: y, tool: state.canvasTool, color: state.canvasColor });
         }
@@ -628,7 +630,6 @@ function setupCanvasSubscription() {
         })
         .on('broadcast', { event: 'canvas_toggle' }, function(payload) {
             if (payload.payload.senderId === state.currentUser.id) return;
-            // Viewers: show/hide canvas when host toggles
             if (payload.payload.active) {
                 showCanvasForViewer();
             } else {
@@ -644,7 +645,7 @@ function setupCanvasSubscription() {
 
 function broadcastCanvasStroke(data) {
     if (!state.sessionId || !state.isHost) return;
-    
+
     data.senderId = state.currentUser.id;
     data.timestamp = Date.now();
 
@@ -716,13 +717,12 @@ function toggleCanvas() {
         addNotification('📝', 'Whiteboard closed', 'system');
     }
 
-    // Broadcast to viewers
     supabase.channel('canvas_' + state.sessionId).send({
         type: 'broadcast',
         event: 'canvas_toggle',
-        payload: { 
+        payload: {
             active: state.canvasActive,
-            senderId: state.currentUser.id 
+            senderId: state.currentUser.id
         }
     });
 
@@ -739,7 +739,6 @@ function showCanvas() {
         DOM.canvasContainer.classList.add('active');
         DOM.canvasContainer.style.display = 'block';
     }
-    // Resize canvas
     setTimeout(function() {
         if (DOM.canvas) {
             var rect = DOM.canvas.parentElement.getBoundingClientRect();
@@ -770,7 +769,6 @@ function showCanvasForViewer() {
         DOM.canvasContainer.style.display = 'block';
         DOM.canvasWatermark.style.display = 'block';
     }
-    // Resize canvas
     setTimeout(function() {
         if (DOM.canvas) {
             var rect = DOM.canvas.parentElement.getBoundingClientRect();
@@ -822,7 +820,7 @@ function createAudioElement() {
     audio.setAttribute('playsinline', '');
     audio.setAttribute('webkit-playsinline', '');
     document.body.appendChild(audio);
-    
+
     state.remoteAudioElement = audio;
     console.log('🔊 Audio element created');
 }
@@ -834,8 +832,8 @@ function toggleViewerAudio() {
     }
     if (DOM.viewerAudioMuteBtn) {
         DOM.viewerAudioMuteBtn.classList.toggle('active', state.viewerAudioMuted);
-        DOM.viewerAudioMuteBtn.innerHTML = state.viewerAudioMuted ? 
-            '<i class="fas fa-volume-mute"></i><span class="btn-label">Unmute</span>' : 
+        DOM.viewerAudioMuteBtn.innerHTML = state.viewerAudioMuted ?
+            '<i class="fas fa-volume-mute"></i><span class="btn-label">Unmute</span>' :
             '<i class="fas fa-volume-up"></i><span class="btn-label">Mute</span>';
     }
     if (DOM.audioStatus) {
@@ -877,9 +875,6 @@ function startKeepAlive() {
 // SIGNALING CHANNEL (WebRTC)
 // ============================================
 
-// ... [Signaling and WebRTC functions remain the same as before]
-// [Continued in next message due to length]
-
 var peerConnection = null;
 
 async function setupSignalingChannel() {
@@ -891,7 +886,7 @@ async function setupSignalingChannel() {
     }
 
     var channelName = 'webrtc_' + state.sessionId;
-    
+
     state.signalingSubscription = supabase
         .channel(channelName, {
             config: {
@@ -1081,7 +1076,7 @@ async function handleOffer(message) {
 
         peerConnection.ontrack = function(event) {
             console.log('🎵 Remote audio stream received!');
-            
+
             if (state.remoteAudioElement) {
                 state.remoteAudioElement.srcObject = event.streams[0];
                 state.remoteAudioElement.play().then(function() {
@@ -1142,7 +1137,7 @@ async function handleAnswer(message) {
     if (!peerConnection) return;
 
     try {
-        if (peerConnection.signalingState === 'have-local-offer' || 
+        if (peerConnection.signalingState === 'have-local-offer' ||
             peerConnection.signalingState === 'stable') {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
             console.log('✅ Answer processed');
@@ -1233,7 +1228,7 @@ function setupSlideSubscription() {
 async function loadSlides() {
     try {
         if (!state.sessionId) return;
-        
+
         var { data: slides, error } = await supabase
             .from('session_slides')
             .select('*')
@@ -1374,7 +1369,7 @@ function handleFileSelect(files) {
     if (fileArray.length === 0) return;
 
     var previewHtml = '';
-    
+
     fileArray.forEach(function(file, index) {
         var reader = new FileReader();
         reader.onload = function(e) {
@@ -1695,7 +1690,7 @@ async function recoverSession(savedData) {
 async function loadParticipants() {
     try {
         if (!state.sessionId) return;
-        
+
         var { data, error } = await supabase
             .from('session_participants')
             .select('*, users(name)')
@@ -1840,17 +1835,17 @@ async function shareToChat() {
         showToast('No session code to share', 'warning');
         return;
     }
-    
+
     var message = '📚 Join my live classroom! Code: **' + state.sessionCode + '**\n' + window.location.origin + '/virtualroom.html?code=' + state.sessionCode;
-    
-    sendToChatIframe({ 
-        type: 'send_message', 
-        message: message 
+
+    sendToChatIframe({
+        type: 'send_message',
+        message: message
     });
-    
+
     showToast('📤 Session code sent to chat!', 'success');
     addNotification('📤', 'Session code shared', 'system');
-    
+
     if (DOM.shareModal) {
         DOM.shareModal.classList.remove('active');
     }
@@ -1938,19 +1933,19 @@ function setupEventListeners() {
     document.getElementById('closeUploadModal').addEventListener('click', function() {
         DOM.uploadModal.classList.remove('active');
     });
-    
+
     if (DOM.uploadArea) {
         DOM.uploadArea.addEventListener('click', function() {
             DOM.slideFileInput.click();
         });
     }
-    
+
     DOM.slideFileInput.addEventListener('change', function() {
         if (this.files.length > 0) {
             handleFileSelect(this.files);
         }
     });
-    
+
     DOM.uploadSlidesBtn.addEventListener('click', uploadSlides);
 
     // Prep Mode
@@ -1999,8 +1994,8 @@ function setupEventListeners() {
         });
     }
     document.addEventListener('click', function(e) {
-        if (DOM.notifPanel && DOM.notifBtn && 
-            !DOM.notifPanel.contains(e.target) && 
+        if (DOM.notifPanel && DOM.notifBtn &&
+            !DOM.notifPanel.contains(e.target) &&
             !DOM.notifBtn.contains(e.target)) {
             DOM.notifPanel.classList.remove('active');
         }
@@ -2080,7 +2075,7 @@ function showLoginScreen() {
 function showSessionSelection() {
     if (DOM.loadingText) DOM.loadingText.textContent = 'Start or Join a Session';
     if (DOM.loadingSubText) DOM.loadingSubText.textContent = 'Create your own session or join with a code';
-    
+
     var spinner = DOM.loadingOverlay.querySelector('.loading-spinner');
     if (spinner) spinner.style.display = 'none';
 
