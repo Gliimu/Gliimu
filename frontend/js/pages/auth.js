@@ -1,9 +1,9 @@
 // ============================================
-// AUTHENTICATION PAGE - SIGN IN / SIGN UP
-// With PDF Generation and Theme Persistence
+// AUTHENTICATION PAGE - SIMPLIFIED VERSION
+// No applications table, direct user creation
 // ============================================
 
-import { supabase } from '../modules/supabase.js';
+import { supabase, signUp as supabaseSignUp, signIn as supabaseSignIn, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ============================================
@@ -39,230 +39,12 @@ function generateRecoveryPhrase() {
     return phrase.join('-');
 }
 
-async function hashPassword(password) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function saveApplication(applicationData) {
-    const applicationId = `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const application = {
-        id: applicationId,
-        full_name: applicationData.fullName,
-        birth_day: applicationData.birthDay,
-        birth_month: applicationData.birthMonth,
-        role: applicationData.role,
-        password_hash: applicationData.passwordHash,
-        username: applicationData.username,
-        recovery_phrase: applicationData.recoveryPhrase,
-        status: 'pending',
-        submitted_at: new Date().toISOString()
-    };
-    
-    const { data, error } = await supabase
-        .from('applications')
-        .insert([application])
-        .select();
-    
-    if (error) throw error;
-    return { success: true, data: data[0] };
-}
-
 // ============================================
-// PDF GENERATION FUNCTION
-// ============================================
-
-function generatePDF(userData) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Header with brand color
-    doc.setFillColor(44, 47, 120);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.text('Gliimu Institute', pageWidth / 2, 25, { align: 'center' });
-    
-    // Title
-    doc.setTextColor(44, 47, 120);
-    doc.setFontSize(16);
-    doc.text('Account Credentials', pageWidth / 2, 60, { align: 'center' });
-    
-    // Important Note
-    doc.setTextColor(200, 0, 0);
-    doc.setFontSize(10);
-    doc.text('⚠️ IMPORTANT: Save this document securely', pageWidth / 2, 75, { align: 'center' });
-    
-    // Credentials
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.text('Your Account Details:', 20, 95);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Full Name: ${userData.fullName}`, 20, 110);
-    doc.text(`Username: ${userData.username}`, 20, 120);
-    doc.text(`Password: ${userData.password}`, 20, 130);
-    doc.text(`Recovery Phrase: ${userData.recoveryPhrase}`, 20, 140);
-    doc.text(`Role: ${userData.role === 'student' ? 'Student' : userData.role === 'instructor' ? 'Instructor' : userData.role === 'partner' ? 'Partner' : 'Other'}`, 20, 150);
-    
-    // Security Warning
-    doc.setTextColor(200, 0, 0);
-    doc.setFontSize(10);
-    doc.text('❗ Keep this recovery phrase safe!', 20, 175);
-    doc.text('❗ You will need it to reset your password if you forget it.', 20, 185);
-    doc.text('❗ This information will not be shown again.', 20, 195);
-    
-    // Footer
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(8);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 270);
-    doc.text('© Gliimu Institute of Media Technologies Ltd.', pageWidth / 2, 280, { align: 'center' });
-    
-    // Save PDF
-    doc.save(`Gliimu_Credentials_${userData.username}.pdf`);
-}
-
-// ============================================
-// SHOW CREDENTIALS MODAL
-// ============================================
-
-function showCredentialsModal(userData) {
-    document.getElementById('displayUsername').textContent = userData.username;
-    document.getElementById('displayRecoveryPhrase').textContent = userData.recoveryPhrase;
-    document.getElementById('displayPassword').textContent = userData.password;
-    
-    window.currentCredentials = userData;
-    
-    const modal = document.getElementById('pdfModal');
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-// Close modal function
-function closePdfModal() {
-    const modal = document.getElementById('pdfModal');
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
-}
-
-// ============================================
-// SIGN IN FUNCTION
-// ============================================
-
-async function signIn(usernameOrEmail, password) {
-    try {
-        let userData = null;
-        let isEmail = usernameOrEmail.includes('@');
-        
-        let query = supabase.from('applications').select('*');
-        if (isEmail) {
-            query = query.eq('email', usernameOrEmail);
-        } else {
-            query = query.eq('username', usernameOrEmail);
-        }
-        
-        const { data: appData, error: appError } = await query.single();
-        
-        if (!appError && appData) {
-            const hashedInput = await hashPassword(password);
-            if (hashedInput === appData.password_hash) {
-                // Create or get existing auth user
-                let authUser = null;
-                
-                const { data: existingUser } = await supabase.auth.getUser();
-                
-                if (!existingUser.user) {
-                    const { data: authData, error: authError } = await supabase.auth.signUp({
-                        email: `${appData.username}@temp.gliimu.com`,
-                        password: password,
-                        options: {
-                            data: {
-                                name: appData.full_name,
-                                role: appData.role
-                            }
-                        }
-                    });
-                    
-                    if (authError && authError.message !== 'User already registered') {
-                        throw authError;
-                    }
-                    authUser = authData?.user || existingUser.user;
-                } else {
-                    authUser = existingUser.user;
-                }
-                
-                if (authUser) {
-                    await supabase
-                        .from('users')
-                        .upsert({
-                            id: authUser.id,
-                            name: appData.full_name,
-                            email: appData.email || `${appData.username}@temp.gliimu.com`,
-                            role: appData.role,
-                            plan: 'basic',
-                            wallet_balance: 25000
-                        });
-                    
-                    const user = {
-                        id: authUser.id,
-                        name: appData.full_name,
-                        email: appData.email || `${appData.username}@temp.gliimu.com`,
-                        role: appData.role,
-                        plan: 'basic',
-                        walletBalance: 25000,
-                        username: appData.username
-                    };
-                    
-                    localStorage.setItem('glimu_user', JSON.stringify(user));
-                    return { success: true, user, role: appData.role };
-                }
-            }
-        }
-        
-        // Try direct Supabase auth
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: usernameOrEmail.includes('@') ? usernameOrEmail : `${usernameOrEmail}@temp.gliimu.com`,
-            password: password
-        });
-        
-        if (error) throw error;
-        
-        const { data: profile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-        
-        const user = {
-            id: data.user.id,
-            name: profile?.name || data.user.user_metadata?.name || 'User',
-            email: data.user.email,
-            role: profile?.role || 'student',
-            plan: profile?.plan || 'basic',
-            walletBalance: profile?.wallet_balance || 25000
-        };
-        
-        localStorage.setItem('glimu_user', JSON.stringify(user));
-        return { success: true, user, role: user.role };
-        
-    } catch (error) {
-        console.error('Sign in error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-// ============================================
-// SIGN UP FUNCTION
+// SIMPLIFIED SIGN UP
 // ============================================
 
 async function signUp(fullName, birthDay, birthMonth, role, password, confirmPassword) {
+    // Validation
     if (!fullName || !birthDay || !birthMonth || !role || !password) {
         return { success: false, error: 'Please fill in all fields' };
     }
@@ -278,39 +60,209 @@ async function signUp(fullName, birthDay, birthMonth, role, password, confirmPas
     try {
         const username = generateUsername(fullName);
         const recoveryPhrase = generateRecoveryPhrase();
-        const passwordHash = await hashPassword(password);
+        const email = `${username}@glimu.com`;
         
-        const result = await saveApplication({
-            fullName,
+        // ✅ Create auth user AND profile in one call
+        const result = await supabaseSignUp(email, password, {
+            name: fullName,
+            username: username,
+            role: role,
             birthDay: parseInt(birthDay),
-            birthMonth: parseInt(birthMonth),
-            role,
-            passwordHash,
-            username,
-            recoveryPhrase
+            birthMonth: parseInt(birthMonth)
         });
         
-        if (result.success) {
-            const userData = {
-                fullName,
-                username,
-                password,
-                recoveryPhrase,
-                role
-            };
-            
-            // Show modal with credentials and PDF download
-            showCredentialsModal(userData);
-            
-            return { success: true, ...userData };
+        if (!result.success) {
+            return { success: false, error: result.error };
         }
         
-        return { success: false, error: 'Failed to create account' };
+        // ✅ Show credentials modal
+        showCredentialsModal({
+            fullName,
+            username,
+            password,
+            recoveryPhrase,
+            role,
+            email
+        });
+        
+        return { success: true };
         
     } catch (error) {
         console.error('Sign up error:', error);
         return { success: false, error: error.message };
     }
+}
+
+// ============================================
+// SIMPLIFIED SIGN IN
+// ============================================
+
+async function signIn(usernameOrEmail, password) {
+    try {
+        let email = usernameOrEmail;
+        let isEmail = usernameOrEmail.includes('@');
+        
+        // If username, get email from users table
+        if (!isEmail) {
+            const { data, error } = await supabase
+                .from('users')
+                .select('email')
+                .eq('username', usernameOrEmail)
+                .single();
+            
+            if (error) {
+                return { success: false, error: 'User not found' };
+            }
+            email = data.email;
+        }
+        
+        // ✅ Sign in with Supabase Auth
+        const result = await supabaseSignIn(email, password);
+        
+        if (!result.success) {
+            return { success: false, error: 'Invalid credentials' };
+        }
+        
+        // ✅ Get user profile
+        const profile = await getUserProfile(result.user.id);
+        
+        if (!profile) {
+            return { success: false, error: 'User profile not found' };
+        }
+        
+        // ✅ Prepare session
+        const user = {
+            id: result.user.id,
+            name: profile.name,
+            email: profile.email,
+            username: profile.username,
+            role: profile.role,
+            plan: profile.plan || 'basic',
+            walletBalance: profile.wallet_balance || 25000,
+            gpPoints: profile.gp_points || 0,
+            address: profile.address || '',
+            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
+        };
+        
+        localStorage.setItem('glimu_user', JSON.stringify(user));
+        return { success: true, user, role: user.role };
+        
+    } catch (error) {
+        console.error('Sign in error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// PDF GENERATION
+// ============================================
+
+function generatePDF(userData) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Header
+    doc.setFillColor(44, 47, 120);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.text('Gliimu Institute', pageWidth / 2, 25, { align: 'center' });
+    
+    // Title
+    doc.setTextColor(44, 47, 120);
+    doc.setFontSize(16);
+    doc.text('Account Credentials', pageWidth / 2, 60, { align: 'center' });
+    
+    doc.setTextColor(200, 0, 0);
+    doc.setFontSize(10);
+    doc.text('⚠️ IMPORTANT: Save this document securely', pageWidth / 2, 75, { align: 'center' });
+    
+    // Credentials
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text('Your Account Details:', 20, 95);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Full Name: ${userData.fullName}`, 20, 110);
+    doc.text(`Username: ${userData.username}`, 20, 120);
+    doc.text(`Password: ${userData.password}`, 20, 130);
+    doc.text(`Recovery Phrase: ${userData.recoveryPhrase}`, 20, 140);
+    doc.text(`Role: ${userData.role === 'student' ? 'Student' : userData.role === 'instructor' ? 'Instructor' : 'Partner'}`, 20, 150);
+    doc.text(`Email: ${userData.email}`, 20, 160);
+    
+    // Success message
+    doc.setTextColor(0, 128, 0);
+    doc.setFontSize(11);
+    doc.text('✅ Your account is ready to use!', 20, 185);
+    
+    // Security warnings
+    doc.setTextColor(200, 0, 0);
+    doc.setFontSize(10);
+    doc.text('❗ Keep this recovery phrase safe!', 20, 205);
+    doc.text('❗ You will need it to reset your password if you forget it.', 20, 215);
+    doc.text('❗ This information will not be shown again.', 20, 225);
+    
+    // Footer
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(8);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 270);
+    doc.text('© Gliimu Institute of Media Technologies Ltd.', pageWidth / 2, 280, { align: 'center' });
+    
+    doc.save(`Gliimu_Credentials_${userData.username}.pdf`);
+}
+
+// ============================================
+// SHOW CREDENTIALS MODAL
+// ============================================
+
+function showCredentialsModal(userData) {
+    document.getElementById('displayUsername').textContent = userData.username;
+    document.getElementById('displayRecoveryPhrase').textContent = userData.recoveryPhrase;
+    document.getElementById('displayPassword').textContent = userData.password;
+    
+    // Update success message
+    const successIcon = document.querySelector('.success-icon i');
+    if (successIcon) {
+        successIcon.className = 'fas fa-check-circle';
+        successIcon.style.color = '#4CAF50';
+    }
+    
+    const modalTitle = document.querySelector('.modal-header h2');
+    if (modalTitle) {
+        modalTitle.textContent = '✅ Account Created Successfully!';
+    }
+    
+    // Remove pending status message if exists
+    const statusMsg = document.querySelector('.approval-status');
+    if (statusMsg) {
+        statusMsg.remove();
+    }
+    
+    // Update next steps
+    const nextSteps = document.querySelector('.next-steps ol');
+    if (nextSteps) {
+        nextSteps.innerHTML = `
+            <li>Download and save your credentials PDF</li>
+            <li>Use your username and password to Log In</li>
+            <li>Keep your recovery phrase safe</li>
+            <li>You'll be redirected to your dashboard</li>
+        `;
+    }
+    
+    window.currentCredentials = userData;
+    
+    const modal = document.getElementById('pdfModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePdfModal() {
+    const modal = document.getElementById('pdfModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
 }
 
 // ============================================
@@ -336,8 +288,13 @@ if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const username = document.getElementById('loginUsername').value;
+        const username = document.getElementById('loginUsername').value.trim();
         const password = document.getElementById('loginPassword').value;
+        
+        if (!username || !password) {
+            showToast('Please enter both username and password', 'error');
+            return;
+        }
         
         const submitBtn = loginForm.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
@@ -354,6 +311,10 @@ if (loginForm) {
             setTimeout(() => {
                 if (result.role === 'admin') {
                     window.location.href = '/admin-dashboard.html';
+                } else if (result.role === 'instructor') {
+                    window.location.href = '/instructor-dashboard.html';
+                } else if (result.role === 'partner') {
+                    window.location.href = '/partner-dashboard.html';
                 } else {
                     window.location.href = '/user';
                 }
@@ -370,7 +331,7 @@ if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const fullName = document.getElementById('signupName').value;
+        const fullName = document.getElementById('signupName').value.trim();
         const birthDay = document.getElementById('signupBirthDay').value;
         const birthMonth = document.getElementById('signupBirthMonth').value;
         const role = document.getElementById('signupRole').value;
@@ -387,7 +348,9 @@ if (registerForm) {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
         
-        if (!result.success) {
+        if (result.success) {
+            showToast('Account created successfully!', 'success');
+        } else {
             showToast(result.error || 'Failed to create account', 'error');
         }
     });
@@ -404,20 +367,21 @@ if (downloadBtn) {
     });
 }
 
-// Go to Dashboard
+// Go to Dashboard - Now redirects immediately
 const goToDashboardBtn = document.getElementById('goToDashboardBtn');
 if (goToDashboardBtn) {
     goToDashboardBtn.addEventListener('click', () => {
-        // Try to sign in with the newly created account
-        const username = window.currentCredentials?.username;
-        const password = window.currentCredentials?.password;
-        
-        if (username && password) {
-            // Auto sign in
-            signIn(username, password).then(result => {
+        const creds = window.currentCredentials;
+        if (creds) {
+            // Auto-login and redirect
+            signIn(creds.username, creds.password).then(result => {
                 if (result.success) {
                     if (result.role === 'admin') {
                         window.location.href = '/admin-dashboard.html';
+                    } else if (result.role === 'instructor') {
+                        window.location.href = '/instructor-dashboard.html';
+                    } else if (result.role === 'partner') {
+                        window.location.href = '/partner-dashboard.html';
                     } else {
                         window.location.href = '/user';
                     }
@@ -445,11 +409,17 @@ window.onclick = (e) => {
     }
 };
 
-// Forgot password link
+// Forgot password - Now uses Supabase
 const forgotLink = document.getElementById('forgotPasswordLink');
 if (forgotLink) {
     forgotLink.addEventListener('click', (e) => {
         e.preventDefault();
-        showToast('Contact support to reset your password', 'info');
+        const email = prompt('Please enter your email address to reset your password:');
+        if (email) {
+            supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin + '/reset-password.html',
+            });
+            showToast('Password reset email sent! Check your inbox.', 'success');
+        }
     });
 }
