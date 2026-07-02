@@ -10,10 +10,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================
-// AUTHENTICATION HELPERS (PRESERVED + ENHANCED)
+// AUTHENTICATION HELPERS
 // ============================================
 
-// Get current user
 export async function getCurrentUser() {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) {
@@ -23,7 +22,6 @@ export async function getCurrentUser() {
     return user;
 }
 
-// Sign in with email
 export async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
@@ -38,7 +36,6 @@ export async function signIn(email, password) {
     return { success: true, user: data.user };
 }
 
-// Sign up - ENHANCED to create profile automatically
 export async function signUp(email, password, userData) {
     const { data, error } = await supabase.auth.signUp({
         email: email,
@@ -47,7 +44,7 @@ export async function signUp(email, password, userData) {
             data: {
                 name: userData.name,
                 username: userData.username,
-                role: userData.role || 'student'
+                role: 'user' // Always start as 'user'
             }
         }
     });
@@ -58,7 +55,6 @@ export async function signUp(email, password, userData) {
     }
     
     if (data.user) {
-        // Create user profile immediately
         const profileResult = await createUserProfile(data.user.id, {
             ...userData,
             email: email
@@ -72,7 +68,6 @@ export async function signUp(email, password, userData) {
     return { success: true, user: data.user };
 }
 
-// Sign out
 export async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -83,10 +78,9 @@ export async function signOut() {
 }
 
 // ============================================
-// USER PROFILE HELPERS (PRESERVED + ENHANCED)
+// USER PROFILE HELPERS
 // ============================================
 
-// Create user profile - ENHANCED with more fields
 export async function createUserProfile(userId, userData) {
     try {
         const { data, error } = await supabase
@@ -96,15 +90,16 @@ export async function createUserProfile(userId, userData) {
                 name: userData.name || 'User',
                 email: userData.email,
                 username: userData.username || null,
-                role: userData.role || 'student',
-                plan: userData.plan || 'basic',
-                wallet_balance: userData.wallet_balance || 25000,
+                role: 'user', // Always start as 'user'
+                plan: 'basic',
+                wallet_balance: 25000,
                 avatar_url: userData.avatar_url || null,
                 address: userData.address || null,
                 birth_day: userData.birthDay || null,
                 birth_month: userData.birthMonth || null,
                 gp_points: 0,
                 status: 'active',
+                application_status: 'none',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             }])
@@ -123,7 +118,6 @@ export async function createUserProfile(userId, userData) {
     }
 }
 
-// Get user profile - PRESERVED
 export async function getUserProfile(userId = null) {
     try {
         if (!userId) {
@@ -149,7 +143,6 @@ export async function getUserProfile(userId = null) {
     }
 }
 
-// Update user profile - PRESERVED
 export async function updateUserProfile(updates) {
     try {
         const user = await getCurrentUser();
@@ -176,7 +169,6 @@ export async function updateUserProfile(updates) {
     }
 }
 
-// Update wallet balance - PRESERVED
 export async function updateWalletBalance(newBalance) {
     const user = await getCurrentUser();
     if (!user) return false;
@@ -194,10 +186,215 @@ export async function updateWalletBalance(newBalance) {
 }
 
 // ============================================
+// APPLICATION HELPERS
+// ============================================
+
+export async function submitApplication(applicationData) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'User not authenticated' };
+        }
+
+        const applicationId = `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const application = {
+            id: applicationId,
+            user_id: user.id,
+            full_name: applicationData.fullName,
+            email: applicationData.email,
+            username: applicationData.username,
+            role: applicationData.role,
+            birth_day: applicationData.birthDay || null,
+            birth_month: applicationData.birthMonth || null,
+            status: 'pending',
+            submitted_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+            .from('applications')
+            .insert([application])
+            .select();
+        
+        if (error) throw error;
+        
+        // Update user's application status
+        await supabase
+            .from('users')
+            .update({ 
+                application_status: 'pending',
+                applied_role: applicationData.role
+            })
+            .eq('id', user.id);
+        
+        return { success: true, data: data[0] };
+    } catch (error) {
+        console.error('Application submission error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getUserApplications() {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return [];
+        
+        const { data, error } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('submitted_at', { ascending: false });
+        
+        if (error) {
+            console.error('Error fetching applications:', error);
+            return [];
+        }
+        return data;
+    } catch (error) {
+        console.error('Applications fetch error:', error);
+        return [];
+    }
+}
+
+export async function getPendingApplications() {
+    try {
+        // Check if user is admin
+        const user = await getCurrentUser();
+        if (!user) return [];
+        
+        const { data: profile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        
+        if (profile?.role !== 'admin') {
+            return [];
+        }
+        
+        const { data, error } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('status', 'pending')
+            .order('submitted_at', { ascending: true });
+        
+        if (error) {
+            console.error('Error fetching pending applications:', error);
+            return [];
+        }
+        return data;
+    } catch (error) {
+        console.error('Pending applications fetch error:', error);
+        return [];
+    }
+}
+
+export async function approveApplication(applicationId, adminNotes) {
+    try {
+        // Check if user is admin
+        const user = await getCurrentUser();
+        if (!user) return { success: false, error: 'Not authenticated' };
+        
+        const { data: profile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        
+        if (profile?.role !== 'admin') {
+            return { success: false, error: 'Unauthorized' };
+        }
+        
+        // Get application details
+        const { data: application, error: appError } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('id', applicationId)
+            .single();
+        
+        if (appError || !application) {
+            return { success: false, error: 'Application not found' };
+        }
+        
+        // Update application status
+        const { error: updateAppError } = await supabase
+            .from('applications')
+            .update({ 
+                status: 'approved', 
+                approved_at: new Date().toISOString(),
+                admin_notes: adminNotes
+            })
+            .eq('id', applicationId);
+        
+        if (updateAppError) throw updateAppError;
+        
+        // Update user's role and application status
+        const { error: updateUserError } = await supabase
+            .from('users')
+            .update({ 
+                role: application.role,
+                application_status: 'approved'
+            })
+            .eq('id', application.user_id);
+        
+        if (updateUserError) throw updateUserError;
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Application approval error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function rejectApplication(applicationId, adminNotes) {
+    try {
+        // Check if user is admin
+        const user = await getCurrentUser();
+        if (!user) return { success: false, error: 'Not authenticated' };
+        
+        const { data: profile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        
+        if (profile?.role !== 'admin') {
+            return { success: false, error: 'Unauthorized' };
+        }
+        
+        // Update application status
+        const { error: updateAppError } = await supabase
+            .from('applications')
+            .update({ 
+                status: 'rejected', 
+                rejected_at: new Date().toISOString(),
+                admin_notes: adminNotes
+            })
+            .eq('id', applicationId);
+        
+        if (updateAppError) throw updateAppError;
+        
+        // Update user's application status
+        const { error: updateUserError } = await supabase
+            .from('users')
+            .update({ 
+                application_status: 'rejected'
+            })
+            .eq('id', (await supabase.from('applications').select('user_id').eq('id', applicationId).single()).data.user_id);
+        
+        if (updateUserError) throw updateUserError;
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Application rejection error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
 // PAYMENT HELPERS (PRESERVED)
 // ============================================
 
-// Create payment request - PRESERVED
 export async function createPaymentRequest(amount, bank, referenceCode) {
     const user = await getCurrentUser();
     const profile = await getUserProfile();
@@ -228,7 +425,6 @@ export async function createPaymentRequest(amount, bank, referenceCode) {
     return { success: true, payment: data[0] };
 }
 
-// Get user payments - PRESERVED
 export async function getUserPayments() {
     const user = await getCurrentUser();
     if (!user) return [];
@@ -247,99 +443,10 @@ export async function getUserPayments() {
     return data;
 }
 
-// Get all pending payments (admin only) - PRESERVED
-export async function getPendingPayments() {
-    const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('status', 'pending')
-        .order('submitted_at', { ascending: true });
-    
-    if (error) {
-        console.error('Error fetching pending payments:', error);
-        return [];
-    }
-    
-    return data;
-}
-
-// Approve payment (admin only) - PRESERVED
-export async function approvePayment(paymentId, adminNotes) {
-    const { error } = await supabase
-        .from('payments')
-        .update({ 
-            status: 'approved', 
-            approved_at: new Date().toISOString(),
-            admin_notes: adminNotes
-        })
-        .eq('id', paymentId);
-    
-    if (error) {
-        console.error('Error approving payment:', error);
-        return false;
-    }
-    
-    // Get payment details to update wallet
-    const { data: payment } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('id', paymentId)
-        .single();
-    
-    if (payment) {
-        // Update user's wallet balance
-        const { data: user } = await supabase
-            .from('users')
-            .select('wallet_balance')
-            .eq('id', payment.user_id)
-            .single();
-        
-        const newBalance = (user?.wallet_balance || 25000) + payment.amount;
-        
-        await supabase
-            .from('users')
-            .update({ wallet_balance: newBalance })
-            .eq('id', payment.user_id);
-        
-        // Add transaction record
-        await supabase
-            .from('transactions')
-            .insert([{
-                id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                user_id: payment.user_id,
-                amount: payment.amount,
-                type: 'credit',
-                description: `Wallet funding - ${payment.reference_code}`,
-                status: 'completed',
-                created_at: new Date().toISOString()
-            }]);
-    }
-    
-    return true;
-}
-
-// Reject payment (admin only) - PRESERVED
-export async function rejectPayment(paymentId, adminNotes) {
-    const { error } = await supabase
-        .from('payments')
-        .update({ 
-            status: 'rejected', 
-            admin_notes: adminNotes
-        })
-        .eq('id', paymentId);
-    
-    if (error) {
-        console.error('Error rejecting payment:', error);
-        return false;
-    }
-    return true;
-}
-
 // ============================================
 // TRANSACTION HELPERS (PRESERVED)
 // ============================================
 
-// Get user transactions - PRESERVED
 export async function getUserTransactions() {
     const user = await getCurrentUser();
     if (!user) return [];
@@ -359,7 +466,6 @@ export async function getUserTransactions() {
     return data;
 }
 
-// Add transaction - PRESERVED
 export async function addTransaction(amount, type, description) {
     const user = await getCurrentUser();
     if (!user) return false;
@@ -387,12 +493,10 @@ export async function addTransaction(amount, type, description) {
 // LIBRARY HELPERS (PRESERVED)
 // ============================================
 
-// Save item to shelf - PRESERVED
 export async function saveToShelf(itemId, itemType, itemData) {
     const user = await getCurrentUser();
     if (!user) return false;
     
-    // Check if already saved
     const { data: existing } = await supabase
         .from('saved_items')
         .select('id')
@@ -401,7 +505,6 @@ export async function saveToShelf(itemId, itemType, itemData) {
         .single();
     
     if (existing) {
-        // Already saved, so unsave
         await supabase
             .from('saved_items')
             .delete()
@@ -409,7 +512,6 @@ export async function saveToShelf(itemId, itemType, itemData) {
         return { action: 'unsaved' };
     }
     
-    // Save new
     const { error } = await supabase
         .from('saved_items')
         .insert([{
@@ -428,7 +530,6 @@ export async function saveToShelf(itemId, itemType, itemData) {
     return { action: 'saved' };
 }
 
-// Get saved items - PRESERVED
 export async function getSavedItems() {
     const user = await getCurrentUser();
     if (!user) return [];
@@ -446,110 +547,10 @@ export async function getSavedItems() {
     return data;
 }
 
-// Check if item is saved - PRESERVED
-export async function isItemSaved(itemId) {
-    const user = await getCurrentUser();
-    if (!user) return false;
-    
-    const { data, error } = await supabase
-        .from('saved_items')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('item_id', itemId)
-        .single();
-    
-    if (error && error.code !== 'PGRST116') {
-        console.error('Check saved error:', error);
-    }
-    
-    return !!data;
-}
-
-// Record recently viewed - PRESERVED
-export async function recordRecentlyViewed(itemId, itemType, itemData) {
-    const user = await getCurrentUser();
-    if (!user) return;
-    
-    // Delete old entry if exists
-    await supabase
-        .from('recently_viewed')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('item_id', itemId);
-    
-    // Insert new
-    await supabase
-        .from('recently_viewed')
-        .insert([{
-            id: `view_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            user_id: user.id,
-            item_id: itemId,
-            item_type: itemType,
-            item_data: itemData,
-            viewed_at: new Date().toISOString()
-        }]);
-    
-    // Keep only last 20
-    const { data } = await supabase
-        .from('recently_viewed')
-        .select('id')
-        .eq('user_id', user.id)
-        .order('viewed_at', { ascending: false });
-    
-    if (data && data.length > 20) {
-        const toDelete = data.slice(20);
-        for (const item of toDelete) {
-            await supabase.from('recently_viewed').delete().eq('id', item.id);
-        }
-    }
-}
-
-// Get recently viewed - PRESERVED
-export async function getRecentlyViewed() {
-    const user = await getCurrentUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-        .from('recently_viewed')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('viewed_at', { ascending: false })
-        .limit(10);
-    
-    if (error) {
-        console.error('Get recently viewed error:', error);
-        return [];
-    }
-    return data;
-}
-
 // ============================================
 // REAL-TIME SUBSCRIPTIONS (PRESERVED)
 // ============================================
 
-// Subscribe to user's payments - PRESERVED
-export function subscribeToUserPayments(callback) {
-    return supabase
-        .channel('user_payments')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'payments' },
-            callback
-        )
-        .subscribe();
-}
-
-// Subscribe to all payments (admin) - PRESERVED
-export function subscribeToAllPayments(callback) {
-    return supabase
-        .channel('all_payments')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'payments' },
-            callback
-        )
-        .subscribe();
-}
-
-// Subscribe to user's wallet changes - PRESERVED
 export function subscribeToWallet(callback) {
     const user = getCurrentUser();
     if (!user) return null;
@@ -565,216 +566,4 @@ export function subscribeToWallet(callback) {
             }
         )
         .subscribe();
-}
-
-// ============================================
-// NEW: USERNAME HELPER
-// ============================================
-
-// Get user by username - NEW
-export async function getUserByUsername(username) {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', username)
-            .single();
-        
-        if (error) {
-            console.error('Error fetching user by username:', error);
-            return null;
-        }
-        return data;
-    } catch (error) {
-        console.error('Username fetch error:', error);
-        return null;
-    }
-}
-
-// Get user by email - NEW
-export async function getUserByEmail(email) {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-        
-        if (error) {
-            console.error('Error fetching user by email:', error);
-            return null;
-        }
-        return data;
-    } catch (error) {
-        console.error('Email fetch error:', error);
-        return null;
-    }
-}
-
-// ============================================
-// NEW: WALLET TRANSFER FUNCTION
-// ============================================
-
-// Transfer funds between users - NEW
-export async function transferFunds(fromUserId, toUserId, amount, description) {
-    try {
-        // Start a transaction by using a single query with multiple operations
-        // Since Supabase doesn't support transactions directly, we'll use a combination of operations
-        
-        // 1. Check if sender has enough balance
-        const { data: senderData, error: senderError } = await supabase
-            .from('users')
-            .select('wallet_balance')
-            .eq('id', fromUserId)
-            .single();
-        
-        if (senderError) throw senderError;
-        if (senderData.wallet_balance < amount) {
-            return { success: false, error: 'Insufficient balance' };
-        }
-        
-        // 2. Deduct from sender
-        const { error: deductError } = await supabase
-            .from('users')
-            .update({ wallet_balance: senderData.wallet_balance - amount })
-            .eq('id', fromUserId);
-        
-        if (deductError) throw deductError;
-        
-        // 3. Add to receiver
-        const { data: receiverData } = await supabase
-            .from('users')
-            .select('wallet_balance')
-            .eq('id', toUserId)
-            .single();
-        
-        const { error: addError } = await supabase
-            .from('users')
-            .update({ wallet_balance: (receiverData?.wallet_balance || 0) + amount })
-            .eq('id', toUserId);
-        
-        if (addError) {
-            // Rollback sender's balance
-            await supabase
-                .from('users')
-                .update({ wallet_balance: senderData.wallet_balance })
-                .eq('id', fromUserId);
-            throw addError;
-        }
-        
-        // 4. Create transaction records
-        await supabase
-            .from('transactions')
-            .insert([
-                {
-                    id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    user_id: fromUserId,
-                    amount: -amount,
-                    type: 'debit',
-                    description: description || `Transfer to user ${toUserId}`,
-                    status: 'completed',
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    user_id: toUserId,
-                    amount: amount,
-                    type: 'credit',
-                    description: description || `Transfer from user ${fromUserId}`,
-                    status: 'completed',
-                    created_at: new Date().toISOString()
-                }
-            ]);
-        
-        return { success: true };
-        
-    } catch (error) {
-        console.error('Transfer error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-// ============================================
-// NEW: USER REFERRAL SYSTEM
-// ============================================
-
-// Get user's referral code - NEW
-export async function getReferralCode() {
-    const user = await getCurrentUser();
-    if (!user) return null;
-    
-    const profile = await getUserProfile(user.id);
-    if (!profile) return null;
-    
-    // If no referral code, generate one
-    if (!profile.referral_code) {
-        const newCode = UPPER(SUBSTRING(MD5(user.id + Date.now()) FROM 1 FOR 8));
-        await updateUserProfile({ referral_code: newCode });
-        return newCode;
-    }
-    
-    return profile.referral_code;
-}
-
-// Get users referred by a specific user - NEW
-export async function getReferredUsers(userId) {
-    try {
-        // This assumes you have a 'referred_by' column in users table
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('referred_by', userId)
-            .order('created_at', { ascending: false });
-        
-        if (error) {
-            console.error('Error fetching referred users:', error);
-            return [];
-        }
-        return data;
-    } catch (error) {
-        console.error('Referred users fetch error:', error);
-        return [];
-    }
-}
-
-// Apply referral code during signup - NEW
-export async function applyReferralCode(referralCode, newUserId) {
-    try {
-        // Find the referrer
-        const { data: referrer, error } = await supabase
-            .from('users')
-            .select('id')
-            .eq('referral_code', referralCode)
-            .single();
-        
-        if (error || !referrer) {
-            return { success: false, error: 'Invalid referral code' };
-        }
-        
-        // Update new user with referrer
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ referred_by: referrer.id })
-            .eq('id', newUserId);
-        
-        if (updateError) throw updateError;
-        
-        // Give bonus to referrer (e.g., 500 GP points)
-        const { data: referrerData } = await supabase
-            .from('users')
-            .select('gp_points')
-            .eq('id', referrer.id)
-            .single();
-        
-        await supabase
-            .from('users')
-            .update({ gp_points: (referrerData?.gp_points || 0) + 500 })
-            .eq('id', referrer.id);
-        
-        return { success: true };
-        
-    } catch (error) {
-        console.error('Referral application error:', error);
-        return { success: false, error: error.message };
-    }
 }
