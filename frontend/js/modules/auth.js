@@ -11,7 +11,6 @@ import { supabase } from './supabase.js';
 // ============================================
 
 const DOMAIN = 'gliimu.com';
-const TEMP_DOMAIN = `temp.${DOMAIN}`;
 
 // ============================================
 // HELPER FUNCTIONS
@@ -47,53 +46,25 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
-// GET USER BY USERNAME - FLEXIBLE SEARCH
+// GET USER BY USERNAME
 // ============================================
 
 async function getUserByUsername(username) {
     try {
         const cleanUsername = username.trim().toLowerCase();
         
-        // Try multiple search methods
-        
-        // 1. Exact match on username
-        let { data, error } = await supabase
+        const { data, error } = await supabase
             .from('user_profiles')
             .select('email, id, username, name, role')
             .eq('username', cleanUsername)
             .maybeSingle();
         
-        if (data) return data;
+        if (error) {
+            console.error('Username lookup error:', error);
+            return null;
+        }
         
-        // 2. Case-insensitive match using ilike
-        const { data: data2, error: err2 } = await supabase
-            .from('user_profiles')
-            .select('email, id, username, name, role')
-            .ilike('username', cleanUsername)
-            .maybeSingle();
-        
-        if (data2) return data2;
-        
-        // 3. Check if username is part of email
-        const { data: data3, error: err3 } = await supabase
-            .from('user_profiles')
-            .select('email, id, username, name, role')
-            .ilike('email', `${cleanUsername}%@%`)
-            .maybeSingle();
-        
-        if (data3) return data3;
-        
-        // 4. Check if username contains the search term
-        const { data: data4, error: err4 } = await supabase
-            .from('user_profiles')
-            .select('email, id, username, name, role')
-            .ilike('username', `%${cleanUsername}%`)
-            .maybeSingle();
-        
-        if (data4) return data4;
-        
-        return null;
-        
+        return data;
     } catch (error) {
         console.error('Username lookup error:', error);
         return null;
@@ -179,18 +150,10 @@ export async function signInUser(usernameOrEmail, password) {
                 email = possibleEmail;
                 userData = emailUser;
             } else {
-                // Try with @temp.gliimu.com (for old users)
-                const tempEmail = `${cleanInput}@${TEMP_DOMAIN}`;
-                const tempUser = await getUserByEmail(tempEmail);
-                if (tempUser) {
-                    email = tempEmail;
-                    userData = tempUser;
-                } else {
-                    return {
-                        success: false,
-                        error: 'User not found. Please check your username.'
-                    };
-                }
+                return {
+                    success: false,
+                    error: 'User not found. Please check your username.'
+                };
             }
         } else {
             return {
