@@ -157,26 +157,27 @@ async function handleSignUp(fullName, birthDay, birthMonth, password, confirmPas
         const recoveryPhrase = generateRecoveryPhrase();
         const email = `${username}@gliimu.com`; // ✅ CORRECT: double 'i'
         
-        console.log('📝 Signing up with:', { username, email });
+        console.log('📝 Signing up with:', { username, email, recoveryPhrase });
         
-        // Create user with role 'user'
+        // Create user with role 'user' and recovery phrase
         const result = await signUpUser(email, password, {
             name: fullName,
             username: username,
             birthDay: parseInt(birthDay),
-            birthMonth: parseInt(birthMonth)
+            birthMonth: parseInt(birthMonth),
+            recoveryPhrase: recoveryPhrase // ✅ Pass recovery phrase
         });
         
         if (!result.success) {
             return { success: false, error: result.error };
         }
         
-        // Show credentials modal
+        // Show credentials modal with recovery phrase
         showCredentialsModal({
             fullName,
             username,
             password,
-            recoveryPhrase,
+            recoveryPhrase: recoveryPhrase, // ✅ Show recovery phrase
             email
         });
         
@@ -282,7 +283,7 @@ if (registerForm) {
         submitBtn.disabled = false;
         
         if (result.success) {
-            showToast('Account created successfully!', 'success');
+            showToast('Account created successfully! Check your recovery phrase.', 'success');
         } else {
             showToast(result.error || 'Failed to create account', 'error');
         }
@@ -341,22 +342,15 @@ window.onclick = (e) => {
 };
 
 // ============================================
-// FORGOT PASSWORD
+// FORGOT PASSWORD - UPDATED to redirect to forgot-password.html
 // ============================================
 
 const forgotLink = document.getElementById('forgotPasswordLink');
 if (forgotLink) {
-    forgotLink.addEventListener('click', async (e) => {
+    forgotLink.addEventListener('click', (e) => {
         e.preventDefault();
-        const email = prompt('Please enter your email address to reset your password:');
-        if (email) {
-            const result = await resetPassword(email);
-            if (result.success) {
-                showToast('Password reset email sent! Check your inbox.', 'success');
-            } else {
-                showToast(result.error || 'Failed to send reset email', 'error');
-            }
-        }
+        // ✅ Redirect to the dedicated forgot password page
+        window.location.href = '/forgot-password.html';
     });
 }
 
