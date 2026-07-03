@@ -13,7 +13,7 @@ import { showToast } from '../modules/toast.js';
 const elements = {
     resetForm: document.getElementById('resetForm'),
     username: document.getElementById('username'),
-    email: document.getElementById('email'), // NEW
+    email: document.getElementById('email'),
     recoveryPhrase: document.getElementById('recoveryPhrase'),
     birthDay: document.getElementById('birthDay'),
     birthMonth: document.getElementById('birthMonth'),
@@ -70,7 +70,7 @@ elements.resetForm.addEventListener('submit', async (e) => {
     
     // Get values
     const username = elements.username.value.trim();
-    const email = elements.email.value.trim(); // NEW
+    const email = elements.email.value.trim();
     const recoveryPhrase = elements.recoveryPhrase.value.trim();
     const birthDay = parseInt(elements.birthDay.value);
     const birthMonth = parseInt(elements.birthMonth.value);
@@ -123,7 +123,7 @@ elements.resetForm.addEventListener('submit', async (e) => {
         
         // 4. Send password reset email to the provided email
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-            email, // Send to the email the user provided
+            email,
             {
                 redirectTo: window.location.origin + '/reset-password.html'
             }
@@ -154,7 +154,7 @@ elements.resetForm.addEventListener('submit', async (e) => {
                     <a href="/signin.html" class="btn-primary" style="display: inline-flex; text-decoration: none; width: auto; padding: 12px 32px;">
                         <i class="fas fa-arrow-left"></i> Back to Sign In
                     </a>
-                    <button onclick="location.reload()" class="btn-secondary" style="display: inline-flex; text-decoration: none; width: auto; padding: 12px 32px;">
+                    <button onclick="location.reload()" class="btn-secondary" style="display: inline-flex; text-decoration: none; width: auto; padding: 12px 32px; background: #f0f0f0; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                         <i class="fas fa-redo"></i> Try Again
                     </button>
                 </div>
