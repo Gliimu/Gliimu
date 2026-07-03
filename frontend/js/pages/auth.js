@@ -218,6 +218,8 @@ async function handleSignIn(usernameOrEmail, password) {
 // ============================================
 
 function switchTab(tabId) {
+    console.log('🔄 Switching to tab:', tabId);
+    
     // Update tab buttons
     document.querySelectorAll('.auth-tab').forEach(tab => {
         tab.classList.remove('active');
@@ -229,18 +231,45 @@ function switchTab(tabId) {
     // Update forms
     document.querySelectorAll('.auth-form').forEach(form => {
         form.classList.remove('active');
+        // form.id is like "signupForm" or "signinForm"
         if (form.id === `${tabId}Form`) {
             form.classList.add('active');
+            console.log('✅ Showing form:', form.id);
         }
     });
 }
 
-// Initialize tab switching
-document.querySelectorAll('.auth-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        const tabId = tab.getAttribute('data-tab');
-        switchTab(tabId);
+// ============================================
+// INITIALIZE TAB SWITCHING
+// ============================================
+
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 Initializing auth page...');
+    
+    // Set up tab switching
+    const tabs = document.querySelectorAll('.auth-tab');
+    console.log('📋 Found tabs:', tabs.length);
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tabId = this.getAttribute('data-tab');
+            console.log('👆 Tab clicked:', tabId);
+            switchTab(tabId);
+        });
     });
+    
+    // Set initial state - show Log In by default
+    // But if there's a URL parameter, use that
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'signup') {
+        switchTab('signup');
+    } else {
+        // Default to signin (already active from HTML)
+        console.log('✅ Default tab: signin');
+    }
 });
 
 // ============================================
