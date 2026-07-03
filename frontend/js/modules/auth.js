@@ -1,10 +1,11 @@
 // ============================================
 // MODULE: AUTH HELPERS
 // Path: /frontend/js/modules/auth.js
-// Purpose: Reusable auth functions for other modules
+// Purpose: Reusable auth functions - Using Backend API
 // ============================================
 
 import { supabase } from './supabase.js';
+import { login, register } from './api.js';
 
 // ============================================
 // HELPER FUNCTIONS
@@ -40,110 +41,57 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
-// AUTH FUNCTIONS
+// AUTH FUNCTIONS - Using Backend API
 // ============================================
 
 export async function signInUser(usernameOrEmail, password) {
     try {
         console.log('🔐 Sign in attempt for:', usernameOrEmail);
         
-        let email = usernameOrEmail;
-        let isEmail = usernameOrEmail.includes('@');
+        // ✅ Use your backend API for login
+        const result = await login(usernameOrEmail, password);
         
-        // If username, get email from user_profiles table
-        if (!isEmail) {
-            console.log('🔍 Looking up username:', usernameOrEmail);
-            
-            const { data, error } = await supabase
-                .from('user_profiles')
-                .select('email')
-                .eq('username', usernameOrEmail)
-                .maybeSingle();
-            
-            if (error) {
-                console.error('❌ Username lookup error:', error);
-                return { 
-                    success: false, 
-                    error: 'Database error. Please try again.' 
-                };
-            }
-            
-            if (!data) {
-                console.log('❌ Username not found:', usernameOrEmail);
-                return { 
-                    success: false, 
-                    error: 'User not found. Please check your username.' 
-                };
-            }
-            
-            email = data.email;
-            console.log('✅ Found email for username:', email);
-        }
-        
-        // ✅ FIRST: Try to authenticate with Supabase Auth
-        console.log('🔐 Attempting password sign in for:', email);
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-        
-        // ✅ If auth fails, return early - don't try to fetch profile
-        if (error) {
-            console.error('❌ Auth error:', error);
+        if (!result.success) {
+            console.error('❌ Login failed:', result.message);
             return { 
                 success: false, 
-                error: error.message === 'Invalid login credentials' 
-                    ? 'Invalid username or password' 
-                    : 'Login failed. Please try again.' 
+                error: result.message || 'Invalid username or password' 
             };
         }
         
-        console.log('✅ Auth successful for user ID:', data.user.id);
+        console.log('✅ Login successful for:', result.user.username);
         
-        // ✅ ONLY AFTER successful auth, fetch the user profile
-        const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .maybeSingle();
-        
-        if (profileError) {
-            console.error('❌ Profile fetch error:', profileError);
-            return { success: false, error: 'User profile not found' };
-        }
-        
-        if (!profile) {
-            console.error('❌ No profile found for user:', data.user.id);
-            return { success: false, error: 'User profile not found' };
-        }
-        
-        console.log('✅ Profile loaded for:', profile.name);
-        
-        // Build user object
+        // Store user data from backend
         const user = {
-            id: data.user.id,
-            name: profile.name,
-            email: profile.email,
-            username: profile.username,
-            role: profile.role || 'user',
-            plan: profile.plan || 'basic',
-            walletBalance: profile.wallet_balance || 25000,
-            gpPoints: profile.gp_points || 0,
-            address: profile.address || '',
-            applicationStatus: profile.application_status || 'none',
-            appliedRole: profile.applied_role || null,
-            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
+            id: result.user.id,
+            name: `${result.user.firstName} ${result.user.lastName}`,
+            firstName: result.user.firstName,
+            lastName: result.user.lastName,
+            email: result.user.email,
+            username: result.user.username,
+            role: result.user.role || 'user',
+            token: result.token,
+            walletBalance: result.user.walletBalance || 25000,
+            gpPoints: result.user.gpPoints || 0,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(result.user.firstName + ' ' + result.user.lastName)}&background=fbb040&color=fff`
         };
         
-        // Store in localStorage for persistence
+        // Store in localStorage
         localStorage.setItem('glimu_user', JSON.stringify(user));
-        console.log('✅ Login complete, user stored in localStorage');
         
+        // ✅ Also sync with Supabase user_profiles (if needed)
+        try {
+            await syncUserToSupabase(user);
+        } catch (syncError) {
+            console.warn('⚠️ Supabase sync warning:', syncError);
+        }
+        
+        console.log('✅ Login complete, user stored');
         return { success: true, user, role: user.role };
         
     } catch (error) {
         console.error('❌ Sign in error:', error);
-        return { success: false, error: 'Invalid username or password' };
+        return { success: false, error: error.message || 'Invalid username or password' };
     }
 }
 
@@ -151,54 +99,51 @@ export async function signUpUser(email, password, userData) {
     try {
         console.log('📝 Sign up attempt for:', email);
         
-        // ✅ Always set role to 'user' on signup
-        const { data, error } = await supabase.auth.signUp({
+        // Parse full name
+        const nameParts = userData.name.split(' ');
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.slice(1).join(' ') || 'User';
+        
+        // ✅ Use your backend API for registration
+        const result = await register({
+            firstName: firstName,
+            lastName: lastName,
             email: email,
             password: password,
-            options: {
-                data: {
-                    name: userData.name,
-                    username: userData.username,
-                    role: 'user'  // Always 'user' on signup
-                }
-            }
+            phone: userData.phone || '',
+            role: 'Student'  // Default role on signup
         });
         
-        if (error) {
-            console.error('❌ Sign up error:', error);
-            return { success: false, error: error.message };
+        if (!result.success) {
+            console.error('❌ Registration failed:', result.message);
+            return { success: false, error: result.message };
         }
         
-        console.log('✅ Auth signup successful for user ID:', data.user?.id);
+        console.log('✅ Registration successful for:', result.user.username);
         
-        // Insert directly into user_profiles
-        if (data.user) {
-            const { error: insertError } = await supabase
-                .from('user_profiles')
-                .insert([{
-                    id: data.user.id,
-                    name: userData.name,
-                    username: userData.username,
-                    email: email,
-                    role: 'user',  // Always 'user' on signup
-                    wallet_balance: 25000,
-                    gp_points: 0,
-                    status: 'active',
-                    plan: 'basic',
-                    application_status: 'none',
-                    birth_day: userData.birthDay || null,
-                    birth_month: userData.birthMonth || null,
-                    referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-                }]);
-
-            if (insertError && insertError.code !== '23505') {
-                console.warn('⚠️ Profile creation warning:', insertError);
-            } else {
-                console.log('✅ Profile created successfully');
-            }
+        // Store user data from backend
+        const user = {
+            id: result.user.id,
+            name: `${result.user.firstName} ${result.user.lastName}`,
+            firstName: result.user.firstName,
+            lastName: result.user.lastName,
+            email: result.user.email,
+            username: result.user.username,
+            role: result.user.role || 'user',
+            token: result.token,
+            walletBalance: result.user.walletBalance || 25000,
+            gpPoints: result.user.gpPoints || 0,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(result.user.firstName + ' ' + result.user.lastName)}&background=fbb040&color=fff`
+        };
+        
+        // ✅ Also create user in Supabase user_profiles
+        try {
+            await createSupabaseUser(user, password);
+        } catch (syncError) {
+            console.warn('⚠️ Supabase sync warning:', syncError);
         }
         
-        return { success: true, user: data.user };
+        return { success: true, user: result.user };
         
     } catch (error) {
         console.error('❌ Sign up error:', error);
@@ -208,8 +153,12 @@ export async function signUpUser(email, password, userData) {
 
 export async function signOutUser() {
     try {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        // Clear Supabase session if exists
+        try {
+            await supabase.auth.signOut();
+        } catch (e) {
+            // Ignore supabase signout errors
+        }
         
         localStorage.removeItem('glimu_user');
         sessionStorage.clear();
@@ -223,9 +172,13 @@ export async function signOutUser() {
 
 export async function getCurrentSession() {
     try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        return session;
+        // Check if user exists in localStorage
+        const userStr = localStorage.getItem('glimu_user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            return { user: user, session: true };
+        }
+        return null;
     } catch (error) {
         console.error('❌ Session error:', error);
         return null;
@@ -234,9 +187,11 @@ export async function getCurrentSession() {
 
 export async function getCurrentUser() {
     try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        return user;
+        const userStr = localStorage.getItem('glimu_user');
+        if (userStr) {
+            return JSON.parse(userStr);
+        }
+        return null;
     } catch (error) {
         console.error('❌ Get user error:', error);
         return null;
@@ -245,11 +200,19 @@ export async function getCurrentUser() {
 
 export async function resetPassword(email) {
     try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin + '/reset-password.html',
+        // ✅ Use your backend API for password reset
+        const response = await fetch('http://127.0.0.1:3000/api/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
         });
         
-        if (error) throw error;
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to send reset email');
+        }
+        
         return { success: true };
     } catch (error) {
         console.error('❌ Reset password error:', error);
@@ -257,17 +220,130 @@ export async function resetPassword(email) {
     }
 }
 
-export async function updateUserPassword(newPassword) {
+export async function updateUserPassword(currentPassword, newPassword) {
     try {
-        const { error } = await supabase.auth.updateUser({ 
-            password: newPassword 
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Not logged in' };
+        }
+        
+        const response = await fetch('http://127.0.0.1:3000/api/update-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ 
+                currentPassword, 
+                newPassword 
+            })
         });
         
-        if (error) throw error;
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to update password');
+        }
+        
         return { success: true };
     } catch (error) {
         console.error('❌ Update password error:', error);
         return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// SUPABASE SYNC FUNCTIONS
+// ============================================
+
+async function syncUserToSupabase(user) {
+    try {
+        // Check if user exists in user_profiles
+        const { data: existing } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        if (existing) {
+            // Update existing
+            await supabase
+                .from('user_profiles')
+                .update({
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role || 'user',
+                    wallet_balance: user.walletBalance || 25000,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', user.id);
+        } else {
+            // Insert new
+            await supabase
+                .from('user_profiles')
+                .insert([{
+                    id: user.id,
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role || 'user',
+                    wallet_balance: user.walletBalance || 25000,
+                    gp_points: 0,
+                    status: 'active',
+                    plan: 'basic',
+                    application_status: 'none',
+                    referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+                }]);
+        }
+    } catch (error) {
+        console.warn('⚠️ Supabase sync error:', error);
+        // Don't throw - this is non-critical
+    }
+}
+
+async function createSupabaseUser(user, password) {
+    try {
+        // Create auth user in Supabase
+        const { data, error } = await supabase.auth.signUp({
+            email: user.email,
+            password: password,
+            options: {
+                data: {
+                    name: user.name,
+                    username: user.username,
+                    role: 'user'
+                }
+            }
+        });
+        
+        if (error) {
+            console.warn('⚠️ Supabase auth creation error:', error);
+        }
+        
+        // Create user_profiles entry
+        const { error: insertError } = await supabase
+            .from('user_profiles')
+            .insert([{
+                id: data?.user?.id || user.id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                role: 'user',
+                wallet_balance: user.walletBalance || 25000,
+                gp_points: 0,
+                status: 'active',
+                plan: 'basic',
+                application_status: 'none',
+                referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+            }]);
+        
+        if (insertError && insertError.code !== '23505') {
+            console.warn('⚠️ Profile creation warning:', insertError);
+        }
+    } catch (error) {
+        console.warn('⚠️ Supabase user creation error:', error);
+        // Don't throw - this is non-critical
     }
 }
 
@@ -281,56 +357,26 @@ export async function submitRoleApplication(role, additionalData = {}) {
         if (!user) {
             return { success: false, error: 'User not authenticated' };
         }
-
-        const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
         
-        if (profileError || !profile) {
-            return { success: false, error: 'User profile not found' };
-        }
-
-        // Check if already applied
-        if (profile.application_status === 'pending') {
-            return { success: false, error: 'You already have a pending application' };
-        }
-
-        const applicationId = `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        const application = {
-            id: applicationId,
-            user_id: user.id,
-            full_name: profile.name,
-            email: profile.email,
-            username: profile.username,
-            role: role,
-            birth_day: profile.birth_day || null,
-            birth_month: profile.birth_month || null,
-            status: 'pending',
-            submitted_at: new Date().toISOString(),
-            ...additionalData
-        };
-        
-        const { error: insertError } = await supabase
-            .from('applications')
-            .insert([application]);
-        
-        if (insertError) throw insertError;
-        
-        // Update user_profiles
-        const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({ 
-                application_status: 'pending',
-                applied_role: role
+        const response = await fetch('http://127.0.0.1:3000/api/apply-role', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ 
+                role, 
+                ...additionalData 
             })
-            .eq('id', user.id);
+        });
         
-        if (updateError) throw updateError;
+        const data = await response.json();
         
-        return { success: true, applicationId };
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to submit application');
+        }
+        
+        return { success: true, applicationId: data.applicationId };
         
     } catch (error) {
         console.error('❌ Application submission error:', error);
@@ -343,17 +389,20 @@ export async function getUserApplications() {
         const user = await getCurrentUser();
         if (!user) return [];
         
-        const { data, error } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('submitted_at', { ascending: false });
+        const response = await fetch('http://127.0.0.1:3000/api/applications', {
+            headers: {
+                'Authorization': `Bearer ${user.token}`
+            }
+        });
         
-        if (error) {
-            console.error('❌ Error fetching applications:', error);
-            return [];
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to fetch applications');
         }
-        return data;
+        
+        return data.applications || [];
+        
     } catch (error) {
         console.error('❌ Applications fetch error:', error);
         return [];
@@ -365,27 +414,20 @@ export async function getPendingApplications() {
         const user = await getCurrentUser();
         if (!user) return [];
         
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
+        const response = await fetch('http://127.0.0.1:3000/api/pending-applications', {
+            headers: {
+                'Authorization': `Bearer ${user.token}`
+            }
+        });
         
-        if (!profile || profile?.role !== 'admin') {
-            return { success: false, error: 'Unauthorized' };
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to fetch pending applications');
         }
         
-        const { data, error } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('status', 'pending')
-            .order('submitted_at', { ascending: true });
+        return data.applications || [];
         
-        if (error) {
-            console.error('❌ Error fetching pending applications:', error);
-            return [];
-        }
-        return data;
     } catch (error) {
         console.error('❌ Pending applications fetch error:', error);
         return [];
@@ -395,48 +437,24 @@ export async function getPendingApplications() {
 export async function approveApplication(applicationId, adminNotes = '') {
     try {
         const user = await getCurrentUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
-        
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
-        
-        if (!profile || profile?.role !== 'admin') {
-            return { success: false, error: 'Unauthorized' };
+        if (!user) {
+            return { success: false, error: 'Not authenticated' };
         }
         
-        const { data: application, error: appError } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('id', applicationId)
-            .maybeSingle();
+        const response = await fetch('http://127.0.0.1:3000/api/approve-application', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ applicationId, adminNotes })
+        });
         
-        if (appError || !application) {
-            return { success: false, error: 'Application not found' };
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to approve application');
         }
-        
-        const { error: updateAppError } = await supabase
-            .from('applications')
-            .update({ 
-                status: 'approved', 
-                approved_at: new Date().toISOString(),
-                admin_notes: adminNotes
-            })
-            .eq('id', applicationId);
-        
-        if (updateAppError) throw updateAppError;
-        
-        const { error: updateUserError } = await supabase
-            .from('user_profiles')
-            .update({ 
-                role: application.role,
-                application_status: 'approved'
-            })
-            .eq('id', application.user_id);
-        
-        if (updateUserError) throw updateUserError;
         
         return { success: true };
     } catch (error) {
@@ -448,44 +466,23 @@ export async function approveApplication(applicationId, adminNotes = '') {
 export async function rejectApplication(applicationId, adminNotes = '') {
     try {
         const user = await getCurrentUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
-        
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
-        
-        if (!profile || profile?.role !== 'admin') {
-            return { success: false, error: 'Unauthorized' };
+        if (!user) {
+            return { success: false, error: 'Not authenticated' };
         }
         
-        const { error: updateAppError } = await supabase
-            .from('applications')
-            .update({ 
-                status: 'rejected', 
-                rejected_at: new Date().toISOString(),
-                admin_notes: adminNotes
-            })
-            .eq('id', applicationId);
+        const response = await fetch('http://127.0.0.1:3000/api/reject-application', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ applicationId, adminNotes })
+        });
         
-        if (updateAppError) throw updateAppError;
+        const data = await response.json();
         
-        const { data: appData } = await supabase
-            .from('applications')
-            .select('user_id')
-            .eq('id', applicationId)
-            .maybeSingle();
-        
-        if (appData) {
-            const { error: updateUserError } = await supabase
-                .from('user_profiles')
-                .update({ 
-                    application_status: 'rejected'
-                })
-                .eq('id', appData.user_id);
-            
-            if (updateUserError) throw updateUserError;
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to reject application');
         }
         
         return { success: true };
@@ -501,23 +498,36 @@ export async function rejectApplication(applicationId, adminNotes = '') {
 
 export async function getUserProfile(userId = null) {
     try {
-        if (!userId) {
-            const user = await getCurrentUser();
-            if (!user) return null;
-            userId = user.id;
-        }
+        const user = await getCurrentUser();
+        if (!user) return null;
         
+        // Try to get from Supabase user_profiles first
         const { data, error } = await supabase
             .from('user_profiles')
             .select('*')
-            .eq('id', userId)
+            .eq('id', userId || user.id)
             .maybeSingle();
         
         if (error) {
-            console.error('❌ Error fetching user profile:', error);
-            return null;
+            console.warn('⚠️ Supabase profile fetch error:', error);
         }
-        return data;
+        
+        if (data) {
+            return data;
+        }
+        
+        // Fallback to user data from localStorage
+        return {
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            role: user.role || 'user',
+            wallet_balance: user.walletBalance || 25000,
+            gp_points: user.gpPoints || 0,
+            avatar_url: user.avatar || null
+        };
+        
     } catch (error) {
         console.error('❌ Profile fetch error:', error);
         return null;
@@ -529,6 +539,7 @@ export async function updateUserProfile(updates) {
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'No user logged in' };
         
+        // Update in Supabase user_profiles
         const { data, error } = await supabase
             .from('user_profiles')
             .update(updates)
@@ -537,11 +548,18 @@ export async function updateUserProfile(updates) {
             .maybeSingle();
         
         if (error) {
-            console.error('❌ Error updating user profile:', error);
-            return { success: false, error: error.message };
+            console.warn('⚠️ Supabase update error:', error);
+        }
+        
+        // Update localStorage
+        const storedUser = JSON.parse(localStorage.getItem('glimu_user'));
+        if (storedUser) {
+            const updatedUser = { ...storedUser, ...updates };
+            localStorage.setItem('glimu_user', JSON.stringify(updatedUser));
         }
         
         return { success: true, data };
+        
     } catch (error) {
         console.error('❌ Profile update error:', error);
         return { success: false, error: error.message };
