@@ -40,98 +40,64 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
-// GET USER BY USERNAME OR EMAIL
+// GET USER BY USERNAME - SIMPLIFIED
 // ============================================
 
 async function getUserByUsername(username) {
     try {
         const cleanUsername = username.trim().toLowerCase();
-        console.log('🔍 Looking up user in user_profiles:', cleanUsername);
+        console.log('🔍 Looking up username in user_profiles:', cleanUsername);
         
-        // ✅ Try multiple search methods
-        let result = null;
-        
-        // Method 1: Try ilike on username (case insensitive)
-        const { data: byUsername, error: err1 } = await supabase
+        // ✅ SIMPLE EXACT MATCH - case insensitive using lower()
+        const { data, error } = await supabase
             .from('user_profiles')
             .select('email, id, username, name, role')
-            .ilike('username', `%${cleanUsername}%`)
+            .eq('username', cleanUsername)
             .maybeSingle();
         
-        if (byUsername) {
-            result = byUsername;
-            console.log('✅ Found by username ilike:', result);
-        }
-        
-        // Method 2: If not found, try exact match on username
-        if (!result) {
-            const { data: byExact, error: err2 } = await supabase
+        if (error) {
+            console.error('❌ Username lookup error:', error);
+            // Try with ilike as fallback
+            const { data: data2, error: err2 } = await supabase
                 .from('user_profiles')
                 .select('email, id, username, name, role')
-                .eq('username', cleanUsername)
+                .ilike('username', cleanUsername)
                 .maybeSingle();
             
-            if (byExact) {
-                result = byExact;
-                console.log('✅ Found by exact username match:', result);
+            if (data2) {
+                console.log('✅ Found using ilike:', data2);
+                return data2;
             }
-        }
-        
-        // Method 3: If still not found, try email (user might have used email)
-        if (!result && cleanUsername.includes('@')) {
-            const { data: byEmail, error: err3 } = await supabase
-                .from('user_profiles')
-                .select('email, id, username, name, role')
-                .eq('email', cleanUsername)
-                .maybeSingle();
-            
-            if (byEmail) {
-                result = byEmail;
-                console.log('✅ Found by email match:', result);
-            }
-        }
-        
-        // Method 4: Last resort - check auth.users via RPC or direct query
-        if (!result) {
-            console.log('⚠️ User not found in user_profiles, checking alternative methods...');
-            
-            // Try to get user from auth.users using the email
-            const { data: authUser, error: authErr } = await supabase
-                .from('auth.users')
-                .select('email, id, raw_user_meta_data')
-                .eq('email', `${cleanUsername}@glimu.com`)
-                .maybeSingle();
-            
-            // Note: This might not work if RLS is enabled on auth.users
-            if (authUser) {
-                console.log('✅ Found in auth.users:', authUser);
-                // Return a synthetic result
-                result = {
-                    email: authUser.email,
-                    id: authUser.id,
-                    username: authUser.raw_user_meta_data?.username || cleanUsername,
-                    name: authUser.raw_user_meta_data?.name || cleanUsername,
-                    role: 'user'
-                };
-            }
-        }
-        
-        if (!result) {
-            console.log('❌ User not found in any table:', cleanUsername);
             return null;
         }
         
-        console.log('✅ Found user:', result);
-        return result;
+        if (!data) {
+            // Try with ilike as fallback
+            const { data: data2, error: err2 } = await supabase
+                .from('user_profiles')
+                .select('email, id, username, name, role')
+                .ilike('username', cleanUsername)
+                .maybeSingle();
+            
+            if (data2) {
+                console.log('✅ Found using ilike:', data2);
+                return data2;
+            }
+            
+            console.log('❌ Username not found:', cleanUsername);
+            return null;
+        }
         
+        console.log('✅ Found user in user_profiles:', data);
+        return data;
     } catch (error) {
-        console.error('❌ User lookup error:', error);
+        console.error('❌ Username lookup error:', error);
         return null;
     }
 }
 
 // ============================================
-// GET USER BY EMAIL - Direct lookup
+// GET USER BY EMAIL
 // ============================================
 
 async function getUserByEmail(email) {
@@ -176,45 +142,40 @@ export async function signInUser(usernameOrEmail, password) {
         let isEmail = cleanInput.includes('@');
         let userData = null;
         
-        // ✅ Try to find the user
+        // ✅ Find the user in user_profiles
         if (!isEmail) {
-            // Try username lookup first
             userData = await getUserByUsername(cleanInput);
         } else {
-            // Try email lookup
             userData = await getUserByEmail(cleanInput);
         }
         
-        // If user found, use their email
+        // If user found in user_profiles, use their email
         if (userData) {
             email = userData.email;
-            console.log('✅ Found user, email:', email);
+            console.log('✅ Found user in user_profiles, email:', email);
         } else {
-            // If not found in user_profiles, check if it's a valid email
-            if (isEmail) {
-                // Try authentication with the email directly
-                console.log('⚠️ User not in user_profiles, trying auth with email directly');
-            } else {
-                // Try constructing email (username@glimu.com)
+            // If not found and it's a username, try constructing email
+            if (!isEmail) {
                 const possibleEmail = `${cleanInput}@glimu.com`;
-                console.log('🔄 Trying email:', possibleEmail);
+                console.log('🔄 Trying constructed email:', possibleEmail);
                 
-                // Check if this email exists in auth
-                const { data: authCheck } = await supabase
-                    .from('auth.users')
-                    .select('email')
-                    .eq('email', possibleEmail)
-                    .maybeSingle();
-                
-                if (authCheck) {
+                // Try to find user with this email
+                const emailUser = await getUserByEmail(possibleEmail);
+                if (emailUser) {
                     email = possibleEmail;
-                    console.log('✅ Found auth user with email:', email);
+                    userData = emailUser;
+                    console.log('✅ Found user with constructed email:', email);
                 } else {
                     return {
                         success: false,
                         error: 'User not found. Please check your username.'
                     };
                 }
+            } else {
+                return {
+                    success: false,
+                    error: 'User not found. Please check your credentials.'
+                };
             }
         }
         
@@ -250,11 +211,12 @@ export async function signInUser(usernameOrEmail, password) {
         
         console.log('✅ Auth successful for user ID:', data.user.id);
         
-        // ✅ FETCH USER PROFILE FROM user_profiles
+        // ✅ FETCH COMPLETE USER PROFILE
         let profile = userData;
         
-        if (!profile || profile.id !== data.user.id) {
-            const { data: profileData, error: profileError } = await supabase
+        // If we only have basic user data, fetch full profile
+        if (!profile || !profile.wallet_balance) {
+            const { data: fullProfile, error: profileError } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('id', data.user.id)
@@ -262,15 +224,16 @@ export async function signInUser(usernameOrEmail, password) {
             
             if (profileError) {
                 console.error('❌ Profile fetch error:', profileError);
-                return { success: false, error: 'User profile not found' };
+                // Continue with basic profile
+            } else if (fullProfile) {
+                profile = fullProfile;
+                console.log('✅ Full profile loaded');
             }
-            
-            profile = profileData;
         }
         
         if (!profile) {
             console.error('❌ No profile found for user:', data.user.id);
-            // Create a fallback profile
+            // Create fallback profile
             profile = {
                 id: data.user.id,
                 name: data.user.user_metadata?.name || cleanInput,
@@ -285,13 +248,13 @@ export async function signInUser(usernameOrEmail, password) {
             };
         }
         
-        console.log('✅ Profile loaded for:', profile.name);
+        console.log('✅ Profile ready for:', profile.name || profile.username);
         
         // Build user object
         const user = {
             id: data.user.id,
-            name: profile.name,
-            email: profile.email,
+            name: profile.name || profile.username || cleanInput,
+            email: profile.email || email,
             username: profile.username || cleanInput,
             role: profile.role || 'user',
             plan: profile.plan || 'basic',
