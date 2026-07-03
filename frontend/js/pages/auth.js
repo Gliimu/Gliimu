@@ -13,7 +13,31 @@ import {
     generateUsername,
     generateRecoveryPhrase
 } from '../modules/auth.js';
-import { showToast } from '../modules/toast.js';
+
+// ============================================
+// TOAST NOTIFICATION
+// ============================================
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('toast-show');
+    }, 100);
+    
+    setTimeout(() => {
+        toast.classList.remove('toast-show');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
 
 // ============================================
 // PDF GENERATION
@@ -131,7 +155,9 @@ async function handleSignUp(fullName, birthDay, birthMonth, password, confirmPas
     try {
         const username = generateUsername(fullName);
         const recoveryPhrase = generateRecoveryPhrase();
-        const email = `${username}@glimu.com`;
+        const email = `${username}@gliimu.com`; // ✅ CORRECT: double 'i'
+        
+        console.log('📝 Signing up with:', { username, email });
         
         // Create user with role 'user'
         const result = await signUpUser(email, password, {
@@ -348,4 +374,4 @@ if (forgotLink) {
     }
 })();
 
-console.log('✅ Auth page initialized');
+console.log('✅ Auth page initialized with domain:', 'gliimu.com');
