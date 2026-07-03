@@ -33,7 +33,7 @@
         <!-- Main Content -->
         <main class="dashboard-main">
             <div id="dashboardContent">
-                <div class="loading-spinner">
+                <div class="loading-spinner" id="loading">
                     <i class="fas fa-spinner fa-spin"></i>
                     <p>Loading dashboard...</p>
                 </div>
@@ -46,11 +46,11 @@
 
     <!-- Mobile Bottom Navigation -->
     <div class="mobile-bottom-nav" id="mobileBottomNav">
-        <button class="mobile-nav-item" data-tab="dashboard">
+        <button class="mobile-nav-item active" data-tab="dashboard">
             <i class="fas fa-tachometer-alt"></i>
             <span>Home</span>
         </button>
-        <button class="mobile-nav-item" data-tab="alerts" id="mobileAlertsTab">
+        <button class="mobile-nav-item" data-tab="alerts">
             <i class="fas fa-bell"></i>
             <span>Alerts</span>
         </button>
@@ -69,6 +69,7 @@
     </div>
 
     <!-- Modals -->
+    <!-- MVP Modal -->
     <div id="mvpModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -106,6 +107,7 @@
         </div>
     </div>
 
+    <!-- Fund Wallet Modal -->
     <div id="fundWalletModal" class="modal">
         <div class="modal-content wallet-modal">
             <div class="modal-header">
@@ -156,6 +158,12 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Libraries for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script type="module" src="/frontend/js/pages/user.js"></script>
 </body>
