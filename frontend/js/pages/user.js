@@ -32,7 +32,7 @@ import { submitRoleApplication, getUserApplications } from '../modules/auth.js';
 // ============================================
 let studentModule = null;
 let instructorModule = null;
-let partnerModule = null;
+let generalModule = null;
 let alertsModule = null;
 let courseListenerSetup = false;
 
@@ -49,9 +49,9 @@ async function loadRoleModules() {
     } catch (e) { console.log('Instructor module not loaded'); }
 
     try {
-        const partner = await import('./user-partner.js');
-        partnerModule = partner.default || partner;
-    } catch (e) { console.log('Partner module not loaded'); }
+        const general = await import('./user-general.js');
+        generalModule = general.default || general;
+    } catch (e) { console.log('General module not loaded'); }
 
     try {
         const alerts = await import('./user-alerts.js');
@@ -723,41 +723,32 @@ async function renderDashboard() {
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading dashboard...</div>';
     
     try {
-        // Pass currentUser to student module if needed
+        // Use role-specific render if available
         if (currentRole === 'student' && studentModule && studentModule.renderDashboard) {
             await studentModule.renderDashboard(container);
             return;
-        } else if (currentRole === 'instructor' && instructorModule && instructorModule.renderInstructorDashboard) {
-            await instructorModule.renderInstructorDashboard(container);
+        } else if (currentRole === 'instructor' && instructorModule && instructorModule.renderDashboard) {
+            await instructorModule.renderDashboard(container);
             return;
-        } else if (currentRole === 'partner' && partnerModule && partnerModule.renderPartnerDashboard) {
-            await partnerModule.renderPartnerDashboard(container);
+        } else if (currentRole === 'partner' && generalModule && generalModule.renderDashboard) {
+            await generalModule.renderDashboard(container);
+            return;
+        } else if (currentRole === 'user' && generalModule && generalModule.renderDashboard) {
+            await generalModule.renderDashboard(container);
             return;
         }
         
-        // Generic dashboard for 'user' role
-        console.log('Using generic dashboard render');
-        let scoreData = { current_score: 0 };
-        try {
-            scoreData = await getStudentScore(currentUser.id);
-            console.log('📊 Score data:', scoreData);
-        } catch (e) {
-            console.warn('⚠️ Could not get student score:', e);
-            scoreData = { current_score: 0 };
-        }
-        const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-        const nextBadge = getNextBadge(scoreData?.current_score || 0);
-        const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-        const leaderboardData = await getLeaderboard(10);
-        const isAmbassador = (scoreData?.current_score || 0) >= 100;
+        // Ultimate fallback - simple dashboard
+        console.log('Using fallback dashboard render');
         const walletBalance = currentUser?.walletBalance || 14500;
         const gpPoints = currentUser?.gpPoints || 0;
         const hasApplied = currentUser?.applicationStatus === 'pending';
         const appliedRole = currentUser?.appliedRole || '';
         
         container.innerHTML = `
-            <div class="progress-section">
-                ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
+            <div class="section-header">
+                <h2>Welcome, ${currentUser?.name || 'User'}!</h2>
+                <p>Your learning journey starts here</p>
             </div>
             
             ${currentRole === 'user' && !hasApplied ? `
@@ -801,53 +792,26 @@ async function renderDashboard() {
                 </div>
             </div>
             
-            ${isAmbassador ? `
-                <div class="mvp-section">
-                    <div class="mvp-header">
-                        <i class="fas fa-rocket"></i>
-                        <h3>MVP Ambassador Zone</h3>
-                    </div>
-                    <p>You've reached 100%! Submit your real-world project proposal.</p>
-                    <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
-                </div>
-            ` : `
-                <div class="mvp-locked-section">
-                    <div class="mvp-locked-header">
-                        <i class="fas fa-lock"></i>
-                        <h3>Unlock Ambassador Zone</h3>
-                    </div>
-                    <p>Reach 100% score to submit real-world project proposals.</p>
-                    <div class="progress-to-unlock">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
-                        </div>
-                        <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
-                    </div>
-                </div>
-            `}
-            
-            <div class="leaderboard-section">
-                <div class="leaderboard-header">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Top Performers</h3>
-                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
-                </div>
-                <div class="leaderboard-list">
-                    ${renderLeaderboard(leaderboardData)}
+            <div class="quick-actions" style="margin-top: 2rem;">
+                <h3>Quick Actions</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    <button onclick="switchTab('gotomenu')" class="action-btn" style="padding: 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                        <i class="fas fa-door-open" style="font-size: 24px; color: var(--brand-gold);"></i>
+                        <span>Go To</span>
+                    </button>
+                    <button onclick="switchTab('wallet')" class="action-btn" style="padding: 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                        <i class="fas fa-wallet" style="font-size: 24px; color: var(--brand-gold);"></i>
+                        <span>Wallet</span>
+                    </button>
+                    <button onclick="switchTab('settings')" class="action-btn" style="padding: 20px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                        <i class="fas fa-cog" style="font-size: 24px; color: var(--brand-gold);"></i>
+                        <span>Settings</span>
+                    </button>
                 </div>
             </div>
         `;
         
         document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => switchTab('wallet'));
-        document.getElementById('openMvpFormBtn')?.addEventListener('click', () => openMvpModal());
-        document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
-            const newLeaderboard = await getLeaderboard(10);
-            const leaderboardList = document.querySelector('.leaderboard-list');
-            if (leaderboardList) {
-                leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
-            }
-            showToast('Leaderboard refreshed!', 'success');
-        });
         
         console.log('Dashboard rendered successfully');
         
@@ -862,26 +826,6 @@ async function renderDashboard() {
             </div>
         `;
     }
-}
-
-function renderLeaderboardList(leaderboardData) {
-    if (!leaderboardData || leaderboardData.length === 0) {
-        return '<div class="empty-state"><i class="fas fa-trophy"></i><p>No leaders yet. Be the first!</p></div>';
-    }
-    
-    return leaderboardData.map((entry, index) => `
-        <div class="leaderboard-item ${index < 3 ? 'top-' + (index + 1) : ''}">
-            <div class="leaderboard-rank">#${index + 1}</div>
-            <div class="leaderboard-avatar">
-                <img src="${entry.users?.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(entry.users?.name || 'User') + '&background=fbb040&color=fff'}" alt="">
-            </div>
-            <div class="leaderboard-info">
-                <div class="leaderboard-name">${entry.users?.name || 'Anonymous'}</div>
-                <div class="leaderboard-badge">${entry.current_badge || 'Starter'}</div>
-            </div>
-            <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
-        </div>
-    `).join('');
 }
 
 // ============================================
@@ -1493,20 +1437,20 @@ function renderProjects() {
     const container = document.getElementById('projects-section');
     if (!container) return;
     
-    if (partnerModule && partnerModule.renderProjects) {
-        partnerModule.renderProjects(container);
+    if (generalModule && generalModule.renderProjects) {
+        generalModule.renderProjects(container);
         return;
     }
     
     container.innerHTML = `
         <div class="section-header">
             <h2>Projects</h2>
-            <p>Manage your partner projects</p>
+            <p>Manage your projects</p>
         </div>
         <div class="empty-state">
             <i class="fas fa-project-diagram"></i>
-            <h3>Partner Projects</h3>
-            <p>Your active projects and collaborations will appear here.</p>
+            <h3>No Projects Yet</h3>
+            <p>Create your first project to get started.</p>
         </div>
     `;
 }
