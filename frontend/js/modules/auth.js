@@ -40,17 +40,20 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
-// GET USER BY USERNAME - FROM user_profiles
+// GET USER BY USERNAME - CASE INSENSITIVE
 // ============================================
 
 async function getUserByUsername(username) {
     try {
-        console.log('🔍 Looking up username in user_profiles:', username);
+        // ✅ Trim and lowercase the username for case-insensitive search
+        const cleanUsername = username.trim().toLowerCase();
+        console.log('🔍 Looking up username in user_profiles:', cleanUsername);
         
+        // ✅ Use ilike for case-insensitive search
         const { data, error } = await supabase
             .from('user_profiles')
             .select('email, id, username, name, role')
-            .eq('username', username)
+            .ilike('username', cleanUsername)
             .maybeSingle();
         
         if (error) {
@@ -59,7 +62,7 @@ async function getUserByUsername(username) {
         }
         
         if (!data) {
-            console.log('❌ Username not found:', username);
+            console.log('❌ Username not found:', cleanUsername);
             return null;
         }
         
@@ -77,14 +80,16 @@ async function getUserByUsername(username) {
 
 export async function signInUser(usernameOrEmail, password) {
     try {
-        console.log('🔐 Sign in attempt for:', usernameOrEmail);
+        // ✅ Trim input to remove any whitespace
+        const cleanInput = usernameOrEmail.trim();
+        console.log('🔐 Sign in attempt for:', cleanInput);
         
-        let email = usernameOrEmail;
-        let isEmail = usernameOrEmail.includes('@');
+        let email = cleanInput;
+        let isEmail = cleanInput.includes('@');
         
         // ✅ If username (not email), get email from user_profiles
         if (!isEmail) {
-            const user = await getUserByUsername(usernameOrEmail);
+            const user = await getUserByUsername(cleanInput);
             
             if (!user) {
                 return { 
@@ -150,8 +155,13 @@ export async function signInUser(usernameOrEmail, password) {
             .eq('id', data.user.id)
             .maybeSingle();
         
-        if (profileError || !profile) {
+        if (profileError) {
             console.error('❌ Profile fetch error:', profileError);
+            return { success: false, error: 'User profile not found' };
+        }
+        
+        if (!profile) {
+            console.error('❌ No profile found for user:', data.user.id);
             return { success: false, error: 'User profile not found' };
         }
         
@@ -210,7 +220,7 @@ export async function signUpUser(email, password, userData) {
         
         console.log('✅ Auth signup successful for user ID:', data.user?.id);
         
-        // ✅ CREATE USER_PROFILE (in case trigger fails or username wasn't set)
+        // ✅ CREATE USER_PROFILE
         if (data.user) {
             const { error: insertError } = await supabase
                 .from('user_profiles')
