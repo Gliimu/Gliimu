@@ -46,6 +46,32 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
+// CHECK IF USER EXISTS
+// ============================================
+
+export async function checkUserExists(username) {
+    try {
+        const cleanUsername = username.trim().toLowerCase();
+        
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('id, username, email')
+            .eq('username', cleanUsername)
+            .maybeSingle();
+        
+        if (error) {
+            console.error('❌ Check user error:', error);
+            return { exists: false, error: error.message };
+        }
+        
+        return { exists: !!data, user: data };
+    } catch (error) {
+        console.error('❌ Check user error:', error);
+        return { exists: false, error: error.message };
+    }
+}
+
+// ============================================
 // GET USER BY USERNAME
 // ============================================
 
@@ -317,6 +343,14 @@ export async function signUpUser(email, password, userData) {
         console.log('📝 User data:', userData);
         console.log('========================================');
         
+        // ✅ FIRST: Check if user already exists
+        console.log('📌 STEP 0: Checking if user already exists');
+        const { exists } = await checkUserExists(userData.username);
+        if (exists) {
+            console.log('❌ Username already exists:', userData.username);
+            return { success: false, error: 'Username already taken. Please try another.' };
+        }
+        
         console.log('📌 STEP 1: Creating auth user in Supabase Auth');
         
         // ✅ CREATE USER IN SUPABASE AUTH
@@ -369,10 +403,23 @@ export async function signUpUser(email, password, userData) {
         
         console.log('📝 Profile data:', profileData);
         
-        const { error: insertError } = await supabase
+        // Try insert first
+        let insertError = null;
+        const { error: err } = await supabase
             .from('user_profiles')
-            .upsert(profileData, { onConflict: 'id' });
-
+            .insert(profileData);
+        
+        insertError = err;
+        
+        if (insertError && insertError.code === '23505') {
+            // Duplicate key - try upsert instead
+            console.log('⚠️ Duplicate key, trying upsert...');
+            const { error: upsertError } = await supabase
+                .from('user_profiles')
+                .upsert(profileData, { onConflict: 'id' });
+            insertError = upsertError;
+        }
+        
         if (insertError) {
             console.error('❌ Profile creation error:', insertError);
             console.error('  - Code:', insertError.code);
@@ -748,4 +795,4 @@ export async function updateUserProfile(updates) {
 // EXPORT HELPERS
 // ============================================
 
-export { getUserByUsername, getUserByEmail, getUserById };
+export { getUserByUsername, getUserByEmail, getUserById, checkUserExists };
