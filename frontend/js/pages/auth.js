@@ -221,30 +221,24 @@ function switchTab(tabId) {
     console.log('🔄 Switching to tab:', tabId);
     
     // Update tab buttons
-    const tabs = document.querySelectorAll('.auth-tab');
-    tabs.forEach(tab => {
+    document.querySelectorAll('.auth-tab').forEach(tab => {
         tab.classList.remove('active');
     });
     
-    // Find and activate the clicked tab
     const activeTab = document.querySelector(`.auth-tab[data-tab="${tabId}"]`);
     if (activeTab) {
         activeTab.classList.add('active');
     }
     
     // Update forms
-    const forms = document.querySelectorAll('.auth-form');
-    forms.forEach(form => {
+    document.querySelectorAll('.auth-form').forEach(form => {
         form.classList.remove('active');
     });
     
-    // Find and activate the corresponding form
     const activeForm = document.getElementById(`${tabId}Form`);
     if (activeForm) {
         activeForm.classList.add('active');
         console.log('✅ Showing form:', activeForm.id);
-    } else {
-        console.error('❌ Form not found:', `${tabId}Form`);
     }
 }
 
@@ -252,216 +246,184 @@ function switchTab(tabId) {
 // INITIALIZE - RUN IMMEDIATELY
 // ============================================
 
-console.log('🔧 Initializing auth page...');
-
-// Set up tab switching - DIRECT EVENT BINDING
-const tabs = document.querySelectorAll('.auth-tab');
-console.log('📋 Found tabs:', tabs.length);
-
-tabs.forEach(tab => {
-    // Remove any existing listeners to avoid duplicates
-    tab.removeEventListener('click', tab._listener);
+function initAuthPage() {
+    console.log('🔧 Initializing auth page...');
     
-    // Add new listener
-    const listener = function(e) {
-        e.preventDefault();
-        const tabId = this.getAttribute('data-tab');
-        console.log('👆 Tab clicked:', tabId);
-        switchTab(tabId);
-    };
+    // Set up tab switching
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tabId = this.getAttribute('data-tab');
+            console.log('👆 Tab clicked:', tabId);
+            switchTab(tabId);
+        });
+    });
     
-    tab.addEventListener('click', listener);
-    tab._listener = listener; // Store reference for cleanup
-});
+    // Set initial state - show signin
+    switchTab('signin');
+    
+    console.log('✅ Auth page initialized');
+}
 
-// Set initial state - ensure signin is active
-switchTab('signin');
-
-console.log('✅ Auth page initialized with domain: gliimu.com');
+// Run initialization
+initAuthPage();
 
 // ============================================
 // SIGN IN FORM
 // ============================================
 
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-    // Remove any existing listeners
-    loginForm.removeEventListener('submit', loginForm._submitListener);
-    
-    const submitListener = async (e) => {
-        e.preventDefault();
-        
-        const usernameInput = document.getElementById('loginUsername');
-        const passwordInput = document.getElementById('loginPassword');
-        
-        if (!usernameInput || !passwordInput) {
-            showToast('Form fields not found', 'error');
-            return;
-        }
-        
-        const username = usernameInput.value.trim();
-        const password = passwordInput.value;
-        
-        const submitBtn = loginForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
-        submitBtn.disabled = true;
-        
-        const result = await handleSignIn(username, password);
-        
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        
-        if (result.success) {
-            showToast(`Welcome, ${result.user.name}!`, 'success');
-            setTimeout(() => {
-                window.location.href = '/user';
-            }, 1000);
-        } else {
-            showToast(result.error || 'Invalid username or password', 'error');
-        }
-    };
-    
-    loginForm.addEventListener('submit', submitListener);
-    loginForm._submitListener = submitListener;
-}
-
-// ============================================
-// SIGN UP FORM
-// ============================================
-
-const registerForm = document.getElementById('registerForm');
-if (registerForm) {
-    // Remove any existing listeners
-    registerForm.removeEventListener('submit', registerForm._submitListener);
-    
-    const submitListener = async (e) => {
-        e.preventDefault();
-        
-        const fullName = document.getElementById('signupName').value.trim();
-        const birthDay = document.getElementById('signupBirthDay').value;
-        const birthMonth = document.getElementById('signupBirthMonth').value;
-        const password = document.getElementById('signupPassword').value;
-        const confirmPassword = document.getElementById('signupConfirmPassword').value;
-        
-        const submitBtn = registerForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
-        submitBtn.disabled = true;
-        
-        const result = await handleSignUp(fullName, birthDay, birthMonth, password, confirmPassword);
-        
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        
-        if (result.success) {
-            showToast('Account created successfully! Check your recovery phrase.', 'success');
-        } else {
-            showToast(result.error || 'Failed to create account', 'error');
-        }
-    };
-    
-    registerForm.addEventListener('submit', submitListener);
-    registerForm._submitListener = submitListener;
-}
-
-// ============================================
-// PDF DOWNLOAD
-// ============================================
-
-const downloadBtn = document.getElementById('downloadPdfBtn');
-if (downloadBtn) {
-    downloadBtn.removeEventListener('click', downloadBtn._clickListener);
-    
-    const clickListener = () => {
-        if (window.currentCredentials) {
-            generatePDF(window.currentCredentials);
-            showToast('PDF downloaded! Save it somewhere safe.', 'success');
-        }
-    };
-    
-    downloadBtn.addEventListener('click', clickListener);
-    downloadBtn._clickListener = clickListener;
-}
-
-// ============================================
-// GO TO DASHBOARD
-// ============================================
-
-const goToDashboardBtn = document.getElementById('goToDashboardBtn');
-if (goToDashboardBtn) {
-    goToDashboardBtn.removeEventListener('click', goToDashboardBtn._clickListener);
-    
-    const clickListener = async () => {
-        const creds = window.currentCredentials;
-        if (creds) {
-            const result = await handleSignIn(creds.username, creds.password);
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const usernameInput = document.getElementById('loginUsername');
+            const passwordInput = document.getElementById('loginPassword');
+            
+            if (!usernameInput || !passwordInput) {
+                showToast('Form fields not found', 'error');
+                return;
+            }
+            
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            
+            const submitBtn = loginForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+            submitBtn.disabled = true;
+            
+            const result = await handleSignIn(username, password);
+            
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            
             if (result.success) {
-                window.location.href = '/user';
+                showToast(`Welcome, ${result.user.name}!`, 'success');
+                setTimeout(() => {
+                    window.location.href = '/user';
+                }, 1000);
+            } else {
+                showToast(result.error || 'Invalid username or password', 'error');
+            }
+        });
+    }
+
+    // ============================================
+    // SIGN UP FORM
+    // ============================================
+
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fullName = document.getElementById('signupName').value.trim();
+            const birthDay = document.getElementById('signupBirthDay').value;
+            const birthMonth = document.getElementById('signupBirthMonth').value;
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('signupConfirmPassword').value;
+            
+            const submitBtn = registerForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
+            submitBtn.disabled = true;
+            
+            const result = await handleSignUp(fullName, birthDay, birthMonth, password, confirmPassword);
+            
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            
+            if (result.success) {
+                showToast('Account created successfully! Check your recovery phrase.', 'success');
+            } else {
+                showToast(result.error || 'Failed to create account', 'error');
+            }
+        });
+    }
+
+    // ============================================
+    // PDF DOWNLOAD
+    // ============================================
+
+    const downloadBtn = document.getElementById('downloadPdfBtn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+            if (window.currentCredentials) {
+                generatePDF(window.currentCredentials);
+                showToast('PDF downloaded! Save it somewhere safe.', 'success');
+            }
+        });
+    }
+
+    // ============================================
+    // GO TO DASHBOARD
+    // ============================================
+
+    const goToDashboardBtn = document.getElementById('goToDashboardBtn');
+    if (goToDashboardBtn) {
+        goToDashboardBtn.addEventListener('click', async () => {
+            const creds = window.currentCredentials;
+            if (creds) {
+                const result = await handleSignIn(creds.username, creds.password);
+                if (result.success) {
+                    window.location.href = '/user';
+                } else {
+                    window.location.href = '/signin.html';
+                }
             } else {
                 window.location.href = '/signin.html';
             }
-        } else {
-            window.location.href = '/signin.html';
+        });
+    }
+
+    // ============================================
+    // MODAL CONTROLS
+    // ============================================
+
+    const closeModalBtn = document.getElementById('closePdfModal');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closePdfModal);
+    }
+
+    window.onclick = (e) => {
+        const modal = document.getElementById('pdfModal');
+        if (e.target === modal) {
+            closePdfModal();
         }
     };
-    
-    goToDashboardBtn.addEventListener('click', clickListener);
-    goToDashboardBtn._clickListener = clickListener;
-}
 
-// ============================================
-// MODAL CONTROLS
-// ============================================
+    // ============================================
+    // FORGOT PASSWORD
+    // ============================================
 
-const closeModalBtn = document.getElementById('closePdfModal');
-if (closeModalBtn) {
-    closeModalBtn.removeEventListener('click', closeModalBtn._clickListener);
-    
-    const clickListener = closePdfModal;
-    closeModalBtn.addEventListener('click', clickListener);
-    closeModalBtn._clickListener = clickListener;
-}
-
-window.onclick = (e) => {
-    const modal = document.getElementById('pdfModal');
-    if (e.target === modal) {
-        closePdfModal();
+    const forgotLink = document.getElementById('forgotPasswordLink');
+    if (forgotLink) {
+        forgotLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/forgot-password.html';
+        });
     }
-};
 
-// ============================================
-// FORGOT PASSWORD
-// ============================================
+    // ============================================
+    // AUTO-REDIRECT IF ALREADY LOGGED IN
+    // ============================================
 
-const forgotLink = document.getElementById('forgotPasswordLink');
-if (forgotLink) {
-    forgotLink.removeEventListener('click', forgotLink._clickListener);
-    
-    const clickListener = (e) => {
-        e.preventDefault();
-        window.location.href = '/forgot-password.html';
-    };
-    
-    forgotLink.addEventListener('click', clickListener);
-    forgotLink._clickListener = clickListener;
-}
-
-// ============================================
-// AUTO-REDIRECT IF ALREADY LOGGED IN
-// ============================================
-
-(async function checkExistingSession() {
-    try {
-        const session = await getCurrentSession();
-        if (session) {
-            const localUser = localStorage.getItem('glimu_user');
-            if (localUser) {
-                window.location.href = '/user';
-                return;
+    (async function checkExistingSession() {
+        try {
+            const session = await getCurrentSession();
+            if (session) {
+                const localUser = localStorage.getItem('glimu_user');
+                if (localUser) {
+                    window.location.href = '/user';
+                    return;
+                }
             }
+        } catch (error) {
+            console.error('Session check error:', error);
         }
-    } catch (error) {
-        console.error('Session check error:', error);
-    }
-})();
+    })();
+});
+
+console.log('✅ Auth page initialized with domain: gliimu.com');
