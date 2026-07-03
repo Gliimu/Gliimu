@@ -1033,16 +1033,14 @@ export async function updateUserProfile(updates) {
 }
 
 // ============================================
-// EXPORT HELPERS
+// ✅ FIXED: EXPORT HELPERS (NO DUPLICATES)
 // ============================================
 
+// Only export functions that weren't already exported with 'export' keyword
+// getUserByUsername, getUserByEmail, getUserById are NOT exported with 'export'
+// so we export them here
 export { 
     getUserByUsername, 
     getUserByEmail, 
-    getUserById,
-    getUserByRecoveryPhrase,
-    verifyRecoveryPhrase,
-    verifyUsers,
-    resetPasswordWithRecovery,
-    ensureUserProfile
+    getUserById
 };
