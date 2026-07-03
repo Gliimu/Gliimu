@@ -52,7 +52,6 @@ export function generateRecoveryPhrase() {
 async function getUserByUsername(username) {
     try {
         const cleanUsername = username.trim().toLowerCase();
-        console.log('🔍 Looking up username:', cleanUsername);
         
         const { data, error } = await supabase
             .from('user_profiles')
@@ -63,12 +62,6 @@ async function getUserByUsername(username) {
         if (error) {
             console.error('Username lookup error:', error);
             return null;
-        }
-        
-        if (data) {
-            console.log('✅ Found user by username:', data.username);
-        } else {
-            console.log('❌ No user found with username:', cleanUsername);
         }
         
         return data;
@@ -85,7 +78,6 @@ async function getUserByUsername(username) {
 async function getUserByEmail(email) {
     try {
         const cleanEmail = email.trim().toLowerCase();
-        console.log('🔍 Looking up email:', cleanEmail);
         
         const { data, error } = await supabase
             .from('user_profiles')
@@ -96,12 +88,6 @@ async function getUserByEmail(email) {
         if (error) {
             console.error('Email lookup error:', error);
             return null;
-        }
-        
-        if (data) {
-            console.log('✅ Found user by email:', data.email);
-        } else {
-            console.log('❌ No user found with email:', cleanEmail);
         }
         
         return data;
@@ -136,13 +122,67 @@ async function getUserById(userId) {
 }
 
 // ============================================
+// ENSURE USER PROFILE EXISTS
+// ============================================
+
+async function ensureUserProfile(user) {
+    try {
+        // Check if profile exists
+        const { data: existing, error: checkError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        if (checkError) {
+            console.error('Error checking profile:', checkError);
+            return null;
+        }
+        
+        if (existing) {
+            return existing;
+        }
+        
+        // Create profile if it doesn't exist
+        console.log('Creating missing profile for user:', user.id);
+        
+        const newProfile = {
+            id: user.id,
+            name: user.user_metadata?.name || 'User',
+            username: user.user_metadata?.username || `user_${Date.now()}`,
+            email: user.email,
+            role: 'user',
+            wallet_balance: 25000,
+            gp_points: 0,
+            status: 'active',
+            plan: 'basic',
+            application_status: 'none',
+            referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+        };
+        
+        const { error: insertError } = await supabase
+            .from('user_profiles')
+            .upsert(newProfile, { onConflict: 'id' });
+        
+        if (insertError) {
+            console.error('Failed to create profile:', insertError);
+            return null;
+        }
+        
+        console.log('Profile created successfully');
+        return newProfile;
+    } catch (error) {
+        console.error('Ensure profile error:', error);
+        return null;
+    }
+}
+
+// ============================================
 // SIGN IN USER
 // ============================================
 
 export async function signInUser(usernameOrEmail, password) {
     try {
-        console.log('🔐 Login attempt for:', usernameOrEmail);
-        
         const cleanInput = usernameOrEmail.trim();
         let email = cleanInput;
         let isEmail = cleanInput.includes('@');
@@ -158,25 +198,58 @@ export async function signInUser(usernameOrEmail, password) {
         // If found, use their email
         if (userData) {
             email = userData.email;
-            console.log('✅ User found in profiles, using email:', email);
         } else if (!isEmail) {
             // Try constructing email with correct domain (gliimu.com - double 'i')
             const possibleEmail = `${cleanInput}@${DOMAIN}`;
-            console.log('🔍 Trying constructed email:', possibleEmail);
             const emailUser = await getUserByEmail(possibleEmail);
             if (emailUser) {
                 email = possibleEmail;
                 userData = emailUser;
-                console.log('✅ Found via constructed email');
             } else {
-                console.log('❌ User not found in profiles');
-                return {
-                    success: false,
-                    error: 'User not found. Please check your username.'
+                // Try signing in directly with constructed email
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email: `${cleanInput}@${DOMAIN}`,
+                    password: password
+                });
+                
+                if (authError) {
+                    return {
+                        success: false,
+                        error: 'User not found. Please check your username.'
+                    };
+                }
+                
+                // Ensure profile exists
+                const profile = await ensureUserProfile(authData.user);
+                
+                if (!profile) {
+                    return {
+                        success: false,
+                        error: 'User profile could not be created.'
+                    };
+                }
+                
+                // Build user object
+                const user = {
+                    id: authData.user.id,
+                    name: profile.name || cleanInput,
+                    email: authData.user.email,
+                    username: profile.username || cleanInput,
+                    role: profile.role || 'user',
+                    plan: profile.plan || 'basic',
+                    walletBalance: profile.wallet_balance || 25000,
+                    gpPoints: profile.gp_points || 0,
+                    address: profile.address || '',
+                    applicationStatus: profile.application_status || 'none',
+                    appliedRole: profile.applied_role || null,
+                    avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || cleanInput)}&background=fbb040&color=fff`
                 };
+                
+                localStorage.setItem('glimu_user', JSON.stringify(user));
+                
+                return { success: true, user, role: user.role };
             }
         } else {
-            console.log('❌ Email not found');
             return {
                 success: false,
                 error: 'User not found. Please check your credentials.'
@@ -184,14 +257,12 @@ export async function signInUser(usernameOrEmail, password) {
         }
         
         // Authenticate with Supabase Auth
-        console.log('🔑 Authenticating with email:', email);
         const { data, error } = await supabase.auth.signInWithPassword({
             email: email,
             password: password
         });
         
         if (error) {
-            console.error('❌ Auth error:', error);
             if (error.message === 'Invalid login credentials') {
                 return {
                     success: false,
@@ -212,33 +283,16 @@ export async function signInUser(usernameOrEmail, password) {
             };
         }
         
-        console.log('✅ Auth successful for user:', data.user.id);
+        // Ensure profile exists
+        let profile = await ensureUserProfile(data.user);
         
-        // Fetch full user profile
-        let profile = userData;
-        
-        if (!profile || profile.id !== data.user.id) {
-            const { data: fullProfile, error: profileError } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', data.user.id)
-                .maybeSingle();
-            
-            if (!profileError && fullProfile) {
-                profile = fullProfile;
-                console.log('✅ Full profile fetched');
-            }
-        }
-        
-        // If still no profile, try to get it by ID
+        // If profile still doesn't exist, try to get it by ID
         if (!profile) {
             profile = await getUserById(data.user.id);
-            if (profile) console.log('✅ Profile fetched by ID');
         }
         
         // Build fallback profile if needed
         if (!profile) {
-            console.log('⚠️ No profile found, building fallback');
             profile = {
                 id: data.user.id,
                 name: data.user.user_metadata?.name || cleanInput,
@@ -271,12 +325,11 @@ export async function signInUser(usernameOrEmail, password) {
         
         // Store in localStorage
         localStorage.setItem('glimu_user', JSON.stringify(user));
-        console.log('✅ User stored in localStorage');
         
         return { success: true, user, role: user.role };
         
     } catch (error) {
-        console.error('❌ Sign in error:', error);
+        console.error('Sign in error:', error);
         return { success: false, error: 'Invalid username or password' };
     }
 }
@@ -287,9 +340,7 @@ export async function signInUser(usernameOrEmail, password) {
 
 export async function signUpUser(email, password, userData) {
     try {
-        console.log('📝 Sign up attempt for:', email);
-        
-        // ✅ CREATE USER IN SUPABASE AUTH
+        // Create user in Supabase Auth
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
@@ -303,13 +354,11 @@ export async function signUpUser(email, password, userData) {
         });
         
         if (error) {
-            console.error('❌ Sign up error:', error);
+            console.error('Sign up error:', error);
             return { success: false, error: error.message };
         }
         
-        console.log('✅ Auth user created:', data.user.id);
-        
-        // ✅ CREATE USER PROFILE USING UPSERT
+        // Create user profile using upsert
         if (data.user) {
             const profileData = {
                 id: data.user.id,
@@ -327,9 +376,7 @@ export async function signUpUser(email, password, userData) {
                 referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
             };
             
-            console.log('📝 Creating profile:', profileData);
-            
-            // ✅ Use upsert to avoid 409 conflict
+            // Use upsert to avoid 409 conflict
             const { error: upsertError } = await supabase
                 .from('user_profiles')
                 .upsert(profileData, { 
@@ -338,32 +385,15 @@ export async function signUpUser(email, password, userData) {
                 });
 
             if (upsertError) {
-                console.error('❌ Profile creation error:', upsertError);
+                console.error('Profile creation error:', upsertError);
                 return { success: false, error: 'Failed to create user profile' };
-            }
-            
-            console.log('✅ Profile created successfully');
-            
-            // Verify the profile was created
-            const { data: verifyData, error: verifyError } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', data.user.id)
-                .maybeSingle();
-            
-            if (verifyError) {
-                console.warn('⚠️ Profile verification failed:', verifyError);
-            } else if (verifyData) {
-                console.log('✅ Profile verified:', verifyData);
-            } else {
-                console.warn('⚠️ Profile not found after creation');
             }
         }
         
         return { success: true, user: data.user };
         
     } catch (error) {
-        console.error('❌ Sign up error:', error);
+        console.error('Sign up error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -379,10 +409,9 @@ export async function signOutUser() {
         
         localStorage.removeItem('glimu_user');
         sessionStorage.clear();
-        console.log('✅ User signed out');
         return { success: true };
     } catch (error) {
-        console.error('❌ Sign out error:', error);
+        console.error('Sign out error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -397,7 +426,7 @@ export async function getCurrentSession() {
         if (error) throw error;
         return session;
     } catch (error) {
-        console.error('❌ Session error:', error);
+        console.error('Session error:', error);
         return null;
     }
 }
@@ -408,16 +437,39 @@ export async function getCurrentSession() {
 
 export async function getCurrentUser() {
     try {
+        // Check localStorage first
         const localUser = localStorage.getItem('glimu_user');
         if (localUser) {
             return JSON.parse(localUser);
         }
         
+        // Then check Supabase auth
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) throw error;
+        
+        if (user) {
+            // Ensure profile exists and get it
+            const profile = await ensureUserProfile(user);
+            
+            if (profile) {
+                const userObject = {
+                    id: user.id,
+                    name: profile.name || user.user_metadata?.name || 'User',
+                    email: user.email,
+                    username: profile.username || user.user_metadata?.username || 'user',
+                    role: profile.role || 'user',
+                    walletBalance: profile.wallet_balance || 25000,
+                    gpPoints: profile.gp_points || 0,
+                    avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
+                };
+                localStorage.setItem('glimu_user', JSON.stringify(userObject));
+                return userObject;
+            }
+        }
+        
         return user;
     } catch (error) {
-        console.error('❌ Get user error:', error);
+        console.error('Get user error:', error);
         return null;
     }
 }
@@ -435,7 +487,7 @@ export async function resetPassword(email) {
         if (error) throw error;
         return { success: true };
     } catch (error) {
-        console.error('❌ Reset password error:', error);
+        console.error('Reset password error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -453,7 +505,289 @@ export async function updateUserPassword(newPassword) {
         if (error) throw error;
         return { success: true };
     } catch (error) {
-        console.error('❌ Update password error:', error);
+        console.error('Update password error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// APPLICATION FUNCTIONS
+// ============================================
+
+export async function submitRoleApplication(role, additionalData = {}) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'User not authenticated' };
+        }
+
+        const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        if (profileError || !profile) {
+            return { success: false, error: 'User profile not found' };
+        }
+
+        if (profile.application_status === 'pending') {
+            return { success: false, error: 'You already have a pending application' };
+        }
+
+        const applicationId = `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const application = {
+            id: applicationId,
+            user_id: user.id,
+            full_name: profile.name,
+            email: profile.email,
+            username: profile.username,
+            role: role,
+            birth_day: profile.birth_day || null,
+            birth_month: profile.birth_month || null,
+            status: 'pending',
+            submitted_at: new Date().toISOString(),
+            ...additionalData
+        };
+        
+        const { error: insertError } = await supabase
+            .from('applications')
+            .insert([application]);
+        
+        if (insertError) throw insertError;
+        
+        const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ 
+                application_status: 'pending',
+                applied_role: role
+            })
+            .eq('id', user.id);
+        
+        if (updateError) throw updateError;
+        
+        return { success: true, applicationId };
+        
+    } catch (error) {
+        console.error('Application submission error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getUserApplications() {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return [];
+        
+        const { data, error } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('submitted_at', { ascending: false });
+        
+        if (error) {
+            console.error('Error fetching applications:', error);
+            return [];
+        }
+        return data;
+    } catch (error) {
+        console.error('Applications fetch error:', error);
+        return [];
+    }
+}
+
+export async function getPendingApplications() {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return [];
+        
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        if (!profile || profile?.role !== 'admin') {
+            return { success: false, error: 'Unauthorized' };
+        }
+        
+        const { data, error } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('status', 'pending')
+            .order('submitted_at', { ascending: true });
+        
+        if (error) {
+            console.error('Error fetching pending applications:', error);
+            return [];
+        }
+        return data;
+    } catch (error) {
+        console.error('Pending applications fetch error:', error);
+        return [];
+    }
+}
+
+export async function approveApplication(applicationId, adminNotes = '') {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return { success: false, error: 'Not authenticated' };
+        
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        if (!profile || profile?.role !== 'admin') {
+            return { success: false, error: 'Unauthorized' };
+        }
+        
+        const { data: application, error: appError } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('id', applicationId)
+            .maybeSingle();
+        
+        if (appError || !application) {
+            return { success: false, error: 'Application not found' };
+        }
+        
+        const { error: updateAppError } = await supabase
+            .from('applications')
+            .update({ 
+                status: 'approved', 
+                approved_at: new Date().toISOString(),
+                admin_notes: adminNotes
+            })
+            .eq('id', applicationId);
+        
+        if (updateAppError) throw updateAppError;
+        
+        const { error: updateUserError } = await supabase
+            .from('user_profiles')
+            .update({ 
+                role: application.role,
+                application_status: 'approved'
+            })
+            .eq('id', application.user_id);
+        
+        if (updateUserError) throw updateUserError;
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Application approval error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function rejectApplication(applicationId, adminNotes = '') {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return { success: false, error: 'Not authenticated' };
+        
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        if (!profile || profile?.role !== 'admin') {
+            return { success: false, error: 'Unauthorized' };
+        }
+        
+        const { error: updateAppError } = await supabase
+            .from('applications')
+            .update({ 
+                status: 'rejected', 
+                rejected_at: new Date().toISOString(),
+                admin_notes: adminNotes
+            })
+            .eq('id', applicationId);
+        
+        if (updateAppError) throw updateAppError;
+        
+        const { data: appData } = await supabase
+            .from('applications')
+            .select('user_id')
+            .eq('id', applicationId)
+            .maybeSingle();
+        
+        if (appData) {
+            const { error: updateUserError } = await supabase
+                .from('user_profiles')
+                .update({ 
+                    application_status: 'rejected'
+                })
+                .eq('id', appData.user_id);
+            
+            if (updateUserError) throw updateUserError;
+        }
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Application rejection error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// USER PROFILE FUNCTIONS
+// ============================================
+
+export async function getUserProfile(userId = null) {
+    try {
+        if (!userId) {
+            const user = await getCurrentUser();
+            if (!user) return null;
+            userId = user.id;
+        }
+        
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+        
+        if (error) {
+            console.error('Error fetching user profile:', error);
+            return null;
+        }
+        return data;
+    } catch (error) {
+        console.error('Profile fetch error:', error);
+        return null;
+    }
+}
+
+export async function updateUserProfile(updates) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return { success: false, error: 'No user logged in' };
+        
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .update(updates)
+            .eq('id', user.id)
+            .select()
+            .maybeSingle();
+        
+        if (error) {
+            console.error('Error updating user profile:', error);
+            return { success: false, error: error.message };
+        }
+        
+        // Update local storage
+        const storedUser = localStorage.getItem('glimu_user');
+        if (storedUser && data) {
+            const updatedUser = { ...JSON.parse(storedUser), ...data };
+            localStorage.setItem('glimu_user', JSON.stringify(updatedUser));
+        }
+        
+        return { success: true, data };
+    } catch (error) {
+        console.error('Profile update error:', error);
         return { success: false, error: error.message };
     }
 }
