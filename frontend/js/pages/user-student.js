@@ -32,13 +32,21 @@ async function renderDashboard(container) {
     if (!container) return;
     
     try {
-        const scoreData = await getStudentScore(currentUser.id);
+        // Get currentUser from window object (set by user.js)
+        const user = window.currentUser;
+        if (!user) {
+            console.error('No user found');
+            container.innerHTML = `<div class="empty-state"><h3>Please log in</h3></div>`;
+            return;
+        }
+        
+        const scoreData = await getStudentScore(user.id);
         const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
         const nextBadge = getNextBadge(scoreData?.current_score || 0);
         const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
         const leaderboardData = await getLeaderboard(10);
         const isAmbassador = (scoreData?.current_score || 0) >= 100;
-        const walletBalance = currentUser?.walletBalance || 14500;
+        const walletBalance = user?.walletBalance || 14500;
         
         container.innerHTML = `
             <div class="progress-section">
@@ -93,7 +101,9 @@ async function renderDashboard(container) {
             </div>
         `;
         
-        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => switchTab('wallet'));
+        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
+            if (window.switchTab) window.switchTab('wallet');
+        });
         document.getElementById('openMvpFormBtn')?.addEventListener('click', () => openMvpModal());
         document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
             const newLeaderboard = await getLeaderboard(10);
@@ -138,6 +148,12 @@ function renderLeaderboardList(leaderboardData) {
 }
 
 function openMvpModal() {
+    const user = window.currentUser;
+    if (!user) {
+        showToast('Please log in', 'error');
+        return;
+    }
+    
     let modal = document.getElementById('mvpModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -189,7 +205,7 @@ function openMvpModal() {
             const description = document.getElementById('mvpDescription').value;
             const proposal = document.getElementById('mvpProposal').value;
             
-            const result = await submitMVPProposal(currentUser.id, title, description, type, proposal);
+            const result = await submitMVPProposal(user.id, title, description, type, proposal);
             if (result) {
                 modal.classList.remove('active');
                 showToast('MVP Proposal submitted! The school will review and reach out.', 'success');
@@ -205,10 +221,16 @@ function openMvpModal() {
 async function renderQuestionBar(container) {
     if (!container) return;
     
+    const user = window.currentUser;
+    if (!user) {
+        container.innerHTML = `<div class="empty-state"><h3>Please log in</h3></div>`;
+        return;
+    }
+    
     container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
     
     try {
-        const nextQuestion = await getNextQuestion(currentUser.id);
+        const nextQuestion = await getNextQuestion(user.id);
         
         if (!nextQuestion) {
             container.innerHTML = `
@@ -224,9 +246,9 @@ async function renderQuestionBar(container) {
         
         const questionRenderer = new QuestionRenderer(
             'question-section',
-            currentUser.id,
+            user.id,
             async (result) => {
-                const scoreData = await getStudentScore(currentUser.id);
+                const scoreData = await getStudentScore(user.id);
                 const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
                 const nextBadge = getNextBadge(scoreData?.current_score || 0);
                 const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
