@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
 
 const app = express();
 
@@ -10,18 +9,20 @@ app.use(cors());
 app.use(express.json());
 
 // ============================================
-// ADD THIS LINE - Routes
+// ROUTES
 // ============================================
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
-// Health check
+// ============================================
+// HEALTH CHECK (No MongoDB dependency)
+// ============================================
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     message: 'Gliimu API is running!',
     timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    database: 'Supabase (PostgreSQL)'
   });
 });
 
@@ -29,16 +30,20 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working!' });
 });
 
-// Connect to MongoDB
+// ============================================
+// START SERVER
+// ============================================
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🔐 Auth routes: http://localhost:${PORT}/api/auth`);
 });
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('✅ Connected to MongoDB Atlas');
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
-  });
+// ============================================
+// GRACEFUL SHUTDOWN
+// ============================================
+process.on('SIGINT', () => {
+  console.log('\n👋 Shutting down gracefully...');
+  process.exit(0);
+});
