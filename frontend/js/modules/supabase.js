@@ -24,7 +24,6 @@ export async function getCurrentUser() {
 
 export async function signIn(email, password) {
     try {
-        // Sign in with Supabase Auth
         const { data, error } = await supabase.auth.signInWithPassword({
             email: email,
             password: password
@@ -35,16 +34,15 @@ export async function signIn(email, password) {
             return { success: false, error: error.message };
         }
 
-        // ✅ Get user profile from CLEAN table
+        // Get user profile from CLEAN table
         const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
         if (profileError) {
             console.warn('Profile fetch warning:', profileError);
-            // Still return user even if profile fetch fails
             return { 
                 success: true, 
                 user: data.user,
@@ -61,7 +59,6 @@ export async function signIn(email, password) {
 
 export async function signUp(email, password, userData) {
     try {
-        // Create auth user - trigger will create profile
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
@@ -79,8 +76,7 @@ export async function signUp(email, password, userData) {
             return { success: false, error: error.message };
         }
         
-        // ✅ Trigger will create user_profiles automatically
-        // But we can also insert directly to be safe
+        // Insert directly into user_profiles as backup
         if (data.user) {
             const { error: insertError } = await supabase
                 .from('user_profiles')
@@ -95,6 +91,8 @@ export async function signUp(email, password, userData) {
                     status: 'active',
                     plan: 'basic',
                     application_status: 'none',
+                    birth_day: userData.birthDay || null,
+                    birth_month: userData.birthMonth || null,
                     referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
                 }]);
 
@@ -131,9 +129,8 @@ export async function getUserProfile(userId = null) {
             userId = user.id;
         }
         
-        // ✅ Query the CLEAN user_profiles table
         const { data, error } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .select('*')
             .eq('id', userId)
             .single();
@@ -154,9 +151,8 @@ export async function updateUserProfile(updates) {
         const user = await getCurrentUser();
         if (!user) return null;
         
-        // ✅ Update the CLEAN user_profiles table
         const { data, error } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .update(updates)
             .eq('id', user.id)
             .select()
@@ -178,7 +174,7 @@ export async function updateWalletBalance(newBalance) {
     if (!user) return false;
     
     const { error } = await supabase
-        .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+        .from('user_profiles')
         .update({ wallet_balance: newBalance })
         .eq('id', user.id);
     
@@ -190,7 +186,7 @@ export async function updateWalletBalance(newBalance) {
 }
 
 // ============================================
-// APPLICATION HELPERS - Using user_profiles
+// APPLICATION HELPERS
 // ============================================
 
 export async function submitApplication(applicationData) {
@@ -222,9 +218,8 @@ export async function submitApplication(applicationData) {
         
         if (error) throw error;
         
-        // ✅ Update user_profiles (not users!)
         await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .update({ 
                 application_status: 'pending',
                 applied_role: applicationData.role
@@ -265,9 +260,8 @@ export async function getPendingApplications() {
         const user = await getCurrentUser();
         if (!user) return [];
         
-        // ✅ Query user_profiles for admin check
         const { data: profile } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .select('role')
             .eq('id', user.id)
             .single();
@@ -298,9 +292,8 @@ export async function approveApplication(applicationId, adminNotes) {
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'Not authenticated' };
         
-        // ✅ Query user_profiles for admin check
         const { data: profile } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .select('role')
             .eq('id', user.id)
             .single();
@@ -309,7 +302,6 @@ export async function approveApplication(applicationId, adminNotes) {
             return { success: false, error: 'Unauthorized' };
         }
         
-        // Get application details
         const { data: application, error: appError } = await supabase
             .from('applications')
             .select('*')
@@ -320,7 +312,6 @@ export async function approveApplication(applicationId, adminNotes) {
             return { success: false, error: 'Application not found' };
         }
         
-        // Update application status
         const { error: updateAppError } = await supabase
             .from('applications')
             .update({ 
@@ -332,9 +323,8 @@ export async function approveApplication(applicationId, adminNotes) {
         
         if (updateAppError) throw updateAppError;
         
-        // ✅ Update user_profiles (not users!)
         const { error: updateUserError } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .update({ 
                 role: application.role,
                 application_status: 'approved'
@@ -355,9 +345,8 @@ export async function rejectApplication(applicationId, adminNotes) {
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'Not authenticated' };
         
-        // ✅ Query user_profiles for admin check
         const { data: profile } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .from('user_profiles')
             .select('role')
             .eq('id', user.id)
             .single();
@@ -366,7 +355,6 @@ export async function rejectApplication(applicationId, adminNotes) {
             return { success: false, error: 'Unauthorized' };
         }
         
-        // Update application status
         const { error: updateAppError } = await supabase
             .from('applications')
             .update({ 
@@ -378,7 +366,6 @@ export async function rejectApplication(applicationId, adminNotes) {
         
         if (updateAppError) throw updateAppError;
         
-        // ✅ Update user_profiles (not users!)
         const { data: appData } = await supabase
             .from('applications')
             .select('user_id')
@@ -387,7 +374,7 @@ export async function rejectApplication(applicationId, adminNotes) {
         
         if (appData) {
             const { error: updateUserError } = await supabase
-                .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+                .from('user_profiles')
                 .update({ 
                     application_status: 'rejected'
                 })
@@ -404,12 +391,11 @@ export async function rejectApplication(applicationId, adminNotes) {
 }
 
 // ============================================
-// PAYMENT HELPERS (Updated to use user_profiles)
+// PAYMENT HELPERS
 // ============================================
 
 export async function createPaymentRequest(amount, bank, referenceCode) {
     const user = await getCurrentUser();
-    // ✅ Get user from user_profiles
     const profile = await getUserProfile();
     if (!user || !profile) return { success: false, error: 'User not found' };
     
@@ -420,7 +406,7 @@ export async function createPaymentRequest(amount, bank, referenceCode) {
         .insert([{
             id: paymentId,
             user_id: user.id,
-            user_name: profile.name,  // ✅ Use profile.name
+            user_name: profile.name,
             user_email: user.email,
             amount: amount,
             bank: bank,
@@ -574,7 +560,7 @@ export function subscribeToWallet(callback) {
             { 
                 event: 'UPDATE', 
                 schema: 'public', 
-                table: 'user_profiles',  // ← Changed from 'users' to 'user_profiles'
+                table: 'user_profiles',
                 filter: `id=eq.${user.id}` 
             },
             (payload) => {
