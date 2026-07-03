@@ -1,6 +1,7 @@
 // ============================================
-// MODULE: AUTH HELPERS - DEBUG VERSION
+// MODULE: AUTH HELPERS
 // Path: /frontend/js/modules/auth.js
+// Purpose: Reusable auth functions using Supabase Auth
 // ============================================
 
 import { supabase } from './supabase.js';
@@ -39,217 +40,170 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
-// DEBUG: TEST DATABASE CONNECTION
-// ============================================
-
-async function testDatabaseConnection() {
-    try {
-        console.log('🔍 Testing database connection...');
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select('count')
-            .limit(1);
-        
-        if (error) {
-            console.error('❌ Database connection failed:', error);
-            return false;
-        }
-        console.log('✅ Database connection successful');
-        return true;
-    } catch (error) {
-        console.error('❌ Database connection error:', error);
-        return false;
-    }
-}
-
-// ============================================
-// GET USER BY USERNAME - WITH DEBUG
+// GET USER BY USERNAME OR EMAIL
 // ============================================
 
 async function getUserByUsername(username) {
     try {
         const cleanUsername = username.trim().toLowerCase();
-        console.log('🔍 Looking up username:', cleanUsername);
         
-        // Try exact match
-        console.log('  📝 Trying exact match on username...');
-        const { data, error } = await supabase
+        // Try exact match first
+        let { data, error } = await supabase
             .from('user_profiles')
-            .select('*')
+            .select('email, id, username, name, role')
             .eq('username', cleanUsername)
             .maybeSingle();
         
         if (error) {
-            console.error('  ❌ Exact match error:', error);
-        } else if (data) {
-            console.log('  ✅ Found by exact match:', data);
+            console.error('Username lookup error:', error);
+            return null;
+        }
+        
+        if (data) {
             return data;
         }
         
-        // Try ilike as fallback
-        console.log('  📝 Trying ilike match...');
+        // Try ilike (case insensitive) as fallback
         const { data: data2, error: err2 } = await supabase
             .from('user_profiles')
-            .select('*')
-            .ilike('username', cleanUsername)
+            .select('email, id, username, name, role')
+            .ilike('username', `%${cleanUsername}%`)
             .maybeSingle();
         
         if (err2) {
-            console.error('  ❌ ilike match error:', err2);
-        } else if (data2) {
-            console.log('  ✅ Found by ilike:', data2);
-            return data2;
+            console.error('Username ilike error:', err2);
+            return null;
         }
         
-        // Try with the username as is (case sensitive)
-        console.log('  📝 Trying case-sensitive match...');
-        const { data: data3, error: err3 } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('username', username.trim())
-            .maybeSingle();
-        
-        if (err3) {
-            console.error('  ❌ Case-sensitive match error:', err3);
-        } else if (data3) {
-            console.log('  ✅ Found by case-sensitive match:', data3);
-            return data3;
-        }
-        
-        console.log('❌ User not found in user_profiles:', cleanUsername);
-        return null;
+        return data2 || null;
         
     } catch (error) {
-        console.error('❌ Username lookup error:', error);
+        console.error('Username lookup error:', error);
         return null;
     }
 }
-
-// ============================================
-// GET USER BY EMAIL
-// ============================================
 
 async function getUserByEmail(email) {
     try {
         const cleanEmail = email.trim().toLowerCase();
-        console.log('🔍 Looking up email:', cleanEmail);
         
         const { data, error } = await supabase
             .from('user_profiles')
-            .select('*')
+            .select('email, id, username, name, role')
             .eq('email', cleanEmail)
             .maybeSingle();
         
         if (error) {
-            console.error('❌ Email lookup error:', error);
+            console.error('Email lookup error:', error);
             return null;
         }
         
-        if (!data) {
-            console.log('❌ Email not found:', cleanEmail);
-            return null;
-        }
-        
-        console.log('✅ Found by email:', data);
         return data;
     } catch (error) {
-        console.error('❌ Email lookup error:', error);
+        console.error('Email lookup error:', error);
         return null;
     }
 }
 
 // ============================================
-// SIGN IN - WITH FULL DEBUG
+// AUTH FUNCTIONS
 // ============================================
 
 export async function signInUser(usernameOrEmail, password) {
     try {
-        console.log('========================================');
-        console.log('🔐 SIGN IN ATTEMPT');
-        console.log('📝 Input:', usernameOrEmail);
-        console.log('========================================');
-        
-        // Test database connection first
-        const isConnected = await testDatabaseConnection();
-        if (!isConnected) {
-            return {
-                success: false,
-                error: 'Database connection failed. Please refresh and try again.'
-            };
-        }
-        
         const cleanInput = usernameOrEmail.trim();
         let email = cleanInput;
         let isEmail = cleanInput.includes('@');
         let userData = null;
         
-        // STEP 1: Find user in user_profiles
-        console.log('📌 STEP 1: Finding user in user_profiles');
+        // Find user in user_profiles
         if (!isEmail) {
             userData = await getUserByUsername(cleanInput);
         } else {
             userData = await getUserByEmail(cleanInput);
         }
         
+        // If found, use their email
         if (userData) {
             email = userData.email;
-            console.log('✅ Found user in user_profiles:', {
-                id: userData.id,
-                username: userData.username,
-                email: userData.email,
-                name: userData.name
-            });
+        } else if (!isEmail) {
+            // Try constructing email (username@glimu.com or username@temp.glimu.com)
+            const possibleEmails = [
+                `${cleanInput}@glimu.com`,
+                `${cleanInput}@temp.glimu.com`
+            ];
+            
+            for (const possibleEmail of possibleEmails) {
+                const emailUser = await getUserByEmail(possibleEmail);
+                if (emailUser) {
+                    email = possibleEmail;
+                    userData = emailUser;
+                    break;
+                }
+            }
+            
+            // If still not found, try to find by username in auth users directly
+            if (!userData) {
+                // Try to get user by email from auth.users using the RPC approach
+                // Since we can't query auth.users directly, try the constructed emails
+                for (const possibleEmail of possibleEmails) {
+                    try {
+                        // Just try to authenticate - if it works, we'll get the user
+                        const testAuth = await supabase.auth.signInWithPassword({
+                            email: possibleEmail,
+                            password: password
+                        });
+                        
+                        if (testAuth.data?.user) {
+                            // Auth succeeded! Get the user data
+                            email = possibleEmail;
+                            const { data: profileData } = await supabase
+                                .from('user_profiles')
+                                .select('*')
+                                .eq('id', testAuth.data.user.id)
+                                .maybeSingle();
+                            
+                            if (profileData) {
+                                userData = profileData;
+                            } else {
+                                // Create fallback profile
+                                userData = {
+                                    id: testAuth.data.user.id,
+                                    name: testAuth.data.user.user_metadata?.name || cleanInput,
+                                    email: possibleEmail,
+                                    username: cleanInput,
+                                    role: 'user'
+                                };
+                            }
+                            break;
+                        }
+                    } catch (e) {
+                        // Continue to next email
+                        continue;
+                    }
+                }
+            }
+            
+            if (!userData) {
+                return {
+                    success: false,
+                    error: 'User not found. Please check your username.'
+                };
+            }
         } else {
-            console.log('⚠️ User not in user_profiles, trying auth.users directly...');
-            
-            // Try to find user in auth.users via email construction
-            if (!isEmail) {
-                const possibleEmail = `${cleanInput}@glimu.com`;
-                console.log('🔄 Trying email:', possibleEmail);
-                
-                // We'll try to authenticate with this email directly
-                email = possibleEmail;
-            } else {
-                email = cleanInput;
-            }
+            return {
+                success: false,
+                error: 'User not found. Please check your credentials.'
+            };
         }
         
-        // STEP 2: Authenticate with Supabase Auth
-        console.log('📌 STEP 2: Authenticating with Supabase Auth');
-        console.log('🔐 Attempting sign in for:', email);
-        
-        // DEBUG: Check if this email exists in auth.users
-        try {
-            const { data: authCheck, error: authCheckError } = await supabase
-                .from('auth.users')
-                .select('email')
-                .eq('email', email)
-                .maybeSingle();
-            
-            if (authCheckError) {
-                console.warn('⚠️ Could not check auth.users:', authCheckError.message);
-            } else if (authCheck) {
-                console.log('✅ Email found in auth.users:', authCheck.email);
-            } else {
-                console.log('⚠️ Email NOT found in auth.users:', email);
-            }
-        } catch (e) {
-            console.warn('⚠️ Auth check failed:', e.message);
-        }
-        
-        // Actually try to sign in
-        console.log('🔐 Calling supabase.auth.signInWithPassword...');
+        // Authenticate with Supabase Auth
         const { data, error } = await supabase.auth.signInWithPassword({
             email: email,
             password: password
         });
         
         if (error) {
-            console.error('❌ Auth error:', error);
-            console.error('  - Name:', error.name);
-            console.error('  - Message:', error.message);
-            console.error('  - Status:', error.status);
-            
             if (error.message === 'Invalid login credentials') {
                 return {
                     success: false,
@@ -266,61 +220,42 @@ export async function signInUser(usernameOrEmail, password) {
             
             return {
                 success: false,
-                error: `Login failed: ${error.message}`
+                error: 'Login failed. Please try again.'
             };
         }
         
-        console.log('✅ Auth successful!');
-        console.log('  - User ID:', data.user.id);
-        console.log('  - Email:', data.user.email);
-        console.log('  - Metadata:', data.user.user_metadata);
-        
-        // STEP 3: Get full user profile
-        console.log('📌 STEP 3: Fetching full user profile');
+        // Fetch full user profile
         let profile = userData;
         
         if (!profile || profile.id !== data.user.id) {
-            const { data: profileData, error: profileError } = await supabase
+            const { data: fullProfile, error: profileError } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('id', data.user.id)
                 .maybeSingle();
             
-            if (profileError) {
-                console.error('❌ Profile fetch error:', profileError);
-            } else if (profileData) {
-                profile = profileData;
-                console.log('✅ Full profile fetched:', {
-                    id: profile.id,
-                    name: profile.name,
-                    username: profile.username,
-                    email: profile.email
-                });
-            } else {
-                console.log('⚠️ No profile found, creating fallback...');
+            if (!profileError && fullProfile) {
+                profile = fullProfile;
             }
         }
         
-        // STEP 4: Build user object
-        console.log('📌 STEP 4: Building user object');
-        
+        // Build fallback profile if needed
         if (!profile) {
-            // Create fallback profile from auth data
             profile = {
                 id: data.user.id,
                 name: data.user.user_metadata?.name || cleanInput,
                 email: data.user.email,
                 username: data.user.user_metadata?.username || cleanInput,
-                role: data.user.user_metadata?.role || 'user',
+                role: 'user',
                 wallet_balance: 25000,
                 gp_points: 0,
                 address: '',
                 application_status: 'none',
                 avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.user_metadata?.name || cleanInput)}&background=fbb040&color=fff`
             };
-            console.log('ℹ️ Created fallback profile');
         }
         
+        // Build user object
         const user = {
             id: data.user.id,
             name: profile.name || profile.username || cleanInput,
@@ -336,43 +271,19 @@ export async function signInUser(usernameOrEmail, password) {
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || cleanInput)}&background=fbb040&color=fff`
         };
         
-        console.log('✅ User object built:', {
-            id: user.id,
-            name: user.name,
-            username: user.username,
-            email: user.email,
-            role: user.role
-        });
-        
-        // STEP 5: Store in localStorage
-        console.log('📌 STEP 5: Storing in localStorage');
+        // Store in localStorage
         localStorage.setItem('glimu_user', JSON.stringify(user));
-        console.log('✅ User stored in localStorage');
-        
-        console.log('========================================');
-        console.log('✅ LOGIN COMPLETE!');
-        console.log('========================================');
         
         return { success: true, user, role: user.role };
         
     } catch (error) {
-        console.error('❌ Sign in error:', error);
-        console.error('  - Name:', error.name);
-        console.error('  - Message:', error.message);
-        console.error('  - Stack:', error.stack);
+        console.error('Sign in error:', error);
         return { success: false, error: 'Invalid username or password' };
     }
 }
 
-// ============================================
-// SIGN UP
-// ============================================
-
 export async function signUpUser(email, password, userData) {
     try {
-        console.log('📝 Sign up attempt for:', email);
-        console.log('📝 User data:', userData);
-        
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
@@ -386,12 +297,11 @@ export async function signUpUser(email, password, userData) {
         });
         
         if (error) {
-            console.error('❌ Sign up error:', error);
+            console.error('Sign up error:', error);
             return { success: false, error: error.message };
         }
         
-        console.log('✅ Auth signup successful for user ID:', data.user?.id);
-        
+        // Create user profile
         if (data.user) {
             const { error: insertError } = await supabase
                 .from('user_profiles')
@@ -412,24 +322,18 @@ export async function signUpUser(email, password, userData) {
                 }, { onConflict: 'id' });
 
             if (insertError) {
-                console.error('❌ Profile creation error:', insertError);
+                console.error('Profile creation error:', insertError);
                 return { success: false, error: 'Failed to create user profile' };
-            } else {
-                console.log('✅ Profile created/updated successfully');
             }
         }
         
         return { success: true, user: data.user };
         
     } catch (error) {
-        console.error('❌ Sign up error:', error);
+        console.error('Sign up error:', error);
         return { success: false, error: error.message };
     }
 }
-
-// ============================================
-// SIGN OUT
-// ============================================
 
 export async function signOutUser() {
     try {
@@ -438,17 +342,12 @@ export async function signOutUser() {
         
         localStorage.removeItem('glimu_user');
         sessionStorage.clear();
-        console.log('✅ Sign out successful');
         return { success: true };
     } catch (error) {
-        console.error('❌ Sign out error:', error);
+        console.error('Sign out error:', error);
         return { success: false, error: error.message };
     }
 }
-
-// ============================================
-// SESSION HELPERS
-// ============================================
 
 export async function getCurrentSession() {
     try {
@@ -456,23 +355,25 @@ export async function getCurrentSession() {
         if (error) throw error;
         return session;
     } catch (error) {
-        console.error('❌ Session error:', error);
+        console.error('Session error:', error);
         return null;
     }
 }
 
 export async function getCurrentUser() {
     try {
+        // Check localStorage first
         const localUser = localStorage.getItem('glimu_user');
         if (localUser) {
             return JSON.parse(localUser);
         }
         
+        // Fallback to Supabase Auth
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) throw error;
         return user;
     } catch (error) {
-        console.error('❌ Get user error:', error);
+        console.error('Get user error:', error);
         return null;
     }
 }
@@ -486,7 +387,7 @@ export async function resetPassword(email) {
         if (error) throw error;
         return { success: true };
     } catch (error) {
-        console.error('❌ Reset password error:', error);
+        console.error('Reset password error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -500,7 +401,7 @@ export async function updateUserPassword(newPassword) {
         if (error) throw error;
         return { success: true };
     } catch (error) {
-        console.error('❌ Update password error:', error);
+        console.error('Update password error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -565,7 +466,7 @@ export async function submitRoleApplication(role, additionalData = {}) {
         return { success: true, applicationId };
         
     } catch (error) {
-        console.error('❌ Application submission error:', error);
+        console.error('Application submission error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -582,12 +483,12 @@ export async function getUserApplications() {
             .order('submitted_at', { ascending: false });
         
         if (error) {
-            console.error('❌ Error fetching applications:', error);
+            console.error('Error fetching applications:', error);
             return [];
         }
         return data;
     } catch (error) {
-        console.error('❌ Applications fetch error:', error);
+        console.error('Applications fetch error:', error);
         return [];
     }
 }
@@ -614,12 +515,12 @@ export async function getPendingApplications() {
             .order('submitted_at', { ascending: true });
         
         if (error) {
-            console.error('❌ Error fetching pending applications:', error);
+            console.error('Error fetching pending applications:', error);
             return [];
         }
         return data;
     } catch (error) {
-        console.error('❌ Pending applications fetch error:', error);
+        console.error('Pending applications fetch error:', error);
         return [];
     }
 }
@@ -672,7 +573,7 @@ export async function approveApplication(applicationId, adminNotes = '') {
         
         return { success: true };
     } catch (error) {
-        console.error('❌ Application approval error:', error);
+        console.error('Application approval error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -722,7 +623,7 @@ export async function rejectApplication(applicationId, adminNotes = '') {
         
         return { success: true };
     } catch (error) {
-        console.error('❌ Application rejection error:', error);
+        console.error('Application rejection error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -746,12 +647,12 @@ export async function getUserProfile(userId = null) {
             .maybeSingle();
         
         if (error) {
-            console.error('❌ Error fetching user profile:', error);
+            console.error('Error fetching user profile:', error);
             return null;
         }
         return data;
     } catch (error) {
-        console.error('❌ Profile fetch error:', error);
+        console.error('Profile fetch error:', error);
         return null;
     }
 }
@@ -769,10 +670,11 @@ export async function updateUserProfile(updates) {
             .maybeSingle();
         
         if (error) {
-            console.error('❌ Error updating user profile:', error);
+            console.error('Error updating user profile:', error);
             return { success: false, error: error.message };
         }
         
+        // Update localStorage
         const storedUser = JSON.parse(localStorage.getItem('glimu_user'));
         if (storedUser && data) {
             const updatedUser = { ...storedUser, ...data };
@@ -781,7 +683,7 @@ export async function updateUserProfile(updates) {
         
         return { success: true, data };
     } catch (error) {
-        console.error('❌ Profile update error:', error);
+        console.error('Profile update error:', error);
         return { success: false, error: error.message };
     }
 }
