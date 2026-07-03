@@ -4,7 +4,7 @@
 // Purpose: Reusable auth functions for other modules
 // ============================================
 
-import { supabase } from './supabase.js';
+import { supabase, getUserProfile, updateUserProfile } from './supabase.js';
 
 // ============================================
 // HELPER FUNCTIONS
@@ -40,7 +40,7 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
-// AUTH FUNCTIONS
+// AUTH FUNCTIONS - Using user_profiles
 // ============================================
 
 export async function signInUser(usernameOrEmail, password) {
@@ -48,10 +48,10 @@ export async function signInUser(usernameOrEmail, password) {
         let email = usernameOrEmail;
         let isEmail = usernameOrEmail.includes('@');
         
-        // If username, get email from users table
+        // If username, get email from user_profiles table
         if (!isEmail) {
             const { data, error } = await supabase
-                .from('users')
+                .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
                 .select('email')
                 .eq('username', usernameOrEmail)
                 .single();
@@ -73,9 +73,9 @@ export async function signInUser(usernameOrEmail, password) {
             return { success: false, error: 'Invalid credentials' };
         }
         
-        // Get user profile
+        // ✅ Get user profile from CLEAN table
         const { data: profile, error: profileError } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .select('*')
             .eq('id', data.user.id)
             .single();
@@ -119,7 +119,7 @@ export async function signUpUser(email, password, userData) {
                 data: {
                     name: userData.name,
                     username: userData.username,
-                    role: 'user' // Always start as 'user'
+                    role: 'user'
                 }
             }
         });
@@ -129,8 +129,30 @@ export async function signUpUser(email, password, userData) {
             return { success: false, error: error.message };
         }
         
-        // ✅ DO NOT manually create the profile here
-        // The trigger on auth.users will handle it automatically
+        // ✅ Insert directly into user_profiles as backup
+        if (data.user) {
+            const { error: insertError } = await supabase
+                .from('user_profiles')
+                .insert([{
+                    id: data.user.id,
+                    name: userData.name,
+                    username: userData.username,
+                    email: email,
+                    role: 'user',
+                    wallet_balance: 25000,
+                    gp_points: 0,
+                    status: 'active',
+                    plan: 'basic',
+                    application_status: 'none',
+                    birth_day: userData.birthDay || null,
+                    birth_month: userData.birthMonth || null,
+                    referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+                }]);
+
+            if (insertError && insertError.code !== '23505') {
+                console.warn('Profile creation warning:', insertError);
+            }
+        }
         
         return { success: true, user: data.user };
         
@@ -205,7 +227,7 @@ export async function updateUserPassword(newPassword) {
 }
 
 // ============================================
-// APPLICATION FUNCTIONS
+// APPLICATION FUNCTIONS - Using user_profiles
 // ============================================
 
 export async function submitRoleApplication(role, additionalData = {}) {
@@ -215,9 +237,9 @@ export async function submitRoleApplication(role, additionalData = {}) {
             return { success: false, error: 'User not authenticated' };
         }
 
-        // Get user profile
+        // ✅ Get user profile from CLEAN table
         const { data: profile, error: profileError } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .select('*')
             .eq('id', user.id)
             .single();
@@ -253,9 +275,9 @@ export async function submitRoleApplication(role, additionalData = {}) {
         
         if (insertError) throw insertError;
         
-        // Update user's application status
+        // ✅ Update user_profiles (not users!)
         const { error: updateError } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .update({ 
                 application_status: 'pending',
                 applied_role: role
@@ -296,12 +318,12 @@ export async function getUserApplications() {
 
 export async function getPendingApplications() {
     try {
-        // Check if user is admin
         const user = await getCurrentUser();
         if (!user) return [];
         
+        // ✅ Get profile from user_profiles
         const { data: profile } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .select('role')
             .eq('id', user.id)
             .single();
@@ -329,12 +351,12 @@ export async function getPendingApplications() {
 
 export async function approveApplication(applicationId, adminNotes = '') {
     try {
-        // Check if user is admin
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'Not authenticated' };
         
+        // ✅ Get profile from user_profiles
         const { data: profile } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .select('role')
             .eq('id', user.id)
             .single();
@@ -366,9 +388,9 @@ export async function approveApplication(applicationId, adminNotes = '') {
         
         if (updateAppError) throw updateAppError;
         
-        // Update user's role and application status
+        // ✅ Update user_profiles (not users!)
         const { error: updateUserError } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .update({ 
                 role: application.role,
                 application_status: 'approved'
@@ -386,12 +408,12 @@ export async function approveApplication(applicationId, adminNotes = '') {
 
 export async function rejectApplication(applicationId, adminNotes = '') {
     try {
-        // Check if user is admin
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'Not authenticated' };
         
+        // ✅ Get profile from user_profiles
         const { data: profile } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .select('role')
             .eq('id', user.id)
             .single();
@@ -412,7 +434,7 @@ export async function rejectApplication(applicationId, adminNotes = '') {
         
         if (updateAppError) throw updateAppError;
         
-        // Update user's application status
+        // ✅ Update user_profiles (not users!)
         const { data: appData } = await supabase
             .from('applications')
             .select('user_id')
@@ -421,7 +443,7 @@ export async function rejectApplication(applicationId, adminNotes = '') {
         
         if (appData) {
             const { error: updateUserError } = await supabase
-                .from('users')
+                .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
                 .update({ 
                     application_status: 'rejected'
                 })
@@ -438,7 +460,7 @@ export async function rejectApplication(applicationId, adminNotes = '') {
 }
 
 // ============================================
-// USER PROFILE FUNCTIONS
+// USER PROFILE FUNCTIONS - Using user_profiles
 // ============================================
 
 export async function getUserProfile(userId = null) {
@@ -449,8 +471,9 @@ export async function getUserProfile(userId = null) {
             userId = user.id;
         }
         
+        // ✅ Query CLEAN user_profiles table
         const { data, error } = await supabase
-            .from('users')
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
             .select('*')
             .eq('id', userId)
             .single();
@@ -471,12 +494,10 @@ export async function updateUserProfile(updates) {
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'No user logged in' };
         
+        // ✅ Update CLEAN user_profiles table
         const { data, error } = await supabase
-            .from('users')
-            .update({ 
-                ...updates, 
-                updated_at: new Date().toISOString() 
-            })
+            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
+            .update(updates)
             .eq('id', user.id)
             .select()
             .single();
