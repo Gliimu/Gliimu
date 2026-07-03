@@ -254,6 +254,10 @@ export async function signInUser(usernameOrEmail, password) {
 
 export async function signUpUser(email, password, userData) {
     try {
+        console.log('📝 Sign up attempt:', { email, userData });
+        
+        // ✅ CREATE USER IN SUPABASE AUTH
+        console.log('🔐 Creating auth user...');
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
@@ -267,40 +271,50 @@ export async function signUpUser(email, password, userData) {
         });
         
         if (error) {
-            console.error('Sign up error:', error);
+            console.error('❌ Sign up error:', error);
             return { success: false, error: error.message };
         }
         
-        // Create user profile
+        console.log('✅ Auth user created:', data.user?.id);
+        
+        // ✅ CREATE USER PROFILE
         if (data.user) {
+            console.log('📝 Creating user profile...');
+            
+            const profileData = {
+                id: data.user.id,
+                name: userData.name,
+                username: userData.username,
+                email: email,
+                role: 'user',
+                wallet_balance: 25000,
+                gp_points: 0,
+                status: 'active',
+                plan: 'basic',
+                application_status: 'none',
+                birth_day: userData.birthDay || null,
+                birth_month: userData.birthMonth || null,
+                referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+            };
+            
+            console.log('📝 Profile data:', profileData);
+            
             const { error: insertError } = await supabase
                 .from('user_profiles')
-                .upsert({
-                    id: data.user.id,
-                    name: userData.name,
-                    username: userData.username,
-                    email: email,
-                    role: 'user',
-                    wallet_balance: 25000,
-                    gp_points: 0,
-                    status: 'active',
-                    plan: 'basic',
-                    application_status: 'none',
-                    birth_day: userData.birthDay || null,
-                    birth_month: userData.birthMonth || null,
-                    referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-                }, { onConflict: 'id' });
+                .upsert(profileData, { onConflict: 'id' });
 
             if (insertError) {
-                console.error('Profile creation error:', insertError);
+                console.error('❌ Profile creation error:', insertError);
                 return { success: false, error: 'Failed to create user profile' };
             }
+            
+            console.log('✅ Profile created successfully');
         }
         
         return { success: true, user: data.user };
         
     } catch (error) {
-        console.error('Sign up error:', error);
+        console.error('❌ Sign up error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -642,7 +656,6 @@ export async function updateUserProfile(updates) {
             return { success: false, error: error.message };
         }
         
-        // Update localStorage
         const storedUser = JSON.parse(localStorage.getItem('glimu_user'));
         if (storedUser && data) {
             const updatedUser = { ...storedUser, ...data };
