@@ -111,6 +111,7 @@ export async function signInUser(usernameOrEmail, password) {
 
 export async function signUpUser(email, password, userData) {
     try {
+        // ✅ Only create the auth user - the trigger will handle the profile
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
@@ -128,32 +129,8 @@ export async function signUpUser(email, password, userData) {
             return { success: false, error: error.message };
         }
         
-        if (data.user) {
-            // Create user profile
-            const { error: profileError } = await supabase
-                .from('users')
-                .insert([{
-                    id: data.user.id,
-                    name: userData.name || 'User',
-                    email: email,
-                    username: userData.username || null,
-                    role: 'user',
-                    plan: 'basic',
-                    wallet_balance: 25000,
-                    birth_day: userData.birthDay || null,
-                    birth_month: userData.birthMonth || null,
-                    gp_points: 0,
-                    status: 'active',
-                    application_status: 'none',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                }]);
-            
-            if (profileError) {
-                console.error('Profile creation error:', profileError);
-                return { success: false, error: 'Failed to create user profile' };
-            }
-        }
+        // ✅ DO NOT manually create the profile here
+        // The trigger on auth.users will handle it automatically
         
         return { success: true, user: data.user };
         
