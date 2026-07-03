@@ -40,14 +40,16 @@ export function generateRecoveryPhrase() {
 }
 
 // ============================================
-// GET USER BY USERNAME - Helper function
+// GET USER BY USERNAME - FROM user_profiles
 // ============================================
 
 async function getUserByUsername(username) {
     try {
+        console.log('🔍 Looking up username in user_profiles:', username);
+        
         const { data, error } = await supabase
             .from('user_profiles')
-            .select('email, id, username')
+            .select('email, id, username, name, role')
             .eq('username', username)
             .maybeSingle();
         
@@ -56,6 +58,12 @@ async function getUserByUsername(username) {
             return null;
         }
         
+        if (!data) {
+            console.log('❌ Username not found:', username);
+            return null;
+        }
+        
+        console.log('✅ Found user in user_profiles:', data);
         return data;
     } catch (error) {
         console.error('❌ Username lookup error:', error);
@@ -64,7 +72,7 @@ async function getUserByUsername(username) {
 }
 
 // ============================================
-// AUTH FUNCTIONS - Using Supabase Auth ONLY
+// AUTH FUNCTIONS - Using Supabase Auth
 // ============================================
 
 export async function signInUser(usernameOrEmail, password) {
@@ -74,14 +82,11 @@ export async function signInUser(usernameOrEmail, password) {
         let email = usernameOrEmail;
         let isEmail = usernameOrEmail.includes('@');
         
-        // If username, get email from user_profiles
+        // ✅ If username (not email), get email from user_profiles
         if (!isEmail) {
-            console.log('🔍 Looking up username:', usernameOrEmail);
-            
             const user = await getUserByUsername(usernameOrEmail);
             
             if (!user) {
-                console.log('❌ Username not found:', usernameOrEmail);
                 return { 
                     success: false, 
                     error: 'User not found. Please check your username.' 
@@ -90,6 +95,20 @@ export async function signInUser(usernameOrEmail, password) {
             
             email = user.email;
             console.log('✅ Found email for username:', email);
+        } else {
+            // If email, also verify user exists in user_profiles
+            const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('email, username, name, role')
+                .eq('email', email)
+                .maybeSingle();
+            
+            if (!profile) {
+                return { 
+                    success: false, 
+                    error: 'User not found. Please check your credentials.' 
+                };
+            }
         }
         
         // ✅ AUTHENTICATE WITH SUPABASE AUTH
@@ -99,11 +118,9 @@ export async function signInUser(usernameOrEmail, password) {
             password: password
         });
         
-        // ✅ If auth fails, return early
         if (error) {
             console.error('❌ Auth error:', error);
             
-            // Handle specific error cases
             if (error.message === 'Invalid login credentials') {
                 return { 
                     success: false, 
@@ -133,13 +150,8 @@ export async function signInUser(usernameOrEmail, password) {
             .eq('id', data.user.id)
             .maybeSingle();
         
-        if (profileError) {
+        if (profileError || !profile) {
             console.error('❌ Profile fetch error:', profileError);
-            return { success: false, error: 'User profile not found' };
-        }
-        
-        if (!profile) {
-            console.error('❌ No profile found for user:', data.user.id);
             return { success: false, error: 'User profile not found' };
         }
         
@@ -176,6 +188,7 @@ export async function signInUser(usernameOrEmail, password) {
 export async function signUpUser(email, password, userData) {
     try {
         console.log('📝 Sign up attempt for:', email);
+        console.log('📝 User data:', userData);
         
         // ✅ CREATE USER IN SUPABASE AUTH
         const { data, error } = await supabase.auth.signUp({
@@ -197,11 +210,11 @@ export async function signUpUser(email, password, userData) {
         
         console.log('✅ Auth signup successful for user ID:', data.user?.id);
         
-        // ✅ CREATE USER_PROFILE (in case trigger fails)
+        // ✅ CREATE USER_PROFILE (in case trigger fails or username wasn't set)
         if (data.user) {
             const { error: insertError } = await supabase
                 .from('user_profiles')
-                .insert([{
+                .upsert({
                     id: data.user.id,
                     name: userData.name,
                     username: userData.username,
@@ -215,12 +228,13 @@ export async function signUpUser(email, password, userData) {
                     birth_day: userData.birthDay || null,
                     birth_month: userData.birthMonth || null,
                     referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-                }]);
+                }, { onConflict: 'id' });
 
-            if (insertError && insertError.code !== '23505') {
-                console.warn('⚠️ Profile creation warning:', insertError);
+            if (insertError) {
+                console.error('❌ Profile creation error:', insertError);
+                return { success: false, error: 'Failed to create user profile' };
             } else {
-                console.log('✅ Profile created successfully');
+                console.log('✅ Profile created/updated successfully');
             }
         }
         
