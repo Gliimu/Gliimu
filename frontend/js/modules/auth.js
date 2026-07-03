@@ -6,10 +6,6 @@
 
 import { supabase } from './supabase.js';
 
-// ============================================
-// CONSTANTS
-// ============================================
-
 const DOMAIN = 'gliimu.com';
 
 // ============================================
@@ -51,19 +47,16 @@ export function generateRecoveryPhrase() {
 
 async function getUserByUsername(username) {
     try {
-        const cleanUsername = username.trim().toLowerCase();
-        
         const { data, error } = await supabase
             .from('user_profiles')
             .select('email, id, username, name, role')
-            .eq('username', cleanUsername)
+            .eq('username', username.trim().toLowerCase())
             .maybeSingle();
         
         if (error) {
             console.error('Username lookup error:', error);
             return null;
         }
-        
         return data;
     } catch (error) {
         console.error('Username lookup error:', error);
@@ -77,46 +70,19 @@ async function getUserByUsername(username) {
 
 async function getUserByEmail(email) {
     try {
-        const cleanEmail = email.trim().toLowerCase();
-        
         const { data, error } = await supabase
             .from('user_profiles')
             .select('email, id, username, name, role')
-            .eq('email', cleanEmail)
+            .eq('email', email.trim().toLowerCase())
             .maybeSingle();
         
         if (error) {
             console.error('Email lookup error:', error);
             return null;
         }
-        
         return data;
     } catch (error) {
         console.error('Email lookup error:', error);
-        return null;
-    }
-}
-
-// ============================================
-// GET USER BY ID
-// ============================================
-
-async function getUserById(userId) {
-    try {
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', userId)
-            .maybeSingle();
-        
-        if (error) {
-            console.error('User ID lookup error:', error);
-            return null;
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('User ID lookup error:', error);
         return null;
     }
 }
@@ -143,7 +109,7 @@ export async function signInUser(usernameOrEmail, password) {
         if (userData) {
             email = userData.email;
         } else if (!isEmail) {
-            // Try constructing email with correct domain
+            // Try constructing email
             const possibleEmail = `${cleanInput}@${DOMAIN}`;
             const emailUser = await getUserByEmail(possibleEmail);
             if (emailUser) {
@@ -175,14 +141,12 @@ export async function signInUser(usernameOrEmail, password) {
                     error: 'Invalid username or password. Please try again.'
                 };
             }
-            
             if (error.message.includes('Email not confirmed')) {
                 return {
                     success: false,
                     error: 'Please confirm your email before logging in.'
                 };
             }
-            
             return {
                 success: false,
                 error: 'Login failed. Please try again.'
@@ -202,11 +166,6 @@ export async function signInUser(usernameOrEmail, password) {
             if (!profileError && fullProfile) {
                 profile = fullProfile;
             }
-        }
-        
-        // If still no profile, try to get it by ID
-        if (!profile) {
-            profile = await getUserById(data.user.id);
         }
         
         // Build fallback profile if needed
@@ -241,9 +200,7 @@ export async function signInUser(usernameOrEmail, password) {
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || cleanInput)}&background=fbb040&color=fff`
         };
         
-        // Store in localStorage
         localStorage.setItem('glimu_user', JSON.stringify(user));
-        
         return { success: true, user, role: user.role };
         
     } catch (error) {
@@ -272,45 +229,35 @@ export async function signUpUser(email, password, userData) {
             return { success: false, error: error.message };
         }
         
+        if (!data.user) {
+            return { success: false, error: 'Failed to create user' };
+        }
+        
         // ✅ CREATE USER PROFILE
-        if (data.user) {
-            const profileData = {
-                id: data.user.id,
-                name: userData.name,
-                username: userData.username,
-                email: email,
-                role: 'user',
-                wallet_balance: 25000,
-                gp_points: 0,
-                status: 'active',
-                plan: 'basic',
-                application_status: 'none',
-                birth_day: userData.birthDay || null,
-                birth_month: userData.birthMonth || null,
-                referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-            };
-            
-            // Try insert first
-            let insertError = null;
-            const { error: err } = await supabase
-                .from('user_profiles')
-                .insert(profileData);
-            
-            insertError = err;
-            
-            // If duplicate key, try upsert
-            if (insertError && insertError.code === '23505') {
-                const { error: upsertError } = await supabase
-                    .from('user_profiles')
-                    .upsert(profileData, { onConflict: 'id' });
-                insertError = upsertError;
-            }
-            
-            if (insertError) {
-                console.error('Profile creation error:', insertError);
-                // Don't fail the signup if profile creation fails - we can create it later
-                console.warn('⚠️ Profile creation failed, but user was created in auth');
-            }
+        const profileData = {
+            id: data.user.id,
+            name: userData.name,
+            username: userData.username,
+            email: email,
+            role: 'user',
+            wallet_balance: 25000,
+            gp_points: 0,
+            status: 'active',
+            plan: 'basic',
+            application_status: 'none',
+            birth_day: userData.birthDay || null,
+            birth_month: userData.birthMonth || null,
+            referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+        };
+        
+        // Use upsert to avoid 409 conflict
+        const { error: insertError } = await supabase
+            .from('user_profiles')
+            .upsert(profileData, { onConflict: 'id' });
+
+        if (insertError) {
+            console.error('Profile creation error:', insertError);
+            return { success: false, error: 'Failed to create user profile' };
         }
         
         return { success: true, user: data.user };
@@ -671,8 +618,4 @@ export async function updateUserProfile(updates) {
     }
 }
 
-// ============================================
-// EXPORT HELPERS
-// ============================================
-
-export { getUserByUsername, getUserByEmail, getUserById };
+export { getUserByUsername, getUserByEmail };
