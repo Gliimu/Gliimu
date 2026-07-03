@@ -37,6 +37,7 @@ export async function signIn(email, password) {
 }
 
 export async function signUp(email, password, userData) {
+    // ✅ Only create the auth user - the trigger will handle the profile
     const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
@@ -54,16 +55,8 @@ export async function signUp(email, password, userData) {
         return { success: false, error: error.message };
     }
     
-    if (data.user) {
-        const profileResult = await createUserProfile(data.user.id, {
-            ...userData,
-            email: email
-        });
-        
-        if (!profileResult.success) {
-            console.error('Profile creation failed:', profileResult.error);
-        }
-    }
+    // ✅ DO NOT manually create the profile here
+    // The trigger on auth.users will handle it automatically
     
     return { success: true, user: data.user };
 }
@@ -80,43 +73,6 @@ export async function signOut() {
 // ============================================
 // USER PROFILE HELPERS
 // ============================================
-
-export async function createUserProfile(userId, userData) {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .insert([{
-                id: userId,
-                name: userData.name || 'User',
-                email: userData.email,
-                username: userData.username || null,
-                role: 'user', // Always start as 'user'
-                plan: 'basic',
-                wallet_balance: 25000,
-                avatar_url: userData.avatar_url || null,
-                address: userData.address || null,
-                birth_day: userData.birthDay || null,
-                birth_month: userData.birthMonth || null,
-                gp_points: 0,
-                status: 'active',
-                application_status: 'none',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-        
-        if (error) {
-            console.error('Error creating user profile:', error);
-            return { success: false, error: error.message };
-        }
-        
-        return { success: true, data };
-    } catch (error) {
-        console.error('Profile creation error:', error);
-        return { success: false, error: error.message };
-    }
-}
 
 export async function getUserProfile(userId = null) {
     try {
