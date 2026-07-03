@@ -1,54 +1,78 @@
 // ============================================
-// GLIIMU USER DASHBOARD - PARTNER FEATURES
+// GLIIMU USER DASHBOARD - GENERAL FEATURES
+// This is used as the default dashboard for all users
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
-// Export partner features
+// Export general features
 export default {
+    renderDashboard,
     renderProjects,
-    renderPartnerDashboard,
-    createProject,
     getProjects
 };
 
 // ============================================
-// PARTNER DASHBOARD
+// GENERAL DASHBOARD
 // ============================================
-async function renderPartnerDashboard(container) {
+async function renderDashboard(container) {
     if (!container) return;
     
     try {
-        const projects = await getProjects();
+        const user = window.currentUser;
+        if (!user) {
+            container.innerHTML = `<div class="empty-state"><h3>Please log in</h3></div>`;
+            return;
+        }
+        
+        const projects = await getProjects(user.id);
         
         container.innerHTML = `
             <div class="section-header">
-                <h2>Partner Dashboard</h2>
-                <p>Manage your projects and collaborations</p>
+                <h2>Welcome, ${user.name || 'User'}!</h2>
+                <p>Your learning journey starts here</p>
             </div>
             
-            <div class="partner-stats-grid">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-wallet"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Wallet Balance</span>
+                        <span class="stat-value">₦${(user.walletBalance || 14500).toLocaleString()}</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-star"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">GP Points</span>
+                        <span class="stat-value">${user.gpPoints || 0}</span>
+                    </div>
+                </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-project-diagram"></i></div>
                     <div class="stat-info">
-                        <span class="stat-label">Active Projects</span>
-                        <span class="stat-value">${projects.filter(p => p.status === 'active').length}</span>
+                        <span class="stat-label">Projects</span>
+                        <span class="stat-value">${projects.length}</span>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Completed</span>
-                        <span class="stat-value">${projects.filter(p => p.status === 'completed').length}</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-users"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Collaborators</span>
-                        <span class="stat-value">${projects.reduce((sum, p) => sum + (p.collaborators || 0), 0)}</span>
-                    </div>
+            </div>
+            
+            <div class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="action-grid">
+                    <button onclick="window.switchTab('gotomenu')" class="action-btn">
+                        <i class="fas fa-door-open"></i>
+                        <span>Go To</span>
+                    </button>
+                    <button onclick="window.switchTab('wallet')" class="action-btn">
+                        <i class="fas fa-wallet"></i>
+                        <span>Wallet</span>
+                    </button>
+                    <button onclick="window.switchTab('settings')" class="action-btn">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </button>
                 </div>
             </div>
             
@@ -63,10 +87,10 @@ async function renderPartnerDashboard(container) {
             </div>
         `;
         
-        document.getElementById('createProjectBtn')?.addEventListener('click', openProjectModal);
+        document.getElementById('createProjectBtn')?.addEventListener('click', () => openProjectModal());
         
     } catch (error) {
-        console.error('Error loading partner dashboard:', error);
+        console.error('Error loading dashboard:', error);
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
@@ -92,55 +116,22 @@ function renderProjectList(projects) {
         <div class="project-card" data-id="${project.id}">
             <div class="project-header">
                 <h4>${project.title}</h4>
-                <span class="project-status ${project.status}">${project.status}</span>
+                <span class="project-status ${project.status || 'active'}">${project.status || 'Active'}</span>
             </div>
             <div class="project-description">${project.description || 'No description'}</div>
             <div class="project-footer">
                 <span class="project-date">Started: ${new Date(project.created_at).toLocaleDateString()}</span>
-                <span class="project-collaborators"><i class="fas fa-users"></i> ${project.collaborators || 0}</span>
             </div>
         </div>
     `).join('');
 }
 
-// ============================================
-// PROJECT MANAGEMENT
-// ============================================
-async function renderProjects(container) {
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="section-header">
-            <h2>Projects</h2>
-            <p>Manage your partner projects</p>
-        </div>
-        <div id="partnerProjectsList">
-            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading projects...</div>
-        </div>
-    `;
-    
-    try {
-        const projects = await getProjects();
-        const list = document.getElementById('partnerProjectsList');
-        list.innerHTML = renderProjectList(projects);
-    } catch (error) {
-        console.error('Error loading projects:', error);
-        document.getElementById('partnerProjectsList').innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Projects</h3>
-                <button class="btn-primary" onclick="location.reload()">Try Again</button>
-            </div>
-        `;
-    }
-}
-
-async function getProjects() {
+async function getProjects(userId) {
     try {
         const { data, error } = await supabase
-            .from('partner_projects')
+            .from('projects')
             .select('*')
-            .eq('partner_id', currentUser.id)
+            .eq('user_id', userId)
             .order('created_at', { ascending: false });
             
         if (error) throw error;
@@ -153,11 +144,17 @@ async function getProjects() {
 
 async function createProject(projectData) {
     try {
+        const user = window.currentUser;
+        if (!user) {
+            showToast('Please log in', 'error');
+            return null;
+        }
+        
         const { data, error } = await supabase
-            .from('partner_projects')
+            .from('projects')
             .insert({
                 ...projectData,
-                partner_id: currentUser.id,
+                user_id: user.id,
                 status: 'active',
                 created_at: new Date().toISOString()
             })
@@ -201,10 +198,6 @@ function openProjectModal() {
                             <option value="other">Other</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Timeline</label>
-                        <input type="date" id="projectTimeline">
-                    </div>
                     <button type="submit" class="btn-primary">Create Project</button>
                 </form>
             </div>
@@ -218,8 +211,7 @@ function openProjectModal() {
         const projectData = {
             title: document.getElementById('projectTitle').value.trim(),
             description: document.getElementById('projectDescription').value.trim(),
-            category: document.getElementById('projectCategory').value,
-            timeline: document.getElementById('projectTimeline').value || null
+            category: document.getElementById('projectCategory').value
         };
         
         if (!projectData.title) {
@@ -231,7 +223,11 @@ function openProjectModal() {
         if (result) {
             modal.remove();
             showToast('Project created successfully!', 'success');
-            renderProjects(document.getElementById('projects-section'));
+            // Refresh the dashboard
+            const container = document.getElementById('dashboard-section');
+            if (container) {
+                await renderDashboard(container);
+            }
         }
     });
 }
