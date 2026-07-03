@@ -1,14 +1,9 @@
 // ============================================
 // MODULE: AUTH HELPERS
 // Path: /frontend/js/modules/auth.js
-// Purpose: Reusable auth functions for other modules
 // ============================================
 
 import { supabase } from './supabase.js';
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
 
 export function generateUsername(fullName) {
     const cleanName = fullName.toLowerCase().trim();
@@ -39,68 +34,53 @@ export function generateRecoveryPhrase() {
     return phrase.join('-');
 }
 
-// ============================================
-// AUTH FUNCTIONS
-// ============================================
-
 export async function signInUser(usernameOrEmail, password) {
     try {
         let email = usernameOrEmail;
         let isEmail = usernameOrEmail.includes('@');
         
-        // If username, get email from user_profiles table
         if (!isEmail) {
-            // ✅ Use maybeSingle() to avoid 406 error when user not found
             const { data, error } = await supabase
                 .from('user_profiles')
                 .select('email')
                 .eq('username', usernameOrEmail)
                 .maybeSingle();
             
-            // ✅ Handle errors properly
-            if (error) {
-                console.error('Username lookup error:', error);
+            if (error || !data) {
                 return { 
                     success: false, 
                     error: 'User not found. Please check your username.' 
                 };
             }
-            
-            // ✅ Check if user exists
-            if (!data) {
-                return { 
-                    success: false, 
-                    error: 'User not found. Please check your username.' 
-                };
-            }
-            
             email = data.email;
         }
         
-        // Sign in with Supabase Auth
+        // ✅ Try to authenticate first
         const { data, error } = await supabase.auth.signInWithPassword({
             email: email,
             password: password
         });
         
+        // ✅ If auth fails, return early
         if (error) {
-            console.error('Sign in error:', error);
-            return { success: false, error: 'Invalid credentials' };
+            console.error('Auth error:', error);
+            return { 
+                success: false, 
+                error: error.message === 'Invalid login credentials' 
+                    ? 'Invalid username or password' 
+                    : 'Login failed. Please try again.' 
+            };
         }
         
-        // Get user profile from CLEAN table
+        // ✅ Only fetch profile after successful auth
         const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('*')
             .eq('id', data.user.id)
             .maybeSingle();
         
-        if (profileError) {
+        if (profileError || !profile) {
             console.error('Profile fetch error:', profileError);
-            return { success: false, error: 'User profile not found' };
-        }
-        
-        if (!profile) {
             return { success: false, error: 'User profile not found' };
         }
         
@@ -130,6 +110,7 @@ export async function signInUser(usernameOrEmail, password) {
 
 export async function signUpUser(email, password, userData) {
     try {
+        // ✅ Always set role to 'user' on signup
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
@@ -147,7 +128,6 @@ export async function signUpUser(email, password, userData) {
             return { success: false, error: error.message };
         }
         
-        // Insert directly into user_profiles
         if (data.user) {
             const { error: insertError } = await supabase
                 .from('user_profiles')
@@ -244,10 +224,6 @@ export async function updateUserPassword(newPassword) {
     }
 }
 
-// ============================================
-// APPLICATION FUNCTIONS
-// ============================================
-
 export async function submitRoleApplication(role, additionalData = {}) {
     try {
         const user = await getCurrentUser();
@@ -261,11 +237,7 @@ export async function submitRoleApplication(role, additionalData = {}) {
             .eq('id', user.id)
             .maybeSingle();
         
-        if (profileError) {
-            return { success: false, error: 'User profile not found' };
-        }
-
-        if (!profile) {
+        if (profileError || !profile) {
             return { success: false, error: 'User profile not found' };
         }
 
@@ -469,10 +441,6 @@ export async function rejectApplication(applicationId, adminNotes = '') {
         return { success: false, error: error.message };
     }
 }
-
-// ============================================
-// USER PROFILE FUNCTIONS - Using user_profiles
-// ============================================
 
 export async function getUserProfile(userId = null) {
     try {
