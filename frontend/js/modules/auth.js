@@ -50,15 +50,30 @@ export async function signInUser(usernameOrEmail, password) {
         
         // If username, get email from user_profiles table
         if (!isEmail) {
+            // ✅ Use maybeSingle() to avoid 406 error when user not found
             const { data, error } = await supabase
                 .from('user_profiles')
                 .select('email')
                 .eq('username', usernameOrEmail)
-                .single();
+                .maybeSingle();
             
+            // ✅ Handle errors properly
             if (error) {
-                return { success: false, error: 'User not found' };
+                console.error('Username lookup error:', error);
+                return { 
+                    success: false, 
+                    error: 'User not found. Please check your username.' 
+                };
             }
+            
+            // ✅ Check if user exists
+            if (!data) {
+                return { 
+                    success: false, 
+                    error: 'User not found. Please check your username.' 
+                };
+            }
+            
             email = data.email;
         }
         
@@ -78,10 +93,14 @@ export async function signInUser(usernameOrEmail, password) {
             .from('user_profiles')
             .select('*')
             .eq('id', data.user.id)
-            .single();
+            .maybeSingle();
         
         if (profileError) {
             console.error('Profile fetch error:', profileError);
+            return { success: false, error: 'User profile not found' };
+        }
+        
+        if (!profile) {
             return { success: false, error: 'User profile not found' };
         }
         
@@ -105,13 +124,12 @@ export async function signInUser(usernameOrEmail, password) {
         
     } catch (error) {
         console.error('Sign in error:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: 'Invalid username or password' };
     }
 }
 
 export async function signUpUser(email, password, userData) {
     try {
-        // Create auth user
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
@@ -129,7 +147,7 @@ export async function signUpUser(email, password, userData) {
             return { success: false, error: error.message };
         }
         
-        // Insert directly into user_profiles (in case trigger fails)
+        // Insert directly into user_profiles
         if (data.user) {
             const { error: insertError } = await supabase
                 .from('user_profiles')
@@ -237,18 +255,20 @@ export async function submitRoleApplication(role, additionalData = {}) {
             return { success: false, error: 'User not authenticated' };
         }
 
-        // Get user profile from CLEAN table
         const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('*')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
         
         if (profileError) {
             return { success: false, error: 'User profile not found' };
         }
 
-        // Check if already applied
+        if (!profile) {
+            return { success: false, error: 'User profile not found' };
+        }
+
         if (profile.application_status === 'pending') {
             return { success: false, error: 'You already have a pending application' };
         }
@@ -275,7 +295,6 @@ export async function submitRoleApplication(role, additionalData = {}) {
         
         if (insertError) throw insertError;
         
-        // Update user_profiles (not users!)
         const { error: updateError } = await supabase
             .from('user_profiles')
             .update({ 
@@ -321,14 +340,13 @@ export async function getPendingApplications() {
         const user = await getCurrentUser();
         if (!user) return [];
         
-        // Get profile from user_profiles
         const { data: profile } = await supabase
             .from('user_profiles')
             .select('role')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
         
-        if (profile?.role !== 'admin') {
+        if (!profile || profile?.role !== 'admin') {
             return { success: false, error: 'Unauthorized' };
         }
         
@@ -354,29 +372,26 @@ export async function approveApplication(applicationId, adminNotes = '') {
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'Not authenticated' };
         
-        // Get profile from user_profiles
         const { data: profile } = await supabase
             .from('user_profiles')
             .select('role')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
         
-        if (profile?.role !== 'admin') {
+        if (!profile || profile?.role !== 'admin') {
             return { success: false, error: 'Unauthorized' };
         }
         
-        // Get application details
         const { data: application, error: appError } = await supabase
             .from('applications')
             .select('*')
             .eq('id', applicationId)
-            .single();
+            .maybeSingle();
         
         if (appError || !application) {
             return { success: false, error: 'Application not found' };
         }
         
-        // Update application status
         const { error: updateAppError } = await supabase
             .from('applications')
             .update({ 
@@ -388,7 +403,6 @@ export async function approveApplication(applicationId, adminNotes = '') {
         
         if (updateAppError) throw updateAppError;
         
-        // Update user_profiles (not users!)
         const { error: updateUserError } = await supabase
             .from('user_profiles')
             .update({ 
@@ -411,18 +425,16 @@ export async function rejectApplication(applicationId, adminNotes = '') {
         const user = await getCurrentUser();
         if (!user) return { success: false, error: 'Not authenticated' };
         
-        // Get profile from user_profiles
         const { data: profile } = await supabase
             .from('user_profiles')
             .select('role')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
         
-        if (profile?.role !== 'admin') {
+        if (!profile || profile?.role !== 'admin') {
             return { success: false, error: 'Unauthorized' };
         }
         
-        // Update application status
         const { error: updateAppError } = await supabase
             .from('applications')
             .update({ 
@@ -434,12 +446,11 @@ export async function rejectApplication(applicationId, adminNotes = '') {
         
         if (updateAppError) throw updateAppError;
         
-        // Update user_profiles (not users!)
         const { data: appData } = await supabase
             .from('applications')
             .select('user_id')
             .eq('id', applicationId)
-            .single();
+            .maybeSingle();
         
         if (appData) {
             const { error: updateUserError } = await supabase
@@ -460,7 +471,54 @@ export async function rejectApplication(applicationId, adminNotes = '') {
 }
 
 // ============================================
-// NOTE: getUserProfile() and updateUserProfile()
-// are imported from supabase.js if needed
-// They are NOT defined here to avoid duplicates
+// USER PROFILE FUNCTIONS - Using user_profiles
 // ============================================
+
+export async function getUserProfile(userId = null) {
+    try {
+        if (!userId) {
+            const user = await getCurrentUser();
+            if (!user) return null;
+            userId = user.id;
+        }
+        
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+        
+        if (error) {
+            console.error('Error fetching user profile:', error);
+            return null;
+        }
+        return data;
+    } catch (error) {
+        console.error('Profile fetch error:', error);
+        return null;
+    }
+}
+
+export async function updateUserProfile(updates) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return { success: false, error: 'No user logged in' };
+        
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .update(updates)
+            .eq('id', user.id)
+            .select()
+            .maybeSingle();
+        
+        if (error) {
+            console.error('Error updating user profile:', error);
+            return { success: false, error: error.message };
+        }
+        
+        return { success: true, data };
+    } catch (error) {
+        console.error('Profile update error:', error);
+        return { success: false, error: error.message };
+    }
+}
