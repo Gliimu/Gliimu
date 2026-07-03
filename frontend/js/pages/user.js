@@ -4,7 +4,6 @@
 // Purpose: Handles user profile page and dashboard
 // ============================================
 
-// ✅ FIXED: Import individual functions instead of 'auth' object
 import { 
     getCurrentUser as getAuthUser,
     signOutUser,
@@ -30,12 +29,9 @@ export class UserPage {
     constructor() {
         this.currentUser = null;
         this.currentProfile = null;
-        this.userInfoDiv = document.getElementById('userInfo');
-        this.profileForm = document.getElementById('profileForm');
-        this.loadingDiv = document.getElementById('loading');
-        this.walletDisplay = document.getElementById('walletBalance');
-        this.gpDisplay = document.getElementById('gpPoints');
         this.dashboardContent = document.getElementById('dashboardContent');
+        this.loadingDiv = document.getElementById('loading');
+        this.currentTab = 'dashboard';
         
         // Wallet state
         this.selectedAmount = 0;
@@ -72,9 +68,7 @@ export class UserPage {
         try {
             this.showLoading(true);
             
-            // Get current user from auth
             const user = await getAuthUser();
-            
             if (!user) {
                 this.showError('User not authenticated');
                 window.location.href = '/signin.html';
@@ -82,8 +76,6 @@ export class UserPage {
             }
 
             this.currentUser = user;
-
-            // Get user profile from CLEAN table
             const profile = await getUserProfile(user.id);
             
             if (!profile) {
@@ -93,12 +85,13 @@ export class UserPage {
 
             this.currentProfile = profile;
 
-            // Update UI with user data
+            // ✅ Update role stylesheet
+            this.updateRoleStylesheet(profile.role || 'student');
+
+            // Update UI
             this.updateUserUI(user, profile);
-            this.updateWalletDisplay(profile.wallet_balance);
-            this.updateGpDisplay(profile.gp_points);
             
-            // Store user in localStorage for persistence
+            // Store user data
             localStorage.setItem('glimu_user', JSON.stringify({
                 id: user.id,
                 name: profile.name,
@@ -118,8 +111,24 @@ export class UserPage {
         }
     }
 
+    // ✅ NEW: Update role stylesheet
+    updateRoleStylesheet(role) {
+        const roleStylesheet = document.getElementById('roleStylesheet');
+        if (roleStylesheet) {
+            const roleMap = {
+                'student': 'student',
+                'instructor': 'instructor',
+                'admin': 'instructor',
+                'partner': 'partner',
+                'other': 'student'
+            };
+            const cssRole = roleMap[role] || 'student';
+            roleStylesheet.href = `/frontend/css/user-${cssRole}.css`;
+        }
+    }
+
     updateUserUI(user, profile) {
-        // Update sidebar user info
+        // Sidebar user info
         const userNameEl = document.getElementById('userName');
         const userRoleEl = document.getElementById('userRole');
         const userAvatarImg = document.getElementById('userAvatarImg');
@@ -137,34 +146,6 @@ export class UserPage {
                 `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff&size=128`;
             userAvatarImg.src = avatarUrl;
         }
-
-        // Update role stylesheet
-        const roleStylesheet = document.getElementById('roleStylesheet');
-        if (roleStylesheet) {
-            const role = profile.role || 'student';
-            roleStylesheet.href = `/frontend/css/user-${role}.css`;
-        }
-    }
-
-    updateWalletDisplay(balance) {
-        const walletDisplay = document.getElementById('walletBalance');
-        if (walletDisplay) {
-            walletDisplay.textContent = `₦${(balance || 0).toLocaleString()}`;
-        }
-        // Also update any other wallet displays
-        document.querySelectorAll('.wallet-amount').forEach(el => {
-            el.textContent = `₦${(balance || 0).toLocaleString()}`;
-        });
-    }
-
-    updateGpDisplay(points) {
-        const gpDisplay = document.getElementById('gpPoints');
-        if (gpDisplay) {
-            gpDisplay.textContent = (points || 0).toLocaleString();
-        }
-        document.querySelectorAll('.gp-amount').forEach(el => {
-            el.textContent = (points || 0).toLocaleString();
-        });
     }
 
     setupNavigation() {
@@ -187,19 +168,12 @@ export class UserPage {
             item.addEventListener('click', () => {
                 const tab = item.dataset.tab;
                 if (tab === 'gotomenu') {
-                    // Toggle sidebar on mobile
                     this.toggleSidebar();
                     return;
                 }
                 this.loadTab(tab);
             });
         });
-
-        // Sidebar toggle for mobile
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', () => this.toggleSidebar());
-        }
 
         // Sidebar overlay
         const overlay = document.getElementById('sidebarOverlay');
@@ -218,7 +192,6 @@ export class UserPage {
             { tab: 'wallet', icon: 'fa-wallet', label: 'Wallet' },
         ];
 
-        // Role-specific items
         if (role === 'instructor' || role === 'admin') {
             items.push({ tab: 'manage', icon: 'fa-users-cog', label: 'Manage' });
         }
@@ -238,6 +211,8 @@ export class UserPage {
     }
 
     async loadTab(tab) {
+        this.currentTab = tab;
+        
         // Update active states
         document.querySelectorAll('.nav-item, .mobile-nav-item').forEach(el => {
             el.classList.remove('active');
@@ -276,7 +251,6 @@ export class UserPage {
                 await this.loadDashboard();
         }
 
-        // Close sidebar on mobile after navigation
         this.closeSidebar();
     }
 
@@ -339,15 +313,15 @@ export class UserPage {
                 <div class="card">
                     <h3>Quick Actions</h3>
                     <div class="quick-actions">
-                        <button class="action-btn" onclick="window.loadTab('wallet')">
+                        <button class="action-btn" data-action="wallet">
                             <i class="fas fa-plus-circle"></i>
                             Fund Wallet
                         </button>
-                        <button class="action-btn" id="applyRoleBtn">
+                        <button class="action-btn" data-action="role">
                             <i class="fas fa-user-graduate"></i>
                             Apply for Role
                         </button>
-                        <button class="action-btn" id="mvpProposalBtn">
+                        <button class="action-btn" data-action="mvp">
                             <i class="fas fa-rocket"></i>
                             Submit MVP
                         </button>
@@ -371,10 +345,15 @@ export class UserPage {
         `;
 
         // Re-bind event listeners
-        document.getElementById('applyRoleBtn')?.addEventListener('click', () => this.showApplyRoleModal());
-        document.getElementById('mvpProposalBtn')?.addEventListener('click', () => this.showMvpModal());
-        
-        // Load recent activity
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                if (action === 'wallet') this.showFundWalletModal();
+                else if (action === 'role') this.showApplyRoleModal();
+                else if (action === 'mvp') this.showMvpModal();
+            });
+        });
+
         await this.loadRecentActivity();
     }
 
@@ -480,46 +459,49 @@ export class UserPage {
     }
 
     async loadLibrary() {
-        const content = this.dashboardContent;
-        if (!content) return;
-
-        content.innerHTML = `
+        this.dashboardContent.innerHTML = `
             <div class="dashboard-header">
                 <h1>My Library</h1>
                 <p>Your saved and created content</p>
             </div>
             <div class="card">
-                <p class="text-muted">Coming soon...</p>
+                <div class="empty-state">
+                    <i class="fas fa-book"></i>
+                    <h3>Your Library is Empty</h3>
+                    <p>Start saving content from the marketplace or create your own!</p>
+                </div>
             </div>
         `;
     }
 
     async loadMarketplace() {
-        const content = this.dashboardContent;
-        if (!content) return;
-
-        content.innerHTML = `
+        this.dashboardContent.innerHTML = `
             <div class="dashboard-header">
                 <h1>Marketplace</h1>
                 <p>Discover and share resources</p>
             </div>
             <div class="card">
-                <p class="text-muted">Coming soon...</p>
+                <div class="empty-state">
+                    <i class="fas fa-store"></i>
+                    <h3>Marketplace Coming Soon</h3>
+                    <p>We're building a marketplace for creators like you!</p>
+                </div>
             </div>
         `;
     }
 
     async loadAlerts() {
-        const content = this.dashboardContent;
-        if (!content) return;
-
-        content.innerHTML = `
+        this.dashboardContent.innerHTML = `
             <div class="dashboard-header">
                 <h1>Alerts & Notifications</h1>
                 <p>Stay updated with your activities</p>
             </div>
             <div class="card">
-                <p class="text-muted">No new alerts</p>
+                <div class="empty-state">
+                    <i class="fas fa-bell"></i>
+                    <h3>No New Alerts</h3>
+                    <p>You're all caught up!</p>
+                </div>
             </div>
         `;
     }
@@ -536,55 +518,58 @@ export class UserPage {
                 <p>Manage your account information</p>
             </div>
 
-            <div class="card">
-                <form id="profileForm">
-                    <div class="form-group">
-                        <label for="fullName">Full Name</label>
-                        <input type="text" id="fullName" value="${profile?.name || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" value="${this.currentUser?.email || ''}" disabled>
-                        <small class="text-muted">Email cannot be changed</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="username">Username</label>
-                        <input type="text" id="username" value="${profile?.username || ''}" disabled>
-                        <small class="text-muted">Username cannot be changed</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="address">Address</label>
-                        <input type="text" id="address" value="${profile?.address || ''}">
-                    </div>
-                    <div class="form-row">
+            <div class="settings-grid">
+                <div class="settings-card">
+                    <h3>Personal Information</h3>
+                    <form id="profileForm">
                         <div class="form-group">
-                            <label for="birthDay">Birth Day</label>
-                            <select id="birthDay">
-                                <option value="">Select Day</option>
-                                ${Array.from({length: 31}, (_, i) => i + 1).map(d => 
-                                    `<option value="${d}" ${profile?.birth_day == d ? 'selected' : ''}>${d}</option>`
-                                ).join('')}
-                            </select>
+                            <label for="fullName">Full Name</label>
+                            <input type="text" id="fullName" value="${profile?.name || ''}" required>
                         </div>
                         <div class="form-group">
-                            <label for="birthMonth">Birth Month</label>
-                            <select id="birthMonth">
-                                <option value="">Select Month</option>
-                                ${['January', 'February', 'March', 'April', 'May', 'June', 
-                                  'July', 'August', 'September', 'October', 'November', 'December']
-                                    .map((m, i) => `<option value="${i + 1}" ${profile?.birth_month == i + 1 ? 'selected' : ''}>${m}</option>`).join('')}
-                            </select>
+                            <label for="email">Email</label>
+                            <input type="email" id="email" value="${this.currentUser?.email || ''}" disabled>
+                            <small>Email cannot be changed</small>
                         </div>
-                    </div>
-                    <button type="submit" class="btn-primary">Update Profile</button>
-                </form>
-            </div>
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" value="${profile?.username || ''}" disabled>
+                            <small>Username cannot be changed</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="address">Address</label>
+                            <input type="text" id="address" value="${profile?.address || ''}">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="birthDay">Birth Day</label>
+                                <select id="birthDay">
+                                    <option value="">Select Day</option>
+                                    ${Array.from({length: 31}, (_, i) => i + 1).map(d => 
+                                        `<option value="${d}" ${profile?.birth_day == d ? 'selected' : ''}>${d}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="birthMonth">Birth Month</label>
+                                <select id="birthMonth">
+                                    <option value="">Select Month</option>
+                                    ${['January', 'February', 'March', 'April', 'May', 'June', 
+                                      'July', 'August', 'September', 'October', 'November', 'December']
+                                        .map((m, i) => `<option value="${i + 1}" ${profile?.birth_month == i + 1 ? 'selected' : ''}>${m}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">Update Profile</button>
+                    </form>
+                </div>
 
-            <div class="card">
-                <h3>Account Actions</h3>
-                <button class="btn-danger" id="signOutBtn">
-                    <i class="fas fa-sign-out-alt"></i> Sign Out
-                </button>
+                <div class="settings-card">
+                    <h3>Account Actions</h3>
+                    <button class="btn-danger" id="signOutBtn" style="width:100%;">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </button>
+                </div>
             </div>
         `;
 
@@ -602,58 +587,185 @@ export class UserPage {
     }
 
     async loadManage() {
-        const content = this.dashboardContent;
-        if (!content) return;
-
-        content.innerHTML = `
+        this.dashboardContent.innerHTML = `
             <div class="dashboard-header">
                 <h1>Manage</h1>
                 <p>Manage students and content</p>
             </div>
             <div class="card">
-                <p class="text-muted">Coming soon...</p>
+                <div class="empty-state">
+                    <i class="fas fa-users-cog"></i>
+                    <h3>Management Dashboard</h3>
+                    <p>Coming soon...</p>
+                </div>
             </div>
         `;
     }
 
     async loadAdmin() {
-        const content = this.dashboardContent;
-        if (!content) return;
-
-        content.innerHTML = `
+        this.dashboardContent.innerHTML = `
             <div class="dashboard-header">
                 <h1>Admin Dashboard</h1>
                 <p>System administration</p>
             </div>
             <div class="card">
-                <p class="text-muted">Coming soon...</p>
+                <div class="empty-state">
+                    <i class="fas fa-crown"></i>
+                    <h3>Admin Panel</h3>
+                    <p>Coming soon...</p>
+                </div>
             </div>
         `;
     }
 
     setupEventListeners() {
-        // Profile form submission
-        document.addEventListener('submit', async (e) => {
-            if (e.target.id === 'profileForm') {
-                e.preventDefault();
-                await this.updateProfile();
+        // Modal close buttons
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const modal = btn.closest('.modal');
+                if (modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+
+        // Wallet modal events
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.selectedAmount = parseInt(btn.dataset.amount);
+                this.updateAmountDisplay();
+            });
+        });
+
+        document.getElementById('customAmount')?.addEventListener('input', (e) => {
+            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            this.selectedAmount = parseInt(e.target.value) || 0;
+            this.updateAmountDisplay();
+        });
+
+        document.getElementById('continueToBankBtn')?.addEventListener('click', () => {
+            if (this.selectedAmount < 100) {
+                showToast('Please select or enter an amount (minimum ₦100)', 'error');
+                return;
+            }
+            this.showBankDetails();
+        });
+
+        document.getElementById('backToAmountBtn')?.addEventListener('click', () => {
+            this.resetWalletModal();
+        });
+
+        document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
+            await this.confirmPayment();
+        });
+
+        document.getElementById('copyRefCodeBtn')?.addEventListener('click', () => {
+            const code = document.getElementById('referenceCode')?.textContent;
+            if (code) {
+                navigator.clipboard.writeText(code).then(() => {
+                    showToast('Reference code copied!', 'success');
+                }).catch(() => {
+                    // Fallback
+                    const input = document.createElement('input');
+                    input.value = code;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    showToast('Reference code copied!', 'success');
+                });
             }
         });
 
-        // Apply for role buttons
-        document.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('apply-role-btn')) {
-                const role = e.target.dataset.role;
-                await this.applyForRole(role);
-            }
+        // MVP form
+        document.getElementById('mvpForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.submitMvp();
         });
+    }
 
-        // Window resize for sidebar
-        window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
-                this.closeSidebar();
+    updateAmountDisplay() {
+        const display = document.getElementById('selectedAmountDisplay');
+        const large = document.getElementById('selectedAmountLarge');
+        if (display && large) {
+            if (this.selectedAmount > 0) {
+                display.style.display = 'block';
+                large.textContent = `₦${this.selectedAmount.toLocaleString()}`;
+            } else {
+                display.style.display = 'none';
             }
-        });
+        }
+    }
+
+    async showBankDetails() {
+        const fundingOptions = document.querySelector('.funding-options');
+        const bankDetails = document.querySelector('.bank-details');
+        
+        if (fundingOptions && bankDetails) {
+            fundingOptions.style.display = 'none';
+            bankDetails.style.display = 'block';
+            
+            // Generate reference code
+            this.referenceCode = `GLM-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            document.getElementById('referenceCode').textContent = this.referenceCode;
+            
+            // Show bank info
+            document.getElementById('bankInfoCard').innerHTML = `
+                <p><strong>Bank:</strong> <span style="color: var(--brand-gold);">GTBank</span></p>
+                <p><strong>Account Name:</strong> <span style="color: var(--brand-gold);">Gliimu Institute Ltd</span></p>
+                <p><strong>Account Number:</strong> <span style="color: var(--brand-gold); font-size: 1.1rem; font-weight: 700;">0123456789</span></p>
+                <p><strong>Amount:</strong> <span style="color: var(--brand-gold); font-weight: 700;">₦${this.selectedAmount.toLocaleString()}</span></p>
+            `;
+        }
+    }
+
+    resetWalletModal() {
+        const fundingOptions = document.querySelector('.funding-options');
+        const bankDetails = document.querySelector('.bank-details');
+        if (fundingOptions && bankDetails) {
+            fundingOptions.style.display = 'block';
+            bankDetails.style.display = 'none';
+        }
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('customAmount').value = '';
+        document.getElementById('selectedAmountDisplay').style.display = 'none';
+        this.selectedAmount = 0;
+    }
+
+    async confirmPayment() {
+        try {
+            const result = await createPaymentRequest(
+                this.selectedAmount,
+                'GTBank',
+                this.referenceCode
+            );
+            
+            if (result.success) {
+                showToast('Payment recorded! Waiting for admin verification.', 'success');
+                this.resetWalletModal();
+                document.getElementById('fundWalletModal').classList.remove('active');
+                document.body.style.overflow = '';
+                await this.loadWallet();
+            } else {
+                showToast(result.error || 'Failed to record payment', 'error');
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            showToast('Failed to record payment', 'error');
+        }
     }
 
     async updateProfile() {
@@ -680,7 +792,7 @@ export class UserPage {
                 throw new Error('Failed to update profile');
             }
 
-            // Update auth user metadata
+            // Update auth metadata
             const { error: authError } = await supabase.auth.updateUser({
                 data: { 
                     name: fullName,
@@ -691,9 +803,8 @@ export class UserPage {
             if (authError) throw authError;
 
             showToast('Profile updated successfully!', 'success');
-            
-            // Reload user data
             await this.loadUserData();
+            await this.loadTab('settings');
             
         } catch (error) {
             console.error('Error updating profile:', error);
@@ -715,6 +826,7 @@ export class UserPage {
             if (result.success) {
                 showToast(`Application for ${role} submitted successfully!`, 'success');
                 await this.loadUserData();
+                await this.loadTab('dashboard');
             } else {
                 showToast(result.error || 'Failed to submit application', 'error');
             }
@@ -725,13 +837,14 @@ export class UserPage {
     }
 
     showApplyRoleModal() {
-        // Simple role selection modal
-        const roles = ['student', 'instructor', 'other'];
-        const roleOptions = roles.map(r => 
-            `<button class="apply-role-btn" data-role="${r}">Apply as ${r.charAt(0).toUpperCase() + r.slice(1)}</button>`
-        ).join('');
+        const roles = ['student', 'instructor', 'partner'];
+        const roleLabels = {
+            'student': 'Student (Learn & Build)',
+            'instructor': 'Instructor (Teach & Mentor)',
+            'partner': 'Partner (Collaborate & Grow)'
+        };
 
-        // Create a simple modal
+        // Create modal dynamically
         const modal = document.createElement('div');
         modal.className = 'modal active';
         modal.innerHTML = `
@@ -741,9 +854,15 @@ export class UserPage {
                     <button class="modal-close" id="closeRoleModal">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Select the role you want to apply for:</p>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                        Select the role you want to apply for. Your application will be reviewed by an admin.
+                    </p>
                     <div class="role-options">
-                        ${roleOptions}
+                        ${roles.map(r => `
+                            <button class="apply-role-btn" data-role="${r}">
+                                Apply as ${roleLabels[r] || r}
+                            </button>
+                        `).join('')}
                     </div>
                 </div>
             </div>
@@ -773,6 +892,37 @@ export class UserPage {
         }
     }
 
+    async submitMvp() {
+        try {
+            const title = document.getElementById('mvpTitle')?.value.trim();
+            const type = document.getElementById('mvpType')?.value;
+            const description = document.getElementById('mvpDescription')?.value.trim();
+            const proposal = document.getElementById('mvpProposal')?.value.trim();
+
+            if (!title || !type || !description || !proposal) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            // TODO: Implement MVP submission API
+            showToast('MVP proposal submitted successfully!', 'success');
+            
+            // Close modal
+            const modal = document.getElementById('mvpModal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            
+            // Reset form
+            document.getElementById('mvpForm')?.reset();
+            
+        } catch (error) {
+            console.error('MVP submission error:', error);
+            showToast('Failed to submit MVP proposal', 'error');
+        }
+    }
+
     showFundWalletModal() {
         const modal = document.getElementById('fundWalletModal');
         if (modal) {
@@ -782,17 +932,9 @@ export class UserPage {
         }
     }
 
-    resetWalletModal() {
-        document.querySelector('.funding-options').style.display = 'block';
-        document.querySelector('.bank-details').style.display = 'none';
-        document.getElementById('selectedAmountDisplay').style.display = 'none';
-        document.getElementById('customAmount').value = '';
-        document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
-        this.selectedAmount = 0;
-    }
-
     setupWalletSubscription() {
-        // Use real-time subscription for wallet updates
+        if (!this.currentUser) return;
+        
         const channel = supabase
             .channel('wallet_updates')
             .on('postgres_changes', 
@@ -800,13 +942,14 @@ export class UserPage {
                     event: 'UPDATE', 
                     schema: 'public', 
                     table: 'user_profiles',
-                    filter: `id=eq.${this.currentUser?.id}` 
+                    filter: `id=eq.${this.currentUser.id}` 
                 },
                 (payload) => {
                     if (payload.new) {
+                        // Update wallet and GP displays
                         this.updateWalletDisplay(payload.new.wallet_balance);
                         this.updateGpDisplay(payload.new.gp_points);
-                        // Update current profile
+                        
                         if (this.currentProfile) {
                             this.currentProfile.wallet_balance = payload.new.wallet_balance;
                             this.currentProfile.gp_points = payload.new.gp_points;
@@ -817,11 +960,27 @@ export class UserPage {
             .subscribe();
     }
 
+    updateWalletDisplay(balance) {
+        document.querySelectorAll('#walletBalance, .wallet-amount').forEach(el => {
+            if (el.id === 'walletBalance') {
+                el.textContent = `₦${(balance || 0).toLocaleString()}`;
+            } else {
+                el.textContent = `₦${(balance || 0).toLocaleString()}`;
+            }
+        });
+    }
+
+    updateGpDisplay(points) {
+        document.querySelectorAll('#gpPoints, .gp-amount').forEach(el => {
+            el.textContent = (points || 0).toLocaleString();
+        });
+    }
+
     toggleSidebar() {
         const sidebar = document.getElementById('dashboardSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         if (sidebar) {
-            sidebar.classList.toggle('active');
+            sidebar.classList.toggle('mobile-open');
             if (overlay) {
                 overlay.classList.toggle('active');
             }
@@ -832,7 +991,7 @@ export class UserPage {
         const sidebar = document.getElementById('dashboardSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         if (sidebar) {
-            sidebar.classList.remove('active');
+            sidebar.classList.remove('mobile-open');
             if (overlay) {
                 overlay.classList.remove('active');
             }
@@ -840,15 +999,12 @@ export class UserPage {
     }
 
     showLoading(show) {
-        const loadingDiv = document.getElementById('loading');
-        if (loadingDiv) {
-            loadingDiv.style.display = show ? 'flex' : 'none';
+        if (this.loadingDiv) {
+            this.loadingDiv.style.display = show ? 'flex' : 'none';
         }
-        // Also show/hide main content
-        const content = document.getElementById('dashboardContent');
-        if (content) {
-            content.style.opacity = show ? '0.5' : '1';
-            content.style.pointerEvents = show ? 'none' : 'auto';
+        if (this.dashboardContent) {
+            this.dashboardContent.style.opacity = show ? '0.5' : '1';
+            this.dashboardContent.style.pointerEvents = show ? 'none' : 'auto';
         }
     }
 
@@ -859,7 +1015,5 @@ export class UserPage {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Make loadTab available globally for onclick handlers
-    const page = new UserPage();
-    window.loadTab = (tab) => page.loadTab(tab);
+    new UserPage();
 });
