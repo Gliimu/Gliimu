@@ -55,7 +55,7 @@ async function getUserByUsername(username) {
         
         const { data, error } = await supabase
             .from('user_profiles')
-            .select('email, id, username, name, role')
+            .select('email, id, username, name, role, recovery_phrase')
             .ilike('username', cleanUsername)
             .maybeSingle();
         
@@ -81,7 +81,7 @@ async function getUserByEmail(email) {
         
         const { data, error } = await supabase
             .from('user_profiles')
-            .select('email, id, username, name, role')
+            .select('email, id, username, name, role, recovery_phrase')
             .ilike('email', cleanEmail)
             .maybeSingle();
         
@@ -122,6 +122,230 @@ async function getUserById(userId) {
 }
 
 // ============================================
+// GET USER BY RECOVERY PHRASE
+// ============================================
+
+export async function getUserByRecoveryPhrase(recoveryPhrase) {
+    try {
+        const cleanPhrase = recoveryPhrase.trim().toLowerCase();
+        
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('id, username, email, name, recovery_phrase')
+            .eq('recovery_phrase', cleanPhrase)
+            .maybeSingle();
+        
+        if (error) {
+            console.error('Recovery phrase lookup error:', error);
+            return null;
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Recovery phrase lookup error:', error);
+        return null;
+    }
+}
+
+// ============================================
+// VERIFY RECOVERY PHRASE
+// ============================================
+
+export async function verifyRecoveryPhrase(usernameOrEmail, recoveryPhrase) {
+    try {
+        const cleanInput = usernameOrEmail.trim().toLowerCase();
+        const cleanPhrase = recoveryPhrase.trim().toLowerCase();
+        
+        // Find user by username or email
+        let userData = null;
+        
+        if (cleanInput.includes('@')) {
+            userData = await getUserByEmail(cleanInput);
+        } else {
+            userData = await getUserByUsername(cleanInput);
+        }
+        
+        if (!userData) {
+            return { 
+                success: false, 
+                error: 'User not found. Please check your username or email.' 
+            };
+        }
+        
+        // Check if user has a recovery phrase stored
+        if (!userData.recovery_phrase) {
+            return { 
+                success: false, 
+                error: 'No recovery phrase found for this account. Please contact support.' 
+            };
+        }
+        
+        // Verify the recovery phrase (case insensitive)
+        const storedPhrase = userData.recovery_phrase.toLowerCase().trim();
+        
+        if (storedPhrase !== cleanPhrase) {
+            return { 
+                success: false, 
+                error: 'Invalid recovery phrase. Please try again.' 
+            };
+        }
+        
+        return { 
+            success: true, 
+            user: userData 
+        };
+        
+    } catch (error) {
+        console.error('Recovery verification error:', error);
+        return { 
+            success: false, 
+            error: 'An error occurred. Please try again.' 
+        };
+    }
+}
+
+// ============================================
+// VERIFY USERS (for password recovery)
+// ============================================
+
+export async function verifyUsers(userId, userNames) {
+    try {
+        const verified = [];
+        const errors = [];
+        
+        // Get the current user's username
+        const { data: currentUser, error: userError } = await supabase
+            .from('user_profiles')
+            .select('username')
+            .eq('id', userId)
+            .maybeSingle();
+        
+        if (userError || !currentUser) {
+            return { 
+                success: false, 
+                error: 'User not found.' 
+            };
+        }
+        
+        // Check each username
+        for (const name of userNames) {
+            const cleanName = name.trim();
+            
+            if (!cleanName) {
+                errors.push('All user fields are required.');
+                continue;
+            }
+            
+            // Check if user exists
+            const { data: user, error } = await supabase
+                .from('user_profiles')
+                .select('id, username, name')
+                .ilike('username', cleanName)
+                .maybeSingle();
+            
+            if (error || !user) {
+                errors.push(`User "${cleanName}" not found.`);
+            } else if (user.id === userId) {
+                errors.push(`You cannot use your own username (${cleanName}).`);
+            } else {
+                verified.push(user);
+            }
+        }
+        
+        if (errors.length > 0) {
+            return { 
+                success: false, 
+                error: errors.join(' ') 
+            };
+        }
+        
+        if (verified.length < 3) {
+            return { 
+                success: false, 
+                error: 'Please enter three valid usernames.' 
+            };
+        }
+        
+        return { 
+            success: true, 
+            users: verified 
+        };
+        
+    } catch (error) {
+        console.error('User verification error:', error);
+        return { 
+            success: false, 
+            error: 'An error occurred. Please try again.' 
+        };
+    }
+}
+
+// ============================================
+// RESET PASSWORD WITH RECOVERY
+// ============================================
+
+export async function resetPasswordWithRecovery(userId, newPassword) {
+    try {
+        // Get user's email
+        const { data: userData, error: userError } = await supabase
+            .from('user_profiles')
+            .select('email')
+            .eq('id', userId)
+            .maybeSingle();
+        
+        if (userError || !userData) {
+            return { 
+                success: false, 
+                error: 'User not found.' 
+            };
+        }
+        
+        // Update password using Supabase Auth admin API
+        // Note: This requires the service role key
+        const { error: updateError } = await supabase.auth.admin.updateUserById(
+            userId,
+            { password: newPassword }
+        );
+        
+        if (updateError) {
+            // Fallback: Send password reset email
+            console.warn('Admin update failed, sending reset email:', updateError);
+            
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+                userData.email,
+                { 
+                    redirectTo: window.location.origin + '/reset-password.html' 
+                }
+            );
+            
+            if (resetError) {
+                return { 
+                    success: false, 
+                    error: 'Unable to reset password. Please try again.' 
+                };
+            }
+            
+            return { 
+                success: true, 
+                message: 'Password reset email sent! Check your inbox.' 
+            };
+        }
+        
+        return { 
+            success: true, 
+            message: 'Password reset successfully!' 
+        };
+        
+    } catch (error) {
+        console.error('Password reset error:', error);
+        return { 
+            success: false, 
+            error: 'An error occurred. Please try again.' 
+        };
+    }
+}
+
+// ============================================
 // ENSURE USER PROFILE EXISTS
 // ============================================
 
@@ -146,6 +370,8 @@ async function ensureUserProfile(user) {
         // Create profile if it doesn't exist
         console.log('Creating missing profile for user:', user.id);
         
+        const recoveryPhrase = generateRecoveryPhrase();
+        
         const newProfile = {
             id: user.id,
             name: user.user_metadata?.name || 'User',
@@ -157,6 +383,7 @@ async function ensureUserProfile(user) {
             status: 'active',
             plan: 'basic',
             application_status: 'none',
+            recovery_phrase: recoveryPhrase,
             referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
         };
         
@@ -242,6 +469,7 @@ export async function signInUser(usernameOrEmail, password) {
                     address: profile.address || '',
                     applicationStatus: profile.application_status || 'none',
                     appliedRole: profile.applied_role || null,
+                    recoveryPhrase: profile.recovery_phrase || null,
                     avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || cleanInput)}&background=fbb040&color=fff`
                 };
                 
@@ -303,6 +531,7 @@ export async function signInUser(usernameOrEmail, password) {
                 gp_points: 0,
                 address: '',
                 application_status: 'none',
+                recovery_phrase: null,
                 avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.user_metadata?.name || cleanInput)}&background=fbb040&color=fff`
             };
         }
@@ -320,6 +549,7 @@ export async function signInUser(usernameOrEmail, password) {
             address: profile.address || '',
             applicationStatus: profile.application_status || 'none',
             appliedRole: profile.applied_role || null,
+            recoveryPhrase: profile.recovery_phrase || null,
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || cleanInput)}&background=fbb040&color=fff`
         };
         
@@ -340,6 +570,9 @@ export async function signInUser(usernameOrEmail, password) {
 
 export async function signUpUser(email, password, userData) {
     try {
+        // Generate recovery phrase if not provided
+        const recoveryPhrase = userData.recoveryPhrase || generateRecoveryPhrase();
+        
         // Create user in Supabase Auth
         const { data, error } = await supabase.auth.signUp({
             email: email,
@@ -348,7 +581,8 @@ export async function signUpUser(email, password, userData) {
                 data: {
                     name: userData.name,
                     username: userData.username,
-                    role: 'user'
+                    role: 'user',
+                    recovery_phrase: recoveryPhrase
                 }
             }
         });
@@ -373,6 +607,7 @@ export async function signUpUser(email, password, userData) {
                 application_status: 'none',
                 birth_day: userData.birthDay || null,
                 birth_month: userData.birthMonth || null,
+                recovery_phrase: recoveryPhrase,
                 referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
             };
             
@@ -390,7 +625,11 @@ export async function signUpUser(email, password, userData) {
             }
         }
         
-        return { success: true, user: data.user };
+        return { 
+            success: true, 
+            user: data.user,
+            recoveryPhrase: recoveryPhrase 
+        };
         
     } catch (error) {
         console.error('Sign up error:', error);
@@ -460,6 +699,7 @@ export async function getCurrentUser() {
                     role: profile.role || 'user',
                     walletBalance: profile.wallet_balance || 25000,
                     gpPoints: profile.gp_points || 0,
+                    recoveryPhrase: profile.recovery_phrase || null,
                     avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
                 };
                 localStorage.setItem('glimu_user', JSON.stringify(userObject));
@@ -475,7 +715,7 @@ export async function getCurrentUser() {
 }
 
 // ============================================
-// RESET PASSWORD
+// RESET PASSWORD (Email-based)
 // ============================================
 
 export async function resetPassword(email) {
@@ -796,4 +1036,13 @@ export async function updateUserProfile(updates) {
 // EXPORT HELPERS
 // ============================================
 
-export { getUserByUsername, getUserByEmail, getUserById };
+export { 
+    getUserByUsername, 
+    getUserByEmail, 
+    getUserById,
+    getUserByRecoveryPhrase,
+    verifyRecoveryPhrase,
+    verifyUsers,
+    resetPasswordWithRecovery,
+    ensureUserProfile
+};
