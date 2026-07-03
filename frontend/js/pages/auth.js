@@ -214,63 +214,70 @@ async function handleSignIn(usernameOrEmail, password) {
 }
 
 // ============================================
-// TAB SWITCHING - FIXED
+// TAB SWITCHING - SIMPLIFIED
 // ============================================
 
 function switchTab(tabId) {
     console.log('🔄 Switching to tab:', tabId);
     
     // Update tab buttons
-    document.querySelectorAll('.auth-tab').forEach(tab => {
+    const tabs = document.querySelectorAll('.auth-tab');
+    tabs.forEach(tab => {
         tab.classList.remove('active');
-        if (tab.getAttribute('data-tab') === tabId) {
-            tab.classList.add('active');
-        }
     });
     
+    // Find and activate the clicked tab
+    const activeTab = document.querySelector(`.auth-tab[data-tab="${tabId}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
+    
     // Update forms
-    document.querySelectorAll('.auth-form').forEach(form => {
+    const forms = document.querySelectorAll('.auth-form');
+    forms.forEach(form => {
         form.classList.remove('active');
-        // form.id is like "signupForm" or "signinForm"
-        if (form.id === `${tabId}Form`) {
-            form.classList.add('active');
-            console.log('✅ Showing form:', form.id);
-        }
     });
+    
+    // Find and activate the corresponding form
+    const activeForm = document.getElementById(`${tabId}Form`);
+    if (activeForm) {
+        activeForm.classList.add('active');
+        console.log('✅ Showing form:', activeForm.id);
+    } else {
+        console.error('❌ Form not found:', `${tabId}Form`);
+    }
 }
 
 // ============================================
-// INITIALIZE TAB SWITCHING
+// INITIALIZE - RUN IMMEDIATELY
 // ============================================
 
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔧 Initializing auth page...');
+console.log('🔧 Initializing auth page...');
+
+// Set up tab switching - DIRECT EVENT BINDING
+const tabs = document.querySelectorAll('.auth-tab');
+console.log('📋 Found tabs:', tabs.length);
+
+tabs.forEach(tab => {
+    // Remove any existing listeners to avoid duplicates
+    tab.removeEventListener('click', tab._listener);
     
-    // Set up tab switching
-    const tabs = document.querySelectorAll('.auth-tab');
-    console.log('📋 Found tabs:', tabs.length);
+    // Add new listener
+    const listener = function(e) {
+        e.preventDefault();
+        const tabId = this.getAttribute('data-tab');
+        console.log('👆 Tab clicked:', tabId);
+        switchTab(tabId);
+    };
     
-    tabs.forEach(tab => {
-        tab.addEventListener('click', function(e) {
-            e.preventDefault();
-            const tabId = this.getAttribute('data-tab');
-            console.log('👆 Tab clicked:', tabId);
-            switchTab(tabId);
-        });
-    });
-    
-    // Set initial state - show Log In by default
-    // But if there's a URL parameter, use that
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    if (tabParam === 'signup') {
-        switchTab('signup');
-    } else {
-        // Default to signin (already active from HTML)
-        console.log('✅ Default tab: signin');
-    }
+    tab.addEventListener('click', listener);
+    tab._listener = listener; // Store reference for cleanup
 });
+
+// Set initial state - ensure signin is active
+switchTab('signin');
+
+console.log('✅ Auth page initialized with domain: gliimu.com');
 
 // ============================================
 // SIGN IN FORM
@@ -278,7 +285,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
+    // Remove any existing listeners
+    loginForm.removeEventListener('submit', loginForm._submitListener);
+    
+    const submitListener = async (e) => {
         e.preventDefault();
         
         const usernameInput = document.getElementById('loginUsername');
@@ -310,7 +320,10 @@ if (loginForm) {
         } else {
             showToast(result.error || 'Invalid username or password', 'error');
         }
-    });
+    };
+    
+    loginForm.addEventListener('submit', submitListener);
+    loginForm._submitListener = submitListener;
 }
 
 // ============================================
@@ -319,7 +332,10 @@ if (loginForm) {
 
 const registerForm = document.getElementById('registerForm');
 if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
+    // Remove any existing listeners
+    registerForm.removeEventListener('submit', registerForm._submitListener);
+    
+    const submitListener = async (e) => {
         e.preventDefault();
         
         const fullName = document.getElementById('signupName').value.trim();
@@ -343,7 +359,10 @@ if (registerForm) {
         } else {
             showToast(result.error || 'Failed to create account', 'error');
         }
-    });
+    };
+    
+    registerForm.addEventListener('submit', submitListener);
+    registerForm._submitListener = submitListener;
 }
 
 // ============================================
@@ -352,12 +371,17 @@ if (registerForm) {
 
 const downloadBtn = document.getElementById('downloadPdfBtn');
 if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => {
+    downloadBtn.removeEventListener('click', downloadBtn._clickListener);
+    
+    const clickListener = () => {
         if (window.currentCredentials) {
             generatePDF(window.currentCredentials);
             showToast('PDF downloaded! Save it somewhere safe.', 'success');
         }
-    });
+    };
+    
+    downloadBtn.addEventListener('click', clickListener);
+    downloadBtn._clickListener = clickListener;
 }
 
 // ============================================
@@ -366,7 +390,9 @@ if (downloadBtn) {
 
 const goToDashboardBtn = document.getElementById('goToDashboardBtn');
 if (goToDashboardBtn) {
-    goToDashboardBtn.addEventListener('click', async () => {
+    goToDashboardBtn.removeEventListener('click', goToDashboardBtn._clickListener);
+    
+    const clickListener = async () => {
         const creds = window.currentCredentials;
         if (creds) {
             const result = await handleSignIn(creds.username, creds.password);
@@ -378,7 +404,10 @@ if (goToDashboardBtn) {
         } else {
             window.location.href = '/signin.html';
         }
-    });
+    };
+    
+    goToDashboardBtn.addEventListener('click', clickListener);
+    goToDashboardBtn._clickListener = clickListener;
 }
 
 // ============================================
@@ -387,7 +416,11 @@ if (goToDashboardBtn) {
 
 const closeModalBtn = document.getElementById('closePdfModal');
 if (closeModalBtn) {
-    closeModalBtn.addEventListener('click', closePdfModal);
+    closeModalBtn.removeEventListener('click', closeModalBtn._clickListener);
+    
+    const clickListener = closePdfModal;
+    closeModalBtn.addEventListener('click', clickListener);
+    closeModalBtn._clickListener = clickListener;
 }
 
 window.onclick = (e) => {
@@ -403,10 +436,15 @@ window.onclick = (e) => {
 
 const forgotLink = document.getElementById('forgotPasswordLink');
 if (forgotLink) {
-    forgotLink.addEventListener('click', (e) => {
+    forgotLink.removeEventListener('click', forgotLink._clickListener);
+    
+    const clickListener = (e) => {
         e.preventDefault();
         window.location.href = '/forgot-password.html';
-    });
+    };
+    
+    forgotLink.addEventListener('click', clickListener);
+    forgotLink._clickListener = clickListener;
 }
 
 // ============================================
@@ -427,5 +465,3 @@ if (forgotLink) {
         console.error('Session check error:', error);
     }
 })();
-
-console.log('✅ Auth page initialized with domain: gliimu.com');
