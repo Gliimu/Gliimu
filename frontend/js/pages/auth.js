@@ -102,9 +102,13 @@ function generatePDF(userData) {
 // ============================================
 
 function showCredentialsModal(userData) {
-    document.getElementById('displayUsername').textContent = userData.username;
-    document.getElementById('displayRecoveryPhrase').textContent = userData.recoveryPhrase;
-    document.getElementById('displayPassword').textContent = userData.password;
+    const displayUsername = document.getElementById('displayUsername');
+    const displayRecoveryPhrase = document.getElementById('displayRecoveryPhrase');
+    const displayPassword = document.getElementById('displayPassword');
+    
+    if (displayUsername) displayUsername.textContent = userData.username;
+    if (displayRecoveryPhrase) displayRecoveryPhrase.textContent = userData.recoveryPhrase;
+    if (displayPassword) displayPassword.textContent = userData.password;
     
     const modalTitle = document.querySelector('.modal-header h2');
     if (modalTitle) {
@@ -125,14 +129,18 @@ function showCredentialsModal(userData) {
     window.currentCredentials = userData;
     
     const modal = document.getElementById('pdfModal');
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 function closePdfModal() {
     const modal = document.getElementById('pdfModal');
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
 // ============================================
@@ -155,29 +163,27 @@ async function handleSignUp(fullName, birthDay, birthMonth, password, confirmPas
     try {
         const username = generateUsername(fullName);
         const recoveryPhrase = generateRecoveryPhrase();
-        const email = `${username}@gliimu.com`; // ✅ CORRECT: double 'i'
+        const email = `${username}@gliimu.com`;
         
         console.log('📝 Signing up with:', { username, email, recoveryPhrase });
         
-        // Create user with role 'user' and recovery phrase
         const result = await signUpUser(email, password, {
             name: fullName,
             username: username,
             birthDay: parseInt(birthDay),
             birthMonth: parseInt(birthMonth),
-            recoveryPhrase: recoveryPhrase // ✅ Pass recovery phrase
+            recoveryPhrase: recoveryPhrase
         });
         
         if (!result.success) {
             return { success: false, error: result.error };
         }
         
-        // Show credentials modal with recovery phrase
         showCredentialsModal({
             fullName,
             username,
             password,
-            recoveryPhrase: recoveryPhrase, // ✅ Show recovery phrase
+            recoveryPhrase: recoveryPhrase,
             email
         });
         
@@ -208,19 +214,32 @@ async function handleSignIn(usernameOrEmail, password) {
 }
 
 // ============================================
-// FORM HANDLERS
+// TAB SWITCHING - FIXED
 // ============================================
 
-// Tab switching
+function switchTab(tabId) {
+    // Update tab buttons
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.getAttribute('data-tab') === tabId) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Update forms
+    document.querySelectorAll('.auth-form').forEach(form => {
+        form.classList.remove('active');
+        if (form.id === `${tabId}Form`) {
+            form.classList.add('active');
+        }
+    });
+}
+
+// Initialize tab switching
 document.querySelectorAll('.auth-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         const tabId = tab.getAttribute('data-tab');
-        
-        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        
-        document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
-        document.getElementById(`${tabId}Form`).classList.add('active');
+        switchTab(tabId);
     });
 });
 
@@ -233,8 +252,16 @@ if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const username = document.getElementById('loginUsername').value.trim();
-        const password = document.getElementById('loginPassword').value;
+        const usernameInput = document.getElementById('loginUsername');
+        const passwordInput = document.getElementById('loginPassword');
+        
+        if (!usernameInput || !passwordInput) {
+            showToast('Form fields not found', 'error');
+            return;
+        }
+        
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
         
         const submitBtn = loginForm.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
@@ -342,14 +369,13 @@ window.onclick = (e) => {
 };
 
 // ============================================
-// FORGOT PASSWORD - UPDATED to redirect to forgot-password.html
+// FORGOT PASSWORD
 // ============================================
 
 const forgotLink = document.getElementById('forgotPasswordLink');
 if (forgotLink) {
     forgotLink.addEventListener('click', (e) => {
         e.preventDefault();
-        // ✅ Redirect to the dedicated forgot password page
         window.location.href = '/forgot-password.html';
     });
 }
@@ -359,13 +385,18 @@ if (forgotLink) {
 // ============================================
 
 (async function checkExistingSession() {
-    const session = await getCurrentSession();
-    if (session) {
-        const localUser = localStorage.getItem('glimu_user');
-        if (localUser) {
-            window.location.href = '/user';
+    try {
+        const session = await getCurrentSession();
+        if (session) {
+            const localUser = localStorage.getItem('glimu_user');
+            if (localUser) {
+                window.location.href = '/user';
+                return;
+            }
         }
+    } catch (error) {
+        console.error('Session check error:', error);
     }
 })();
 
-console.log('✅ Auth page initialized with domain:', 'gliimu.com');
+console.log('✅ Auth page initialized with domain: gliimu.com');
