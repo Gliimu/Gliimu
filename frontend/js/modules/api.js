@@ -179,3 +179,11 @@ export const getNotifications = () => {
 export const markNotificationsRead = () => {
   return apiRequest('/notifications/mark-read', { method: 'POST' });
 };
+
+// Reset password with recovery phrase + DOB verification
+export const resetPassword = (data) => {
+  return apiRequest('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
