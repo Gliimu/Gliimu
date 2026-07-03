@@ -7,6 +7,13 @@
 import { supabase } from './supabase.js';
 
 // ============================================
+// CONSTANTS
+// ============================================
+
+const DOMAIN = 'gliimu.com';
+const TEMP_DOMAIN = `temp.${DOMAIN}`;
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
@@ -67,7 +74,7 @@ async function getUserByUsername(username) {
         
         if (data2) return data2;
         
-        // 3. Check if username is part of email (e.g., joy1194 -> joy1194@temp.glimu.com)
+        // 3. Check if username is part of email
         const { data: data3, error: err3 } = await supabase
             .from('user_profiles')
             .select('email, id, username, name, role')
@@ -165,15 +172,15 @@ export async function signInUser(usernameOrEmail, password) {
         if (userData) {
             email = userData.email;
         } else if (!isEmail) {
-            // Try constructing email
-            const possibleEmail = `${cleanInput}@glimu.com`;
+            // Try constructing email with correct domain
+            const possibleEmail = `${cleanInput}@${DOMAIN}`;
             const emailUser = await getUserByEmail(possibleEmail);
             if (emailUser) {
                 email = possibleEmail;
                 userData = emailUser;
             } else {
-                // Try with @temp.glimu.com
-                const tempEmail = `${cleanInput}@temp.glimu.com`;
+                // Try with @temp.gliimu.com (for old users)
+                const tempEmail = `${cleanInput}@${TEMP_DOMAIN}`;
                 const tempUser = await getUserByEmail(tempEmail);
                 if (tempUser) {
                     email = tempEmail;
@@ -672,6 +679,7 @@ export async function updateUserProfile(updates) {
             return { success: false, error: error.message };
         }
         
+        // Update localStorage
         const storedUser = JSON.parse(localStorage.getItem('glimu_user'));
         if (storedUser && data) {
             const updatedUser = { ...storedUser, ...data };
