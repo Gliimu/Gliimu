@@ -20,12 +20,12 @@
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-tabs">
-                <button class="auth-tab active" data-tab="signup">Join Us</button>
-                <button class="auth-tab" data-tab="signin">Log In</button>
+                <button class="auth-tab" data-tab="signup">Join Us</button>
+                <button class="auth-tab active" data-tab="signin">Log In</button>
             </div>
 
             <!-- Sign Up Form -->
-            <div id="signupForm" class="auth-form active">
+            <div id="signupForm" class="auth-form">
                 <h2>Create Account</h2>
                 <p class="auth-subtitle">Join the Media Architects community</p>
                 
@@ -71,7 +71,6 @@
                             </select>
                         </div>
                     </div>
-                    <!-- ✅ REMOVED: Role selection field -->
                     <div class="form-group">
                         <label for="signupPassword">Password</label>
                         <input type="password" id="signupPassword" required placeholder="At least 8 characters">
@@ -89,8 +88,8 @@
                 </div>
             </div>
 
-            <!-- Log In Form -->
-            <div id="signinForm" class="auth-form">
+            <!-- Log In Form - NOW ACTIVE BY DEFAULT -->
+            <div id="signinForm" class="auth-form active">
                 <h2>Welcome Back</h2>
                 <p class="auth-subtitle">Log In to continue your journey</p>
                 
@@ -107,7 +106,6 @@
                 </form>
                 
                 <div class="auth-footer">
-                    <!-- ✅ UPDATED: Direct link to forgot-password.html -->
                     <a href="/forgot-password.html" class="forgot-password-link" id="forgotPasswordLink">
                         <i class="fas fa-key"></i> Forgot Password?
                     </a>
