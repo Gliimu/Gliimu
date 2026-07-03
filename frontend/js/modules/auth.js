@@ -1,160 +1,160 @@
 // ============================================
-// MODULE: AUTH HELPERS
-// Path: /frontend/js/modules/auth.js
-// Purpose: Reusable auth functions for other modules
+// PAGE: AUTHENTICATION PAGE
+// Path: /frontend/js/pages/auth.js
+// Purpose: Handles signin.html form submissions and UI
 // ============================================
 
-import { supabase, getUserProfile, updateUserProfile } from './supabase.js';
+import { 
+    signInUser, 
+    signUpUser, 
+    signOutUser,
+    getCurrentSession,
+    resetPassword,
+    generateUsername,
+    generateRecoveryPhrase
+} from '../modules/auth.js';
+import { showToast } from '../modules/toast.js';
 
 // ============================================
-// HELPER FUNCTIONS
+// PDF GENERATION
 // ============================================
 
-export function generateUsername(fullName) {
-    const cleanName = fullName.toLowerCase().trim();
-    const nameParts = cleanName.split(' ');
-    let username = nameParts[0];
+function generatePDF(userData) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
     
-    if (nameParts.length > 1) {
-        username += '.' + nameParts.slice(1).join('');
-    }
+    const pageWidth = doc.internal.pageSize.getWidth();
     
-    username = username.replace(/[^a-z0-9.]/g, '');
-    const randomSuffix = Math.floor(Math.random() * 10000);
-    return `${username}${randomSuffix}`;
+    // Header
+    doc.setFillColor(44, 47, 120);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.text('Gliimu Institute', pageWidth / 2, 25, { align: 'center' });
+    
+    // Title
+    doc.setTextColor(44, 47, 120);
+    doc.setFontSize(16);
+    doc.text('Account Credentials', pageWidth / 2, 60, { align: 'center' });
+    
+    doc.setTextColor(200, 0, 0);
+    doc.setFontSize(10);
+    doc.text('⚠️ IMPORTANT: Save this document securely', pageWidth / 2, 75, { align: 'center' });
+    
+    // Credentials
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text('Your Account Details:', 20, 95);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Full Name: ${userData.fullName}`, 20, 110);
+    doc.text(`Username: ${userData.username}`, 20, 120);
+    doc.text(`Password: ${userData.password}`, 20, 130);
+    doc.text(`Recovery Phrase: ${userData.recoveryPhrase}`, 20, 140);
+    doc.text(`Email: ${userData.email}`, 20, 150);
+    
+    doc.setTextColor(0, 128, 0);
+    doc.setFontSize(11);
+    doc.text('✅ Your account is ready to use!', 20, 175);
+    doc.text('📝 You can apply for student/instructor roles from your dashboard.', 20, 188);
+    
+    doc.setTextColor(200, 0, 0);
+    doc.setFontSize(10);
+    doc.text('❗ Keep this recovery phrase safe!', 20, 210);
+    doc.text('❗ You will need it to reset your password if you forget it.', 20, 220);
+    doc.text('❗ This information will not be shown again.', 20, 230);
+    
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(8);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 270);
+    doc.text('© Gliimu Institute of Media Technologies Ltd.', pageWidth / 2, 280, { align: 'center' });
+    
+    doc.save(`Gliimu_Credentials_${userData.username}.pdf`);
 }
 
-export function generateRecoveryPhrase() {
-    const words = [
-        'blue', 'ocean', 'golden', 'sunset', 'brave', 'tiger', 'swift', 'eagle',
-        'calm', 'river', 'mountain', 'forest', 'storm', 'thunder', 'peace', 'light',
-        'shadow', 'dream', 'wonder', 'magic', 'silent', 'wisdom', 'courage', 'honor'
-    ];
+// ============================================
+// SHOW CREDENTIALS MODAL
+// ============================================
+
+function showCredentialsModal(userData) {
+    document.getElementById('displayUsername').textContent = userData.username;
+    document.getElementById('displayRecoveryPhrase').textContent = userData.recoveryPhrase;
+    document.getElementById('displayPassword').textContent = userData.password;
     
-    const phrase = [];
-    for (let i = 0; i < 6; i++) {
-        const randomIndex = Math.floor(Math.random() * words.length);
-        phrase.push(words[randomIndex]);
+    const modalTitle = document.querySelector('.modal-header h2');
+    if (modalTitle) {
+        modalTitle.textContent = '✅ Account Created Successfully!';
     }
-    return phrase.join('-');
+    
+    // Update next steps
+    const nextSteps = document.querySelector('.next-steps ol');
+    if (nextSteps) {
+        nextSteps.innerHTML = `
+            <li>Download and save your credentials PDF</li>
+            <li>Use your username and password to Log In</li>
+            <li>Apply for student/instructor roles from your dashboard</li>
+            <li>You'll be redirected to your dashboard</li>
+        `;
+    }
+    
+    window.currentCredentials = userData;
+    
+    const modal = document.getElementById('pdfModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePdfModal() {
+    const modal = document.getElementById('pdfModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
 }
 
 // ============================================
-// AUTH FUNCTIONS - Using user_profiles
+// SIGN UP HANDLER
 // ============================================
 
-export async function signInUser(usernameOrEmail, password) {
+async function handleSignUp(fullName, birthDay, birthMonth, password, confirmPassword) {
+    if (!fullName || !birthDay || !birthMonth || !password) {
+        return { success: false, error: 'Please fill in all fields' };
+    }
+    
+    if (password !== confirmPassword) {
+        return { success: false, error: 'Passwords do not match' };
+    }
+    
+    if (password.length < 8) {
+        return { success: false, error: 'Password must be at least 8 characters' };
+    }
+    
     try {
-        let email = usernameOrEmail;
-        let isEmail = usernameOrEmail.includes('@');
+        const username = generateUsername(fullName);
+        const recoveryPhrase = generateRecoveryPhrase();
+        const email = `${username}@glimu.com`;
         
-        // If username, get email from user_profiles table
-        if (!isEmail) {
-            const { data, error } = await supabase
-                .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-                .select('email')
-                .eq('username', usernameOrEmail)
-                .single();
-            
-            if (error) {
-                return { success: false, error: 'User not found' };
-            }
-            email = data.email;
-        }
-        
-        // Sign in with Supabase Auth
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
+        // Create user with role 'user'
+        const result = await signUpUser(email, password, {
+            name: fullName,
+            username: username,
+            birthDay: parseInt(birthDay),
+            birthMonth: parseInt(birthMonth)
         });
         
-        if (error) {
-            console.error('Sign in error:', error);
-            return { success: false, error: 'Invalid credentials' };
+        if (!result.success) {
+            return { success: false, error: result.error };
         }
         
-        // ✅ Get user profile from CLEAN table
-        const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-        
-        if (profileError) {
-            console.error('Profile fetch error:', profileError);
-            return { success: false, error: 'User profile not found' };
-        }
-        
-        const user = {
-            id: data.user.id,
-            name: profile.name,
-            email: profile.email,
-            username: profile.username,
-            role: profile.role || 'user',
-            plan: profile.plan || 'basic',
-            walletBalance: profile.wallet_balance || 25000,
-            gpPoints: profile.gp_points || 0,
-            address: profile.address || '',
-            applicationStatus: profile.application_status || 'none',
-            appliedRole: profile.applied_role || null,
-            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
-        };
-        
-        localStorage.setItem('glimu_user', JSON.stringify(user));
-        return { success: true, user, role: user.role };
-        
-    } catch (error) {
-        console.error('Sign in error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function signUpUser(email, password, userData) {
-    try {
-        // ✅ Only create the auth user - the trigger will handle the profile
-        const { data, error } = await supabase.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-                data: {
-                    name: userData.name,
-                    username: userData.username,
-                    role: 'user'
-                }
-            }
+        // Show credentials modal
+        showCredentialsModal({
+            fullName,
+            username,
+            password,
+            recoveryPhrase,
+            email
         });
         
-        if (error) {
-            console.error('Sign up error:', error);
-            return { success: false, error: error.message };
-        }
-        
-        // ✅ Insert directly into user_profiles as backup
-        if (data.user) {
-            const { error: insertError } = await supabase
-                .from('user_profiles')
-                .insert([{
-                    id: data.user.id,
-                    name: userData.name,
-                    username: userData.username,
-                    email: email,
-                    role: 'user',
-                    wallet_balance: 25000,
-                    gp_points: 0,
-                    status: 'active',
-                    plan: 'basic',
-                    application_status: 'none',
-                    birth_day: userData.birthDay || null,
-                    birth_month: userData.birthMonth || null,
-                    referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-                }]);
-
-            if (insertError && insertError.code !== '23505') {
-                console.warn('Profile creation warning:', insertError);
-            }
-        }
-        
-        return { success: true, user: data.user };
+        return { success: true };
         
     } catch (error) {
         console.error('Sign up error:', error);
@@ -162,354 +162,190 @@ export async function signUpUser(email, password, userData) {
     }
 }
 
-export async function signOutUser() {
-    try {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-        
-        localStorage.removeItem('glimu_user');
-        sessionStorage.clear();
-        return { success: true };
-    } catch (error) {
-        console.error('Sign out error:', error);
-        return { success: false, error: error.message };
-    }
-}
+// ============================================
+// SIGN IN HANDLER
+// ============================================
 
-export async function getCurrentSession() {
-    try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        return session;
-    } catch (error) {
-        console.error('Session error:', error);
-        return null;
+async function handleSignIn(usernameOrEmail, password) {
+    if (!usernameOrEmail || !password) {
+        return { success: false, error: 'Please enter both username and password' };
     }
-}
-
-export async function getCurrentUser() {
+    
     try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        return user;
+        const result = await signInUser(usernameOrEmail, password);
+        return result;
     } catch (error) {
-        console.error('Get user error:', error);
-        return null;
-    }
-}
-
-export async function resetPassword(email) {
-    try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin + '/reset-password.html',
-        });
-        
-        if (error) throw error;
-        return { success: true };
-    } catch (error) {
-        console.error('Reset password error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function updateUserPassword(newPassword) {
-    try {
-        const { error } = await supabase.auth.updateUser({ 
-            password: newPassword 
-        });
-        
-        if (error) throw error;
-        return { success: true };
-    } catch (error) {
-        console.error('Update password error:', error);
+        console.error('Sign in error:', error);
         return { success: false, error: error.message };
     }
 }
 
 // ============================================
-// APPLICATION FUNCTIONS - Using user_profiles
+// FORM HANDLERS
 // ============================================
 
-export async function submitRoleApplication(role, additionalData = {}) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'User not authenticated' };
-        }
+// Tab switching
+document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const tabId = tab.getAttribute('data-tab');
+        
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
+        document.getElementById(`${tabId}Form`).classList.add('active');
+    });
+});
 
-        // ✅ Get user profile from CLEAN table
-        const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .select('*')
-            .eq('id', user.id)
-            .single();
-        
-        if (profileError) {
-            return { success: false, error: 'User profile not found' };
-        }
+// ============================================
+// SIGN IN FORM
+// ============================================
 
-        // Check if already applied
-        if (profile.application_status === 'pending') {
-            return { success: false, error: 'You already have a pending application' };
+const loginForm = document.getElementById('loginForm');
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+        submitBtn.disabled = true;
+        
+        const result = await handleSignIn(username, password);
+        
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+        
+        if (result.success) {
+            showToast(`Welcome, ${result.user.name}!`, 'success');
+            setTimeout(() => {
+                window.location.href = '/user';
+            }, 1000);
+        } else {
+            showToast(result.error || 'Invalid username or password', 'error');
         }
-
-        const applicationId = `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        const application = {
-            id: applicationId,
-            user_id: user.id,
-            full_name: profile.name,
-            email: profile.email,
-            username: profile.username,
-            role: role,
-            birth_day: profile.birth_day || null,
-            birth_month: profile.birth_month || null,
-            status: 'pending',
-            submitted_at: new Date().toISOString(),
-            ...additionalData
-        };
-        
-        const { error: insertError } = await supabase
-            .from('applications')
-            .insert([application]);
-        
-        if (insertError) throw insertError;
-        
-        // ✅ Update user_profiles (not users!)
-        const { error: updateError } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .update({ 
-                application_status: 'pending',
-                applied_role: role
-            })
-            .eq('id', user.id);
-        
-        if (updateError) throw updateError;
-        
-        return { success: true, applicationId };
-        
-    } catch (error) {
-        console.error('Application submission error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getUserApplications() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) return [];
-        
-        const { data, error } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('submitted_at', { ascending: false });
-        
-        if (error) {
-            console.error('Error fetching applications:', error);
-            return [];
-        }
-        return data;
-    } catch (error) {
-        console.error('Applications fetch error:', error);
-        return [];
-    }
-}
-
-export async function getPendingApplications() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) return [];
-        
-        // ✅ Get profile from user_profiles
-        const { data: profile } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .select('role')
-            .eq('id', user.id)
-            .single();
-        
-        if (profile?.role !== 'admin') {
-            return { success: false, error: 'Unauthorized' };
-        }
-        
-        const { data, error } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('status', 'pending')
-            .order('submitted_at', { ascending: true });
-        
-        if (error) {
-            console.error('Error fetching pending applications:', error);
-            return [];
-        }
-        return data;
-    } catch (error) {
-        console.error('Pending applications fetch error:', error);
-        return [];
-    }
-}
-
-export async function approveApplication(applicationId, adminNotes = '') {
-    try {
-        const user = await getCurrentUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
-        
-        // ✅ Get profile from user_profiles
-        const { data: profile } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .select('role')
-            .eq('id', user.id)
-            .single();
-        
-        if (profile?.role !== 'admin') {
-            return { success: false, error: 'Unauthorized' };
-        }
-        
-        // Get application details
-        const { data: application, error: appError } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('id', applicationId)
-            .single();
-        
-        if (appError || !application) {
-            return { success: false, error: 'Application not found' };
-        }
-        
-        // Update application status
-        const { error: updateAppError } = await supabase
-            .from('applications')
-            .update({ 
-                status: 'approved', 
-                approved_at: new Date().toISOString(),
-                admin_notes: adminNotes
-            })
-            .eq('id', applicationId);
-        
-        if (updateAppError) throw updateAppError;
-        
-        // ✅ Update user_profiles (not users!)
-        const { error: updateUserError } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .update({ 
-                role: application.role,
-                application_status: 'approved'
-            })
-            .eq('id', application.user_id);
-        
-        if (updateUserError) throw updateUserError;
-        
-        return { success: true };
-    } catch (error) {
-        console.error('Application approval error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function rejectApplication(applicationId, adminNotes = '') {
-    try {
-        const user = await getCurrentUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
-        
-        // ✅ Get profile from user_profiles
-        const { data: profile } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .select('role')
-            .eq('id', user.id)
-            .single();
-        
-        if (profile?.role !== 'admin') {
-            return { success: false, error: 'Unauthorized' };
-        }
-        
-        // Update application status
-        const { error: updateAppError } = await supabase
-            .from('applications')
-            .update({ 
-                status: 'rejected', 
-                rejected_at: new Date().toISOString(),
-                admin_notes: adminNotes
-            })
-            .eq('id', applicationId);
-        
-        if (updateAppError) throw updateAppError;
-        
-        // ✅ Update user_profiles (not users!)
-        const { data: appData } = await supabase
-            .from('applications')
-            .select('user_id')
-            .eq('id', applicationId)
-            .single();
-        
-        if (appData) {
-            const { error: updateUserError } = await supabase
-                .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-                .update({ 
-                    application_status: 'rejected'
-                })
-                .eq('id', appData.user_id);
-            
-            if (updateUserError) throw updateUserError;
-        }
-        
-        return { success: true };
-    } catch (error) {
-        console.error('Application rejection error:', error);
-        return { success: false, error: error.message };
-    }
+    });
 }
 
 // ============================================
-// USER PROFILE FUNCTIONS - Using user_profiles
+// SIGN UP FORM
 // ============================================
 
-export async function getUserProfile(userId = null) {
-    try {
-        if (!userId) {
-            const user = await getCurrentUser();
-            if (!user) return null;
-            userId = user.id;
-        }
+const registerForm = document.getElementById('registerForm');
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        // ✅ Query CLEAN user_profiles table
-        const { data, error } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .select('*')
-            .eq('id', userId)
-            .single();
+        const fullName = document.getElementById('signupName').value.trim();
+        const birthDay = document.getElementById('signupBirthDay').value;
+        const birthMonth = document.getElementById('signupBirthMonth').value;
+        const password = document.getElementById('signupPassword').value;
+        const confirmPassword = document.getElementById('signupConfirmPassword').value;
         
-        if (error) {
-            console.error('Error fetching user profile:', error);
-            return null;
+        const submitBtn = registerForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
+        submitBtn.disabled = true;
+        
+        const result = await handleSignUp(fullName, birthDay, birthMonth, password, confirmPassword);
+        
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+        
+        if (result.success) {
+            showToast('Account created successfully!', 'success');
+        } else {
+            showToast(result.error || 'Failed to create account', 'error');
         }
-        return data;
-    } catch (error) {
-        console.error('Profile fetch error:', error);
-        return null;
-    }
+    });
 }
 
-export async function updateUserProfile(updates) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) return { success: false, error: 'No user logged in' };
-        
-        // ✅ Update CLEAN user_profiles table
-        const { data, error } = await supabase
-            .from('user_profiles')  // ← Changed from 'users' to 'user_profiles'
-            .update(updates)
-            .eq('id', user.id)
-            .select()
-            .single();
-        
-        if (error) {
-            console.error('Error updating user profile:', error);
-            return { success: false, error: error.message };
+// ============================================
+// PDF DOWNLOAD
+// ============================================
+
+const downloadBtn = document.getElementById('downloadPdfBtn');
+if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+        if (window.currentCredentials) {
+            generatePDF(window.currentCredentials);
+            showToast('PDF downloaded! Save it somewhere safe.', 'success');
         }
-        
-        return { success: true, data };
-    } catch (error) {
-        console.error('Profile update error:', error);
-        return { success: false, error: error.message };
-    }
+    });
 }
+
+// ============================================
+// GO TO DASHBOARD
+// ============================================
+
+const goToDashboardBtn = document.getElementById('goToDashboardBtn');
+if (goToDashboardBtn) {
+    goToDashboardBtn.addEventListener('click', async () => {
+        const creds = window.currentCredentials;
+        if (creds) {
+            const result = await handleSignIn(creds.username, creds.password);
+            if (result.success) {
+                window.location.href = '/user';
+            } else {
+                window.location.href = '/signin.html';
+            }
+        } else {
+            window.location.href = '/signin.html';
+        }
+    });
+}
+
+// ============================================
+// MODAL CONTROLS
+// ============================================
+
+const closeModalBtn = document.getElementById('closePdfModal');
+if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', closePdfModal);
+}
+
+window.onclick = (e) => {
+    const modal = document.getElementById('pdfModal');
+    if (e.target === modal) {
+        closePdfModal();
+    }
+};
+
+// ============================================
+// FORGOT PASSWORD
+// ============================================
+
+const forgotLink = document.getElementById('forgotPasswordLink');
+if (forgotLink) {
+    forgotLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = prompt('Please enter your email address to reset your password:');
+        if (email) {
+            const result = await resetPassword(email);
+            if (result.success) {
+                showToast('Password reset email sent! Check your inbox.', 'success');
+            } else {
+                showToast(result.error || 'Failed to send reset email', 'error');
+            }
+        }
+    });
+}
+
+// ============================================
+// AUTO-REDIRECT IF ALREADY LOGGED IN
+// ============================================
+
+(async function checkExistingSession() {
+    const session = await getCurrentSession();
+    if (session) {
+        const localUser = localStorage.getItem('glimu_user');
+        if (localUser) {
+            window.location.href = '/user';
+        }
+    }
+})();
+
+console.log('✅ Auth page initialized');
