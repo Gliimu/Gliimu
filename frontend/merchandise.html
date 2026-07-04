@@ -25,7 +25,7 @@
 <body>
 
     <!-- ============================================================ -->
-    <!-- STICKY NAVIGATION BUTTON                                      -->
+    <!-- STICKY NAVIGATION BUTTON - TOP RIGHT, FIXED ON SCROLL        -->
     <!-- ============================================================ -->
     <div class="sticky-nav" id="stickyNav">
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
@@ -106,7 +106,7 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- CATEGORY NAVIGATION                                           -->
+    <!-- CATEGORY NAVIGATION - STICKY ON SCROLL                       -->
     <!-- ============================================================ -->
     <section class="merch-categories" id="shop">
         <div class="container">
@@ -262,7 +262,7 @@
     <div class="cart-overlay" id="cartOverlay"></div>
 
     <!-- ============================================================ -->
-    <!-- PRODUCT DETAIL MODAL                                          -->
+    <!-- PRODUCT DETAIL MODAL - HIDDEN BY DEFAULT                     -->
     <!-- ============================================================ -->
     <div class="modal" id="productModal" style="display: none;">
         <div class="modal-content product-modal">
@@ -272,7 +272,7 @@
             </div>
             <div class="modal-body">
                 <div class="product-detail">
-                    <div class="product-detail-image" id="productDetailImage">
+                    <div class="product-detail-image">
                         <img id="productModalImg" src="" alt="Product" />
                     </div>
                     <div class="product-detail-info">
@@ -290,20 +290,20 @@
                             <div class="option-group" id="sizeGroup">
                                 <label>Size</label>
                                 <div class="size-options" id="sizeOptions">
-                                    <button class="size-btn active">S</button>
-                                    <button class="size-btn">M</button>
-                                    <button class="size-btn">L</button>
-                                    <button class="size-btn">XL</button>
-                                    <button class="size-btn">XXL</button>
+                                    <button class="size-btn active" data-size="S">S</button>
+                                    <button class="size-btn" data-size="M">M</button>
+                                    <button class="size-btn" data-size="L">L</button>
+                                    <button class="size-btn" data-size="XL">XL</button>
+                                    <button class="size-btn" data-size="XXL">XXL</button>
                                 </div>
                             </div>
                             <div class="option-group" id="colorGroup">
                                 <label>Color</label>
                                 <div class="color-options" id="colorOptions">
-                                    <button class="color-btn active" style="background: #000; border-color: #000;"></button>
-                                    <button class="color-btn" style="background: #fff; border-color: #ccc;"></button>
-                                    <button class="color-btn" style="background: #2c2f78; border-color: #2c2f78;"></button>
-                                    <button class="color-btn" style="background: #fbb040; border-color: #fbb040;"></button>
+                                    <button class="color-btn active" style="background: #000;" data-color="#000"></button>
+                                    <button class="color-btn" style="background: #fff;" data-color="#fff"></button>
+                                    <button class="color-btn" style="background: #2c2f78;" data-color="#2c2f78"></button>
+                                    <button class="color-btn" style="background: #fbb040;" data-color="#fbb040"></button>
                                 </div>
                             </div>
                         </div>
