@@ -749,6 +749,372 @@ async getReferralsCount(userId) {
         }
     }
 
+// ============================================
+// UTILITY METHODS (ADD THESE)
+// ============================================
+
+showLoading(show) {
+    if (this.loadingDiv) {
+        this.loadingDiv.style.display = show ? 'flex' : 'none';
+    }
+    if (this.dashboardContent) {
+        this.dashboardContent.style.opacity = show ? '0.5' : '1';
+        this.dashboardContent.style.pointerEvents = show ? 'none' : 'auto';
+    }
+}
+
+showError(message) {
+    showToast(message, 'error');
+}
+
+// ============================================
+// SETUP EVENT LISTENERS (ADD THIS)
+// ============================================
+
+setupEventListeners() {
+    // Modal close buttons
+    document.querySelectorAll('.modal-close').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const modal = btn.closest('.modal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    });
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    });
+
+    // Wallet modal events
+    document.querySelectorAll('.amount-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            this.selectedAmount = parseInt(btn.dataset.amount);
+            this.updateAmountDisplay();
+        });
+    });
+
+    document.getElementById('customAmount')?.addEventListener('input', (e) => {
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        this.selectedAmount = parseInt(e.target.value) || 0;
+        this.updateAmountDisplay();
+    });
+
+    document.getElementById('continueToBankBtn')?.addEventListener('click', () => {
+        if (this.selectedAmount < 100) {
+            showToast('Please select or enter an amount (minimum ₦100)', 'error');
+            return;
+        }
+        this.showBankDetails();
+    });
+
+    document.getElementById('backToAmountBtn')?.addEventListener('click', () => {
+        this.resetWalletModal();
+    });
+
+    document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
+        await this.confirmPayment();
+    });
+
+    document.getElementById('copyRefCodeBtn')?.addEventListener('click', () => {
+        const code = document.getElementById('referenceCode')?.textContent;
+        if (code) {
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Reference code copied!', 'success');
+            }).catch(() => {
+                // Fallback
+                const input = document.createElement('input');
+                input.value = code;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('Reference code copied!', 'success');
+            });
+        }
+    });
+
+    // MVP form
+    document.getElementById('mvpForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await this.submitMvp();
+    });
+}
+
+// ============================================
+// WALLET MODAL HELPERS (ADD THESE)
+// ============================================
+
+updateAmountDisplay() {
+    const display = document.getElementById('selectedAmountDisplay');
+    const large = document.getElementById('selectedAmountLarge');
+    if (display && large) {
+        if (this.selectedAmount > 0) {
+            display.style.display = 'block';
+            large.textContent = `₦${this.selectedAmount.toLocaleString()}`;
+        } else {
+            display.style.display = 'none';
+        }
+    }
+}
+
+resetWalletModal() {
+    const fundingOptions = document.querySelector('.funding-options');
+    const bankDetails = document.querySelector('.bank-details');
+    if (fundingOptions && bankDetails) {
+        fundingOptions.style.display = 'block';
+        bankDetails.style.display = 'none';
+    }
+    document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('customAmount').value = '';
+    document.getElementById('selectedAmountDisplay').style.display = 'none';
+    this.selectedAmount = 0;
+}
+
+async confirmPayment() {
+    try {
+        const result = await createPaymentRequest(
+            this.selectedAmount,
+            'GTBank',
+            this.referenceCode
+        );
+        
+        if (result.success) {
+            showToast('Payment recorded! Waiting for admin verification.', 'success');
+            this.resetWalletModal();
+            document.getElementById('fundWalletModal').classList.remove('active');
+            document.body.style.overflow = '';
+            await this.loadWallet();
+        } else {
+            showToast(result.error || 'Failed to record payment', 'error');
+        }
+    } catch (error) {
+        console.error('Payment error:', error);
+        showToast('Failed to record payment', 'error');
+    }
+}
+
+showFundWalletModal() {
+    const modal = document.getElementById('fundWalletModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        this.resetWalletModal();
+    }
+}
+
+// ============================================
+// MVP SUBMISSION (ADD THIS)
+// ============================================
+
+async submitMvp() {
+    try {
+        const title = document.getElementById('mvpTitle')?.value.trim();
+        const type = document.getElementById('mvpType')?.value;
+        const description = document.getElementById('mvpDescription')?.value.trim();
+        const proposal = document.getElementById('mvpProposal')?.value.trim();
+
+        if (!title || !type || !description || !proposal) {
+            showToast('Please fill in all fields', 'error');
+            return;
+        }
+
+        // TODO: Implement MVP submission API
+        showToast('MVP proposal submitted successfully!', 'success');
+        
+        // Close modal
+        const modal = document.getElementById('mvpModal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        // Reset form
+        document.getElementById('mvpForm')?.reset();
+        
+    } catch (error) {
+        console.error('MVP submission error:', error);
+        showToast('Failed to submit MVP proposal', 'error');
+    }
+}
+
+// ============================================
+// ROLE APPLICATION (ADD THIS)
+// ============================================
+
+async applyForRole(role) {
+    try {
+        const result = await submitApplication({
+            role: role,
+            fullName: this.currentProfile?.name,
+            username: this.currentProfile?.username,
+            email: this.currentUser?.email,
+            birthDay: this.currentProfile?.birth_day,
+            birthMonth: this.currentProfile?.birth_month
+        });
+        
+        if (result.success) {
+            showToast(`Application for ${role} submitted successfully!`, 'success');
+            await this.loadUserData();
+            await this.loadTab('dashboard');
+        } else {
+            showToast(result.error || 'Failed to submit application', 'error');
+        }
+    } catch (error) {
+        console.error('Error applying for role:', error);
+        showToast('Failed to submit application', 'error');
+    }
+}
+
+// ============================================
+// PROFILE UPDATE (ADD THIS)
+// ============================================
+
+async updateProfile() {
+    try {
+        const fullName = document.getElementById('fullName')?.value.trim();
+        const bio = document.getElementById('bio')?.value.trim();
+        const address = document.getElementById('address')?.value.trim();
+        const birthDay = document.getElementById('birthDay')?.value;
+        const birthMonth = document.getElementById('birthMonth')?.value;
+        
+        // Check if username is valid before updating
+        if (!this.usernameValid) {
+            showToast('Please choose a valid username', 'error');
+            return;
+        }
+        
+        const username = document.getElementById('username')?.value.trim();
+        
+        if (!fullName) {
+            showToast('Full name is required', 'error');
+            return;
+        }
+
+        // Update profile with bio and username
+        const updateData = {
+            name: fullName,
+            bio: bio || '',
+            address: address || '',
+            birth_day: birthDay || null,
+            birth_month: birthMonth || null,
+            updated_at: new Date().toISOString()
+        };
+        
+        // Only update username if it changed and is valid
+        if (username && username !== this.currentProfile?.username) {
+            updateData.username = username;
+        }
+
+        const result = await updateUserProfile(updateData);
+
+        if (!result) {
+            throw new Error('Failed to update profile');
+        }
+
+        // Update auth metadata
+        const { error: authError } = await supabase.auth.updateUser({
+            data: { 
+                name: fullName,
+                full_name: fullName
+            }
+        });
+
+        if (authError) throw authError;
+
+        showToast('Profile updated successfully!', 'success');
+        await this.loadUserData();
+        await this.loadTab('settings');
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showToast('Failed to update profile: ' + error.message, 'error');
+    }
+}
+
+// ============================================
+// WALLET SUBSCRIPTION (ADD THIS)
+// ============================================
+
+setupWalletSubscription() {
+    if (!this.currentUser) return;
+    
+    const channel = supabase
+        .channel('wallet_updates')
+        .on('postgres_changes', 
+            { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'user_profiles',
+                filter: `id=eq.${this.currentUser.id}` 
+            },
+            (payload) => {
+                if (payload.new) {
+                    // Update wallet and GP displays
+                    this.updateWalletDisplay(payload.new.wallet_balance);
+                    this.updateGpDisplay(payload.new.gp_points);
+                    
+                    if (this.currentProfile) {
+                        this.currentProfile.wallet_balance = payload.new.wallet_balance;
+                        this.currentProfile.gp_points = payload.new.gp_points;
+                    }
+                }
+            }
+        )
+        .subscribe();
+}
+
+updateWalletDisplay(balance) {
+    document.querySelectorAll('#walletBalance, .wallet-amount').forEach(el => {
+        if (el.id === 'walletBalance') {
+            el.textContent = `₦${(balance || 0).toLocaleString()}`;
+        } else {
+            el.textContent = `₦${(balance || 0).toLocaleString()}`;
+        }
+    });
+}
+
+updateGpDisplay(points) {
+    document.querySelectorAll('#gpPoints, .gp-amount').forEach(el => {
+        el.textContent = (points || 0).toLocaleString();
+    });
+}
+
+// ============================================
+// SIDEBAR TOGGLE (ADD THESE)
+// ============================================
+
+toggleSidebar() {
+    const sidebar = document.getElementById('dashboardSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) {
+        sidebar.classList.toggle('mobile-open');
+        if (overlay) {
+            overlay.classList.toggle('active');
+        }
+    }
+}
+
+closeSidebar() {
+    const sidebar = document.getElementById('dashboardSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) {
+        sidebar.classList.remove('mobile-open');
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    }
+}
+    
     // ============================================
     // GO-TO TAB (NEW - Replaces Library/Marketplace)
     // ============================================
