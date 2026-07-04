@@ -28,7 +28,7 @@ import {
 import { showToast } from '../modules/toast.js';
 
 // ================================================================
-// NAVIGATION FUNCTIONS
+// NAVIGATION FUNCTIONS - Expose to window
 // ================================================================
 
 // Close nav when clicking outside
@@ -223,11 +223,14 @@ const dom = {
     emptyState: $('#hubEmptyState'),
     contentCount: $('#contentCount'),
     liveCount: $('#liveCount'),
+    navToggle: $('#navToggle'),
+    navDropdown: $('#navDropdown'),
     
     // Modals
     promotionModal: $('#promotionModal'),
     detailModal: $('#contentDetailModal'),
     createModal: $('#createContentModal'),
+    shareModal: $('#shareModal'),
     
     // Promotion
     ambassadorBanner: $('#ambassadorPromoBanner'),
@@ -261,16 +264,30 @@ const dom = {
     createForm: $('#createContentForm'),
     emptyCreateBtn: $('#emptyCreateBtn'),
     createContentBtn: $('#createContentBtn'),
-    closeCreateModal: $('#closeCreateModal')
+    closeCreateModal: $('#closeCreateModal'),
+    
+    // Share
+    shareCode: $('#shareCode'),
+    shareReferralLink: $('#shareReferralLink'),
+    
+    // Stats
+    totalCreators: $('#totalCreators'),
+    totalContent: $('#totalContent'),
+    totalStars: $('#totalStars')
 };
 
 // ================================================================
 // INIT
 // ================================================================
-export async function init() {
+async function init() {
     console.log('🚀 Hub initializing...');
     
     try {
+        // Setup nav toggle
+        if (dom.navToggle) {
+            dom.navToggle.addEventListener('click', toggleNav);
+        }
+        
         // Check auth
         const user = await getCurrentUser();
         if (user) {
@@ -299,6 +316,11 @@ export async function init() {
         // Update stats
         updateStats();
         
+        // Make sure share modal is hidden
+        if (dom.shareModal) {
+            dom.shareModal.classList.remove('active');
+        }
+        
         console.log('✅ Hub initialized');
     } catch (error) {
         console.error('❌ Hub init error:', error);
@@ -309,7 +331,7 @@ export async function init() {
 // ================================================================
 // CONTENT LOADING
 // ================================================================
-export async function loadContent(reset = true) {
+async function loadContent(reset = true) {
     if (state.isLoading) return;
     state.isLoading = true;
 
@@ -353,7 +375,7 @@ export async function loadContent(reset = true) {
     }
 }
 
-export async function loadTrending() {
+async function loadTrending() {
     try {
         const { data, error } = await supabase
             .from('hub_content')
@@ -369,7 +391,7 @@ export async function loadTrending() {
     }
 }
 
-export async function loadPromoted() {
+async function loadPromoted() {
     try {
         const { data, error } = await supabase
             .from('hub_content')
@@ -387,15 +409,13 @@ export async function loadPromoted() {
 // ================================================================
 // USER INTERACTIONS
 // ================================================================
-export async function loadUserInteractions() {
+async function loadUserInteractions() {
     if (!state.currentUser) return;
     
     try {
-        // Saved content
         const saved = await getUserSavedContent(state.currentUser.id);
         saved.forEach(item => state.savedItems.add(item.content_id));
         
-        // Hearted content
         const hearted = await getUserHeartedContent(state.currentUser.id);
         hearted.forEach(item => state.heartedItems.add(item.content_id));
     } catch (error) {
@@ -406,10 +426,9 @@ export async function loadUserInteractions() {
 // ================================================================
 // FILTERING & SEARCH
 // ================================================================
-export function applyFilters() {
+function applyFilters() {
     let filtered = [...state.content];
 
-    // Apply category filter
     if (state.currentFilter !== 'all') {
         if (state.currentFilter === 'promoted') {
             filtered = filtered.filter(item => item.is_promoted);
@@ -418,7 +437,6 @@ export function applyFilters() {
         }
     }
 
-    // Apply search
     if (state.searchQuery.trim()) {
         const query = state.searchQuery.toLowerCase().trim();
         filtered = filtered.filter(item =>
@@ -434,19 +452,19 @@ export function applyFilters() {
     updateEmptyState(filtered.length === 0);
 }
 
-export function updateEmptyState(isEmpty) {
+function updateEmptyState(isEmpty) {
     dom.emptyState.style.display = isEmpty ? 'block' : 'none';
     dom.loadMoreBtn.style.display = state.hasMore && !isEmpty ? 'inline-flex' : 'none';
 }
 
-export function updateContentCount() {
+function updateContentCount() {
     dom.contentCount.textContent = `${state.filteredContent.length} items found`;
 }
 
 // ================================================================
 // RENDERING
 // ================================================================
-export function renderContent(items) {
+function renderContent(items) {
     if (!dom.contentGrid) return;
 
     if (!items || items.length === 0) {
@@ -493,7 +511,6 @@ export function renderContent(items) {
         `;
     }).join('');
 
-    // Add click listeners
     dom.contentGrid.querySelectorAll('.content-card').forEach(card => {
         card.addEventListener('click', () => {
             const id = card.dataset.id;
@@ -502,7 +519,7 @@ export function renderContent(items) {
     });
 }
 
-export function renderFeatured(items) {
+function renderFeatured(items) {
     if (!dom.featuredScroll) return;
 
     if (!items || items.length === 0) {
@@ -534,7 +551,6 @@ export function renderFeatured(items) {
         </div>
     `).join('');
 
-    // Add click listeners
     dom.featuredScroll.querySelectorAll('.featured-card').forEach(card => {
         card.addEventListener('click', () => {
             const id = card.dataset.id;
@@ -543,7 +559,7 @@ export function renderFeatured(items) {
     });
 }
 
-export function renderPromotionOptions() {
+function renderPromotionOptions() {
     if (!dom.promotionOptions) return;
 
     dom.promotionOptions.innerHTML = state.promotionOptions.map(opt => `
@@ -561,7 +577,6 @@ export function renderPromotionOptions() {
         </div>
     `).join('');
 
-    // Add listeners
     dom.promotionOptions.querySelectorAll('.promo-select-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -581,7 +596,7 @@ export function renderPromotionOptions() {
     });
 }
 
-export function getTypeIcon(type) {
+function getTypeIcon(type) {
     const icons = {
         book: 'fa-book',
         talk: 'fa-video',
@@ -596,7 +611,7 @@ export function getTypeIcon(type) {
 // ================================================================
 // STAR & AMBASSADOR SYSTEM
 // ================================================================
-export async function loadStarBalance() {
+async function loadStarBalance() {
     try {
         const balance = await getStarBalance(state.currentUser?.id);
         state.starBalance = balance || 0;
@@ -606,13 +621,13 @@ export async function loadStarBalance() {
     }
 }
 
-export function updateStarDisplay() {
+function updateStarDisplay() {
     if (dom.availableStarsDisplay) {
         dom.availableStarsDisplay.textContent = `⭐ ${state.starBalance}`;
     }
 }
 
-export async function checkAmbassadorStatus(profile) {
+async function checkAmbassadorStatus(profile) {
     if (!profile) return;
     
     const isAmbassador = profile.progress >= 100 && profile.stars_earned >= 5;
@@ -627,7 +642,7 @@ export async function checkAmbassadorStatus(profile) {
 // ================================================================
 // PROMOTION SYSTEM
 // ================================================================
-export async function handlePromotion(contentId, type) {
+async function handlePromotion(contentId, type) {
     const option = state.promotionOptions.find(o => o.id === type);
     if (!option) return;
     
@@ -662,7 +677,7 @@ export async function handlePromotion(contentId, type) {
 // ================================================================
 // CONTENT DETAIL
 // ================================================================
-export async function openContentDetail(contentId) {
+async function openContentDetail(contentId) {
     try {
         const { data, error } = await supabase
             .from('hub_content')
@@ -686,22 +701,18 @@ export async function openContentDetail(contentId) {
         dom.detailDescription.textContent = data.description || 'No description available.';
         dom.heartCount.textContent = data.hearts || 0;
 
-        // Update heart button
         const isHearted = state.heartedItems.has(data.id);
         dom.detailHeartBtn.innerHTML = isHearted ?
             '<i class="fas fa-heart" style="color: #ef4444;"></i> <span id="heartCount">' + (data.hearts || 0) + '</span>' :
             '<i class="far fa-heart"></i> <span id="heartCount">' + (data.hearts || 0) + '</span>';
 
-        // Update save button
         const isSaved = state.savedItems.has(data.id);
         dom.detailSaveBtn.innerHTML = isSaved ? 
             '<i class="fas fa-bookmark"></i> Saved' : 
             '<i class="far fa-bookmark"></i> Save';
 
-        // Load comments
         await loadComments(contentId);
 
-        // Show modal
         dom.detailModal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
@@ -711,7 +722,7 @@ export async function openContentDetail(contentId) {
     }
 }
 
-export async function loadComments(contentId) {
+async function loadComments(contentId) {
     try {
         const { data, error } = await supabase
             .from('hub_comments')
@@ -749,7 +760,7 @@ export async function loadComments(contentId) {
 // ================================================================
 // INTERACTIONS
 // ================================================================
-export async function handleHeart() {
+async function handleHeart() {
     if (!state.currentUser) {
         showToast('Sign in to heart content', 'warning');
         return;
@@ -775,7 +786,7 @@ export async function handleHeart() {
     }
 }
 
-export async function handleSave() {
+async function handleSave() {
     if (!state.currentUser) {
         showToast('Sign in to save content', 'warning');
         return;
@@ -810,7 +821,7 @@ export async function handleSave() {
     }
 }
 
-export function handleShare() {
+function handleShare() {
     const content = state.selectedContent;
     if (!content) return;
 
@@ -840,7 +851,7 @@ export function handleShare() {
 // ================================================================
 // COMMENT
 // ================================================================
-export async function handleComment() {
+async function handleComment() {
     if (!state.currentUser) {
         showToast('Sign in to comment', 'warning');
         return;
@@ -880,7 +891,7 @@ export async function handleComment() {
 // ================================================================
 // CREATE CONTENT
 // ================================================================
-export async function handleCreateContent(e) {
+async function handleCreateContent(e) {
     e.preventDefault();
 
     if (!state.currentUser) {
@@ -926,7 +937,7 @@ export async function handleCreateContent(e) {
 // ================================================================
 // MODAL CONTROLS
 // ================================================================
-export function openPromotionModal() {
+function openPromotionModal() {
     dom.promotionModal.classList.add('active');
     document.body.style.overflow = 'hidden';
     dom.promotionConfirmation.style.display = 'none';
@@ -934,12 +945,12 @@ export function openPromotionModal() {
     renderPromotionOptions();
 }
 
-export function closePromotionModal() {
+function closePromotionModal() {
     dom.promotionModal.classList.remove('active');
     document.body.style.overflow = '';
 }
 
-export function openCreateModal() {
+function openCreateModal() {
     if (!state.currentUser) {
         showToast('Sign in to create content', 'warning');
         return;
@@ -948,7 +959,7 @@ export function openCreateModal() {
     document.body.style.overflow = 'hidden';
 }
 
-export function closeCreateModal() {
+function closeCreateModal() {
     dom.createModal.classList.remove('active');
     document.body.style.overflow = '';
 }
@@ -956,8 +967,7 @@ export function closeCreateModal() {
 // ================================================================
 // STATS
 // ================================================================
-export function updateStats() {
-    // These would come from real API calls in production
+function updateStats() {
     const stats = {
         creators: '12,847',
         content: '4,231',
@@ -965,16 +975,16 @@ export function updateStats() {
         live: '1,247'
     };
     
-    document.getElementById('totalCreators').textContent = stats.creators;
-    document.getElementById('totalContent').textContent = stats.content;
-    document.getElementById('totalStars').textContent = stats.stars;
+    if (dom.totalCreators) dom.totalCreators.textContent = stats.creators;
+    if (dom.totalContent) dom.totalContent.textContent = stats.content;
+    if (dom.totalStars) dom.totalStars.textContent = stats.stars;
     if (dom.liveCount) dom.liveCount.textContent = stats.live;
 }
 
 // ================================================================
 // PARTICLES EFFECT
 // ================================================================
-export function initParticles() {
+function initParticles() {
     const container = document.getElementById('particles');
     if (!container) return;
 
@@ -1011,7 +1021,7 @@ export function initParticles() {
 // ================================================================
 // EVENT LISTENERS
 // ================================================================
-export function setupEventListeners() {
+function setupEventListeners() {
     // --- Filter buttons ---
     dom.filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1118,17 +1128,6 @@ export function setupEventListeners() {
     // --- Create form ---
     dom.createForm.addEventListener('submit', handleCreateContent);
 
-    // --- Scroll to top ---
-    const scrollBtn = document.getElementById('scrollToTopBtn');
-    if (scrollBtn) {
-        window.addEventListener('scroll', () => {
-            scrollBtn.classList.toggle('visible', window.scrollY > 500);
-        });
-        scrollBtn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    }
-
     // --- Keyboard shortcuts ---
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -1136,6 +1135,9 @@ export function setupEventListeners() {
                 modal.classList.remove('active');
                 document.body.style.overflow = '';
             });
+            if (dom.shareModal && dom.shareModal.classList.contains('active')) {
+                window.closeShareModal();
+            }
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
@@ -1143,168 +1145,6 @@ export function setupEventListeners() {
         }
     });
 }
-
-// ================================================================
-// NAVIGATION FUNCTIONS
-// ================================================================
-
-// Close nav when clicking outside
-document.addEventListener('click', function(e) {
-    const nav = document.getElementById('stickyNav');
-    const dropdown = document.getElementById('navDropdown');
-    const toggle = document.getElementById('navToggle');
-    
-    if (nav && !nav.contains(e.target)) {
-        if (dropdown) dropdown.classList.remove('open');
-        if (toggle) toggle.classList.remove('active');
-    }
-});
-
-// Toggle nav function
-function toggleNav(e) {
-    e.stopPropagation();
-    const dropdown = document.getElementById('navDropdown');
-    const toggle = document.getElementById('navToggle');
-    if (dropdown) dropdown.classList.toggle('open');
-    if (toggle) toggle.classList.toggle('active');
-}
-
-// Navigation functions - Expose to window
-window.goToDashboard = function() {
-    window.location.href = '/user';
-};
-
-window.goToHub = function() {
-    window.location.href = '/hub';
-};
-
-window.goToLearningPath = function() {
-    window.location.href = '/user-course';
-};
-
-window.goToVirtualRoom = function() {
-    window.location.href = '/virtualroom';
-};
-
-window.goToChat = function() {
-    window.location.href = '/chat';
-};
-
-window.goToMerchandise = function() {
-    window.location.href = '/merchandise';
-};
-
-window.goToUser = function() {
-    window.location.href = '/user';
-};
-
-window.goBack = function() {
-    if (document.referrer && document.referrer.includes('/user')) {
-        window.history.back();
-    } else {
-        window.location.href = '/user';
-    }
-};
-
-window.goToContact = function() {
-    window.location.href = '/contact';
-};
-
-window.reportIssue = function() {
-    showToast('📝 Report an issue? Our team will investigate.', 'info');
-};
-
-// Share functions
-window.sharePage = function() {
-    const link = window.location.href;
-    document.getElementById('shareCode').textContent = 'GLI-HUB-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-    document.getElementById('shareReferralLink').textContent = link;
-    document.getElementById('shareModal').classList.add('active');
-    document.body.style.overflow = 'hidden';
-};
-
-window.closeShareModal = function() {
-    document.getElementById('shareModal').classList.remove('active');
-    document.body.style.overflow = '';
-};
-
-window.copyShareCode = function() {
-    const code = document.getElementById('shareCode').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-        showToast('📋 Share code copied!', 'success');
-    }).catch(() => {
-        const input = document.createElement('input');
-        input.value = code;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        showToast('📋 Share code copied!', 'success');
-    });
-};
-
-window.copyShareLink = function() {
-    const link = document.getElementById('shareReferralLink').textContent;
-    navigator.clipboard.writeText(link).then(() => {
-        showToast('🔗 Link copied!', 'success');
-    }).catch(() => {
-        const input = document.createElement('input');
-        input.value = link;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        showToast('🔗 Link copied!', 'success');
-    });
-};
-
-window.shareOnWhatsApp = function() {
-    const link = document.getElementById('shareReferralLink').textContent;
-    const text = `Check out Gliimu Hub! 🚀 Discover, create, and get discovered: ${link}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    window.closeShareModal();
-};
-
-window.shareOnTwitter = function() {
-    const link = document.getElementById('shareReferralLink').textContent;
-    const text = `Check out Gliimu Hub! 🚀 Discover, create, and get discovered: ${link}`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-    window.closeShareModal();
-};
-
-window.shareOnLinkedIn = function() {
-    const link = document.getElementById('shareReferralLink').textContent;
-    window.open(`https://linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`, '_blank');
-    window.closeShareModal();
-};
-
-window.shareOnFacebook = function() {
-    const link = document.getElementById('shareReferralLink').textContent;
-    window.open(`https://facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank');
-    window.closeShareModal();
-};
-
-window.shareOnEmail = function() {
-    const link = document.getElementById('shareReferralLink').textContent;
-    const subject = 'Check out Gliimu Hub!';
-    const body = `I found this amazing platform called Gliimu Hub. Check it out: ${link}`;
-    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-    window.closeShareModal();
-};
-
-// ================================================================
-// INIT - Add nav toggle listener
-// ================================================================
-
-// Add this inside your init() function:
-document.getElementById('navToggle')?.addEventListener('click', toggleNav);
-
-// Make sure share modal is hidden
-const shareModal = document.getElementById('shareModal');
-if (shareModal) {
-    shareModal.classList.remove('active');
-}
-
 
 // ================================================================
 // BOOT
