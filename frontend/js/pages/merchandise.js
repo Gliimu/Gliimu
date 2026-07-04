@@ -1,1773 +1,1116 @@
-/* ================================================================
-   GLIIMU MERCHANDISE - Complete Styles
-   ================================================================ */
+// ================================================================
+// GLIIMU MERCHANDISE - Complete Store Logic
+// File: frontend/js/pages/merchandise.js
+// ================================================================
 
-:root {
-    --purple: #2c2f78;
-    --purple-dark: #1a1c4a;
-    --purple-light: #3d4299;
-    --gold: #fbb040;
-    --gold-dark: #cc8a2a;
-    --gold-light: #fcd48c;
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-card: #ffffff;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --border-color: #e2e8f0;
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
-    --radius: 16px;
-    --radius-sm: 8px;
-    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
+import { showToast } from '../modules/toast.js';
 
-body.dark-mode {
-    --bg-primary: #0f172a;
-    --bg-secondary: #080c14;
-    --bg-card: #1e293b;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --border-color: #1e293b;
-}
+// ================================================================
+// STATE
+// ================================================================
+const state = {
+    currentUser: null,
+    currentProfile: null,
+    products: [],
+    filteredProducts: [],
+    currentCategory: 'all',
+    currentSort: 'featured',
+    viewMode: 'grid',
+    page: 0,
+    limit: 20,
+    hasMore: true,
+    isLoading: false,
+    cart: JSON.parse(localStorage.getItem('gliimu_cart') || '[]'),
+    cartTotal: 0,
+    selectedProduct: null,
+    quantity: 1,
+    selectedSize: 'M',
+    selectedColor: '#000'
+};
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+// ================================================================
+// DOM REFS
+// ================================================================
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
-body {
-    font-family: 'Space Grotesk', sans-serif;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    transition: background 0.3s, color 0.3s;
-    overflow-x: hidden;
-}
+const dom = {
+    productGrid: $('#productGrid'),
+    featuredScroll: $('#featuredScroll'),
+    categoryBtns: $$('.category-btn'),
+    sortSelect: $('#sortSelect'),
+    viewToggle: $('#viewToggle'),
+    loadMoreBtn: $('#loadMoreBtn'),
+    cartCount: $('#cartCount'),
+    cartSidebar: $('#cartSidebar'),
+    cartOverlay: $('#cartOverlay'),
+    cartBody: $('#cartBody'),
+    cartItems: $('#cartItems'),
+    cartEmpty: $('#cartEmpty'),
+    cartFooter: $('#cartFooter'),
+    cartTotal: $('#cartTotal'),
+    cartClose: $('#cartClose'),
+    continueShoppingBtn: $('#continueShoppingBtn'),
+    checkoutBtn: $('#checkoutBtn'),
+    viewCartBtn: $('#viewCartBtn'),
+    
+    // Product Modal
+    productModal: $('#productModal'),
+    productModalImg: $('#productModalImg'),
+    productModalTitle: $('#productModalTitle'),
+    productModalCategory: $('#productModalCategory'),
+    productModalStock: $('#productModalStock'),
+    productModalDescription: $('#productModalDescription'),
+    productModalPrice: $('#productModalPrice'),
+    productModalOriginal: $('#productModalOriginal'),
+    productModalDiscount: $('#productModalDiscount'),
+    closeProductModal: $('#closeProductModal'),
+    addToCartDetail: $('#addToCartDetail'),
+    qtyMinus: $('#qtyMinus'),
+    qtyPlus: $('#qtyPlus'),
+    qtyDisplay: $('#qtyDisplay'),
+    sizeOptions: $('#sizeOptions'),
+    colorOptions: $('#colorOptions'),
+    
+    // Share Modal
+    shareModal: $('#shareModal'),
+    shareCode: $('#shareCode'),
+    shareReferralLink: $('#shareReferralLink'),
+    
+    // Stats
+    totalProducts: $('#totalProducts'),
+    totalCategories: $('#totalCategories'),
+    totalSold: $('#totalSold'),
+    
+    // Reviews
+    reviewsScroll: $('#reviewsScroll')
+};
 
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    width: 100%;
-}
-
-/* ================================================================
-   BUTTONS
-   ================================================================ */
-.btn {
-    padding: 0.6rem 1.5rem;
-    border-radius: 40px;
-    font-weight: 600;
-    transition: var(--transition);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    font-family: inherit;
-    text-decoration: none;
-    border: none;
-    font-size: 0.85rem;
-}
-
-.btn-primary {
-    background: var(--gold);
-    color: var(--purple-dark);
-}
-
-.btn-primary:hover {
-    background: var(--gold-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(251, 176, 64, 0.3);
-}
-
-.btn-outline {
-    background: transparent;
-    border: 2px solid var(--border-color);
-    color: var(--text-primary);
-}
-
-.btn-outline:hover {
-    border-color: var(--gold);
-    color: var(--gold);
-    transform: translateY(-2px);
-}
-
-.btn-large {
-    padding: 0.8rem 2rem;
-    font-size: 1rem;
-}
-
-.btn-full {
-    width: 100%;
-    justify-content: center;
-}
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none !important;
-}
-
-/* ================================================================
-   STICKY NAVIGATION
-   ================================================================ */
-
-.sticky-nav {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
-.nav-toggle {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--gold);
-    color: var(--purple-dark);
-    border: none;
-    font-size: 1.4rem;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 2;
-}
-
-.nav-toggle:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 24px rgba(251, 176, 64, 0.4);
-}
-
-.nav-toggle.active {
-    transform: rotate(90deg);
-}
-
-.nav-dropdown {
-    background: var(--bg-card);
-    border-radius: 16px;
-    padding: 8px;
-    margin-bottom: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--border-color);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(10px) scale(0.95);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    min-width: 180px;
-    position: absolute;
-    bottom: 68px;
-    right: 0;
-}
-
-.nav-dropdown.open {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0) scale(1);
-}
-
-.nav-btn {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: transparent;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.85rem;
-    color: var(--text-primary);
-    transition: all 0.2s;
-    width: 100%;
-}
-
-.nav-btn:hover {
-    background: var(--bg-secondary);
-}
-
-.nav-btn i {
-    width: 20px;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.nav-btn.home-nav {
-    border-top: 1px solid var(--border-color);
-    margin-top: 4px;
-    padding-top: 12px;
-}
-
-.nav-btn.home-nav i {
-    color: var(--gold);
-}
-
-body.dark-mode .nav-dropdown {
-    background: var(--bg-card);
-    border-color: var(--border-color);
-}
-
-body.dark-mode .nav-btn:hover {
-    background: var(--bg-secondary);
-}
-
-/* ================================================================
-   SHARE MODAL
-   ================================================================ */
-
-.modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    z-index: 1100;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-}
-
-.modal-overlay.active {
-    display: flex;
-}
-
-#shareModal {
-    display: none;
-}
-
-#shareModal.active {
-    display: flex;
-}
-
-.modal-share {
-    max-width: 500px;
-    width: 100%;
-    background: var(--bg-primary);
-    border-radius: 16px;
-    border-top: 4px solid var(--gold);
-    max-height: 85vh;
-    overflow-y: auto;
-    animation: modalSlideIn 0.3s ease;
-}
-
-@keyframes modalSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(30px) scale(0.95);
+// ================================================================
+// PRODUCT DATA
+// ================================================================
+const PRODUCTS = [
+    // Apparel
+    {
+        id: 'prod_1',
+        name: 'Gliimu Signature T-Shirt',
+        category: 'apparel',
+        price: 15000,
+        originalPrice: 20000,
+        discount: 25,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Gliimu+Shirt',
+        description: 'Premium quality cotton t-shirt with the iconic Gliimu logo. Perfect for creators who want to represent the brand in style.',
+        sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+        colors: ['#000', '#fff', '#2c2f78', '#fbb040'],
+        stock: 50,
+        rating: 4.8,
+        reviews: 127,
+        isNew: false,
+        isBestseller: true,
+        tags: ['apparel', 't-shirt', 'branded']
+    },
+    {
+        id: 'prod_2',
+        name: 'Media Architect Hoodie',
+        category: 'apparel',
+        price: 25000,
+        originalPrice: 32000,
+        discount: 22,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Hoodie',
+        description: 'Premium hoodie with "Media Architect" embroidery. Stay warm while you create.',
+        sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+        colors: ['#1a1c4a', '#000', '#fff'],
+        stock: 35,
+        rating: 4.9,
+        reviews: 89,
+        isNew: true,
+        isBestseller: false,
+        tags: ['apparel', 'hoodie', 'branded']
+    },
+    {
+        id: 'prod_3',
+        name: 'Creator Cap',
+        category: 'apparel',
+        price: 8000,
+        originalPrice: 10000,
+        discount: 20,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Cap',
+        description: 'Classic cap with the Gliimu logo embroidered. Adjustable fit for all.',
+        sizes: ['One Size'],
+        colors: ['#000', '#2c2f78', '#1a1c4a'],
+        stock: 60,
+        rating: 4.7,
+        reviews: 45,
+        isNew: false,
+        isBestseller: false,
+        tags: ['apparel', 'cap', 'accessory']
+    },
+    // Accessories
+    {
+        id: 'prod_4',
+        name: 'Gliimu Water Bottle',
+        category: 'accessories',
+        price: 12000,
+        originalPrice: 15000,
+        discount: 20,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Water+Bottle',
+        description: 'Premium stainless steel water bottle with Gliimu branding. Keeps your drinks cold or hot for hours.',
+        sizes: ['500ml', '750ml', '1L'],
+        colors: ['#2c2f78', '#1a1c4a', '#fbb040'],
+        stock: 40,
+        rating: 4.6,
+        reviews: 56,
+        isNew: false,
+        isBestseller: true,
+        tags: ['accessories', 'bottle', 'hydration']
+    },
+    {
+        id: 'prod_5',
+        name: 'Creator Notebook',
+        category: 'accessories',
+        price: 5000,
+        originalPrice: 7000,
+        discount: 28,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Notebook',
+        description: 'Leather-bound notebook for creators. Perfect for sketching ideas, taking notes, and planning your next project.',
+        sizes: ['A5', 'A4'],
+        colors: ['#1a1c4a', '#000', '#2c2f78'],
+        stock: 80,
+        rating: 4.5,
+        reviews: 34,
+        isNew: true,
+        isBestseller: false,
+        tags: ['accessories', 'notebook', 'stationery']
+    },
+    // Electronics
+    {
+        id: 'prod_6',
+        name: 'MacBook Pro 16" (M3 Max)',
+        category: 'electronics',
+        price: 3500000,
+        originalPrice: 4000000,
+        discount: 12,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=MacBook+Pro',
+        description: 'The ultimate creator laptop. 16-inch MacBook Pro with M3 Max chip, 36GB RAM, 1TB SSD. Perfect for video editing, design, and development.',
+        sizes: ['16"'],
+        colors: ['#1a1c4a', '#000'],
+        stock: 8,
+        rating: 4.9,
+        reviews: 23,
+        isNew: true,
+        isBestseller: true,
+        tags: ['electronics', 'laptop', 'apple']
+    },
+    {
+        id: 'prod_7',
+        name: 'Sony A7 IV Camera',
+        category: 'camera',
+        price: 2800000,
+        originalPrice: 3200000,
+        discount: 12,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Sony+A7+IV',
+        description: 'Professional full-frame mirrorless camera. 33MP sensor, 4K 60p video, real-time tracking. The go-to camera for content creators.',
+        sizes: ['Body Only', 'With Kit Lens'],
+        colors: ['#000'],
+        stock: 12,
+        rating: 4.9,
+        reviews: 67,
+        isNew: false,
+        isBestseller: true,
+        tags: ['camera', 'sony', 'professional']
+    },
+    {
+        id: 'prod_8',
+        name: 'DJI RS 3 Pro Gimbal',
+        category: 'camera',
+        price: 1200000,
+        originalPrice: 1500000,
+        discount: 20,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=DJI+Gimbal',
+        description: 'Professional 3-axis gimbal stabilizer for cameras. Perfect for smooth cinematic footage.',
+        sizes: ['Standard'],
+        colors: ['#000'],
+        stock: 15,
+        rating: 4.8,
+        reviews: 42,
+        isNew: true,
+        isBestseller: false,
+        tags: ['camera', 'gimbal', 'dji']
+    },
+    // Storage
+    {
+        id: 'prod_9',
+        name: 'Samsung T7 Shield 1TB',
+        category: 'storage',
+        price: 150000,
+        originalPrice: 180000,
+        discount: 17,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Samsung+T7',
+        description: 'Portable SSD with USB 3.2, 1TB capacity. Rugged, waterproof, and dustproof. Perfect for creators on the go.',
+        sizes: ['500GB', '1TB', '2TB'],
+        colors: ['#000', '#1a1c4a', '#fbb040'],
+        stock: 30,
+        rating: 4.7,
+        reviews: 89,
+        isNew: false,
+        isBestseller: true,
+        tags: ['storage', 'ssd', 'samsung']
+    },
+    {
+        id: 'prod_10',
+        name: 'Gliimu Flash Drive 128GB',
+        category: 'storage',
+        price: 25000,
+        originalPrice: 35000,
+        discount: 28,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Flash+Drive',
+        description: 'Premium branded flash drive with 128GB capacity. USB 3.0 for fast file transfer. Branded with the Gliimu logo.',
+        sizes: ['64GB', '128GB', '256GB'],
+        colors: ['#2c2f78', '#1a1c4a', '#fbb040'],
+        stock: 100,
+        rating: 4.5,
+        reviews: 56,
+        isNew: true,
+        isBestseller: false,
+        tags: ['storage', 'flash-drive', 'usb']
+    },
+    // Bundles
+    {
+        id: 'prod_11',
+        name: 'Creator Starter Bundle',
+        category: 'bundles',
+        price: 350000,
+        originalPrice: 450000,
+        discount: 22,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Starter+Bundle',
+        description: 'Everything you need to start creating. Includes: T-shirt, Notebook, Water Bottle, and Flash Drive. Save 22% when you buy together.',
+        sizes: ['Standard'],
+        colors: ['Mixed'],
+        stock: 20,
+        rating: 4.8,
+        reviews: 34,
+        isNew: false,
+        isBestseller: true,
+        tags: ['bundles', 'starter', 'kit']
+    },
+    {
+        id: 'prod_12',
+        name: 'Media Architect Pro Kit',
+        category: 'bundles',
+        price: 1200000,
+        originalPrice: 1500000,
+        discount: 20,
+        image: 'https://placehold.co/600x600/2c2f78/white?text=Pro+Kit',
+        description: 'The ultimate creator kit. Includes: Hoodie, MacBook Pro, Flash Drive, and Camera. Everything you need to work like a pro.',
+        sizes: ['Standard'],
+        colors: ['Mixed'],
+        stock: 5,
+        rating: 4.9,
+        reviews: 12,
+        isNew: true,
+        isBestseller: false,
+        tags: ['bundles', 'pro', 'complete']
     }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+];
+
+// ================================================================
+// STICKY NAV FUNCTIONS
+// ================================================================
+
+function toggleNav() {
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    if (dropdown) dropdown.classList.toggle('open');
+    if (toggle) toggle.classList.toggle('active');
+}
+
+// Close nav when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('stickyNav');
+    if (nav && !nav.contains(e.target)) {
+        const dropdown = document.getElementById('navDropdown');
+        const toggle = document.getElementById('navToggle');
+        if (dropdown) dropdown.classList.remove('open');
+        if (toggle) toggle.classList.remove('active');
     }
-}
-
-.modal-share .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.modal-share .modal-header h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.modal-share .modal-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-    transition: var(--transition);
-}
-
-.modal-share .modal-close:hover {
-    color: var(--gold);
-    transform: rotate(90deg);
-}
-
-.modal-share .modal-body {
-    padding: 1.5rem;
-}
-
-.share-code-box {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-secondary);
-    padding: 1rem;
-    border-radius: 12px;
-    margin-bottom: 1.5rem;
-}
-
-.share-code {
-    font-family: monospace;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--gold);
-    padding: 0.25rem 0.75rem;
-    background: rgba(251, 176, 64, 0.1);
-    border-radius: 8px;
-    letter-spacing: 1px;
-}
-
-.share-code-box .btn-outline {
-    padding: 0.3rem 0.8rem;
-    font-size: 0.7rem;
-}
-
-.share-actions {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.share-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.75rem 0.5rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: var(--transition);
-    font-family: inherit;
-    font-size: 0.65rem;
-    color: var(--text-primary);
-}
-
-.share-btn:hover {
-    border-color: var(--gold);
-    transform: translateY(-2px);
-}
-
-.share-btn i {
-    font-size: 1.5rem;
-}
-
-.share-referral-info {
-    text-align: center;
-    padding: 0.75rem;
-    background: rgba(251, 176, 64, 0.05);
-    border-radius: 12px;
-    border: 1px solid rgba(251, 176, 64, 0.1);
-}
-
-.share-referral-info p {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.share-referral-info strong {
-    color: var(--gold);
-}
-
-#shareReferralLink {
-    word-break: break-all;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-/* ================================================================
-   LOGO CONTAINER
-   ================================================================ */
-
-.merch-logo-container {
-    position: absolute;
-    top: 24px;
-    left: 24px;
-    z-index: 20;
-    background: #000000;
-    padding: 8px 20px;
-    border-radius: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.merch-logo-img {
-    height: 32px;
-    width: auto;
-    filter: brightness(0) invert(1);
-}
-
-/* ================================================================
-   HERO SECTION
-   ================================================================ */
-.merch-hero {
-    position: relative;
-    min-height: 60vh;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 100%);
-    padding: 80px 0 60px;
-}
-
-.merch-hero-bg {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-}
-
-.merch-hero-particles {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-}
-
-.merch-hero-gradient {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 70% 30%, rgba(251, 176, 64, 0.1) 0%, transparent 70%);
-}
-
-.merch-hero-content {
-    position: relative;
-    z-index: 2;
-    text-align: center;
-    color: white;
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.merch-hero-badge {
-    margin-bottom: 1.5rem;
-}
-
-.badge-live {
-    display: inline-block;
-    background: rgba(251, 176, 64, 0.15);
-    backdrop-filter: blur(10px);
-    padding: 0.4rem 1.2rem;
-    border-radius: 40px;
-    font-size: 0.8rem;
-    border: 1px solid rgba(251, 176, 64, 0.3);
-}
-
-.badge-live i {
-    color: var(--gold);
-    margin-right: 0.5rem;
-}
-
-.merch-hero-title {
-    font-size: 3rem;
-    font-weight: 800;
-    line-height: 1.1;
-    margin-bottom: 1.5rem;
-}
-
-.merch-hero-title .highlight-gold {
-    color: var(--gold);
-}
-
-.merch-hero-title .highlight-purple {
-    color: #8b5cf6;
-}
-
-.merch-hero-desc {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    line-height: 1.7;
-    max-width: 600px;
-    margin: 0 auto 2rem;
-}
-
-.merch-hero-stats {
-    display: flex;
-    justify-content: center;
-    gap: 3rem;
-    margin-bottom: 2.5rem;
-}
-
-.hero-stat-item {
-    text-align: center;
-}
-
-.stat-number {
-    display: block;
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--gold);
-}
-
-.stat-label {
-    font-size: 0.8rem;
-    opacity: 0.7;
-}
-
-.merch-hero-actions {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-/* ================================================================
-   CATEGORIES
-   ================================================================ */
-.merch-categories {
-    padding: 1.5rem 0;
-    background: var(--bg-primary);
-    border-bottom: 1px solid var(--border-color);
-    position: sticky;
-    top: 0;
-    z-index: 50;
-}
-
-.category-scroll {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding: 0.25rem 0;
-    scrollbar-width: thin;
-}
-
-.category-scroll::-webkit-scrollbar {
-    height: 4px;
-}
-
-.category-scroll::-webkit-scrollbar-track {
-    background: var(--border-color);
-    border-radius: 10px;
-}
-
-.category-scroll::-webkit-scrollbar-thumb {
-    background: var(--gold);
-    border-radius: 10px;
-}
-
-.category-btn {
-    padding: 0.5rem 1.25rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 40px;
-    cursor: pointer;
-    transition: var(--transition);
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.category-btn:hover {
-    border-color: var(--gold);
-    color: var(--text-primary);
-}
-
-.category-btn.active {
-    background: var(--gold);
-    color: var(--purple-dark);
-    border-color: var(--gold);
-}
-
-/* ================================================================
-   FEATURED SECTION
-   ================================================================ */
-.merch-featured {
-    padding: 2rem 0;
-    background: var(--bg-secondary);
-}
-
-.section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.25rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.section-header h2 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.section-header .section-sub {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.featured-scroll {
-    display: flex;
-    gap: 1.25rem;
-    overflow-x: auto;
-    padding: 0.5rem 0 1rem;
-    scrollbar-width: thin;
-}
-
-.featured-scroll::-webkit-scrollbar {
-    height: 4px;
-}
-
-.featured-scroll::-webkit-scrollbar-track {
-    background: var(--border-color);
-    border-radius: 10px;
-}
-
-.featured-scroll::-webkit-scrollbar-thumb {
-    background: var(--gold);
-    border-radius: 10px;
-}
-
-/* ================================================================
-   PRODUCTS
-   ================================================================ */
-.merch-products {
-    padding: 2rem 0 4rem;
-    background: var(--bg-primary);
-}
-
-.product-controls {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-}
-
-.sort-select {
-    padding: 0.4rem 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 40px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 0.8rem;
-    cursor: pointer;
-    outline: none;
-}
-
-.sort-select:focus {
-    border-color: var(--gold);
-}
-
-.view-toggle {
-    padding: 0.4rem 0.8rem;
-    border: 1px solid var(--border-color);
-    border-radius: 40px;
-    background: var(--bg-primary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.view-toggle:hover {
-    border-color: var(--gold);
-    color: var(--gold);
-}
-
-/* --- Product Grid --- */
-.product-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.product-card {
-    background: var(--bg-card);
-    border-radius: var(--radius);
-    overflow: hidden;
-    cursor: pointer;
-    transition: var(--transition);
-    border: 1px solid var(--border-color);
-    position: relative;
-}
-
-.product-card:hover {
-    transform: translateY(-6px);
-    box-shadow: var(--shadow-xl);
-}
-
-.product-card .product-badge {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    background: var(--gold);
-    color: var(--purple-dark);
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    z-index: 5;
-}
-
-.product-card .product-badge.sale {
-    background: #ef4444;
-    color: white;
-}
-
-.product-card .product-badge.new {
-    background: #22c55e;
-    color: white;
-}
-
-.product-card .product-badge.bestseller {
-    background: #8b5cf6;
-    color: white;
-}
-
-.product-card .product-wishlist {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: rgba(255, 255, 255, 0.9);
-    border: none;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: var(--transition);
-    z-index: 5;
-    color: var(--text-secondary);
-}
-
-.product-card .product-wishlist:hover {
-    background: var(--gold);
-    color: var(--purple-dark);
-    transform: scale(1.1);
-}
-
-.product-card .product-wishlist.liked {
-    color: #ef4444;
-}
-
-body.dark-mode .product-card .product-wishlist {
-    background: rgba(30, 41, 59, 0.9);
-    color: var(--text-secondary);
-}
-
-.product-card-image {
-    position: relative;
-    height: 220px;
-    overflow: hidden;
-    background: var(--bg-secondary);
-}
-
-.product-card-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: var(--transition);
-}
-
-.product-card:hover .product-card-image img {
-    transform: scale(1.05);
-}
-
-.product-card-body {
-    padding: 1rem;
-}
-
-.product-card-body h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-    color: var(--text-primary);
-}
-
-.product-card-body .product-card-category {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-}
-
-.product-card-body .product-card-price {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.product-card-body .product-card-price .current {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--gold);
-}
-
-.product-card-body .product-card-price .original {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    text-decoration: line-through;
-}
-
-.product-card-body .product-card-price .discount {
-    font-size: 0.7rem;
-    color: #22c55e;
-    font-weight: 600;
-}
-
-.product-card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border-color);
-}
-
-.product-card-footer .product-rating {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-.product-card-footer .product-rating .stars {
-    color: var(--gold);
-}
-
-.product-card-footer .product-rating .count {
-    color: var(--text-secondary);
-}
-
-.product-card-footer .add-to-cart-btn {
-    padding: 0.3rem 0.8rem;
-    background: var(--gold);
-    border: none;
-    border-radius: 40px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--purple-dark);
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.product-card-footer .add-to-cart-btn:hover {
-    background: var(--gold-dark);
-    transform: scale(1.05);
-}
-
-/* ================================================================
-   VALUE PROPOSITION
-   ================================================================ */
-.merch-value {
-    padding: 3rem 0;
-    background: var(--bg-secondary);
-}
-
-.value-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 2rem;
-}
-
-.value-card {
-    text-align: center;
-    padding: 1.5rem;
-}
-
-.value-card .value-icon {
-    font-size: 2rem;
-    color: var(--gold);
-    margin-bottom: 0.5rem;
-}
-
-.value-card h4 {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-    color: var(--text-primary);
-}
-
-.value-card p {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-/* ================================================================
-   REVIEWS
-   ================================================================ */
-.merch-reviews {
-    padding: 3rem 0;
-    background: var(--bg-primary);
-}
-
-.reviews-scroll {
-    display: flex;
-    gap: 1.5rem;
-    overflow-x: auto;
-    padding: 0.5rem 0 1rem;
-    scrollbar-width: thin;
-}
-
-.reviews-scroll::-webkit-scrollbar {
-    height: 4px;
-}
-
-.reviews-scroll::-webkit-scrollbar-track {
-    background: var(--border-color);
-    border-radius: 10px;
-}
-
-.reviews-scroll::-webkit-scrollbar-thumb {
-    background: var(--gold);
-    border-radius: 10px;
-}
-
-.review-card {
-    flex: 0 0 auto;
-    width: 320px;
-    background: var(--bg-card);
-    border-radius: var(--radius);
-    padding: 1.5rem;
-    border: 1px solid var(--border-color);
-}
-
-.review-card .review-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-.review-card .review-header img {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-
-.review-card .review-header .review-name {
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--text-primary);
-}
-
-.review-card .review-header .review-role {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
-
-.review-card .review-stars {
-    color: var(--gold);
-    font-size: 0.8rem;
-    margin-bottom: 0.5rem;
-}
-
-.review-card .review-text {
-    font-size: 0.85rem;
-    line-height: 1.6;
-    color: var(--text-secondary);
-}
-
-/* ================================================================
-   CART SIDEBAR
-   ================================================================ */
-.cart-sidebar {
-    position: fixed;
-    top: 0;
-    right: -420px;
-    width: 400px;
-    height: 100vh;
-    background: var(--bg-primary);
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    flex-direction: column;
-}
-
-.cart-sidebar.open {
-    right: 0;
-}
-
-.cart-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s;
-}
-
-.cart-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-.cart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.cart-header h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.cart-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-    transition: var(--transition);
-}
-
-.cart-close:hover {
-    color: var(--gold);
-    transform: rotate(90deg);
-}
-
-.cart-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem 1.5rem;
-}
-
-.cart-empty {
-    text-align: center;
-    padding: 3rem 1rem;
-}
-
-.cart-empty i {
-    font-size: 3rem;
-    color: var(--text-secondary);
-    opacity: 0.3;
-    margin-bottom: 1rem;
-}
-
-.cart-empty p {
-    color: var(--text-secondary);
-    margin-bottom: 1.5rem;
-}
-
-.cart-item {
-    display: flex;
-    gap: 1rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.cart-item:last-child {
-    border-bottom: none;
-}
-
-.cart-item-image {
-    width: 70px;
-    height: 70px;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.cart-item-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.cart-item-details {
-    flex: 1;
-}
-
-.cart-item-details h4 {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.cart-item-details .cart-item-meta {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-}
-
-.cart-item-details .cart-item-price {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--gold);
-}
-
-.cart-item-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
-}
-
-.cart-item-actions .qty-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: var(--transition);
-    color: var(--text-primary);
-}
-
-.cart-item-actions .qty-btn:hover {
-    border-color: var(--gold);
-    background: var(--gold);
-    color: var(--purple-dark);
-}
-
-.cart-item-actions .qty-display {
-    font-weight: 600;
-    min-width: 24px;
-    text-align: center;
-    color: var(--text-primary);
-}
-
-.cart-item-actions .remove-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.8rem;
-    padding: 0.25rem;
-    transition: var(--transition);
-}
-
-.cart-item-actions .remove-btn:hover {
-    color: #ef4444;
-}
-
-.cart-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border-color);
-}
-
-.cart-total {
-    display: flex;
-    justify-content: space-between;
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-}
-
-.cart-total span:last-child {
-    color: var(--gold);
-}
-
-/* ================================================================
-   PRODUCT MODAL
-   ================================================================ */
-.modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
-}
-
-.modal.active {
-    display: flex;
-}
-
-.modal-content {
-    background: var(--bg-primary);
-    border-radius: var(--radius);
-    max-width: 800px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    border-top: 4px solid var(--gold);
-    animation: modalSlideIn 0.3s ease;
-}
-
-.product-modal {
-    max-width: 800px;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    position: sticky;
-    top: 0;
-    background: var(--bg-primary);
-    z-index: 10;
-    border-radius: var(--radius) var(--radius) 0 0;
-}
-
-.modal-header h2 {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-    padding: 0.25rem;
-    transition: var(--transition);
-    line-height: 1;
-}
-
-.modal-close:hover {
-    color: var(--gold);
-    transform: rotate(90deg);
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.product-detail {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-}
-
-.product-detail-image {
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    background: var(--bg-secondary);
-    min-height: 300px;
-}
-
-.product-detail-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.product-detail-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.product-detail-meta {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.product-badge {
-    padding: 0.2rem 0.6rem;
-    border-radius: 20px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    background: var(--gold);
-    color: var(--purple-dark);
-}
-
-.product-stock {
-    padding: 0.2rem 0.6rem;
-    border-radius: 20px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    background: rgba(34, 197, 94, 0.15);
-    color: #22c55e;
-}
-
-.product-stock.out-of-stock {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-}
-
-.product-detail-desc {
-    font-size: 0.9rem;
-    line-height: 1.7;
-    color: var(--text-secondary);
-}
-
-.product-detail-price {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.product-price-large {
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: var(--gold);
-}
-
-.product-price-original {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    text-decoration: line-through;
-}
-
-.product-discount-badge {
-    background: rgba(34, 197, 94, 0.15);
-    color: #22c55e;
-    padding: 0.2rem 0.6rem;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.product-detail-options {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.option-group label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    display: block;
-    margin-bottom: 0.25rem;
-}
-
-.size-options {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.size-btn {
-    padding: 0.3rem 0.8rem;
-    border: 1px solid var(--border-color);
-    border-radius: 40px;
-    background: var(--bg-secondary);
-    cursor: pointer;
-    font-size: 0.7rem;
-    font-weight: 500;
-    transition: var(--transition);
-    color: var(--text-primary);
-}
-
-.size-btn:hover {
-    border-color: var(--gold);
-}
-
-.size-btn.active {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: var(--purple-dark);
-}
-
-.color-options {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.color-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 2px solid var(--border-color);
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.color-btn:hover {
-    transform: scale(1.1);
-}
-
-.color-btn.active {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 2px var(--gold);
-}
-
-.product-detail-qty {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.qty-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    cursor: pointer;
-    font-size: 1rem;
-    transition: var(--transition);
-    color: var(--text-primary);
-}
-
-.qty-btn:hover {
-    border-color: var(--gold);
-    background: var(--gold);
-    color: var(--purple-dark);
-}
-
-#qtyDisplay {
-    font-weight: 700;
-    min-width: 30px;
-    text-align: center;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-}
-
-/* ================================================================
-   TOAST
-   ================================================================ */
-#toast-container {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    max-width: 400px;
-    width: 100%;
-}
-
-.toast {
-    padding: 0.75rem 1.25rem;
-    border-radius: var(--radius-sm);
-    color: white;
-    font-size: 0.85rem;
-    animation: toastSlideIn 0.3s ease;
-    box-shadow: var(--shadow-lg);
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.toast-success { background: #22c55e; }
-.toast-error { background: #ef4444; }
-.toast-warning { background: var(--gold); color: var(--purple-dark); }
-.toast-info { background: #3b82f6; }
-
-@keyframes toastSlideIn {
-    from {
-        opacity: 0;
-        transform: translateX(100px);
+});
+
+// Close share modal when clicking outside
+document.addEventListener('click', function(e) {
+    const shareModal = document.getElementById('shareModal');
+    if (shareModal && shareModal.style.display !== 'none' && e.target === shareModal) {
+        window.closeShareModal();
     }
-    to {
-        opacity: 1;
-        transform: translateX(0);
+});
+
+// Navigation functions - Expose to window
+window.goBack = function() {
+    if (document.referrer && document.referrer.includes('/user')) {
+        window.history.back();
+    } else {
+        window.location.href = '/user';
+    }
+};
+
+window.goToHub = function() {
+    window.location.href = '/hub';
+};
+
+window.goToContact = function() {
+    window.location.href = '/contact';
+};
+
+window.reportIssue = function() {
+    showToast('📝 Report an issue? Our team will investigate.', 'info');
+};
+
+// ================================================================
+// SHARE FUNCTIONS
+// ================================================================
+
+window.sharePage = function() {
+    const link = window.location.href;
+    document.getElementById('shareCode').textContent = 'GLI-MERCH-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    document.getElementById('shareReferralLink').textContent = link;
+    document.getElementById('shareModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeShareModal = function() {
+    document.getElementById('shareModal').style.display = 'none';
+    document.body.style.overflow = '';
+};
+
+window.copyShareCode = function() {
+    const code = document.getElementById('shareCode').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        showToast('📋 Share code copied!', 'success');
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = code;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast('📋 Share code copied!', 'success');
+    });
+};
+
+window.copyShareLink = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+        showToast('🔗 Link copied!', 'success');
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast('🔗 Link copied!', 'success');
+    });
+};
+
+window.shareOnWhatsApp = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const text = `Check out Gliimu Merchandise! 🛍️ Gear up like a Media Architect: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnTwitter = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const text = `Check out Gliimu Merchandise! 🛍️ Gear up like a Media Architect: ${link}`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnLinkedIn = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    window.open(`https://linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnFacebook = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    window.open(`https://facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnEmail = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const subject = 'Check out Gliimu Merchandise!';
+    const body = `I found some amazing gear on Gliimu Merchandise. Check it out: ${link}`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+    window.closeShareModal();
+};
+
+// ================================================================
+// INIT
+// ================================================================
+async function init() {
+    console.log('🛍️ Merchandise initializing...');
+    
+    try {
+        // Check auth
+        const user = await getCurrentUser();
+        if (user) {
+            state.currentUser = user;
+            const profile = await getUserProfile(user.id);
+            state.currentProfile = profile;
+        }
+        
+        // Load products
+        state.products = PRODUCTS;
+        state.filteredProducts = [...state.products];
+        
+        // Render
+        renderProducts(state.filteredProducts);
+        renderFeaturedProducts();
+        renderReviews();
+        updateCart();
+        updateStats();
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        // Cart from localStorage
+        loadCart();
+        
+        // Make sure share modal is hidden
+        if (dom.shareModal) {
+            dom.shareModal.style.display = 'none';
+        }
+        
+        console.log('✅ Merchandise initialized');
+    } catch (error) {
+        console.error('❌ Merchandise init error:', error);
+        showToast('Failed to load merchandise', 'error');
     }
 }
 
-/* ================================================================
-   LOAD MORE
-   ================================================================ */
-.merch-load-more {
-    text-align: center;
-    margin-top: 1rem;
-}
-
-/* ================================================================
-   PARTICLES
-   ================================================================ */
-@keyframes floatParticle {
-    0% {
-        transform: translate(0, 0) scale(1);
-        opacity: 0.3;
-    }
-    25% {
-        transform: translate(30px, -40px) scale(1.2);
-        opacity: 0.6;
-    }
-    50% {
-        transform: translate(-20px, -80px) scale(0.8);
-        opacity: 0.4;
-    }
-    75% {
-        transform: translate(15px, -50px) scale(1.1);
-        opacity: 0.7;
-    }
-    100% {
-        transform: translate(0, 0) scale(1);
-        opacity: 0.3;
-    }
-}
-
-/* ================================================================
-   EMPTY STATE
-   ================================================================ */
-.empty-state {
-    text-align: center;
-    padding: 4rem 1rem;
-}
-
-.empty-state i {
-    font-size: 3rem;
-    color: var(--text-secondary);
-    opacity: 0.3;
-    margin-bottom: 1rem;
-}
-
-.empty-state h3 {
-    font-size: 1.2rem;
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
-}
-
-.empty-state p {
-    color: var(--text-secondary);
-}
-
-/* ================================================================
-   RESPONSIVE
-   ================================================================ */
-@media (max-width: 1024px) {
-    .merch-hero-title {
-        font-size: 2.5rem;
+// ================================================================
+// RENDER PRODUCTS
+// ================================================================
+function renderProducts(products) {
+    if (!dom.productGrid) return;
+    
+    if (!products || products.length === 0) {
+        dom.productGrid.innerHTML = `
+            <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 4rem 1rem;">
+                <i class="fas fa-search" style="font-size: 3rem; color: var(--text-secondary); opacity: 0.3; margin-bottom: 1rem;"></i>
+                <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem; color: var(--text-primary);">No Products Found</h3>
+                <p style="color: var(--text-secondary);">Try adjusting your filters or search</p>
+            </div>
+        `;
+        dom.loadMoreBtn.style.display = 'none';
+        return;
     }
     
-    .product-detail {
-        grid-template-columns: 1fr;
-    }
+    dom.productGrid.innerHTML = products.map(product => `
+        <div class="product-card" data-id="${product.id}">
+            ${product.isNew ? '<span class="product-badge new">New</span>' : ''}
+            ${product.isBestseller ? '<span class="product-badge bestseller">⭐ Bestseller</span>' : ''}
+            ${product.discount > 0 ? `<span class="product-badge sale">-${product.discount}%</span>` : ''}
+            <button class="product-wishlist" data-id="${product.id}">
+                <i class="far fa-heart"></i>
+            </button>
+            <div class="product-card-image">
+                <img src="${product.image}" alt="${product.name}" loading="lazy" />
+            </div>
+            <div class="product-card-body">
+                <span class="product-card-category">${getCategoryIcon(product.category)} ${product.category.charAt(0).toUpperCase() + product.category.slice(1)}</span>
+                <h4>${product.name}</h4>
+                <div class="product-card-price">
+                    <span class="current">₦${formatPrice(product.price)}</span>
+                    ${product.originalPrice > product.price ? `<span class="original">₦${formatPrice(product.originalPrice)}</span>` : ''}
+                    ${product.discount > 0 ? `<span class="discount">-${product.discount}%</span>` : ''}
+                </div>
+                <div class="product-card-footer">
+                    <div class="product-rating">
+                        <span class="stars">${'★'.repeat(Math.floor(product.rating))}${product.rating % 1 >= 0.5 ? '★' : ''}</span>
+                        <span class="count">(${product.reviews})</span>
+                    </div>
+                    <button class="add-to-cart-btn" data-id="${product.id}">
+                        <i class="fas fa-cart-plus"></i> Add
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
     
-    .value-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
+    // Add event listeners
+    dom.productGrid.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.add-to-cart-btn') || e.target.closest('.product-wishlist')) return;
+            const id = card.dataset.id;
+            openProductDetail(id);
+        });
+    });
+    
+    dom.productGrid.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const product = state.products.find(p => p.id === id);
+            if (product) {
+                addToCart(product);
+                btn.innerHTML = '<i class="fas fa-check"></i> Added';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-cart-plus"></i> Add';
+                }, 1500);
+            }
+        });
+    });
+    
+    dom.productGrid.querySelectorAll('.product-wishlist').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            btn.classList.toggle('liked');
+            const icon = btn.querySelector('i');
+            if (btn.classList.contains('liked')) {
+                icon.className = 'fas fa-heart';
+                showToast('❤️ Added to wishlist', 'success');
+            } else {
+                icon.className = 'far fa-heart';
+                showToast('Removed from wishlist', 'info');
+            }
+        });
+    });
+}
+
+// ================================================================
+// RENDER FEATURED
+// ================================================================
+function renderFeaturedProducts() {
+    if (!dom.featuredScroll) return;
+    
+    const featured = state.products.filter(p => p.isBestseller || p.isNew).slice(0, 6);
+    
+    dom.featuredScroll.innerHTML = featured.map(product => `
+        <div class="product-card" data-id="${product.id}" style="flex: 0 0 auto; width: 220px; cursor: pointer;">
+            ${product.isNew ? '<span class="product-badge new">New</span>' : ''}
+            ${product.isBestseller ? '<span class="product-badge bestseller">⭐ Bestseller</span>' : ''}
+            <div class="product-card-image" style="height: 160px;">
+                <img src="${product.image}" alt="${product.name}" loading="lazy" />
+            </div>
+            <div class="product-card-body">
+                <h4 style="font-size: 0.8rem;">${product.name}</h4>
+                <div class="product-card-price">
+                    <span class="current" style="font-size: 0.9rem;">₦${formatPrice(product.price)}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    dom.featuredScroll.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const id = card.dataset.id;
+            openProductDetail(id);
+        });
+    });
+}
+
+// ================================================================
+// RENDER REVIEWS
+// ================================================================
+function renderReviews() {
+    if (!dom.reviewsScroll) return;
+    
+    const reviews = [
+        {
+            name: 'Sarah Johnson',
+            role: 'Media Architect',
+            avatar: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=fbb040&color=fff',
+            rating: 5,
+            text: 'The quality of the merchandise is incredible. The t-shirt is my go-to for every shoot. Highly recommend!'
+        },
+        {
+            name: 'Michael Okonkwo',
+            role: 'Content Creator',
+            avatar: 'https://ui-avatars.com/api/?name=Michael+Okonkwo&background=fbb040&color=fff',
+            rating: 5,
+            text: 'The MacBook Pro from Gliimu came perfectly configured. Best investment for my business.'
+        },
+        {
+            name: 'Precious Adams',
+            role: 'Designer',
+            avatar: 'https://ui-avatars.com/api/?name=Precious+Adams&background=fbb040&color=fff',
+            rating: 4,
+            text: 'Love the water bottle! It keeps my water cold all day during shoots. The branding is top-notch.'
+        },
+        {
+            name: 'David Wilson',
+            role: 'Filmmaker',
+            avatar: 'https://ui-avatars.com/api/?name=David+Wilson&background=fbb040&color=fff',
+            rating: 5,
+            text: 'The Sony A7 IV is a game changer. Gliimu had the best price and delivered quickly.'
+        },
+        {
+            name: 'Chioma Okafor',
+            role: 'Motion Designer',
+            avatar: 'https://ui-avatars.com/api/?name=Chioma+Okafor&background=fbb040&color=fff',
+            rating: 5,
+            text: 'The hoodie is so comfortable and the embroidery is perfect. I wear it to every project meeting.'
+        },
+        {
+            name: 'Tunde Adebayo',
+            role: 'Entrepreneur',
+            avatar: 'https://ui-avatars.com/api/?name=Tunde+Adebayo&background=fbb040&color=fff',
+            rating: 4,
+            text: 'Great value for money. The starter bundle is perfect for new creators getting into the space.'
+        }
+    ];
+    
+    dom.reviewsScroll.innerHTML = reviews.map(review => `
+        <div class="review-card">
+            <div class="review-header">
+                <img src="${review.avatar}" alt="${review.name}" />
+                <div>
+                    <div class="review-name">${review.name}</div>
+                    <div class="review-role">${review.role}</div>
+                </div>
+            </div>
+            <div class="review-stars">${'★'.repeat(review.rating)}</div>
+            <div class="review-text">"${review.text}"</div>
+        </div>
+    `).join('');
+}
+
+// ================================================================
+// CART FUNCTIONS
+// ================================================================
+function loadCart() {
+    const saved = localStorage.getItem('gliimu_cart');
+    if (saved) {
+        try {
+            state.cart = JSON.parse(saved);
+            updateCart();
+        } catch (e) {
+            state.cart = [];
+        }
     }
 }
 
-@media (max-width: 768px) {
-    .merch-hero {
-        min-height: 50vh;
-        padding: 60px 0 40px;
+function saveCart() {
+    localStorage.setItem('gliimu_cart', JSON.stringify(state.cart));
+    updateCart();
+}
+
+function addToCart(product, size = 'M', color = '#000', quantity = 1) {
+    const existing = state.cart.find(item => 
+        item.id === product.id && 
+        item.size === size && 
+        item.color === color
+    );
+    
+    if (existing) {
+        existing.quantity += quantity;
+    } else {
+        state.cart.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            size: size,
+            color: color,
+            quantity: quantity,
+            maxStock: product.stock
+        });
     }
     
-    .merch-hero-title {
-        font-size: 1.8rem;
+    saveCart();
+    showToast(`🛒 Added ${product.name} to cart!`, 'success');
+}
+
+function removeFromCart(index) {
+    state.cart.splice(index, 1);
+    saveCart();
+}
+
+function updateQuantity(index, delta) {
+    const item = state.cart[index];
+    if (!item) return;
+    
+    const newQty = item.quantity + delta;
+    if (newQty < 1) {
+        removeFromCart(index);
+        return;
+    }
+    if (newQty > item.maxStock) {
+        showToast('Not enough stock', 'error');
+        return;
     }
     
-    .merch-hero-stats {
-        gap: 1.5rem;
+    item.quantity = newQty;
+    saveCart();
+}
+
+function updateCart() {
+    const count = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+    const total = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    if (dom.cartCount) dom.cartCount.textContent = count;
+    if (dom.cartTotal) dom.cartTotal.textContent = `₦${formatPrice(total)}`;
+    state.cartTotal = total;
+    
+    renderCartItems();
+}
+
+function renderCartItems() {
+    if (!dom.cartItems) return;
+    
+    if (state.cart.length === 0) {
+        dom.cartEmpty.style.display = 'block';
+        dom.cartItems.style.display = 'none';
+        dom.cartFooter.style.display = 'none';
+        return;
     }
     
-    .stat-number {
-        font-size: 1.5rem;
+    dom.cartEmpty.style.display = 'none';
+    dom.cartItems.style.display = 'block';
+    dom.cartFooter.style.display = 'block';
+    
+    dom.cartItems.innerHTML = state.cart.map((item, index) => `
+        <div class="cart-item">
+            <div class="cart-item-image">
+                <img src="${item.image}" alt="${item.name}" />
+            </div>
+            <div class="cart-item-details">
+                <h4>${item.name}</h4>
+                <div class="cart-item-meta">Size: ${item.size} | Color: <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: ${item.color}; vertical-align: middle;"></span></div>
+                <div class="cart-item-price">₦${formatPrice(item.price)}</div>
+                <div class="cart-item-actions">
+                    <button class="qty-btn" data-index="${index}" data-delta="-1">-</button>
+                    <span class="qty-display">${item.quantity}</span>
+                    <button class="qty-btn" data-index="${index}" data-delta="1">+</button>
+                    <button class="remove-btn" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    // Add event listeners for cart actions
+    dom.cartItems.querySelectorAll('.qty-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index);
+            const delta = parseInt(btn.dataset.delta);
+            updateQuantity(index, delta);
+        });
+    });
+    
+    dom.cartItems.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index);
+            removeFromCart(index);
+            showToast('🗑️ Item removed from cart', 'info');
+        });
+    });
+}
+
+// ================================================================
+// PRODUCT DETAIL
+// ================================================================
+function openProductDetail(productId) {
+    const product = state.products.find(p => p.id === productId);
+    if (!product) {
+        showToast('Product not found', 'error');
+        return;
     }
     
-    .product-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 1rem;
+    state.selectedProduct = product;
+    state.quantity = 1;
+    state.selectedSize = product.sizes?.[0] || 'M';
+    state.selectedColor = product.colors?.[0] || '#000';
+    
+    dom.productModalImg.src = product.image;
+    dom.productModalImg.alt = product.name;
+    dom.productModalTitle.textContent = product.name;
+    dom.productModalCategory.textContent = product.category;
+    dom.productModalStock.textContent = product.stock > 0 ? `In Stock (${product.stock})` : 'Out of Stock';
+    dom.productModalStock.className = `product-stock${product.stock === 0 ? ' out-of-stock' : ''}`;
+    dom.productModalDescription.textContent = product.description;
+    dom.productModalPrice.textContent = `₦${formatPrice(product.price)}`;
+    
+    if (product.originalPrice > product.price) {
+        dom.productModalOriginal.textContent = `₦${formatPrice(product.originalPrice)}`;
+        dom.productModalOriginal.style.display = 'inline';
+        dom.productModalDiscount.textContent = `-${product.discount}%`;
+        dom.productModalDiscount.style.display = 'inline';
+    } else {
+        dom.productModalOriginal.style.display = 'none';
+        dom.productModalDiscount.style.display = 'none';
     }
     
-    .product-card-image {
-        height: 160px;
+    // Render sizes
+    if (product.sizes && product.sizes.length > 0) {
+        dom.sizeOptions.innerHTML = product.sizes.map(size => `
+            <button class="size-btn${size === state.selectedSize ? ' active' : ''}" data-size="${size}">${size}</button>
+        `).join('');
+        dom.sizeOptions.querySelectorAll('.size-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                dom.sizeOptions.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.selectedSize = btn.dataset.size;
+            });
+        });
+        dom.sizeOptions.style.display = 'flex';
+    } else {
+        dom.sizeOptions.style.display = 'none';
     }
     
-    .section-header {
-        flex-direction: column;
-        align-items: flex-start;
+    // Render colors
+    if (product.colors && product.colors.length > 0) {
+        dom.colorOptions.innerHTML = product.colors.map(color => `
+            <button class="color-btn${color === state.selectedColor ? ' active' : ''}" style="background: ${color}; border-color: ${color};"></button>
+        `).join('');
+        dom.colorOptions.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                dom.colorOptions.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.selectedColor = btn.style.background;
+            });
+        });
+        dom.colorOptions.style.display = 'flex';
+    } else {
+        dom.colorOptions.style.display = 'none';
     }
     
-    .product-controls {
-        width: 100%;
+    dom.qtyDisplay.textContent = state.quantity;
+    
+    dom.productModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeProductModal() {
+    dom.productModal.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+// ================================================================
+// EVENT LISTENERS
+// ================================================================
+function setupEventListeners() {
+    // --- Nav toggle ---
+    document.getElementById('navToggle')?.addEventListener('click', toggleNav);
+    
+    // --- Category filters ---
+    dom.categoryBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            dom.categoryBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.currentCategory = btn.dataset.category;
+            applyFilters();
+        });
+    });
+    
+    // --- Sort ---
+    dom.sortSelect.addEventListener('change', () => {
+        state.currentSort = dom.sortSelect.value;
+        applyFilters();
+    });
+    
+    // --- View toggle ---
+    dom.viewToggle.addEventListener('click', () => {
+        state.viewMode = state.viewMode === 'grid' ? 'list' : 'grid';
+        dom.viewToggle.innerHTML = state.viewMode === 'grid' ? 
+            '<i class="fas fa-th-large"></i>' : 
+            '<i class="fas fa-list"></i>';
+        renderProducts(state.filteredProducts);
+    });
+    
+    // --- Load more ---
+    dom.loadMoreBtn.addEventListener('click', () => {
+        state.page++;
+        // In a real app, this would load more from API
+        showToast('Loading more products...', 'info');
+    });
+    
+    // --- Cart sidebar ---
+    dom.viewCartBtn.addEventListener('click', openCart);
+    dom.cartClose.addEventListener('click', closeCart);
+    dom.cartOverlay.addEventListener('click', closeCart);
+    dom.continueShoppingBtn.addEventListener('click', closeCart);
+    
+    // --- Checkout ---
+    dom.checkoutBtn.addEventListener('click', () => {
+        if (state.cart.length === 0) {
+            showToast('Your cart is empty', 'warning');
+            return;
+        }
+        if (!state.currentUser) {
+            showToast('Please sign in to checkout', 'warning');
+            window.location.href = '/signin.html';
+            return;
+        }
+        showToast('🛍️ Proceeding to checkout...', 'success');
+        // In a real app, this would redirect to checkout
+    });
+    
+    // --- Product modal ---
+    dom.closeProductModal.addEventListener('click', closeProductModal);
+    dom.productModal.addEventListener('click', (e) => {
+        if (e.target === dom.productModal) {
+            closeProductModal();
+        }
+    });
+    
+    // --- Quantity controls ---
+    dom.qtyMinus.addEventListener('click', () => {
+        if (state.quantity > 1) {
+            state.quantity--;
+            dom.qtyDisplay.textContent = state.quantity;
+        }
+    });
+    dom.qtyPlus.addEventListener('click', () => {
+        if (state.selectedProduct && state.quantity < state.selectedProduct.stock) {
+            state.quantity++;
+            dom.qtyDisplay.textContent = state.quantity;
+        } else {
+            showToast('Not enough stock', 'error');
+        }
+    });
+    
+    // --- Add to cart from detail ---
+    dom.addToCartDetail.addEventListener('click', () => {
+        if (!state.selectedProduct) return;
+        addToCart(state.selectedProduct, state.selectedSize, state.selectedColor, state.quantity);
+        closeProductModal();
+    });
+    
+    // --- Keyboard shortcuts ---
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (dom.productModal.classList.contains('active')) {
+                closeProductModal();
+            }
+            if (dom.cartSidebar.classList.contains('open')) {
+                closeCart();
+            }
+            if (dom.shareModal && dom.shareModal.style.display !== 'none') {
+                window.closeShareModal();
+            }
+        }
+    });
+}
+
+// ================================================================
+// UTILITY FUNCTIONS
+// ================================================================
+function applyFilters() {
+    let filtered = [...state.products];
+    
+    // Category filter
+    if (state.currentCategory !== 'all') {
+        filtered = filtered.filter(p => p.category === state.currentCategory);
     }
     
-    .sort-select {
-        flex: 1;
+    // Sort
+    switch (state.currentSort) {
+        case 'newest':
+            filtered.sort((a, b) => (a.isNew ? 1 : 0) - (b.isNew ? 1 : 0));
+            break;
+        case 'price-low':
+            filtered.sort((a, b) => a.price - b.price);
+            break;
+        case 'price-high':
+            filtered.sort((a, b) => b.price - a.price);
+            break;
+        case 'popular':
+            filtered.sort((a, b) => b.reviews - a.reviews);
+            break;
+        case 'featured':
+        default:
+            filtered.sort((a, b) => (b.isBestseller ? 1 : 0) - (a.isBestseller ? 1 : 0));
+            break;
     }
     
-    .cart-sidebar {
-        width: 100%;
-        right: -100%;
-    }
+    state.filteredProducts = filtered;
+    renderProducts(filtered);
+}
+
+function formatPrice(price) {
+    return price.toLocaleString('en-US');
+}
+
+function getCategoryIcon(category) {
+    const icons = {
+        apparel: '👕',
+        accessories: '🎒',
+        electronics: '💻',
+        camera: '📷',
+        storage: '💾',
+        bundles: '📦'
+    };
+    return icons[category] || '📦';
+}
+
+function openCart() {
+    dom.cartSidebar.classList.add('open');
+    dom.cartOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCart() {
+    dom.cartSidebar.classList.remove('open');
+    dom.cartOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function updateStats() {
+    const categories = new Set(state.products.map(p => p.category));
+    if (dom.totalProducts) dom.totalProducts.textContent = state.products.length;
+    if (dom.totalCategories) dom.totalCategories.textContent = categories.size;
+    if (dom.totalSold) dom.totalSold.textContent = '2,847';
+}
+
+// ================================================================
+// PARTICLES
+// ================================================================
+function initParticles() {
+    const container = document.getElementById('particles');
+    if (!container) return;
     
-    .value-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-    }
+    const colors = ['#fbb040', '#2c2f78', '#ffffff', '#8b5cf6'];
     
-    .review-card {
-        width: 280px;
-    }
-    
-    .container {
-        padding: 0 1rem;
-    }
-    
-    .merch-logo-container {
-        top: 16px;
-        left: 16px;
-        padding: 6px 14px;
-    }
-    
-    .merch-logo-img {
-        height: 24px;
-    }
-    
-    .modal-content {
-        max-width: 95%;
+    for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        const size = Math.random() * 6 + 2;
+        const duration = Math.random() * 25 + 15;
+        const delay = Math.random() * 5;
+        
+        particle.style.cssText = `
+            position: absolute;
+            width: ${size}px;
+            height: ${size}px;
+            background: ${colors[Math.floor(Math.random() * colors.length)]};
+            border-radius: 50%;
+            opacity: ${Math.random() * 0.4 + 0.1};
+            top: ${Math.random() * 100}%;
+            left: ${Math.random() * 100}%;
+            animation: floatParticle ${duration}s ease-in-out infinite;
+            animation-delay: ${delay}s;
+        `;
+        container.appendChild(particle);
     }
 }
 
-@media (max-width: 480px) {
-    .merch-hero-title {
-        font-size: 1.4rem;
-    }
-    
-    .merch-hero-desc {
-        font-size: 0.85rem;
-    }
-    
-    .merch-hero-actions {
-        flex-direction: column;
-        align-items: center;
-        width: 100%;
-    }
-    
-    .merch-hero-actions .btn {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .product-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem;
-    }
-    
-    .product-card-image {
-        height: 130px;
-    }
-    
-    .product-card-body {
-        padding: 0.75rem;
-    }
-    
-    .product-card-body h4 {
-        font-size: 0.75rem;
-    }
-    
-    .product-card-body .product-card-price .current {
-        font-size: 0.9rem;
-    }
-    
-    .category-btn {
-        font-size: 0.7rem;
-        padding: 0.35rem 0.9rem;
-    }
-    
-    .value-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-    }
-    
-    .value-card {
-        padding: 1rem;
-    }
-    
-    .value-card .value-icon {
-        font-size: 1.5rem;
-    }
-    
-    .sticky-nav {
-        bottom: 20px;
-        right: 20px;
-    }
-    
-    .nav-toggle {
-        width: 48px;
-        height: 48px;
-        font-size: 1.2rem;
-    }
-    
-    .nav-dropdown {
-        min-width: 160px;
-        bottom: 60px;
-    }
-    
-    .nav-btn {
-        font-size: 0.75rem;
-        padding: 8px 12px;
-    }
-    
-    .share-actions {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .product-detail-qty {
-        justify-content: center;
-    }
-}
+// ================================================================
+// BOOT
+// ================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    initParticles();
+    init();
+});
 
-/* ================================================================
-   DARK MODE OVERRIDES
-   ================================================================ */
-body.dark-mode .product-card {
-    background: var(--bg-card);
-}
-
-body.dark-mode .cart-sidebar {
-    background: var(--bg-primary);
-}
-
-body.dark-mode .sort-select {
-    background: var(--bg-card);
-}
-
-body.dark-mode .view-toggle {
-    background: var(--bg-card);
-}
-
-body.dark-mode .review-card {
-    background: var(--bg-card);
-}
-
-body.dark-mode .modal-content {
-    background: var(--bg-primary);
-}
-
-body.dark-mode .modal-header {
-    background: var(--bg-primary);
-}
-
-body.dark-mode .share-code-box {
-    background: var(--bg-secondary);
-}
-
-body.dark-mode .share-btn {
-    background: var(--bg-secondary);
-}
-
-body.dark-mode .cart-item-actions .qty-btn {
-    background: var(--bg-secondary);
-}
-
-body.dark-mode .size-btn {
-    background: var(--bg-secondary);
-}
-
-body.dark-mode .color-btn {
-    border-color: var(--border-color);
-}
-
-body.dark-mode .product-card .product-wishlist {
-    background: rgba(30, 41, 59, 0.9);
-}
+export default {
+    init,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    openCart,
+    closeCart,
+    openProductDetail,
+    closeProductModal
+};
