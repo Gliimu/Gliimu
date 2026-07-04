@@ -304,10 +304,31 @@ const PRODUCTS = [
 ];
 
 // ================================================================
-// NAVIGATION FUNCTIONS - Expose to window
+// NAVIGATION FUNCTIONS
 // ================================================================
 
-// Main navigation
+// Close nav when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('stickyNav');
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    
+    if (nav && !nav.contains(e.target)) {
+        if (dropdown) dropdown.classList.remove('open');
+        if (toggle) toggle.classList.remove('active');
+    }
+});
+
+// Toggle nav function
+function toggleNav(e) {
+    e.stopPropagation();
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    if (dropdown) dropdown.classList.toggle('open');
+    if (toggle) toggle.classList.toggle('active');
+}
+
+// Navigation functions - Expose to window
 window.goToDashboard = function() {
     window.location.href = '/user';
 };
@@ -336,7 +357,6 @@ window.goToUser = function() {
     window.location.href = '/user';
 };
 
-// Utility functions
 window.goBack = function() {
     if (document.referrer && document.referrer.includes('/user')) {
         window.history.back();
