@@ -1,6 +1,7 @@
 // ============================================
 // GLIIMU WALLET MODULE - UPDATED
-// Free access to everything. Users pay only for what they value.
+// Users start with ₦0. Free access to everything.
+// Users pay only for what they value.
 // ============================================
 
 import { supabase } from './supabase.js';
@@ -17,7 +18,7 @@ export async function getWalletBalance() {
         if (!user) return 0;
         
         const { data, error } = await supabase
-            .from('users')
+            .from('user_profiles')
             .select('wallet_balance')
             .eq('id', user.id)
             .single();
@@ -37,7 +38,7 @@ export async function getWalletBalance() {
 // Update user's wallet balance
 async function updateWalletBalance(userId, newBalance) {
     const { error } = await supabase
-        .from('users')
+        .from('user_profiles')
         .update({ 
             wallet_balance: newBalance, 
             updated_at: new Date().toISOString() 
@@ -54,7 +55,7 @@ async function addTransaction(userId, amount, type, description, reference = nul
             .from('transactions')
             .insert([{
                 user_id: userId,
-                amount: amount,
+                amount: Math.abs(amount),
                 type: type,
                 description: description,
                 reference: reference,
@@ -68,7 +69,188 @@ async function addTransaction(userId, amount, type, description, reference = nul
 }
 
 // ============================================
-// PURCHASE FUNCTIONS
+// FUND WALLET (User requests to add funds)
+// ============================================
+
+// Request to add funds to wallet (admin approval required)
+export async function requestAddFunds(amount, bank, referenceCode) {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            showToast('Please login first', 'error');
+            return { success: false, error: 'Not authenticated' };
+        }
+        
+        if (amount < 100) {
+            showToast('Minimum deposit is ₦100', 'error');
+            return { success: false, error: 'Minimum amount is ₦100' };
+        }
+        
+        // Get user profile
+        const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('name, email')
+            .eq('id', user.id)
+            .single();
+        
+        if (profileError) {
+            console.error('Profile fetch error:', profileError);
+        }
+        
+        // Create payment request
+        const paymentRequest = {
+            id: `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+            user_id: user.id,
+            user_name: profile?.name || 'User',
+            user_email: profile?.email || user.email,
+            amount: amount,
+            bank: bank,
+            reference_code: referenceCode,
+            status: 'pending',
+            submitted_at: new Date().toISOString()
+        };
+        
+        const { error } = await supabase
+            .from('payment_requests')
+            .insert([paymentRequest]);
+        
+        if (error) {
+            console.error('Error submitting payment request:', error);
+            showToast('Failed to submit payment request', 'error');
+            return { success: false, error: error.message };
+        }
+        
+        showToast(`✅ Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+        return { success: true, reference: referenceCode };
+        
+    } catch (error) {
+        console.error('Error in requestAddFunds:', error);
+        showToast('Failed to submit payment request', 'error');
+        return { success: false, error: error.message };
+    }
+}
+
+// Admin approves payment and credits user's wallet
+export async function approvePaymentRequest(paymentId) {
+    try {
+        // Get payment request details
+        const { data: payment, error: fetchError } = await supabase
+            .from('payment_requests')
+            .select('*')
+            .eq('id', paymentId)
+            .single();
+        
+        if (fetchError) {
+            console.error('Error fetching payment:', fetchError);
+            return { success: false, error: fetchError.message };
+        }
+        
+        if (payment.status !== 'pending') {
+            return { success: false, error: 'Payment already processed' };
+        }
+        
+        // Update payment status
+        const { error: updateError } = await supabase
+            .from('payment_requests')
+            .update({
+                status: 'approved',
+                approved_at: new Date().toISOString()
+            })
+            .eq('id', paymentId);
+        
+        if (updateError) {
+            console.error('Error updating payment:', updateError);
+            return { success: false, error: updateError.message };
+        }
+        
+        // Get user's current wallet balance
+        const { data: user, error: userError } = await supabase
+            .from('user_profiles')
+            .select('wallet_balance')
+            .eq('id', payment.user_id)
+            .single();
+        
+        if (userError) {
+            console.error('Error fetching user:', userError);
+            return { success: false, error: userError.message };
+        }
+        
+        // Credit user's wallet
+        const newBalance = (user?.wallet_balance || 0) + payment.amount;
+        await updateWalletBalance(payment.user_id, newBalance);
+        
+        // Record transaction
+        await addTransaction(
+            payment.user_id, 
+            payment.amount, 
+            'credit', 
+            `Wallet funding via ${payment.bank} - ${payment.reference_code}`,
+            payment.reference_code
+        );
+        
+        showToast(`✅ ₦${payment.amount.toLocaleString()} credited to ${payment.user_name || 'user'}`, 'success');
+        return { success: true };
+        
+    } catch (error) {
+        console.error('Error in approvePaymentRequest:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Admin rejects payment request
+export async function rejectPaymentRequest(paymentId, adminNotes = '') {
+    try {
+        const { error } = await supabase
+            .from('payment_requests')
+            .update({
+                status: 'rejected',
+                admin_notes: adminNotes || 'Payment request rejected',
+                reviewed_at: new Date().toISOString()
+            })
+            .eq('id', paymentId);
+        
+        if (error) {
+            console.error('Error rejecting payment:', error);
+            return { success: false, error: error.message };
+        }
+        
+        showToast('Payment request rejected', 'info');
+        return { success: true };
+        
+    } catch (error) {
+        console.error('Error in rejectPaymentRequest:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Get all payment requests (admin only)
+export async function getPaymentRequests(status = null) {
+    try {
+        let query = supabase
+            .from('payment_requests')
+            .select('*')
+            .order('submitted_at', { ascending: false });
+        
+        if (status) {
+            query = query.eq('status', status);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+            console.error('Error fetching payment requests:', error);
+            return [];
+        }
+        
+        return data || [];
+    } catch (error) {
+        console.error('Error in getPaymentRequests:', error);
+        return [];
+    }
+}
+
+// ============================================
+// PURCHASE FUNCTIONS (Legacy - kept for compatibility)
 // ============================================
 
 // Purchase a book (digital or physical)
@@ -297,16 +479,6 @@ export async function tipCreator(receiverId, amount, entityType, entityId, messa
             return false;
         }
         
-        // Update receiver's total tips received
-        const { error: rpcError } = await supabase.rpc('increment_user_tips', { 
-            p_user_id: receiverId, 
-            p_amount: amount 
-        });
-        
-        if (rpcError) {
-            console.warn('Could not update tips count:', rpcError);
-        }
-        
         await addTransaction(user.id, -amount, 'debit', `Tip to ${receiverId}: ${message || 'Thanks!'}`);
         
         showToast(`Tip of ₦${amount.toLocaleString()} sent successfully!`, 'success');
@@ -360,7 +532,7 @@ export function subscribeToWalletUpdates(userId, callback) {
             { 
                 event: 'UPDATE', 
                 schema: 'public', 
-                table: 'users',
+                table: 'user_profiles',
                 filter: `id=eq.${userId}`
             },
             (payload) => {
@@ -371,50 +543,6 @@ export function subscribeToWalletUpdates(userId, callback) {
             }
         )
         .subscribe();
-}
-
-// ============================================
-// ADD FUNDS REQUEST
-// ============================================
-
-// Request to add funds to wallet (admin approval required)
-export async function requestAddFunds(amount, bank, referenceCode) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        showToast('Please login first', 'error');
-        return false;
-    }
-    
-    const { data: profile } = await supabase
-        .from('users')
-        .select('name, email')
-        .eq('id', user.id)
-        .single();
-    
-    const paymentRequest = {
-        id: `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-        user_id: user.id,
-        user_name: profile?.name || 'User',
-        user_email: profile?.email || '',
-        amount: amount,
-        bank: bank,
-        reference_code: referenceCode,
-        status: 'pending',
-        submitted_at: new Date().toISOString()
-    };
-    
-    const { error } = await supabase
-        .from('payment_requests')
-        .insert([paymentRequest]);
-    
-    if (error) {
-        console.error('Error submitting payment request:', error);
-        showToast('Failed to submit payment request', 'error');
-        return false;
-    }
-    
-    showToast(`Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
-    return true;
 }
 
 // ============================================
@@ -453,3 +581,19 @@ export const PRICING = {};
 export const PLATFORM_INFO = {};
 export const PAID_PLATFORMS = [];
 export const FREE_PLATFORMS = ['hub'];
+
+export default {
+    getWalletBalance,
+    requestAddFunds,
+    approvePaymentRequest,
+    rejectPaymentRequest,
+    getPaymentRequests,
+    purchaseBook,
+    purchaseBundle,
+    purchaseProduct,
+    tipCreator,
+    getTransactionHistory,
+    subscribeToWalletUpdates,
+    getUserAccess,
+    canAccess
+};
