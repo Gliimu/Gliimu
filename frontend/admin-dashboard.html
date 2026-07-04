@@ -3,73 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - Gliimu Institute</title>
-    <link rel="stylesheet" href="/frontend/css/forgot-password.css">
+    <title>Admin Dashboard | Gliimu Institute</title>
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/admin-dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="reset-container">
-        <div class="reset-card">
-            <!-- Header -->
-            <div class="reset-header">
-                <img src="/frontend/images/logo.png" alt="Gliimu Institute" class="logo" onerror="this.style.display='none'">
-                <h1>Reset Password</h1>
-                <p>Verify your identity and we'll send you a reset link</p>
+
+    <!-- Dynamic Header for Admin Dashboard -->
+    <div class="admin-header">
+        <div class="header-container">
+            <div class="logo">
+                <img src="/icons/logo.png" alt="Gliimu" class="logo-img">
+                <span id="dashboardTitle">Admin Dashboard</span>
             </div>
-
-            <!-- Single Form -->
-            <form id="resetForm">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="username" placeholder="Enter your username" required>
+            <div class="header-right">
+                <div class="admin-info">
+                    <span class="admin-name" id="adminName">Loading...</span>
+                    <span class="admin-role" id="adminRole">Loading...</span>
                 </div>
-
-                <!-- Email Field -->
-                <div class="form-group">
-                    <label>Your Email Address</label>
-                    <input type="email" id="email" placeholder="Enter your email to receive reset link" required>
-                    <small class="hint">We'll send the password reset link to this email</small>
-                </div>
-
-                <div class="form-group">
-                    <label>Recovery Phrase</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="recoveryPhrase" placeholder="word1-word2-word3-word4-word5-word6" required>
-                        <button type="button" class="toggle-btn" id="toggleRecovery">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                    <small>Enter your 6-word recovery phrase</small>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Birth Day</label>
-                        <select id="birthDay" required>
-                            <option value="">Day</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Birth Month</label>
-                        <select id="birthMonth" required>
-                            <option value="">Month</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-primary" id="submitBtn">
-                    <i class="fas fa-paper-plane"></i> Send Reset Link
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Sign Out
                 </button>
-            </form>
-
-            <div class="reset-footer">
-                <a href="/signin.html"><i class="fas fa-arrow-left"></i> Back to Sign In</a>
             </div>
         </div>
     </div>
 
-    <div id="toastContainer"></div>
+    <!-- Admin Dashboard Container -->
+    <div class="admin-container">
+        <!-- Sidebar - Dynamically populated -->
+        <aside class="admin-sidebar">
+            <nav class="admin-nav" id="sidebarNav">
+                <div class="loading-nav">Loading...</div>
+            </nav>
+        </aside>
 
-    <script type="module" src="/frontend/js/pages/forgot-password.js"></script>
+        <!-- Main Content - Dynamically populated -->
+        <main class="admin-main" id="dashboardContent">
+            <div class="loading-container">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading dashboard...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- LIBRARY ITEM MODAL - WITH FILE UPLOAD -->
+    <!-- REMOVED: Description field -->
+    <!-- RENAMED: First Chapter → Book Teaser -->
+    <!-- ============================================ -->
+    <div id="libraryItemModal" class="modal">
+        <div class="modal-content" style="max-width:700px;">
+            <div class="modal-header">
+                <h2 id="libraryModalTitle">Add New Content</h2>
+                <button class="modal-close" id="closeLibraryModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="libraryItemForm" onsubmit="window.saveLibraryItem(event)">
+                    <input type="hidden" id="editItemId">
+                    
+                    <!-- Basic Info -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Title *</label>
+                            <input type="text" id="itemTitle" required placeholder="Enter title">
+                        </div>
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select id="itemType" onchange="window.updateFolderHint()">
+                                <option value="book">📖 Book</option>
+                                <option value="talk">🎙️ Talk</option>
+                                <option value="bundle">📦 Bundle</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Category</label>
+                            <input type="text" id="itemCategory" placeholder="Video Production, Design, etc.">
+                        </div>
+                        <div class="form-group">
+                            <label>Author/Speaker</label>
+                            <input type="text" id="itemAuthor" placeholder="Author name">
+                        </div>
+                    </div>
+                    
+                    <!-- REMOVED: Description field -->
+                    
+                    <!-- Pricing -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Digital Price (₦)</label>
+                            <input type="number" id="itemPrice" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Physical Price (₦)</label>
+                            <input type="number" id="itemPhysicalPrice" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Audio Price (₦)</label>
+                            <input type="number" id="itemAudioPrice" value="0" min="0">
+                        </div>
+                    </div>
+                    
+                    <!-- COVER IMAGE UPLOAD - Direct from computer -->
+                    <div class="form-group">
+                        <label>Cover Image</label>
+                        <div class="upload-field" onclick="document.getElementById('coverFileInput').click()">
+                            <span class="upload-icon">🖼️</span>
+                            <span class="upload-text">Click to upload cover image</span>
+                            <small>Files go to: hub_content/covers/</small>
+                            <input type="file" id="coverFileInput" accept="image/*" onchange="window.handleCoverUpload(this.files[0])">
+                        </div>
+                        <div class="file-preview" id="coverPreview" style="display:none;">
+                            <img id="coverPreviewImg" src="">
+                            <div>
+                                <span class="file-name" id="coverFileName">No file selected</span>
+                                <button type="button" class="btn-remove-file" onclick="window.removeCoverFile()">✕ Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- CONTENT FILE UPLOAD - Direct from computer -->
+                    <div class="form-group">
+                        <label>Content File (PDF, EPUB, Video, etc.)</label>
+                        <div class="upload-field" onclick="document.getElementById('contentFileInput').click()">
+                            <span class="upload-icon">📁</span>
+                            <span class="upload-text">Click to upload content file</span>
+                            <small>Files go to: hub_content/<strong id="uploadFolderHint">book</strong>/</small>
+                            <input type="file" id="contentFileInput" onchange="window.handleContentUpload(this.files[0])">
+                        </div>
+                        <div class="file-preview" id="contentFilePreview" style="display:none;">
+                            <i class="fas fa-file"></i>
+                            <span class="file-name" id="contentFileName">No file selected</span>
+                            <button type="button" class="btn-remove-file" onclick="window.removeContentFile()">✕ Remove</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Bundle Download URL (only for bundles) -->
+                    <div class="form-group" id="bundleDownloadGroup" style="display:none;">
+                        <label>Bundle Download URL (optional)</label>
+                        <input type="url" id="itemDownloadUrl" placeholder="https://example.com/bundle.zip">
+                        <small>If you uploaded a ZIP file above, this is optional</small>
+                    </div>
+                    
+                    <!-- Duration (only for talks) -->
+                    <div class="form-group" id="talkDurationGroup" style="display:none;">
+                        <label>Duration (for talks)</label>
+                        <input type="text" id="itemDuration" placeholder="e.g., 12:34">
+                    </div>
+                    
+                    <!-- RENAMED: First Chapter → Book Teaser -->
+                    <div class="form-group">
+                        <label>Book Teaser</label>
+                        <textarea id="itemFirstChapter" rows="4" placeholder="Paste the teaser content here..."></textarea>
+                        <small>This will be displayed as a preview in the book modal</small>
+                    </div>
+                    
+                    <!-- Level & Status -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Level</label>
+                            <select id="itemLevel">
+                                <option value="Beginner">Beginner</option>
+                                <option value="Intermediate">Intermediate</option>
+                                <option value="Advanced">Advanced</option>
+                                <option value="All Levels">All Levels</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="itemStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary" style="width:100%; padding:0.75rem; font-size:1rem;">
+                        <i class="fas fa-save"></i> Save Content
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FAQ MODAL -->
+    <!-- ============================================ -->
+    <div id="faqModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="faqModalTitle">Add FAQ</h2>
+                <button class="modal-close" id="closeFaqModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="faqForm" onsubmit="window.saveFaqItem(event)">
+                    <input type="hidden" id="editFaqId">
+                    <div class="form-group">
+                        <label>Question *</label>
+                        <input type="text" id="faqQuestion" required placeholder="e.g., What is Gliimu?">
+                    </div>
+                    <div class="form-group">
+                        <label>Answer *</label>
+                        <textarea id="faqAnswer" rows="3" required placeholder="Write the answer..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Order</label>
+                        <input type="number" id="faqOrder" value="0" placeholder="0, 1, 2...">
+                        <small>Lower numbers appear first</small>
+                    </div>
+                    <button type="submit" class="btn-primary">Save FAQ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- INDEX/HERO MODAL -->
+    <!-- ============================================ -->
+    <div id="indexModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Homepage Hero</h2>
+                <button class="modal-close" id="closeIndexModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="indexForm" onsubmit="window.saveIndexItem(event)">
+                    <input type="hidden" id="editIndexId">
+                    <div class="form-group">
+                        <label>Hero Title *</label>
+                        <input type="text" id="indexHeroTitle" required placeholder="e.g., Be The Best">
+                    </div>
+                    <div class="form-group">
+                        <label>Hero Subtitle</label>
+                        <input type="text" id="indexHeroSubtitle" placeholder="e.g., Read the best">
+                    </div>
+                    <div class="form-group">
+                        <label>Hero Image</label>
+                        <div class="upload-field" onclick="document.getElementById('indexImageInput').click()">
+                            <span class="upload-icon">🏞️</span>
+                            <span class="upload-text">Click to upload hero image</span>
+                            <small>Files go to: hub_content/hero/</small>
+                            <input type="file" id="indexImageInput" accept="image/*" onchange="window.handleIndexImageUpload(this.files[0])">
+                        </div>
+                        <div class="file-preview" id="indexImagePreview" style="display:none;">
+                            <img id="indexImagePreviewImg" src="">
+                            <div>
+                                <span class="file-name" id="indexFileName">No file selected</span>
+                                <button type="button" class="btn-remove-file" onclick="window.removeIndexImage()">✕ Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Hero</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PRODUCT MODAL -->
+    <!-- ============================================ -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="productModalTitle">Add Product</h2>
+                <button class="modal-close" id="closeProductModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm" onsubmit="window.saveProductItem(event)">
+                    <input type="hidden" id="editProductId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Product Name *</label>
+                            <input type="text" id="productName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select id="productCategory">
+                                <option value="uniform">Uniform</option>
+                                <option value="gadget">Gadget</option>
+                                <option value="merchandise">Merchandise</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Price (₦) *</label>
+                            <input type="number" id="productPrice" required min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Quantity *</label>
+                            <input type="number" id="productStock" required min="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Product Image</label>
+                        <div class="upload-field" onclick="document.getElementById('productImageInput').click()">
+                            <span class="upload-icon">🛍️</span>
+                            <span class="upload-text">Click to upload product image</span>
+                            <small>Files go to: hub_content/products/</small>
+                            <input type="file" id="productImageInput" accept="image/*" onchange="window.handleProductImageUpload(this.files[0])">
+                        </div>
+                        <div class="file-preview" id="productImagePreview" style="display:none;">
+                            <img id="productImagePreviewImg" src="">
+                            <div>
+                                <span class="file-name" id="productFileName">No file selected</span>
+                                <button type="button" class="btn-remove-file" onclick="window.removeProductImage()">✕ Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Product</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script type="module" src="/js/pages/admin-dashboard.js"></script>
 </body>
 </html>
