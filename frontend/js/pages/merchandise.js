@@ -471,6 +471,139 @@ function renderFeaturedProducts() {
 }
 
 // ================================================================
+// STICKY NAV FUNCTIONS (from course page)
+// ================================================================
+
+// Toggle nav dropdown
+function toggleNav() {
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    if (dropdown) dropdown.classList.toggle('open');
+    if (toggle) toggle.classList.toggle('active');
+}
+
+// Close nav when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('stickyNav');
+    if (nav && !nav.contains(e.target)) {
+        const dropdown = document.getElementById('navDropdown');
+        const toggle = document.getElementById('navToggle');
+        if (dropdown) dropdown.classList.remove('open');
+        if (toggle) toggle.classList.remove('active');
+    }
+});
+
+// Navigation functions
+window.goBack = function() {
+    if (document.referrer && document.referrer.includes('/user')) {
+        window.history.back();
+    } else {
+        window.location.href = '/user';
+    }
+};
+
+window.goToHub = function() {
+    window.location.href = '/hub';
+};
+
+window.goToContact = function() {
+    window.location.href = '/contact';
+};
+
+window.reportIssue = function() {
+    showToast('📝 Report an issue? Our team will investigate.', 'info');
+};
+
+// ================================================================
+// SHARE FUNCTIONS (from course page)
+// ================================================================
+
+window.sharePage = function() {
+    const link = window.location.href;
+    document.getElementById('shareCode').textContent = 'GLI-MERCH-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    document.getElementById('shareReferralLink').textContent = link;
+    document.getElementById('shareModal').classList.add('active');
+};
+
+window.closeShareModal = function() {
+    document.getElementById('shareModal').classList.remove('active');
+};
+
+window.copyShareCode = function() {
+    const code = document.getElementById('shareCode').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        showToast('📋 Share code copied!', 'success');
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = code;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast('📋 Share code copied!', 'success');
+    });
+};
+
+window.copyShareLink = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+        showToast('🔗 Link copied!', 'success');
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast('🔗 Link copied!', 'success');
+    });
+};
+
+window.shareOnWhatsApp = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const text = `Check out Gliimu Merchandise! 🛍️ Gear up like a Media Architect: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+};
+
+window.shareOnTwitter = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const text = `Check out Gliimu Merchandise! 🛍️ Gear up like a Media Architect: ${link}`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+};
+
+window.shareOnLinkedIn = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    window.open(`https://linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`, '_blank');
+};
+
+window.shareOnFacebook = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    window.open(`https://facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank');
+};
+
+window.shareOnEmail = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const subject = 'Check out Gliimu Merchandise!';
+    const body = `I found some amazing gear on Gliimu Merchandise. Check it out: ${link}`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+};
+
+// ================================================================
+// INIT - Add nav toggle listener
+// ================================================================
+
+// Add this to your existing init() function:
+document.getElementById('navToggle')?.addEventListener('click', toggleNav);
+
+// Add click outside listener for share modal
+document.addEventListener('click', function(e) {
+    const shareModal = document.getElementById('shareModal');
+    if (shareModal && shareModal.classList.contains('active') && e.target === shareModal) {
+        closeShareModal();
+    }
+});
+
+// ================================================================
 // RENDER REVIEWS
 // ================================================================
 function renderReviews() {
