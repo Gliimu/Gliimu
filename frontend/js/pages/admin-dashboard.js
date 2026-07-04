@@ -137,8 +137,9 @@ async function checkAuth() {
         return false;
     }
     
+    // FIXED: Using user_profiles instead of users
     const { data: profile, error: profileError } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('role, name')
         .eq('id', user.id)
         .single();
@@ -308,7 +309,6 @@ async function uploadFileToStorage(file, contentType, folder = null) {
     const randomStr = Math.random().toString(36).substring(2, 8);
     const fileName = `${timestamp}_${randomStr}.${fileExt}`;
     
-    // Determine folder path
     let path = '';
     if (contentType === 'cover') {
         path = `covers/${fileName}`;
@@ -329,10 +329,8 @@ async function uploadFileToStorage(file, contentType, folder = null) {
     }
     
     console.log('📤 Uploading to:', path);
-    console.log('📁 File details:', { name: file.name, size: file.size, type: file.type });
 
     try {
-        // Upload the file
         const { data, error } = await supabase.storage
             .from('hub_content')
             .upload(path, file, {
@@ -347,9 +345,6 @@ async function uploadFileToStorage(file, contentType, folder = null) {
             return null;
         }
 
-        console.log('✅ File uploaded successfully:', data);
-
-        // Get the public URL
         const { data: urlData } = supabase.storage
             .from('hub_content')
             .getPublicUrl(path);
@@ -360,10 +355,7 @@ async function uploadFileToStorage(file, contentType, folder = null) {
             return null;
         }
 
-        const publicUrl = urlData.publicUrl;
-        console.log('🔗 Public URL generated:', publicUrl);
-
-        return publicUrl;
+        return urlData.publicUrl;
 
     } catch (error) {
         console.error('❌ Upload exception:', error);
@@ -372,7 +364,6 @@ async function uploadFileToStorage(file, contentType, folder = null) {
     }
 }
 
-// Delete file from storage
 async function deleteFileFromStorage(fileUrl) {
     if (!fileUrl) return;
     
@@ -399,20 +390,17 @@ async function deleteFileFromStorage(fileUrl) {
 }
 
 // ============================================
-// FILE UPLOAD HANDLERS - DIRECT FROM COMPUTER
+// FILE UPLOAD HANDLERS
 // ============================================
 
-// Cover image handlers
 function handleCoverUpload(file) {
     if (!file) return;
-    
     if (!file.type.startsWith('image/')) {
         showToast('Please select an image file', 'error');
         return;
     }
     
     coverFileData = file;
-    
     const preview = document.getElementById('coverPreview');
     const img = document.getElementById('coverPreviewImg');
     const fileName = document.getElementById('coverFileName');
@@ -446,12 +434,10 @@ function removeCoverFile() {
     document.getElementById('coverFileName').textContent = 'No file selected';
 }
 
-// Content file handlers
 function handleContentUpload(file) {
     if (!file) return;
     
     contentFileData = file;
-    
     const preview = document.getElementById('contentFilePreview');
     const fileName = document.getElementById('contentFileName');
     
@@ -475,17 +461,14 @@ function removeContentFile() {
     document.getElementById('contentFileName').textContent = 'No file selected';
 }
 
-// Index image handlers
 function handleIndexImageUpload(file) {
     if (!file) return;
-    
     if (!file.type.startsWith('image/')) {
         showToast('Please select an image file', 'error');
         return;
     }
     
     indexImageFileData = file;
-    
     const preview = document.getElementById('indexImagePreview');
     const img = document.getElementById('indexImagePreviewImg');
     const fileName = document.getElementById('indexFileName');
@@ -519,17 +502,14 @@ function removeIndexImage() {
     document.getElementById('indexFileName').textContent = 'No file selected';
 }
 
-// Product image handlers
 function handleProductImageUpload(file) {
     if (!file) return;
-    
     if (!file.type.startsWith('image/')) {
         showToast('Please select an image file', 'error');
         return;
     }
     
     productImageFileData = file;
-    
     const preview = document.getElementById('productImagePreview');
     const img = document.getElementById('productImagePreviewImg');
     const fileName = document.getElementById('productFileName');
@@ -564,13 +544,12 @@ function removeProductImage() {
 }
 
 // ============================================
-// POSTS MANAGER - Combined Update Website Tab
+// POSTS MANAGER
 // ============================================
 async function renderPostsManager() {
     const container = document.getElementById('posts-section');
     if (!container) return;
     
-    // Load all data
     const [libraryItems, faqItems, indexData] = await Promise.all([
         supabase.from('hub_contents').select('*').order('created_at', { ascending: false }),
         supabase.from('faq_items').select('*').order('order', { ascending: true }),
@@ -587,9 +566,7 @@ async function renderPostsManager() {
             <p>Manage all website content from one place</p>
         </div>
         
-        <!-- Website Sections -->
         <div class="website-sections">
-            <!-- Library Manager Section -->
             <div class="section-card">
                 <div class="section-card-header">
                     <h3><i class="fas fa-book"></i> Library Content</h3>
@@ -624,7 +601,6 @@ async function renderPostsManager() {
                 </div>
             </div>
             
-            <!-- FAQ Section -->
             <div class="section-card">
                 <div class="section-card-header">
                     <h3><i class="fas fa-question-circle"></i> FAQ Management</h3>
@@ -648,7 +624,6 @@ async function renderPostsManager() {
                 </div>
             </div>
             
-            <!-- Index/Hero Section -->
             <div class="section-card">
                 <div class="section-card-header">
                     <h3><i class="fas fa-home"></i> Homepage / Index</h3>
@@ -676,7 +651,6 @@ async function renderPostsManager() {
         </div>
     `;
     
-    // Event Listeners
     document.querySelector('.add-library-item')?.addEventListener('click', () => openLibraryModal());
     document.querySelector('.add-faq-btn')?.addEventListener('click', () => openFaqModal());
     document.querySelector('.edit-index-btn')?.addEventListener('click', () => openIndexModal());
@@ -690,9 +664,7 @@ async function renderPostsManager() {
 }
 
 // ============================================
-// LIBRARY MODAL FUNCTIONS - WITH FILE UPLOAD
-// MODIFIED: Removed description, renamed Book Teaser
-// MODIFIED: Only 'X' closes modal (no overlay click)
+// LIBRARY MODAL FUNCTIONS
 // ============================================
 function openLibraryModal(itemId = null) {
     const modal = document.getElementById('libraryItemModal');
@@ -704,7 +676,6 @@ function openLibraryModal(itemId = null) {
         return;
     }
     
-    // Reset form
     form.reset();
     document.getElementById('editItemId').value = '';
     document.getElementById('coverPreview').style.display = 'none';
@@ -712,17 +683,13 @@ function openLibraryModal(itemId = null) {
     document.getElementById('bundleDownloadGroup').style.display = 'none';
     document.getElementById('talkDurationGroup').style.display = 'none';
     
-    // Reset file data
     coverFileData = null;
     contentFileData = null;
     
-    // Reset file inputs
     document.getElementById('coverFileInput').value = '';
     document.getElementById('contentFileInput').value = '';
     document.getElementById('coverFileName').textContent = 'No file selected';
     document.getElementById('contentFileName').textContent = 'No file selected';
-    
-    // Reset file previews
     document.getElementById('coverPreview').style.display = 'none';
     document.getElementById('contentFilePreview').style.display = 'none';
     document.getElementById('coverPreviewImg').src = '';
@@ -730,7 +697,6 @@ function openLibraryModal(itemId = null) {
     title.textContent = 'Add New Content';
     editingItemId = null;
     
-    // Update folder hint
     updateFolderHint();
     
     if (itemId) {
@@ -747,7 +713,6 @@ function closeLibraryModal() {
     const modal = document.getElementById('libraryItemModal');
     if (modal) {
         modal.classList.remove('active');
-        // Reset form
         document.getElementById('libraryItemForm').reset();
         document.getElementById('coverPreview').style.display = 'none';
         document.getElementById('contentFilePreview').style.display = 'none';
@@ -762,9 +727,6 @@ function closeLibraryModal() {
         contentFileData = null;
     }
 }
-
-// REMOVED: Overlay click listener for library modal
-// Only the 'X' button closes the modal now
 
 function updateFolderHint() {
     const typeSelect = document.getElementById('itemType');
@@ -801,7 +763,6 @@ async function loadItemData(itemId) {
     document.getElementById('itemType').value = item.type || 'book';
     document.getElementById('itemCategory').value = item.category || '';
     document.getElementById('itemAuthor').value = item.author || '';
-    // REMOVED: Description field
     document.getElementById('itemPrice').value = item.price || 0;
     document.getElementById('itemPhysicalPrice').value = item.physical_price || 0;
     document.getElementById('itemAudioPrice').value = item.audio_price || 0;
@@ -811,10 +772,8 @@ async function loadItemData(itemId) {
     document.getElementById('itemStatus').value = item.is_active ? 'active' : 'inactive';
     document.getElementById('itemFirstChapter').value = item.first_chapter || '';
     
-    // Update folder hint
     updateFolderHint();
     
-    // Show existing cover
     if (item.cover_url) {
         const preview = document.getElementById('coverPreview');
         const img = document.getElementById('coverPreviewImg');
@@ -824,7 +783,6 @@ async function loadItemData(itemId) {
         if (preview) preview.style.display = 'flex';
     }
     
-    // Show existing file
     if (item.file_url) {
         const preview = document.getElementById('contentFilePreview');
         const fileName = document.getElementById('contentFileName');
@@ -834,10 +792,6 @@ async function loadItemData(itemId) {
     }
 }
 
-// ============================================
-// SAVE LIBRARY ITEM - WITH AUTO URL STORAGE
-// MODIFIED: Removed description field
-// ============================================
 async function saveLibraryItem(e) {
     e.preventDefault();
     
@@ -846,7 +800,6 @@ async function saveLibraryItem(e) {
     const coverFile = coverFileData;
     const contentFile = contentFileData;
     
-    // Get existing file URLs if editing
     let existingCoverUrl = '';
     let existingFileUrl = '';
     if (itemId) {
@@ -861,47 +814,34 @@ async function saveLibraryItem(e) {
         }
     }
     
-    // Upload cover image if new file selected
     let coverUrl = existingCoverUrl;
     if (coverFile) {
-        console.log('📤 Uploading cover image...', coverFile.name);
         const uploadedUrl = await uploadFileToStorage(coverFile, 'cover');
-        console.log('📤 Upload result URL:', uploadedUrl);
-        
         if (uploadedUrl) {
-            // Delete old cover if exists
             if (existingCoverUrl) {
                 await deleteFileFromStorage(existingCoverUrl);
             }
             coverUrl = uploadedUrl;
-            console.log('✅ Cover URL saved:', coverUrl);
         } else {
             showToast('Cover upload failed', 'error');
             return;
         }
     }
     
-    // Upload content file if new file selected
     let fileUrl = existingFileUrl;
     if (contentFile) {
-        console.log('📤 Uploading content file...', contentFile.name);
         const uploadedUrl = await uploadFileToStorage(contentFile, contentType);
-        console.log('📤 Upload result URL:', uploadedUrl);
-        
         if (uploadedUrl) {
-            // Delete old file if exists
             if (existingFileUrl) {
                 await deleteFileFromStorage(existingFileUrl);
             }
             fileUrl = uploadedUrl;
-            console.log('✅ Content URL saved:', fileUrl);
         } else {
             showToast('Content file upload failed', 'error');
             return;
         }
     }
     
-    // Build the data object - REMOVED description field
     const data = {
         title: document.getElementById('itemTitle').value.trim(),
         type: contentType,
@@ -920,19 +860,11 @@ async function saveLibraryItem(e) {
         updated_at: new Date().toISOString()
     };
     
-    console.log('📦 Saving to database:', { 
-        title: data.title, 
-        cover_url: data.cover_url, 
-        file_url: data.file_url,
-        download_url: data.download_url
-    });
-    
     if (!data.title) {
         showToast('Title is required', 'error');
         return;
     }
     
-    // Save to database
     let result;
     if (itemId) {
         result = await supabase
@@ -950,27 +882,21 @@ async function saveLibraryItem(e) {
         showToast(`Error: ${result.error.message}`, 'error');
         console.error('Database error:', result.error);
     } else {
-        console.log('✅ Database updated successfully');
         showToast(`Content ${itemId ? 'updated' : 'added'} successfully!`, 'success');
         closeLibraryModal();
         renderPostsManager();
     }
 }
 
-// ============================================
-// DELETE LIBRARY ITEM
-// ============================================
 async function deleteLibraryItem(itemId) {
     if (!confirm('Delete this content permanently? This cannot be undone.')) return;
     
-    // Get the item to delete its files
     const { data: item } = await supabase
         .from('hub_contents')
         .select('cover_url, file_url')
         .eq('id', itemId)
         .single();
     
-    // Delete files from storage
     if (item) {
         if (item.cover_url) await deleteFileFromStorage(item.cover_url);
         if (item.file_url) await deleteFileFromStorage(item.file_url);
@@ -1105,26 +1031,23 @@ async function deleteFaqItem(faqId) {
 }
 
 // ============================================
-// INDEX/HERO FUNCTIONS - WITH FILE UPLOAD
+// INDEX/HERO FUNCTIONS
 // ============================================
 function openIndexModal() {
     const modal = document.getElementById('indexModal');
     if (!modal) return;
     
-    // Reset file data
     indexImageFileData = null;
     document.getElementById('indexImageInput').value = '';
     document.getElementById('indexImagePreview').style.display = 'none';
     document.getElementById('indexFileName').textContent = 'No file selected';
     
-    // Load current index data
     supabase.from('index_content').select('*').maybeSingle()
         .then(({ data }) => {
             document.getElementById('indexHeroTitle').value = data?.hero_title || 'Be The Best';
             document.getElementById('indexHeroSubtitle').value = data?.hero_subtitle || 'Read the best';
             document.getElementById('editIndexId').value = data?.id || '';
             
-            // Show existing image if any
             if (data?.hero_image) {
                 const preview = document.getElementById('indexImagePreview');
                 const img = document.getElementById('indexImagePreviewImg');
@@ -1151,7 +1074,6 @@ async function saveIndexItem(e) {
     const indexId = document.getElementById('editIndexId').value;
     const imageFile = indexImageFileData;
     
-    // Get existing image URL if editing
     let existingImageUrl = '';
     if (indexId) {
         const { data: oldData } = await supabase
@@ -1166,16 +1088,12 @@ async function saveIndexItem(e) {
     
     let imageUrl = existingImageUrl;
     if (imageFile) {
-        console.log('📤 Uploading hero image...', imageFile.name);
         const uploadedUrl = await uploadFileToStorage(imageFile, 'hero');
-        
         if (uploadedUrl) {
-            // Delete old image if exists
             if (existingImageUrl) {
                 await deleteFileFromStorage(existingImageUrl);
             }
             imageUrl = uploadedUrl;
-            console.log('✅ Hero image URL saved:', imageUrl);
         } else {
             showToast('Image upload failed', 'error');
             return;
@@ -1188,8 +1106,6 @@ async function saveIndexItem(e) {
         hero_image: imageUrl,
         updated_at: new Date().toISOString()
     };
-    
-    console.log('📦 Saving index data:', data);
     
     let result;
     if (indexId) {
@@ -1208,7 +1124,6 @@ async function saveIndexItem(e) {
         showToast(`Error: ${result.error.message}`, 'error');
         console.error('Database error:', result.error);
     } else {
-        console.log('✅ Index updated successfully');
         showToast('Hero content updated successfully!', 'success');
         closeIndexModal();
         renderPostsManager();
@@ -1216,13 +1131,12 @@ async function saveIndexItem(e) {
 }
 
 // ============================================
-// PRODUCT FUNCTIONS - WITH FILE UPLOAD
+// PRODUCT FUNCTIONS
 // ============================================
 function openProductModal(productId = null) {
     const modal = document.getElementById('productModal');
     if (!modal) return;
     
-    // Reset form
     document.getElementById('productForm').reset();
     document.getElementById('editProductId').value = '';
     productImageFileData = null;
@@ -1281,7 +1195,6 @@ async function saveProductItem(e) {
     const productId = document.getElementById('editProductId').value;
     const imageFile = productImageFileData;
     
-    // Get existing image URL if editing
     let existingImageUrl = '';
     if (productId) {
         const { data: oldData } = await supabase
@@ -1296,15 +1209,12 @@ async function saveProductItem(e) {
     
     let imageUrl = existingImageUrl;
     if (imageFile) {
-        console.log('📤 Uploading product image...', imageFile.name);
         const uploadedUrl = await uploadFileToStorage(imageFile, 'product');
-        
         if (uploadedUrl) {
             if (existingImageUrl) {
                 await deleteFileFromStorage(existingImageUrl);
             }
             imageUrl = uploadedUrl;
-            console.log('✅ Product image URL saved:', imageUrl);
         } else {
             showToast('Image upload failed', 'error');
             return;
@@ -1319,8 +1229,6 @@ async function saveProductItem(e) {
         image_url: imageUrl,
         updated_at: new Date().toISOString()
     };
-    
-    console.log('📦 Saving product:', data);
     
     if (!data.name) {
         showToast('Product name is required', 'error');
@@ -1344,7 +1252,6 @@ async function saveProductItem(e) {
         showToast(`Error: ${result.error.message}`, 'error');
         console.error('Database error:', result.error);
     } else {
-        console.log('✅ Product saved successfully');
         showToast(`Product ${productId ? 'updated' : 'added'} successfully!`, 'success');
         closeProductModal();
         renderInventory();
@@ -1431,7 +1338,6 @@ async function renderSettings() {
         </div>
     `;
     
-    // Theme selector event listeners
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', () => {
             const theme = btn.getAttribute('data-theme');
@@ -1459,7 +1365,6 @@ async function renderSettings() {
         });
     });
     
-    // Save settings
     document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
         const emailNotifications = document.getElementById('emailNotifications')?.checked;
         const paymentAlerts = document.getElementById('paymentAlerts')?.checked;
@@ -1470,12 +1375,10 @@ async function renderSettings() {
         showToast('Settings saved successfully!', 'success');
     });
     
-    // Export data
     document.getElementById('exportDataBtn')?.addEventListener('click', async () => {
         await exportAllData();
     });
     
-    // Clear cache
     document.getElementById('clearCacheBtn')?.addEventListener('click', () => {
         localStorage.removeItem('admin_payments_cache');
         localStorage.removeItem('admin_students_cache');
@@ -1485,7 +1388,7 @@ async function renderSettings() {
 }
 
 // ============================================
-// OTHER RENDER FUNCTIONS
+// PAYMENTS - FIXED TO USE user_profiles
 // ============================================
 async function renderPayments() {
     const container = document.getElementById('payments-section');
@@ -1497,9 +1400,6 @@ async function renderPayments() {
     allPayments = payments;
     
     const pendingCount = payments.filter(p => p.status === 'pending').length;
-    const badgeEl = document.getElementById('pendingPaymentsBadge');
-    if (badgeEl) badgeEl.textContent = pendingCount;
-    
     const filtered = payments.filter(p => p.status === currentPaymentFilter);
     
     if (filtered.length === 0) {
@@ -1568,6 +1468,80 @@ async function renderPayments() {
     });
 }
 
+// ============================================
+// APPROVE/REJECT PAYMENT - FIXED
+// ============================================
+async function approvePayment(paymentId, amount, userName) {
+    try {
+        const { data: payment, error: paymentError } = await supabase
+            .from('payment_requests')
+            .select('*')
+            .eq('id', paymentId)
+            .single();
+        
+        if (paymentError) throw paymentError;
+        
+        // Update payment status
+        await supabase
+            .from('payment_requests')
+            .update({ 
+                status: 'approved', 
+                approved_at: new Date().toISOString() 
+            })
+            .eq('id', paymentId);
+        
+        // FIXED: Using user_profiles instead of users
+        const { data: user, error: userError } = await supabase
+            .from('user_profiles')
+            .select('wallet_balance')
+            .eq('id', payment.user_id)
+            .single();
+        
+        if (userError) {
+            console.error('Error fetching user:', userError);
+            // Continue anyway - we'll still mark payment as approved
+        }
+        
+        const newBalance = (user?.wallet_balance || 0) + payment.amount;
+        
+        // FIXED: Using user_profiles instead of users
+        await supabase
+            .from('user_profiles')
+            .update({ wallet_balance: newBalance })
+            .eq('id', payment.user_id);
+        
+        showToast(`✅ Payment of ₦${amount.toLocaleString()} from ${userName} approved!`, 'success');
+        await renderPayments();
+        await renderDashboard();
+    } catch (error) {
+        console.error('Error approving payment:', error);
+        showToast('Error approving payment: ' + error.message, 'error');
+    }
+}
+
+async function rejectPayment(paymentId, amount, userName) {
+    try {
+        await supabase
+            .from('payment_requests')
+            .update({ 
+                status: 'rejected', 
+                admin_notes: 'Payment rejected by admin',
+                reviewed_at: new Date().toISOString()
+            })
+            .eq('id', paymentId);
+        
+        showToast(`❌ Payment of ₦${amount.toLocaleString()} from ${userName} rejected`, 'info');
+        await renderPayments();
+        await renderDashboard();
+    } catch (error) {
+        console.error('Error rejecting payment:', error);
+        showToast('Error rejecting payment', 'error');
+    }
+}
+
+// ============================================
+// USERS - FIXED TO USE user_profiles
+// ============================================
 async function renderUsers() {
     const container = document.getElementById('users-section');
     if (!container) return;
@@ -1575,10 +1549,36 @@ async function renderUsers() {
     const students = await loadStudents();
     
     container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-users"></i> User Management</h2><button id="exportUsersBtn" class="btn-outline"><i class="fas fa-download"></i> Export CSV</button></div>
-        <div class="users-list"><div class="table-responsive"><table class="users-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Wallet Balance</th><th>Joined</th></tr></thead><tbody>
-            ${students.map(s => `<tr><td><strong>${escapeHtml(s.name)}</strong></td><td>${s.email}</td><td>${s.role || 'Student'}</td><td>₦${(s.wallet_balance || 0).toLocaleString()}</td><td>${new Date(s.created_at).toLocaleDateString()}</td></tr>`).join('')}
-        </tbody></table></div></div>
+        <div class="tab-header">
+            <h2><i class="fas fa-users"></i> User Management</h2>
+            <button id="exportUsersBtn" class="btn-outline"><i class="fas fa-download"></i> Export CSV</button>
+        </div>
+        <div class="users-list">
+            <div class="table-responsive">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Wallet Balance</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${students.map(s => `
+                            <tr>
+                                <td><strong>${escapeHtml(s.name)}</strong></td>
+                                <td>${escapeHtml(s.email)}</td>
+                                <td>${s.role || 'Student'}</td>
+                                <td>₦${(s.wallet_balance || 0).toLocaleString()}</td>
+                                <td>${new Date(s.created_at).toLocaleDateString()}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     `;
     
     document.getElementById('exportUsersBtn')?.addEventListener('click', () => {
@@ -1597,21 +1597,47 @@ async function renderUsers() {
     });
 }
 
+// ============================================
+// INVENTORY
+// ============================================
 async function renderInventory() {
     const container = document.getElementById('inventory-section');
     if (!container) return;
     
-    const { data: products } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+    const { data: products } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
     
     container.innerHTML = `
-        <div class="tab-header"><h2><i class="fas fa-boxes"></i> Inventory Management</h2><button id="addProductBtn" class="btn-primary"><i class="fas fa-plus"></i> Add Product</button></div>
-        <div class="inventory-stats"><div class="inv-stat"><span>Total Products</span><strong>${products?.length || 0}</strong></div><div class="inv-stat"><span>Low Stock Alerts</span><strong>${products?.filter(p => p.stock_quantity < 10).length || 0}</strong></div></div>
-        <div class="inventory-grid">${products?.map(p => `<div class="inventory-card ${p.stock_quantity < 10 ? 'low-stock' : ''}"><div class="inventory-card-header"><h4>${escapeHtml(p.name)}</h4><span>${p.category}</span></div><div class="inventory-stock">Stock: ${p.stock_quantity || 0} units</div><div class="inventory-price">₦${(p.price || 0).toLocaleString()}</div></div>`).join('') || '<div class="empty-state">No products found</div>'}</div>
+        <div class="tab-header">
+            <h2><i class="fas fa-boxes"></i> Inventory Management</h2>
+            <button id="addProductBtn" class="btn-primary"><i class="fas fa-plus"></i> Add Product</button>
+        </div>
+        <div class="inventory-stats">
+            <div class="inv-stat"><span>Total Products</span><strong>${products?.length || 0}</strong></div>
+            <div class="inv-stat"><span>Low Stock Alerts</span><strong>${products?.filter(p => p.stock_quantity < 10).length || 0}</strong></div>
+        </div>
+        <div class="inventory-grid">
+            ${products?.map(p => `
+                <div class="inventory-card ${p.stock_quantity < 10 ? 'low-stock' : ''}">
+                    <div class="inventory-card-header">
+                        <h4>${escapeHtml(p.name)}</h4>
+                        <span>${p.category}</span>
+                    </div>
+                    <div class="inventory-stock">Stock: ${p.stock_quantity || 0} units</div>
+                    <div class="inventory-price">₦${(p.price || 0).toLocaleString()}</div>
+                </div>
+            `).join('') || '<div class="empty-state">No products found</div>'}
+        </div>
     `;
     
     document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
 }
 
+// ============================================
+// FINANCE
+// ============================================
 async function renderFinance() {
     const container = document.getElementById('finance-section');
     if (!container) return;
@@ -1622,11 +1648,27 @@ async function renderFinance() {
     
     container.innerHTML = `
         <div class="tab-header"><h2><i class="fas fa-chart-line"></i> Financial Management</h2></div>
-        <div class="finance-stats"><div class="finance-card"><h4>Total Revenue</h4><div class="amount">₦${totalRevenue.toLocaleString()}</div></div><div class="finance-card"><h4>Total Transactions</h4><div class="amount">${payments.length}</div></div></div>
-        <div class="revenue-breakdown"><h3>Recent Transactions</h3><div class="breakdown-list">${approvedPayments.slice(0, 10).map(p => `<div class="breakdown-item"><span>${p.user_name || p.user_email}</span><strong>₦${p.amount.toLocaleString()}</strong></div>`).join('') || '<div class="empty-state">No transactions yet</div>'}</div></div>
+        <div class="finance-stats">
+            <div class="finance-card"><h4>Total Revenue</h4><div class="amount">₦${totalRevenue.toLocaleString()}</div></div>
+            <div class="finance-card"><h4>Total Transactions</h4><div class="amount">${payments.length}</div></div>
+        </div>
+        <div class="revenue-breakdown">
+            <h3>Recent Transactions</h3>
+            <div class="breakdown-list">
+                ${approvedPayments.slice(0, 10).map(p => `
+                    <div class="breakdown-item">
+                        <span>${p.user_name || p.user_email}</span>
+                        <strong>₦${p.amount.toLocaleString()}</strong>
+                    </div>
+                `).join('') || '<div class="empty-state">No transactions yet</div>'}
+            </div>
+        </div>
     `;
 }
 
+// ============================================
+// PLACEHOLDER RENDER FUNCTIONS
+// ============================================
 async function renderSubmissions() {
     const container = document.getElementById('submissions-section');
     if (!container) return;
@@ -1670,47 +1712,17 @@ async function renderSales() {
 }
 
 // ============================================
-// APPROVE/REJECT PAYMENT FUNCTIONS
-// ============================================
-async function approvePayment(paymentId, amount, userName) {
-    try {
-        const { data: payment } = await supabase.from('payment_requests').select('*').eq('id', paymentId).single();
-        
-        await supabase.from('payment_requests').update({ status: 'approved', approved_at: new Date().toISOString() }).eq('id', paymentId);
-        
-        const { data: user } = await supabase.from('users').select('wallet_balance').eq('id', payment.user_id).single();
-        const newBalance = (user?.wallet_balance || 0) + payment.amount;
-        await supabase.from('users').update({ wallet_balance: newBalance }).eq('id', payment.user_id);
-        
-        showToast(`✅ Payment of ₦${amount.toLocaleString()} from ${userName} approved!`, 'success');
-        await renderPayments();
-        await renderDashboard();
-    } catch (error) {
-        console.error('Error approving payment:', error);
-        showToast('Error approving payment', 'error');
-    }
-}
-
-async function rejectPayment(paymentId, amount, userName) {
-    try {
-        await supabase.from('payment_requests').update({ status: 'rejected', admin_notes: 'Payment rejected by admin' }).eq('id', paymentId);
-        showToast(`❌ Payment of ₦${amount.toLocaleString()} from ${userName} rejected`, 'info');
-        await renderPayments();
-        await renderDashboard();
-    } catch (error) {
-        console.error('Error rejecting payment:', error);
-        showToast('Error rejecting payment', 'error');
-    }
-}
-
-// ============================================
 // HELPER FUNCTIONS
 // ============================================
 function renderRecentPayments(payments) {
     if (!payments.length) return '<div class="empty-state">No payments yet</div>';
     return payments.map(p => `
         <div class="payment-item ${p.status}">
-            <div class="payment-info"><div class="payment-amount">₦${p.amount.toLocaleString()}</div><div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div><div class="payment-ref">${p.user_name || p.user_email}</div></div>
+            <div class="payment-info">
+                <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+                <div class="payment-ref">${p.user_name || p.user_email}</div>
+            </div>
             <div class="payment-status ${p.status}">${p.status}</div>
         </div>
     `).join('');
@@ -1718,7 +1730,10 @@ function renderRecentPayments(payments) {
 
 async function loadPayments() {
     try {
-        const { data, error } = await supabase.from('payment_requests').select('*').order('submitted_at', { ascending: false });
+        const { data, error } = await supabase
+            .from('payment_requests')
+            .select('*')
+            .order('submitted_at', { ascending: false });
         if (error) throw error;
         return data || [];
     } catch (error) {
@@ -1727,12 +1742,18 @@ async function loadPayments() {
     }
 }
 
+// FIXED: Using user_profiles instead of users
 async function loadStudents() {
     try {
-        const { data, error } = await supabase.from('users').select('*').eq('role', 'student').order('created_at', { ascending: false });
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('role', 'student')
+            .order('created_at', { ascending: false });
         if (error) throw error;
         return data || [];
     } catch (error) {
+        console.error('Error loading students:', error);
         return [];
     }
 }
@@ -1792,7 +1813,6 @@ async function initAdminDashboard() {
     buildSidebar();
     await renderDashboard();
     
-    // Setup auto-refresh every 30 seconds
     setInterval(async () => {
         if (currentTab === 'payments') await renderPayments();
         else if (currentTab === 'dashboard') await renderDashboard();
@@ -1803,48 +1823,33 @@ async function initAdminDashboard() {
 
 // ============================================
 // EVENT LISTENERS FOR MODAL CLOSING
-// MODIFIED: Only 'X' button closes modals
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Type change handler
     const typeSelect = document.getElementById('itemType');
     if (typeSelect) {
         typeSelect.addEventListener('change', updateFolderHint);
     }
     
-    // Library modal - ONLY the close button closes it
     const closeLibraryBtn = document.getElementById('closeLibraryModalBtn');
     if (closeLibraryBtn) {
         closeLibraryBtn.addEventListener('click', closeLibraryModal);
     }
     
-    // REMOVED: Overlay click listener for library modal
-    
-    // FAQ modal - ONLY the close button closes it
     const closeFaqBtn = document.getElementById('closeFaqModalBtn');
     if (closeFaqBtn) {
         closeFaqBtn.addEventListener('click', closeFaqModal);
     }
     
-    // REMOVED: Overlay click listener for FAQ modal
-    
-    // Index modal - ONLY the close button closes it
     const closeIndexBtn = document.getElementById('closeIndexModalBtn');
     if (closeIndexBtn) {
         closeIndexBtn.addEventListener('click', closeIndexModal);
     }
     
-    // REMOVED: Overlay click listener for Index modal
-    
-    // Product modal - ONLY the close button closes it
     const closeProductBtn = document.getElementById('closeProductModalBtn');
     if (closeProductBtn) {
         closeProductBtn.addEventListener('click', closeProductModal);
     }
     
-    // REMOVED: Overlay click listener for Product modal
-    
-    // Escape key to close modals (still works)
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             if (document.getElementById('libraryItemModal')?.classList.contains('active')) {
