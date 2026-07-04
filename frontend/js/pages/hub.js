@@ -997,6 +997,161 @@ export function setupEventListeners() {
 }
 
 // ================================================================
+// NAVIGATION FUNCTIONS
+// ================================================================
+
+// Close nav when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('stickyNav');
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    
+    if (nav && !nav.contains(e.target)) {
+        if (dropdown) dropdown.classList.remove('open');
+        if (toggle) toggle.classList.remove('active');
+    }
+});
+
+// Toggle nav function
+function toggleNav(e) {
+    e.stopPropagation();
+    const dropdown = document.getElementById('navDropdown');
+    const toggle = document.getElementById('navToggle');
+    if (dropdown) dropdown.classList.toggle('open');
+    if (toggle) toggle.classList.toggle('active');
+}
+
+// Navigation functions - Expose to window
+window.goToDashboard = function() {
+    window.location.href = '/user';
+};
+
+window.goToHub = function() {
+    window.location.href = '/hub';
+};
+
+window.goToLearningPath = function() {
+    window.location.href = '/user-course';
+};
+
+window.goToVirtualRoom = function() {
+    window.location.href = '/virtualroom';
+};
+
+window.goToChat = function() {
+    window.location.href = '/chat';
+};
+
+window.goToMerchandise = function() {
+    window.location.href = '/merchandise';
+};
+
+window.goToUser = function() {
+    window.location.href = '/user';
+};
+
+window.goBack = function() {
+    if (document.referrer && document.referrer.includes('/user')) {
+        window.history.back();
+    } else {
+        window.location.href = '/user';
+    }
+};
+
+window.goToContact = function() {
+    window.location.href = '/contact';
+};
+
+window.reportIssue = function() {
+    showToast('📝 Report an issue? Our team will investigate.', 'info');
+};
+
+// Share functions
+window.sharePage = function() {
+    const link = window.location.href;
+    document.getElementById('shareCode').textContent = 'GLI-HUB-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    document.getElementById('shareReferralLink').textContent = link;
+    document.getElementById('shareModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeShareModal = function() {
+    document.getElementById('shareModal').classList.remove('active');
+    document.body.style.overflow = '';
+};
+
+window.copyShareCode = function() {
+    const code = document.getElementById('shareCode').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        showToast('📋 Share code copied!', 'success');
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = code;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast('📋 Share code copied!', 'success');
+    });
+};
+
+window.copyShareLink = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+        showToast('🔗 Link copied!', 'success');
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast('🔗 Link copied!', 'success');
+    });
+};
+
+window.shareOnWhatsApp = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const text = `Check out Gliimu Hub! 🚀 Discover, create, and get discovered: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnTwitter = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const text = `Check out Gliimu Hub! 🚀 Discover, create, and get discovered: ${link}`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnLinkedIn = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    window.open(`https://linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnFacebook = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    window.open(`https://facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank');
+    window.closeShareModal();
+};
+
+window.shareOnEmail = function() {
+    const link = document.getElementById('shareReferralLink').textContent;
+    const subject = 'Check out Gliimu Hub!';
+    const body = `I found this amazing platform called Gliimu Hub. Check it out: ${link}`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+    window.closeShareModal();
+};
+
+// ================================================================
+// INIT - Add nav toggle listener
+// ================================================================
+
+// Add this inside your init() function:
+document.getElementById('navToggle')?.addEventListener('click', toggleNav);
+
+// ================================================================
 // BOOT
 // ================================================================
 document.addEventListener('DOMContentLoaded', () => {
