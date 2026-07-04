@@ -43,6 +43,7 @@ export class UserPage {
         this.currentTab = 'dashboard';
         this.bankDetails = null;
         this.leaderboardData = [];
+        this.usernameValid = true;
         
         // Wallet state
         this.selectedAmount = 0;
@@ -76,6 +77,9 @@ export class UserPage {
         }
     }
 
+    // ============================================
+    // LOAD USER DATA
+    // ============================================
     async loadUserData() {
         try {
             this.showLoading(true);
@@ -97,7 +101,7 @@ export class UserPage {
 
             this.currentProfile = profile;
 
-            // ✅ Update role stylesheet
+            // Update role stylesheet
             this.updateRoleStylesheet(profile.role || 'student');
 
             // Update UI
@@ -140,7 +144,6 @@ export class UserPage {
         }
     }
 
-    // ✅ NEW: Load leaderboard
     async loadLeaderboard() {
         try {
             this.leaderboardData = await getIndividualLeaderboard(5);
@@ -150,7 +153,6 @@ export class UserPage {
         }
     }
 
-    // ✅ NEW: Load submissions count
     async getSubmissionsCount(userId) {
         try {
             const { count, error } = await supabase
@@ -167,16 +169,15 @@ export class UserPage {
         }
     }
 
-    // ✅ NEW: Get referrals count
-async getReferralsCount(userId) {
-    try {
-        const count = await getReferralCount(userId);
-        return count;
-    } catch (error) {
-        console.error('Error getting referrals:', error);
-        return 0;
+    async getReferralsCount(userId) {
+        try {
+            const count = await getReferralCount(userId);
+            return count;
+        } catch (error) {
+            console.error('Error getting referrals:', error);
+            return 0;
+        }
     }
-}
 
     updateRoleStylesheet(role) {
         const roleStylesheet = document.getElementById('roleStylesheet');
@@ -195,7 +196,6 @@ async getReferralsCount(userId) {
     }
 
     updateUserUI(user, profile) {
-        // Sidebar user info
         const userNameEl = document.getElementById('userName');
         const userRoleEl = document.getElementById('userRole');
         const userAvatarImg = document.getElementById('userAvatarImg');
@@ -215,8 +215,10 @@ async getReferralsCount(userId) {
         }
     }
 
+    // ============================================
+    // NAVIGATION
+    // ============================================
     setupNavigation() {
-        // Sidebar navigation
         const sidebarNav = document.getElementById('sidebarNav');
         if (sidebarNav) {
             const navItems = this.getNavItems();
@@ -231,23 +233,22 @@ async getReferralsCount(userId) {
         }
 
         // Mobile bottom navigation
-document.querySelectorAll('.mobile-nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-        const tab = item.dataset.tab;
-        // For Go To, just load the tab - don't toggle sidebar
-        this.loadTab(tab);
-        // Close sidebar if open
-        this.closeSidebar();
-    });
-});
-        // Sidebar overlay
+        document.querySelectorAll('.mobile-nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const tab = item.dataset.tab;
+                // For Go To, load the tab directly
+                this.loadTab(tab);
+                // Close sidebar if open
+                this.closeSidebar();
+            });
+        });
+
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => this.closeSidebar());
         }
     }
 
-    // ✅ UPDATED: Navigation items
     getNavItems() {
         const role = this.currentProfile?.role || 'student';
         const items = [
@@ -278,7 +279,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
     async loadTab(tab) {
         this.currentTab = tab;
         
-        // Update active states
         document.querySelectorAll('.nav-item, .mobile-nav-item').forEach(el => {
             el.classList.remove('active');
             if (el.dataset.tab === tab) {
@@ -286,7 +286,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
             }
         });
 
-        // Load content based on tab
         switch(tab) {
             case 'dashboard':
                 await this.loadDashboard();
@@ -317,7 +316,7 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
     }
 
     // ============================================
-    // DASHBOARD TAB (UPDATED)
+    // DASHBOARD TAB
     // ============================================
     async loadDashboard() {
         const content = this.dashboardContent;
@@ -326,11 +325,9 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
         const profile = this.currentProfile;
         const user = this.currentUser;
         
-        // Get submissions and referrals count
         const submissionsCount = await this.getSubmissionsCount(user.id);
         const referralsCount = await this.getReferralsCount(user.id);
         
-        // Get progress data
         const progressData = await getStudentProgress(user.id);
         const progress = progressData?.progress || 0;
         const badge = progressData?.currentBadge || { name: 'Starter', icon: '🌱', color: '#10b981' };
@@ -349,7 +346,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
                 </div>
             </div>
 
-            <!-- Stats Grid - UPDATED -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon wallet-icon">
@@ -389,7 +385,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
                 </div>
             </div>
 
-            <!-- Progress Bar -->
             <div class="progress-section">
                 <div class="progress-header">
                     <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
@@ -404,7 +399,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
                 </div>
             </div>
 
-            <!-- Quick Actions -->
             <div class="dashboard-grid">
                 <div class="card quick-actions-card">
                     <h3>Quick Actions</h3>
@@ -424,7 +418,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
                     </div>
                 </div>
 
-                <!-- LEADERBOARD - NEW -->
                 <div class="card leaderboard-card">
                     <div class="leaderboard-header">
                         <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
@@ -438,7 +431,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
                 </div>
             </div>
 
-            <!-- Recent Activity -->
             <div class="card recent-activity-card">
                 <h3>Recent Activity</h3>
                 <div id="recentActivity">
@@ -454,7 +446,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
             ` : ''}
         `;
 
-        // Re-bind event listeners
         document.querySelectorAll('.action-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.action;
@@ -476,7 +467,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
         await this.loadRecentActivity();
     }
 
-    // ✅ NEW: Render leaderboard items
     renderLeaderboardItems() {
         if (!this.leaderboardData || this.leaderboardData.length === 0) {
             return '<div class="empty-state"><p>No leaders yet. Be the first!</p></div>';
@@ -537,7 +527,7 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
     }
 
     // ============================================
-    // WALLET TAB (UPDATED)
+    // WALLET TAB
     // ============================================
     async loadWallet() {
         const content = this.dashboardContent;
@@ -615,7 +605,7 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
     }
 
     // ============================================
-    // MESSAGES TAB (NEW - Replaces Alerts)
+    // MESSAGES TAB
     // ============================================
     async loadMessages() {
         this.dashboardContent.innerHTML = `
@@ -639,7 +629,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
                 </div>
             </div>
             
-            <!-- Message Modal -->
             <div id="messageModal" class="modal" style="display: none;">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -678,7 +667,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
             const subject = document.getElementById('messageSubject').value;
             const body = document.getElementById('messageBody').value;
             
-            // Send message to admin
             const { error } = await supabase
                 .from('messages')
                 .insert([{
@@ -698,7 +686,6 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
             }
         });
 
-        // Load existing messages
         this.loadMessageThreads();
     }
 
@@ -747,374 +734,8 @@ document.querySelectorAll('.mobile-nav-item').forEach(item => {
         }
     }
 
-// ============================================
-// UTILITY METHODS (ADD THESE)
-// ============================================
-
-showLoading(show) {
-    if (this.loadingDiv) {
-        this.loadingDiv.style.display = show ? 'flex' : 'none';
-    }
-    if (this.dashboardContent) {
-        this.dashboardContent.style.opacity = show ? '0.5' : '1';
-        this.dashboardContent.style.pointerEvents = show ? 'none' : 'auto';
-    }
-}
-
-showError(message) {
-    showToast(message, 'error');
-}
-
-// ============================================
-// SETUP EVENT LISTENERS (ADD THIS)
-// ============================================
-
-setupEventListeners() {
-    // Modal close buttons
-    document.querySelectorAll('.modal-close').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const modal = btn.closest('.modal');
-            if (modal) {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-    });
-
-    // Close modals on overlay click
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-    });
-
-    // Wallet modal events
-    document.querySelectorAll('.amount-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            this.selectedAmount = parseInt(btn.dataset.amount);
-            this.updateAmountDisplay();
-        });
-    });
-
-    document.getElementById('customAmount')?.addEventListener('input', (e) => {
-        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-        this.selectedAmount = parseInt(e.target.value) || 0;
-        this.updateAmountDisplay();
-    });
-
-    document.getElementById('continueToBankBtn')?.addEventListener('click', () => {
-        if (this.selectedAmount < 100) {
-            showToast('Please select or enter an amount (minimum ₦100)', 'error');
-            return;
-        }
-        this.showBankDetails();
-    });
-
-    document.getElementById('backToAmountBtn')?.addEventListener('click', () => {
-        this.resetWalletModal();
-    });
-
-    document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
-        await this.confirmPayment();
-    });
-
-    document.getElementById('copyRefCodeBtn')?.addEventListener('click', () => {
-        const code = document.getElementById('referenceCode')?.textContent;
-        if (code) {
-            navigator.clipboard.writeText(code).then(() => {
-                showToast('Reference code copied!', 'success');
-            }).catch(() => {
-                // Fallback
-                const input = document.createElement('input');
-                input.value = code;
-                document.body.appendChild(input);
-                input.select();
-                document.execCommand('copy');
-                document.body.removeChild(input);
-                showToast('Reference code copied!', 'success');
-            });
-        }
-    });
-
-    // MVP form
-    document.getElementById('mvpForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await this.submitMvp();
-    });
-}
-
-// ============================================
-// WALLET MODAL HELPERS (ADD THESE)
-// ============================================
-
-updateAmountDisplay() {
-    const display = document.getElementById('selectedAmountDisplay');
-    const large = document.getElementById('selectedAmountLarge');
-    if (display && large) {
-        if (this.selectedAmount > 0) {
-            display.style.display = 'block';
-            large.textContent = `₦${this.selectedAmount.toLocaleString()}`;
-        } else {
-            display.style.display = 'none';
-        }
-    }
-}
-
-resetWalletModal() {
-    const fundingOptions = document.querySelector('.funding-options');
-    const bankDetails = document.querySelector('.bank-details');
-    if (fundingOptions && bankDetails) {
-        fundingOptions.style.display = 'block';
-        bankDetails.style.display = 'none';
-    }
-    document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('customAmount').value = '';
-    document.getElementById('selectedAmountDisplay').style.display = 'none';
-    this.selectedAmount = 0;
-}
-
-async confirmPayment() {
-    try {
-        const result = await createPaymentRequest(
-            this.selectedAmount,
-            'GTBank',
-            this.referenceCode
-        );
-        
-        if (result.success) {
-            showToast('Payment recorded! Waiting for admin verification.', 'success');
-            this.resetWalletModal();
-            document.getElementById('fundWalletModal').classList.remove('active');
-            document.body.style.overflow = '';
-            await this.loadWallet();
-        } else {
-            showToast(result.error || 'Failed to record payment', 'error');
-        }
-    } catch (error) {
-        console.error('Payment error:', error);
-        showToast('Failed to record payment', 'error');
-    }
-}
-
-showFundWalletModal() {
-    const modal = document.getElementById('fundWalletModal');
-    if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        this.resetWalletModal();
-    }
-}
-
-// ============================================
-// MVP SUBMISSION (ADD THIS)
-// ============================================
-
-async submitMvp() {
-    try {
-        const title = document.getElementById('mvpTitle')?.value.trim();
-        const type = document.getElementById('mvpType')?.value;
-        const description = document.getElementById('mvpDescription')?.value.trim();
-        const proposal = document.getElementById('mvpProposal')?.value.trim();
-
-        if (!title || !type || !description || !proposal) {
-            showToast('Please fill in all fields', 'error');
-            return;
-        }
-
-        // TODO: Implement MVP submission API
-        showToast('MVP proposal submitted successfully!', 'success');
-        
-        // Close modal
-        const modal = document.getElementById('mvpModal');
-        if (modal) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-        
-        // Reset form
-        document.getElementById('mvpForm')?.reset();
-        
-    } catch (error) {
-        console.error('MVP submission error:', error);
-        showToast('Failed to submit MVP proposal', 'error');
-    }
-}
-
-// ============================================
-// ROLE APPLICATION (ADD THIS)
-// ============================================
-
-async applyForRole(role) {
-    try {
-        const result = await submitApplication({
-            role: role,
-            fullName: this.currentProfile?.name,
-            username: this.currentProfile?.username,
-            email: this.currentUser?.email,
-            birthDay: this.currentProfile?.birth_day,
-            birthMonth: this.currentProfile?.birth_month
-        });
-        
-        if (result.success) {
-            showToast(`Application for ${role} submitted successfully!`, 'success');
-            await this.loadUserData();
-            await this.loadTab('dashboard');
-        } else {
-            showToast(result.error || 'Failed to submit application', 'error');
-        }
-    } catch (error) {
-        console.error('Error applying for role:', error);
-        showToast('Failed to submit application', 'error');
-    }
-}
-
-// ============================================
-// PROFILE UPDATE (ADD THIS)
-// ============================================
-
-async updateProfile() {
-    try {
-        const fullName = document.getElementById('fullName')?.value.trim();
-        const bio = document.getElementById('bio')?.value.trim();
-        const address = document.getElementById('address')?.value.trim();
-        const birthDay = document.getElementById('birthDay')?.value;
-        const birthMonth = document.getElementById('birthMonth')?.value;
-        
-        // Check if username is valid before updating
-        if (!this.usernameValid) {
-            showToast('Please choose a valid username', 'error');
-            return;
-        }
-        
-        const username = document.getElementById('username')?.value.trim();
-        
-        if (!fullName) {
-            showToast('Full name is required', 'error');
-            return;
-        }
-
-        // Update profile with bio and username
-        const updateData = {
-            name: fullName,
-            bio: bio || '',
-            address: address || '',
-            birth_day: birthDay || null,
-            birth_month: birthMonth || null,
-            updated_at: new Date().toISOString()
-        };
-        
-        // Only update username if it changed and is valid
-        if (username && username !== this.currentProfile?.username) {
-            updateData.username = username;
-        }
-
-        const result = await updateUserProfile(updateData);
-
-        if (!result) {
-            throw new Error('Failed to update profile');
-        }
-
-        // Update auth metadata
-        const { error: authError } = await supabase.auth.updateUser({
-            data: { 
-                name: fullName,
-                full_name: fullName
-            }
-        });
-
-        if (authError) throw authError;
-
-        showToast('Profile updated successfully!', 'success');
-        await this.loadUserData();
-        await this.loadTab('settings');
-        
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        showToast('Failed to update profile: ' + error.message, 'error');
-    }
-}
-
-// ============================================
-// WALLET SUBSCRIPTION (ADD THIS)
-// ============================================
-
-setupWalletSubscription() {
-    if (!this.currentUser) return;
-    
-    const channel = supabase
-        .channel('wallet_updates')
-        .on('postgres_changes', 
-            { 
-                event: 'UPDATE', 
-                schema: 'public', 
-                table: 'user_profiles',
-                filter: `id=eq.${this.currentUser.id}` 
-            },
-            (payload) => {
-                if (payload.new) {
-                    // Update wallet and GP displays
-                    this.updateWalletDisplay(payload.new.wallet_balance);
-                    this.updateGpDisplay(payload.new.gp_points);
-                    
-                    if (this.currentProfile) {
-                        this.currentProfile.wallet_balance = payload.new.wallet_balance;
-                        this.currentProfile.gp_points = payload.new.gp_points;
-                    }
-                }
-            }
-        )
-        .subscribe();
-}
-
-updateWalletDisplay(balance) {
-    document.querySelectorAll('#walletBalance, .wallet-amount').forEach(el => {
-        if (el.id === 'walletBalance') {
-            el.textContent = `₦${(balance || 0).toLocaleString()}`;
-        } else {
-            el.textContent = `₦${(balance || 0).toLocaleString()}`;
-        }
-    });
-}
-
-updateGpDisplay(points) {
-    document.querySelectorAll('#gpPoints, .gp-amount').forEach(el => {
-        el.textContent = (points || 0).toLocaleString();
-    });
-}
-
-// ============================================
-// SIDEBAR TOGGLE (ADD THESE)
-// ============================================
-
-toggleSidebar() {
-    const sidebar = document.getElementById('dashboardSidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    if (sidebar) {
-        sidebar.classList.toggle('mobile-open');
-        if (overlay) {
-            overlay.classList.toggle('active');
-        }
-    }
-}
-
-closeSidebar() {
-    const sidebar = document.getElementById('dashboardSidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    if (sidebar) {
-        sidebar.classList.remove('mobile-open');
-        if (overlay) {
-            overlay.classList.remove('active');
-        }
-    }
-}
-    
     // ============================================
-    // GO-TO TAB (NEW - Replaces Library/Marketplace)
+    // GO-TO TAB
     // ============================================
     async loadGoToMenu() {
         const user = this.currentUser;
@@ -1128,7 +749,6 @@ closeSidebar() {
                 <p>Your navigation hub</p>
             </div>
 
-            <!-- Portfolio Section -->
             <div class="card portfolio-link-card">
                 <div class="portfolio-header">
                     <h3><i class="fas fa-user-circle"></i> Your Portfolio</h3>
@@ -1147,7 +767,6 @@ closeSidebar() {
                 </div>
             </div>
 
-            <!-- Navigation Grid -->
             <div class="go-to-grid">
                 <a href="/library.html" class="go-to-item">
                     <div class="go-to-icon"><i class="fas fa-book"></i></div>
@@ -1181,7 +800,6 @@ closeSidebar() {
                 </a>
             </div>
 
-            <!-- Quick Stats -->
             <div class="card quick-stats-card">
                 <h3>Your Stats</h3>
                 <div class="quick-stats-grid">
@@ -1201,7 +819,6 @@ closeSidebar() {
             </div>
         `;
 
-        // Copy URL functionality
         document.getElementById('copyPortfolioUrl')?.addEventListener('click', () => {
             const urlInput = document.getElementById('portfolioUrl');
             if (urlInput) {
@@ -1211,15 +828,11 @@ closeSidebar() {
             }
         });
 
-        // Generate QR Code (using qrcode.js library)
         this.generateQRCode(portfolioUrl);
     }
 
-    // ✅ NEW: Generate QR Code for portfolio
     generateQRCode(url) {
-        // Check if QRCode library is loaded
         if (typeof QRCode === 'undefined') {
-            // Load QRCode library dynamically
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
             script.onload = () => {
@@ -1246,166 +859,478 @@ closeSidebar() {
         }
     }
 
-   // ============================================
-// SETTINGS TAB (CLEANER VERSION)
-// ============================================
-async loadSettings() {
-    const content = this.dashboardContent;
-    if (!content) return;
+    // ============================================
+    // SETTINGS TAB
+    // ============================================
+    async loadSettings() {
+        const content = this.dashboardContent;
+        if (!content) return;
 
-    const profile = this.currentProfile;
-    const user = this.currentUser;
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    const currentTheme = isDarkMode ? 'dark' : 'light';
+        const profile = this.currentProfile;
+        const user = this.currentUser;
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        const currentTheme = isDarkMode ? 'dark' : 'light';
 
-    content.innerHTML = `
-        <div class="settings-container">
-            <div class="settings-header">
-                <h1>Settings</h1>
-                <p>Manage your account preferences</p>
-            </div>
-
-            <!-- Profile Section -->
-            <div class="settings-section">
-                <div class="settings-section-header">
-                    <i class="fas fa-user-circle"></i>
-                    <div>
-                        <h3>Profile</h3>
-                        <p>Update your personal information</p>
-                    </div>
+        content.innerHTML = `
+            <div class="settings-container">
+                <div class="settings-header">
+                    <h1>Settings</h1>
+                    <p>Manage your account preferences</p>
                 </div>
-                
-                <div class="settings-row">
-                    <div class="settings-avatar">
-                        <img id="profileAvatarPreview" src="${profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff&size=200`}" alt="Profile">
-                        <div class="avatar-actions">
-                            <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
-                            <button id="uploadAvatarBtn" class="btn-secondary"><i class="fas fa-camera"></i></button>
-                            <button id="removeAvatarBtn" class="btn-secondary danger"><i class="fas fa-trash"></i></button>
+
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <i class="fas fa-user-circle"></i>
+                        <div>
+                            <h3>Profile</h3>
+                            <p>Update your personal information</p>
                         </div>
                     </div>
                     
-                    <div class="settings-form">
-                        <div class="form-group">
-                            <label>Full Name</label>
-                            <input type="text" id="fullName" value="${profile?.name || ''}" placeholder="Your full name">
-                        </div>
-                        <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" value="${user?.email || ''}" disabled>
-                            <small>Email cannot be changed</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Username</label>
-                            <div class="username-input">
-                                <span>${window.location.origin}/u/</span>
-                                <input type="text" id="username" value="${profile?.username || ''}" placeholder="username">
+                    <div class="settings-row">
+                        <div class="settings-avatar">
+                            <img id="profileAvatarPreview" src="${profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff&size=200`}" alt="Profile">
+                            <div class="avatar-actions">
+                                <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                                <button id="uploadAvatarBtn" class="btn-secondary"><i class="fas fa-camera"></i></button>
+                                <button id="removeAvatarBtn" class="btn-secondary danger"><i class="fas fa-trash"></i></button>
                             </div>
-                            <small id="usernameFeedback" class="feedback">Choose a unique username for your portfolio</small>
                         </div>
-                        <div class="form-group">
-                            <label>Bio</label>
-                            <textarea id="bio" rows="2" placeholder="Tell us about yourself...">${profile?.bio || ''}</textarea>
+                        
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <input type="text" id="fullName" value="${profile?.name || ''}" placeholder="Your full name">
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" value="${user?.email || ''}" disabled>
+                                <small>Email cannot be changed</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Username</label>
+                                <div class="username-input">
+                                    <span>${window.location.origin}/u/</span>
+                                    <input type="text" id="username" value="${profile?.username || ''}" placeholder="username">
+                                </div>
+                                <small id="usernameFeedback" class="feedback">Choose a unique username for your portfolio</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Bio</label>
+                                <textarea id="bio" rows="2" placeholder="Tell us about yourself...">${profile?.bio || ''}</textarea>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="settings-actions">
-                    <button id="saveProfileBtn" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
-                </div>
-            </div>
-
-            <!-- Appearance Section -->
-            <div class="settings-section">
-                <div class="settings-section-header">
-                    <i class="fas fa-palette"></i>
-                    <div>
-                        <h3>Appearance</h3>
-                        <p>Choose your preferred theme</p>
+                    
+                    <div class="settings-actions">
+                        <button id="saveProfileBtn" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
                     </div>
                 </div>
-                
-                <div class="theme-options">
-                    <button class="theme-card ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
-                        <i class="fas fa-sun"></i>
-                        <span>Light</span>
-                    </button>
-                    <button class="theme-card ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
-                        <i class="fas fa-moon"></i>
-                        <span>Dark</span>
-                    </button>
-                    <button class="theme-card" data-theme="system">
-                        <i class="fas fa-desktop"></i>
-                        <span>System</span>
-                    </button>
-                </div>
-            </div>
 
-            <!-- Account Section -->
-            <div class="settings-section">
-                <div class="settings-section-header">
-                    <i class="fas fa-shield-alt"></i>
-                    <div>
-                        <h3>Account</h3>
-                        <p>Manage your account security</p>
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <i class="fas fa-palette"></i>
+                        <div>
+                            <h3>Appearance</h3>
+                            <p>Choose your preferred theme</p>
+                        </div>
+                    </div>
+                    
+                    <div class="theme-options">
+                        <button class="theme-card ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
+                            <i class="fas fa-sun"></i>
+                            <span>Light</span>
+                        </button>
+                        <button class="theme-card ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
+                            <i class="fas fa-moon"></i>
+                            <span>Dark</span>
+                        </button>
+                        <button class="theme-card" data-theme="system">
+                            <i class="fas fa-desktop"></i>
+                            <span>System</span>
+                        </button>
                     </div>
                 </div>
-                
-                <div class="account-actions">
-                    <button id="signOutBtn" class="btn-danger"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <i class="fas fa-shield-alt"></i>
+                        <div>
+                            <h3>Account</h3>
+                            <p>Manage your account security</p>
+                        </div>
+                    </div>
+                    
+                    <div class="account-actions">
+                        <button id="signOutBtn" class="btn-danger"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
+        `;
 
-    // Avatar upload
-    document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
-        document.getElementById('avatarUpload')?.click();
-    });
-
-    document.getElementById('avatarUpload')?.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            await this.uploadAvatar(file);
-        }
-    });
-
-    document.getElementById('removeAvatarBtn')?.addEventListener('click', async () => {
-        if (confirm('Remove your profile picture?')) {
-            await this.removeAvatar();
-        }
-    });
-
-    // Username validation
-    document.getElementById('username')?.addEventListener('input', (e) => {
-        this.validateUsername(e.target.value);
-    });
-
-    // Theme selector
-    document.querySelectorAll('.theme-card').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const theme = btn.getAttribute('data-theme');
-            this.applyTheme(theme);
+        document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
+            document.getElementById('avatarUpload')?.click();
         });
-    });
 
-    // Save profile
-    document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
-        await this.updateProfile();
-    });
+        document.getElementById('avatarUpload')?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await this.uploadAvatar(file);
+            }
+        });
 
-    // Sign out
-    document.getElementById('signOutBtn')?.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to sign out?')) {
-            await signOutUser();
-            window.location.href = '/signin.html';
+        document.getElementById('removeAvatarBtn')?.addEventListener('click', async () => {
+            if (confirm('Remove your profile picture?')) {
+                await this.removeAvatar();
+            }
+        });
+
+        document.getElementById('username')?.addEventListener('input', (e) => {
+            this.validateUsername(e.target.value);
+        });
+
+        document.querySelectorAll('.theme-card').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const theme = btn.getAttribute('data-theme');
+                this.applyTheme(theme);
+            });
+        });
+
+        document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
+            await this.updateProfile();
+        });
+
+        document.getElementById('signOutBtn')?.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to sign out?')) {
+                await signOutUser();
+                window.location.href = '/signin.html';
+            }
+        });
+    }
+
+    async validateUsername(username) {
+        const feedback = document.getElementById('usernameFeedback');
+        if (!feedback || !username) return;
+
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('username')
+            .eq('username', username)
+            .neq('id', this.currentUser.id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Username validation error:', error);
+            return;
         }
-    });
-}
+
+        const usernameInput = document.getElementById('username');
+        if (data) {
+            feedback.className = 'feedback error';
+            feedback.textContent = `❌ Username "${username}" is taken. Try: ${username}${Math.floor(Math.random() * 100)}`;
+            usernameInput.style.borderColor = '#ef4444';
+            this.usernameValid = false;
+        } else if (username.length < 3) {
+            feedback.className = 'feedback error';
+            feedback.textContent = '❌ Username must be at least 3 characters';
+            usernameInput.style.borderColor = '#ef4444';
+            this.usernameValid = false;
+        } else if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+            feedback.className = 'feedback error';
+            feedback.textContent = '❌ Only letters, numbers, underscores, and hyphens allowed';
+            usernameInput.style.borderColor = '#ef4444';
+            this.usernameValid = false;
+        } else {
+            feedback.className = 'feedback success';
+            feedback.textContent = `✅ "${username}" is available! Your portfolio: ${window.location.origin}/u/${username}`;
+            usernameInput.style.borderColor = '#10b981';
+            this.usernameValid = true;
+        }
+    }
+
+    async uploadAvatar(file) {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${this.currentUser.id}_${Date.now()}.${fileExt}`;
+            const filePath = `avatars/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: urlData } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            const avatarUrl = urlData.publicUrl;
+
+            const { error: updateError } = await supabase
+                .from('user_profiles')
+                .update({ avatar_url: avatarUrl })
+                .eq('id', this.currentUser.id);
+
+            if (updateError) throw updateError;
+
+            document.getElementById('profileAvatarPreview').src = avatarUrl;
+            document.getElementById('userAvatarImg').src = avatarUrl;
+            
+            showToast('Profile picture updated!', 'success');
+            await this.loadUserData();
+
+        } catch (error) {
+            console.error('Avatar upload error:', error);
+            showToast('Failed to upload avatar', 'error');
+        }
+    }
+
+    async removeAvatar() {
+        try {
+            const { error } = await supabase
+                .from('user_profiles')
+                .update({ avatar_url: null })
+                .eq('id', this.currentUser.id);
+
+            if (error) throw error;
+
+            const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentProfile?.name || 'User')}&background=fbb040&color=fff&size=200`;
+            document.getElementById('profileAvatarPreview').src = defaultAvatar;
+            document.getElementById('userAvatarImg').src = defaultAvatar;
+            
+            showToast('Profile picture removed', 'success');
+            await this.loadUserData();
+
+        } catch (error) {
+            console.error('Avatar removal error:', error);
+            showToast('Failed to remove avatar', 'error');
+        }
+    }
+
+    applyTheme(theme) {
+        if (theme === 'system') {
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (systemPrefersDark) {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+            localStorage.setItem('theme', 'system');
+        } else if (theme === 'dark') {
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.body.classList.remove('dark-mode');
+            localStorage.setItem('theme', 'light');
+        }
+
+        document.querySelectorAll('.theme-card').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.theme-card[data-theme="${theme}"]`)?.classList.add('active');
+        showToast(`${theme.charAt(0).toUpperCase() + theme.slice(1)} mode activated`, 'success');
+    }
 
     // ============================================
-    // WALLET FUNDING (UPDATED - Dynamic Bank Details)
+    // UPDATE PROFILE
     // ============================================
+    async updateProfile() {
+        try {
+            const fullName = document.getElementById('fullName')?.value.trim();
+            const bio = document.getElementById('bio')?.value.trim();
+            
+            if (!this.usernameValid) {
+                showToast('Please choose a valid username', 'error');
+                return;
+            }
+            
+            const username = document.getElementById('username')?.value.trim();
+            
+            if (!fullName) {
+                showToast('Full name is required', 'error');
+                return;
+            }
+
+            const updateData = {
+                name: fullName,
+                bio: bio || '',
+                updated_at: new Date().toISOString()
+            };
+            
+            if (username && username !== this.currentProfile?.username) {
+                updateData.username = username;
+            }
+
+            const result = await updateUserProfile(updateData);
+
+            if (!result) {
+                throw new Error('Failed to update profile');
+            }
+
+            const { error: authError } = await supabase.auth.updateUser({
+                data: { 
+                    name: fullName,
+                    full_name: fullName
+                }
+            });
+
+            if (authError) throw authError;
+
+            showToast('Profile updated successfully!', 'success');
+            await this.loadUserData();
+            await this.loadTab('settings');
+            
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            showToast('Failed to update profile: ' + error.message, 'error');
+        }
+    }
+
+    // ============================================
+    // ROLE APPLICATION
+    // ============================================
+    showApplyRoleModal() {
+        const roles = ['student', 'instructor', 'ambassador'];
+        const roleLabels = {
+            'student': 'Student (Learn & Build)',
+            'instructor': 'Instructor (Teach & Mentor)',
+            'ambassador': 'Ambassador (Represent & Lead)'
+        };
+
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Apply for a Role</h2>
+                    <button class="modal-close" id="closeRoleModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                        Select the role you want to apply for. Your application will be reviewed by an admin.
+                    </p>
+                    <div class="role-options">
+                        ${roles.map(r => `
+                            <button class="apply-role-btn" data-role="${r}">
+                                Apply as ${roleLabels[r] || r}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#closeRoleModal')?.addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        modal.querySelectorAll('.apply-role-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const role = btn.dataset.role;
+                modal.remove();
+                await this.applyForRole(role);
+            });
+        });
+    }
+
+    async applyForRole(role) {
+        try {
+            const result = await submitApplication({
+                role: role,
+                fullName: this.currentProfile?.name,
+                username: this.currentProfile?.username,
+                email: this.currentUser?.email,
+                birthDay: this.currentProfile?.birth_day,
+                birthMonth: this.currentProfile?.birth_month
+            });
+            
+            if (result.success) {
+                showToast(`Application for ${role} submitted successfully!`, 'success');
+                await this.loadUserData();
+                await this.loadTab('dashboard');
+            } else {
+                showToast(result.error || 'Failed to submit application', 'error');
+            }
+        } catch (error) {
+            console.error('Error applying for role:', error);
+            showToast('Failed to submit application', 'error');
+        }
+    }
+
+    // ============================================
+    // CONVERT STARS MODAL
+    // ============================================
+    showConvertStarsModal() {
+        const profile = this.currentProfile;
+        const currentGP = profile?.gp_points || 0;
+        const starsEarned = Math.floor(currentGP / 1000);
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>⭐ Convert GP to Stars</h2>
+                    <button class="modal-close" id="closeConvertModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="convert-info">
+                        <div class="convert-stat">
+                            <span class="convert-label">Current GP</span>
+                            <span class="convert-value">${currentGP.toLocaleString()}</span>
+                        </div>
+                        <div class="convert-stat">
+                            <span class="convert-label">Stars You Can Earn</span>
+                            <span class="convert-value">${starsEarned} ⭐</span>
+                        </div>
+                        <p class="convert-hint">
+                            ${starsEarned > 0 ? 'Ready to convert? Each star gives you a surprise gift!' : 'Earn 1,000 GP to get your first star!'}
+                        </p>
+                    </div>
+                    
+                    ${starsEarned > 0 ? `
+                        <button id="confirmConvertStars" class="btn-primary" style="width: 100%;">
+                            <i class="fas fa-star"></i> Convert ${starsEarned} Star${starsEarned > 1 ? 's' : ''}
+                        </button>
+                    ` : `
+                        <button class="btn-outline" disabled style="width: 100%; opacity: 0.5;">
+                            Need 1,000 GP to convert
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#closeConvertModal')?.addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        modal.querySelector('#confirmConvertStars')?.addEventListener('click', async () => {
+            const result = await convertGPToStars(this.currentUser.id);
+            if (result) {
+                modal.remove();
+                await this.loadUserData();
+                await this.loadTab('dashboard');
+            }
+        });
+    }
+
+    // ============================================
+    // WALLET FUNDING
+    // ============================================
+    showFundWalletModal() {
+        const modal = document.getElementById('fundWalletModal');
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            this.resetWalletModal();
+        }
+    }
+
     async showBankDetails() {
         const fundingOptions = document.querySelector('.funding-options');
         const bankDetails = document.querySelector('.bank-details');
@@ -1414,11 +1339,9 @@ async loadSettings() {
             fundingOptions.style.display = 'none';
             bankDetails.style.display = 'block';
             
-            // Generate reference code
             this.referenceCode = `GLM-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
             document.getElementById('referenceCode').textContent = this.referenceCode;
             
-            // Randomly select between the two bank accounts
             const bankAccounts = [
                 {
                     bankName: 'MoniePoint Micro Finance Bank',
@@ -1432,7 +1355,6 @@ async loadSettings() {
                 }
             ];
             
-            // Random selection
             const selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
             
             document.getElementById('bankInfoCard').innerHTML = `
@@ -1444,8 +1366,57 @@ async loadSettings() {
         }
     }
 
+    resetWalletModal() {
+        const fundingOptions = document.querySelector('.funding-options');
+        const bankDetails = document.querySelector('.bank-details');
+        if (fundingOptions && bankDetails) {
+            fundingOptions.style.display = 'block';
+            bankDetails.style.display = 'none';
+        }
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('customAmount').value = '';
+        document.getElementById('selectedAmountDisplay').style.display = 'none';
+        this.selectedAmount = 0;
+    }
+
+    updateAmountDisplay() {
+        const display = document.getElementById('selectedAmountDisplay');
+        const large = document.getElementById('selectedAmountLarge');
+        if (display && large) {
+            if (this.selectedAmount > 0) {
+                display.style.display = 'block';
+                large.textContent = `₦${this.selectedAmount.toLocaleString()}`;
+            } else {
+                display.style.display = 'none';
+            }
+        }
+    }
+
+    async confirmPayment() {
+        try {
+            const result = await createPaymentRequest(
+                this.selectedAmount,
+                'GTBank',
+                this.referenceCode
+            );
+            
+            if (result.success) {
+                showToast('Payment recorded! Waiting for admin verification.', 'success');
+                this.resetWalletModal();
+                document.getElementById('fundWalletModal').classList.remove('active');
+                document.body.style.overflow = '';
+                await this.loadWallet();
+            } else {
+                showToast(result.error || 'Failed to record payment', 'error');
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            showToast('Failed to record payment', 'error');
+        }
+    }
+
     // ============================================
-    // MANAGE & ADMIN TABS (Placeholders)
+    // MANAGE & ADMIN TABS
     // ============================================
     async loadManage() {
         this.dashboardContent.innerHTML = `
@@ -1480,14 +1451,188 @@ async loadSettings() {
     }
 
     // ============================================
-    // EXISTING METHODS (Keep as-is or minor updates)
+    // UTILITY METHODS
     // ============================================
-    
-    // ... (keep existing methods: setupEventListeners, updateProfile, applyForRole, 
-    // submitMvp, showFundWalletModal, confirmPayment, resetWalletModal, 
-    // setupWalletSubscription, toggleSidebar, closeSidebar, showLoading, showError)
-    
-    // But ensure they use the dynamic bank details where applicable
+    showLoading(show) {
+        if (this.loadingDiv) {
+            this.loadingDiv.style.display = show ? 'flex' : 'none';
+        }
+        if (this.dashboardContent) {
+            this.dashboardContent.style.opacity = show ? '0.5' : '1';
+            this.dashboardContent.style.pointerEvents = show ? 'none' : 'auto';
+        }
+    }
+
+    showError(message) {
+        showToast(message, 'error');
+    }
+
+    setupEventListeners() {
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const modal = btn.closest('.modal');
+                if (modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.selectedAmount = parseInt(btn.dataset.amount);
+                this.updateAmountDisplay();
+            });
+        });
+
+        document.getElementById('customAmount')?.addEventListener('input', (e) => {
+            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            this.selectedAmount = parseInt(e.target.value) || 0;
+            this.updateAmountDisplay();
+        });
+
+        document.getElementById('continueToBankBtn')?.addEventListener('click', () => {
+            if (this.selectedAmount < 100) {
+                showToast('Please select or enter an amount (minimum ₦100)', 'error');
+                return;
+            }
+            this.showBankDetails();
+        });
+
+        document.getElementById('backToAmountBtn')?.addEventListener('click', () => {
+            this.resetWalletModal();
+        });
+
+        document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
+            await this.confirmPayment();
+        });
+
+        document.getElementById('copyRefCodeBtn')?.addEventListener('click', () => {
+            const code = document.getElementById('referenceCode')?.textContent;
+            if (code) {
+                navigator.clipboard.writeText(code).then(() => {
+                    showToast('Reference code copied!', 'success');
+                }).catch(() => {
+                    const input = document.createElement('input');
+                    input.value = code;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    showToast('Reference code copied!', 'success');
+                });
+            }
+        });
+
+        document.getElementById('mvpForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.submitMvp();
+        });
+    }
+
+    setupWalletSubscription() {
+        if (!this.currentUser) return;
+        
+        const channel = supabase
+            .channel('wallet_updates')
+            .on('postgres_changes', 
+                { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'user_profiles',
+                    filter: `id=eq.${this.currentUser.id}` 
+                },
+                (payload) => {
+                    if (payload.new) {
+                        this.updateWalletDisplay(payload.new.wallet_balance);
+                        this.updateGpDisplay(payload.new.gp_points);
+                        
+                        if (this.currentProfile) {
+                            this.currentProfile.wallet_balance = payload.new.wallet_balance;
+                            this.currentProfile.gp_points = payload.new.gp_points;
+                        }
+                    }
+                }
+            )
+            .subscribe();
+    }
+
+    updateWalletDisplay(balance) {
+        document.querySelectorAll('#walletBalance, .wallet-amount').forEach(el => {
+            if (el.id === 'walletBalance') {
+                el.textContent = `₦${(balance || 0).toLocaleString()}`;
+            } else {
+                el.textContent = `₦${(balance || 0).toLocaleString()}`;
+            }
+        });
+    }
+
+    updateGpDisplay(points) {
+        document.querySelectorAll('#gpPoints, .gp-amount').forEach(el => {
+            el.textContent = (points || 0).toLocaleString();
+        });
+    }
+
+    toggleSidebar() {
+        const sidebar = document.getElementById('dashboardSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar) {
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) {
+                overlay.classList.toggle('active');
+            }
+        }
+    }
+
+    closeSidebar() {
+        const sidebar = document.getElementById('dashboardSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar) {
+            sidebar.classList.remove('mobile-open');
+            if (overlay) {
+                overlay.classList.remove('active');
+            }
+        }
+    }
+
+    async submitMvp() {
+        try {
+            const title = document.getElementById('mvpTitle')?.value.trim();
+            const type = document.getElementById('mvpType')?.value;
+            const description = document.getElementById('mvpDescription')?.value.trim();
+            const proposal = document.getElementById('mvpProposal')?.value.trim();
+
+            if (!title || !type || !description || !proposal) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            showToast('MVP proposal submitted successfully!', 'success');
+            
+            const modal = document.getElementById('mvpModal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            
+            document.getElementById('mvpForm')?.reset();
+            
+        } catch (error) {
+            console.error('MVP submission error:', error);
+            showToast('Failed to submit MVP proposal', 'error');
+        }
+    }
 }
 
 // Initialize when DOM is ready
