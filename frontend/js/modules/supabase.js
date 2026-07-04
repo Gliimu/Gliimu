@@ -715,3 +715,765 @@ export function subscribeToWallet(callback) {
         )
         .subscribe();
 }
+
+// ============================================
+// HUB CONTENT FUNCTIONS
+// ============================================
+
+/**
+ * Get hub content with filters
+ * @param {Object} filters - Filter options
+ * @param {string} filters.type - Content type (book, talk, bundle, portfolio, all)
+ * @param {number} filters.limit - Number of items to return
+ * @param {number} filters.offset - Offset for pagination
+ * @param {string} filters.search - Search query
+ * @param {string} filters.sort - Sort field (hearts, created_at, views)
+ * @returns {Promise<Array>} - Array of content items
+ */
+export async function getHubContent(filters = {}) {
+    try {
+        let query = supabase
+            .from('hub_content')
+            .select('*')
+            .eq('status', 'published')
+            .order(filters.sort || 'created_at', { ascending: false });
+
+        if (filters.type && filters.type !== 'all' && filters.type !== 'promoted') {
+            query = query.eq('type', filters.type);
+        }
+
+        if (filters.type === 'promoted') {
+            query = query.eq('is_promoted', true);
+        }
+
+        if (filters.limit) {
+            query = query.limit(filters.limit);
+        }
+
+        if (filters.offset) {
+            query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1);
+        }
+
+        if (filters.search && filters.search.trim()) {
+            query = query.ilike('title', `%${filters.search.trim()}%`);
+        }
+
+        const { data, error } = await query;
+        
+        if (error) {
+            if (error.code === '42P01') {
+                console.warn('Hub content table not found, returning empty array');
+                return [];
+            }
+            throw error;
+        }
+
+        return data || [];
+    } catch (error) {
+        console.error('Error getting hub content:', error);
+        return [];
+    }
+}
+
+/**
+ * Get trending content (most hearts)
+ * @param {number} limit - Number of items to return
+ * @returns {Promise<Array>} - Array of trending content
+ */
+export async function getTrendingContent(limit = 12) {
+    try {
+        const { data, error } = await supabase
+            .from('hub_content')
+            .select('*')
+            .eq('status', 'published')
+            .order('hearts', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error getting trending content:', error);
+        return [];
+    }
+}
+
+/**
+ * Get promoted content
+ * @param {number} limit - Number of items to return
+ * @returns {Promise<Array>} - Array of promoted content
+ */
+export async function getPromotedContent(limit = 6) {
+    try {
+        const { data, error } = await supabase
+            .from('hub_content')
+            .select('*')
+            .eq('is_promoted', true)
+            .eq('status', 'published')
+            .order('promoted_until', { ascending: true })
+            .limit(limit);
+
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error getting promoted content:', error);
+        return [];
+    }
+}
+
+/**
+ * Get content by ID with details
+ * @param {string} contentId - Content ID
+ * @returns {Promise<Object>} - Content object
+ */
+export async function getContentDetails(contentId) {
+    try {
+        const { data, error } = await supabase
+            .from('hub_content')
+            .select('*')
+            .eq('id', contentId)
+            .single();
+
+        if (error) {
+            if (error.code === '42P01') return null;
+            throw error;
+        }
+
+        if (data) {
+            // Increment views
+            await supabase
+                .from('hub_content')
+                .update({ views: (data.views || 0) + 1 })
+                .eq('id', contentId);
+
+            // Log view
+            try {
+                const user = await getCurrentUser();
+                await supabase
+                    .from('content_views')
+                    .insert({
+                        content_id: contentId,
+                        user_id: user?.id || null,
+                        viewed_at: new Date().toISOString()
+                    });
+            } catch (e) {
+                console.warn('Could not log view:', e);
+            }
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error getting content details:', error);
+        return null;
+    }
+}
+
+/**
+ * Get content by author
+ * @param {string} authorId - Author user ID
+ * @returns {Promise<Array>} - Array of content items
+ */
+export async function getContentByAuthor(authorId) {
+    try {
+        const { data, error } = await supabase
+            .from('hub_content')
+            .select('*')
+            .eq('author_id', authorId)
+            .eq('status', 'published')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error getting content by author:', error);
+        return [];
+    }
+}
+
+// ============================================
+// HUB COMMENT FUNCTIONS
+// ============================================
+
+/**
+ * Get comments for content
+ * @param {string} contentId - Content ID
+ * @returns {Promise<Array>} - Array of comments
+ */
+export async function getComments(contentId) {
+    try {
+        const { data, error } = await supabase
+            .from('hub_comments')
+            .select('*')
+            .eq('content_id', contentId)
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error getting comments:', error);
+        return [];
+    }
+}
+
+/**
+ * Add a comment
+ * @param {Object} commentData - Comment data
+ * @param {string} commentData.content_id - Content ID
+ * @param {string} commentData.user_id - User ID
+ * @param {string} commentData.author - Author name
+ * @param {string} commentData.author_avatar - Author avatar URL
+ * @param {string} commentData.content - Comment text
+ * @returns {Promise<Object>} - Result object
+ */
+export async function addComment(commentData) {
+    try {
+        const { data, error } = await supabase
+            .from('hub_comments')
+            .insert({
+                content_id: commentData.content_id,
+                user_id: commentData.user_id,
+                author: commentData.author,
+                author_avatar: commentData.author_avatar,
+                content: commentData.content,
+                created_at: new Date().toISOString()
+            })
+            .select();
+
+        if (error) {
+            if (error.code === '42P01') {
+                return { success: false, error: 'Comments table not found' };
+            }
+            throw error;
+        }
+
+        return { success: true, data: data?.[0] };
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// HUB INTERACTION FUNCTIONS
+// ============================================
+
+/**
+ * Heart/unheart content
+ * @param {string} contentId - Content ID
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} - Result with new heart count
+ */
+export async function heartContent(contentId, userId) {
+    try {
+        // Check if already hearted
+        const { data: existing, error: checkError } = await supabase
+            .from('user_hearts')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('content_id', contentId)
+            .maybeSingle();
+
+        if (checkError && checkError.code !== '42P01') {
+            throw checkError;
+        }
+
+        if (existing) {
+            // Remove heart
+            const { error } = await supabase
+                .from('user_hearts')
+                .delete()
+                .eq('user_id', userId)
+                .eq('content_id', contentId);
+
+            if (error) throw error;
+
+            // Get updated count
+            const { data: content } = await supabase
+                .from('hub_content')
+                .select('hearts')
+                .eq('id', contentId)
+                .single();
+
+            return { success: true, hearts: content?.hearts || 0, action: 'unheart' };
+        } else {
+            // Add heart
+            const { error } = await supabase
+                .from('user_hearts')
+                .insert({ user_id: userId, content_id: contentId, created_at: new Date().toISOString() });
+
+            if (error) throw error;
+
+            // Get updated count
+            const { data: content } = await supabase
+                .from('hub_content')
+                .select('hearts, author_id')
+                .eq('id', contentId)
+                .single();
+
+            // Check if content reached 12 hearts (trending threshold)
+            if ((content?.hearts || 0) >= 12 && content?.author_id) {
+                // Award bonus GP to creator
+                try {
+                    await supabase
+                        .from('user_profiles')
+                        .update({ gp_points: supabase.raw('gp_points + 5') })
+                        .eq('id', content.author_id);
+                } catch (e) {
+                    console.warn('Could not award trending bonus:', e);
+                }
+            }
+
+            return { success: true, hearts: content?.hearts || 0, action: 'heart' };
+        }
+    } catch (error) {
+        console.error('Error hearting content:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Save/unsave content
+ * @param {string} contentId - Content ID
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} - Result
+ */
+export async function saveContent(contentId, userId) {
+    try {
+        const { data, error } = await supabase
+            .from('user_saved_content')
+            .insert({ user_id: userId, content_id: contentId, created_at: new Date().toISOString() })
+            .select();
+
+        if (error) {
+            if (error.code === '42P01') {
+                return { success: false, error: 'Saved content table not found' };
+            }
+            throw error;
+        }
+
+        // Update saves count
+        await supabase
+            .from('hub_content')
+            .update({ saves_count: supabase.raw('saves_count + 1') })
+            .eq('id', contentId);
+
+        return { success: true, data: data?.[0] };
+    } catch (error) {
+        console.error('Error saving content:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Unsave content
+ * @param {string} contentId - Content ID
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} - Result
+ */
+export async function unsaveContent(contentId, userId) {
+    try {
+        const { error } = await supabase
+            .from('user_saved_content')
+            .delete()
+            .eq('user_id', userId)
+            .eq('content_id', contentId);
+
+        if (error) {
+            if (error.code === '42P01') {
+                return { success: false, error: 'Saved content table not found' };
+            }
+            throw error;
+        }
+
+        // Update saves count
+        await supabase
+            .from('hub_content')
+            .update({ saves_count: supabase.raw('saves_count - 1') })
+            .eq('id', contentId);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error unsaving content:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// STAR FUNCTIONS
+// ============================================
+
+/**
+ * Get user's star balance (available stars)
+ * @param {string} userId - User ID
+ * @returns {Promise<number>} - Available stars
+ */
+export async function getStarBalance(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('stars_available')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('Error getting star balance:', error);
+            return 0;
+        }
+        return data?.stars_available || 0;
+    } catch (error) {
+        console.error('Error getting star balance:', error);
+        return 0;
+    }
+}
+
+/**
+ * Get user's total stars earned
+ * @param {string} userId - User ID
+ * @returns {Promise<number>} - Total stars earned
+ */
+export async function getStarsEarned(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('stars_earned')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('Error getting stars earned:', error);
+            return 0;
+        }
+        return data?.stars_earned || 0;
+    } catch (error) {
+        console.error('Error getting stars earned:', error);
+        return 0;
+    }
+}
+
+/**
+ * Convert GP to Stars (1,000 GP = 1 Star)
+ * @param {string} userId - User ID
+ * @param {number} gpAmount - Amount of GP to convert
+ * @returns {Promise<number>} - Stars converted
+ */
+export async function convertGpToStars(userId, gpAmount) {
+    try {
+        const { data, error } = await supabase
+            .rpc('convert_gp_to_stars', {
+                p_user_id: userId,
+                p_amount: gpAmount
+            });
+
+        if (error) {
+            console.warn('Error converting GP to stars:', error);
+            return 0;
+        }
+        return data || 0;
+    } catch (error) {
+        console.error('Error converting GP to stars:', error);
+        return 0;
+    }
+}
+
+/**
+ * Use stars for promotion
+ * @param {string} userId - User ID
+ * @param {string} contentId - Content ID
+ * @param {string} promotionType - Type of promotion
+ * @param {number} starCost - Cost in stars
+ * @returns {Promise<Object>} - Result
+ */
+export async function useStarsForPromotion(userId, contentId, promotionType, starCost) {
+    try {
+        // Check if user has enough stars
+        const balance = await getStarBalance(userId);
+        if (balance < starCost) {
+            return { success: false, error: 'Not enough stars' };
+        }
+
+        // Use the RPC function
+        const { data, error } = await supabase
+            .rpc('use_stars_for_promotion', {
+                p_user_id: userId,
+                p_content_id: contentId,
+                p_promotion_type: promotionType,
+                p_stars_cost: starCost
+            });
+
+        if (error) {
+            console.warn('Error using stars for promotion:', error);
+            return { success: false, error: error.message };
+        }
+        return { success: data || false };
+    } catch (error) {
+        console.error('Error using stars for promotion:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get star transactions history
+ * @param {string} userId - User ID
+ * @param {number} limit - Number of transactions to return
+ * @returns {Promise<Array>} - Array of transactions
+ */
+export async function getStarTransactions(userId, limit = 20) {
+    try {
+        const { data, error } = await supabase
+            .from('user_stars_transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error getting star transactions:', error);
+        return [];
+    }
+}
+
+// ============================================
+// AMBASSADOR FUNCTIONS
+// ============================================
+
+/**
+ * Check if user is an ambassador
+ * @param {string} userId - User ID
+ * @returns {Promise<boolean>} - Is ambassador
+ */
+export async function getAmbassadorStatus(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('ambassador_status, progress, stars_earned')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('Error getting ambassador status:', error);
+            return false;
+        }
+        
+        // User is ambassador if status is true OR progress >= 100 AND stars_earned >= 5
+        const isAmbassador = data?.ambassador_status || 
+            (data?.progress >= 100 && data?.stars_earned >= 5);
+        
+        return isAmbassador;
+    } catch (error) {
+        console.error('Error getting ambassador status:', error);
+        return false;
+    }
+}
+
+/**
+ * Claim free promotion (ambassador perk - 24 hours)
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} - Result
+ */
+export async function claimFreePromotion(userId) {
+    try {
+        // Check if already claimed recently
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('promotion_claimed_at')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (profile?.promotion_claimed_at) {
+            const claimedDate = new Date(profile.promotion_claimed_at);
+            const now = new Date();
+            const diffHours = (now - claimedDate) / (1000 * 60 * 60);
+            
+            if (diffHours < 168) { // 7 days cooldown
+                return { success: false, error: 'You can only claim once per week' };
+            }
+        }
+
+        // Get user's best content to promote (most hearts)
+        const { data: content } = await supabase
+            .from('hub_content')
+            .select('id')
+            .eq('author_id', userId)
+            .eq('status', 'published')
+            .order('hearts', { ascending: false })
+            .limit(1);
+
+        if (!content || content.length === 0) {
+            return { success: false, error: 'Create some content first!' };
+        }
+
+        // Update content as promoted
+        const promotedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        
+        await supabase
+            .from('hub_content')
+            .update({
+                is_promoted: true,
+                promoted_until: promotedUntil,
+                promotion_type: 'ambassador_free'
+            })
+            .eq('id', content[0].id);
+
+        // Update profile
+        await supabase
+            .from('user_profiles')
+            .update({ promotion_claimed_at: new Date().toISOString() })
+            .eq('id', userId);
+
+        return { success: true, contentId: content[0].id };
+    } catch (error) {
+        console.error('Error claiming free promotion:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// CREATE CONTENT
+// ============================================
+
+/**
+ * Create new content
+ * @param {Object} contentData - Content data
+ * @param {string} contentData.type - Content type (book, talk, bundle, portfolio)
+ * @param {string} contentData.title - Content title
+ * @param {string} contentData.description - Content description
+ * @param {Array} contentData.tags - Array of tags
+ * @param {string} contentData.image_url - Cover image URL
+ * @param {string} contentData.content_url - Content URL (optional)
+ * @param {string} contentData.author_id - Author user ID
+ * @param {string} contentData.author - Author name
+ * @param {string} contentData.author_avatar - Author avatar URL
+ * @returns {Promise<Object>} - Result
+ */
+export async function createContent(contentData) {
+    try {
+        const { data, error } = await supabase
+            .from('hub_content')
+            .insert({
+                title: contentData.title,
+                description: contentData.description,
+                type: contentData.type,
+                tags: contentData.tags || [],
+                image_url: contentData.image_url || null,
+                content_url: contentData.content_url || null,
+                author_id: contentData.author_id,
+                author: contentData.author,
+                author_avatar: contentData.author_avatar || null,
+                status: 'published',
+                gp_reward: contentData.type === 'portfolio' ? 50 : 25,
+                created_at: new Date().toISOString(),
+                published_at: new Date().toISOString()
+            })
+            .select();
+
+        if (error) {
+            if (error.code === '42P01') {
+                return { success: false, error: 'Content table not found' };
+            }
+            throw error;
+        }
+
+        // Award GP to creator
+        try {
+            await supabase
+                .from('user_profiles')
+                .update({ gp_points: supabase.raw('gp_points + ' + (contentData.type === 'portfolio' ? 50 : 25)) })
+                .eq('id', contentData.author_id);
+        } catch (e) {
+            console.warn('Could not award GP for content creation:', e);
+        }
+
+        return { success: true, data: data?.[0] };
+    } catch (error) {
+        console.error('Error creating content:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================
+// USER CONTENT FUNCTIONS
+// ============================================
+
+/**
+ * Get user's saved content IDs
+ * @param {string} userId - User ID
+ * @returns {Promise<Array>} - Array of content IDs
+ */
+export async function getUserSavedContent(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('user_saved_content')
+            .select('content_id')
+            .eq('user_id', userId);
+
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error getting user saved content:', error);
+        return [];
+    }
+}
+
+/**
+ * Get user's hearted content IDs
+ * @param {string} userId - User ID
+ * @returns {Promise<Array>} - Array of content IDs
+ */
+export async function getUserHeartedContent(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('user_hearts')
+            .select('content_id')
+            .eq('user_id', userId);
+
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error getting user hearted content:', error);
+        return [];
+    }
+}
+
+// ============================================
+// SESSION HELPERS
+// ============================================
+
+export async function getCurrentSession() {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+        console.error('Error getting session:', error);
+        return null;
+    }
+    return session;
+}
+
+export async function signOutUser() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        console.error('Error signing out:', error);
+        return false;
+    }
+    return true;
+}
