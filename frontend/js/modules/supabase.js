@@ -117,6 +117,116 @@ export async function signOut() {
 }
 
 // ============================================
+// REFERRALS
+// ============================================
+
+/**
+ * Get user's referrals (people who used their referral link)
+ * @param {string} userId - The user ID
+ * @returns {Promise<Array>} - Array of referral objects
+ */
+export async function getUserReferrals(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('referrals')
+            .select(`
+                id,
+                referred_user_id,
+                referred_user:referred_user_id (
+                    name,
+                    email,
+                    created_at
+                ),
+                created_at,
+                status
+            `)
+            .eq('referrer_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            // If table doesn't exist, return empty array
+            if (error.code === '42P01') {
+                console.warn('Referrals table not found, returning empty array');
+                return [];
+            }
+            throw error;
+        }
+
+        return data || [];
+    } catch (error) {
+        console.error('Error getting referrals:', error);
+        return [];
+    }
+}
+
+/**
+ * Get referral count for a user
+ * @param {string} userId - The user ID
+ * @returns {Promise<number>} - Count of referrals
+ */
+export async function getReferralCount(userId) {
+    try {
+        const { count, error } = await supabase
+            .from('referrals')
+            .select('id', { count: 'exact' })
+            .eq('referrer_id', userId);
+
+        if (error) {
+            if (error.code === '42P01') return 0;
+            throw error;
+        }
+
+        return count || 0;
+    } catch (error) {
+        console.error('Error getting referral count:', error);
+        return 0;
+    }
+}
+
+/**
+ * Create a referral record when someone signs up using a referral link
+ * @param {string} referrerId - The user who referred
+ * @param {string} referredUserId - The new user who signed up
+ * @param {string} referralCode - The referral code used
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function createReferral(referrerId, referredUserId, referralCode) {
+    try {
+        const { error } = await supabase
+            .from('referrals')
+            .insert([{
+                referrer_id: referrerId,
+                referred_user_id: referredUserId,
+                referral_code: referralCode,
+                status: 'active',
+                created_at: new Date().toISOString()
+            }]);
+
+        if (error) {
+            if (error.code === '42P01') {
+                console.warn('Referrals table not found, skipping creation');
+                return true;
+            }
+            throw error;
+        }
+
+        // Award GP to referrer for successful referral
+        // Import earnGP dynamically to avoid circular dependency
+        try {
+            const { earnGP } = await import('./progression.js');
+            await earnGP(referrerId, 'referral', 10, referredUserId);
+        } catch (e) {
+            console.warn('Could not award referral GP:', e);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error creating referral:', error);
+        return false;
+    }
+}
+
+// ============================================
 // USER PROFILE HELPERS
 // ============================================
 
