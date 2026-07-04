@@ -34,12 +34,11 @@ export async function signIn(email, password) {
             return { success: false, error: error.message };
         }
 
-        // Get user profile
         const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('*')
             .eq('id', data.user.id)
-            .maybeSingle(); // ✅ Changed from .single() to .maybeSingle()
+            .maybeSingle();
 
         if (profileError) {
             console.warn('Profile fetch warning:', profileError);
@@ -76,7 +75,6 @@ export async function signUp(email, password, userData) {
             return { success: false, error: error.message };
         }
         
-        // Insert directly into user_profiles
         if (data.user) {
             const { error: insertError } = await supabase
                 .from('user_profiles')
@@ -93,6 +91,7 @@ export async function signUp(email, password, userData) {
                     application_status: 'none',
                     birth_day: userData.birthDay || null,
                     birth_month: userData.birthMonth || null,
+                    recovery_phrase: userData.recoveryPhrase || null,
                     referral_code: `GLM-${Math.random().toString(36).substring(2, 8)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
                 }], { onConflict: 'id' });
 
@@ -118,7 +117,7 @@ export async function signOut() {
 }
 
 // ============================================
-// USER PROFILE HELPERS - FIXED
+// USER PROFILE HELPERS
 // ============================================
 
 export async function getUserProfile(userId = null) {
@@ -135,7 +134,7 @@ export async function getUserProfile(userId = null) {
             .from('user_profiles')
             .select('*')
             .eq('id', userId)
-            .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+            .maybeSingle();
         
         if (error) {
             console.error('Error fetching user profile:', error);
@@ -147,7 +146,6 @@ export async function getUserProfile(userId = null) {
             return data;
         }
         
-        // ✅ If no profile found, create one
         console.log('⚠️ No profile found, creating one...');
         const user = await getCurrentUser();
         if (!user) return null;
@@ -192,7 +190,7 @@ export async function updateUserProfile(updates) {
             .update(updates)
             .eq('id', user.id)
             .select()
-            .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+            .maybeSingle();
         
         if (error) {
             console.error('Error updating user profile:', error);
@@ -300,7 +298,7 @@ export async function getPendingApplications() {
             .from('user_profiles')
             .select('role')
             .eq('id', user.id)
-            .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+            .maybeSingle();
         
         if (profile?.role !== 'admin') {
             return [];
@@ -332,7 +330,7 @@ export async function approveApplication(applicationId, adminNotes) {
             .from('user_profiles')
             .select('role')
             .eq('id', user.id)
-            .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+            .maybeSingle();
         
         if (profile?.role !== 'admin') {
             return { success: false, error: 'Unauthorized' };
@@ -342,7 +340,7 @@ export async function approveApplication(applicationId, adminNotes) {
             .from('applications')
             .select('*')
             .eq('id', applicationId)
-            .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+            .maybeSingle();
         
         if (appError || !application) {
             return { success: false, error: 'Application not found' };
@@ -385,7 +383,7 @@ export async function rejectApplication(applicationId, adminNotes) {
             .from('user_profiles')
             .select('role')
             .eq('id', user.id)
-            .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+            .maybeSingle();
         
         if (profile?.role !== 'admin') {
             return { success: false, error: 'Unauthorized' };
@@ -406,7 +404,7 @@ export async function rejectApplication(applicationId, adminNotes) {
             .from('applications')
             .select('user_id')
             .eq('id', applicationId)
-            .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+            .maybeSingle();
         
         if (appData) {
             const { error: updateUserError } = await supabase
@@ -537,7 +535,7 @@ export async function saveToShelf(itemId, itemType, itemData) {
         .select('id')
         .eq('user_id', user.id)
         .eq('item_id', itemId)
-        .maybeSingle(); // ✅ CHANGED: .single() to .maybeSingle()
+        .maybeSingle();
     
     if (existing) {
         await supabase
