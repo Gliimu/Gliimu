@@ -1248,379 +1248,162 @@ closeSidebar() {
         }
     }
 
-    // ============================================
-    // SETTINGS TAB (UPDATED)
-    // ============================================
-    async loadSettings() {
-        const content = this.dashboardContent;
-        if (!content) return;
+   // ============================================
+// SETTINGS TAB (CLEANER VERSION)
+// ============================================
+async loadSettings() {
+    const content = this.dashboardContent;
+    if (!content) return;
 
-        const profile = this.currentProfile;
-        const user = this.currentUser;
-        const isDarkMode = document.body.classList.contains('dark-mode');
-        const currentTheme = isDarkMode ? 'dark' : 'light';
+    const profile = this.currentProfile;
+    const user = this.currentUser;
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    const currentTheme = isDarkMode ? 'dark' : 'light';
 
-        content.innerHTML = `
-            <div class="dashboard-header">
-                <h1>Profile Settings</h1>
-                <p>Manage your account information</p>
+    content.innerHTML = `
+        <div class="settings-container">
+            <div class="settings-header">
+                <h1>Settings</h1>
+                <p>Manage your account preferences</p>
             </div>
 
-            <div class="settings-grid">
-                <!-- Profile Picture -->
-                <div class="settings-card">
-                    <h3>Profile Picture</h3>
-                    <div class="avatar-upload-container">
-                        <div class="avatar-preview-large">
-                            <img id="profileAvatarPreview" src="${profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff&size=200`}" alt="Profile">
-                        </div>
-                        <div class="avatar-upload-actions">
-                            <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
-                            <button id="uploadAvatarBtn" class="btn-outline"><i class="fas fa-upload"></i> Upload Photo</button>
-                            <button id="removeAvatarBtn" class="btn-outline danger"><i class="fas fa-trash"></i> Remove</button>
-                        </div>
+            <!-- Profile Section -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <i class="fas fa-user-circle"></i>
+                    <div>
+                        <h3>Profile</h3>
+                        <p>Update your personal information</p>
                     </div>
                 </div>
-
-                <!-- Personal Information -->
-                <div class="settings-card">
-                    <h3>Personal Information</h3>
-                    <form id="profileForm">
+                
+                <div class="settings-row">
+                    <div class="settings-avatar">
+                        <img id="profileAvatarPreview" src="${profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'User')}&background=fbb040&color=fff&size=200`}" alt="Profile">
+                        <div class="avatar-actions">
+                            <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                            <button id="uploadAvatarBtn" class="btn-secondary"><i class="fas fa-camera"></i></button>
+                            <button id="removeAvatarBtn" class="btn-secondary danger"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-form">
                         <div class="form-group">
-                            <label for="fullName">Full Name</label>
-                            <input type="text" id="fullName" value="${profile?.name || ''}" required>
+                            <label>Full Name</label>
+                            <input type="text" id="fullName" value="${profile?.name || ''}" placeholder="Your full name">
                         </div>
                         <div class="form-group">
-                            <label for="email">Email</label>
-                            <input type="email" id="email" value="${user?.email || ''}" disabled>
+                            <label>Email</label>
+                            <input type="email" value="${user?.email || ''}" disabled>
                             <small>Email cannot be changed</small>
                         </div>
                         <div class="form-group">
-                            <label for="username">Username</label>
-                            <div class="username-input-group">
-                                <span class="username-prefix">${window.location.origin}/u/</span>
+                            <label>Username</label>
+                            <div class="username-input">
+                                <span>${window.location.origin}/u/</span>
                                 <input type="text" id="username" value="${profile?.username || ''}" placeholder="username">
                             </div>
-                            <small id="usernameFeedback" class="username-feedback">Choose a unique username for your portfolio URL</small>
+                            <small id="usernameFeedback" class="feedback">Choose a unique username for your portfolio</small>
                         </div>
                         <div class="form-group">
-                            <label for="bio">Bio</label>
-                            <textarea id="bio" rows="3" placeholder="Tell us about yourself...">${profile?.bio || ''}</textarea>
-                            <small>This will replace the role label under your profile picture</small>
-                        </div>
-                        <button type="submit" class="btn-primary">Update Profile</button>
-                    </form>
-                </div>
-
-                <!-- Theme Settings -->
-                <div class="settings-card">
-                    <h3>Appearance</h3>
-                    <div class="form-group">
-                        <label>Theme Preference</label>
-                        <div class="theme-selector">
-                            <button class="theme-option ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
-                                <i class="fas fa-sun"></i> Light
-                            </button>
-                            <button class="theme-option ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
-                                <i class="fas fa-moon"></i> Dark
-                            </button>
-                            <button class="theme-option" data-theme="system">
-                                <i class="fas fa-desktop"></i> System
-                            </button>
+                            <label>Bio</label>
+                            <textarea id="bio" rows="2" placeholder="Tell us about yourself...">${profile?.bio || ''}</textarea>
                         </div>
                     </div>
                 </div>
+                
+                <div class="settings-actions">
+                    <button id="saveProfileBtn" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                </div>
+            </div>
 
-                <!-- Account Actions -->
-                <div class="settings-card">
-                    <h3>Account Actions</h3>
-                    <button class="btn-danger" id="signOutBtn" style="width:100%;">
-                        <i class="fas fa-sign-out-alt"></i> Sign Out
+            <!-- Appearance Section -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <i class="fas fa-palette"></i>
+                    <div>
+                        <h3>Appearance</h3>
+                        <p>Choose your preferred theme</p>
+                    </div>
+                </div>
+                
+                <div class="theme-options">
+                    <button class="theme-card ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
+                        <i class="fas fa-sun"></i>
+                        <span>Light</span>
+                    </button>
+                    <button class="theme-card ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
+                        <i class="fas fa-moon"></i>
+                        <span>Dark</span>
+                    </button>
+                    <button class="theme-card" data-theme="system">
+                        <i class="fas fa-desktop"></i>
+                        <span>System</span>
                     </button>
                 </div>
             </div>
-        `;
 
-        // Avatar upload
-        document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
-            document.getElementById('avatarUpload')?.click();
-        });
-
-        document.getElementById('avatarUpload')?.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                await this.uploadAvatar(file);
-            }
-        });
-
-        document.getElementById('removeAvatarBtn')?.addEventListener('click', async () => {
-            if (confirm('Remove your profile picture?')) {
-                await this.removeAvatar();
-            }
-        });
-
-        // Username validation (real-time)
-        document.getElementById('username')?.addEventListener('input', (e) => {
-            this.validateUsername(e.target.value);
-        });
-
-        // Theme selector
-        document.querySelectorAll('.theme-option').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const theme = btn.getAttribute('data-theme');
-                this.applyTheme(theme);
-            });
-        });
-
-        // Form submit
-        document.getElementById('profileForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.updateProfile();
-        });
-
-        // Sign out
-        document.getElementById('signOutBtn')?.addEventListener('click', async () => {
-            if (confirm('Are you sure you want to sign out?')) {
-                await signOutUser();
-                window.location.href = '/signin.html';
-            }
-        });
-    }
-
-    // ✅ NEW: Validate username availability
-    async validateUsername(username) {
-        const feedback = document.getElementById('usernameFeedback');
-        if (!feedback || !username) return;
-
-        // Check if username is taken (excluding current user)
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select('username')
-            .eq('username', username)
-            .neq('id', this.currentUser.id)
-            .single();
-
-        if (error && error.code !== 'PGRST116') {
-            // Error other than "not found"
-            console.error('Username validation error:', error);
-            return;
-        }
-
-        const usernameInput = document.getElementById('username');
-        if (data) {
-            // Username taken - suggest alternatives
-            feedback.className = 'username-feedback error';
-            feedback.textContent = `❌ Username "${username}" is taken. Try: ${username}${Math.floor(Math.random() * 100)}`;
-            usernameInput.style.borderColor = '#ef4444';
-            this.usernameValid = false;
-        } else if (username.length < 3) {
-            feedback.className = 'username-feedback error';
-            feedback.textContent = '❌ Username must be at least 3 characters';
-            usernameInput.style.borderColor = '#ef4444';
-            this.usernameValid = false;
-        } else if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
-            feedback.className = 'username-feedback error';
-            feedback.textContent = '❌ Only letters, numbers, underscores, and hyphens allowed';
-            usernameInput.style.borderColor = '#ef4444';
-            this.usernameValid = false;
-        } else {
-            feedback.className = 'username-feedback success';
-            feedback.textContent = `✅ "${username}" is available! Your portfolio: ${window.location.origin}/u/${username}`;
-            usernameInput.style.borderColor = '#10b981';
-            this.usernameValid = true;
-        }
-    }
-
-    // ✅ NEW: Upload avatar
-    async uploadAvatar(file) {
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${this.currentUser.id}_${Date.now()}.${fileExt}`;
-            const filePath = `avatars/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data: urlData } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            const avatarUrl = urlData.publicUrl;
-
-            // Update profile
-            const { error: updateError } = await supabase
-                .from('user_profiles')
-                .update({ avatar_url: avatarUrl })
-                .eq('id', this.currentUser.id);
-
-            if (updateError) throw updateError;
-
-            // Update UI
-            document.getElementById('profileAvatarPreview').src = avatarUrl;
-            document.getElementById('userAvatarImg').src = avatarUrl;
-            
-            showToast('Profile picture updated!', 'success');
-            await this.loadUserData();
-
-        } catch (error) {
-            console.error('Avatar upload error:', error);
-            showToast('Failed to upload avatar', 'error');
-        }
-    }
-
-    // ✅ NEW: Remove avatar
-    async removeAvatar() {
-        try {
-            const { error } = await supabase
-                .from('user_profiles')
-                .update({ avatar_url: null })
-                .eq('id', this.currentUser.id);
-
-            if (error) throw error;
-
-            const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentProfile?.name || 'User')}&background=fbb040&color=fff&size=200`;
-            document.getElementById('profileAvatarPreview').src = defaultAvatar;
-            document.getElementById('userAvatarImg').src = defaultAvatar;
-            
-            showToast('Profile picture removed', 'success');
-            await this.loadUserData();
-
-        } catch (error) {
-            console.error('Avatar removal error:', error);
-            showToast('Failed to remove avatar', 'error');
-        }
-    }
-
-    // ✅ NEW: Apply theme
-    applyTheme(theme) {
-        if (theme === 'system') {
-            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (systemPrefersDark) {
-                document.body.classList.add('dark-mode');
-            } else {
-                document.body.classList.remove('dark-mode');
-            }
-            localStorage.setItem('theme', 'system');
-        } else if (theme === 'dark') {
-            document.body.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            document.body.classList.remove('dark-mode');
-            localStorage.setItem('theme', 'light');
-        }
-
-        document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.theme-option[data-theme="${theme}"]`)?.classList.add('active');
-        showToast(`${theme.charAt(0).toUpperCase() + theme.slice(1)} mode activated`, 'success');
-    }
-
-    // ============================================
-    // APPLY FOR ROLE (UPDATED - Ambassador replaces Partner)
-    // ============================================
-    showApplyRoleModal() {
-        const roles = ['student', 'instructor', 'ambassador'];
-        const roleLabels = {
-            'student': 'Student (Learn & Build)',
-            'instructor': 'Instructor (Teach & Mentor)',
-            'ambassador': 'Ambassador (Represent & Lead)'
-        };
-
-        const modal = document.createElement('div');
-        modal.className = 'modal active';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Apply for a Role</h2>
-                    <button class="modal-close" id="closeRoleModal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
-                        Select the role you want to apply for. Your application will be reviewed by an admin.
-                    </p>
-                    <div class="role-options">
-                        ${roles.map(r => `
-                            <button class="apply-role-btn" data-role="${r}">
-                                Apply as ${roleLabels[r] || r}
-                            </button>
-                        `).join('')}
+            <!-- Account Section -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <i class="fas fa-shield-alt"></i>
+                    <div>
+                        <h3>Account</h3>
+                        <p>Manage your account security</p>
                     </div>
                 </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        modal.querySelector('#closeRoleModal')?.addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
-        });
-
-        modal.querySelectorAll('.apply-role-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const role = btn.dataset.role;
-                modal.remove();
-                await this.applyForRole(role);
-            });
-        });
-    }
-
-    // ============================================
-    // SHOW CONVERT STARS MODAL (NEW)
-    // ============================================
-    showConvertStarsModal() {
-        const profile = this.currentProfile;
-        const currentGP = profile?.gp_points || 0;
-        const starsEarned = Math.floor(currentGP / 1000);
-        
-        const modal = document.createElement('div');
-        modal.className = 'modal active';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>⭐ Convert GP to Stars</h2>
-                    <button class="modal-close" id="closeConvertModal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="convert-info">
-                        <p><strong>Current GP:</strong> ${currentGP.toLocaleString()}</p>
-                        <p><strong>Stars you can earn:</strong> ${starsEarned} ⭐</p>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                            ${starsEarned > 0 ? 'Ready to convert? Each star gives you a surprise gift!' : 'Earn 1,000 GP to get your first star!'}
-                        </p>
-                    </div>
-                    
-                    ${starsEarned > 0 ? `
-                        <button id="confirmConvertStars" class="btn-primary" style="width: 100%;">
-                            <i class="fas fa-star"></i> Convert ${starsEarned} Star${starsEarned > 1 ? 's' : ''}
-                        </button>
-                    ` : `
-                        <button class="btn-outline" disabled style="width: 100%; opacity: 0.5;">
-                            Need 1,000 GP to convert
-                        </button>
-                    `}
+                
+                <div class="account-actions">
+                    <button id="signOutBtn" class="btn-danger"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
-        document.body.appendChild(modal);
+    // Avatar upload
+    document.getElementById('uploadAvatarBtn')?.addEventListener('click', () => {
+        document.getElementById('avatarUpload')?.click();
+    });
 
-        modal.querySelector('#closeConvertModal')?.addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
+    document.getElementById('avatarUpload')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            await this.uploadAvatar(file);
+        }
+    });
+
+    document.getElementById('removeAvatarBtn')?.addEventListener('click', async () => {
+        if (confirm('Remove your profile picture?')) {
+            await this.removeAvatar();
+        }
+    });
+
+    // Username validation
+    document.getElementById('username')?.addEventListener('input', (e) => {
+        this.validateUsername(e.target.value);
+    });
+
+    // Theme selector
+    document.querySelectorAll('.theme-card').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.getAttribute('data-theme');
+            this.applyTheme(theme);
         });
+    });
 
-        modal.querySelector('#confirmConvertStars')?.addEventListener('click', async () => {
-            const result = await convertGPToStars(this.currentUser.id);
-            if (result) {
-                modal.remove();
-                await this.loadUserData();
-                await this.loadTab('dashboard');
-            }
-        });
-    }
+    // Save profile
+    document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
+        await this.updateProfile();
+    });
+
+    // Sign out
+    document.getElementById('signOutBtn')?.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to sign out?')) {
+            await signOutUser();
+            window.location.href = '/signin.html';
+        }
+    });
+}
 
     // ============================================
     // WALLET FUNDING (UPDATED - Dynamic Bank Details)
