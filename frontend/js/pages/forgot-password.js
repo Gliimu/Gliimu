@@ -37,7 +37,7 @@ function showToast(message, type = 'info') {
 // BACKEND API URL (YOUR RENDER URL)
 // ============================================
 
-const API_URL = 'https://gliimu-secure-api.onrender.com'; // ⚠️ REPLACE WITH YOUR RENDER URL
+const API_URL = 'https://gliimu-secure-api.onrender.com';
 
 // ============================================
 // DOM ELEMENTS
