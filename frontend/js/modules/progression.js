@@ -334,20 +334,25 @@ export async function addStars(userId, count) {
 
 export async function getUsedStars(userId) {
     try {
-        // Sum all stars used in promotions
         const { data, error } = await supabase
             .from('user_promotions')
             .select('stars_used')
             .eq('user_id', userId)
             .eq('status', 'active');
         
-        if (error) throw error;
+        if (error) {
+            // If table doesn't exist, return 0
+            if (error.code === 'PGRST205') {
+                return 0;
+            }
+            throw error;
+        }
         
         const usedStars = data.reduce((sum, item) => sum + (item.stars_used || 0), 0);
         return usedStars;
     } catch (error) {
         console.error('Error getting used stars:', error);
-        return 0;
+        return 0; // Return 0 on error so dashboard doesn't break
     }
 }
 
