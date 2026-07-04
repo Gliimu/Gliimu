@@ -22,7 +22,7 @@ import {
     addTransaction,
     createPaymentRequest,
     getUserPayments,
-    getUserReferrals
+    getReferralCount
 } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 import { getBankDetails } from '../modules/settings.js';
@@ -168,20 +168,15 @@ export class UserPage {
     }
 
     // ✅ NEW: Get referrals count
-    async getReferralsCount(userId) {
-        try {
-            const { count, error } = await supabase
-                .from('referrals')
-                .select('id', { count: 'exact' })
-                .eq('referrer_id', userId);
-            
-            if (error) throw error;
-            return count || 0;
-        } catch (error) {
-            console.error('Error getting referrals:', error);
-            return 0;
-        }
+async getReferralsCount(userId) {
+    try {
+        const count = await getReferralCount(userId);
+        return count;
+    } catch (error) {
+        console.error('Error getting referrals:', error);
+        return 0;
     }
+}
 
     updateRoleStylesheet(role) {
         const roleStylesheet = document.getElementById('roleStylesheet');
