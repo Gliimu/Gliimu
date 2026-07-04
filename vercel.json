@@ -45,8 +45,8 @@
       "destination": "/frontend/contact.html"
     },
     {
-      "source": "/application",
-      "destination": "/frontend/application.html"
+      "source": "/merchandise",
+      "destination": "/frontend/merchandise.html"
     },
     {
       "source": "/signin",
@@ -61,7 +61,7 @@
       "destination": "/frontend/portfolio.html"
     },
     {
-      "source": "/user-course",
+      "source": "/course",
       "destination": "/frontend/user-course.html"
     },
     {
@@ -110,8 +110,8 @@
       "permanent": true
     },
     {
-      "source": "/application.html",
-      "destination": "/application",
+      "source": "/merchandise.html",
+      "destination": "/merchandise",
       "permanent": true
     },
     {
