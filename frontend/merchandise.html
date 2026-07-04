@@ -25,30 +25,30 @@
 <body>
 
     <!-- ============================================================ -->
-    <!-- STICKY NAVIGATION BUTTON - TOP RIGHT, FIXED ON SCROLL        -->
+    <!-- STICKY NAVIGATION BUTTON - TOP RIGHT                         -->
     <!-- ============================================================ -->
     <div class="sticky-nav" id="stickyNav">
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
             <i class="fas fa-ellipsis-v"></i>
         </button>
         <div class="nav-dropdown" id="navDropdown">
-            <button class="nav-btn" onclick="window.goBack()" aria-label="Go back">
+            <button class="nav-btn" onclick="window.goBack()">
                 <i class="fas fa-arrow-left"></i>
                 <span>Back</span>
             </button>
-            <button class="nav-btn" onclick="window.reportIssue()" aria-label="Report issue">
+            <button class="nav-btn" onclick="window.reportIssue()">
                 <i class="fas fa-flag"></i>
                 <span>Report</span>
             </button>
-            <button class="nav-btn" onclick="window.sharePage()" aria-label="Share page">
+            <button class="nav-btn" onclick="window.sharePage()">
                 <i class="fas fa-share-alt"></i>
                 <span>Share</span>
             </button>
-            <button class="nav-btn" onclick="window.goToContact()" aria-label="Contact support">
+            <button class="nav-btn" onclick="window.goToContact()">
                 <i class="fas fa-envelope"></i>
                 <span>Contact</span>
             </button>
-            <button class="nav-btn home-nav" onclick="window.goToHub()" aria-label="Go to Hub">
+            <button class="nav-btn home-nav" onclick="window.goToHub()">
                 <i class="fas fa-home"></i>
                 <span>Home</span>
             </button>
@@ -64,7 +64,6 @@
             <div class="merch-hero-gradient"></div>
         </div>
         
-        <!-- Logo Container -->
         <div class="merch-logo-container">
             <img src="/frontend/icons/logo.png" alt="Gliimu" class="merch-logo-img">
         </div>
@@ -106,7 +105,7 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- CATEGORY NAVIGATION - STICKY ON SCROLL                       -->
+    <!-- CATEGORY NAVIGATION                                           -->
     <!-- ============================================================ -->
     <section class="merch-categories" id="shop">
         <div class="container">
@@ -262,9 +261,9 @@
     <div class="cart-overlay" id="cartOverlay"></div>
 
     <!-- ============================================================ -->
-    <!-- PRODUCT DETAIL MODAL - HIDDEN BY DEFAULT                     -->
+    <!-- PRODUCT DETAIL MODAL                                          -->
     <!-- ============================================================ -->
-    <div class="modal" id="productModal" style="display: none;">
+    <div class="modal" id="productModal">
         <div class="modal-content product-modal">
             <div class="modal-header">
                 <h2 id="productModalTitle">Product Name</h2>
@@ -322,9 +321,9 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- SHARE MODAL - HIDDEN BY DEFAULT                              -->
+    <!-- SHARE MODAL                                                   -->
     <!-- ============================================================ -->
-    <div class="modal-overlay" id="shareModal" style="display: none;">
+    <div class="modal-overlay" id="shareModal">
         <div class="modal-content modal-share">
             <div class="modal-header">
                 <h3>Share This Page</h3>
