@@ -11,6 +11,9 @@
     <meta property="og:description" content="Learn, create, and get discovered. Your portfolio is your currency." />
     <meta property="og:image" content="https://www.gliimu.com/icons/og-hub.jpg" />
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/frontend/icons/logo.png" />
+    
     <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -22,6 +25,45 @@
 <body>
 
     <!-- ============================================================ -->
+    <!-- STICKY NAVIGATION - Bottom Right with Icons                   -->
+    <!-- ============================================================ -->
+    <div class="sticky-nav" id="stickyNav">
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+            <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <div class="nav-dropdown" id="navDropdown">
+            <button class="nav-btn" onclick="window.goToDashboard()" aria-label="Dashboard">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-btn" onclick="window.goToHub()" aria-label="Hub">
+                <i class="fas fa-th-large"></i>
+                <span>Hub</span>
+            </button>
+            <button class="nav-btn" onclick="window.goToLearningPath()" aria-label="Learning Path">
+                <i class="fas fa-road"></i>
+                <span>Learning Path</span>
+            </button>
+            <button class="nav-btn" onclick="window.goToVirtualRoom()" aria-label="Virtual Room">
+                <i class="fas fa-video"></i>
+                <span>Virtual Room</span>
+            </button>
+            <button class="nav-btn" onclick="window.goToChat()" aria-label="Chat">
+                <i class="fas fa-comments"></i>
+                <span>Chat</span>
+            </button>
+            <button class="nav-btn" onclick="window.goToMerchandise()" aria-label="Merchandise">
+                <i class="fas fa-shopping-bag"></i>
+                <span>Merchandise</span>
+            </button>
+            <button class="nav-btn home-nav" onclick="window.goToUser()" aria-label="User Profile">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
     <!-- HERO SECTION                                                 -->
     <!-- ============================================================ -->
     <section class="hub-hero">
@@ -29,6 +71,12 @@
             <div class="hub-hero-particles" id="particles"></div>
             <div class="hub-hero-gradient"></div>
         </div>
+        
+        <!-- Logo Container -->
+        <div class="hub-logo-container">
+            <img src="/frontend/icons/logo.png" alt="Gliimu" class="hub-logo-img">
+        </div>
+        
         <div class="container hub-hero-content">
             <div class="hub-hero-badge">
                 <span class="badge-live"><i class="fas fa-circle"></i> <span id="liveCount">1,247</span> Creators Active</span>
@@ -281,6 +329,52 @@
                         <i class="fas fa-info-circle"></i> Publishing earns you <strong>10-50 GP</strong> and helps you earn Stars!
                     </p>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SHARE MODAL                                                   -->
+    <!-- ============================================================ -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal-content modal-share">
+            <div class="modal-header">
+                <h3>Share This Page</h3>
+                <button class="modal-close" onclick="window.closeShareModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="text-align:center; margin-bottom:1rem; color: var(--text-secondary);">Share Gliimu Hub with your friends!</p>
+                
+                <div class="share-code-box">
+                    <div class="share-code" id="shareCode">Loading...</div>
+                    <button class="btn-outline" onclick="window.copyShareCode()">Copy Code</button>
+                    <button class="btn-outline" onclick="window.copyShareLink()">Copy Link</button>
+                </div>
+                
+                <div class="share-actions">
+                    <button class="share-btn" onclick="window.shareOnWhatsApp()">
+                        <i class="fab fa-whatsapp" style="color:#25D366;"></i> WhatsApp
+                    </button>
+                    <button class="share-btn" onclick="window.shareOnTwitter()">
+                        <i class="fab fa-twitter" style="color:#1DA1F2;"></i> Twitter
+                    </button>
+                    <button class="share-btn" onclick="window.shareOnLinkedIn()">
+                        <i class="fab fa-linkedin" style="color:#0A66C2;"></i> LinkedIn
+                    </button>
+                    <button class="share-btn" onclick="window.shareOnFacebook()">
+                        <i class="fab fa-facebook" style="color:#1877F2;"></i> Facebook
+                    </button>
+                    <button class="share-btn" onclick="window.shareOnEmail()">
+                        <i class="fas fa-envelope" style="color:#EA4335;"></i> Email
+                    </button>
+                </div>
+                
+                <div class="share-referral-info">
+                    <p><i class="fas fa-gift"></i> Share and earn <strong>+50 GP</strong> when friends join!</p>
+                    <p style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">
+                        Your referral link: <span id="shareReferralLink"></span>
+                    </p>
+                </div>
             </div>
         </div>
     </div>
