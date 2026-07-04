@@ -9,6 +9,7 @@
     <meta name="description" content="Discover content, showcase your work, and earn real-world opportunities on Gliimu Hub." />
     <meta property="og:title" content="Gliimu Hub — Where Creators Rise" />
     <meta property="og:description" content="Learn, create, and get discovered. Your portfolio is your currency." />
+    <meta property="og:image" content="https://www.gliimu.com/icons/og-hub.jpg" />
     
     <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -21,15 +22,16 @@
 <body>
 
     <!-- ============================================================ -->
-    <!-- HERO SECTION — "Where Media Architects Are Discovered"        -->
+    <!-- HERO SECTION                                                 -->
     <!-- ============================================================ -->
     <section class="hub-hero">
         <div class="hub-hero-bg">
             <div class="hub-hero-particles" id="particles"></div>
+            <div class="hub-hero-gradient"></div>
         </div>
         <div class="container hub-hero-content">
             <div class="hub-hero-badge">
-                <span class="badge-live"><i class="fas fa-circle"></i> 1,247 Creators Active</span>
+                <span class="badge-live"><i class="fas fa-circle"></i> <span id="liveCount">1,247</span> Creators Active</span>
             </div>
             <h1 class="hub-hero-title">
                 Discover. <span class="highlight-gold">Create.</span> Get <span class="highlight-purple">Discovered.</span>
@@ -64,7 +66,7 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- AMBASSADOR PROMOTION BANNER — Free 24h Promotion              -->
+    <!-- AMBASSADOR PROMOTION BANNER                                   -->
     <!-- ============================================================ -->
     <div class="ambassador-promo-banner" id="ambassadorPromoBanner" style="display: none;">
         <div class="container">
@@ -80,12 +82,12 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- MAIN HUB CONTENT                                              -->
+    <!-- MAIN HUB CONTENT                                             -->
     <!-- ============================================================ -->
     <section class="hub-main" id="explore">
         <div class="container">
             
-            <!-- --- FILTER BAR --- -->
+            <!-- FILTER BAR -->
             <div class="hub-filter-bar">
                 <div class="hub-filter-scroll">
                     <button class="filter-btn active" data-filter="all">
@@ -113,7 +115,7 @@
                 </div>
             </div>
 
-            <!-- --- FEATURED / TRENDING ROW --- -->
+            <!-- FEATURED / TRENDING ROW -->
             <div class="hub-featured-row" id="featuredRow">
                 <div class="section-header">
                     <h2><i class="fas fa-fire" style="color: var(--gold);"></i> Trending Now</h2>
@@ -124,7 +126,7 @@
                 </div>
             </div>
 
-            <!-- --- CONTENT GRID --- -->
+            <!-- CONTENT GRID -->
             <div class="section-header">
                 <h2><i class="fas fa-grid-2"></i> All Content</h2>
                 <span class="section-sub" id="contentCount">Loading...</span>
@@ -133,14 +135,14 @@
                 <!-- Dynamic content -->
             </div>
 
-            <!-- --- LOAD MORE --- -->
+            <!-- LOAD MORE -->
             <div class="hub-load-more">
                 <button class="btn btn-outline" id="loadMoreBtn">
                     <i class="fas fa-chevron-down"></i> Load More
                 </button>
             </div>
 
-            <!-- --- EMPTY STATE --- -->
+            <!-- EMPTY STATE -->
             <div class="hub-empty-state" id="hubEmptyState" style="display: none;">
                 <i class="fas fa-inbox"></i>
                 <h3>No Content Found</h3>
@@ -152,7 +154,7 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- STAR PROMOTION MODAL                                          -->
+    <!-- STAR PROMOTION MODAL                                         -->
     <!-- ============================================================ -->
     <div class="modal" id="promotionModal">
         <div class="modal-content promotion-modal">
@@ -166,70 +168,8 @@
                         <p>Your Available Stars:</p>
                         <div class="star-count-large" id="availableStarsDisplay">⭐ 0</div>
                     </div>
-                    <div class="promotion-options">
-                        <div class="promotion-card" data-promotion="hub-feature">
-                            <div class="promotion-icon"><i class="fas fa-bullhorn"></i></div>
-                            <div class="promotion-details">
-                                <h4>Hub Portfolio Feature</h4>
-                                <p>Get featured in the Hub for 24 hours</p>
-                                <span class="promotion-cost">Free (Ambassador)</span>
-                            </div>
-                            <button class="btn btn-gold promo-select-btn" disabled>Claim</button>
-                        </div>
-                        <div class="promotion-card" data-promotion="sponsored-post">
-                            <div class="promotion-icon"><i class="fas fa-ad"></i></div>
-                            <div class="promotion-details">
-                                <h4>Sponsored Post</h4>
-                                <p>Premium placement in Hub for 3 days</p>
-                                <span class="promotion-cost">⭐ 1 Star</span>
-                            </div>
-                            <button class="btn btn-outline promo-select-btn">Use 1 Star</button>
-                        </div>
-                        <div class="promotion-card" data-promotion="partner-collab">
-                            <div class="promotion-icon"><i class="fas fa-handshake"></i></div>
-                            <div class="promotion-details">
-                                <h4>Partner Collaboration</h4>
-                                <p>Co-branded content with a partner</p>
-                                <span class="promotion-cost">⭐ 1 Star</span>
-                            </div>
-                            <button class="btn btn-outline promo-select-btn">Use 1 Star</button>
-                        </div>
-                        <div class="promotion-card" data-promotion="flier-design">
-                            <div class="promotion-icon"><i class="fas fa-paint-brush"></i></div>
-                            <div class="promotion-details">
-                                <h4>Flier Design & Post</h4>
-                                <p>Professional flier + digital distribution</p>
-                                <span class="promotion-cost">⭐ 1 Star</span>
-                            </div>
-                            <button class="btn btn-outline promo-select-btn">Use 1 Star</button>
-                        </div>
-                        <div class="promotion-card" data-promotion="billboard">
-                            <div class="promotion-icon"><i class="fas fa-tv"></i></div>
-                            <div class="promotion-details">
-                                <h4>Digital Billboard</h4>
-                                <p>Featured on our digital billboard for 7 days</p>
-                                <span class="promotion-cost">⭐ 2 Stars</span>
-                            </div>
-                            <button class="btn btn-outline promo-select-btn">Use 2 Stars</button>
-                        </div>
-                        <div class="promotion-card" data-promotion="event-ticket">
-                            <div class="promotion-icon"><i class="fas fa-ticket-alt"></i></div>
-                            <div class="promotion-details">
-                                <h4>VIP Event Ticket</h4>
-                                <p>Access to exclusive Gliimu events</p>
-                                <span class="promotion-cost">⭐ 2 Stars</span>
-                            </div>
-                            <button class="btn btn-outline promo-select-btn">Use 2 Stars</button>
-                        </div>
-                        <div class="promotion-card" data-promotion="partnership-listing">
-                            <div class="promotion-icon"><i class="fas fa-building"></i></div>
-                            <div class="promotion-details">
-                                <h4>Permanent Partnership</h4>
-                                <p>Listed as an official partner for 1 month</p>
-                                <span class="promotion-cost">⭐ 3 Stars</span>
-                            </div>
-                            <button class="btn btn-outline promo-select-btn">Use 3 Stars</button>
-                        </div>
+                    <div class="promotion-options" id="promotionOptions">
+                        <!-- Dynamic -->
                     </div>
                 </div>
                 <div class="promotion-confirmation" id="promotionConfirmation" style="display: none;">
@@ -243,7 +183,7 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- CONTENT DETAIL MODAL                                          -->
+    <!-- CONTENT DETAIL MODAL                                         -->
     <!-- ============================================================ -->
     <div class="modal" id="contentDetailModal">
         <div class="modal-content detail-modal">
@@ -280,7 +220,7 @@
                     </div>
                 </div>
                 <div class="detail-comments" id="detailComments">
-                    <h4>Comments</h4>
+                    <h4>Comments <span id="commentCount" class="comment-count">(0)</span></h4>
                     <div class="comment-list" id="commentList">
                         <p class="text-muted">No comments yet. Be the first!</p>
                     </div>
@@ -294,7 +234,7 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- CREATE CONTENT MODAL                                          -->
+    <!-- CREATE CONTENT MODAL                                         -->
     <!-- ============================================================ -->
     <div class="modal" id="createContentModal">
         <div class="modal-content create-modal">
@@ -353,950 +293,7 @@
     <!-- ============================================================ -->
     <!-- SCRIPTS                                                      -->
     <!-- ============================================================ -->
-    <script type="module">
-        // ============================================================
-        // HUB.JS - Complete Hub Logic
-        // ============================================================
-
-        import { 
-            supabase, 
-            getCurrentUser, 
-            getUserProfile,
-            getUserContent,
-            getHubContent,
-            getTrendingContent,
-            getPromotedContent,
-            saveContent,
-            unsaveContent,
-            heartContent,
-            getContentDetails,
-            addComment,
-            getComments,
-            getStarBalance,
-            useStarsForPromotion,
-            getAmbassadorStatus,
-            claimFreePromotion,
-            createContent
-        } from '../modules/supabase.js';
-
-        import { showToast } from '../modules/toast.js';
-
-        // ============================================================
-        // STATE
-        // ============================================================
-        const state = {
-            currentUser: null,
-            currentProfile: null,
-            content: [],
-            filteredContent: [],
-            trendingContent: [],
-            promotedContent: [],
-            currentFilter: 'all',
-            searchQuery: '',
-            page: 0,
-            limit: 20,
-            hasMore: true,
-            isLoading: false,
-            selectedContent: null,
-            starBalance: 0,
-            isAmbassador: false,
-            savedItems: new Set(),
-            heartedItems: new Set()
-        };
-
-        // ============================================================
-        // DOM REFS
-        // ============================================================
-        const $ = (sel) => document.querySelector(sel);
-        const $$ = (sel) => document.querySelectorAll(sel);
-
-        const dom = {
-            contentGrid: $('#hubContentGrid'),
-            featuredScroll: $('#featuredScroll'),
-            filterBtns: $$('.filter-btn'),
-            searchInput: $('#hubSearchInput'),
-            searchBtn: $('#hubSearchBtn'),
-            loadMoreBtn: $('#loadMoreBtn'),
-            emptyState: $('#hubEmptyState'),
-            contentCount: $('#contentCount'),
-            
-            // Modals
-            promotionModal: $('#promotionModal'),
-            detailModal: $('#contentDetailModal'),
-            createModal: $('#createContentModal'),
-            
-            // Promotion
-            ambassadorBanner: $('#ambassadorPromoBanner'),
-            claimPromoBtn: $('#claimPromoBtn'),
-            availableStarsDisplay: $('#availableStarsDisplay'),
-            promoSelectBtns: $$('.promo-select-btn'),
-            promotionConfirmation: $('#promotionConfirmation'),
-            
-            // Detail
-            detailTitle: $('#detailTitle'),
-            detailImage: $('#detailImage'),
-            detailAuthor: $('#detailAuthor'),
-            detailCategory: $('#detailCategory'),
-            detailStars: $('#detailStars'),
-            detailDescription: $('#detailDescription'),
-            detailHeartBtn: $('#detailHeartBtn'),
-            heartCount: $('#heartCount'),
-            detailShareBtn: $('#detailShareBtn'),
-            detailSaveBtn: $('#detailSaveBtn'),
-            detailPromoteBtn: $('#detailPromoteBtn'),
-            commentList: $('#commentList'),
-            commentInput: $('#commentInput'),
-            commentSubmitBtn: $('#commentSubmitBtn'),
-            
-            // Create
-            createForm: $('#createContentForm'),
-            emptyCreateBtn: $('#emptyCreateBtn'),
-            createContentBtn: $('#createContentBtn')
-        };
-
-        // ============================================================
-        // INIT
-        // ============================================================
-        async function init() {
-            console.log('🚀 Hub initializing...');
-            
-            try {
-                // Check auth
-                const user = await getCurrentUser();
-                if (user) {
-                    state.currentUser = user;
-                    const profile = await getUserProfile(user.id);
-                    state.currentProfile = profile;
-                    
-                    // Check ambassador status
-                    await checkAmbassadorStatus(profile);
-                    
-                    // Load star balance
-                    await loadStarBalance();
-                }
-                
-                // Load content
-                await loadContent();
-                await loadTrending();
-                await loadPromoted();
-                
-                // Setup event listeners
-                setupEventListeners();
-                
-                // Update stats
-                updateStats();
-                
-                console.log('✅ Hub initialized');
-            } catch (error) {
-                console.error('❌ Hub init error:', error);
-                showToast('Failed to load Hub content', 'error');
-            }
-        }
-
-        // ============================================================
-        // CONTENT LOADING
-        // ============================================================
-        async function loadContent(reset = true) {
-            if (state.isLoading) return;
-            state.isLoading = true;
-
-            try {
-                if (reset) {
-                    state.page = 0;
-                    state.content = [];
-                    state.hasMore = true;
-                }
-
-                const { data, error } = await supabase
-                    .from('hub_content')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .range(state.page * state.limit, (state.page + 1) * state.limit - 1);
-
-                if (error) throw error;
-
-                if (data.length < state.limit) {
-                    state.hasMore = false;
-                }
-
-                if (reset) {
-                    state.content = data;
-                } else {
-                    state.content = [...state.content, ...data];
-                }
-
-                state.page++;
-                applyFilters();
-                updateContentCount();
-
-            } catch (error) {
-                console.error('Error loading content:', error);
-                showToast('Failed to load content', 'error');
-            } finally {
-                state.isLoading = false;
-            }
-        }
-
-        async function loadTrending() {
-            try {
-                const { data, error } = await supabase
-                    .from('hub_content')
-                    .select('*')
-                    .order('hearts', { ascending: false })
-                    .limit(12);
-
-                if (error) throw error;
-                state.trendingContent = data || [];
-                renderFeatured(data || []);
-            } catch (error) {
-                console.error('Error loading trending:', error);
-            }
-        }
-
-        async function loadPromoted() {
-            try {
-                const { data, error } = await supabase
-                    .from('hub_content')
-                    .select('*')
-                    .eq('is_promoted', true)
-                    .limit(6);
-
-                if (error) throw error;
-                state.promotedContent = data || [];
-            } catch (error) {
-                console.error('Error loading promoted:', error);
-            }
-        }
-
-        // ============================================================
-        // FILTERING & SEARCH
-        // ============================================================
-        function applyFilters() {
-            let filtered = [...state.content];
-
-            // Apply category filter
-            if (state.currentFilter !== 'all') {
-                if (state.currentFilter === 'promoted') {
-                    filtered = filtered.filter(item => item.is_promoted);
-                } else {
-                    filtered = filtered.filter(item => item.type === state.currentFilter);
-                }
-            }
-
-            // Apply search
-            if (state.searchQuery.trim()) {
-                const query = state.searchQuery.toLowerCase().trim();
-                filtered = filtered.filter(item =>
-                    item.title?.toLowerCase().includes(query) ||
-                    item.description?.toLowerCase().includes(query) ||
-                    item.author?.toLowerCase().includes(query) ||
-                    item.tags?.some(tag => tag.toLowerCase().includes(query))
-                );
-            }
-
-            state.filteredContent = filtered;
-            renderContent(filtered);
-            updateEmptyState(filtered.length === 0);
-        }
-
-        function updateEmptyState(isEmpty) {
-            dom.emptyState.style.display = isEmpty ? 'block' : 'none';
-            dom.loadMoreBtn.style.display = state.hasMore && !isEmpty ? 'inline-flex' : 'none';
-        }
-
-        function updateContentCount() {
-            dom.contentCount.textContent = `${state.filteredContent.length} items found`;
-        }
-
-        // ============================================================
-        // RENDERING
-        // ============================================================
-        function renderContent(items) {
-            if (!dom.contentGrid) return;
-
-            if (items.length === 0) {
-                dom.contentGrid.innerHTML = '';
-                return;
-            }
-
-            dom.contentGrid.innerHTML = items.map(item => `
-                <div class="content-card" data-id="${item.id}" data-type="${item.type}">
-                    ${item.is_promoted ? `<div class="promoted-badge"><i class="fas fa-star"></i> Promoted</div>` : ''}
-                    ${item.hearts >= 12 ? `<div class="trending-badge"><i class="fas fa-fire"></i> Trending</div>` : ''}
-                    <div class="content-card-image">
-                        <img src="${item.image_url || 'https://placehold.co/400x250/2c2f78/white?text=Content'}" 
-                             alt="${item.title}" 
-                             onerror="this.src='https://placehold.co/400x250/2c2f78/white?text=Content'" />
-                        <div class="content-card-type">
-                            <i class="fas ${getTypeIcon(item.type)}"></i>
-                            ${item.type || 'Content'}
-                        </div>
-                    </div>
-                    <div class="content-card-body">
-                        <h4>${item.title || 'Untitled'}</h4>
-                        <p>${item.description ? item.description.substring(0, 80) + '...' : ''}</p>
-                        <div class="content-card-footer">
-                            <div class="content-card-author">
-                                <img src="${item.author_avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.author || 'User')}" 
-                                     alt="${item.author}" 
-                                     onerror="this.style.display='none'" />
-                                <span>${item.author || 'Anonymous'}</span>
-                            </div>
-                            <div class="content-card-stats">
-                                <span class="stat-hearts"><i class="fas fa-heart" style="color: #ef4444;"></i> ${item.hearts || 0}</span>
-                                <span class="stat-stars"><i class="fas fa-star" style="color: var(--gold);"></i> ${item.stars_earned || 0}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            // Add click listeners
-            dom.contentGrid.querySelectorAll('.content-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const id = card.dataset.id;
-                    openContentDetail(id);
-                });
-            });
-        }
-
-        function renderFeatured(items) {
-            if (!dom.featuredScroll) return;
-
-            if (!items || items.length === 0) {
-                dom.featuredScroll.innerHTML = `
-                    <div class="featured-empty">
-                        <p>No trending content yet. Be the first!</p>
-                    </div>
-                `;
-                return;
-            }
-
-            dom.featuredScroll.innerHTML = items.map(item => `
-                <div class="featured-card" data-id="${item.id}">
-                    <div class="featured-card-image">
-                        <img src="${item.image_url || 'https://placehold.co/300x200/2c2f78/white?text=Trending'}" 
-                             alt="${item.title}" 
-                             onerror="this.src='https://placehold.co/300x200/2c2f78/white?text=Trending'" />
-                        <div class="featured-overlay">
-                            <span class="featured-rank">#${items.indexOf(item) + 1}</span>
-                        </div>
-                    </div>
-                    <div class="featured-card-body">
-                        <h4>${item.title || 'Untitled'}</h4>
-                        <div class="featured-card-stats">
-                            <span><i class="fas fa-heart" style="color: #ef4444;"></i> ${item.hearts || 0}</span>
-                            <span><i class="fas fa-eye"></i> ${item.views || 0}</span>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            // Add click listeners
-            dom.featuredScroll.querySelectorAll('.featured-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const id = card.dataset.id;
-                    openContentDetail(id);
-                });
-            });
-        }
-
-        function getTypeIcon(type) {
-            const icons = {
-                book: 'fa-book',
-                talk: 'fa-video',
-                bundle: 'fa-layer-group',
-                portfolio: 'fa-user-graduate',
-                course: 'fa-graduation-cap',
-                merchandise: 'fa-shopping-bag'
-            };
-            return icons[type] || 'fa-file';
-        }
-
-        // ============================================================
-        // STAR & AMBASSADOR SYSTEM
-        // ============================================================
-        async function loadStarBalance() {
-            try {
-                const balance = await getStarBalance(state.currentUser?.id);
-                state.starBalance = balance || 0;
-                updateStarDisplay();
-            } catch (error) {
-                console.error('Error loading star balance:', error);
-            }
-        }
-
-        function updateStarDisplay() {
-            if (dom.availableStarsDisplay) {
-                dom.availableStarsDisplay.textContent = `⭐ ${state.starBalance}`;
-            }
-        }
-
-        async function checkAmbassadorStatus(profile) {
-            if (!profile) return;
-            
-            const isAmbassador = profile.progress >= 100 && profile.stars_earned >= 5;
-            state.isAmbassador = isAmbassador;
-            
-            if (isAmbassador && dom.ambassadorBanner) {
-                dom.ambassadorBanner.style.display = 'block';
-            }
-        }
-
-        // ============================================================
-        // PROMOTION SYSTEM
-        // ============================================================
-        async function handlePromotion(contentId, type) {
-            const starCost = getPromotionCost(type);
-            
-            if (state.starBalance < starCost) {
-                showToast(`You need ${starCost} Star(s) for this promotion. Earn more GP!`, 'error');
-                return;
-            }
-
-            try {
-                const result = await useStarsForPromotion(
-                    state.currentUser.id,
-                    contentId,
-                    type,
-                    starCost
-                );
-
-                if (result.success) {
-                    showToast(`🎉 Promotion activated! Your content is now featured.`, 'success');
-                    await loadStarBalance();
-                    await loadContent(true);
-                    closePromotionModal();
-                } else {
-                    showToast(result.error || 'Failed to activate promotion', 'error');
-                }
-            } catch (error) {
-                console.error('Promotion error:', error);
-                showToast('Failed to activate promotion', 'error');
-            }
-        }
-
-        function getPromotionCost(type) {
-            const costs = {
-                'sponsored-post': 1,
-                'partner-collab': 1,
-                'flier-design': 1,
-                'billboard': 2,
-                'event-ticket': 2,
-                'partnership-listing': 3
-            };
-            return costs[type] || 0;
-        }
-
-        // ============================================================
-        // CONTENT DETAIL
-        // ============================================================
-        async function openContentDetail(contentId) {
-            try {
-                const content = await getContentDetails(contentId);
-                if (!content) {
-                    showToast('Content not found', 'error');
-                    return;
-                }
-
-                state.selectedContent = content;
-
-                dom.detailTitle.textContent = content.title || 'Untitled';
-                dom.detailImage.src = content.image_url || 'https://placehold.co/600x400/2c2f78/white?text=Content';
-                dom.detailImage.alt = content.title || 'Content';
-                dom.detailAuthor.textContent = `👤 ${content.author || 'Anonymous'}`;
-                dom.detailCategory.textContent = `📂 ${content.type || 'Content'}`;
-                dom.detailStars.textContent = `⭐ ${content.stars_earned || 0}`;
-                dom.detailDescription.textContent = content.description || 'No description available.';
-                dom.heartCount.textContent = content.hearts || 0;
-
-                // Check if saved
-                const isSaved = await checkIfSaved(contentId);
-                dom.detailSaveBtn.innerHTML = isSaved ? 
-                    '<i class="fas fa-bookmark"></i> Saved' : 
-                    '<i class="far fa-bookmark"></i> Save';
-
-                // Check if hearted
-                const isHearted = await checkIfHearted(contentId);
-                dom.detailHeartBtn.innerHTML = isHearted ?
-                    '<i class="fas fa-heart" style="color: #ef4444;"></i> <span id="heartCount">' + (content.hearts || 0) + '</span>' :
-                    '<i class="far fa-heart"></i> <span id="heartCount">' + (content.hearts || 0) + '</span>';
-
-                // Load comments
-                await loadComments(contentId);
-
-                // Show modal
-                dom.detailModal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-
-            } catch (error) {
-                console.error('Error loading content detail:', error);
-                showToast('Failed to load content details', 'error');
-            }
-        }
-
-        async function loadComments(contentId) {
-            try {
-                const comments = await getComments(contentId);
-                
-                if (!comments || comments.length === 0) {
-                    dom.commentList.innerHTML = '<p class="text-muted">No comments yet. Be the first!</p>';
-                    return;
-                }
-
-                dom.commentList.innerHTML = comments.map(c => `
-                    <div class="comment-item">
-                        <img src="${c.author_avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.author || 'User')}" 
-                             alt="${c.author}" 
-                             onerror="this.style.display='none'" />
-                        <div class="comment-content">
-                            <strong>${c.author || 'Anonymous'}</strong>
-                            <p>${c.content}</p>
-                            <span class="comment-time">${new Date(c.created_at).toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('Error loading comments:', error);
-            }
-        }
-
-        // ============================================================
-        // INTERACTIONS
-        // ============================================================
-        async function handleHeart() {
-            if (!state.currentUser) {
-                showToast('Sign in to heart content', 'warning');
-                return;
-            }
-
-            const contentId = state.selectedContent?.id;
-            if (!contentId) return;
-
-            try {
-                const result = await heartContent(contentId, state.currentUser.id);
-                if (result.success) {
-                    const newCount = result.hearts;
-                    dom.heartCount.textContent = newCount;
-                    dom.detailHeartBtn.innerHTML = 
-                        '<i class="fas fa-heart" style="color: #ef4444;"></i> <span id="heartCount">' + newCount + '</span>';
-                    showToast('❤️ You hearted this content!', 'success');
-                }
-            } catch (error) {
-                console.error('Heart error:', error);
-                showToast('Failed to heart content', 'error');
-            }
-        }
-
-        async function handleSave() {
-            if (!state.currentUser) {
-                showToast('Sign in to save content', 'warning');
-                return;
-            }
-
-            const contentId = state.selectedContent?.id;
-            if (!contentId) return;
-
-            try {
-                const isSaved = dom.detailSaveBtn.innerHTML.includes('Saved');
-                let result;
-
-                if (isSaved) {
-                    result = await unsaveContent(contentId, state.currentUser.id);
-                    if (result.success) {
-                        dom.detailSaveBtn.innerHTML = '<i class="far fa-bookmark"></i> Save';
-                        showToast('Removed from saved items', 'info');
-                    }
-                } else {
-                    result = await saveContent(contentId, state.currentUser.id);
-                    if (result.success) {
-                        dom.detailSaveBtn.innerHTML = '<i class="fas fa-bookmark"></i> Saved';
-                        showToast('📌 Saved to your library!', 'success');
-                    }
-                }
-            } catch (error) {
-                console.error('Save error:', error);
-                showToast('Failed to save content', 'error');
-            }
-        }
-
-        // ============================================================
-        // CREATE CONTENT
-        // ============================================================
-        async function handleCreateContent(e) {
-            e.preventDefault();
-
-            if (!state.currentUser) {
-                showToast('Sign in to create content', 'warning');
-                return;
-            }
-
-            const formData = {
-                type: document.getElementById('contentType').value,
-                title: document.getElementById('contentTitle').value.trim(),
-                description: document.getElementById('contentDescription').value.trim(),
-                tags: document.getElementById('contentTags').value.split(',').map(t => t.trim()).filter(Boolean),
-                image_url: document.getElementById('contentImage').value.trim(),
-                content_url: document.getElementById('contentUrl').value.trim(),
-                author: state.currentProfile?.name || state.currentUser.email,
-                author_id: state.currentUser.id
-            };
-
-            if (!formData.type || !formData.title || !formData.description) {
-                showToast('Please fill in all required fields', 'error');
-                return;
-            }
-
-            try {
-                const result = await createContent(formData);
-                if (result.success) {
-                    showToast('🎉 Content published! You earned 25 GP!', 'success');
-                    dom.createModal.classList.remove('active');
-                    document.body.style.overflow = '';
-                    dom.createForm.reset();
-                    await loadContent(true);
-                } else {
-                    showToast(result.error || 'Failed to create content', 'error');
-                }
-            } catch (error) {
-                console.error('Create content error:', error);
-                showToast('Failed to create content', 'error');
-            }
-        }
-
-        // ============================================================
-        // SHARE
-        // ============================================================
-        function handleShare() {
-            const content = state.selectedContent;
-            if (!content) return;
-
-            const shareData = {
-                title: content.title,
-                text: `Check out "${content.title}" on Gliimu Hub!`,
-                url: window.location.href + '?content=' + content.id
-            };
-
-            if (navigator.share) {
-                navigator.share(shareData).catch(() => {});
-            } else {
-                // Fallback: copy link
-                const url = window.location.origin + '/hub?content=' + content.id;
-                navigator.clipboard.writeText(url).then(() => {
-                    showToast('📋 Link copied to clipboard!', 'success');
-                }).catch(() => {
-                    // Manual copy fallback
-                    const input = document.createElement('input');
-                    input.value = url;
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(input);
-                    showToast('📋 Link copied!', 'success');
-                });
-            }
-        }
-
-        // ============================================================
-        // CHECK FUNCTIONS
-        // ============================================================
-        async function checkIfSaved(contentId) {
-            if (!state.currentUser) return false;
-            try {
-                const { data, error } = await supabase
-                    .from('user_saved_content')
-                    .select('id')
-                    .eq('user_id', state.currentUser.id)
-                    .eq('content_id', contentId)
-                    .single();
-                return !!data;
-            } catch {
-                return false;
-            }
-        }
-
-        async function checkIfHearted(contentId) {
-            if (!state.currentUser) return false;
-            try {
-                const { data, error } = await supabase
-                    .from('user_hearts')
-                    .select('id')
-                    .eq('user_id', state.currentUser.id)
-                    .eq('content_id', contentId)
-                    .single();
-                return !!data;
-            } catch {
-                return false;
-            }
-        }
-
-        // ============================================================
-        // STATS
-        // ============================================================
-        function updateStats() {
-            // These would come from real API calls
-            document.getElementById('totalCreators').textContent = '12,847';
-            document.getElementById('totalContent').textContent = '4,231';
-            document.getElementById('totalStars').textContent = '87,429';
-        }
-
-        // ============================================================
-        // PROMOTION MODAL
-        // ============================================================
-        function openPromotionModal() {
-            dom.promotionModal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-            dom.promotionConfirmation.style.display = 'none';
-            updateStarDisplay();
-        }
-
-        function closePromotionModal() {
-            dom.promotionModal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        // ============================================================
-        // EVENT LISTENERS
-        // ============================================================
-        function setupEventListeners() {
-            // --- Filter buttons ---
-            dom.filterBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    dom.filterBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    state.currentFilter = btn.dataset.filter;
-                    applyFilters();
-                });
-            });
-
-            // --- Search ---
-            dom.searchBtn.addEventListener('click', () => {
-                state.searchQuery = dom.searchInput.value;
-                applyFilters();
-            });
-
-            dom.searchInput.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter') {
-                    state.searchQuery = dom.searchInput.value;
-                    applyFilters();
-                }
-            });
-
-            // --- Load more ---
-            dom.loadMoreBtn.addEventListener('click', () => loadContent(false));
-
-            // --- Create content ---
-            dom.createContentBtn.addEventListener('click', () => {
-                if (!state.currentUser) {
-                    showToast('Sign in to create content', 'warning');
-                    return;
-                }
-                dom.createModal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            });
-
-            dom.emptyCreateBtn.addEventListener('click', () => {
-                dom.createModal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            });
-
-            // --- Close modals ---
-            document.querySelectorAll('.modal-close').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const modal = btn.closest('.modal');
-                    if (modal) {
-                        modal.classList.remove('active');
-                        document.body.style.overflow = '';
-                    }
-                });
-            });
-
-            // Close on overlay click
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        modal.classList.remove('active');
-                        document.body.style.overflow = '';
-                    }
-                });
-            });
-
-            // --- Detail interactions ---
-            dom.detailHeartBtn.addEventListener('click', handleHeart);
-            dom.detailSaveBtn.addEventListener('click', handleSave);
-            dom.detailShareBtn.addEventListener('click', handleShare);
-            dom.detailPromoteBtn.addEventListener('click', () => {
-                closePromotionModal();
-                setTimeout(openPromotionModal, 300);
-            });
-
-            // --- Comment ---
-            dom.commentSubmitBtn.addEventListener('click', handleComment);
-            dom.commentInput.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter') handleComment();
-            });
-
-            // --- Promotion ---
-            dom.promoSelectBtns.forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const card = btn.closest('.promotion-card');
-                    const type = card.dataset.promotion;
-                    const contentId = state.selectedContent?.id;
-
-                    if (!contentId) {
-                        showToast('Select content first', 'error');
-                        return;
-                    }
-
-                    await handlePromotion(contentId, type);
-                });
-            });
-
-            dom.claimPromoBtn.addEventListener('click', async () => {
-                if (!state.currentUser) {
-                    showToast('Sign in to claim', 'warning');
-                    return;
-                }
-
-                try {
-                    const result = await claimFreePromotion(state.currentUser.id);
-                    if (result.success) {
-                        showToast('🎉 Free 24-hour promotion claimed!', 'success');
-                        dom.ambassadorBanner.style.display = 'none';
-                        await loadContent(true);
-                    } else {
-                        showToast(result.error || 'Failed to claim promotion', 'error');
-                    }
-                } catch (error) {
-                    console.error('Claim promo error:', error);
-                    showToast('Failed to claim promotion', 'error');
-                }
-            });
-
-            // --- Create form ---
-            dom.createForm.addEventListener('submit', handleCreateContent);
-
-            // --- Scroll to top ---
-            const scrollBtn = document.getElementById('scrollToTopBtn');
-            if (scrollBtn) {
-                window.addEventListener('scroll', () => {
-                    scrollBtn.classList.toggle('visible', window.scrollY > 500);
-                });
-                scrollBtn.addEventListener('click', () => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                });
-            }
-
-            // --- Keyboard shortcuts ---
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    document.querySelectorAll('.modal.active').forEach(modal => {
-                        modal.classList.remove('active');
-                        document.body.style.overflow = '';
-                    });
-                }
-                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                    e.preventDefault();
-                    dom.searchInput.focus();
-                }
-            });
-        }
-
-        // ============================================================
-        // COMMENT HANDLER
-        // ============================================================
-        async function handleComment() {
-            if (!state.currentUser) {
-                showToast('Sign in to comment', 'warning');
-                return;
-            }
-
-            const content = dom.commentInput.value.trim();
-            if (!content) {
-                showToast('Please enter a comment', 'error');
-                return;
-            }
-
-            const contentId = state.selectedContent?.id;
-            if (!contentId) return;
-
-            try {
-                const result = await addComment({
-                    content_id: contentId,
-                    user_id: state.currentUser.id,
-                    author: state.currentProfile?.name || 'User',
-                    author_avatar: state.currentProfile?.avatar_url,
-                    content: content
-                });
-
-                if (result.success) {
-                    showToast('💬 Comment added! (+2 GP)', 'success');
-                    dom.commentInput.value = '';
-                    await loadComments(contentId);
-                } else {
-                    showToast(result.error || 'Failed to add comment', 'error');
-                }
-            } catch (error) {
-                console.error('Comment error:', error);
-                showToast('Failed to add comment', 'error');
-            }
-        }
-
-        // ============================================================
-        // PARTICLES EFFECT (Hero Background)
-        // ============================================================
-        function initParticles() {
-            const container = document.getElementById('particles');
-            if (!container) return;
-
-            const particleCount = 30;
-            const colors = ['#fbb040', '#2c2f78', '#ffffff', '#8b5cf6'];
-
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                const size = Math.random() * 6 + 2;
-                particle.style.cssText = `
-                    position: absolute;
-                    width: ${size}px;
-                    height: ${size}px;
-                    background: ${colors[Math.floor(Math.random() * colors.length)]};
-                    border-radius: 50%;
-                    opacity: ${Math.random() * 0.5 + 0.1};
-                    top: ${Math.random() * 100}%;
-                    left: ${Math.random() * 100}%;
-                    animation: floatParticle ${Math.random() * 20 + 10}s linear infinite;
-                    animation-delay: ${Math.random() * 5}s;
-                `;
-                container.appendChild(particle);
-            }
-        }
-
-        // ============================================================
-        // BOOT
-        // ============================================================
-        document.addEventListener('DOMContentLoaded', () => {
-            initParticles();
-            init();
-        });
-
-        // Add particle animation to document
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes floatParticle {
-                0% { transform: translateY(0px) translateX(0px) scale(1); }
-                25% { transform: translateY(-30px) translateX(20px) scale(1.2); }
-                50% { transform: translateY(10px) translateX(-20px) scale(0.8); }
-                75% { transform: translateY(-20px) translateX(15px) scale(1.1); }
-                100% { transform: translateY(0px) translateX(0px) scale(1); }
-            }
-        `;
-        document.head.appendChild(style);
-
-        console.log('🌟 Hub fully loaded — Where Creators Rise!');
-
-    </script>
+    <script type="module" src="js/pages/hub.js"></script>
 
 </body>
 </html>
