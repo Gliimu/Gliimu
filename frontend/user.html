@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="/frontend/css/user-student.css" id="roleStylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRCode.js for portfolio QR codes -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -50,9 +52,9 @@
             <i class="fas fa-tachometer-alt"></i>
             <span>Home</span>
         </button>
-        <button class="mobile-nav-item" data-tab="alerts">
-            <i class="fas fa-bell"></i>
-            <span>Alerts</span>
+        <button class="mobile-nav-item" data-tab="messages">
+            <i class="fas fa-envelope"></i>
+            <span>Messages</span>
         </button>
         <button class="mobile-nav-item" data-tab="gotomenu">
             <i class="fas fa-door-open"></i>
@@ -68,8 +70,11 @@
         </button>
     </div>
 
-    <!-- Modals -->
-    <!-- MVP Modal -->
+    <!-- ========================================== -->
+    <!-- MODALS                                      -->
+    <!-- ========================================== -->
+
+    <!-- 1. MVP Modal -->
     <div id="mvpModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -107,7 +112,7 @@
         </div>
     </div>
 
-    <!-- Fund Wallet Modal -->
+    <!-- 2. Fund Wallet Modal (UPDATED - Dynamic Bank Details) -->
     <div id="fundWalletModal" class="modal">
         <div class="modal-content wallet-modal">
             <div class="modal-header">
@@ -137,7 +142,9 @@
                 
                 <div class="bank-details" style="display: none;">
                     <h3>Bank Transfer Details</h3>
-                    <div class="bank-info-card" id="bankInfoCard"></div>
+                    <div class="bank-info-card" id="bankInfoCard">
+                        <!-- Dynamically populated -->
+                    </div>
                     <div class="reference-code-box">
                         <p>Your Reference Code:</p>
                         <div class="reference-code" id="referenceCode"></div>
@@ -159,10 +166,85 @@
         </div>
     </div>
 
+    <!-- 3. Convert GP to Stars Modal (NEW) -->
+    <div id="convertStarsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⭐ Convert GP to Stars</h2>
+                <button class="modal-close closeConvertModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="convert-info">
+                    <div class="convert-stat">
+                        <span class="convert-label">Current GP</span>
+                        <span class="convert-value" id="convertCurrentGP">0</span>
+                    </div>
+                    <div class="convert-stat">
+                        <span class="convert-label">Stars You Can Earn</span>
+                        <span class="convert-value" id="convertStarsEarned">0 ⭐</span>
+                    </div>
+                    <p class="convert-hint" id="convertHint">Earn 1,000 GP to get your first star!</p>
+                </div>
+                <button id="confirmConvertStarsBtn" class="btn-primary" style="width: 100%; display: none;">
+                    <i class="fas fa-star"></i> Convert to Stars
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Message Modal (NEW) -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Message</h2>
+                <button class="modal-close closeMessageModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="messageForm">
+                    <div class="form-group">
+                        <label>Subject</label>
+                        <input type="text" id="messageSubject" required placeholder="Enter message subject">
+                    </div>
+                    <div class="form-group">
+                        <label>Message</label>
+                        <textarea id="messageBody" rows="5" required placeholder="Type your message..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary"><i class="fas fa-paper-plane"></i> Send Message</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Role Application Modal -->
+    <div id="roleApplyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Apply for a Role</h2>
+                <button class="modal-close closeRoleModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                    Select the role you want to apply for. Your application will be reviewed by an admin.
+                </p>
+                <div class="role-options">
+                    <button class="apply-role-btn" data-role="student">
+                        <i class="fas fa-user-graduate"></i> Student (Learn & Build)
+                    </button>
+                    <button class="apply-role-btn" data-role="instructor">
+                        <i class="fas fa-chalkboard-teacher"></i> Instructor (Teach & Mentor)
+                    </button>
+                    <button class="apply-role-btn" data-role="ambassador">
+                        <i class="fas fa-crown"></i> Ambassador (Represent & Lead)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
-    <!-- Libraries for PDF generation -->
+    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script type="module" src="/frontend/js/pages/user.js"></script>
