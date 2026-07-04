@@ -541,6 +541,71 @@ export async function gradeSubmission(submissionId, grade, feedback, isCorrect) 
 }
 
 // ============================================
+// UPDATED PROGRESSION WITH STARS
+// ============================================
+
+// Calculate progress based on current GP balance
+function calculateProgress(currentGP) {
+    // 1/50 × GP = Progress %
+    // Max 100% at 5,000 GP
+    const progress = (currentGP / 50);
+    return Math.min(100, progress);
+}
+
+// Get badge based on current progress
+function getBadge(progress) {
+    if (progress >= 100) return { name: 'Ambassador', icon: '👑', color: '#ef4444' };
+    if (progress >= 76) return { name: 'Mastery', icon: '🏆', color: '#f59e0b' };
+    if (progress >= 51) return { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6' };
+    if (progress >= 26) return { name: 'Diploma', icon: '📜', color: '#3b82f6' };
+    return { name: 'Starter', icon: '🌱', color: '#10b981' };
+}
+
+// Convert GP to Stars
+async function convertGPToStars(userId) {
+    try {
+        const currentGP = await getUserGP(userId);
+        
+        if (currentGP < 1000) {
+            showToast('Need at least 1,000 GP to convert to a star!', 'error');
+            return false;
+        }
+        
+        // Deduct 1,000 GP
+        const newGP = currentGP - 1000;
+        const stars = 1;
+        
+        // Update database
+        await supabase
+            .from('user_profiles')
+            .update({
+                wallet_balance: newGP, // Or however GP is stored
+                total_stars: supabase.raw('total_stars + 1'),
+                total_gp_converted: supabase.raw('total_gp_converted + 1000')
+            })
+            .eq('id', userId);
+        
+        // Record conversion
+        await supabase
+            .from('star_conversions')
+            .insert([{
+                user_id: userId,
+                gp_converted: 1000,
+                stars_earned: 1,
+                converted_at: new Date().toISOString()
+            }]);
+        
+        showToast('🎉 Converted 1,000 GP to ⭐ Star! Company will send a surprise gift!', 'success');
+        return true;
+        
+    } catch (error) {
+        console.error('Error converting GP to stars:', error);
+        showToast('Failed to convert GP. Please try again.', 'error');
+        return false;
+    }
+}
+
+// ============================================
 // GET QUESTIONS FOR BADGE LEVEL
 // ============================================
 
