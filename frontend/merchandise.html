@@ -25,7 +25,7 @@
 <body>
 
     <!-- ============================================================ -->
-    <!-- STICKY NAVIGATION BUTTON (from course page)                   -->
+    <!-- STICKY NAVIGATION BUTTON                                      -->
     <!-- ============================================================ -->
     <div class="sticky-nav" id="stickyNav">
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
@@ -56,7 +56,7 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- HERO SECTION — Branded Merchandise Hub                        -->
+    <!-- HERO SECTION                                                 -->
     <!-- ============================================================ -->
     <section class="merch-hero">
         <div class="merch-hero-bg">
@@ -64,7 +64,7 @@
             <div class="merch-hero-gradient"></div>
         </div>
         
-        <!-- Logo Container (from index.html) -->
+        <!-- Logo Container -->
         <div class="merch-logo-container">
             <img src="/frontend/icons/logo.png" alt="Gliimu" class="merch-logo-img">
         </div>
@@ -137,7 +137,7 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- FEATURED PRODUCTS (Carousel)                                  -->
+    <!-- FEATURED PRODUCTS                                             -->
     <!-- ============================================================ -->
     <section class="merch-featured">
         <div class="container">
@@ -183,7 +183,7 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- VALUE PROPOSITION BANNER                                      -->
+    <!-- VALUE PROPOSITION                                             -->
     <!-- ============================================================ -->
     <section class="merch-value">
         <div class="container">
@@ -264,7 +264,7 @@
     <!-- ============================================================ -->
     <!-- PRODUCT DETAIL MODAL                                          -->
     <!-- ============================================================ -->
-    <div class="modal" id="productModal">
+    <div class="modal" id="productModal" style="display: none;">
         <div class="modal-content product-modal">
             <div class="modal-header">
                 <h2 id="productModalTitle">Product Name</h2>
@@ -322,7 +322,7 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- SHARE MODAL (from course page) - HIDDEN BY DEFAULT           -->
+    <!-- SHARE MODAL - HIDDEN BY DEFAULT                              -->
     <!-- ============================================================ -->
     <div class="modal-overlay" id="shareModal" style="display: none;">
         <div class="modal-content modal-share">
@@ -331,7 +331,7 @@
                 <button class="modal-close" onclick="window.closeShareModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="text-align:center; margin-bottom:1rem;">Share Gliimu Merchandise with your friends!</p>
+                <p style="text-align:center; margin-bottom:1rem; color: var(--text-secondary);">Share Gliimu Merchandise with your friends!</p>
                 
                 <div class="share-code-box">
                     <div class="share-code" id="shareCode">Loading...</div>
