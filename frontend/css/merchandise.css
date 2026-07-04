@@ -1283,3 +1283,328 @@ body.dark-mode .view-toggle {
 body.dark-mode .review-card {
     background: var(--bg-card);
 }
+
+/* ================================================================
+   STICKY NAVIGATION (from course page)
+   ================================================================ */
+
+.sticky-nav {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.nav-toggle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--purple-dark);
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-toggle:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 24px rgba(251, 176, 64, 0.4);
+}
+
+.nav-toggle.active {
+    transform: rotate(90deg);
+}
+
+.nav-dropdown {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 180px;
+}
+
+.nav-dropdown.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.nav-btn:hover {
+    background: var(--bg-secondary);
+}
+
+.nav-btn i {
+    width: 20px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.nav-btn.home-nav {
+    border-top: 1px solid var(--border-color);
+    margin-top: 4px;
+    padding-top: 12px;
+}
+
+.nav-btn.home-nav i {
+    color: var(--gold);
+}
+
+body.dark-mode .nav-dropdown {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .nav-btn:hover {
+    background: var(--bg-secondary);
+}
+
+/* ================================================================
+   LOGO CONTAINER (from index.html)
+   ================================================================ */
+
+.merch-logo-container {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 20;
+    background: #000000;
+    padding: 8px 20px;
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.merch-logo-img {
+    height: 32px;
+    width: auto;
+    filter: brightness(0) invert(1);
+}
+
+/* ================================================================
+   SHARE MODAL (from course page)
+   ================================================================ */
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1100;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-share {
+    max-width: 500px;
+    width: 100%;
+    background: var(--bg-primary);
+    border-radius: 16px;
+    border-top: 4px solid var(--gold);
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.modal-share .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-share .modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.modal-share .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+
+.modal-share .modal-close:hover {
+    color: var(--gold);
+    transform: rotate(90deg);
+}
+
+.modal-share .modal-body {
+    padding: 1.5rem;
+}
+
+.share-code-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.share-code {
+    font-family: monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gold);
+    padding: 0.25rem 0.75rem;
+    background: rgba(251, 176, 64, 0.1);
+    border-radius: 8px;
+    letter-spacing: 1px;
+}
+
+.share-code-box .btn-outline {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.7rem;
+}
+
+.share-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.share-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+    font-size: 0.65rem;
+    color: var(--text-primary);
+}
+
+.share-btn:hover {
+    border-color: var(--gold);
+    transform: translateY(-2px);
+}
+
+.share-btn i {
+    font-size: 1.5rem;
+}
+
+.share-referral-info {
+    text-align: center;
+    padding: 0.75rem;
+    background: rgba(251, 176, 64, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(251, 176, 64, 0.1);
+}
+
+.share-referral-info p {
+    font-size: 0.85rem;
+}
+
+.share-referral-info strong {
+    color: var(--gold);
+}
+
+#shareReferralLink {
+    word-break: break-all;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* ================================================================
+   RESPONSIVE - Sticky Nav
+   ================================================================ */
+
+@media (max-width: 480px) {
+    .sticky-nav {
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .nav-toggle {
+        width: 48px;
+        height: 48px;
+        font-size: 1.2rem;
+    }
+    
+    .nav-dropdown {
+        min-width: 160px;
+    }
+    
+    .nav-btn {
+        font-size: 0.75rem;
+        padding: 8px 12px;
+    }
+    
+    .merch-logo-container {
+        top: 16px;
+        left: 16px;
+        padding: 6px 14px;
+    }
+    
+    .merch-logo-img {
+        height: 24px;
+    }
+    
+    .share-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .merch-logo-container {
+        top: 20px;
+        left: 20px;
+        padding: 6px 16px;
+    }
+    
+    .merch-logo-img {
+        height: 28px;
+    }
+}
