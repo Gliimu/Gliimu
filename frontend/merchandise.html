@@ -24,33 +24,41 @@
 </head>
 <body>
 
-    <!-- ============================================================ -->
-    <!-- STICKY NAVIGATION BUTTON - Matches reference                  -->
+      <!-- ============================================================ -->
+    <!-- STICKY NAVIGATION - Bottom Right with Icons                   -->
     <!-- ============================================================ -->
     <div class="sticky-nav" id="stickyNav">
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
             <i class="fas fa-ellipsis-v"></i>
         </button>
         <div class="nav-dropdown" id="navDropdown">
-            <button class="nav-btn" onclick="window.goBack()">
-                <i class="fas fa-arrow-left"></i>
-                <span>Back</span>
+            <button class="nav-btn" onclick="window.goToDashboard()" aria-label="Dashboard">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
             </button>
-            <button class="nav-btn" onclick="window.reportIssue()">
-                <i class="fas fa-flag"></i>
-                <span>Report</span>
+            <button class="nav-btn" onclick="window.goToHub()" aria-label="Hub">
+                <i class="fas fa-th-large"></i>
+                <span>Hub</span>
             </button>
-            <button class="nav-btn" onclick="window.sharePage()">
-                <i class="fas fa-share-alt"></i>
-                <span>Share</span>
+            <button class="nav-btn" onclick="window.goToLearningPath()" aria-label="Learning Path">
+                <i class="fas fa-road"></i>
+                <span>Learning Path</span>
             </button>
-            <button class="nav-btn" onclick="window.goToContact()">
-                <i class="fas fa-envelope"></i>
-                <span>Contact</span>
+            <button class="nav-btn" onclick="window.goToVirtualRoom()" aria-label="Virtual Room">
+                <i class="fas fa-video"></i>
+                <span>Virtual Room</span>
             </button>
-            <button class="nav-btn home-nav" onclick="window.goToHub()">
-                <i class="fas fa-home"></i>
-                <span>Home</span>
+            <button class="nav-btn" onclick="window.goToChat()" aria-label="Chat">
+                <i class="fas fa-comments"></i>
+                <span>Chat</span>
+            </button>
+            <button class="nav-btn" onclick="window.goToMerchandise()" aria-label="Merchandise">
+                <i class="fas fa-shopping-bag"></i>
+                <span>Merchandise</span>
+            </button>
+            <button class="nav-btn home-nav" onclick="window.goToUser()" aria-label="User Profile">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
             </button>
         </div>
     </div>
