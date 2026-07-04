@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Merchandise | Gliimu — Gear for Media Architects</title>
     
     <!-- SEO & Social -->
@@ -10,6 +10,9 @@
     <meta property="og:title" content="Gliimu Merchandise — Gear for Creators" />
     <meta property="og:description" content="Premium branded gear for Media Architects. Wear it, use it, represent it." />
     <meta property="og:image" content="https://www.gliimu.com/icons/og-merch.jpg" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/frontend/icons/logo.png" />
     
     <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -22,6 +25,37 @@
 <body>
 
     <!-- ============================================================ -->
+    <!-- STICKY NAVIGATION BUTTON (from course page)                   -->
+    <!-- ============================================================ -->
+    <div class="sticky-nav" id="stickyNav">
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+            <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <div class="nav-dropdown" id="navDropdown">
+            <button class="nav-btn" onclick="goBack()" aria-label="Go back">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back</span>
+            </button>
+            <button class="nav-btn" onclick="reportIssue()" aria-label="Report issue">
+                <i class="fas fa-flag"></i>
+                <span>Report</span>
+            </button>
+            <button class="nav-btn" onclick="sharePage()" aria-label="Share page">
+                <i class="fas fa-share-alt"></i>
+                <span>Share</span>
+            </button>
+            <button class="nav-btn" onclick="goToContact()" aria-label="Contact support">
+                <i class="fas fa-envelope"></i>
+                <span>Contact</span>
+            </button>
+            <button class="nav-btn home-nav" onclick="goToHub()" aria-label="Go to Hub">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
     <!-- HERO SECTION — Branded Merchandise Hub                        -->
     <!-- ============================================================ -->
     <section class="merch-hero">
@@ -29,6 +63,12 @@
             <div class="merch-hero-particles" id="particles"></div>
             <div class="merch-hero-gradient"></div>
         </div>
+        
+        <!-- Logo Container (from index.html) -->
+        <div class="merch-logo-container">
+            <img src="/frontend/icons/logo.png" alt="Gliimu" class="merch-logo-img">
+        </div>
+        
         <div class="container merch-hero-content">
             <div class="merch-hero-badge">
                 <span class="badge-live"><i class="fas fa-tag"></i> Premium Gear for Media Architects</span>
@@ -276,6 +316,52 @@
                             <i class="fas fa-cart-plus"></i> Add to Cart
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SHARE MODAL (from course page)                               -->
+    <!-- ============================================================ -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal-content modal-share">
+            <div class="modal-header">
+                <h3>Share This Page</h3>
+                <button class="modal-close" onclick="closeShareModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="text-align:center; margin-bottom:1rem;">Share Gliimu Merchandise with your friends!</p>
+                
+                <div class="share-code-box">
+                    <div class="share-code" id="shareCode">Loading...</div>
+                    <button class="btn-outline" onclick="copyShareCode()">Copy Code</button>
+                    <button class="btn-outline" onclick="copyShareLink()">Copy Link</button>
+                </div>
+                
+                <div class="share-actions">
+                    <button class="share-btn" onclick="shareOnWhatsApp()">
+                        <i class="fab fa-whatsapp" style="color:#25D366;"></i> WhatsApp
+                    </button>
+                    <button class="share-btn" onclick="shareOnTwitter()">
+                        <i class="fab fa-twitter" style="color:#1DA1F2;"></i> Twitter
+                    </button>
+                    <button class="share-btn" onclick="shareOnLinkedIn()">
+                        <i class="fab fa-linkedin" style="color:#0A66C2;"></i> LinkedIn
+                    </button>
+                    <button class="share-btn" onclick="shareOnFacebook()">
+                        <i class="fab fa-facebook" style="color:#1877F2;"></i> Facebook
+                    </button>
+                    <button class="share-btn" onclick="shareOnEmail()">
+                        <i class="fas fa-envelope" style="color:#EA4335;"></i> Email
+                    </button>
+                </div>
+                
+                <div class="share-referral-info">
+                    <p><i class="fas fa-gift"></i> Share and earn <strong>+50 GP</strong> when friends join!</p>
+                    <p style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">
+                        Your referral link: <span id="shareReferralLink"></span>
+                    </p>
                 </div>
             </div>
         </div>
