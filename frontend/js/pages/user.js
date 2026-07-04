@@ -231,17 +231,15 @@ async getReferralsCount(userId) {
         }
 
         // Mobile bottom navigation
-        document.querySelectorAll('.mobile-nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const tab = item.dataset.tab;
-                if (tab === 'gotomenu') {
-                    this.toggleSidebar();
-                    return;
-                }
-                this.loadTab(tab);
-            });
-        });
-
+document.querySelectorAll('.mobile-nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+        const tab = item.dataset.tab;
+        // For Go To, just load the tab - don't toggle sidebar
+        this.loadTab(tab);
+        // Close sidebar if open
+        this.closeSidebar();
+    });
+});
         // Sidebar overlay
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
