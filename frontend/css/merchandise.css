@@ -1285,13 +1285,13 @@ body.dark-mode .review-card {
 }
 
 /* ================================================================
-   STICKY NAVIGATION (from course page)
+   STICKY NAVIGATION - TOP RIGHT, FIXED ON SCROLL
    ================================================================ */
 
 .sticky-nav {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    top: 20px;
+    right: 20px;
     z-index: 999;
     display: flex;
     flex-direction: column;
@@ -1299,19 +1299,21 @@ body.dark-mode .review-card {
 }
 
 .nav-toggle {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     background: var(--gold);
     color: var(--purple-dark);
     border: none;
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     cursor: pointer;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 2;
 }
 
 .nav-toggle:hover {
@@ -1327,14 +1329,17 @@ body.dark-mode .review-card {
     background: var(--bg-card);
     border-radius: 16px;
     padding: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 0;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     border: 1px solid var(--border-color);
     opacity: 0;
     visibility: hidden;
-    transform: translateY(10px) scale(0.95);
+    transform: translateY(-10px) scale(0.95);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     min-width: 180px;
+    position: absolute;
+    top: 58px;
+    right: 0;
 }
 
 .nav-dropdown.open {
@@ -1386,6 +1391,58 @@ body.dark-mode .nav-dropdown {
 
 body.dark-mode .nav-btn:hover {
     background: var(--bg-secondary);
+}
+
+/* ================================================================
+   RESPONSIVE - Sticky Nav
+   ================================================================ */
+
+@media (max-width: 768px) {
+    .sticky-nav {
+        top: 12px;
+        right: 12px;
+    }
+    
+    .nav-toggle {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+    }
+    
+    .nav-dropdown {
+        min-width: 160px;
+        top: 52px;
+    }
+    
+    .nav-btn {
+        font-size: 0.75rem;
+        padding: 8px 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sticky-nav {
+        top: 10px;
+        right: 10px;
+    }
+    
+    .nav-toggle {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+    }
+    
+    .nav-dropdown {
+        min-width: 140px;
+        top: 48px;
+        padding: 6px;
+    }
+    
+    .nav-btn {
+        font-size: 0.7rem;
+        padding: 6px 10px;
+        gap: 8px;
+    }
 }
 
 /* ================================================================
