@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>Merchandise | Gliimu — Gear for Media Architects</title>
+    
+    <!-- SEO & Social -->
+    <meta name="description" content="Shop premium Gliimu merchandise. T-shirts, water bottles, laptops, cameras, flash drives, and more. Gear up like a Media Architect." />
+    <meta property="og:title" content="Gliimu Merchandise — Gear for Creators" />
+    <meta property="og:description" content="Premium branded gear for Media Architects. Wear it, use it, represent it." />
+    <meta property="og:image" content="https://www.gliimu.com/icons/og-merch.jpg" />
+    
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/global.css" />
+    <link rel="stylesheet" href="css/merchandise.css" />
+</head>
+<body>
+
+    <!-- ============================================================ -->
+    <!-- HERO SECTION — Branded Merchandise Hub                        -->
+    <!-- ============================================================ -->
+    <section class="merch-hero">
+        <div class="merch-hero-bg">
+            <div class="merch-hero-particles" id="particles"></div>
+            <div class="merch-hero-gradient"></div>
+        </div>
+        <div class="container merch-hero-content">
+            <div class="merch-hero-badge">
+                <span class="badge-live"><i class="fas fa-tag"></i> Premium Gear for Media Architects</span>
+            </div>
+            <h1 class="merch-hero-title">
+                Gear Up. <span class="highlight-gold">Create.</span> <span class="highlight-purple">Represent.</span>
+            </h1>
+            <p class="merch-hero-desc">
+                From branded t-shirts to professional cameras, we've got everything you need to look the part 
+                and work like a pro. Every purchase supports the Gliimu community.
+            </p>
+            <div class="merch-hero-stats">
+                <div class="hero-stat-item">
+                    <span class="stat-number" id="totalProducts">48</span>
+                    <span class="stat-label">Products</span>
+                </div>
+                <div class="hero-stat-item">
+                    <span class="stat-number" id="totalCategories">6</span>
+                    <span class="stat-label">Categories</span>
+                </div>
+                <div class="hero-stat-item">
+                    <span class="stat-number" id="totalSold">2,847</span>
+                    <span class="stat-label">Items Sold</span>
+                </div>
+            </div>
+            <div class="merch-hero-actions">
+                <a href="#shop" class="btn btn-primary btn-large">
+                    <i class="fas fa-shopping-bag"></i> Start Shopping
+                </a>
+                <button class="btn btn-outline btn-large" id="viewCartBtn">
+                    <i class="fas fa-shopping-cart"></i> Cart (<span id="cartCount">0</span>)
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CATEGORY NAVIGATION                                           -->
+    <!-- ============================================================ -->
+    <section class="merch-categories" id="shop">
+        <div class="container">
+            <div class="category-scroll">
+                <button class="category-btn active" data-category="all">
+                    <i class="fas fa-th-large"></i> All
+                </button>
+                <button class="category-btn" data-category="apparel">
+                    <i class="fas fa-tshirt"></i> Apparel
+                </button>
+                <button class="category-btn" data-category="accessories">
+                    <i class="fas fa-mug-hot"></i> Accessories
+                </button>
+                <button class="category-btn" data-category="electronics">
+                    <i class="fas fa-laptop"></i> Electronics
+                </button>
+                <button class="category-btn" data-category="camera">
+                    <i class="fas fa-camera"></i> Camera Gear
+                </button>
+                <button class="category-btn" data-category="storage">
+                    <i class="fas fa-hdd"></i> Storage
+                </button>
+                <button class="category-btn" data-category="bundles">
+                    <i class="fas fa-layer-group"></i> Bundles
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- FEATURED PRODUCTS (Carousel)                                  -->
+    <!-- ============================================================ -->
+    <section class="merch-featured">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-star" style="color: var(--gold);"></i> Featured Products</h2>
+                <span class="section-sub">Our most popular gear</span>
+            </div>
+            <div class="featured-scroll" id="featuredScroll">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- PRODUCT GRID                                                  -->
+    <!-- ============================================================ -->
+    <section class="merch-products">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-grid-2"></i> All Products</h2>
+                <div class="product-controls">
+                    <select id="sortSelect" class="sort-select">
+                        <option value="featured">Featured</option>
+                        <option value="newest">Newest</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                        <option value="popular">Most Popular</option>
+                    </select>
+                    <button class="view-toggle" id="viewToggle">
+                        <i class="fas fa-th-large"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="product-grid" id="productGrid">
+                <!-- Dynamic content -->
+            </div>
+            <div class="merch-load-more">
+                <button class="btn btn-outline" id="loadMoreBtn">
+                    <i class="fas fa-chevron-down"></i> Load More
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VALUE PROPOSITION BANNER                                      -->
+    <!-- ============================================================ -->
+    <section class="merch-value">
+        <div class="container">
+            <div class="value-grid">
+                <div class="value-card">
+                    <div class="value-icon"><i class="fas fa-truck"></i></div>
+                    <h4>Free Delivery</h4>
+                    <p>On orders over ₦50,000</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon"><i class="fas fa-undo"></i></div>
+                    <h4>30-Day Returns</h4>
+                    <p>Hassle-free returns</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon"><i class="fas fa-shield-alt"></i></div>
+                    <h4>Secure Payment</h4>
+                    <p>100% secure checkout</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon"><i class="fas fa-gem"></i></div>
+                    <h4>Premium Quality</h4>
+                    <p>Curated for creators</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CUSTOMER REVIEWS                                              -->
+    <!-- ============================================================ -->
+    <section class="merch-reviews">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-comments" style="color: var(--gold);"></i> What Creators Say</h2>
+                <span class="section-sub">Real reviews from real Media Architects</span>
+            </div>
+            <div class="reviews-scroll" id="reviewsScroll">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CART SIDEBAR                                                  -->
+    <!-- ============================================================ -->
+    <div class="cart-sidebar" id="cartSidebar">
+        <div class="cart-header">
+            <h3><i class="fas fa-shopping-cart"></i> Your Cart</h3>
+            <button class="cart-close" id="cartClose">&times;</button>
+        </div>
+        <div class="cart-body" id="cartBody">
+            <div class="cart-empty" id="cartEmpty">
+                <i class="fas fa-shopping-bag"></i>
+                <p>Your cart is empty</p>
+                <button class="btn btn-primary" id="continueShoppingBtn">Continue Shopping</button>
+            </div>
+            <div class="cart-items" id="cartItems" style="display: none;">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+        <div class="cart-footer" id="cartFooter" style="display: none;">
+            <div class="cart-total">
+                <span>Subtotal</span>
+                <span id="cartTotal">₦0</span>
+            </div>
+            <button class="btn btn-primary btn-full" id="checkoutBtn">
+                <i class="fas fa-lock"></i> Proceed to Checkout
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- CART OVERLAY                                                  -->
+    <!-- ============================================================ -->
+    <div class="cart-overlay" id="cartOverlay"></div>
+
+    <!-- ============================================================ -->
+    <!-- PRODUCT DETAIL MODAL                                          -->
+    <!-- ============================================================ -->
+    <div class="modal" id="productModal">
+        <div class="modal-content product-modal">
+            <div class="modal-header">
+                <h2 id="productModalTitle">Product Name</h2>
+                <button class="modal-close" id="closeProductModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="product-detail">
+                    <div class="product-detail-image" id="productDetailImage">
+                        <img id="productModalImg" src="" alt="Product" />
+                    </div>
+                    <div class="product-detail-info">
+                        <div class="product-detail-meta">
+                            <span id="productModalCategory" class="product-badge">Category</span>
+                            <span id="productModalStock" class="product-stock">In Stock</span>
+                        </div>
+                        <p id="productModalDescription" class="product-detail-desc">Description</p>
+                        <div class="product-detail-price">
+                            <span id="productModalPrice" class="product-price-large">₦0</span>
+                            <span id="productModalOriginal" class="product-price-original">₦0</span>
+                            <span id="productModalDiscount" class="product-discount-badge">-0%</span>
+                        </div>
+                        <div class="product-detail-options">
+                            <div class="option-group" id="sizeGroup">
+                                <label>Size</label>
+                                <div class="size-options" id="sizeOptions">
+                                    <button class="size-btn active">S</button>
+                                    <button class="size-btn">M</button>
+                                    <button class="size-btn">L</button>
+                                    <button class="size-btn">XL</button>
+                                    <button class="size-btn">XXL</button>
+                                </div>
+                            </div>
+                            <div class="option-group" id="colorGroup">
+                                <label>Color</label>
+                                <div class="color-options" id="colorOptions">
+                                    <button class="color-btn active" style="background: #000; border-color: #000;"></button>
+                                    <button class="color-btn" style="background: #fff; border-color: #ccc;"></button>
+                                    <button class="color-btn" style="background: #2c2f78; border-color: #2c2f78;"></button>
+                                    <button class="color-btn" style="background: #fbb040; border-color: #fbb040;"></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="product-detail-qty">
+                            <button class="qty-btn" id="qtyMinus">-</button>
+                            <span id="qtyDisplay">1</span>
+                            <button class="qty-btn" id="qtyPlus">+</button>
+                        </div>
+                        <button class="btn btn-primary btn-full" id="addToCartDetail">
+                            <i class="fas fa-cart-plus"></i> Add to Cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TOAST CONTAINER                                              -->
+    <!-- ============================================================ -->
+    <div id="toast-container"></div>
+
+    <!-- ============================================================ -->
+    <!-- SCRIPTS                                                      -->
+    <!-- ============================================================ -->
+    <script type="module" src="js/pages/merchandise.js"></script>
+
+</body>
+</html>
