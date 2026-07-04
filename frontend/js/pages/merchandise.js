@@ -889,15 +889,32 @@ function openProductDetail(productId) {
     
     dom.qtyDisplay.textContent = state.quantity;
     
-    // Show modal
-    dom.productModal.style.display = 'flex';
+    // Show modal - USE ACTIVE CLASS
+    dom.productModal.classList.add('active');
     document.body.style.overflow = 'hidden';
 }
 
 function closeProductModal() {
-    dom.productModal.style.display = 'none';
+    dom.productModal.classList.remove('active');
     document.body.style.overflow = '';
 }
+
+// ================================================================
+// SHARE MODAL - FIXED
+// ================================================================
+
+window.sharePage = function() {
+    const link = window.location.href;
+    document.getElementById('shareCode').textContent = 'GLI-MERCH-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    document.getElementById('shareReferralLink').textContent = link;
+    document.getElementById('shareModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeShareModal = function() {
+    document.getElementById('shareModal').classList.remove('active');
+    document.body.style.overflow = '';
+};
 
 // ================================================================
 // EVENT LISTENERS
