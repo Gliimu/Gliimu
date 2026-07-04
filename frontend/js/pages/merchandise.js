@@ -1218,6 +1218,222 @@ function initParticles() {
     }
 }
 
+/* ================================================================
+   SHARE MODAL (from course page) - FIXED
+   ================================================================ */
+
+.modal-overlay {
+    display: none;  /* HIDDEN BY DEFAULT */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1100;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+/* When the share modal is shown via JavaScript, we set display: flex */
+#shareModal {
+    display: none;  /* HIDDEN BY DEFAULT */
+}
+
+#shareModal.active {
+    display: flex;
+}
+
+.modal-share {
+    max-width: 500px;
+    width: 100%;
+    background: var(--bg-primary);
+    border-radius: 16px;
+    border-top: 4px solid var(--gold);
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ================================================================
+   STICKY NAVIGATION (from course page) - FIXED
+   ================================================================ */
+
+.sticky-nav {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.nav-toggle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--purple-dark);
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+}
+
+.nav-toggle:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 24px rgba(251, 176, 64, 0.4);
+}
+
+.nav-toggle.active {
+    transform: rotate(90deg);
+}
+
+.nav-dropdown {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 180px;
+    position: absolute;
+    bottom: 68px;
+    right: 0;
+}
+
+.nav-dropdown.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.nav-btn:hover {
+    background: var(--bg-secondary);
+}
+
+.nav-btn i {
+    width: 20px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.nav-btn.home-nav {
+    border-top: 1px solid var(--border-color);
+    margin-top: 4px;
+    padding-top: 12px;
+}
+
+.nav-btn.home-nav i {
+    color: var(--gold);
+}
+
+/* ================================================================
+   RESPONSIVE - Sticky Nav
+   ================================================================ */
+
+@media (max-width: 480px) {
+    .sticky-nav {
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .nav-toggle {
+        width: 48px;
+        height: 48px;
+        font-size: 1.2rem;
+    }
+    
+    .nav-dropdown {
+        min-width: 160px;
+        bottom: 60px;
+    }
+    
+    .nav-btn {
+        font-size: 0.75rem;
+        padding: 8px 12px;
+    }
+}
+
+/* ================================================================
+   LOGO CONTAINER (from index.html)
+   ================================================================ */
+
+.merch-logo-container {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 20;
+    background: #000000;
+    padding: 8px 20px;
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.merch-logo-img {
+    height: 32px;
+    width: auto;
+    filter: brightness(0) invert(1);
+}
+
+@media (max-width: 768px) {
+    .merch-logo-container {
+        top: 16px;
+        left: 16px;
+        padding: 6px 14px;
+    }
+    
+    .merch-logo-img {
+        height: 24px;
+    }
+}
+
 // ================================================================
 // BOOT
 // ================================================================
