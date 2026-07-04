@@ -304,40 +304,45 @@ const PRODUCTS = [
 ];
 
 // ================================================================
-// STICKY NAV FUNCTIONS
+// NAVIGATION FUNCTIONS - Expose to window
 // ================================================================
 
-function toggleNav(e) {
-    e.stopPropagation();
-    const dropdown = document.getElementById('navDropdown');
-    const toggle = document.getElementById('navToggle');
-    if (dropdown) dropdown.classList.toggle('open');
-    if (toggle) toggle.classList.toggle('active');
-}
+// Main navigation
+window.goToDashboard = function() {
+    window.location.href = '/user';
+};
 
-// Close nav when clicking outside
-document.addEventListener('click', function(e) {
-    const nav = document.getElementById('stickyNav');
-    const dropdown = document.getElementById('navDropdown');
-    const toggle = document.getElementById('navToggle');
-    
-    if (nav && !nav.contains(e.target)) {
-        if (dropdown) dropdown.classList.remove('open');
-        if (toggle) toggle.classList.remove('active');
-    }
-});
+window.goToHub = function() {
+    window.location.href = '/hub';
+};
 
-// Navigation functions - Expose to window
+window.goToLearningPath = function() {
+    window.location.href = '/user-course';
+};
+
+window.goToVirtualRoom = function() {
+    window.location.href = '/virtualroom';
+};
+
+window.goToChat = function() {
+    window.location.href = '/chat';
+};
+
+window.goToMerchandise = function() {
+    window.location.href = '/merchandise';
+};
+
+window.goToUser = function() {
+    window.location.href = '/user';
+};
+
+// Utility functions
 window.goBack = function() {
     if (document.referrer && document.referrer.includes('/user')) {
         window.history.back();
     } else {
         window.location.href = '/user';
     }
-};
-
-window.goToHub = function() {
-    window.location.href = '/hub';
 };
 
 window.goToContact = function() {
