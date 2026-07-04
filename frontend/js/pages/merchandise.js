@@ -3,7 +3,7 @@
 // File: frontend/js/pages/merchandise.js
 // ================================================================
 
-import { supabase, getCurrentUser, getUserProfile } from '../modules/supabase.js';
+import { getCurrentUser, getUserProfile } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ================================================================
@@ -108,8 +108,7 @@ const PRODUCTS = [
         rating: 4.8,
         reviews: 127,
         isNew: false,
-        isBestseller: true,
-        tags: ['apparel', 't-shirt', 'branded']
+        isBestseller: true
     },
     {
         id: 'prod_2',
@@ -126,8 +125,7 @@ const PRODUCTS = [
         rating: 4.9,
         reviews: 89,
         isNew: true,
-        isBestseller: false,
-        tags: ['apparel', 'hoodie', 'branded']
+        isBestseller: false
     },
     {
         id: 'prod_3',
@@ -144,8 +142,7 @@ const PRODUCTS = [
         rating: 4.7,
         reviews: 45,
         isNew: false,
-        isBestseller: false,
-        tags: ['apparel', 'cap', 'accessory']
+        isBestseller: false
     },
     // Accessories
     {
@@ -163,8 +160,7 @@ const PRODUCTS = [
         rating: 4.6,
         reviews: 56,
         isNew: false,
-        isBestseller: true,
-        tags: ['accessories', 'bottle', 'hydration']
+        isBestseller: true
     },
     {
         id: 'prod_5',
@@ -181,8 +177,7 @@ const PRODUCTS = [
         rating: 4.5,
         reviews: 34,
         isNew: true,
-        isBestseller: false,
-        tags: ['accessories', 'notebook', 'stationery']
+        isBestseller: false
     },
     // Electronics
     {
@@ -200,8 +195,7 @@ const PRODUCTS = [
         rating: 4.9,
         reviews: 23,
         isNew: true,
-        isBestseller: true,
-        tags: ['electronics', 'laptop', 'apple']
+        isBestseller: true
     },
     {
         id: 'prod_7',
@@ -218,8 +212,7 @@ const PRODUCTS = [
         rating: 4.9,
         reviews: 67,
         isNew: false,
-        isBestseller: true,
-        tags: ['camera', 'sony', 'professional']
+        isBestseller: true
     },
     {
         id: 'prod_8',
@@ -236,8 +229,7 @@ const PRODUCTS = [
         rating: 4.8,
         reviews: 42,
         isNew: true,
-        isBestseller: false,
-        tags: ['camera', 'gimbal', 'dji']
+        isBestseller: false
     },
     // Storage
     {
@@ -255,8 +247,7 @@ const PRODUCTS = [
         rating: 4.7,
         reviews: 89,
         isNew: false,
-        isBestseller: true,
-        tags: ['storage', 'ssd', 'samsung']
+        isBestseller: true
     },
     {
         id: 'prod_10',
@@ -273,8 +264,7 @@ const PRODUCTS = [
         rating: 4.5,
         reviews: 56,
         isNew: true,
-        isBestseller: false,
-        tags: ['storage', 'flash-drive', 'usb']
+        isBestseller: false
     },
     // Bundles
     {
@@ -292,8 +282,7 @@ const PRODUCTS = [
         rating: 4.8,
         reviews: 34,
         isNew: false,
-        isBestseller: true,
-        tags: ['bundles', 'starter', 'kit']
+        isBestseller: true
     },
     {
         id: 'prod_12',
@@ -310,8 +299,7 @@ const PRODUCTS = [
         rating: 4.9,
         reviews: 12,
         isNew: true,
-        isBestseller: false,
-        tags: ['bundles', 'pro', 'complete']
+        isBestseller: false
     }
 ];
 
@@ -336,14 +324,6 @@ document.addEventListener('click', function(e) {
     if (nav && !nav.contains(e.target)) {
         if (dropdown) dropdown.classList.remove('open');
         if (toggle) toggle.classList.remove('active');
-    }
-});
-
-// Close share modal when clicking outside
-document.addEventListener('click', function(e) {
-    const shareModal = document.getElementById('shareModal');
-    if (shareModal && shareModal.style.display !== 'none' && e.target === shareModal) {
-        window.closeShareModal();
     }
 });
 
@@ -376,12 +356,12 @@ window.sharePage = function() {
     const link = window.location.href;
     document.getElementById('shareCode').textContent = 'GLI-MERCH-' + Math.random().toString(36).substring(2, 6).toUpperCase();
     document.getElementById('shareReferralLink').textContent = link;
-    document.getElementById('shareModal').style.display = 'flex';
+    document.getElementById('shareModal').classList.add('active');
     document.body.style.overflow = 'hidden';
 };
 
 window.closeShareModal = function() {
-    document.getElementById('shareModal').style.display = 'none';
+    document.getElementById('shareModal').classList.remove('active');
     document.body.style.overflow = '';
 };
 
@@ -481,11 +461,6 @@ async function init() {
         // Cart from localStorage
         loadCart();
         
-        // Make sure share modal is hidden
-        if (dom.shareModal) {
-            dom.shareModal.style.display = 'none';
-        }
-        
         console.log('✅ Merchandise initialized');
     } catch (error) {
         console.error('❌ Merchandise init error:', error);
@@ -543,10 +518,9 @@ function renderProducts(products) {
         </div>
     `).join('');
     
-    // Add event listeners for product cards (OPEN MODAL)
+    // Add event listeners for product cards
     dom.productGrid.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', function(e) {
-            // Don't open modal if clicking on add-to-cart or wishlist
             if (e.target.closest('.add-to-cart-btn') || e.target.closest('.product-wishlist')) {
                 return;
             }
@@ -817,7 +791,7 @@ function renderCartItems() {
 }
 
 // ================================================================
-// PRODUCT DETAIL - FIXED
+// PRODUCT DETAIL
 // ================================================================
 function openProductDetail(productId) {
     const product = state.products.find(p => p.id === productId);
@@ -889,7 +863,7 @@ function openProductDetail(productId) {
     
     dom.qtyDisplay.textContent = state.quantity;
     
-    // Show modal - USE ACTIVE CLASS
+    // Show modal
     dom.productModal.classList.add('active');
     document.body.style.overflow = 'hidden';
 }
@@ -898,23 +872,6 @@ function closeProductModal() {
     dom.productModal.classList.remove('active');
     document.body.style.overflow = '';
 }
-
-// ================================================================
-// SHARE MODAL - FIXED
-// ================================================================
-
-window.sharePage = function() {
-    const link = window.location.href;
-    document.getElementById('shareCode').textContent = 'GLI-MERCH-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-    document.getElementById('shareReferralLink').textContent = link;
-    document.getElementById('shareModal').classList.add('active');
-    document.body.style.overflow = 'hidden';
-};
-
-window.closeShareModal = function() {
-    document.getElementById('shareModal').classList.remove('active');
-    document.body.style.overflow = '';
-};
 
 // ================================================================
 // EVENT LISTENERS
@@ -1028,13 +985,13 @@ function setupEventListeners() {
     // --- Keyboard shortcuts ---
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            if (dom.productModal && dom.productModal.style.display === 'flex') {
+            if (dom.productModal && dom.productModal.classList.contains('active')) {
                 closeProductModal();
             }
             if (dom.cartSidebar && dom.cartSidebar.classList.contains('open')) {
                 closeCart();
             }
-            if (dom.shareModal && dom.shareModal.style.display !== 'none') {
+            if (dom.shareModal && dom.shareModal.classList.contains('active')) {
                 window.closeShareModal();
             }
         }
