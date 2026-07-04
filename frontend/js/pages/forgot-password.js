@@ -1,10 +1,43 @@
 // ============================================
-// FORGOT PASSWORD - FULL VERSION WITH MODAL
-// No backend server needed!
+// FORGOT PASSWORD - USING RENDER BACKEND
 // ============================================
 
-import { supabase, supabaseAdmin } from '../modules/supabase.js';
-import { showToast } from '../modules/toast.js';
+// ============================================
+// TOAST NOTIFICATION
+// ============================================
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+    };
+    
+    toast.innerHTML = `
+        <i class="fas ${icons[type] || icons.info}"></i>
+        <span>${message}</span>
+    `;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+
+// ============================================
+// BACKEND API URL (YOUR RENDER URL)
+// ============================================
+
+const API_URL = 'https://gliimu-secure-api.onrender.com'; // ⚠️ REPLACE WITH YOUR RENDER URL
 
 // ============================================
 // DOM ELEMENTS
@@ -19,13 +52,11 @@ const elements = {
     newPassword: document.getElementById('newPassword'),
     confirmPassword: document.getElementById('confirmPassword'),
     
-    // Modal
     modal: document.getElementById('successModal'),
     modalUsername: document.getElementById('modalUsername'),
     modalPassword: document.getElementById('modalPassword'),
     modalPhrase: document.getElementById('modalPhrase'),
     
-    // Buttons
     toggleRecovery: document.getElementById('toggleRecovery'),
     togglePassword: document.getElementById('togglePassword'),
     copyPassword: document.getElementById('copyPassword'),
@@ -40,7 +71,7 @@ const elements = {
 };
 
 // ============================================
-// GENERATE RECOVERY PHRASE
+// GENERATE RECOVERY PHRASE (Frontend)
 // ============================================
 
 function generateRecoveryPhrase() {
@@ -131,18 +162,29 @@ elements.newPassword?.addEventListener('input', function() {
     elements.strengthBar.innerHTML = `<div class="bar-fill ${result.class}" style="width: ${result.width}%"></div>`;
     elements.strengthText.textContent = result.label;
     elements.strengthText.className = `strength-text ${result.class}`;
+    checkPasswordMatch();
 });
 
-elements.confirmPassword?.addEventListener('input', function() {
-    const match = elements.newPassword.value === this.value;
-    if (!this.value) {
+elements.confirmPassword?.addEventListener('input', checkPasswordMatch);
+
+function checkPasswordMatch() {
+    const password = elements.newPassword.value;
+    const confirm = elements.confirmPassword.value;
+    
+    if (!confirm) {
         elements.matchText.textContent = '';
         elements.matchText.className = 'match-text';
         return;
     }
-    elements.matchText.textContent = match ? '✅ Passwords match' : '❌ Passwords do not match';
-    elements.matchText.className = `match-text ${match ? 'match' : 'no-match'}`;
-});
+    
+    if (password === confirm) {
+        elements.matchText.textContent = '✅ Passwords match';
+        elements.matchText.className = 'match-text match';
+    } else {
+        elements.matchText.textContent = '❌ Passwords do not match';
+        elements.matchText.className = 'match-text no-match';
+    }
+}
 
 // ============================================
 // SHOW SUCCESS MODAL
@@ -166,7 +208,6 @@ function closeModal() {
 // ============================================
 
 function generatePDF(data) {
-    // Check if jsPDF is loaded
     if (typeof window.jspdf === 'undefined') {
         showToast('PDF library is loading. Please try again.', 'warning');
         return;
@@ -177,24 +218,20 @@ function generatePDF(data) {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Header
     doc.setFillColor(44, 47, 120);
     doc.rect(0, 0, pageWidth, 40, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.text('Gliimu Institute', pageWidth / 2, 25, { align: 'center' });
     
-    // Title
     doc.setTextColor(44, 47, 120);
     doc.setFontSize(16);
     doc.text('New Account Credentials', pageWidth / 2, 60, { align: 'center' });
     
-    // Warning
     doc.setTextColor(200, 0, 0);
     doc.setFontSize(10);
     doc.text('⚠️ IMPORTANT: Save this document securely', pageWidth / 2, 75, { align: 'center' });
     
-    // Credentials
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(12);
     doc.text('Your New Account Details:', 20, 95);
@@ -205,7 +242,6 @@ function generatePDF(data) {
     doc.text(`New Password: ${data.newPassword}`, 20, 130);
     doc.text(`New Recovery Phrase: ${data.newRecoveryPhrase}`, 20, 145);
     
-    // Important notes
     doc.setTextColor(200, 0, 0);
     doc.setFontSize(10);
     const warningY = 175;
@@ -213,7 +249,6 @@ function generatePDF(data) {
     doc.text('❗ You will need it to reset your password if you forget it.', 20, warningY + 12);
     doc.text('❗ This information will not be shown again.', 20, warningY + 24);
     
-    // Footer
     doc.setTextColor(100, 100, 100);
     doc.setFontSize(8);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, pageHeight - 20);
@@ -224,13 +259,12 @@ function generatePDF(data) {
 }
 
 // ============================================
-// MAIN FORM SUBMISSION
+// MAIN FORM SUBMISSION (Using Backend)
 // ============================================
 
 elements.resetForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Get values
     const username = elements.username.value.trim();
     const recoveryPhrase = elements.recoveryPhrase.value.trim();
     const birthDay = parseInt(elements.birthDay.value);
@@ -238,7 +272,6 @@ elements.resetForm.addEventListener('submit', async (e) => {
     const newPassword = elements.newPassword.value;
     const confirmPassword = elements.confirmPassword.value;
     
-    // Validate
     if (!username || !recoveryPhrase || !birthDay || !birthMonth || !newPassword) {
         showToast('Please fill in all fields', 'error');
         return;
@@ -259,75 +292,45 @@ elements.resetForm.addEventListener('submit', async (e) => {
         return;
     }
     
-    // Show loading
     elements.submitBtn.disabled = true;
     elements.submitBtn.innerHTML = '<span class="spinner"></span> Resetting...';
     
     try {
-        // 1. Find user by username
-        const { data: user, error: userError } = await supabase
-            .from('user_profiles')
-            .select('id, username, email, recovery_phrase, birth_day, birth_month')
-            .eq('username', username.toLowerCase())
-            .maybeSingle();
-        
-        if (userError || !user) {
-            showToast('User not found. Please check your username.', 'error');
-            return;
-        }
-        
-        // 2. Verify recovery phrase
-        if (user.recovery_phrase?.toLowerCase() !== recoveryPhrase.toLowerCase()) {
-            showToast('Invalid recovery phrase. Please try again.', 'error');
-            return;
-        }
-        
-        // 3. Verify date of birth
-        if (Number(user.birth_day) !== birthDay || Number(user.birth_month) !== birthMonth) {
-            showToast('Date of birth does not match our records.', 'error');
-            return;
-        }
-        
-        // 4. Generate new recovery phrase
-        const newRecoveryPhrase = generateRecoveryPhrase();
-        
-        // 5. Update password using Admin API
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-            user.id,
-            { password: newPassword }
-        );
-        
-        if (authError) {
-            console.error('Auth update error:', authError);
-            showToast('Failed to update password. Please try again.', 'error');
-            return;
-        }
-        
-        // 6. Update recovery phrase in profile
-        const { error: profileError } = await supabase
-            .from('user_profiles')
-            .update({
-                recovery_phrase: newRecoveryPhrase,
-                updated_at: new Date().toISOString()
+        // Call your secure backend on Render
+        const response = await fetch(`${API_URL}/api/reset-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username,
+                recoveryPhrase,
+                birthDay,
+                birthMonth,
+                newPassword
             })
-            .eq('id', user.id);
-        
-        if (profileError) {
-            console.error('Profile update error:', profileError);
-            // Auth password is already updated, but log the error
-        }
-        
-        // 7. Show success modal
-        showToast('Password reset successfully! 🎉', 'success');
-        showSuccess({
-            username: user.username,
-            newPassword: newPassword,
-            newRecoveryPhrase: newRecoveryPhrase
         });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Password reset failed');
+        }
+
+        if (result.success) {
+            showToast('Password reset successfully! 🎉', 'success');
+            showSuccess({
+                username: result.data.username,
+                newPassword: result.data.newPassword,
+                newRecoveryPhrase: result.data.newRecoveryPhrase
+            });
+        } else {
+            showToast(result.message || 'Reset failed', 'error');
+        }
         
     } catch (error) {
         console.error('Reset error:', error);
-        showToast('An error occurred. Please try again.', 'error');
+        showToast(error.message || 'An error occurred. Please try again.', 'error');
     } finally {
         elements.submitBtn.disabled = false;
         elements.submitBtn.innerHTML = '<i class="fas fa-save"></i> Reset Password';
@@ -385,7 +388,6 @@ elements.downloadPdf.addEventListener('click', () => {
     generatePDF(data);
 });
 
-// Close modal on outside click
 window.addEventListener('click', (e) => {
     if (e.target === elements.modal) closeModal();
 });
@@ -397,24 +399,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ============================================
-// CHECK SESSION
-// ============================================
-
-async function checkSession() {
-    try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-            window.location.href = '/user';
-        }
-    } catch (error) {
-        console.error('Session check error:', error);
-    }
-}
-
-// ============================================
 // INIT
 // ============================================
 
 populateDropdowns();
-checkSession();
-console.log('🔐 Forgot Password ready (direct update)');
+console.log('🔐 Forgot Password ready (using Render backend)');
+console.log(`📡 API URL: ${API_URL}`);
