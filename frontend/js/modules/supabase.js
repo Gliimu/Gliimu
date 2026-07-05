@@ -1400,7 +1400,7 @@ export async function claimFreePromotion(userId) {
 // ============================================
 
 export function subscribeToWallet(callback) {
-    const user = getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) return null;
     
     return supabase
@@ -1480,7 +1480,7 @@ export async function getSavedItems() {
 }
 
 // ============================================
-// EXPORT ALL FUNCTIONS
+// EXPORT ALL FUNCTIONS (ONLY ONE BLOCK!)
 // ============================================
 
 export { 
