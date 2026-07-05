@@ -1,5 +1,5 @@
 // ============================================
-// USER ALERTS MODULE - FIXED
+// USER ALERTS MODULE
 // Path: /frontend/js/pages/user-alerts.js
 // Purpose: Manages all alert/notification functionality
 // ============================================
@@ -18,6 +18,7 @@ class AlertManager {
         this.userId = null;
         this.listeners = [];
         this.initialized = false;
+        this.activityData = [];
     }
 
     // ============================================
@@ -60,7 +61,7 @@ class AlertManager {
                 if (data && data.length > 0) {
                     this.alerts = data;
                     this.unreadCount = this.alerts.filter(a => !a.read).length;
-                    this.saveLocalAlerts(); // Cache in local storage
+                    this.saveLocalAlerts();
                     this.notifyListeners();
                     return this.alerts;
                 }
@@ -171,14 +172,125 @@ class AlertManager {
     }
 
     // ============================================
+    // ADD RECENT ACTIVITY AS ALERT
+    // ============================================
+    async addActivityAlert(activityData) {
+        // activityData should contain: icon, message, link, type, created_at
+        const newAlert = {
+            id: `alert_act_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+            user_id: this.userId,
+            icon: activityData.icon || '📌',
+            message: activityData.message,
+            link: activityData.link || null,
+            read: false,
+            created_at: activityData.created_at || new Date().toISOString(),
+            type: activityData.type || 'info'
+        };
+
+        // Add to beginning of alerts
+        this.alerts.unshift(newAlert);
+        this.unreadCount++;
+        this.saveLocalAlerts();
+        this.notifyListeners();
+        
+        // Try to save to database
+        try {
+            await supabase
+                .from('user_alerts')
+                .insert([newAlert]);
+        } catch (e) {
+            // Table doesn't exist, already saved locally
+            console.warn('Could not save activity to database:', e.message);
+        }
+
+        return newAlert;
+    }
+
+    // ============================================
+    // CREATE ALERT FROM ACTIVITY TYPE
+    // ============================================
+    createAlertFromActivity(type, data) {
+        const activityMap = {
+            'heart_received': {
+                icon: '❤️',
+                message: `Someone ❤️ your post!`,
+                type: 'heart'
+            },
+            'comment': {
+                icon: '💬',
+                message: `You commented on a post`,
+                type: 'comment'
+            },
+            'share': {
+                icon: '📤',
+                message: `You shared content`,
+                type: 'share'
+            },
+            'read': {
+                icon: '📖',
+                message: `You read a book/article`,
+                type: 'read'
+            },
+            'submission_graded': {
+                icon: '✅',
+                message: `Your submission was graded!`,
+                type: 'graded'
+            },
+            'streak_bonus': {
+                icon: '🔥',
+                message: `Streak bonus! +${data?.gp_earned || 0} GP`,
+                type: 'streak'
+            },
+            'referral': {
+                icon: '👤',
+                message: `Someone joined using your referral link`,
+                type: 'referral'
+            },
+            'payment_approved': {
+                icon: '💰',
+                message: `Your wallet funding of ₦${data?.amount?.toLocaleString() || 0} was approved!`,
+                type: 'payment'
+            },
+            'payment_rejected': {
+                icon: '❌',
+                message: `Your wallet funding of ₦${data?.amount?.toLocaleString() || 0} was rejected.`,
+                type: 'payment'
+            },
+            'role_approved': {
+                icon: '🎓',
+                message: `Your application to become a ${data?.role || 'student'} was approved!`,
+                type: 'role'
+            },
+            'role_rejected': {
+                icon: '📋',
+                message: `Your role application was reviewed. Check your dashboard for details.`,
+                type: 'role'
+            },
+            'gp_earned': {
+                icon: '⭐',
+                message: `You earned ${data?.gp_earned || 0} GP!`,
+                type: 'gp'
+            }
+        };
+
+        const activity = activityMap[type];
+        if (!activity) return null;
+
+        return {
+            icon: activity.icon,
+            message: activity.message,
+            type: activity.type,
+            created_at: data?.created_at || new Date().toISOString()
+        };
+    }
+
+    // ============================================
     // ADD INITIAL ALERTS (Public method)
     // ============================================
     async addInitialAlerts() {
-        // Check if any alerts exist
         if (this.alerts.length === 0) {
             this.createInitialAlerts();
         } else {
-            // Check if initial alerts are missing
             const hasInitial = this.alerts.some(a => 
                 a.message.includes('created an account successfully')
             );
@@ -200,26 +312,22 @@ class AlertManager {
             message: alertData.message,
             link: alertData.link || null,
             read: false,
-            created_at: new Date().toISOString(),
+            created_at: alertData.created_at || new Date().toISOString(),
             type: alertData.type || 'info'
         };
 
         try {
-            // Try to save to database
             const { error } = await supabase
                 .from('user_alerts')
                 .insert([newAlert]);
 
             if (error && error.code !== '42P01' && error.code !== 'PGRST205') {
-                console.warn('Could not save to database, using local storage:', error.message);
+                console.warn('Could not save to database:', error.message);
             }
-
         } catch (e) {
-            // Table doesn't exist, use local storage
             console.warn('Using local storage for alerts');
         }
 
-        // Always add to local state
         this.alerts.unshift(newAlert);
         this.unreadCount++;
         this.saveLocalAlerts();
@@ -258,7 +366,6 @@ class AlertManager {
             alert.read = true;
             this.unreadCount = Math.max(0, this.unreadCount - 1);
 
-            // Try to update in database
             try {
                 await supabase
                     .from('user_alerts')
@@ -284,7 +391,6 @@ class AlertManager {
             this.alerts.forEach(a => a.read = true);
             this.unreadCount = 0;
 
-            // Try to update in database
             try {
                 await supabase
                     .from('user_alerts')
@@ -406,6 +512,53 @@ class AlertManager {
             }
         });
     }
+
+    // ============================================
+    // GET TIME AGO
+    // ============================================
+    getTimeAgo(date) {
+        if (!date) return 'Just now';
+        
+        let past;
+        if (typeof date === 'string') {
+            past = new Date(date);
+        } else if (date instanceof Date) {
+            past = date;
+        } else {
+            return 'Just now';
+        }
+        
+        if (isNaN(past.getTime())) {
+            return 'Just now';
+        }
+        
+        const now = new Date();
+        const diff = Math.floor((now.getTime() - past.getTime()) / 1000);
+        
+        if (diff < 0) return 'Just now';
+        if (diff < 5) return 'Just now';
+        if (diff < 60) return `${diff}s ago`;
+        
+        const minutes = Math.floor(diff / 60);
+        const hours = Math.floor(diff / 3600);
+        const days = Math.floor(diff / 86400);
+        const weeks = Math.floor(diff / 604800);
+        const months = Math.floor(diff / 2592000);
+        const years = Math.floor(diff / 31536000);
+
+        if (minutes < 2) return '1m ago';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 2) return '1h ago';
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 2) return '1d ago';
+        if (days < 7) return `${days}d ago`;
+        if (weeks < 2) return '1w ago';
+        if (weeks < 4) return `${weeks}w ago`;
+        if (months < 2) return '1mo ago';
+        if (months < 12) return `${months}mo ago`;
+        if (years < 2) return '1y ago';
+        return `${years}y ago`;
+    }
 }
 
 // ============================================
@@ -417,6 +570,11 @@ const alertManager = new AlertManager();
 // ============================================
 // EXPORT FUNCTIONS
 // ============================================
+
+export async function initializeAlerts(userId) {
+    await alertManager.initialize(userId);
+    return alertManager;
+}
 
 export async function addInitialAlerts(userId) {
     alertManager.userId = userId;
@@ -457,14 +615,30 @@ export async function createAlert(alertData) {
     return await alertManager.createAlert(alertData);
 }
 
+export async function addActivityAlert(activityData) {
+    return await alertManager.addActivityAlert(activityData);
+}
+
+export function createAlertFromActivity(type, data) {
+    return alertManager.createAlertFromActivity(type, data);
+}
+
+export function getTimeAgo(date) {
+    return alertManager.getTimeAgo(date);
+}
+
 export { alertManager };
 
 export default {
     alertManager,
+    initializeAlerts,
     addInitialAlerts,
     getUnreadCount,
     markAllAsRead,
     getAlertFeed,
     subscribeToAlerts,
-    createAlert
+    createAlert,
+    addActivityAlert,
+    createAlertFromActivity,
+    getTimeAgo
 };
