@@ -1015,7 +1015,6 @@ export async function createContent(contentData) {
         return { success: true, data: data?.[0] };
     } catch (error) {
         console.error('Error creating content:', error);
-        return { success: false, error: error.message };
     }
 }
 
