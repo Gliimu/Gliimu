@@ -407,13 +407,13 @@ class SettingsManager {
     }
 
     // ============================================
-    // APPLY THEME
+    // APPLY THEME - FIXED (async)
     // ============================================
-    applyTheme(theme) {
+    async applyTheme(theme) {
         // Use the global theme manager if available
         try {
-            const { applyTheme } = await import('./user-theme.js');
-            applyTheme(theme);
+            const { applyTheme: applyThemeGlobal } = await import('./user-theme.js');
+            applyThemeGlobal(theme);
         } catch (e) {
             // Fallback: manual theme toggle
             if (theme === 'system') {
@@ -494,6 +494,7 @@ export async function removeAvatar() {
 }
 
 export function applyTheme(theme) {
+    // This is a synchronous wrapper that calls the async method
     settingsManager.applyTheme(theme);
 }
 
