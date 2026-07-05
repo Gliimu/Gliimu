@@ -61,143 +61,132 @@ export class GeneralDashboard {
         }
     }
 
-    // ============================================
-    // LOAD DASHBOARD (Overview Tab)
-    // ============================================
-    async loadDashboard() {
-        if (!this.container) return;
+ // ============================================
+// LOAD DASHBOARD (Overview Tab) - WITHOUT Quick Actions
+// ============================================
+async loadDashboard() {
+    if (!this.container) return;
 
-        const profile = this.currentProfile;
-        const user = this.currentUser;
-        
-        const submissionsCount = await this.getSubmissionsCount(user.id);
-        const referralsCount = await this.getReferralsCount(user.id);
-        
-        const progressData = await getStudentProgress(user.id);
-        const progress = progressData?.progress || 0;
-        const badge = progressData?.currentBadge || { name: 'Starter', icon: '🌱', color: '#10b981' };
-        const currentGP = progressData?.currentGP || 0;
-        const totalStars = progressData?.totalStars || 0;
+    const profile = this.currentProfile;
+    const user = this.currentUser;
+    
+    const submissionsCount = await this.getSubmissionsCount(user.id);
+    const referralsCount = await this.getReferralsCount(user.id);
+    
+    const progressData = await getStudentProgress(user.id);
+    const progress = progressData?.progress || 0;
+    const badge = progressData?.currentBadge || { name: 'Starter', icon: '🌱', color: '#10b981' };
+    const currentGP = progressData?.currentGP || 0;
+    const totalStars = progressData?.totalStars || 0;
 
-        await this.loadLeaderboard();
+    await this.loadLeaderboard();
 
-        const alerts = this.alertManager?.alerts || [];
-        const unreadCount = this.alertManager?.unreadCount || 0;
+    const alerts = this.alertManager?.alerts || [];
+    const unreadCount = this.alertManager?.unreadCount || 0;
 
-        this.container.innerHTML = `
-            <div class="dashboard-header">
-                <div>
-                    <h1>Overview</h1>
-                    <p>Welcome back, ${profile?.name || 'User'}!</p>
-                </div>
-                <div class="header-badge" id="headerBadge">
-                    <!-- Alert icon rendered here -->
-                </div>
+    this.container.innerHTML = `
+        <div class="dashboard-header">
+            <div>
+                <h1>Overview</h1>
+                <p>Welcome back, ${profile?.name || 'User'}!</p>
             </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon wallet-icon">
-                        <i class="fas fa-wallet"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Wallet Balance</h3>
-                        <p class="stat-value" id="walletBalance">₦${(profile?.wallet_balance || 0).toLocaleString()}</p>
-                    </div>
-                    <button class="stat-action-btn" data-action="wallet" title="Add Funds">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon gp-icon">
-                        <i class="fas fa-star"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>GP Points</h3>
-                        <p class="stat-value" id="gpPoints">${currentGP.toLocaleString()}</p>
-                    </div>
-                    <button class="stat-action-btn" data-action="stars" title="Convert to Stars">
-                        <i class="fas fa-exchange-alt"></i>
-                    </button>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon submissions-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Submissions</h3>
-                        <p class="stat-value">${submissionsCount}</p>
-                    </div>
-                    <button class="stat-action-btn" data-action="submissions" title="View Submissions">
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon referrals-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Referrals</h3>
-                        <p class="stat-value">${referralsCount}</p>
-                    </div>
-                    <button class="stat-action-btn" data-action="referrals" title="Share Referral">
-                        <i class="fas fa-share-alt"></i>
-                    </button>
-                </div>
+            <div class="header-badge" id="headerBadge">
+                <!-- Alert icon rendered here -->
             </div>
+        </div>
 
-            <div class="progress-section">
-                <div class="progress-header">
-                    <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
-                    <span>${Math.round(progress)}%</span>
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon wallet-icon">
+                    <i class="fas fa-wallet"></i>
                 </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar-fill" style="width: ${progress}%; background: ${badge.color};"></div>
+                <div class="stat-info">
+                    <h3>Wallet Balance</h3>
+                    <p class="stat-value" id="walletBalance">₦${(profile?.wallet_balance || 0).toLocaleString()}</p>
                 </div>
-                <div class="progress-stats">
-                    <span>⭐ ${totalStars} Stars</span>
-                    <span>🎯 ${Math.round(progress)}% Complete</span>
-                </div>
-            </div>
-
-            <div class="quick-actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px;">
-                <button class="action-btn" data-action="role" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
-                    <i class="fas fa-user-graduate" style="color: var(--brand-gold);"></i>
-                    <span>Apply for Role</span>
-                </button>
-                <button class="action-btn" data-action="wallet" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
-                    <i class="fas fa-plus-circle" style="color: var(--brand-gold);"></i>
-                    <span>Fund Wallet</span>
-                </button>
-                <button class="action-btn" data-action="stars" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
-                    <i class="fas fa-star" style="color: var(--brand-gold);"></i>
-                    <span>Convert GP to Stars</span>
+                <button class="stat-action-btn" data-action="wallet" title="Add Funds">
+                    <i class="fas fa-plus"></i>
                 </button>
             </div>
-
-            <div class="card leaderboard-card-full">
-                <div class="leaderboard-header">
-                    <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
-                    <button id="refreshLeaderboardBtn" class="btn-icon" style="background: none; border: none; cursor: pointer; color: var(--text-secondary);">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
+            <div class="stat-card">
+                <div class="stat-icon gp-icon">
+                    <i class="fas fa-star"></i>
                 </div>
-                <div class="leaderboard-list" id="dashboardLeaderboard">
-                    ${this.renderLeaderboardItems()}
+                <div class="stat-info">
+                    <h3>GP Points</h3>
+                    <p class="stat-value" id="gpPoints">${currentGP.toLocaleString()}</p>
                 </div>
+                <button class="stat-action-btn" data-action="stars" title="Convert to Stars">
+                    <i class="fas fa-exchange-alt"></i>
+                </button>
             </div>
-
-            ${profile?.application_status === 'pending' ? `
-                <div class="alert alert-warning">
-                    <i class="fas fa-clock"></i>
-                    Your application for <strong>${profile.applied_role}</strong> is pending review.
+            <div class="stat-card">
+                <div class="stat-icon submissions-icon">
+                    <i class="fas fa-check-circle"></i>
                 </div>
-            ` : ''}
-        `;
+                <div class="stat-info">
+                    <h3>Submissions</h3>
+                    <p class="stat-value">${submissionsCount}</p>
+                </div>
+                <button class="stat-action-btn" data-action="submissions" title="View Submissions">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon referrals-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Referrals</h3>
+                    <p class="stat-value">${referralsCount}</p>
+                </div>
+                <button class="stat-action-btn" data-action="referrals" title="Share Referral">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+        </div>
 
-        this.renderAlertIcon(unreadCount, alerts);
-        this.bindEvents();
-    }
+        <!-- Progress Bar -->
+        <div class="progress-section">
+            <div class="progress-header">
+                <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
+                <span>${Math.round(progress)}%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" style="width: ${progress}%; background: ${badge.color};"></div>
+            </div>
+            <div class="progress-stats">
+                <span>⭐ ${totalStars} Stars</span>
+                <span>🎯 ${Math.round(progress)}% Complete</span>
+            </div>
+        </div>
+
+        <!-- Leaderboard - Full Width -->
+        <div class="card leaderboard-card-full">
+            <div class="leaderboard-header">
+                <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
+                <button id="refreshLeaderboardBtn" class="btn-icon" style="background: none; border: none; cursor: pointer; color: var(--text-secondary);">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="leaderboard-list" id="dashboardLeaderboard">
+                ${this.renderLeaderboardItems()}
+            </div>
+        </div>
+
+        ${profile?.application_status === 'pending' ? `
+            <div class="alert alert-warning">
+                <i class="fas fa-clock"></i>
+                Your application for <strong>${profile.applied_role}</strong> is pending review.
+            </div>
+        ` : ''}
+    `;
+
+    this.renderAlertIcon(unreadCount, alerts);
+    this.bindEvents();
+    this.setupModalCloseHandlers();
+}
 
     // ============================================
     // RENDER ALERT ICON
@@ -676,19 +665,20 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // SHOW FUND WALLET MODAL
-    // ============================================
-    showFundWalletModal() {
-        const modal = document.getElementById('fundWalletModal');
-        if (modal) {
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-            this.resetWalletModal();
-            
-            // ✅ Bind events for the modal after it's opened
-            this.bindWalletModalEvents();
-        }
+// SHOW FUND WALLET MODAL
+// ============================================
+showFundWalletModal() {
+    const modal = document.getElementById('fundWalletModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        this.resetWalletModal();
+        
+        // ✅ Bind events for the modal after it's opened
+        this.bindWalletModalEvents();
+        this.setupModalCloseHandlers(); // ✅ Ensure close handlers are set
     }
+}
 
     // ============================================
     // BIND WALLET MODAL EVENTS
@@ -1093,6 +1083,42 @@ export class GeneralDashboard {
         }
     }
 
+// ============================================
+// SETUP MODAL CLOSE HANDLERS
+// ============================================
+setupModalCloseHandlers() {
+    // Close modal when clicking the X button
+    document.querySelectorAll('.modal-close').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const modal = btn.closest('.modal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    });
+
+    // Close modal when clicking outside (on overlay)
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal.active').forEach(modal => {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        }
+    });
+}
+    
     // ============================================
     // MESSAGES TAB
     // ============================================
