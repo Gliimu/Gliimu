@@ -169,6 +169,23 @@ export class UserPage {
         }
     }
 
+    // ✅ NEW: Get payment requests for transaction history
+    async getPaymentRequests(userId) {
+        try {
+            const { data, error } = await supabase
+                .from('payment_requests')
+                .select('*')
+                .eq('user_id', userId)
+                .order('submitted_at', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error getting payment requests:', error);
+            return [];
+        }
+    }
+
     updateRoleStylesheet(role) {
         const roleStylesheet = document.getElementById('roleStylesheet');
         if (roleStylesheet) {
@@ -236,12 +253,13 @@ export class UserPage {
         }
     }
 
+    // ✅ UPDATED: Tab names changed
     getNavItems() {
         const role = this.currentProfile?.role || 'student';
         const items = [
-            { tab: 'dashboard', icon: 'fa-tachometer-alt', label: 'Dashboard' },
+            { tab: 'dashboard', icon: 'fa-tachometer-alt', label: 'Overview' },
             { tab: 'messages', icon: 'fa-envelope', label: 'Messages' },
-            { tab: 'gotomenu', icon: 'fa-door-open', label: 'Go To' },
+            { tab: 'portfolio', icon: 'fa-user-circle', label: 'Portfolio' },
             { tab: 'wallet', icon: 'fa-wallet', label: 'Wallet' },
         ];
 
@@ -253,7 +271,7 @@ export class UserPage {
             items.push({ tab: 'admin', icon: 'fa-crown', label: 'Admin' });
         }
 
-        items.push({ tab: 'settings', icon: 'fa-cog', label: 'Profile' });
+        items.push({ tab: 'settings', icon: 'fa-cog', label: 'Settings' });
 
         return items.map(item => `
             <button class="nav-item" data-tab="${item.tab}">
@@ -283,8 +301,8 @@ export class UserPage {
             case 'messages':
                 await this.loadMessages();
                 break;
-            case 'gotomenu':
-                await this.loadGoToMenu();
+            case 'portfolio':
+                await this.loadPortfolio();
                 break;
             case 'settings':
                 await this.loadSettings();
@@ -303,7 +321,7 @@ export class UserPage {
     }
 
     // ============================================
-    // DASHBOARD TAB
+    // DASHBOARD / OVERVIEW TAB (UPDATED)
     // ============================================
     async loadDashboard() {
         const content = this.dashboardContent;
@@ -324,7 +342,7 @@ export class UserPage {
         content.innerHTML = `
             <div class="dashboard-header">
                 <div>
-                    <h1>Dashboard</h1>
+                    <h1>Overview</h1>
                     <p>Welcome back, ${profile?.name || 'User'}!</p>
                 </div>
                 <div class="header-badge">
@@ -333,6 +351,7 @@ export class UserPage {
                 </div>
             </div>
 
+            <!-- Stats Grid with Action Buttons -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon wallet-icon">
@@ -342,6 +361,9 @@ export class UserPage {
                         <h3>Wallet Balance</h3>
                         <p class="stat-value" id="walletBalance">₦${(profile?.wallet_balance || 0).toLocaleString()}</p>
                     </div>
+                    <button class="stat-action-btn" data-action="wallet" title="Add Funds">
+                        <i class="fas fa-plus"></i>
+                    </button>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon gp-icon">
@@ -351,6 +373,9 @@ export class UserPage {
                         <h3>GP Points</h3>
                         <p class="stat-value" id="gpPoints">${currentGP.toLocaleString()}</p>
                     </div>
+                    <button class="stat-action-btn" data-action="stars" title="Convert to Stars">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon submissions-icon">
@@ -360,6 +385,9 @@ export class UserPage {
                         <h3>Submissions</h3>
                         <p class="stat-value">${submissionsCount}</p>
                     </div>
+                    <button class="stat-action-btn" data-action="submissions" title="View Submissions">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon referrals-icon">
@@ -369,9 +397,13 @@ export class UserPage {
                         <h3>Referrals</h3>
                         <p class="stat-value">${referralsCount}</p>
                     </div>
+                    <button class="stat-action-btn" data-action="referrals" title="Share Referral">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
                 </div>
             </div>
 
+            <!-- Progress Bar -->
             <div class="progress-section">
                 <div class="progress-header">
                     <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
@@ -386,25 +418,8 @@ export class UserPage {
                 </div>
             </div>
 
+            <!-- Side-by-side: Leaderboard & Recent Activity -->
             <div class="dashboard-grid">
-                <div class="card quick-actions-card">
-                    <h3>Quick Actions</h3>
-                    <div class="quick-actions">
-                        <button class="action-btn" data-action="wallet">
-                            <i class="fas fa-plus-circle"></i>
-                            Fund Wallet
-                        </button>
-                        <button class="action-btn" data-action="role">
-                            <i class="fas fa-user-graduate"></i>
-                            Apply for Role
-                        </button>
-                        <button class="action-btn" data-action="stars">
-                            <i class="fas fa-star"></i>
-                            Convert GP to Stars
-                        </button>
-                    </div>
-                </div>
-
                 <div class="card leaderboard-card">
                     <div class="leaderboard-header">
                         <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
@@ -416,12 +431,12 @@ export class UserPage {
                         ${this.renderLeaderboardItems()}
                     </div>
                 </div>
-            </div>
 
-            <div class="card recent-activity-card">
-                <h3>Recent Activity</h3>
-                <div id="recentActivity">
-                    <p class="text-muted">Loading activities...</p>
+                <div class="card recent-activity-card">
+                    <h3>Recent Activity</h3>
+                    <div id="recentActivity">
+                        <p class="text-muted">Loading activities...</p>
+                    </div>
                 </div>
             </div>
 
@@ -433,12 +448,22 @@ export class UserPage {
             ` : ''}
         `;
 
-        document.querySelectorAll('.action-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+        // Bind stat action buttons
+        document.querySelectorAll('.stat-action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const action = btn.dataset.action;
                 if (action === 'wallet') this.showFundWalletModal();
-                else if (action === 'role') this.showApplyRoleModal();
                 else if (action === 'stars') this.showConvertStarsModal();
+                else if (action === 'submissions') showToast('Submissions view coming soon!', 'info');
+                else if (action === 'referrals') {
+                    const url = `${window.location.origin}/ref/${this.currentProfile?.referral_code || this.currentUser.id}`;
+                    navigator.clipboard.writeText(url).then(() => {
+                        showToast('Referral link copied! Share it with friends.', 'success');
+                    }).catch(() => {
+                        showToast(`Share this link: ${url}`, 'info');
+                    });
+                }
             });
         });
 
@@ -481,32 +506,86 @@ export class UserPage {
         }).join('');
     }
 
+    // ============================================
+    // RECENT ACTIVITY - UPDATED to show payment status
+    // ============================================
     async loadRecentActivity() {
         const container = document.getElementById('recentActivity');
         if (!container) return;
 
         try {
+            // Get both transactions and payment requests
             const transactions = await getUserTransactions();
+            const paymentRequests = await this.getPaymentRequests(this.currentUser.id);
             
-            if (!transactions || transactions.length === 0) {
+            // Combine and sort by date
+            let allActivities = [];
+            
+            // Add transactions
+            if (transactions && transactions.length > 0) {
+                allActivities = allActivities.concat(transactions.map(tx => ({
+                    ...tx,
+                    type: 'transaction',
+                    display_type: tx.type || 'unknown',
+                    date: tx.created_at
+                })));
+            }
+            
+            // Add payment requests
+            if (paymentRequests && paymentRequests.length > 0) {
+                allActivities = allActivities.concat(paymentRequests.map(p => ({
+                    ...p,
+                    type: 'payment_request',
+                    display_type: p.status,
+                    date: p.submitted_at,
+                    amount: p.amount,
+                    description: `Wallet funding - ${p.status}`
+                })));
+            }
+            
+            // Sort by date (newest first)
+            allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            // Take top 5
+            const recent = allActivities.slice(0, 5);
+            
+            if (recent.length === 0) {
                 container.innerHTML = '<p class="text-muted">No recent activity</p>';
                 return;
             }
 
-            container.innerHTML = transactions.slice(0, 5).map(tx => `
-                <div class="activity-item">
-                    <div class="activity-icon ${tx.type === 'credit' ? 'credit' : 'debit'}">
-                        <i class="fas ${tx.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+            container.innerHTML = recent.map(item => {
+                let icon, iconClass, amountDisplay, statusDisplay = '';
+                
+                if (item.type === 'transaction') {
+                    icon = item.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up';
+                    iconClass = item.type === 'credit' ? 'credit' : 'debit';
+                    amountDisplay = `${item.type === 'credit' ? '+' : '-'}₦${(item.amount || 0).toLocaleString()}`;
+                } else if (item.type === 'payment_request') {
+                    icon = item.status === 'approved' ? 'fa-check-circle' : 
+                           item.status === 'rejected' ? 'fa-times-circle' : 'fa-clock';
+                    iconClass = item.status === 'approved' ? 'credit' : 
+                                item.status === 'rejected' ? 'debit' : 'pending';
+                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                    statusDisplay = `<span class="activity-status ${item.status}">${item.status}</span>`;
+                }
+                
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon ${iconClass}">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="activity-details">
+                            <p class="activity-description">${item.description || item.type}</p>
+                            <span class="activity-date">${new Date(item.date).toLocaleDateString()}</span>
+                            ${statusDisplay}
+                        </div>
+                        <div class="activity-amount ${iconClass}">
+                            ${amountDisplay}
+                        </div>
                     </div>
-                    <div class="activity-details">
-                        <p class="activity-description">${tx.description || tx.type}</p>
-                        <span class="activity-date">${new Date(tx.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div class="activity-amount ${tx.type === 'credit' ? 'credit' : 'debit'}">
-                        ${tx.type === 'credit' ? '+' : '-'}₦${(tx.amount || 0).toLocaleString()}
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         } catch (error) {
             console.error('Error loading activity:', error);
             container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
@@ -514,7 +593,7 @@ export class UserPage {
     }
 
     // ============================================
-    // WALLET TAB
+    // WALLET TAB - UPDATED Transaction History
     // ============================================
     async loadWallet() {
         const content = this.dashboardContent;
@@ -561,30 +640,81 @@ export class UserPage {
         await this.loadTransactionHistory();
     }
 
+    // ============================================
+    // TRANSACTION HISTORY - UPDATED with payment status
+    // ============================================
     async loadTransactionHistory() {
         const container = document.getElementById('transactionHistory');
         if (!container) return;
 
         try {
+            // Get both transactions and payment requests
             const transactions = await getUserTransactions();
+            const paymentRequests = await this.getPaymentRequests(this.currentUser.id);
             
-            if (!transactions || transactions.length === 0) {
+            // Combine and sort by date
+            let allTransactions = [];
+            
+            // Add transactions
+            if (transactions && transactions.length > 0) {
+                allTransactions = allTransactions.concat(transactions.map(tx => ({
+                    ...tx,
+                    type: 'transaction',
+                    display_type: tx.type || 'unknown',
+                    date: tx.created_at
+                })));
+            }
+            
+            // Add payment requests
+            if (paymentRequests && paymentRequests.length > 0) {
+                allTransactions = allTransactions.concat(paymentRequests.map(p => ({
+                    ...p,
+                    type: 'payment_request',
+                    display_type: p.status,
+                    date: p.submitted_at,
+                    amount: p.amount,
+                    description: `Wallet funding`
+                })));
+            }
+            
+            // Sort by date (newest first)
+            allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (allTransactions.length === 0) {
                 container.innerHTML = '<p class="text-muted">No transactions yet</p>';
                 return;
             }
 
-            container.innerHTML = transactions.map(tx => `
-                <div class="transaction-item">
-                    <div class="tx-info">
-                        <span class="tx-description">${tx.description || tx.type}</span>
-                        <span class="tx-date">${new Date(tx.created_at).toLocaleDateString()}</span>
-                        ${tx.status ? `<span class="tx-status ${tx.status}">${tx.status}</span>` : ''}
+            container.innerHTML = allTransactions.map(item => {
+                let amountDisplay, statusDisplay = '', description = '';
+                
+                if (item.type === 'transaction') {
+                    amountDisplay = `${item.type === 'credit' ? '+' : '-'}₦${(item.amount || 0).toLocaleString()}`;
+                    description = item.description || item.type;
+                } else if (item.type === 'payment_request') {
+                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                    description = `Wallet funding request`;
+                    const statusMap = {
+                        'pending': '⏳ Pending',
+                        'approved': '✅ Approved',
+                        'rejected': '❌ Rejected'
+                    };
+                    statusDisplay = `<span class="tx-status ${item.status}">${statusMap[item.status] || item.status}</span>`;
+                }
+                
+                return `
+                    <div class="transaction-item">
+                        <div class="tx-info">
+                            <span class="tx-description">${description}</span>
+                            <span class="tx-date">${new Date(item.date).toLocaleDateString()}</span>
+                            ${statusDisplay}
+                        </div>
+                        <div class="tx-amount ${item.type === 'transaction' ? (item.type === 'credit' ? 'credit' : 'debit') : 'pending'}">
+                            ${amountDisplay}
+                        </div>
                     </div>
-                    <div class="tx-amount ${tx.type === 'credit' ? 'credit' : 'debit'}">
-                        ${tx.type === 'credit' ? '+' : '-'}₦${(tx.amount || 0).toLocaleString()}
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         } catch (error) {
             console.error('Error loading transactions:', error);
             container.innerHTML = '<p class="text-muted">Failed to load transactions</p>';
@@ -592,140 +722,9 @@ export class UserPage {
     }
 
     // ============================================
-    // MESSAGES TAB
+    // PORTFOLIO TAB (was Go To)
     // ============================================
-    async loadMessages() {
-        this.dashboardContent.innerHTML = `
-            <div class="dashboard-header">
-                <h1><i class="fas fa-envelope"></i> Messages</h1>
-                <p>Communicate with administrators</p>
-            </div>
-            
-            <div class="card messages-container">
-                <div class="messages-header">
-                    <h3>Admin Communication</h3>
-                    <button id="newMessageBtn" class="btn-primary"><i class="fas fa-plus"></i> New Message</button>
-                </div>
-                
-                <div id="messageThreads">
-                    <div class="empty-state">
-                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
-                        <h3>No Messages</h3>
-                        <p>Start a conversation with an administrator</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="messageModal" class="modal" style="display: none;">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>New Message</h2>
-                        <button class="modal-close" id="closeMessageModal">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="messageForm">
-                            <div class="form-group">
-                                <label>Subject</label>
-                                <input type="text" id="messageSubject" required placeholder="Enter message subject">
-                            </div>
-                            <div class="form-group">
-                                <label>Message</label>
-                                <textarea id="messageBody" rows="5" required placeholder="Type your message..."></textarea>
-                            </div>
-                            <button type="submit" class="btn-primary">Send Message</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('newMessageBtn')?.addEventListener('click', () => {
-            const modal = document.getElementById('messageModal');
-            if (modal) modal.style.display = 'flex';
-        });
-
-        document.getElementById('closeMessageModal')?.addEventListener('click', () => {
-            const modal = document.getElementById('messageModal');
-            if (modal) modal.style.display = 'none';
-        });
-
-        document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const subject = document.getElementById('messageSubject').value;
-            const body = document.getElementById('messageBody').value;
-            
-            const { error } = await supabase
-                .from('messages')
-                .insert([{
-                    user_id: this.currentUser.id,
-                    subject: subject,
-                    body: body,
-                    status: 'unread',
-                    created_at: new Date().toISOString()
-                }]);
-            
-            if (error) {
-                showToast('Failed to send message', 'error');
-            } else {
-                showToast('Message sent successfully!', 'success');
-                document.getElementById('messageModal').style.display = 'none';
-                document.getElementById('messageForm').reset();
-                await this.loadMessageThreads();
-            }
-        });
-
-        await this.loadMessageThreads();
-    }
-
-    async loadMessageThreads() {
-        const container = document.getElementById('messageThreads');
-        if (!container) return;
-
-        try {
-            const { data, error } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('user_id', this.currentUser.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            if (!data || data.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
-                        <h3>No Messages</h3>
-                        <p>Start a conversation with an administrator</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = data.map(msg => `
-                <div class="message-thread ${msg.status === 'unread' ? 'unread' : ''}">
-                    <div class="message-header">
-                        <span class="message-subject">${msg.subject}</span>
-                        <span class="message-date">${new Date(msg.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div class="message-body-preview">${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}</div>
-                    <div class="message-status ${msg.status}">${msg.status === 'unread' ? '🔴 Unread' : '✅ Read'}</div>
-                    ${msg.admin_response ? `
-                        <div class="admin-response">
-                            <strong>Admin Response:</strong> ${msg.admin_response}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading messages:', error);
-            container.innerHTML = '<p class="text-muted">Failed to load messages</p>';
-        }
-    }
-
-    // ============================================
-    // GO-TO TAB
-    // ============================================
-    async loadGoToMenu() {
+    async loadPortfolio() {
         const user = this.currentUser;
         const profile = this.currentProfile;
         const username = profile?.username || user?.email?.split('@')[0] || 'user';
@@ -733,13 +732,13 @@ export class UserPage {
 
         this.dashboardContent.innerHTML = `
             <div class="dashboard-header">
-                <h1><i class="fas fa-door-open"></i> Go To</h1>
-                <p>Your navigation hub</p>
+                <h1><i class="fas fa-user-circle"></i> Portfolio</h1>
+                <p>Your creative showcase</p>
             </div>
 
             <div class="card portfolio-link-card">
                 <div class="portfolio-header">
-                    <h3><i class="fas fa-user-circle"></i> Your Portfolio</h3>
+                    <h3><i class="fas fa-link"></i> Your Portfolio Link</h3>
                     <div class="portfolio-url-container">
                         <input type="text" id="portfolioUrl" value="${portfolioUrl}" readonly>
                         <button id="copyPortfolioUrl" class="btn-icon" title="Copy URL">
@@ -848,7 +847,7 @@ export class UserPage {
     }
 
     // ============================================
-    // SETTINGS TAB
+    // SETTINGS TAB (was Profile)
     // ============================================
     async loadSettings() {
         const content = this.dashboardContent;
@@ -996,6 +995,140 @@ export class UserPage {
         });
     }
 
+    // ============================================
+    // MESSAGES TAB
+    // ============================================
+    async loadMessages() {
+        this.dashboardContent.innerHTML = `
+            <div class="dashboard-header">
+                <h1><i class="fas fa-envelope"></i> Messages</h1>
+                <p>Communicate with administrators</p>
+            </div>
+            
+            <div class="card messages-container">
+                <div class="messages-header">
+                    <h3>Admin Communication</h3>
+                    <button id="newMessageBtn" class="btn-primary"><i class="fas fa-plus"></i> New Message</button>
+                </div>
+                
+                <div id="messageThreads">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
+                        <h3>No Messages</h3>
+                        <p>Start a conversation with an administrator</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="messageModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>New Message</h2>
+                        <button class="modal-close" id="closeMessageModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="messageForm">
+                            <div class="form-group">
+                                <label>Subject</label>
+                                <input type="text" id="messageSubject" required placeholder="Enter message subject">
+                            </div>
+                            <div class="form-group">
+                                <label>Message</label>
+                                <textarea id="messageBody" rows="5" required placeholder="Type your message..."></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary">Send Message</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('newMessageBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('messageModal');
+            if (modal) modal.classList.add('active');
+        });
+
+        document.getElementById('closeMessageModal')?.addEventListener('click', () => {
+            const modal = document.getElementById('messageModal');
+            if (modal) modal.classList.remove('active');
+        });
+
+        document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const subject = document.getElementById('messageSubject').value;
+            const body = document.getElementById('messageBody').value;
+            
+            const { error } = await supabase
+                .from('messages')
+                .insert([{
+                    user_id: this.currentUser.id,
+                    subject: subject,
+                    body: body,
+                    status: 'unread',
+                    created_at: new Date().toISOString()
+                }]);
+            
+            if (error) {
+                showToast('Failed to send message', 'error');
+            } else {
+                showToast('Message sent successfully!', 'success');
+                document.getElementById('messageModal').classList.remove('active');
+                document.getElementById('messageForm').reset();
+                await this.loadMessageThreads();
+            }
+        });
+
+        await this.loadMessageThreads();
+    }
+
+    async loadMessageThreads() {
+        const container = document.getElementById('messageThreads');
+        if (!container) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('user_id', this.currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
+                        <h3>No Messages</h3>
+                        <p>Start a conversation with an administrator</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.map(msg => `
+                <div class="message-thread ${msg.status === 'unread' ? 'unread' : ''}">
+                    <div class="message-header">
+                        <span class="message-subject">${msg.subject}</span>
+                        <span class="message-date">${new Date(msg.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <div class="message-body-preview">${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}</div>
+                    <div class="message-status ${msg.status}">${msg.status === 'unread' ? '🔴 Unread' : '✅ Read'}</div>
+                    ${msg.admin_response ? `
+                        <div class="admin-response">
+                            <strong>Admin Response:</strong> ${msg.admin_response}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            container.innerHTML = '<p class="text-muted">Failed to load messages</p>';
+        }
+    }
+
+    // ============================================
+    // UTILITY METHODS
+    // ============================================
     async validateUsername(username) {
         const feedback = document.getElementById('usernameFeedback');
         if (!feedback || !username) return;
@@ -1117,9 +1250,6 @@ export class UserPage {
         showToast(`${theme.charAt(0).toUpperCase() + theme.slice(1)} mode activated`, 'success');
     }
 
-    // ============================================
-    // UPDATE PROFILE
-    // ============================================
     async updateProfile() {
         try {
             const fullName = document.getElementById('fullName')?.value.trim();
@@ -1308,7 +1438,7 @@ export class UserPage {
     }
 
     // ============================================
-    // WALLET FUNDING - COMPLETE FIX
+    // WALLET FUNDING
     // ============================================
     showFundWalletModal() {
         const modal = document.getElementById('fundWalletModal');
@@ -1319,51 +1449,46 @@ export class UserPage {
         }
     }
 
-   // ============================================
-// SHOW BANK DETAILS - FIXED
-// ============================================
-
-async showBankDetails() {
-    const fundingOptions = document.querySelector('.funding-options');
-    const bankDetails = document.querySelector('.bank-details');
-    
-    if (fundingOptions && bankDetails) {
-        fundingOptions.style.display = 'none';
-        bankDetails.style.display = 'block';
+    async showBankDetails() {
+        const fundingOptions = document.querySelector('.funding-options');
+        const bankDetails = document.querySelector('.bank-details');
         
-        // Get username for reference code
-        const username = this.currentProfile?.username || 'user';
-        const randomNum = Math.floor(Math.random() * 9000) + 1000;
-        this.referenceCode = `GLM-${username}-${randomNum}`;
-        
-        document.getElementById('referenceCode').textContent = this.referenceCode;
-        
-        const bankAccounts = [
-            {
-                bankName: 'MoniePoint Micro Finance Bank',
-                accountName: 'Gliimu LTD',
-                accountNumber: '6315085115'
-            },
-            {
-                bankName: 'Opay',
-                accountName: 'Gliimu LTD',
-                accountNumber: '6142049426'
-            }
-        ];
-        
-        const selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
-        
-        document.getElementById('bankInfoCard').innerHTML = `
-            <p><strong>Bank:</strong> <span style="color: var(--brand-gold);">${selectedBank.bankName}</span></p>
-            <p><strong>Account Name:</strong> <span style="color: var(--brand-gold);">${selectedBank.accountName}</span></p>
-            <p><strong>Account Number:</strong> <span style="color: var(--brand-gold); font-size: 1.2rem; font-weight: 700;">${selectedBank.accountNumber}</span></p>
-            <p><strong>Amount:</strong> <span style="color: var(--brand-gold); font-weight: 700;">₦${this.selectedAmount.toLocaleString()}</span></p>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
-                <i class="fas fa-info-circle"></i> Use <strong style="color: var(--brand-gold);">${this.referenceCode}</strong> as transaction narration
-            </p>
-        `;
+        if (fundingOptions && bankDetails) {
+            fundingOptions.style.display = 'none';
+            bankDetails.style.display = 'block';
+            
+            const username = this.currentProfile?.username || 'user';
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            this.referenceCode = `GLM-${username}-${randomNum}`;
+            
+            document.getElementById('referenceCode').textContent = this.referenceCode;
+            
+            const bankAccounts = [
+                {
+                    bankName: 'MoniePoint Micro Finance Bank',
+                    accountName: 'Gliimu LTD',
+                    accountNumber: '6315085115'
+                },
+                {
+                    bankName: 'Opay',
+                    accountName: 'Gliimu LTD',
+                    accountNumber: '6142049426'
+                }
+            ];
+            
+            const selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
+            
+            document.getElementById('bankInfoCard').innerHTML = `
+                <p><strong>Bank:</strong> <span style="color: var(--brand-gold);">${selectedBank.bankName}</span></p>
+                <p><strong>Account Name:</strong> <span style="color: var(--brand-gold);">${selectedBank.accountName}</span></p>
+                <p><strong>Account Number:</strong> <span style="color: var(--brand-gold); font-size: 1.2rem; font-weight: 700;">${selectedBank.accountNumber}</span></p>
+                <p><strong>Amount:</strong> <span style="color: var(--brand-gold); font-weight: 700;">₦${this.selectedAmount.toLocaleString()}</span></p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                    <i class="fas fa-info-circle"></i> Use <strong style="color: var(--brand-gold);">${this.referenceCode}</strong> as transaction narration
+                </p>
+            `;
+        }
     }
-}
 
     resetWalletModal() {
         const fundingOptions = document.querySelector('.funding-options');
@@ -1391,106 +1516,84 @@ async showBankDetails() {
         }
     }
 
-   // ============================================
-// CONFIRM PAYMENT - FIXED FOR YOUR SCHEMA
-// ============================================
+    async confirmPayment() {
+        try {
+            const btn = document.getElementById('confirmPaymentBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            }
 
-async confirmPayment() {
-    try {
-        const btn = document.getElementById('confirmPaymentBtn');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        }
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                showToast('Please login first', 'error');
+                return;
+            }
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            showToast('Please login first', 'error');
-            return;
-        }
+            const { data: profile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('name, email, username')
+                .eq('id', user.id)
+                .single();
 
-        const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('name, email, username')
-            .eq('id', user.id)
-            .single();
+            if (profileError) {
+                console.error('Error fetching profile:', profileError);
+            }
 
-        if (profileError) {
-            console.error('Error fetching profile:', profileError);
-        }
+            const bankInfo = document.getElementById('bankInfoCard');
+            let bankName = 'Opay';
+            if (bankInfo) {
+                const bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
+                if (bankMatch && bankMatch[1]) {
+                    bankName = bankMatch[1].trim();
+                }
+            }
 
-        // Get the selected bank from the modal
-        const bankInfo = document.getElementById('bankInfoCard');
-        let bankName = 'Opay';
-        if (bankInfo) {
-            const bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
-            if (bankMatch && bankMatch[1]) {
-                bankName = bankMatch[1].trim();
+            const username = profile?.username || 'user';
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            const referenceCode = `GLM-${username}-${randomNum}`;
+            const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+            const { data, error } = await supabase
+                .from('payment_requests')
+                .insert([{
+                    id: paymentId,
+                    user_id: user.id,
+                    user_name: profile?.name || 'User',
+                    user_email: profile?.email || user.email,
+                    amount: this.selectedAmount,
+                    bank: bankName,
+                    reference_code: referenceCode,
+                    status: 'pending',
+                    submitted_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) {
+                console.error('❌ Error creating payment request:', error);
+                showToast('Failed to submit payment: ' + error.message, 'error');
+                return;
+            }
+
+            showToast(`💰 Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+            
+            this.resetWalletModal();
+            document.getElementById('fundWalletModal').classList.remove('active');
+            document.body.style.overflow = '';
+            
+            await this.loadWallet();
+            
+        } catch (error) {
+            console.error('❌ Payment error:', error);
+            showToast('Failed to submit payment: ' + error.message, 'error');
+        } finally {
+            const btn = document.getElementById('confirmPaymentBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '✅ I Have Made Payment';
             }
         }
-
-        // Generate reference code with username (GLM-USERNAME-RANDOM)
-        const username = profile?.username || 'user';
-        const randomNum = Math.floor(Math.random() * 9000) + 1000;
-        const referenceCode = `GLM-${username}-${randomNum}`;
-
-        // Generate a unique ID for the payment request
-        const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
-        console.log('📝 Creating payment request:', {
-            id: paymentId,
-            user_id: user.id,
-            user_name: profile?.name || 'User',
-            user_email: profile?.email || user.email,
-            amount: this.selectedAmount,
-            bank: bankName,
-            reference_code: referenceCode,
-            status: 'pending',
-            submitted_at: new Date().toISOString()
-        });
-
-        // ✅ FIXED: Match your exact table schema
-        const { data, error } = await supabase
-            .from('payment_requests')
-            .insert([{
-                id: paymentId,
-                user_id: user.id,
-                user_name: profile?.name || 'User',
-                user_email: profile?.email || user.email,
-                amount: this.selectedAmount,
-                bank: bankName,
-                reference_code: referenceCode,
-                status: 'pending',
-                submitted_at: new Date().toISOString()
-            }])
-            .select();
-
-        if (error) {
-            console.error('❌ Error creating payment request:', error);
-            showToast('Failed to submit payment: ' + error.message, 'error');
-            return;
-        }
-
-        console.log('✅ Payment request created:', data);
-        showToast(`💰 Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
-        
-        this.resetWalletModal();
-        document.getElementById('fundWalletModal').classList.remove('active');
-        document.body.style.overflow = '';
-        
-        await this.loadWallet();
-        
-    } catch (error) {
-        console.error('❌ Payment error:', error);
-        showToast('Failed to submit payment: ' + error.message, 'error');
-    } finally {
-        const btn = document.getElementById('confirmPaymentBtn');
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '✅ I Have Made Payment';
-        }
     }
-}
 
     // ============================================
     // MANAGE & ADMIN TABS
@@ -1555,6 +1658,7 @@ async confirmPayment() {
             });
         });
 
+        // ✅ FIX: Use 'active' class for modal visibility
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
