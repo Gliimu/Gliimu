@@ -10,9 +10,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================
-// ============================================
 // SECTION 1: AUTHENTICATION
-// ============================================
 // ============================================
 
 export async function getCurrentUser() {
@@ -128,9 +126,7 @@ export async function signOutUser() {
 }
 
 // ============================================
-// ============================================
 // SECTION 2: USER PROFILES
-// ============================================
 // ============================================
 
 export async function getUserProfile(userId = null) {
@@ -233,9 +229,7 @@ export async function updateWalletBalance(newBalance) {
 }
 
 // ============================================
-// ============================================
 // SECTION 3: USER ALERTS
-// ============================================
 // ============================================
 
 export async function getUserAlerts(userId) {
@@ -336,9 +330,7 @@ export async function markAllAlertsRead(userId) {
 }
 
 // ============================================
-// ============================================
 // SECTION 4: USER ACTIVITY
-// ============================================
 // ============================================
 
 export async function logUserActivity(activityData) {
@@ -396,9 +388,7 @@ export async function getUserActivity(userId, limit = 20) {
 }
 
 // ============================================
-// ============================================
 // SECTION 5: APPLICATIONS
-// ============================================
 // ============================================
 
 export async function submitApplication(applicationData) {
@@ -633,9 +623,7 @@ export async function rejectApplication(applicationId, adminNotes = '') {
 }
 
 // ============================================
-// ============================================
 // SECTION 6: PAYMENTS & TRANSACTIONS
-// ============================================
 // ============================================
 
 export async function createPaymentRequest(amount, bank, referenceCode) {
@@ -732,9 +720,7 @@ export async function addTransaction(amount, type, description) {
 }
 
 // ============================================
-// ============================================
 // SECTION 7: REFERRALS
-// ============================================
 // ============================================
 
 export async function getUserReferrals(userId) {
@@ -824,9 +810,7 @@ export async function createReferral(referrerId, referredUserId, referralCode) {
 }
 
 // ============================================
-// ============================================
 // SECTION 8: HUB CONTENT
-// ============================================
 // ============================================
 
 export async function getHubContent(filters = {}) {
@@ -1015,13 +999,12 @@ export async function createContent(contentData) {
         return { success: true, data: data?.[0] };
     } catch (error) {
         console.error('Error creating content:', error);
+        return { success: false, error: error.message };
     }
 }
 
 // ============================================
-// ============================================
 // SECTION 9: HUB COMMENTS
-// ============================================
 // ============================================
 
 export async function getComments(contentId) {
@@ -1072,9 +1055,7 @@ export async function addComment(commentData) {
 }
 
 // ============================================
-// ============================================
 // SECTION 10: HUB INTERACTIONS (Hearts, Saves)
-// ============================================
 // ============================================
 
 export async function heartContent(contentId, userId) {
@@ -1228,9 +1209,7 @@ export async function getUserSavedContent(userId) {
 }
 
 // ============================================
-// ============================================
 // SECTION 11: STARS & PROMOTIONS
-// ============================================
 // ============================================
 
 export async function getStarBalance(userId) {
@@ -1337,9 +1316,7 @@ export async function getStarTransactions(userId, limit = 20) {
 }
 
 // ============================================
-// ============================================
 // SECTION 12: AMBASSADOR
-// ============================================
 // ============================================
 
 export async function getAmbassadorStatus(userId) {
@@ -1419,9 +1396,7 @@ export async function claimFreePromotion(userId) {
 }
 
 // ============================================
-// ============================================
 // SECTION 13: REAL-TIME SUBSCRIPTIONS
-// ============================================
 // ============================================
 
 export function subscribeToWallet(callback) {
@@ -1447,9 +1422,7 @@ export function subscribeToWallet(callback) {
 }
 
 // ============================================
-// ============================================
 // SECTION 14: SAVED ITEMS (Legacy)
-// ============================================
 // ============================================
 
 export async function saveToShelf(itemId, itemType, itemData) {
@@ -1507,9 +1480,7 @@ export async function getSavedItems() {
 }
 
 // ============================================
-// ============================================
-// EXPORT ALL FUNCTIONS
-// ============================================
+// EXPORT ALL FUNCTIONS (ONLY ONE BLOCK!)
 // ============================================
 
 // Authentication
