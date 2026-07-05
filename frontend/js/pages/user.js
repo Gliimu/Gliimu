@@ -54,21 +54,18 @@ export class UserPage {
 
     async init() {
         try {
-            // Check if user is authenticated
             const session = await getCurrentSession();
             if (!session) {
                 window.location.href = '/signin.html';
                 return;
             }
 
-            // Load user data
             await this.loadUserData();
             await this.loadBankDetails();
             this.setupEventListeners();
             this.setupWalletSubscription();
             this.setupNavigation();
             
-            // Load default tab
             this.loadTab('dashboard');
             
         } catch (error) {
@@ -100,14 +97,9 @@ export class UserPage {
             }
 
             this.currentProfile = profile;
-
-            // Update role stylesheet
             this.updateRoleStylesheet(profile.role || 'student');
-
-            // Update UI
             this.updateUserUI(user, profile);
             
-            // Store user data
             localStorage.setItem('glimu_user', JSON.stringify({
                 id: user.id,
                 name: profile.name,
@@ -119,7 +111,6 @@ export class UserPage {
                 avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
             }));
             
-            // Load leaderboard
             await this.loadLeaderboard();
             
             this.showLoading(false);
@@ -135,7 +126,6 @@ export class UserPage {
             this.bankDetails = await getBankDetails();
         } catch (error) {
             console.error('Error loading bank details:', error);
-            // Fallback defaults
             this.bankDetails = {
                 bankName: 'MoniePoint Micro Finance Bank',
                 accountName: 'Gliimu LTD',
@@ -232,13 +222,10 @@ export class UserPage {
             });
         }
 
-        // Mobile bottom navigation
         document.querySelectorAll('.mobile-nav-item').forEach(item => {
             item.addEventListener('click', () => {
                 const tab = item.dataset.tab;
-                // For Go To, load the tab directly
                 this.loadTab(tab);
-                // Close sidebar if open
                 this.closeSidebar();
             });
         });
@@ -683,10 +670,11 @@ export class UserPage {
                 showToast('Message sent successfully!', 'success');
                 document.getElementById('messageModal').style.display = 'none';
                 document.getElementById('messageForm').reset();
+                await this.loadMessageThreads();
             }
         });
 
-        this.loadMessageThreads();
+        await this.loadMessageThreads();
     }
 
     async loadMessageThreads() {
@@ -1320,7 +1308,7 @@ export class UserPage {
     }
 
     // ============================================
-    // WALLET FUNDING
+    // WALLET FUNDING - COMPLETE FIX
     // ============================================
     showFundWalletModal() {
         const modal = document.getElementById('fundWalletModal');
@@ -1339,9 +1327,13 @@ export class UserPage {
             fundingOptions.style.display = 'none';
             bankDetails.style.display = 'block';
             
-            this.referenceCode = `GLM-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            // ✅ FIXED: Generate reference code with username (GLM-USERNAME-RANDOM)
+            const username = this.currentProfile?.username || 'user';
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            this.referenceCode = `GLM-${username}-${randomNum}`;
             document.getElementById('referenceCode').textContent = this.referenceCode;
             
+            // ✅ CORRECT BANK ACCOUNTS (No GTBank)
             const bankAccounts = [
                 {
                     bankName: 'MoniePoint Micro Finance Bank',
@@ -1362,6 +1354,9 @@ export class UserPage {
                 <p><strong>Account Name:</strong> <span style="color: var(--brand-gold);">${selectedBank.accountName}</span></p>
                 <p><strong>Account Number:</strong> <span style="color: var(--brand-gold); font-size: 1.2rem; font-weight: 700;">${selectedBank.accountNumber}</span></p>
                 <p><strong>Amount:</strong> <span style="color: var(--brand-gold); font-weight: 700;">₦${this.selectedAmount.toLocaleString()}</span></p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                    <i class="fas fa-info-circle"></i> Use <strong>${this.referenceCode}</strong> as transaction narration
+                </p>
             `;
         }
     }
@@ -1392,26 +1387,94 @@ export class UserPage {
         }
     }
 
+    // ✅ FIXED: Confirm Payment - Inserts into payment_requests table
     async confirmPayment() {
         try {
-            const result = await createPaymentRequest(
-                this.selectedAmount,
-                'GTBank',
-                this.referenceCode
-            );
-            
-            if (result.success) {
-                showToast('Payment recorded! Waiting for admin verification.', 'success');
-                this.resetWalletModal();
-                document.getElementById('fundWalletModal').classList.remove('active');
-                document.body.style.overflow = '';
-                await this.loadWallet();
-            } else {
-                showToast(result.error || 'Failed to record payment', 'error');
+            const btn = document.getElementById('confirmPaymentBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             }
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                showToast('Please login first', 'error');
+                return;
+            }
+
+            const { data: profile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('name, email, username')
+                .eq('id', user.id)
+                .single();
+
+            if (profileError) {
+                console.error('Error fetching profile:', profileError);
+            }
+
+            // Get the selected bank from the modal
+            const bankInfo = document.getElementById('bankInfoCard');
+            let bankName = 'Opay';
+            if (bankInfo) {
+                const bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
+                if (bankMatch && bankMatch[1]) {
+                    bankName = bankMatch[1].trim();
+                }
+            }
+
+            // ✅ FIXED: Generate reference code with username
+            const username = profile?.username || 'user';
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            const referenceCode = `GLM-${username}-${randomNum}`;
+
+            console.log('📝 Creating payment request:', {
+                user_id: user.id,
+                amount: this.selectedAmount,
+                bank: bankName,
+                reference_code: referenceCode,
+                user_name: profile?.name || 'User',
+                user_email: profile?.email || user.email
+            });
+
+            // ✅ FIXED: Insert into payment_requests table
+            const { data, error } = await supabase
+                .from('payment_requests')
+                .insert([{
+                    user_id: user.id,
+                    user_name: profile?.name || 'User',
+                    user_email: profile?.email || user.email,
+                    amount: this.selectedAmount,
+                    bank: bankName,
+                    reference_code: referenceCode,
+                    status: 'pending',
+                    submitted_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) {
+                console.error('❌ Error creating payment request:', error);
+                showToast('Failed to submit payment: ' + error.message, 'error');
+                return;
+            }
+
+            console.log('✅ Payment request created:', data);
+            showToast(`💰 Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+            
+            this.resetWalletModal();
+            document.getElementById('fundWalletModal').classList.remove('active');
+            document.body.style.overflow = '';
+            
+            await this.loadWallet();
+            
         } catch (error) {
-            console.error('Payment error:', error);
-            showToast('Failed to record payment', 'error');
+            console.error('❌ Payment error:', error);
+            showToast('Failed to submit payment: ' + error.message, 'error');
+        } finally {
+            const btn = document.getElementById('confirmPaymentBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '✅ I Have Made Payment';
+            }
         }
     }
 
