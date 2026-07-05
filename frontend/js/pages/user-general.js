@@ -45,7 +45,7 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // LOAD DASHBOARD
+    // LOAD DASHBOARD (Overview Tab)
     // ============================================
     async loadDashboard() {
         if (!this.container) return;
@@ -149,7 +149,7 @@ export class GeneralDashboard {
                 </div>
             </div>
 
-            <!-- Quick Actions - Using existing classes -->
+            <!-- Quick Actions -->
             <div class="quick-actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px;">
                 <button class="action-btn" data-action="role" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
                     <i class="fas fa-user-graduate" style="color: var(--brand-gold);"></i>
@@ -702,36 +702,442 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // OTHER TABS (Placeholders)
+    // WALLET TAB (Fully Implemented)
     // ============================================
     async loadWallet(container) {
+        if (!container) {
+            container = this.container;
+        }
+        if (!container) return;
+
+        const profile = this.currentProfile;
+        const progressData = await getStudentProgress(this.currentUser.id);
+
         container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-wallet"></i>
-                <h3>Wallet</h3>
-                <p>Full wallet features coming soon...</p>
+            <div class="dashboard-header">
+                <h1>Wallet</h1>
+                <p>Manage your funds and transactions</p>
+            </div>
+
+            <div class="wallet-summary">
+                <div class="wallet-balance-card">
+                    <h3>Available Balance</h3>
+                    <p class="wallet-amount-large">₦${(profile?.wallet_balance || 0).toLocaleString()}</p>
+                    <button class="btn-primary" id="fundWalletBtn">
+                        <i class="fas fa-plus"></i> Add Funds
+                    </button>
+                </div>
+                <div class="wallet-gp-card">
+                    <h3>GP Points</h3>
+                    <p class="gp-amount-large">${progressData?.currentGP?.toLocaleString() || 0}</p>
+                    <span class="gp-label">Earn more by completing tasks!</span>
+                    <button class="btn-outline convert-stars-btn" id="convertStarsFromWallet">
+                        <i class="fas fa-star"></i> Convert to Stars
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Transaction History</h3>
+                <div id="transactionHistory">
+                    <p class="text-muted">Loading transactions...</p>
+                </div>
             </div>
         `;
+
+        document.getElementById('fundWalletBtn')?.addEventListener('click', () => {
+            // Close this tab and show fund modal
+            this.showFundWalletModal();
+        });
+
+        document.getElementById('convertStarsFromWallet')?.addEventListener('click', () => {
+            this.showConvertStarsModal();
+        });
+
+        await this.loadTransactionHistory();
     }
 
+    // ============================================
+    // LOAD TRANSACTION HISTORY
+    // ============================================
+    async loadTransactionHistory() {
+        const container = document.getElementById('transactionHistory');
+        if (!container) return;
+
+        try {
+            const [transactions, paymentRequests] = await Promise.all([
+                getUserTransactions(),
+                this.getPaymentRequests(this.currentUser.id)
+            ]);
+
+            let allTransactions = [];
+
+            if (transactions && transactions.length > 0) {
+                allTransactions = allTransactions.concat(transactions.map(tx => ({
+                    ...tx,
+                    type: 'transaction',
+                    display_type: tx.type || 'unknown',
+                    date: tx.created_at,
+                    description: tx.description || `${tx.type === 'credit' ? 'Credited' : 'Debited'}`
+                })));
+            }
+
+            if (paymentRequests && paymentRequests.length > 0) {
+                allTransactions = allTransactions.concat(paymentRequests.map(p => ({
+                    ...p,
+                    type: 'payment_request',
+                    display_type: p.status,
+                    date: p.submitted_at,
+                    amount: p.amount,
+                    description: 'Wallet funding request'
+                })));
+            }
+
+            allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (allTransactions.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-receipt" style="font-size: 32px; color: var(--text-muted);"></i>
+                        <p>No transactions yet</p>
+                        <small>Your financial activity will appear here</small>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = allTransactions.map(item => {
+                let amountDisplay = '';
+                let statusDisplay = '';
+                let description = item.description || 'Transaction';
+                let dateDisplay = '';
+
+                const d = new Date(item.date);
+                dateDisplay = d.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+
+                if (item.type === 'transaction') {
+                    const prefix = item.display_type === 'credit' ? '+' : '';
+                    amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
+                    const cls = item.display_type === 'credit' ? 'credit' : 'debit';
+                    return `
+                        <div class="transaction-item">
+                            <div class="tx-info">
+                                <span class="tx-description">${description}</span>
+                                <span class="tx-date">${dateDisplay}</span>
+                            </div>
+                            <div class="tx-amount ${cls}">${amountDisplay}</div>
+                        </div>
+                    `;
+                } else if (item.type === 'payment_request') {
+                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                    const statusMap = {
+                        'pending': '⏳ Pending',
+                        'approved': '✅ Approved',
+                        'rejected': '❌ Rejected'
+                    };
+                    statusDisplay = `<span class="tx-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
+                    const icon = item.display_type === 'approved' ? 'fa-check-circle' : 
+                                 item.display_type === 'rejected' ? 'fa-times-circle' : 'fa-clock';
+                    
+                    return `
+                        <div class="transaction-item">
+                            <div class="tx-info">
+                                <span class="tx-description">
+                                    <i class="fas ${icon}" style="margin-right: 6px;"></i>
+                                    ${description}
+                                </span>
+                                <span class="tx-date">${dateDisplay}</span>
+                                ${statusDisplay}
+                            </div>
+                            <div class="tx-amount ${item.display_type}">${amountDisplay}</div>
+                        </div>
+                    `;
+                }
+                return '';
+            }).join('');
+
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+            container.innerHTML = '<p class="text-muted">Failed to load transactions</p>';
+        }
+    }
+
+    // ============================================
+    // MESSAGES TAB (Fully Implemented)
+    // ============================================
     async loadMessages(container) {
+        if (!container) {
+            container = this.container;
+        }
+        if (!container) return;
+
         container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-envelope"></i>
-                <h3>Messages</h3>
-                <p>Message features coming soon...</p>
+            <div class="dashboard-header">
+                <h1><i class="fas fa-envelope"></i> Messages</h1>
+                <p>Communicate with administrators</p>
+            </div>
+            
+            <div class="card messages-container">
+                <div class="messages-header">
+                    <h3>Admin Communication</h3>
+                    <button id="newMessageBtn" class="btn-primary"><i class="fas fa-plus"></i> New Message</button>
+                </div>
+                
+                <div id="messageThreads">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
+                        <h3>No Messages</h3>
+                        <p>Start a conversation with an administrator</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="messageModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>New Message</h2>
+                        <button class="modal-close" id="closeMessageModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="messageForm">
+                            <div class="form-group">
+                                <label>Subject</label>
+                                <input type="text" id="messageSubject" required placeholder="Enter message subject">
+                            </div>
+                            <div class="form-group">
+                                <label>Message</label>
+                                <textarea id="messageBody" rows="5" required placeholder="Type your message..."></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary">Send Message</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         `;
+
+        document.getElementById('newMessageBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('messageModal');
+            if (modal) modal.classList.add('active');
+        });
+
+        document.getElementById('closeMessageModal')?.addEventListener('click', () => {
+            const modal = document.getElementById('messageModal');
+            if (modal) modal.classList.remove('active');
+        });
+
+        document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const subject = document.getElementById('messageSubject').value;
+            const body = document.getElementById('messageBody').value;
+            
+            const { error } = await supabase
+                .from('messages')
+                .insert([{
+                    user_id: this.currentUser.id,
+                    subject: subject,
+                    body: body,
+                    status: 'unread',
+                    created_at: new Date().toISOString()
+                }]);
+            
+            if (error) {
+                showToast('Failed to send message', 'error');
+            } else {
+                showToast('Message sent successfully!', 'success');
+                document.getElementById('messageModal').classList.remove('active');
+                document.getElementById('messageForm').reset();
+                await this.loadMessageThreads();
+            }
+        });
+
+        await this.loadMessageThreads();
     }
 
+    // ============================================
+    // LOAD MESSAGE THREADS
+    // ============================================
+    async loadMessageThreads() {
+        const container = document.getElementById('messageThreads');
+        if (!container) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('user_id', this.currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
+                        <h3>No Messages</h3>
+                        <p>Start a conversation with an administrator</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.map(msg => `
+                <div class="message-thread ${msg.status === 'unread' ? 'unread' : ''}">
+                    <div class="message-header">
+                        <span class="message-subject">${msg.subject}</span>
+                        <span class="message-date">${this.getTimeAgo(msg.created_at)}</span>
+                    </div>
+                    <div class="message-body-preview">${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}</div>
+                    <div class="message-status ${msg.status}">${msg.status === 'unread' ? '🔴 Unread' : '✅ Read'}</div>
+                    ${msg.admin_response ? `
+                        <div class="admin-response">
+                            <strong>Admin Response:</strong> ${msg.admin_response}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            container.innerHTML = '<p class="text-muted">Failed to load messages</p>';
+        }
+    }
+
+    // ============================================
+    // PORTFOLIO TAB (Fully Implemented)
+    // ============================================
     async loadPortfolio(container) {
+        if (!container) {
+            container = this.container;
+        }
+        if (!container) return;
+
+        const user = this.currentUser;
+        const profile = this.currentProfile;
+        const username = profile?.username || user?.email?.split('@')[0] || 'user';
+        const portfolioUrl = `${window.location.origin}/u/${username}`;
+
         container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-user-circle"></i>
-                <h3>Portfolio</h3>
-                <p>Portfolio features coming soon...</p>
+            <div class="dashboard-header">
+                <h1><i class="fas fa-user-circle"></i> Portfolio</h1>
+                <p>Your creative showcase</p>
+            </div>
+
+            <div class="card portfolio-link-card">
+                <div class="portfolio-header">
+                    <h3><i class="fas fa-link"></i> Your Portfolio Link</h3>
+                    <div class="portfolio-url-container">
+                        <input type="text" id="portfolioUrl" value="${portfolioUrl}" readonly>
+                        <button id="copyPortfolioUrl" class="btn-icon" title="Copy URL">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="portfolio-qr-container" id="portfolioQrContainer">
+                    <div id="portfolioQrCode" style="display: flex; justify-content: center; padding: 10px;">
+                        <canvas id="qrCanvas"></canvas>
+                    </div>
+                    <p class="qr-hint">Scan to view my portfolio</p>
+                </div>
+            </div>
+
+            <div class="go-to-grid">
+                <a href="/library.html" class="go-to-item">
+                    <div class="go-to-icon"><i class="fas fa-book"></i></div>
+                    <div class="go-to-label">Library</div>
+                    <div class="go-to-desc">Browse books & content</div>
+                </a>
+                <a href="/hub.html" class="go-to-item">
+                    <div class="go-to-icon"><i class="fas fa-store"></i></div>
+                    <div class="go-to-label">Hub</div>
+                    <div class="go-to-desc">Community marketplace</div>
+                </a>
+                <a href="/chat.html" class="go-to-item">
+                    <div class="go-to-icon"><i class="fas fa-comments"></i></div>
+                    <div class="go-to-label">Chat Room</div>
+                    <div class="go-to-desc">Connect with peers</div>
+                </a>
+                <a href="/virtualroom.html" class="go-to-item">
+                    <div class="go-to-icon"><i class="fas fa-video"></i></div>
+                    <div class="go-to-label">Virtual Room</div>
+                    <div class="go-to-desc">Live sessions</div>
+                </a>
+                <a href="/courses.html" class="go-to-item">
+                    <div class="go-to-icon"><i class="fas fa-graduation-cap"></i></div>
+                    <div class="go-to-label">Courses</div>
+                    <div class="go-to-desc">Your learning path</div>
+                </a>
+                <a href="/merchandise.html" class="go-to-item">
+                    <div class="go-to-icon"><i class="fas fa-tshirt"></i></div>
+                    <div class="go-to-label">Merchandise</div>
+                    <div class="go-to-desc">Shop Gliimu gear</div>
+                </a>
+            </div>
+
+            <div class="card quick-stats-card">
+                <h3>Your Stats</h3>
+                <div class="quick-stats-grid">
+                    <div class="quick-stat">
+                        <span class="stat-number">${profile?.gp_points?.toLocaleString() || 0}</span>
+                        <span class="stat-label">GP Points</span>
+                    </div>
+                    <div class="quick-stat">
+                        <span class="stat-number">${profile?.total_stars || 0} ⭐</span>
+                        <span class="stat-label">Stars</span>
+                    </div>
+                    <div class="quick-stat">
+                        <span class="stat-number">${profile?.role || 'Student'}</span>
+                        <span class="stat-label">Role</span>
+                    </div>
+                </div>
             </div>
         `;
+
+        document.getElementById('copyPortfolioUrl')?.addEventListener('click', () => {
+            const urlInput = document.getElementById('portfolioUrl');
+            if (urlInput) {
+                urlInput.select();
+                document.execCommand('copy');
+                showToast('Portfolio URL copied!', 'success');
+            }
+        });
+
+        this.generateQRCode(portfolioUrl);
+    }
+
+    // ============================================
+    // GENERATE QR CODE
+    // ============================================
+    generateQRCode(url) {
+        if (typeof QRCode === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
+            script.onload = () => {
+                this.generateQRCode(url);
+            };
+            document.head.appendChild(script);
+            return;
+        }
+
+        const canvas = document.getElementById('qrCanvas');
+        if (canvas) {
+            try {
+                new QRCode(canvas, {
+                    text: url,
+                    width: 150,
+                    height: 150,
+                    colorDark: '#1a1c4a',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+            }
+        }
     }
 }
 
