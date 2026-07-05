@@ -780,7 +780,7 @@ export async function createReferral(referrerId, referredUserId, referralCode) {
 // SECTION 8: HUB CONTENT (BASIC)
 // ============================================
 
-async function getHubContent(filters = {}) {
+export async function getHubContent(filters = {}) {
     try {
         let query = supabase
             .from('hub_content')
@@ -829,7 +829,7 @@ async function getHubContent(filters = {}) {
 // SECTION 9: REAL-TIME SUBSCRIPTIONS
 // ============================================
 
-function subscribeToWallet(callback) {
+export function subscribeToWallet(callback) {
     // Get user synchronously - this will work if user is already loaded
     // For proper implementation, we should pass userId
     const userId = localStorage.getItem('glimu_user_id');
@@ -857,68 +857,6 @@ function subscribeToWallet(callback) {
 }
 
 // ============================================
-// EXPORT ALL FUNCTIONS - SINGLE SOURCE OF TRUTH
+// ALL FUNCTIONS EXPORTED ABOVE WITH 'export' KEYWORD
+// NO DUPLICATE EXPORT BLOCK AT THE BOTTOM
 // ============================================
-
-// Authentication
-export { 
-    getCurrentUser,
-    getCurrentSession,
-    signIn,
-    signUp,
-    signOutUser
-};
-
-// User Profiles
-export {
-    getUserProfile,
-    updateUserProfile,
-    updateWalletBalance
-};
-
-// User Alerts
-export {
-    getUserAlerts,
-    createUserAlert,
-    markAlertRead,
-    markAllAlertsRead
-};
-
-// User Activity
-export {
-    logUserActivity,
-    getUserActivity
-};
-
-// Applications
-export {
-    submitApplication,
-    getUserApplications,
-    getPendingApplications,
-    approveApplication,
-    rejectApplication
-};
-
-// Payments & Transactions
-export {
-    createPaymentRequest,
-    getUserPaymentRequests,
-    getUserTransactions,
-    addTransaction
-};
-
-// Referrals
-export {
-    getReferralCount,
-    createReferral
-};
-
-// Hub Content
-export {
-    getHubContent
-};
-
-// Real-time
-export {
-    subscribeToWallet
-};
