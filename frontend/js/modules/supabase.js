@@ -830,8 +830,13 @@ export async function getHubContent(filters = {}) {
 // ============================================
 
 export function subscribeToWallet(callback) {
-    const user = getCurrentUser();
-    if (!user) return null;
+    // Get user synchronously - this will work if user is already loaded
+    // For proper implementation, we should pass userId
+    const userId = localStorage.getItem('glimu_user_id');
+    if (!userId) {
+        console.warn('No user ID found for wallet subscription');
+        return null;
+    }
     
     return supabase
         .channel('wallet_changes')
@@ -840,7 +845,7 @@ export function subscribeToWallet(callback) {
                 event: 'UPDATE', 
                 schema: 'public', 
                 table: 'user_profiles',
-                filter: `id=eq.${user.id}` 
+                filter: `id=eq.${userId}` 
             },
             (payload) => {
                 if (payload.new) {
@@ -852,7 +857,7 @@ export function subscribeToWallet(callback) {
 }
 
 // ============================================
-// EXPORT ALL FUNCTIONS
+// EXPORT ALL FUNCTIONS - SINGLE SOURCE OF TRUTH
 // ============================================
 
 // Authentication
