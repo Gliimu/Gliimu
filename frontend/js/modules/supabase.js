@@ -1522,7 +1522,7 @@ export async function getSavedItems() {
 
 // ============================================
 // ============================================
-// EXPORT ALL FUNCTIONS (ONLY ONE OF THESE!)
+// EXPORT ALL FUNCTIONS
 // ============================================
 // ============================================
 
@@ -1625,7 +1625,7 @@ export {
     subscribeToWallet
 };
 
-// Legacy
+// Legacy - SAVED ITEMS
 export {
     saveToShelf,
     getSavedItems
