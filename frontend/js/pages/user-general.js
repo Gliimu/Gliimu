@@ -149,18 +149,18 @@ export class GeneralDashboard {
                 </div>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="quick-actions-grid">
-                <button class="quick-action-btn" data-action="role">
-                    <i class="fas fa-user-graduate"></i>
+            <!-- Quick Actions - Using existing classes -->
+            <div class="quick-actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px;">
+                <button class="action-btn" data-action="role" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
+                    <i class="fas fa-user-graduate" style="color: var(--brand-gold);"></i>
                     <span>Apply for Role</span>
                 </button>
-                <button class="quick-action-btn" data-action="wallet">
-                    <i class="fas fa-plus-circle"></i>
+                <button class="action-btn" data-action="wallet" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
+                    <i class="fas fa-plus-circle" style="color: var(--brand-gold);"></i>
                     <span>Fund Wallet</span>
                 </button>
-                <button class="quick-action-btn" data-action="stars">
-                    <i class="fas fa-star"></i>
+                <button class="action-btn" data-action="stars" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
+                    <i class="fas fa-star" style="color: var(--brand-gold);"></i>
                     <span>Convert GP to Stars</span>
                 </button>
             </div>
@@ -342,7 +342,7 @@ export class GeneralDashboard {
         });
 
         // Quick action buttons
-        document.querySelectorAll('.quick-action-btn').forEach(btn => {
+        document.querySelectorAll('.action-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.action;
                 if (action === 'role') this.showApplyRoleModal();
@@ -705,7 +705,6 @@ export class GeneralDashboard {
     // OTHER TABS (Placeholders)
     // ============================================
     async loadWallet(container) {
-        // Will be implemented in full version
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-wallet"></i>
