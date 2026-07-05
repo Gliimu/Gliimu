@@ -1,0 +1,174 @@
+/* ============================================
+   GLIIMU USER DASHBOARD - THEME
+   Version: 3.0
+   ============================================ */
+
+/* ============================================
+   LIGHT MODE (DEFAULT)
+   ============================================ */
+:root {
+    /* Backgrounds */
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f3f5;
+    --bg-hover: #eef0f2;
+
+    /* Text */
+    --text-primary: #1a1c4a;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+
+    /* Borders */
+    --border-color: #e5e7eb;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.15);
+
+    /* Radius */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+
+    /* Brand */
+    --brand-gold: #fbb040;
+    --brand-gold-dark: #e6a032;
+    --brand-purple: #1a1c4a;
+
+    /* Transitions */
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Sizes */
+    --sidebar-width: 280px;
+    --header-height: 64px;
+    --mobile-nav-height: 70px;
+
+    /* Scrollbar */
+    --scrollbar-track: var(--bg-tertiary);
+    --scrollbar-thumb: var(--brand-gold);
+    --scrollbar-thumb-hover: var(--brand-gold-dark);
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+body.dark-mode {
+    /* Backgrounds */
+    --bg-primary: #0f0f1a;
+    --bg-secondary: #1a1c2e;
+    --bg-tertiary: #252740;
+    --bg-hover: #2f3250;
+
+    /* Text */
+    --text-primary: #e8e8f0;
+    --text-secondary: #a8a8b8;
+    --text-muted: #6a6a7a;
+
+    /* Borders */
+    --border-color: #2a2c44;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.6);
+
+    /* Scrollbar */
+    --scrollbar-track: var(--bg-tertiary);
+    --scrollbar-thumb: var(--brand-gold);
+    --scrollbar-thumb-hover: var(--brand-gold-dark);
+}
+
+/* ============================================
+   THEME TRANSITION
+   ============================================ */
+body,
+body * {
+    transition: background-color 0.3s ease,
+                color 0.3s ease,
+                border-color 0.3s ease,
+                box-shadow 0.3s ease;
+}
+
+/* Prevent transition on page load */
+body.no-transition,
+body.no-transition * {
+    transition: none !important;
+}
+
+/* ============================================
+   SYSTEM THEME (Matches OS preference)
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+    body.system-theme {
+        /* Dark mode variables */
+        --bg-primary: #0f0f1a;
+        --bg-secondary: #1a1c2e;
+        --bg-tertiary: #252740;
+        --bg-hover: #2f3250;
+        --text-primary: #e8e8f0;
+        --text-secondary: #a8a8b8;
+        --text-muted: #6a6a7a;
+        --border-color: #2a2c44;
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+        --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+        --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    body.system-theme {
+        /* Light mode variables (default) */
+    }
+}
+
+/* ============================================
+   THEME SPECIFIC OVERRIDES
+   ============================================ */
+
+/* Dark mode - QR Code */
+body.dark-mode #portfolioQrCode {
+    background: white;
+}
+
+/* Dark mode - Modals */
+body.dark-mode .modal .modal-content {
+    background: var(--bg-secondary);
+}
+
+/* Dark mode - Dropdowns */
+body.dark-mode .alert-dropdown {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .alert-item.unread {
+    background: rgba(251, 176, 64, 0.06);
+}
+
+body.dark-mode .alert-item.unread:hover {
+    background: rgba(251, 176, 64, 0.1);
+}
+
+/* Dark mode - Toast */
+body.dark-mode #toast-container .toast {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+/* Dark mode - Scrollbar (already handles via variables) */
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
