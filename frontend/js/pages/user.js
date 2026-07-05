@@ -1319,47 +1319,51 @@ export class UserPage {
         }
     }
 
-    async showBankDetails() {
-        const fundingOptions = document.querySelector('.funding-options');
-        const bankDetails = document.querySelector('.bank-details');
+   // ============================================
+// SHOW BANK DETAILS - FIXED
+// ============================================
+
+async showBankDetails() {
+    const fundingOptions = document.querySelector('.funding-options');
+    const bankDetails = document.querySelector('.bank-details');
+    
+    if (fundingOptions && bankDetails) {
+        fundingOptions.style.display = 'none';
+        bankDetails.style.display = 'block';
         
-        if (fundingOptions && bankDetails) {
-            fundingOptions.style.display = 'none';
-            bankDetails.style.display = 'block';
-            
-            // ✅ FIXED: Generate reference code with username (GLM-USERNAME-RANDOM)
-            const username = this.currentProfile?.username || 'user';
-            const randomNum = Math.floor(Math.random() * 9000) + 1000;
-            this.referenceCode = `GLM-${username}-${randomNum}`;
-            document.getElementById('referenceCode').textContent = this.referenceCode;
-            
-            // ✅ CORRECT BANK ACCOUNTS (No GTBank)
-            const bankAccounts = [
-                {
-                    bankName: 'MoniePoint Micro Finance Bank',
-                    accountName: 'Gliimu LTD',
-                    accountNumber: '6315085115'
-                },
-                {
-                    bankName: 'Opay',
-                    accountName: 'Gliimu LTD',
-                    accountNumber: '6142049426'
-                }
-            ];
-            
-            const selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
-            
-            document.getElementById('bankInfoCard').innerHTML = `
-                <p><strong>Bank:</strong> <span style="color: var(--brand-gold);">${selectedBank.bankName}</span></p>
-                <p><strong>Account Name:</strong> <span style="color: var(--brand-gold);">${selectedBank.accountName}</span></p>
-                <p><strong>Account Number:</strong> <span style="color: var(--brand-gold); font-size: 1.2rem; font-weight: 700;">${selectedBank.accountNumber}</span></p>
-                <p><strong>Amount:</strong> <span style="color: var(--brand-gold); font-weight: 700;">₦${this.selectedAmount.toLocaleString()}</span></p>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
-                    <i class="fas fa-info-circle"></i> Use <strong>${this.referenceCode}</strong> as transaction narration
-                </p>
-            `;
-        }
+        // Get username for reference code
+        const username = this.currentProfile?.username || 'user';
+        const randomNum = Math.floor(Math.random() * 9000) + 1000;
+        this.referenceCode = `GLM-${username}-${randomNum}`;
+        
+        document.getElementById('referenceCode').textContent = this.referenceCode;
+        
+        const bankAccounts = [
+            {
+                bankName: 'MoniePoint Micro Finance Bank',
+                accountName: 'Gliimu LTD',
+                accountNumber: '6315085115'
+            },
+            {
+                bankName: 'Opay',
+                accountName: 'Gliimu LTD',
+                accountNumber: '6142049426'
+            }
+        ];
+        
+        const selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
+        
+        document.getElementById('bankInfoCard').innerHTML = `
+            <p><strong>Bank:</strong> <span style="color: var(--brand-gold);">${selectedBank.bankName}</span></p>
+            <p><strong>Account Name:</strong> <span style="color: var(--brand-gold);">${selectedBank.accountName}</span></p>
+            <p><strong>Account Number:</strong> <span style="color: var(--brand-gold); font-size: 1.2rem; font-weight: 700;">${selectedBank.accountNumber}</span></p>
+            <p><strong>Amount:</strong> <span style="color: var(--brand-gold); font-weight: 700;">₦${this.selectedAmount.toLocaleString()}</span></p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                <i class="fas fa-info-circle"></i> Use <strong style="color: var(--brand-gold);">${this.referenceCode}</strong> as transaction narration
+            </p>
+        `;
     }
+}
 
     resetWalletModal() {
         const fundingOptions = document.querySelector('.funding-options');
