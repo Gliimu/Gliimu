@@ -1,5 +1,5 @@
 // ============================================
-// USER ALERTS MODULE
+// USER ALERTS MODULE - FIXED
 // Path: /frontend/js/pages/user-alerts.js
 // Purpose: Manages all alert/notification functionality
 // ============================================
@@ -17,6 +17,7 @@ class AlertManager {
         this.unreadCount = 0;
         this.userId = null;
         this.listeners = [];
+        this.initialized = false;
     }
 
     // ============================================
@@ -26,6 +27,7 @@ class AlertManager {
         this.userId = userId;
         await this.loadAlerts();
         this.setupRealtimeSubscription();
+        this.initialized = true;
     }
 
     // ============================================
@@ -33,26 +35,41 @@ class AlertManager {
     // ============================================
     async loadAlerts() {
         try {
-            if (!this.userId) return [];
-
-            const { data, error } = await supabase
-                .from('user_alerts')
-                .select('*')
-                .eq('user_id', this.userId)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                // If table doesn't exist, use local storage fallback
-                if (error.code === '42P01') {
-                    return this.loadLocalAlerts();
-                }
-                throw error;
+            if (!this.userId) {
+                console.warn('No userId for alerts');
+                return [];
             }
 
-            this.alerts = data || [];
-            this.unreadCount = this.alerts.filter(a => !a.read).length;
-            this.notifyListeners();
-            return this.alerts;
+            // Try to load from database first
+            try {
+                const { data, error } = await supabase
+                    .from('user_alerts')
+                    .select('*')
+                    .eq('user_id', this.userId)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    // Table doesn't exist - use local storage fallback
+                    if (error.code === '42P01' || error.code === 'PGRST205') {
+                        console.warn('user_alerts table not found, using local storage');
+                        return this.loadLocalAlerts();
+                    }
+                    throw error;
+                }
+
+                if (data && data.length > 0) {
+                    this.alerts = data;
+                    this.unreadCount = this.alerts.filter(a => !a.read).length;
+                    this.saveLocalAlerts(); // Cache in local storage
+                    this.notifyListeners();
+                    return this.alerts;
+                }
+            } catch (dbError) {
+                console.warn('Database error, using local storage:', dbError.message);
+            }
+
+            // Fallback to local storage
+            return this.loadLocalAlerts();
 
         } catch (error) {
             console.error('Error loading alerts:', error);
@@ -67,7 +84,8 @@ class AlertManager {
         try {
             const stored = localStorage.getItem(`alerts_${this.userId}`);
             if (stored) {
-                this.alerts = JSON.parse(stored);
+                const parsed = JSON.parse(stored);
+                this.alerts = parsed;
                 this.unreadCount = this.alerts.filter(a => !a.read).length;
                 this.notifyListeners();
                 return this.alerts;
@@ -75,7 +93,10 @@ class AlertManager {
         } catch (e) {
             console.warn('Could not load local alerts:', e);
         }
-        return [];
+        
+        // If no alerts exist, create initial ones
+        this.createInitialAlerts();
+        return this.alerts;
     }
 
     saveLocalAlerts() {
@@ -84,6 +105,88 @@ class AlertManager {
         } catch (e) {
             console.warn('Could not save local alerts:', e);
         }
+    }
+
+    // ============================================
+    // CREATE INITIAL GUIDELINE ALERTS
+    // ============================================
+    createInitialAlerts() {
+        // Check if initial alerts already exist
+        const existing = this.alerts.filter(a => 
+            a.message.includes('created an account successfully') ||
+            a.message.includes('Terms & Conditions')
+        );
+
+        if (existing.length === 0) {
+            const initialAlerts = [
+                {
+                    id: `alert_init_1_${Date.now()}`,
+                    user_id: this.userId,
+                    icon: '🎉',
+                    message: 'You have created an account successfully! Welcome to Gliimu.',
+                    link: null,
+                    read: false,
+                    created_at: new Date().toISOString(),
+                    type: 'success'
+                },
+                {
+                    id: `alert_init_2_${Date.now()}`,
+                    user_id: this.userId,
+                    icon: '✉️',
+                    message: 'Click the Messages tab to send applications or ask questions.',
+                    link: null,
+                    read: false,
+                    created_at: new Date().toISOString(),
+                    type: 'info'
+                },
+                {
+                    id: `alert_init_3_${Date.now()}`,
+                    user_id: this.userId,
+                    icon: '📜',
+                    message: 'By using our platform, you agree to our Terms & Conditions.',
+                    link: 'https://gliimu.com/policy',
+                    read: false,
+                    created_at: new Date().toISOString(),
+                    type: 'info'
+                },
+                {
+                    id: `alert_init_4_${Date.now()}`,
+                    user_id: this.userId,
+                    icon: '🚀',
+                    message: 'Start by exploring the Library and earning GP points!',
+                    link: null,
+                    read: false,
+                    created_at: new Date().toISOString(),
+                    type: 'info'
+                }
+            ];
+
+            this.alerts = initialAlerts;
+            this.unreadCount = initialAlerts.length;
+            this.saveLocalAlerts();
+            this.notifyListeners();
+            
+            console.log('✅ Created 4 initial guideline alerts');
+        }
+    }
+
+    // ============================================
+    // ADD INITIAL ALERTS (Public method)
+    // ============================================
+    async addInitialAlerts() {
+        // Check if any alerts exist
+        if (this.alerts.length === 0) {
+            this.createInitialAlerts();
+        } else {
+            // Check if initial alerts are missing
+            const hasInitial = this.alerts.some(a => 
+                a.message.includes('created an account successfully')
+            );
+            if (!hasInitial) {
+                this.createInitialAlerts();
+            }
+        }
+        return this.alerts;
     }
 
     // ============================================
@@ -107,33 +210,21 @@ class AlertManager {
                 .from('user_alerts')
                 .insert([newAlert]);
 
-            if (error) {
-                if (error.code === '42P01') {
-                    // Table doesn't exist, use local storage
-                    this.alerts.unshift(newAlert);
-                    this.unreadCount++;
-                    this.saveLocalAlerts();
-                    this.notifyListeners();
-                    return newAlert;
-                }
-                throw error;
+            if (error && error.code !== '42P01' && error.code !== 'PGRST205') {
+                console.warn('Could not save to database, using local storage:', error.message);
             }
 
-            // Success - add to local state
-            this.alerts.unshift(newAlert);
-            this.unreadCount++;
-            this.notifyListeners();
-            return newAlert;
-
-        } catch (error) {
-            console.error('Error creating alert:', error);
-            // Fallback to local
-            this.alerts.unshift(newAlert);
-            this.unreadCount++;
-            this.saveLocalAlerts();
-            this.notifyListeners();
-            return newAlert;
+        } catch (e) {
+            // Table doesn't exist, use local storage
+            console.warn('Using local storage for alerts');
         }
+
+        // Always add to local state
+        this.alerts.unshift(newAlert);
+        this.unreadCount++;
+        this.saveLocalAlerts();
+        this.notifyListeners();
+        return newAlert;
     }
 
     // ============================================
@@ -167,14 +258,14 @@ class AlertManager {
             alert.read = true;
             this.unreadCount = Math.max(0, this.unreadCount - 1);
 
-            // Update in database
-            const { error } = await supabase
-                .from('user_alerts')
-                .update({ read: true })
-                .eq('id', alertId);
-
-            if (error && error.code !== '42P01') {
-                throw error;
+            // Try to update in database
+            try {
+                await supabase
+                    .from('user_alerts')
+                    .update({ read: true })
+                    .eq('id', alertId);
+            } catch (e) {
+                // Table doesn't exist, just use local
             }
 
             this.saveLocalAlerts();
@@ -193,15 +284,15 @@ class AlertManager {
             this.alerts.forEach(a => a.read = true);
             this.unreadCount = 0;
 
-            // Update in database
-            const { error } = await supabase
-                .from('user_alerts')
-                .update({ read: true })
-                .eq('user_id', this.userId)
-                .eq('read', false);
-
-            if (error && error.code !== '42P01') {
-                throw error;
+            // Try to update in database
+            try {
+                await supabase
+                    .from('user_alerts')
+                    .update({ read: true })
+                    .eq('user_id', this.userId)
+                    .eq('read', false);
+            } catch (e) {
+                // Table doesn't exist, just use local
             }
 
             this.saveLocalAlerts();
@@ -220,13 +311,13 @@ class AlertManager {
             this.alerts = this.alerts.filter(a => a.id !== alertId);
             this.unreadCount = this.alerts.filter(a => !a.read).length;
 
-            const { error } = await supabase
-                .from('user_alerts')
-                .delete()
-                .eq('id', alertId);
-
-            if (error && error.code !== '42P01') {
-                throw error;
+            try {
+                await supabase
+                    .from('user_alerts')
+                    .delete()
+                    .eq('id', alertId);
+            } catch (e) {
+                // Table doesn't exist, just use local
             }
 
             this.saveLocalAlerts();
@@ -245,13 +336,13 @@ class AlertManager {
             this.alerts = [];
             this.unreadCount = 0;
 
-            const { error } = await supabase
-                .from('user_alerts')
-                .delete()
-                .eq('user_id', this.userId);
-
-            if (error && error.code !== '42P01') {
-                throw error;
+            try {
+                await supabase
+                    .from('user_alerts')
+                    .delete()
+                    .eq('user_id', this.userId);
+            } catch (e) {
+                // Table doesn't exist, just use local
             }
 
             this.saveLocalAlerts();
@@ -263,74 +354,36 @@ class AlertManager {
     }
 
     // ============================================
-    // ADD INITIAL GUIDELINE ALERTS
-    // ============================================
-    async addInitialAlerts() {
-        const initialAlerts = [
-            {
-                icon: '🎉',
-                message: 'You have created an account successfully! Welcome to Gliimu.',
-                type: 'success'
-            },
-            {
-                icon: '✉️',
-                message: 'Click the Messages tab to send applications or ask questions.',
-                link: '#',
-                type: 'info'
-            },
-            {
-                icon: '📜',
-                message: 'By using our platform, you agree to our Terms & Conditions.',
-                link: 'https://gliimu.com/policy',
-                type: 'info'
-            },
-            {
-                icon: '🚀',
-                message: 'Start by exploring the Library and earning GP points!',
-                type: 'info'
-            }
-        ];
-
-        // Check if initial alerts already added
-        const existing = this.alerts.filter(a => 
-            a.message.includes('created an account successfully') ||
-            a.message.includes('Terms & Conditions')
-        );
-
-        if (existing.length === 0) {
-            for (const alert of initialAlerts) {
-                await this.createAlert(alert);
-            }
-        }
-    }
-
-    // ============================================
     // REAL-TIME SUBSCRIPTION
     // ============================================
     setupRealtimeSubscription() {
         if (!this.userId) return;
 
-        const channel = supabase
-            .channel('alerts_channel')
-            .on('postgres_changes', 
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'user_alerts',
-                    filter: `user_id=eq.${this.userId}`
-                },
-                (payload) => {
-                    if (payload.new) {
-                        this.alerts.unshift(payload.new);
-                        if (!payload.new.read) {
-                            this.unreadCount++;
+        try {
+            const channel = supabase
+                .channel('alerts_channel')
+                .on('postgres_changes', 
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'user_alerts',
+                        filter: `user_id=eq.${this.userId}`
+                    },
+                    (payload) => {
+                        if (payload.new) {
+                            this.alerts.unshift(payload.new);
+                            if (!payload.new.read) {
+                                this.unreadCount++;
+                            }
+                            this.saveLocalAlerts();
+                            this.notifyListeners();
                         }
-                        this.saveLocalAlerts();
-                        this.notifyListeners();
                     }
-                }
-            )
-            .subscribe();
+                )
+                .subscribe();
+        } catch (e) {
+            console.warn('Could not setup real-time subscription:', e.message);
+        }
     }
 
     // ============================================
@@ -345,7 +398,13 @@ class AlertManager {
             alerts: this.alerts,
             unreadCount: this.unreadCount
         };
-        this.listeners.forEach(cb => cb(data));
+        this.listeners.forEach(cb => {
+            try {
+                cb(data);
+            } catch (e) {
+                console.error('Listener error:', e);
+            }
+        });
     }
 }
 
@@ -363,6 +422,7 @@ export async function addInitialAlerts(userId) {
     alertManager.userId = userId;
     await alertManager.loadAlerts();
     await alertManager.addInitialAlerts();
+    return alertManager.alerts;
 }
 
 export async function getUnreadCount(userId) {
