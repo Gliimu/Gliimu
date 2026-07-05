@@ -841,7 +841,7 @@ async loadTransactionHistory() {
                     <div class="transaction-item">
                         <div class="tx-info">
                             <span class="tx-description">${description}</span>
-                            <span class="tx-date">${new Date(item.date).toLocaleString()}</span>
+                            <span class="tx-date">${this.getTimeAgo(new Date(item.date))}</span>
                         </div>
                         <div class="tx-amount ${cls}">${amountDisplay}</div>
                     </div>
