@@ -1480,110 +1480,57 @@ export async function getSavedItems() {
 }
 
 // ============================================
-// EXPORT ALL FUNCTIONS (ONLY ONE BLOCK!)
+// EXPORT ALL FUNCTIONS
 // ============================================
 
-// Authentication
 export { 
     getCurrentUser,
     getCurrentSession,
     signIn,
     signUp,
-    signOutUser
-};
-
-// User Profiles
-export {
+    signOutUser,
     getUserProfile,
     updateUserProfile,
-    updateWalletBalance
-};
-
-// User Alerts
-export {
+    updateWalletBalance,
     getUserAlerts,
     createUserAlert,
     markAlertRead,
-    markAllAlertsRead
-};
-
-// User Activity
-export {
+    markAllAlertsRead,
     logUserActivity,
-    getUserActivity
-};
-
-// Applications
-export {
+    getUserActivity,
     submitApplication,
     getUserApplications,
     getPendingApplications,
     approveApplication,
-    rejectApplication
-};
-
-// Payments & Transactions
-export {
+    rejectApplication,
     createPaymentRequest,
     getUserPaymentRequests,
     getUserTransactions,
-    addTransaction
-};
-
-// Referrals
-export {
+    addTransaction,
     getUserReferrals,
     getReferralCount,
-    createReferral
-};
-
-// Hub Content
-export {
+    createReferral,
     getHubContent,
     getTrendingContent,
     getPromotedContent,
     getContentDetails,
     getContentByAuthor,
-    createContent
-};
-
-// Hub Comments
-export {
+    createContent,
     getComments,
-    addComment
-};
-
-// Hub Interactions
-export {
+    addComment,
     heartContent,
     getUserHeartedContent,
     saveContent,
     unsaveContent,
-    getUserSavedContent
-};
-
-// Stars & Promotions
-export {
+    getUserSavedContent,
     getStarBalance,
     getStarsEarned,
     convertGpToStars,
     useStarsForPromotion,
-    getStarTransactions
-};
-
-// Ambassador
-export {
+    getStarTransactions,
     getAmbassadorStatus,
-    claimFreePromotion
-};
-
-// Real-time
-export {
-    subscribeToWallet
-};
-
-// Legacy
-export {
+    claimFreePromotion,
+    subscribeToWallet,
     saveToShelf,
     getSavedItems
 };
