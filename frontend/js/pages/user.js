@@ -1387,96 +1387,106 @@ export class UserPage {
         }
     }
 
-    // ✅ FIXED: Confirm Payment - Inserts into payment_requests table
-    async confirmPayment() {
-        try {
-            const btn = document.getElementById('confirmPaymentBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+   // ============================================
+// CONFIRM PAYMENT - FIXED FOR YOUR SCHEMA
+// ============================================
+
+async confirmPayment() {
+    try {
+        const btn = document.getElementById('confirmPaymentBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            showToast('Please login first', 'error');
+            return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('name, email, username')
+            .eq('id', user.id)
+            .single();
+
+        if (profileError) {
+            console.error('Error fetching profile:', profileError);
+        }
+
+        // Get the selected bank from the modal
+        const bankInfo = document.getElementById('bankInfoCard');
+        let bankName = 'Opay';
+        if (bankInfo) {
+            const bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
+            if (bankMatch && bankMatch[1]) {
+                bankName = bankMatch[1].trim();
             }
+        }
 
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                showToast('Please login first', 'error');
-                return;
-            }
+        // Generate reference code with username (GLM-USERNAME-RANDOM)
+        const username = profile?.username || 'user';
+        const randomNum = Math.floor(Math.random() * 9000) + 1000;
+        const referenceCode = `GLM-${username}-${randomNum}`;
 
-            const { data: profile, error: profileError } = await supabase
-                .from('user_profiles')
-                .select('name, email, username')
-                .eq('id', user.id)
-                .single();
+        // Generate a unique ID for the payment request
+        const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-            if (profileError) {
-                console.error('Error fetching profile:', profileError);
-            }
+        console.log('📝 Creating payment request:', {
+            id: paymentId,
+            user_id: user.id,
+            user_name: profile?.name || 'User',
+            user_email: profile?.email || user.email,
+            amount: this.selectedAmount,
+            bank: bankName,
+            reference_code: referenceCode,
+            status: 'pending',
+            submitted_at: new Date().toISOString()
+        });
 
-            // Get the selected bank from the modal
-            const bankInfo = document.getElementById('bankInfoCard');
-            let bankName = 'Opay';
-            if (bankInfo) {
-                const bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
-                if (bankMatch && bankMatch[1]) {
-                    bankName = bankMatch[1].trim();
-                }
-            }
-
-            // ✅ FIXED: Generate reference code with username
-            const username = profile?.username || 'user';
-            const randomNum = Math.floor(Math.random() * 9000) + 1000;
-            const referenceCode = `GLM-${username}-${randomNum}`;
-
-            console.log('📝 Creating payment request:', {
+        // ✅ FIXED: Match your exact table schema
+        const { data, error } = await supabase
+            .from('payment_requests')
+            .insert([{
+                id: paymentId,
                 user_id: user.id,
+                user_name: profile?.name || 'User',
+                user_email: profile?.email || user.email,
                 amount: this.selectedAmount,
                 bank: bankName,
                 reference_code: referenceCode,
-                user_name: profile?.name || 'User',
-                user_email: profile?.email || user.email
-            });
+                status: 'pending',
+                submitted_at: new Date().toISOString()
+            }])
+            .select();
 
-            // ✅ FIXED: Insert into payment_requests table
-            const { data, error } = await supabase
-                .from('payment_requests')
-                .insert([{
-                    user_id: user.id,
-                    user_name: profile?.name || 'User',
-                    user_email: profile?.email || user.email,
-                    amount: this.selectedAmount,
-                    bank: bankName,
-                    reference_code: referenceCode,
-                    status: 'pending',
-                    submitted_at: new Date().toISOString()
-                }])
-                .select();
-
-            if (error) {
-                console.error('❌ Error creating payment request:', error);
-                showToast('Failed to submit payment: ' + error.message, 'error');
-                return;
-            }
-
-            console.log('✅ Payment request created:', data);
-            showToast(`💰 Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
-            
-            this.resetWalletModal();
-            document.getElementById('fundWalletModal').classList.remove('active');
-            document.body.style.overflow = '';
-            
-            await this.loadWallet();
-            
-        } catch (error) {
-            console.error('❌ Payment error:', error);
+        if (error) {
+            console.error('❌ Error creating payment request:', error);
             showToast('Failed to submit payment: ' + error.message, 'error');
-        } finally {
-            const btn = document.getElementById('confirmPaymentBtn');
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '✅ I Have Made Payment';
-            }
+            return;
+        }
+
+        console.log('✅ Payment request created:', data);
+        showToast(`💰 Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+        
+        this.resetWalletModal();
+        document.getElementById('fundWalletModal').classList.remove('active');
+        document.body.style.overflow = '';
+        
+        await this.loadWallet();
+        
+    } catch (error) {
+        console.error('❌ Payment error:', error);
+        showToast('Failed to submit payment: ' + error.message, 'error');
+    } finally {
+        const btn = document.getElementById('confirmPaymentBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '✅ I Have Made Payment';
         }
     }
+}
 
     // ============================================
     // MANAGE & ADMIN TABS
