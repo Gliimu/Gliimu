@@ -435,7 +435,7 @@ body {
 }
 
 /* ============================================
-   DASHBOARD GRID (Cards)
+   DASHBOARD GRID - SIDE BY SIDE ON WIDER SCREENS
    ============================================ */
 .dashboard-grid {
     display: grid;
@@ -444,24 +444,34 @@ body {
     margin-bottom: 24px;
 }
 
-.card {
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    padding: 20px 24px;
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition);
+/* Ensure both cards take equal space */
+.dashboard-grid .card {
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
 }
 
-.card:hover {
-    box-shadow: var(--shadow-md);
+.dashboard-grid .card .leaderboard-list,
+.dashboard-grid .card #recentActivity {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 350px;
 }
 
-.card h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 16px;
-    color: var(--text-primary);
+/* On mobile, stack vertically */
+@media (max-width: 992px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-grid .card {
+        min-height: auto;
+    }
+    
+    .dashboard-grid .card .leaderboard-list,
+    .dashboard-grid .card #recentActivity {
+        max-height: 300px;
+    }
 }
 
 /* ============================================
