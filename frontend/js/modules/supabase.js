@@ -87,7 +87,6 @@ export async function signUp(email, password, userData) {
         }
         
         if (data.user) {
-            // ✅ FIXED: wallet_balance starts at 0
             const { error: insertError } = await supabase
                 .from('user_profiles')
                 .upsert([{
@@ -409,7 +408,6 @@ export async function submitApplication(applicationData) {
             return { success: false, error: 'User not authenticated' };
         }
 
-        // Check for existing pending application
         const { data: existing, error: checkError } = await supabase
             .from('applications')
             .select('id, status')
@@ -491,7 +489,6 @@ export async function getPendingApplications() {
             .eq('id', user.id)
             .maybeSingle();
         
-        // Only admins can view pending applications
         const adminRoles = ['admin', 'founder', 'crm', 'manager'];
         if (!profile || !adminRoles.includes(profile.role)) {
             return [];
@@ -561,7 +558,6 @@ export async function approveApplication(applicationId, adminNotes = '') {
         
         if (updateUserError) throw updateUserError;
 
-        // Create alert for user
         await createUserAlert({
             user_id: application.user_id,
             icon: '🎓',
@@ -622,7 +618,6 @@ export async function rejectApplication(applicationId, adminNotes = '') {
         
         if (updateUserError) throw updateUserError;
 
-        // Create alert for user
         await createUserAlert({
             user_id: application.user_id,
             icon: '📋',
@@ -814,7 +809,6 @@ export async function createReferral(referrerId, referredUserId, referralCode) {
             throw error;
         }
 
-        // Award GP to referrer
         try {
             const { earnGP } = await import('./progression.js');
             await earnGP(referrerId, 'referral', 10, referredUserId);
@@ -935,13 +929,11 @@ export async function getContentDetails(contentId) {
         }
 
         if (data) {
-            // Increment views
             await supabase
                 .from('hub_content')
                 .update({ views: (data.views || 0) + 1 })
                 .eq('id', contentId);
 
-            // Log view
             try {
                 const user = await getCurrentUser();
                 await supabase
@@ -1011,7 +1003,6 @@ export async function createContent(contentData) {
             throw error;
         }
 
-        // Award GP to creator
         try {
             await supabase
                 .from('user_profiles')
@@ -1089,7 +1080,6 @@ export async function addComment(commentData) {
 
 export async function heartContent(contentId, userId) {
     try {
-        // Check if already hearted
         const { data: existing, error: checkError } = await supabase
             .from('user_hearts')
             .select('id')
@@ -1102,7 +1092,6 @@ export async function heartContent(contentId, userId) {
         }
 
         if (existing) {
-            // Remove heart
             const { error } = await supabase
                 .from('user_hearts')
                 .delete()
@@ -1119,7 +1108,6 @@ export async function heartContent(contentId, userId) {
 
             return { success: true, hearts: content?.hearts || 0, action: 'unheart' };
         } else {
-            // Add heart
             const { error } = await supabase
                 .from('user_hearts')
                 .insert({ user_id: userId, content_id: contentId, created_at: new Date().toISOString() });
@@ -1132,7 +1120,6 @@ export async function heartContent(contentId, userId) {
                 .eq('id', contentId)
                 .single();
 
-            // Check if content reached 12 hearts (trending threshold)
             if ((content?.hearts || 0) >= 12 && content?.author_id) {
                 try {
                     await supabase
@@ -1625,7 +1612,7 @@ export {
     subscribeToWallet
 };
 
-// Legacy - SAVED ITEMS
+// Legacy
 export {
     saveToShelf,
     getSavedItems
