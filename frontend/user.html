@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="/frontend/css/user-student.css" id="roleStylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- QRCode.js for portfolio QR codes -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
@@ -56,9 +55,9 @@
             <i class="fas fa-envelope"></i>
             <span>Messages</span>
         </button>
-        <button class="mobile-nav-item" data-tab="gotomenu">
-            <i class="fas fa-door-open"></i>
-            <span>Go To</span>
+        <button class="mobile-nav-item" data-tab="portfolio">
+            <i class="fas fa-user-circle"></i>
+            <span>Portfolio</span>
         </button>
         <button class="mobile-nav-item" data-tab="wallet">
             <i class="fas fa-wallet"></i>
@@ -112,7 +111,7 @@
         </div>
     </div>
 
-    <!-- 2. Fund Wallet Modal (UPDATED - Dynamic Bank Details) -->
+    <!-- 2. Fund Wallet Modal -->
     <div id="fundWalletModal" class="modal">
         <div class="modal-content wallet-modal">
             <div class="modal-header">
@@ -142,9 +141,7 @@
                 
                 <div class="bank-details" style="display: none;">
                     <h3>Bank Transfer Details</h3>
-                    <div class="bank-info-card" id="bankInfoCard">
-                        <!-- Dynamically populated -->
-                    </div>
+                    <div class="bank-info-card" id="bankInfoCard"></div>
                     <div class="reference-code-box">
                         <p>Your Reference Code:</p>
                         <div class="reference-code" id="referenceCode"></div>
@@ -166,7 +163,7 @@
         </div>
     </div>
 
-    <!-- 3. Convert GP to Stars Modal (NEW) -->
+    <!-- 3. Convert GP to Stars Modal -->
     <div id="convertStarsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -192,7 +189,7 @@
         </div>
     </div>
 
-    <!-- 4. Message Modal (NEW) -->
+    <!-- 4. Message Modal -->
     <div id="messageModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
