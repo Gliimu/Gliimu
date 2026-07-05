@@ -780,7 +780,7 @@ export async function createReferral(referrerId, referredUserId, referralCode) {
 // SECTION 8: HUB CONTENT (BASIC)
 // ============================================
 
-export async function getHubContent(filters = {}) {
+async function getHubContent(filters = {}) {
     try {
         let query = supabase
             .from('hub_content')
