@@ -2380,3 +2380,312 @@ body {
         max-width: 100%;
     }
 }
+
+/* ============================================
+   ALERT ICON & DROPDOWN
+   ============================================ */
+
+.header-badge {
+    position: relative;
+    padding: 4px 8px;
+}
+
+.alert-icon-container {
+    position: relative;
+}
+
+.alert-icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: var(--transition);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.alert-icon-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.alert-icon-btn .alert-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--bg-secondary);
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Alert Dropdown */
+.alert-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 380px;
+    max-height: 480px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 200;
+    animation: dropdownSlideDown 0.25s ease;
+}
+
+.alert-dropdown.open {
+    display: flex;
+}
+
+@keyframes dropdownSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.alert-dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.alert-dropdown-header span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.alert-mark-read {
+    background: none;
+    border: none;
+    color: var(--brand-gold);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+}
+
+.alert-mark-read:hover {
+    color: var(--brand-gold-dark);
+    text-decoration: underline;
+}
+
+.alert-dropdown-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    max-height: 340px;
+}
+
+.alert-dropdown-body::-webkit-scrollbar {
+    width: 3px;
+}
+
+.alert-dropdown-body::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+}
+
+.alert-dropdown-body::-webkit-scrollbar-thumb {
+    background: var(--brand-gold);
+    border-radius: 10px;
+}
+
+/* Alert Items */
+.alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 20px;
+    transition: var(--transition);
+    cursor: pointer;
+    position: relative;
+    border-left: 3px solid transparent;
+}
+
+.alert-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.alert-item.unread {
+    border-left-color: var(--brand-gold);
+    background: rgba(251, 176, 64, 0.04);
+}
+
+.alert-item.unread:hover {
+    background: rgba(251, 176, 64, 0.08);
+}
+
+.alert-item .alert-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: 50%;
+}
+
+.alert-item .alert-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.alert-item .alert-message {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.alert-item .alert-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 2px;
+}
+
+.alert-item .alert-link {
+    font-size: 0.75rem;
+    color: var(--brand-gold);
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.alert-item .alert-link:hover {
+    text-decoration: underline;
+}
+
+.alert-item .alert-unread-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--brand-gold);
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+}
+
+/* Alert Empty State */
+.alert-empty {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-muted);
+}
+
+.alert-empty i {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 8px;
+    opacity: 0.5;
+}
+
+.alert-empty p {
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* Alert Dropdown Footer */
+.alert-dropdown-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.alert-view-all {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+}
+
+.alert-view-all:hover {
+    color: var(--brand-gold);
+}
+
+/* ============================================
+   LEADERBOARD - FULL WIDTH
+   ============================================ */
+.leaderboard-card-full {
+    grid-column: 1 / -1;
+    min-height: 320px;
+}
+
+.leaderboard-card-full .leaderboard-list {
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.leaderboard-card-full .leaderboard-list::-webkit-scrollbar {
+    width: 3px;
+}
+
+/* ============================================
+   RESPONSIVE - ALERT DROPDOWN
+   ============================================ */
+@media (max-width: 768px) {
+    .alert-dropdown {
+        width: calc(100vw - 40px);
+        right: -10px;
+        max-height: 420px;
+    }
+    
+    .alert-dropdown-body {
+        max-height: 280px;
+    }
+    
+    .alert-item {
+        padding: 8px 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .alert-dropdown {
+        width: calc(100vw - 32px);
+        right: -8px;
+        max-height: 380px;
+    }
+    
+    .alert-dropdown-body {
+        max-height: 240px;
+    }
+}
