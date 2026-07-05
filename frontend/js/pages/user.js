@@ -33,6 +33,13 @@ import {
     convertGPToStars,
     getPortfolioStatus
 } from '../modules/progression.js';
+import { 
+    alertManager,
+    addInitialAlerts,
+    getUnreadCount,
+    markAllAsRead,
+    getAlertFeed
+} from './user-alerts.js';
 
 export class UserPage {
     constructor() {
@@ -44,6 +51,9 @@ export class UserPage {
         this.bankDetails = null;
         this.leaderboardData = [];
         this.usernameValid = true;
+        this.alerts = [];
+        this.unreadCount = 0;
+        this.isAlertDropdownOpen = false;
         
         // Wallet state
         this.selectedAmount = 0;
@@ -62,6 +72,7 @@ export class UserPage {
 
             await this.loadUserData();
             await this.loadBankDetails();
+            await this.loadAlerts();
             this.setupEventListeners();
             this.setupWalletSubscription();
             this.setupNavigation();
@@ -143,6 +154,19 @@ export class UserPage {
         }
     }
 
+    async loadAlerts() {
+        try {
+            // Initialize alerts from the alert manager
+            this.alerts = await alertManager.getAlerts(this.currentUser.id);
+            this.unreadCount = await alertManager.getUnreadCount(this.currentUser.id);
+            this.renderAlertIcon();
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+            this.alerts = [];
+            this.unreadCount = 0;
+        }
+    }
+
     async getSubmissionsCount(userId) {
         try {
             const { count, error } = await supabase
@@ -218,6 +242,148 @@ export class UserPage {
             const avatarUrl = profile.avatar_url || 
                 `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff&size=128`;
             userAvatarImg.src = avatarUrl;
+        }
+    }
+
+    // ============================================
+    // ALERT ICON & DROPDOWN
+    // ============================================
+    renderAlertIcon() {
+        const headerBadge = document.querySelector('.header-badge');
+        if (!headerBadge) return;
+
+        // Replace badge content with alert icon
+        const unreadCount = this.unreadCount || 0;
+        const hasUnread = unreadCount > 0;
+
+        headerBadge.innerHTML = `
+            <div class="alert-icon-container" id="alertIconContainer">
+                <button class="alert-icon-btn" id="alertIconBtn" aria-label="Alerts">
+                    <i class="fas fa-bell"></i>
+                    ${hasUnread ? `<span class="alert-dot">${unreadCount > 9 ? '9+' : unreadCount}</span>` : ''}
+                </button>
+                
+                <div class="alert-dropdown" id="alertDropdown">
+                    <div class="alert-dropdown-header">
+                        <span>Notifications</span>
+                        ${hasUnread ? `<button class="alert-mark-read" id="alertMarkRead">Mark all read</button>` : ''}
+                    </div>
+                    <div class="alert-dropdown-body" id="alertDropdownBody">
+                        <!-- Alerts will be rendered here -->
+                    </div>
+                    <div class="alert-dropdown-footer">
+                        <button class="alert-view-all" id="alertViewAll">View all notifications</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Bind events
+        const iconBtn = document.getElementById('alertIconBtn');
+        const dropdown = document.getElementById('alertDropdown');
+        const markReadBtn = document.getElementById('alertMarkRead');
+        const viewAllBtn = document.getElementById('alertViewAll');
+
+        if (iconBtn) {
+            iconBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleAlertDropdown();
+            });
+        }
+
+        if (markReadBtn) {
+            markReadBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.markAllAlertsRead();
+            });
+        }
+
+        if (viewAllBtn) {
+            viewAllBtn.addEventListener('click', () => {
+                this.closeAlertDropdown();
+                this.loadTab('messages');
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const container = document.getElementById('alertIconContainer');
+            if (container && !container.contains(e.target)) {
+                this.closeAlertDropdown();
+            }
+        });
+
+        // Render alerts
+        this.renderAlertDropdownItems();
+    }
+
+    renderAlertDropdownItems() {
+        const body = document.getElementById('alertDropdownBody');
+        if (!body) return;
+
+        const alerts = this.alerts || [];
+
+        if (alerts.length === 0) {
+            body.innerHTML = `
+                <div class="alert-empty">
+                    <i class="fas fa-inbox"></i>
+                    <p>No notifications yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        body.innerHTML = alerts.slice(0, 10).map(alert => `
+            <div class="alert-item ${alert.read ? 'read' : 'unread'}">
+                <div class="alert-icon">${alert.icon || '📌'}</div>
+                <div class="alert-content">
+                    <p class="alert-message">${alert.message}</p>
+                    <span class="alert-time">${this.getTimeAgo(alert.created_at)}</span>
+                    ${alert.link ? `<a href="${alert.link}" class="alert-link">Learn more →</a>` : ''}
+                </div>
+                ${!alert.read ? `<span class="alert-unread-dot"></span>` : ''}
+            </div>
+        `).join('');
+    }
+
+    toggleAlertDropdown() {
+        const dropdown = document.getElementById('alertDropdown');
+        if (dropdown) {
+            const isOpen = dropdown.classList.contains('open');
+            if (isOpen) {
+                this.closeAlertDropdown();
+            } else {
+                this.openAlertDropdown();
+            }
+        }
+    }
+
+    openAlertDropdown() {
+        const dropdown = document.getElementById('alertDropdown');
+        if (dropdown) {
+            dropdown.classList.add('open');
+            this.isAlertDropdownOpen = true;
+        }
+    }
+
+    closeAlertDropdown() {
+        const dropdown = document.getElementById('alertDropdown');
+        if (dropdown) {
+            dropdown.classList.remove('open');
+            this.isAlertDropdownOpen = false;
+        }
+    }
+
+    async markAllAlertsRead() {
+        try {
+            await alertManager.markAllAsRead(this.currentUser.id);
+            this.alerts = this.alerts.map(a => ({ ...a, read: true }));
+            this.unreadCount = 0;
+            this.renderAlertIcon();
+            this.renderAlertDropdownItems();
+            showToast('All notifications marked as read', 'success');
+        } catch (error) {
+            console.error('Error marking alerts read:', error);
         }
     }
 
@@ -319,7 +485,7 @@ export class UserPage {
     }
 
     // ============================================
-    // DASHBOARD / OVERVIEW TAB
+    // DASHBOARD / OVERVIEW TAB (UPDATED)
     // ============================================
     async loadDashboard() {
         const content = this.dashboardContent;
@@ -337,6 +503,9 @@ export class UserPage {
         const currentGP = progressData?.currentGP || 0;
         const totalStars = progressData?.totalStars || 0;
 
+        // Update alert icon in header
+        this.renderAlertIcon();
+
         content.innerHTML = `
             <div class="dashboard-header">
                 <div>
@@ -344,8 +513,7 @@ export class UserPage {
                     <p>Welcome back, ${profile?.name || 'User'}!</p>
                 </div>
                 <div class="header-badge">
-                    <span class="badge-icon">${badge.icon}</span>
-                    <span class="badge-name" style="color: ${badge.color}">${badge.name}</span>
+                    <!-- Alert icon rendered here by renderAlertIcon() -->
                 </div>
             </div>
 
@@ -414,24 +582,16 @@ export class UserPage {
                 </div>
             </div>
 
-            <div class="dashboard-grid">
-                <div class="card leaderboard-card">
-                    <div class="leaderboard-header">
-                        <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
-                        <button id="refreshLeaderboardBtn" class="btn-icon" style="background: none; border: none; cursor: pointer; color: var(--text-secondary);">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
-                    </div>
-                    <div class="leaderboard-list" id="dashboardLeaderboard">
-                        ${this.renderLeaderboardItems()}
-                    </div>
+            <!-- Leaderboard - Full Width -->
+            <div class="card leaderboard-card-full">
+                <div class="leaderboard-header">
+                    <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
+                    <button id="refreshLeaderboardBtn" class="btn-icon" style="background: none; border: none; cursor: pointer; color: var(--text-secondary);">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                 </div>
-
-                <div class="card recent-activity-card">
-                    <h3>Recent Activity</h3>
-                    <div id="recentActivity">
-                        <p class="text-muted">Loading activities...</p>
-                    </div>
+                <div class="leaderboard-list" id="dashboardLeaderboard">
+                    ${this.renderLeaderboardItems()}
                 </div>
             </div>
 
@@ -470,7 +630,10 @@ export class UserPage {
             showToast('Leaderboard refreshed!', 'success');
         });
 
-        await this.loadRecentActivity();
+        // Refresh alerts periodically
+        setInterval(async () => {
+            await this.loadAlerts();
+        }, 30000);
     }
 
     renderLeaderboardItems() {
@@ -501,176 +664,7 @@ export class UserPage {
     }
 
     // ============================================
-    // RECENT ACTIVITY - Social & GP Activity
-    // ============================================
-    async loadRecentActivity() {
-        const container = document.getElementById('recentActivity');
-        if (!container) return;
-
-        try {
-            let activitiesResult = { data: [], error: null };
-            
-            try {
-                activitiesResult = await supabase
-                    .from('user_activity')
-                    .select('*')
-                    .eq('user_id', this.currentUser.id)
-                    .order('created_at', { ascending: false })
-                    .limit(10);
-            } catch (e) {
-                console.warn('user_activity table not found, using empty data');
-            }
-
-            const transactions = await getUserTransactions();
-            const paymentRequests = await this.getPaymentRequests(this.currentUser.id);
-
-            let allActivities = [];
-
-            if (activitiesResult.data && activitiesResult.data.length > 0) {
-                allActivities = allActivities.concat(activitiesResult.data.map(a => ({
-                    ...a,
-                    type: 'activity',
-                    display_type: a.activity_type,
-                    date: a.created_at,
-                    icon: this.getActivityIcon(a.activity_type),
-                    iconClass: this.getActivityIconClass(a.activity_type),
-                    description: this.getActivityDescription(a.activity_type, a.gp_earned),
-                    gpEarned: a.gp_earned
-                })));
-            }
-
-            if (transactions && transactions.length > 0) {
-                allActivities = allActivities.concat(transactions.slice(0, 5).map(tx => ({
-                    ...tx,
-                    type: 'transaction',
-                    display_type: tx.type,
-                    date: tx.created_at,
-                    icon: tx.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up',
-                    iconClass: tx.type === 'credit' ? 'credit' : 'debit',
-                    description: tx.description || `${tx.type === 'credit' ? 'Received' : 'Spent'} funds`,
-                    amount: tx.amount
-                })));
-            }
-
-            if (paymentRequests && paymentRequests.length > 0) {
-                allActivities = allActivities.concat(paymentRequests.slice(0, 3).map(p => ({
-                    ...p,
-                    type: 'payment_request',
-                    display_type: p.status,
-                    date: p.submitted_at,
-                    icon: p.status === 'approved' ? 'fa-check-circle' : 
-                          p.status === 'rejected' ? 'fa-times-circle' : 'fa-clock',
-                    iconClass: p.status === 'approved' ? 'credit' : 
-                                p.status === 'rejected' ? 'debit' : 'pending',
-                    description: `Wallet funding request ${p.status === 'pending' ? 'submitted' : p.status}`,
-                    amount: p.amount
-                })));
-            }
-
-            allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
-            const recent = allActivities.slice(0, 8);
-
-            if (recent.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <p>No recent activity yet</p>
-                        <small>Start engaging with the community!</small>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = recent.map(item => {
-                let amountDisplay = '';
-                let statusDisplay = '';
-                let gpDisplay = '';
-
-                if (item.type === 'activity') {
-                    if (item.gpEarned) {
-                        gpDisplay = `<span class="activity-gp">+${item.gpEarned} GP</span>`;
-                    }
-                } else if (item.type === 'transaction') {
-                    const prefix = item.display_type === 'credit' ? '+' : '';
-                    amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
-                } else if (item.type === 'payment_request') {
-                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
-                    const statusMap = {
-                        'pending': '⏳ Pending',
-                        'approved': '✅ Approved',
-                        'rejected': '❌ Rejected'
-                    };
-                    statusDisplay = `<span class="activity-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
-                }
-
-                return `
-                    <div class="activity-item">
-                        <div class="activity-icon ${item.iconClass}">
-                            <i class="fas ${item.icon}"></i>
-                        </div>
-                        <div class="activity-details">
-                            <p class="activity-description">${item.description}</p>
-                            <span class="activity-date">${this.getTimeAgo(item.date)}</span>
-                            ${statusDisplay}
-                            ${gpDisplay}
-                        </div>
-                        ${amountDisplay ? `<div class="activity-amount ${item.iconClass}">${amountDisplay}</div>` : ''}
-                    </div>
-                `;
-            }).join('');
-
-        } catch (error) {
-            console.error('Error loading activity:', error);
-            container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
-        }
-    }
-
-    // ============================================
-    // ACTIVITY HELPERS
-    // ============================================
-    getActivityIcon(type) {
-        const icons = {
-            'heart_received': 'fa-heart',
-            'comment': 'fa-comment',
-            'share': 'fa-share-alt',
-            'read': 'fa-book-open',
-            'submission_graded': 'fa-check-circle',
-            'streak_bonus': 'fa-fire',
-            'referral': 'fa-user-plus',
-            'default': 'fa-bolt'
-        };
-        return icons[type] || icons.default;
-    }
-
-    getActivityIconClass(type) {
-        const classes = {
-            'heart_received': 'heart',
-            'comment': 'comment',
-            'share': 'share',
-            'read': 'read',
-            'submission_graded': 'graded',
-            'streak_bonus': 'streak',
-            'referral': 'referral',
-            'default': 'default'
-        };
-        return classes[type] || classes.default;
-    }
-
-    getActivityDescription(type, gpEarned) {
-        const descriptions = {
-            'heart_received': 'Someone ❤️ your post!',
-            'comment': 'You commented on a post',
-            'share': 'You shared content',
-            'read': 'You read a book/article',
-            'submission_graded': 'Your submission was graded',
-            'streak_bonus': `🔥 Streak bonus! +${gpEarned || 0} GP`,
-            'referral': 'Someone joined using your referral link',
-            'default': 'You earned GP'
-        };
-        return descriptions[type] || descriptions.default;
-    }
-
-    // ============================================
-    // GET TIME AGO - FIXED
+    // GET TIME AGO
     // ============================================
     getTimeAgo(date) {
         if (!date) return 'Just now';
@@ -765,7 +759,7 @@ export class UserPage {
     }
 
     // ============================================
-    // TRANSACTION HISTORY - Financial Only
+    // TRANSACTION HISTORY
     // ============================================
     async loadTransactionHistory() {
         const container = document.getElementById('transactionHistory');
@@ -817,6 +811,17 @@ export class UserPage {
                 let amountDisplay = '';
                 let statusDisplay = '';
                 let description = item.description || 'Transaction';
+                let dateDisplay = '';
+
+                // Format date as "Mar 15, 2026 2:30 PM"
+                const d = new Date(item.date);
+                dateDisplay = d.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
 
                 if (item.type === 'transaction') {
                     const prefix = item.display_type === 'credit' ? '+' : '';
@@ -826,7 +831,7 @@ export class UserPage {
                         <div class="transaction-item">
                             <div class="tx-info">
                                 <span class="tx-description">${description}</span>
-                                <span class="tx-date">${this.getTimeAgo(item.date)}</span>
+                                <span class="tx-date">${dateDisplay}</span>
                             </div>
                             <div class="tx-amount ${cls}">${amountDisplay}</div>
                         </div>
@@ -849,7 +854,7 @@ export class UserPage {
                                     <i class="fas ${icon}" style="margin-right: 6px;"></i>
                                     ${description}
                                 </span>
-                                <span class="tx-date">${this.getTimeAgo(item.date)}</span>
+                                <span class="tx-date">${dateDisplay}</span>
                                 ${statusDisplay}
                             </div>
                             <div class="tx-amount ${item.display_type}">${amountDisplay}</div>
