@@ -1,5 +1,6 @@
 /* ============================================
    GLIIMU USER DASHBOARD - BASE STYLES
+   Version: 2.0 (Complete)
    ============================================ */
 
 /* ============================================
@@ -9,6 +10,7 @@
     --bg-primary: #f8f9fa;
     --bg-secondary: #ffffff;
     --bg-tertiary: #f1f3f5;
+    --bg-hover: #eef0f2;
     --text-primary: #1a1c4a;
     --text-secondary: #6b7280;
     --text-muted: #9ca3af;
@@ -26,7 +28,6 @@
     --brand-purple: #1a1c4a;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --sidebar-width: 280px;
-    --sidebar-collapsed: 80px;
     --header-height: 64px;
     --mobile-nav-height: 70px;
 }
@@ -38,6 +39,7 @@ body.dark-mode {
     --bg-primary: #0f0f1a;
     --bg-secondary: #1a1c2e;
     --bg-tertiary: #252740;
+    --bg-hover: #2f3250;
     --text-primary: #e8e8f0;
     --text-secondary: #a8a8b8;
     --text-muted: #6a6a7a;
@@ -85,6 +87,110 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--brand-gold-dark);
+}
+
+/* ============================================
+   TOAST CONTAINER - FIXED (doesn't block clicks)
+   ============================================ */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 400px;
+    width: 100%;
+    pointer-events: none;
+}
+
+#toast-container .toast {
+    pointer-events: auto;
+    padding: 14px 20px;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.3s ease;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+#toast-container .toast:hover {
+    transform: translateX(-4px);
+    box-shadow: var(--shadow-xl);
+}
+
+#toast-container .toast .toast-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+#toast-container .toast .toast-icon.success {
+    color: #10b981;
+}
+
+#toast-container .toast .toast-icon.error {
+    color: #ef4444;
+}
+
+#toast-container .toast .toast-icon.info {
+    color: #3b82f6;
+}
+
+#toast-container .toast .toast-icon.warning {
+    color: #f59e0b;
+}
+
+#toast-container .toast .toast-message {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+#toast-container .toast .toast-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0 4px;
+    transition: var(--transition);
+}
+
+#toast-container .toast .toast-close:hover {
+    color: var(--text-primary);
+}
+
+#toast-container:empty {
+    display: none;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(30px);
+    }
 }
 
 /* ============================================
@@ -247,20 +353,6 @@ body {
     text-align: center;
 }
 
-/* Sidebar Footer */
-.sidebar-footer {
-    padding: 16px 20px;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.sidebar-footer .nav-item {
-    font-size: 0.85rem;
-    padding: 10px 16px;
-}
-
 /* ============================================
    MAIN CONTENT
    ============================================ */
@@ -336,6 +428,7 @@ body {
     gap: 16px;
     transition: var(--transition);
     box-shadow: var(--shadow-sm);
+    position: relative;
 }
 
 .stat-card:hover {
@@ -374,6 +467,11 @@ body {
     color: #3b82f6;
 }
 
+.stat-info {
+    flex: 1;
+    min-width: 0;
+}
+
 .stat-info h3 {
     font-size: 0.75rem;
     font-weight: 500;
@@ -387,6 +485,31 @@ body {
     font-size: 1.35rem;
     font-weight: 700;
     color: var(--text-primary);
+}
+
+/* Stat Action Buttons */
+.stat-action-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.stat-action-btn:hover {
+    background: var(--brand-gold);
+    color: var(--brand-purple);
+    transform: scale(1.1);
 }
 
 /* ============================================
@@ -444,9 +567,8 @@ body {
     margin-bottom: 24px;
 }
 
-/* Ensure both cards take equal space */
 .dashboard-grid .card {
-    min-height: 320px;
+    min-height: 340px;
     display: flex;
     flex-direction: column;
 }
@@ -455,68 +577,45 @@ body {
 .dashboard-grid .card #recentActivity {
     flex: 1;
     overflow-y: auto;
-    max-height: 350px;
+    max-height: 380px;
 }
 
-/* On mobile, stack vertically */
-@media (max-width: 992px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .dashboard-grid .card {
-        min-height: auto;
-    }
-    
-    .dashboard-grid .card .leaderboard-list,
-    .dashboard-grid .card #recentActivity {
-        max-height: 300px;
-    }
+.dashboard-grid .card .leaderboard-list::-webkit-scrollbar,
+.dashboard-grid .card #recentActivity::-webkit-scrollbar {
+    width: 3px;
 }
 
 /* ============================================
-   QUICK ACTIONS
+   CARDS
    ============================================ */
-.quick-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 20px 24px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
 }
 
-.action-btn {
+.card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-primary);
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition);
-    font-family: inherit;
-    width: 100%;
-    text-align: left;
-}
-
-.action-btn:hover {
-    border-color: var(--brand-gold);
-    background: rgba(251, 176, 64, 0.06);
-    transform: translateX(4px);
-}
-
-.action-btn i {
-    width: 24px;
-    color: var(--brand-gold);
+    gap: 8px;
 }
 
 /* ============================================
    LEADERBOARD
    ============================================ */
 .leaderboard-card {
-    grid-column: 1 / -1;
+    grid-column: 1 / 1;
 }
 
 .leaderboard-header {
@@ -628,14 +727,14 @@ body {
    RECENT ACTIVITY
    ============================================ */
 .recent-activity-card {
-    grid-column: 1 / -1;
+    grid-column: 2 / 2;
 }
 
 .activity-item {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 12px 0;
+    padding: 10px 0;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -664,6 +763,51 @@ body {
     color: #ef4444;
 }
 
+.activity-icon.heart {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+}
+
+.activity-icon.comment {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+}
+
+.activity-icon.share {
+    background: rgba(139, 92, 246, 0.12);
+    color: #8b5cf6;
+}
+
+.activity-icon.read {
+    background: rgba(251, 176, 64, 0.12);
+    color: var(--brand-gold);
+}
+
+.activity-icon.graded {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+.activity-icon.streak {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+}
+
+.activity-icon.referral {
+    background: rgba(236, 72, 153, 0.12);
+    color: #ec4899;
+}
+
+.activity-icon.pending {
+    background: rgba(251, 176, 64, 0.12);
+    color: var(--brand-gold);
+}
+
+.activity-icon.default {
+    background: rgba(107, 114, 128, 0.12);
+    color: var(--text-muted);
+}
+
 .activity-details {
     flex: 1;
     min-width: 0;
@@ -677,13 +821,45 @@ body {
 }
 
 .activity-date {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
+}
+
+.activity-gp {
+    font-size: 0.7rem;
+    color: #8b5cf6;
+    font-weight: 600;
+    margin-left: 6px;
+}
+
+.activity-status {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    margin-top: 2px;
+    display: inline-block;
+}
+
+.activity-status.pending {
+    background: rgba(251, 176, 64, 0.15);
+    color: var(--brand-gold);
+}
+
+.activity-status.approved {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.activity-status.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
 }
 
 .activity-amount {
     font-size: 0.9rem;
     font-weight: 600;
+    flex-shrink: 0;
 }
 
 .activity-amount.credit {
@@ -692,6 +868,10 @@ body {
 
 .activity-amount.debit {
     color: #ef4444;
+}
+
+.activity-amount.pending {
+    color: var(--brand-gold);
 }
 
 /* ============================================
@@ -736,26 +916,32 @@ body {
    ============================================ */
 .empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: 30px 20px;
     color: var(--text-secondary);
 }
 
 .empty-state i {
-    font-size: 48px;
+    font-size: 40px;
     color: var(--text-muted);
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    display: block;
 }
 
 .empty-state h3 {
-    font-size: 1.1rem;
-    margin-bottom: 8px;
+    font-size: 1rem;
+    margin-bottom: 4px;
     color: var(--text-primary);
 }
 
 .empty-state p {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     max-width: 400px;
     margin: 0 auto;
+}
+
+.empty-state small {
+    color: var(--text-muted);
+    font-size: 0.75rem;
 }
 
 /* ============================================
@@ -818,7 +1004,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 0;
+    padding: 10px 0;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -830,44 +1016,43 @@ body {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    flex: 1;
+    min-width: 0;
 }
 
 .tx-description {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     color: var(--text-primary);
 }
 
 .tx-date {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
 }
 
 .tx-status {
     font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 12px;
     font-weight: 600;
+    display: inline-block;
 }
 
 .tx-status.pending {
-    background: rgba(251, 176, 64, 0.12);
     color: var(--brand-gold);
 }
 
 .tx-status.approved {
-    background: rgba(16, 185, 129, 0.12);
     color: #10b981;
 }
 
 .tx-status.rejected {
-    background: rgba(239, 68, 68, 0.12);
     color: #ef4444;
 }
 
 .tx-amount {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
+    flex-shrink: 0;
 }
 
 .tx-amount.credit {
@@ -876,6 +1061,10 @@ body {
 
 .tx-amount.debit {
     color: #ef4444;
+}
+
+.tx-amount.pending {
+    color: var(--brand-gold);
 }
 
 /* ============================================
@@ -966,7 +1155,7 @@ body {
 }
 
 /* ============================================
-   GO-TO TAB
+   PORTFOLIO TAB (was Go To)
    ============================================ */
 .portfolio-link-card {
     margin-bottom: 24px;
@@ -1033,7 +1222,7 @@ body {
     margin-top: 8px;
 }
 
-/* Go-To Grid */
+/* Portfolio Grid */
 .go-to-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1076,7 +1265,7 @@ body {
     color: var(--text-muted);
 }
 
-/* Quick Stats in Go-To */
+/* Quick Stats in Portfolio */
 .quick-stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1100,7 +1289,7 @@ body {
 }
 
 /* ============================================
-   SETTINGS - CLEAN VERSION
+   SETTINGS TAB
    ============================================ */
 .settings-container {
     max-width: 800px;
@@ -1207,6 +1396,7 @@ body {
     cursor: pointer;
     transition: var(--transition);
     font-size: 0.8rem;
+    font-family: inherit;
 }
 
 .btn-secondary:hover {
@@ -1360,43 +1550,6 @@ body {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
-}
-
-/* Mobile Responsive */
-@media (max-width: 768px) {
-    .settings-row {
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-    
-    .settings-avatar {
-        flex-direction: row;
-        justify-content: center;
-    }
-    
-    .settings-avatar img {
-        width: 80px;
-        height: 80px;
-    }
-    
-    .theme-card {
-        padding: 16px 24px;
-        min-width: 80px;
-    }
-    
-    .settings-section {
-        padding: 16px;
-    }
-    
-    .settings-section-header {
-        gap: 10px;
-    }
-    
-    .settings-section-header i {
-        width: 32px;
-        height: 32px;
-        font-size: 1rem;
-    }
 }
 
 /* ============================================
@@ -1956,6 +2109,55 @@ body {
 }
 
 /* ============================================
+   LOADING SPINNER
+   ============================================ */
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 12px;
+    color: var(--text-secondary);
+}
+
+.loading-spinner i {
+    font-size: 2rem;
+    color: var(--brand-gold);
+}
+
+.loading-spinner p {
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   UTILITY
+   ============================================ */
+.text-muted {
+    color: var(--text-muted);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+
+.w-full { width: 100%; }
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 @media (max-width: 1200px) {
@@ -1968,6 +2170,15 @@ body {
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
+    
+    .dashboard-grid .card {
+        min-height: auto;
+    }
+    
+    .dashboard-grid .card .leaderboard-list,
+    .dashboard-grid .card #recentActivity {
+        max-height: 300px;
+    }
 
     .wallet-summary {
         grid-template-columns: 1fr;
@@ -1975,6 +2186,40 @@ body {
 
     .go-to-grid {
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    
+    .settings-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .settings-avatar {
+        flex-direction: row;
+        justify-content: center;
+    }
+    
+    .settings-avatar img {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .theme-card {
+        padding: 16px 24px;
+        min-width: 80px;
+    }
+    
+    .settings-section {
+        padding: 16px;
+    }
+    
+    .settings-section-header {
+        gap: 10px;
+    }
+    
+    .settings-section-header i {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
     }
 }
 
@@ -2040,10 +2285,6 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .settings-grid {
-        grid-template-columns: 1fr;
-    }
-
     .modal-content {
         max-width: 100%;
         margin: 10px;
@@ -2105,6 +2346,14 @@ body {
         font-size: 0.65rem;
     }
 
+    .stat-action-btn {
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        font-size: 0.6rem;
+    }
+
     .dashboard-header h1 {
         font-size: 1.3rem;
     }
@@ -2113,137 +2362,21 @@ body {
         font-size: 1.1rem;
     }
 
-    .theme-selector {
+    .theme-options {
         flex-direction: column;
     }
 
-    .theme-option {
+    .theme-card {
         justify-content: center;
+        flex-direction: row;
+        padding: 12px 20px;
+        min-width: auto;
     }
-}
 
-/* ============================================
-   LOADING SPINNER
-   ============================================ */
-.loading-spinner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 20px;
-    gap: 12px;
-    color: var(--text-secondary);
-}
-
-.loading-spinner i {
-    font-size: 2rem;
-    color: var(--brand-gold);
-}
-
-.loading-spinner p {
-    font-size: 0.9rem;
-}
-
-/* ============================================
-   UTILITY
-   ============================================ */
-.text-muted {
-    color: var(--text-muted);
-}
-
-.text-center {
-    text-align: center;
-}
-
-.mt-8 { margin-top: 8px; }
-.mt-16 { margin-top: 16px; }
-.mt-24 { margin-top: 24px; }
-.mb-8 { margin-bottom: 8px; }
-.mb-16 { margin-bottom: 16px; }
-.mb-24 { margin-bottom: 24px; }
-
-.flex { display: flex; }
-.flex-center { display: flex; align-items: center; justify-content: center; }
-.flex-between { display: flex; justify-content: space-between; align-items: center; }
-.gap-8 { gap: 8px; }
-.gap-12 { gap: 12px; }
-.gap-16 { gap: 16px; }
-
-.w-full { width: 100%; }
-
-/* ============================================
-   STAT ACTION BUTTONS
-   ============================================ */
-.stat-card {
-    position: relative;
-}
-
-.stat-action-btn {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: none;
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-}
-
-.stat-action-btn:hover {
-    background: var(--brand-gold);
-    color: var(--brand-purple);
-    transform: scale(1.1);
-}
-
-.stat-action-btn i {
-    font-size: 0.7rem;
-}
-
-/* ============================================
-   ACTIVITY STATUS
-   ============================================ */
-.activity-status {
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-weight: 600;
-    margin-top: 2px;
-    display: inline-block;
-}
-
-.activity-status.pending {
-    background: rgba(251, 176, 64, 0.15);
-    color: var(--brand-gold);
-}
-
-.activity-status.approved {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
-}
-
-.activity-status.rejected {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-}
-
-/* ============================================
-   TX STATUS
-   ============================================ */
-.tx-status.pending {
-    color: var(--brand-gold);
-}
-
-.tx-status.approved {
-    color: #10b981;
-}
-
-.tx-status.rejected {
-    color: #ef4444;
+    #toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: 100%;
+    }
 }
