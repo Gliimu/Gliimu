@@ -742,3 +742,38 @@ body.dark-mode .badge.graded {
         padding: 0 1rem;
     }
 }
+/* ============================================
+   TOAST CONTAINER - FIXED (doesn't block clicks)
+   ============================================ */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 400px;
+    width: 100%;
+    pointer-events: none; /* ✅ THIS FIXES THE BLOCKING ISSUE */
+}
+
+#toast-container .toast {
+    pointer-events: auto; /* Allow clicking on toast itself */
+    padding: 14px 20px;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.3s ease;
+    cursor: pointer;
+}
+
+/* Make sure toast container doesn't block other elements */
+#toast-container:empty {
+    display: none;
+}
