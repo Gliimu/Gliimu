@@ -829,7 +829,7 @@ export async function getHubContent(filters = {}) {
 // SECTION 9: REAL-TIME SUBSCRIPTIONS
 // ============================================
 
-export function subscribeToWallet(callback) {
+function subscribeToWallet(callback) {
     // Get user synchronously - this will work if user is already loaded
     // For proper implementation, we should pass userId
     const userId = localStorage.getItem('glimu_user_id');
