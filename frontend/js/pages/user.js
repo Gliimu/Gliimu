@@ -683,19 +683,47 @@ getActivityDescription(type, gpEarned) {
     return descriptions[type] || descriptions.default;
 }
 
-// Helper: Get time ago
+// ============================================
+// GET TIME AGO - FIXED for accurate time display
+// ============================================
 getTimeAgo(date) {
+    if (!date) return 'Just now';
+    
+    // Ensure date is a Date object
     const now = new Date();
-    const diff = now - date;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
+    const past = new Date(date);
+    
+    // Check if date is valid
+    if (isNaN(past.getTime())) {
+        return 'Just now';
+    }
+    
+    const diff = Math.floor((now.getTime() - past.getTime()) / 1000); // Difference in seconds
+    
+    // If diff is negative (future date), show 'Just now'
+    if (diff < 0) return 'Just now';
+    
+    const minutes = Math.floor(diff / 60);
+    const hours = Math.floor(diff / 3600);
+    const days = Math.floor(diff / 86400);
+    const weeks = Math.floor(diff / 604800);
+    const months = Math.floor(diff / 2592000);
+    const years = Math.floor(diff / 31536000);
 
-    if (minutes < 1) return 'Just now';
+    if (diff < 5) return 'Just now';
+    if (diff < 60) return `${diff}s ago`;
+    if (minutes < 2) return '1m ago';
     if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 2) return '1h ago';
     if (hours < 24) return `${hours}h ago`;
+    if (days < 2) return '1d ago';
     if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
+    if (weeks < 2) return '1w ago';
+    if (weeks < 4) return `${weeks}w ago`;
+    if (months < 2) return '1mo ago';
+    if (months < 12) return `${months}mo ago`;
+    if (years < 2) return '1y ago';
+    return `${years}y ago`;
 }
 
     // ============================================
