@@ -501,134 +501,128 @@ export class UserPage {
     }
 
     // ============================================
-// RECENT ACTIVITY - With Error Handling
-// ============================================
-async loadRecentActivity() {
-    const container = document.getElementById('recentActivity');
-    if (!container) return;
+    // RECENT ACTIVITY - Social & GP Activity
+    // ============================================
+    async loadRecentActivity() {
+        const container = document.getElementById('recentActivity');
+        if (!container) return;
 
-    try {
-        let activitiesResult = { data: [], error: null };
-        
-        // Try to fetch user activity, but don't fail if table doesn't exist
         try {
-            activitiesResult = await supabase
-                .from('user_activity')
-                .select('*')
-                .eq('user_id', this.currentUser.id)
-                .order('created_at', { ascending: false })
-                .limit(10);
-        } catch (e) {
-            // Table doesn't exist, just use empty data
-            console.warn('user_activity table not found, using empty data');
-        }
-
-        const transactions = await getUserTransactions();
-        const paymentRequests = await this.getPaymentRequests(this.currentUser.id);
-
-        let allActivities = [];
-
-        // Add user activities if available
-        if (activitiesResult.data && activitiesResult.data.length > 0) {
-            allActivities = allActivities.concat(activitiesResult.data.map(a => ({
-                ...a,
-                type: 'activity',
-                display_type: a.activity_type,
-                date: a.created_at,
-                icon: this.getActivityIcon(a.activity_type),
-                iconClass: this.getActivityIconClass(a.activity_type),
-                description: this.getActivityDescription(a.activity_type, a.gp_earned),
-                gpEarned: a.gp_earned
-            })));
-        }
-
-        // Add transactions
-        if (transactions && transactions.length > 0) {
-            allActivities = allActivities.concat(transactions.slice(0, 5).map(tx => ({
-                ...tx,
-                type: 'transaction',
-                display_type: tx.type,
-                date: tx.created_at,
-                icon: tx.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up',
-                iconClass: tx.type === 'credit' ? 'credit' : 'debit',
-                description: tx.description || `${tx.type === 'credit' ? 'Received' : 'Spent'} funds`,
-                amount: tx.amount
-            })));
-        }
-
-        // Add payment requests
-        if (paymentRequests && paymentRequests.length > 0) {
-            allActivities = allActivities.concat(paymentRequests.slice(0, 3).map(p => ({
-                ...p,
-                type: 'payment_request',
-                display_type: p.status,
-                date: p.submitted_at,
-                icon: p.status === 'approved' ? 'fa-check-circle' : 
-                      p.status === 'rejected' ? 'fa-times-circle' : 'fa-clock',
-                iconClass: p.status === 'approved' ? 'credit' : 
-                            p.status === 'rejected' ? 'debit' : 'pending',
-                description: `Wallet funding request ${p.status === 'pending' ? 'submitted' : p.status}`,
-                amount: p.amount
-            })));
-        }
-
-        // Sort by date (newest first)
-        allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
-        const recent = allActivities.slice(0, 8);
-
-        if (recent.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <p>No recent activity yet</p>
-                    <small>Start engaging with the community!</small>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = recent.map(item => {
-            let amountDisplay = '';
-            let statusDisplay = '';
-            let gpDisplay = '';
-
-            if (item.type === 'activity') {
-                if (item.gpEarned) {
-                    gpDisplay = `<span class="activity-gp">+${item.gpEarned} GP</span>`;
-                }
-            } else if (item.type === 'transaction') {
-                const prefix = item.display_type === 'credit' ? '+' : '';
-                amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
-            } else if (item.type === 'payment_request') {
-                amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
-                const statusMap = {
-                    'pending': '⏳ Pending',
-                    'approved': '✅ Approved',
-                    'rejected': '❌ Rejected'
-                };
-                statusDisplay = `<span class="activity-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>";
+            let activitiesResult = { data: [], error: null };
+            
+            try {
+                activitiesResult = await supabase
+                    .from('user_activity')
+                    .select('*')
+                    .eq('user_id', this.currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+            } catch (e) {
+                console.warn('user_activity table not found, using empty data');
             }
 
-            return `
-                <div class="activity-item">
-                    <div class="activity-icon ${item.iconClass}">
-                        <i class="fas ${item.icon}"></i>
-                    </div>
-                    <div class="activity-details">
-                        <p class="activity-description">${item.description}</p>
-                        <span class="activity-date">${this.getTimeAgo(item.date)}</span>
-                        ${statusDisplay}
-                        ${gpDisplay}
-                    </div>
-                    ${amountDisplay ? `<div class="activity-amount ${item.iconClass}">${amountDisplay}</div>` : ''}
-                </div>
-            `;
-        }).join('');
+            const transactions = await getUserTransactions();
+            const paymentRequests = await this.getPaymentRequests(this.currentUser.id);
 
-    } catch (error) {
-        console.error('Error loading activity:', error);
-        container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
+            let allActivities = [];
+
+            if (activitiesResult.data && activitiesResult.data.length > 0) {
+                allActivities = allActivities.concat(activitiesResult.data.map(a => ({
+                    ...a,
+                    type: 'activity',
+                    display_type: a.activity_type,
+                    date: a.created_at,
+                    icon: this.getActivityIcon(a.activity_type),
+                    iconClass: this.getActivityIconClass(a.activity_type),
+                    description: this.getActivityDescription(a.activity_type, a.gp_earned),
+                    gpEarned: a.gp_earned
+                })));
+            }
+
+            if (transactions && transactions.length > 0) {
+                allActivities = allActivities.concat(transactions.slice(0, 5).map(tx => ({
+                    ...tx,
+                    type: 'transaction',
+                    display_type: tx.type,
+                    date: tx.created_at,
+                    icon: tx.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up',
+                    iconClass: tx.type === 'credit' ? 'credit' : 'debit',
+                    description: tx.description || `${tx.type === 'credit' ? 'Received' : 'Spent'} funds`,
+                    amount: tx.amount
+                })));
+            }
+
+            if (paymentRequests && paymentRequests.length > 0) {
+                allActivities = allActivities.concat(paymentRequests.slice(0, 3).map(p => ({
+                    ...p,
+                    type: 'payment_request',
+                    display_type: p.status,
+                    date: p.submitted_at,
+                    icon: p.status === 'approved' ? 'fa-check-circle' : 
+                          p.status === 'rejected' ? 'fa-times-circle' : 'fa-clock',
+                    iconClass: p.status === 'approved' ? 'credit' : 
+                                p.status === 'rejected' ? 'debit' : 'pending',
+                    description: `Wallet funding request ${p.status === 'pending' ? 'submitted' : p.status}`,
+                    amount: p.amount
+                })));
+            }
+
+            allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+            const recent = allActivities.slice(0, 8);
+
+            if (recent.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>No recent activity yet</p>
+                        <small>Start engaging with the community!</small>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = recent.map(item => {
+                let amountDisplay = '';
+                let statusDisplay = '';
+                let gpDisplay = '';
+
+                if (item.type === 'activity') {
+                    if (item.gpEarned) {
+                        gpDisplay = `<span class="activity-gp">+${item.gpEarned} GP</span>`;
+                    }
+                } else if (item.type === 'transaction') {
+                    const prefix = item.display_type === 'credit' ? '+' : '';
+                    amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
+                } else if (item.type === 'payment_request') {
+                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                    const statusMap = {
+                        'pending': '⏳ Pending',
+                        'approved': '✅ Approved',
+                        'rejected': '❌ Rejected'
+                    };
+                    statusDisplay = `<span class="activity-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
+                }
+
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon ${item.iconClass}">
+                            <i class="fas ${item.icon}"></i>
+                        </div>
+                        <div class="activity-details">
+                            <p class="activity-description">${item.description}</p>
+                            <span class="activity-date">${this.getTimeAgo(item.date)}</span>
+                            ${statusDisplay}
+                            ${gpDisplay}
+                        </div>
+                        ${amountDisplay ? `<div class="activity-amount ${item.iconClass}">${amountDisplay}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Error loading activity:', error);
+            container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
+        }
     }
-}
 
     // ============================================
     // ACTIVITY HELPERS
@@ -676,59 +670,51 @@ async loadRecentActivity() {
     }
 
     // ============================================
-// GET TIME AGO - FIXED for UTC time
-// ============================================
-getTimeAgo(date) {
-    if (!date) return 'Just now';
-    
-    // Ensure date is a Date object
-    let past;
-    if (typeof date === 'string') {
-        // Parse the UTC string properly
-        past = new Date(date);
-    } else if (date instanceof Date) {
-        past = date;
-    } else {
-        return 'Just now';
-    }
-    
-    // Check if date is valid
-    if (isNaN(past.getTime())) {
-        return 'Just now';
-    }
-    
-    const now = new Date();
-    
-    // Calculate difference in seconds (UTC-safe)
-    const diff = Math.floor((now.getTime() - past.getTime()) / 1000);
-    
-    // If diff is negative (future date), show 'Just now'
-    if (diff < 0) return 'Just now';
-    
-    // If diff is less than 5 seconds
-    if (diff < 5) return 'Just now';
-    
-    const minutes = Math.floor(diff / 60);
-    const hours = Math.floor(diff / 3600);
-    const days = Math.floor(diff / 86400);
-    const weeks = Math.floor(diff / 604800);
-    const months = Math.floor(diff / 2592000);
-    const years = Math.floor(diff / 31536000);
+    // GET TIME AGO - FIXED
+    // ============================================
+    getTimeAgo(date) {
+        if (!date) return 'Just now';
+        
+        let past;
+        if (typeof date === 'string') {
+            past = new Date(date);
+        } else if (date instanceof Date) {
+            past = date;
+        } else {
+            return 'Just now';
+        }
+        
+        if (isNaN(past.getTime())) {
+            return 'Just now';
+        }
+        
+        const now = new Date();
+        const diff = Math.floor((now.getTime() - past.getTime()) / 1000);
+        
+        if (diff < 0) return 'Just now';
+        if (diff < 5) return 'Just now';
+        if (diff < 60) return `${diff}s ago`;
+        
+        const minutes = Math.floor(diff / 60);
+        const hours = Math.floor(diff / 3600);
+        const days = Math.floor(diff / 86400);
+        const weeks = Math.floor(diff / 604800);
+        const months = Math.floor(diff / 2592000);
+        const years = Math.floor(diff / 31536000);
 
-    if (diff < 60) return `${diff}s ago`;
-    if (minutes < 2) return '1m ago';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 2) return '1h ago';
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 2) return '1d ago';
-    if (days < 7) return `${days}d ago`;
-    if (weeks < 2) return '1w ago';
-    if (weeks < 4) return `${weeks}w ago`;
-    if (months < 2) return '1mo ago';
-    if (months < 12) return `${months}mo ago`;
-    if (years < 2) return '1y ago';
-    return `${years}y ago`;
-}
+        if (minutes < 2) return '1m ago';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 2) return '1h ago';
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 2) return '1d ago';
+        if (days < 7) return `${days}d ago`;
+        if (weeks < 2) return '1w ago';
+        if (weeks < 4) return `${weeks}w ago`;
+        if (months < 2) return '1mo ago';
+        if (months < 12) return `${months}mo ago`;
+        if (years < 2) return '1y ago';
+        return `${years}y ago`;
+    }
 
     // ============================================
     // WALLET TAB
@@ -840,7 +826,7 @@ getTimeAgo(date) {
                         <div class="transaction-item">
                             <div class="tx-info">
                                 <span class="tx-description">${description}</span>
-                                <span class="tx-date">${this.getTimeAgo(new Date(item.date))}</span>
+                                <span class="tx-date">${this.getTimeAgo(item.date)}</span>
                             </div>
                             <div class="tx-amount ${cls}">${amountDisplay}</div>
                         </div>
@@ -993,7 +979,7 @@ getTimeAgo(date) {
                 <div class="message-thread ${msg.status === 'unread' ? 'unread' : ''}">
                     <div class="message-header">
                         <span class="message-subject">${msg.subject}</span>
-                        <span class="message-date">${this.getTimeAgo(new Date(msg.created_at))}</span>
+                        <span class="message-date">${this.getTimeAgo(msg.created_at)}</span>
                     </div>
                     <div class="message-body-preview">${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}</div>
                     <div class="message-status ${msg.status}">${msg.status === 'unread' ? '🔴 Unread' : '✅ Read'}</div>
