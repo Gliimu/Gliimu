@@ -169,7 +169,6 @@ export class UserPage {
         }
     }
 
-    // ✅ NEW: Get payment requests for transaction history
     async getPaymentRequests(userId) {
         try {
             const { data, error } = await supabase
@@ -253,7 +252,6 @@ export class UserPage {
         }
     }
 
-    // ✅ UPDATED: Tab names changed
     getNavItems() {
         const role = this.currentProfile?.role || 'student';
         const items = [
@@ -321,7 +319,7 @@ export class UserPage {
     }
 
     // ============================================
-    // DASHBOARD / OVERVIEW TAB (UPDATED)
+    // DASHBOARD / OVERVIEW TAB
     // ============================================
     async loadDashboard() {
         const content = this.dashboardContent;
@@ -351,7 +349,6 @@ export class UserPage {
                 </div>
             </div>
 
-            <!-- Stats Grid with Action Buttons -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon wallet-icon">
@@ -403,7 +400,6 @@ export class UserPage {
                 </div>
             </div>
 
-            <!-- Progress Bar -->
             <div class="progress-section">
                 <div class="progress-header">
                     <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
@@ -418,7 +414,6 @@ export class UserPage {
                 </div>
             </div>
 
-            <!-- Side-by-side: Leaderboard & Recent Activity -->
             <div class="dashboard-grid">
                 <div class="card leaderboard-card">
                     <div class="leaderboard-header">
@@ -448,7 +443,6 @@ export class UserPage {
             ` : ''}
         `;
 
-        // Bind stat action buttons
         document.querySelectorAll('.stat-action-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -506,228 +500,212 @@ export class UserPage {
         }).join('');
     }
 
- // ============================================
-// RECENT ACTIVITY - Social & GP Activity
-// Shows: Hearts, GP earned, submissions, etc.
-// ============================================
-async loadRecentActivity() {
-    const container = document.getElementById('recentActivity');
-    if (!container) return;
+    // ============================================
+    // RECENT ACTIVITY - Social & GP Activity
+    // ============================================
+    async loadRecentActivity() {
+        const container = document.getElementById('recentActivity');
+        if (!container) return;
 
-    try {
-        // Fetch user activity from multiple sources
-        const [activities, transactions, paymentRequests] = await Promise.all([
-            // Get user activity (hearts, comments, shares, etc.)
-            supabase
-                .from('user_activity')
-                .select('*')
-                .eq('user_id', this.currentUser.id)
-                .order('created_at', { ascending: false })
-                .limit(10),
-            
-            // Get transactions
-            getUserTransactions(),
-            
-            // Get payment requests
-            this.getPaymentRequests(this.currentUser.id)
-        ]);
+        try {
+            const [activitiesResult, transactions, paymentRequests] = await Promise.all([
+                supabase
+                    .from('user_activity')
+                    .select('*')
+                    .eq('user_id', this.currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(10),
+                getUserTransactions(),
+                this.getPaymentRequests(this.currentUser.id)
+            ]);
 
-        let allActivities = [];
+            let allActivities = [];
 
-        // Add user activities (hearts, comments, shares, GP earned, etc.)
-        if (activities.data && activities.data.length > 0) {
-            allActivities = allActivities.concat(activities.data.map(a => ({
-                ...a,
-                type: 'activity',
-                display_type: a.activity_type,
-                date: a.created_at,
-                icon: this.getActivityIcon(a.activity_type),
-                iconClass: this.getActivityIconClass(a.activity_type),
-                description: this.getActivityDescription(a.activity_type, a.gp_earned),
-                gpEarned: a.gp_earned
-            })));
-        }
-
-        // Add transactions (purchases, tips, etc.)
-        if (transactions && transactions.length > 0) {
-            allActivities = allActivities.concat(transactions.slice(0, 5).map(tx => ({
-                ...tx,
-                type: 'transaction',
-                display_type: tx.type,
-                date: tx.created_at,
-                icon: tx.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up',
-                iconClass: tx.type === 'credit' ? 'credit' : 'debit',
-                description: tx.description || `${tx.type === 'credit' ? 'Received' : 'Spent'} funds`,
-                amount: tx.amount
-            })));
-        }
-
-        // Add payment requests (wallet funding)
-        if (paymentRequests && paymentRequests.length > 0) {
-            allActivities = allActivities.concat(paymentRequests.slice(0, 3).map(p => ({
-                ...p,
-                type: 'payment_request',
-                display_type: p.status,
-                date: p.submitted_at,
-                icon: p.status === 'approved' ? 'fa-check-circle' : 
-                      p.status === 'rejected' ? 'fa-times-circle' : 'fa-clock',
-                iconClass: p.status === 'approved' ? 'credit' : 
-                            p.status === 'rejected' ? 'debit' : 'pending',
-                description: `Wallet funding request ${p.status === 'pending' ? 'submitted' : p.status}`,
-                amount: p.amount
-            })));
-        }
-
-        // Sort by date (newest first)
-        allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
-        
-        // Take top 8
-        const recent = allActivities.slice(0, 8);
-
-        if (recent.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <p>No recent activity yet</p>
-                    <small>Start engaging with the community!</small>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = recent.map(item => {
-            let amountDisplay = '';
-            let statusDisplay = '';
-            let gpDisplay = '';
-
-            if (item.type === 'activity') {
-                if (item.gpEarned) {
-                    gpDisplay = `<span class="activity-gp">+${item.gpEarned} GP</span>`;
-                }
-            } else if (item.type === 'transaction') {
-                const prefix = item.display_type === 'credit' ? '+' : '';
-                amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
-            } else if (item.type === 'payment_request') {
-                amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
-                const statusMap = {
-                    'pending': '⏳ Pending',
-                    'approved': '✅ Approved',
-                    'rejected': '❌ Rejected'
-                };
-                statusDisplay = `<span class="activity-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
+            if (activitiesResult.data && activitiesResult.data.length > 0) {
+                allActivities = allActivities.concat(activitiesResult.data.map(a => ({
+                    ...a,
+                    type: 'activity',
+                    display_type: a.activity_type,
+                    date: a.created_at,
+                    icon: this.getActivityIcon(a.activity_type),
+                    iconClass: this.getActivityIconClass(a.activity_type),
+                    description: this.getActivityDescription(a.activity_type, a.gp_earned),
+                    gpEarned: a.gp_earned
+                })));
             }
 
-            return `
-                <div class="activity-item">
-                    <div class="activity-icon ${item.iconClass}">
-                        <i class="fas ${item.icon}"></i>
+            if (transactions && transactions.length > 0) {
+                allActivities = allActivities.concat(transactions.slice(0, 5).map(tx => ({
+                    ...tx,
+                    type: 'transaction',
+                    display_type: tx.type,
+                    date: tx.created_at,
+                    icon: tx.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up',
+                    iconClass: tx.type === 'credit' ? 'credit' : 'debit',
+                    description: tx.description || `${tx.type === 'credit' ? 'Received' : 'Spent'} funds`,
+                    amount: tx.amount
+                })));
+            }
+
+            if (paymentRequests && paymentRequests.length > 0) {
+                allActivities = allActivities.concat(paymentRequests.slice(0, 3).map(p => ({
+                    ...p,
+                    type: 'payment_request',
+                    display_type: p.status,
+                    date: p.submitted_at,
+                    icon: p.status === 'approved' ? 'fa-check-circle' : 
+                          p.status === 'rejected' ? 'fa-times-circle' : 'fa-clock',
+                    iconClass: p.status === 'approved' ? 'credit' : 
+                                p.status === 'rejected' ? 'debit' : 'pending',
+                    description: `Wallet funding request ${p.status === 'pending' ? 'submitted' : p.status}`,
+                    amount: p.amount
+                })));
+            }
+
+            allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+            const recent = allActivities.slice(0, 8);
+
+            if (recent.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>No recent activity yet</p>
+                        <small>Start engaging with the community!</small>
                     </div>
-                    <div class="activity-details">
-                        <p class="activity-description">${item.description}</p>
-                        <span class="activity-date">${this.getTimeAgo(new Date(item.date))}</span>
-                        ${statusDisplay}
-                        ${gpDisplay}
+                `;
+                return;
+            }
+
+            container.innerHTML = recent.map(item => {
+                let amountDisplay = '';
+                let statusDisplay = '';
+                let gpDisplay = '';
+
+                if (item.type === 'activity') {
+                    if (item.gpEarned) {
+                        gpDisplay = `<span class="activity-gp">+${item.gpEarned} GP</span>`;
+                    }
+                } else if (item.type === 'transaction') {
+                    const prefix = item.display_type === 'credit' ? '+' : '';
+                    amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
+                } else if (item.type === 'payment_request') {
+                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                    const statusMap = {
+                        'pending': '⏳ Pending',
+                        'approved': '✅ Approved',
+                        'rejected': '❌ Rejected'
+                    };
+                    statusDisplay = `<span class="activity-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
+                }
+
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon ${item.iconClass}">
+                            <i class="fas ${item.icon}"></i>
+                        </div>
+                        <div class="activity-details">
+                            <p class="activity-description">${item.description}</p>
+                            <span class="activity-date">${this.getTimeAgo(new Date(item.date))}</span>
+                            ${statusDisplay}
+                            ${gpDisplay}
+                        </div>
+                        ${amountDisplay ? `<div class="activity-amount ${item.iconClass}">${amountDisplay}</div>` : ''}
                     </div>
-                    ${amountDisplay ? `<div class="activity-amount ${item.iconClass}">${amountDisplay}</div>` : ''}
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
 
-    } catch (error) {
-        console.error('Error loading activity:', error);
-        container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
+        } catch (error) {
+            console.error('Error loading activity:', error);
+            container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
+        }
     }
-}
-
-// Helper: Get activity icon based on type
-getActivityIcon(type) {
-    const icons = {
-        'heart_received': 'fa-heart',
-        'comment': 'fa-comment',
-        'share': 'fa-share-alt',
-        'read': 'fa-book-open',
-        'submission_graded': 'fa-check-circle',
-        'streak_bonus': 'fa-fire',
-        'referral': 'fa-user-plus',
-        'default': 'fa-bolt'
-    };
-    return icons[type] || icons.default;
-}
-
-// Helper: Get activity icon class
-getActivityIconClass(type) {
-    const classes = {
-        'heart_received': 'heart',
-        'comment': 'comment',
-        'share': 'share',
-        'read': 'read',
-        'submission_graded': 'graded',
-        'streak_bonus': 'streak',
-        'referral': 'referral',
-        'default': 'default'
-    };
-    return classes[type] || classes.default;
-}
-
-// Helper: Get activity description
-getActivityDescription(type, gpEarned) {
-    const descriptions = {
-        'heart_received': 'Someone ❤️ your post!',
-        'comment': 'You commented on a post',
-        'share': 'You shared content',
-        'read': 'You read a book/article',
-        'submission_graded': 'Your submission was graded',
-        'streak_bonus': `🔥 Streak bonus! +${gpEarned || 0} GP`,
-        'referral': 'Someone joined using your referral link',
-        'default': 'You earned GP'
-    };
-    return descriptions[type] || descriptions.default;
-}
-
-// ============================================
-// GET TIME AGO - FIXED for accurate time display
-// ============================================
-getTimeAgo(date) {
-    if (!date) return 'Just now';
-    
-    // Ensure date is a Date object
-    const now = new Date();
-    const past = new Date(date);
-    
-    // Check if date is valid
-    if (isNaN(past.getTime())) {
-        return 'Just now';
-    }
-    
-    const diff = Math.floor((now.getTime() - past.getTime()) / 1000); // Difference in seconds
-    
-    // If diff is negative (future date), show 'Just now'
-    if (diff < 0) return 'Just now';
-    
-    const minutes = Math.floor(diff / 60);
-    const hours = Math.floor(diff / 3600);
-    const days = Math.floor(diff / 86400);
-    const weeks = Math.floor(diff / 604800);
-    const months = Math.floor(diff / 2592000);
-    const years = Math.floor(diff / 31536000);
-
-    if (diff < 5) return 'Just now';
-    if (diff < 60) return `${diff}s ago`;
-    if (minutes < 2) return '1m ago';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 2) return '1h ago';
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 2) return '1d ago';
-    if (days < 7) return `${days}d ago`;
-    if (weeks < 2) return '1w ago';
-    if (weeks < 4) return `${weeks}w ago`;
-    if (months < 2) return '1mo ago';
-    if (months < 12) return `${months}mo ago`;
-    if (years < 2) return '1y ago';
-    return `${years}y ago`;
-}
 
     // ============================================
-    // WALLET TAB - UPDATED Transaction History
+    // ACTIVITY HELPERS
+    // ============================================
+    getActivityIcon(type) {
+        const icons = {
+            'heart_received': 'fa-heart',
+            'comment': 'fa-comment',
+            'share': 'fa-share-alt',
+            'read': 'fa-book-open',
+            'submission_graded': 'fa-check-circle',
+            'streak_bonus': 'fa-fire',
+            'referral': 'fa-user-plus',
+            'default': 'fa-bolt'
+        };
+        return icons[type] || icons.default;
+    }
+
+    getActivityIconClass(type) {
+        const classes = {
+            'heart_received': 'heart',
+            'comment': 'comment',
+            'share': 'share',
+            'read': 'read',
+            'submission_graded': 'graded',
+            'streak_bonus': 'streak',
+            'referral': 'referral',
+            'default': 'default'
+        };
+        return classes[type] || classes.default;
+    }
+
+    getActivityDescription(type, gpEarned) {
+        const descriptions = {
+            'heart_received': 'Someone ❤️ your post!',
+            'comment': 'You commented on a post',
+            'share': 'You shared content',
+            'read': 'You read a book/article',
+            'submission_graded': 'Your submission was graded',
+            'streak_bonus': `🔥 Streak bonus! +${gpEarned || 0} GP`,
+            'referral': 'Someone joined using your referral link',
+            'default': 'You earned GP'
+        };
+        return descriptions[type] || descriptions.default;
+    }
+
+    // ============================================
+    // GET TIME AGO - FIXED
+    // ============================================
+    getTimeAgo(date) {
+        if (!date) return 'Just now';
+        
+        const now = new Date();
+        const past = new Date(date);
+        
+        if (isNaN(past.getTime())) {
+            return 'Just now';
+        }
+        
+        const diff = Math.floor((now.getTime() - past.getTime()) / 1000);
+        
+        if (diff < 0) return 'Just now';
+        
+        const minutes = Math.floor(diff / 60);
+        const hours = Math.floor(diff / 3600);
+        const days = Math.floor(diff / 86400);
+        const weeks = Math.floor(diff / 604800);
+        const months = Math.floor(diff / 2592000);
+        const years = Math.floor(diff / 31536000);
+
+        if (diff < 5) return 'Just now';
+        if (diff < 60) return `${diff}s ago`;
+        if (minutes < 2) return '1m ago';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 2) return '1h ago';
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 2) return '1d ago';
+        if (days < 7) return `${days}d ago`;
+        if (weeks < 2) return '1w ago';
+        if (weeks < 4) return `${weeks}w ago`;
+        if (months < 2) return '1mo ago';
+        if (months < 12) return `${months}mo ago`;
+        if (years < 2) return '1y ago';
+        return `${years}y ago`;
+    }
+
+    // ============================================
+    // WALLET TAB
     // ============================================
     async loadWallet() {
         const content = this.dashboardContent;
@@ -774,114 +752,240 @@ getTimeAgo(date) {
         await this.loadTransactionHistory();
     }
 
-  // ============================================
-// TRANSACTION HISTORY - Financial Only
-// Shows: Wallet funding, purchases, tips, etc.
-// ============================================
-async loadTransactionHistory() {
-    const container = document.getElementById('transactionHistory');
-    if (!container) return;
+    // ============================================
+    // TRANSACTION HISTORY - Financial Only
+    // ============================================
+    async loadTransactionHistory() {
+        const container = document.getElementById('transactionHistory');
+        if (!container) return;
 
-    try {
-        // Get transactions and payment requests
-        const [transactions, paymentRequests] = await Promise.all([
-            getUserTransactions(),
-            this.getPaymentRequests(this.currentUser.id)
-        ]);
+        try {
+            const [transactions, paymentRequests] = await Promise.all([
+                getUserTransactions(),
+                this.getPaymentRequests(this.currentUser.id)
+            ]);
 
-        let allTransactions = [];
+            let allTransactions = [];
 
-        // Add financial transactions
-        if (transactions && transactions.length > 0) {
-            allTransactions = allTransactions.concat(transactions.map(tx => ({
-                ...tx,
-                type: 'transaction',
-                display_type: tx.type || 'unknown',
-                date: tx.created_at,
-                description: tx.description || `${tx.type === 'credit' ? 'Credited' : 'Debited'}`
-            })));
-        }
-
-        // Add payment requests
-        if (paymentRequests && paymentRequests.length > 0) {
-            allTransactions = allTransactions.concat(paymentRequests.map(p => ({
-                ...p,
-                type: 'payment_request',
-                display_type: p.status,
-                date: p.submitted_at,
-                amount: p.amount,
-                description: `Wallet funding request`
-            })));
-        }
-
-        // Sort by date (newest first)
-        allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        if (allTransactions.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-receipt" style="font-size: 32px; color: var(--text-muted);"></i>
-                    <p>No transactions yet</p>
-                    <small>Your financial activity will appear here</small>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = allTransactions.map(item => {
-            let amountDisplay = '';
-            let statusDisplay = '';
-            let description = item.description || 'Transaction';
-
-            if (item.type === 'transaction') {
-                const prefix = item.display_type === 'credit' ? '+' : '';
-                amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
-                const cls = item.display_type === 'credit' ? 'credit' : 'debit';
-                return `
-                    <div class="transaction-item">
-                        <div class="tx-info">
-                            <span class="tx-description">${description}</span>
-                            <span class="tx-date">${this.getTimeAgo(new Date(item.date))}</span>
-                        </div>
-                        <div class="tx-amount ${cls}">${amountDisplay}</div>
-                    </div>
-                `;
-            } else if (item.type === 'payment_request') {
-                amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
-                const statusMap = {
-                    'pending': '⏳ Pending',
-                    'approved': '✅ Approved',
-                    'rejected': '❌ Rejected'
-                };
-                statusDisplay = `<span class="tx-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
-                const icon = item.display_type === 'approved' ? 'fa-check-circle' : 
-                             item.display_type === 'rejected' ? 'fa-times-circle' : 'fa-clock';
-                
-                return `
-                    <div class="transaction-item">
-                        <div class="tx-info">
-                            <span class="tx-description">
-                                <i class="fas ${icon}" style="margin-right: 6px;"></i>
-                                ${description}
-                            </span>
-                            <span class="tx-date">${new Date(item.date).toLocaleString()}</span>
-                            ${statusDisplay}
-                        </div>
-                        <div class="tx-amount ${item.display_type}">${amountDisplay}</div>
-                    </div>
-                `;
+            if (transactions && transactions.length > 0) {
+                allTransactions = allTransactions.concat(transactions.map(tx => ({
+                    ...tx,
+                    type: 'transaction',
+                    display_type: tx.type || 'unknown',
+                    date: tx.created_at,
+                    description: tx.description || `${tx.type === 'credit' ? 'Credited' : 'Debited'}`
+                })));
             }
-            return '';
-        }).join('');
 
-    } catch (error) {
-        console.error('Error loading transactions:', error);
-        container.innerHTML = '<p class="text-muted">Failed to load transactions</p>';
+            if (paymentRequests && paymentRequests.length > 0) {
+                allTransactions = allTransactions.concat(paymentRequests.map(p => ({
+                    ...p,
+                    type: 'payment_request',
+                    display_type: p.status,
+                    date: p.submitted_at,
+                    amount: p.amount,
+                    description: 'Wallet funding request'
+                })));
+            }
+
+            allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (allTransactions.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-receipt" style="font-size: 32px; color: var(--text-muted);"></i>
+                        <p>No transactions yet</p>
+                        <small>Your financial activity will appear here</small>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = allTransactions.map(item => {
+                let amountDisplay = '';
+                let statusDisplay = '';
+                let description = item.description || 'Transaction';
+
+                if (item.type === 'transaction') {
+                    const prefix = item.display_type === 'credit' ? '+' : '';
+                    amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
+                    const cls = item.display_type === 'credit' ? 'credit' : 'debit';
+                    return `
+                        <div class="transaction-item">
+                            <div class="tx-info">
+                                <span class="tx-description">${description}</span>
+                                <span class="tx-date">${this.getTimeAgo(new Date(item.date))}</span>
+                            </div>
+                            <div class="tx-amount ${cls}">${amountDisplay}</div>
+                        </div>
+                    `;
+                } else if (item.type === 'payment_request') {
+                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                    const statusMap = {
+                        'pending': '⏳ Pending',
+                        'approved': '✅ Approved',
+                        'rejected': '❌ Rejected'
+                    };
+                    statusDisplay = `<span class="tx-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
+                    const icon = item.display_type === 'approved' ? 'fa-check-circle' : 
+                                 item.display_type === 'rejected' ? 'fa-times-circle' : 'fa-clock';
+                    
+                    return `
+                        <div class="transaction-item">
+                            <div class="tx-info">
+                                <span class="tx-description">
+                                    <i class="fas ${icon}" style="margin-right: 6px;"></i>
+                                    ${description}
+                                </span>
+                                <span class="tx-date">${this.getTimeAgo(new Date(item.date))}</span>
+                                ${statusDisplay}
+                            </div>
+                            <div class="tx-amount ${item.display_type}">${amountDisplay}</div>
+                        </div>
+                    `;
+                }
+                return '';
+            }).join('');
+
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+            container.innerHTML = '<p class="text-muted">Failed to load transactions</p>';
+        }
     }
-}
 
     // ============================================
-    // PORTFOLIO TAB (was Go To)
+    // MESSAGES TAB
+    // ============================================
+    async loadMessages() {
+        this.dashboardContent.innerHTML = `
+            <div class="dashboard-header">
+                <h1><i class="fas fa-envelope"></i> Messages</h1>
+                <p>Communicate with administrators</p>
+            </div>
+            
+            <div class="card messages-container">
+                <div class="messages-header">
+                    <h3>Admin Communication</h3>
+                    <button id="newMessageBtn" class="btn-primary"><i class="fas fa-plus"></i> New Message</button>
+                </div>
+                
+                <div id="messageThreads">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
+                        <h3>No Messages</h3>
+                        <p>Start a conversation with an administrator</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="messageModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>New Message</h2>
+                        <button class="modal-close" id="closeMessageModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="messageForm">
+                            <div class="form-group">
+                                <label>Subject</label>
+                                <input type="text" id="messageSubject" required placeholder="Enter message subject">
+                            </div>
+                            <div class="form-group">
+                                <label>Message</label>
+                                <textarea id="messageBody" rows="5" required placeholder="Type your message..."></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary">Send Message</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('newMessageBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('messageModal');
+            if (modal) modal.classList.add('active');
+        });
+
+        document.getElementById('closeMessageModal')?.addEventListener('click', () => {
+            const modal = document.getElementById('messageModal');
+            if (modal) modal.classList.remove('active');
+        });
+
+        document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const subject = document.getElementById('messageSubject').value;
+            const body = document.getElementById('messageBody').value;
+            
+            const { error } = await supabase
+                .from('messages')
+                .insert([{
+                    user_id: this.currentUser.id,
+                    subject: subject,
+                    body: body,
+                    status: 'unread',
+                    created_at: new Date().toISOString()
+                }]);
+            
+            if (error) {
+                showToast('Failed to send message', 'error');
+            } else {
+                showToast('Message sent successfully!', 'success');
+                document.getElementById('messageModal').classList.remove('active');
+                document.getElementById('messageForm').reset();
+                await this.loadMessageThreads();
+            }
+        });
+
+        await this.loadMessageThreads();
+    }
+
+    async loadMessageThreads() {
+        const container = document.getElementById('messageThreads');
+        if (!container) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('user_id', this.currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
+                        <h3>No Messages</h3>
+                        <p>Start a conversation with an administrator</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.map(msg => `
+                <div class="message-thread ${msg.status === 'unread' ? 'unread' : ''}">
+                    <div class="message-header">
+                        <span class="message-subject">${msg.subject}</span>
+                        <span class="message-date">${this.getTimeAgo(new Date(msg.created_at))}</span>
+                    </div>
+                    <div class="message-body-preview">${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}</div>
+                    <div class="message-status ${msg.status}">${msg.status === 'unread' ? '🔴 Unread' : '✅ Read'}</div>
+                    ${msg.admin_response ? `
+                        <div class="admin-response">
+                            <strong>Admin Response:</strong> ${msg.admin_response}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            container.innerHTML = '<p class="text-muted">Failed to load messages</p>';
+        }
+    }
+
+    // ============================================
+    // PORTFOLIO TAB
     // ============================================
     async loadPortfolio() {
         const user = this.currentUser;
@@ -1006,7 +1110,7 @@ async loadTransactionHistory() {
     }
 
     // ============================================
-    // SETTINGS TAB (was Profile)
+    // SETTINGS TAB
     // ============================================
     async loadSettings() {
         const content = this.dashboardContent;
@@ -1155,138 +1259,7 @@ async loadTransactionHistory() {
     }
 
     // ============================================
-    // MESSAGES TAB
-    // ============================================
-    async loadMessages() {
-        this.dashboardContent.innerHTML = `
-            <div class="dashboard-header">
-                <h1><i class="fas fa-envelope"></i> Messages</h1>
-                <p>Communicate with administrators</p>
-            </div>
-            
-            <div class="card messages-container">
-                <div class="messages-header">
-                    <h3>Admin Communication</h3>
-                    <button id="newMessageBtn" class="btn-primary"><i class="fas fa-plus"></i> New Message</button>
-                </div>
-                
-                <div id="messageThreads">
-                    <div class="empty-state">
-                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
-                        <h3>No Messages</h3>
-                        <p>Start a conversation with an administrator</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="messageModal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>New Message</h2>
-                        <button class="modal-close" id="closeMessageModal">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="messageForm">
-                            <div class="form-group">
-                                <label>Subject</label>
-                                <input type="text" id="messageSubject" required placeholder="Enter message subject">
-                            </div>
-                            <div class="form-group">
-                                <label>Message</label>
-                                <textarea id="messageBody" rows="5" required placeholder="Type your message..."></textarea>
-                            </div>
-                            <button type="submit" class="btn-primary">Send Message</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('newMessageBtn')?.addEventListener('click', () => {
-            const modal = document.getElementById('messageModal');
-            if (modal) modal.classList.add('active');
-        });
-
-        document.getElementById('closeMessageModal')?.addEventListener('click', () => {
-            const modal = document.getElementById('messageModal');
-            if (modal) modal.classList.remove('active');
-        });
-
-        document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const subject = document.getElementById('messageSubject').value;
-            const body = document.getElementById('messageBody').value;
-            
-            const { error } = await supabase
-                .from('messages')
-                .insert([{
-                    user_id: this.currentUser.id,
-                    subject: subject,
-                    body: body,
-                    status: 'unread',
-                    created_at: new Date().toISOString()
-                }]);
-            
-            if (error) {
-                showToast('Failed to send message', 'error');
-            } else {
-                showToast('Message sent successfully!', 'success');
-                document.getElementById('messageModal').classList.remove('active');
-                document.getElementById('messageForm').reset();
-                await this.loadMessageThreads();
-            }
-        });
-
-        await this.loadMessageThreads();
-    }
-
-    async loadMessageThreads() {
-        const container = document.getElementById('messageThreads');
-        if (!container) return;
-
-        try {
-            const { data, error } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('user_id', this.currentUser.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            if (!data || data.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
-                        <h3>No Messages</h3>
-                        <p>Start a conversation with an administrator</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = data.map(msg => `
-                <div class="message-thread ${msg.status === 'unread' ? 'unread' : ''}">
-                    <div class="message-header">
-                        <span class="message-subject">${msg.subject}</span>
-                        <span class="message-date">${new Date(msg.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div class="message-body-preview">${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}</div>
-                    <div class="message-status ${msg.status}">${msg.status === 'unread' ? '🔴 Unread' : '✅ Read'}</div>
-                    ${msg.admin_response ? `
-                        <div class="admin-response">
-                            <strong>Admin Response:</strong> ${msg.admin_response}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading messages:', error);
-            container.innerHTML = '<p class="text-muted">Failed to load messages</p>';
-        }
-    }
-
-    // ============================================
-    // UTILITY METHODS
+    // SETTINGS HELPERS
     // ============================================
     async validateUsername(username) {
         const feedback = document.getElementById('usernameFeedback');
@@ -1817,7 +1790,6 @@ async loadTransactionHistory() {
             });
         });
 
-        // ✅ FIX: Use 'active' class for modal visibility
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
