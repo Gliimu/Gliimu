@@ -2160,3 +2160,80 @@ body {
 .gap-16 { gap: 16px; }
 
 .w-full { width: 100%; }
+
+/* ============================================
+   STAT ACTION BUTTONS
+   ============================================ */
+.stat-card {
+    position: relative;
+}
+
+.stat-action-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+.stat-action-btn:hover {
+    background: var(--brand-gold);
+    color: var(--brand-purple);
+    transform: scale(1.1);
+}
+
+.stat-action-btn i {
+    font-size: 0.7rem;
+}
+
+/* ============================================
+   ACTIVITY STATUS
+   ============================================ */
+.activity-status {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    margin-top: 2px;
+    display: inline-block;
+}
+
+.activity-status.pending {
+    background: rgba(251, 176, 64, 0.15);
+    color: var(--brand-gold);
+}
+
+.activity-status.approved {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.activity-status.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+/* ============================================
+   TX STATUS
+   ============================================ */
+.tx-status.pending {
+    color: var(--brand-gold);
+}
+
+.tx-status.approved {
+    color: #10b981;
+}
+
+.tx-status.rejected {
+    color: #ef4444;
+}
