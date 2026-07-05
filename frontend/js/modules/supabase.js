@@ -1468,23 +1468,6 @@ export async function saveToShelf(itemId, itemType, itemData) {
     return { action: 'saved' };
 }
 
-export async function getSavedItems() {
-    const user = await getCurrentUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-        .from('saved_items')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('saved_at', { ascending: false });
-    
-    if (error) {
-        console.error('Get saved items error:', error);
-        return [];
-    }
-    return data;
-}
-
 // ============================================
 // EXPORT ALL FUNCTIONS (ONLY ONE BLOCK!)
 // ============================================
@@ -1538,5 +1521,4 @@ export {
     claimFreePromotion,
     subscribeToWallet,
     saveToShelf,
-    getSavedItems
 };
