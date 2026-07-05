@@ -1,336 +1,410 @@
 // ============================================
-// USER ALERTS - Achievements, Certificates, Messages
+// USER ALERTS MODULE
+// Path: /frontend/js/pages/user-alerts.js
+// Purpose: Manages all alert/notification functionality
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
 import { showToast } from '../modules/toast.js';
 
 // ============================================
-// STATE
+// ALERT MANAGER CLASS
 // ============================================
 
-let currentUser = null;
-let alerts = {
-    certificates: [],
-    badges: [],
-    messages: [],
-    notifications: []
-};
-
-// ============================================
-// RENDER ALERTS TAB
-// ============================================
-
-export async function renderAlerts(container) {
-    if (!container) return;
-    
-    // Get current user
-    currentUser = await getCurrentUser();
-    if (!currentUser) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-bell"></i>
-                <h3>Sign In Required</h3>
-                <p>Please sign in to view your alerts.</p>
-            </div>
-        `;
-        return;
+class AlertManager {
+    constructor() {
+        this.alerts = [];
+        this.unreadCount = 0;
+        this.userId = null;
+        this.listeners = [];
     }
-    
-    // Load all alert data
-    await loadAlerts();
-    
-    // Render
-    container.innerHTML = `
-        <div class="section-header">
-            <div>
-                <h2><i class="fas fa-bell"></i> Alerts</h2>
-                <p>Your achievements, certificates, badges, and messages</p>
-            </div>
-        </div>
-        
-        <div class="alerts-grid">
-            ${renderAlertCard('Certificates', 'fa-certificate', alerts.certificates.length)}
-            ${renderAlertCard('Badges', 'fa-medal', alerts.badges.length)}
-            ${renderAlertCard('Messages', 'fa-envelope', alerts.messages.length)}
-            ${renderAlertCard('Notifications', 'fa-bullhorn', alerts.notifications.length)}
-        </div>
-        
-        <div class="alert-messages">
-            <h3>Recent Activity</h3>
-            ${renderRecentActivity()}
-        </div>
-    `;
-}
 
-// ============================================
-// RENDER ALERT CARD
-// ============================================
-
-function renderAlertCard(title, icon, count) {
-    const isZero = count === 0;
-    return `
-        <div class="alert-card" onclick="window.handleAlertClick('${title.toLowerCase()}')">
-            <div class="alert-icon">
-                <i class="fas ${icon}"></i>
-            </div>
-            <div class="alert-content">
-                <h3>${title}</h3>
-                <p>${isZero ? 'No new items' : `${count} item${count > 1 ? 's' : ''} available`}</p>
-                <span class="alert-count ${isZero ? 'zero' : ''}">${count}</span>
-            </div>
-        </div>
-    `;
-}
-
-// ============================================
-// RENDER RECENT ACTIVITY
-// ============================================
-
-function renderRecentActivity() {
-    const allItems = [
-        ...alerts.certificates.map(c => ({ ...c, type: 'certificate' })),
-        ...alerts.badges.map(b => ({ ...b, type: 'badge' })),
-        ...alerts.messages.map(m => ({ ...m, type: 'message' })),
-        ...alerts.notifications.map(n => ({ ...n, type: 'notification' }))
-    ];
-    
-    // Sort by date (newest first)
-    allItems.sort((a, b) => new Date(b.created_at || b.date || 0) - new Date(a.created_at || a.date || 0));
-    
-    // Get latest 5
-    const recent = allItems.slice(0, 5);
-    
-    if (recent.length === 0) {
-        return `
-            <div class="empty-state" style="padding: 1.5rem;">
-                <i class="fas fa-check-circle" style="font-size: 1.5rem;"></i>
-                <h3 style="font-size: 0.9rem;">All Caught Up!</h3>
-                <p style="font-size: 0.8rem;">No recent activity to show.</p>
-            </div>
-        `;
+    // ============================================
+    // INITIALIZE ALERTS
+    // ============================================
+    async initialize(userId) {
+        this.userId = userId;
+        await this.loadAlerts();
+        this.setupRealtimeSubscription();
     }
-    
-    const icons = {
-        certificate: 'fa-certificate',
-        badge: 'fa-medal',
-        message: 'fa-envelope',
-        notification: 'fa-bullhorn'
-    };
-    
-    const colors = {
-        certificate: 'var(--brand-gold)',
-        badge: 'var(--brand-purple)',
-        message: 'var(--info)',
-        notification: 'var(--success)'
-    };
-    
-    return recent.map(item => `
-        <div class="alert-message-item">
-            <div class="msg-icon" style="color: ${colors[item.type] || 'var(--brand-gold)'}; background: ${colors[item.type] || 'var(--brand-gold)'}20;">
-                <i class="fas ${icons[item.type] || 'fa-bell'}"></i>
-            </div>
-            <div class="msg-content">
-                <div class="msg-title">${escapeHtml(item.title || item.name || 'Update')}</div>
-                <div class="msg-preview">${escapeHtml(item.description || item.message || 'No description')}</div>
-            </div>
-            <div class="msg-time">${formatTime(item.created_at || item.date || new Date())}</div>
-        </div>
-    `).join('');
-}
 
-// ============================================
-// LOAD ALERTS DATA
-// ============================================
+    // ============================================
+    // LOAD ALERTS FROM DATABASE
+    // ============================================
+    async loadAlerts() {
+        try {
+            if (!this.userId) return [];
 
-async function loadAlerts() {
-    try {
-        // Load certificates from database
-        await loadCertificates();
-        
-        // Load badges from database
-        await loadBadges();
-        
-        // Load messages from database
-        await loadMessages();
-        
-        // Load notifications from database
-        await loadNotifications();
-        
-    } catch (error) {
-        console.error('Error loading alerts:', error);
-    }
-}
+            const { data, error } = await supabase
+                .from('user_alerts')
+                .select('*')
+                .eq('user_id', this.userId)
+                .order('created_at', { ascending: false });
 
-// ============================================
-// LOAD CERTIFICATES
-// ============================================
+            if (error) {
+                // If table doesn't exist, use local storage fallback
+                if (error.code === '42P01') {
+                    return this.loadLocalAlerts();
+                }
+                throw error;
+            }
 
-async function loadCertificates() {
-    try {
-        const { data, error } = await supabase
-            .from('user_certificates')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('issued_at', { ascending: false });
-        
-        if (error) {
-            console.warn('Could not load certificates:', error.message);
-            // Fallback: sample certificates
-            alerts.certificates = [
-                { id: '1', name: 'Video Production Fundamentals', description: 'Completed Phase 1', issued_at: new Date().toISOString() }
-            ];
-            return;
-        }
-        
-        alerts.certificates = data || [];
-    } catch (error) {
-        alerts.certificates = [];
-    }
-}
+            this.alerts = data || [];
+            this.unreadCount = this.alerts.filter(a => !a.read).length;
+            this.notifyListeners();
+            return this.alerts;
 
-// ============================================
-// LOAD BADGES
-// ============================================
-
-async function loadBadges() {
-    try {
-        const { data, error } = await supabase
-            .from('user_achievements')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('unlocked_at', { ascending: false });
-        
-        if (error) {
-            console.warn('Could not load badges:', error.message);
-            // Fallback: sample badges
-            alerts.badges = [
-                { id: '1', name: 'First Step', description: 'Completed your first module', unlocked_at: new Date().toISOString() }
-            ];
-            return;
-        }
-        
-        alerts.badges = data || [];
-    } catch (error) {
-        alerts.badges = [];
-    }
-}
-
-// ============================================
-// LOAD MESSAGES
-// ============================================
-
-async function loadMessages() {
-    try {
-        const { data, error } = await supabase
-            .from('user_messages')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
-            .limit(10);
-        
-        if (error) {
-            console.warn('Could not load messages:', error.message);
-            alerts.messages = [];
-            return;
-        }
-        
-        alerts.messages = data || [];
-    } catch (error) {
-        alerts.messages = [];
-    }
-}
-
-// ============================================
-// LOAD NOTIFICATIONS
-// ============================================
-
-async function loadNotifications() {
-    try {
-        const { data, error } = await supabase
-            .from('user_notifications')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
-            .limit(10);
-        
-        if (error) {
-            console.warn('Could not load notifications:', error.message);
-            alerts.notifications = [];
-            return;
-        }
-        
-        alerts.notifications = data || [];
-    } catch (error) {
-        alerts.notifications = [];
-    }
-}
-
-// ============================================
-// GET CURRENT USER
-// ============================================
-
-async function getCurrentUser() {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) return null;
-        return user;
-    } catch (e) {
-        return null;
-    }
-}
-
-// ============================================
-// HANDLE ALERT CLICK
-// ============================================
-
-window.handleAlertClick = function(type) {
-    showToast(`Viewing ${type}...`, 'info');
-    
-    // Expand the corresponding section or navigate
-    const container = document.getElementById('alerts-section');
-    if (container) {
-        // Scroll to the messages section
-        const messages = container.querySelector('.alert-messages');
-        if (messages) {
-            messages.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+            return this.loadLocalAlerts();
         }
     }
-};
 
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
+    // ============================================
+    // LOCAL STORAGE FALLBACK
+    // ============================================
+    loadLocalAlerts() {
+        try {
+            const stored = localStorage.getItem(`alerts_${this.userId}`);
+            if (stored) {
+                this.alerts = JSON.parse(stored);
+                this.unreadCount = this.alerts.filter(a => !a.read).length;
+                this.notifyListeners();
+                return this.alerts;
+            }
+        } catch (e) {
+            console.warn('Could not load local alerts:', e);
+        }
+        return [];
+    }
 
-function formatTime(date) {
-    const d = new Date(date);
-    const now = new Date();
-    const diff = now - d;
-    
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
-    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
-    if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
-    
-    return d.toLocaleDateString();
+    saveLocalAlerts() {
+        try {
+            localStorage.setItem(`alerts_${this.userId}`, JSON.stringify(this.alerts));
+        } catch (e) {
+            console.warn('Could not save local alerts:', e);
+        }
+    }
+
+    // ============================================
+    // CREATE NEW ALERT
+    // ============================================
+    async createAlert(alertData) {
+        const newAlert = {
+            id: `alert_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+            user_id: this.userId,
+            icon: alertData.icon || '📌',
+            message: alertData.message,
+            link: alertData.link || null,
+            read: false,
+            created_at: new Date().toISOString(),
+            type: alertData.type || 'info'
+        };
+
+        try {
+            // Try to save to database
+            const { error } = await supabase
+                .from('user_alerts')
+                .insert([newAlert]);
+
+            if (error) {
+                if (error.code === '42P01') {
+                    // Table doesn't exist, use local storage
+                    this.alerts.unshift(newAlert);
+                    this.unreadCount++;
+                    this.saveLocalAlerts();
+                    this.notifyListeners();
+                    return newAlert;
+                }
+                throw error;
+            }
+
+            // Success - add to local state
+            this.alerts.unshift(newAlert);
+            this.unreadCount++;
+            this.notifyListeners();
+            return newAlert;
+
+        } catch (error) {
+            console.error('Error creating alert:', error);
+            // Fallback to local
+            this.alerts.unshift(newAlert);
+            this.unreadCount++;
+            this.saveLocalAlerts();
+            this.notifyListeners();
+            return newAlert;
+        }
+    }
+
+    // ============================================
+    // GET ALERTS
+    // ============================================
+    async getAlerts() {
+        if (this.alerts.length === 0) {
+            await this.loadAlerts();
+        }
+        return this.alerts;
+    }
+
+    // ============================================
+    // GET UNREAD COUNT
+    // ============================================
+    async getUnreadCount() {
+        if (this.unreadCount === 0 && this.alerts.length > 0) {
+            this.unreadCount = this.alerts.filter(a => !a.read).length;
+        }
+        return this.unreadCount;
+    }
+
+    // ============================================
+    // MARK ALERT AS READ
+    // ============================================
+    async markAsRead(alertId) {
+        try {
+            const alert = this.alerts.find(a => a.id === alertId);
+            if (!alert || alert.read) return;
+
+            alert.read = true;
+            this.unreadCount = Math.max(0, this.unreadCount - 1);
+
+            // Update in database
+            const { error } = await supabase
+                .from('user_alerts')
+                .update({ read: true })
+                .eq('id', alertId);
+
+            if (error && error.code !== '42P01') {
+                throw error;
+            }
+
+            this.saveLocalAlerts();
+            this.notifyListeners();
+
+        } catch (error) {
+            console.error('Error marking alert as read:', error);
+        }
+    }
+
+    // ============================================
+    // MARK ALL AS READ
+    // ============================================
+    async markAllAsRead() {
+        try {
+            this.alerts.forEach(a => a.read = true);
+            this.unreadCount = 0;
+
+            // Update in database
+            const { error } = await supabase
+                .from('user_alerts')
+                .update({ read: true })
+                .eq('user_id', this.userId)
+                .eq('read', false);
+
+            if (error && error.code !== '42P01') {
+                throw error;
+            }
+
+            this.saveLocalAlerts();
+            this.notifyListeners();
+
+        } catch (error) {
+            console.error('Error marking all alerts as read:', error);
+        }
+    }
+
+    // ============================================
+    // DELETE ALERT
+    // ============================================
+    async deleteAlert(alertId) {
+        try {
+            this.alerts = this.alerts.filter(a => a.id !== alertId);
+            this.unreadCount = this.alerts.filter(a => !a.read).length;
+
+            const { error } = await supabase
+                .from('user_alerts')
+                .delete()
+                .eq('id', alertId);
+
+            if (error && error.code !== '42P01') {
+                throw error;
+            }
+
+            this.saveLocalAlerts();
+            this.notifyListeners();
+
+        } catch (error) {
+            console.error('Error deleting alert:', error);
+        }
+    }
+
+    // ============================================
+    // CLEAR ALL ALERTS
+    // ============================================
+    async clearAll() {
+        try {
+            this.alerts = [];
+            this.unreadCount = 0;
+
+            const { error } = await supabase
+                .from('user_alerts')
+                .delete()
+                .eq('user_id', this.userId);
+
+            if (error && error.code !== '42P01') {
+                throw error;
+            }
+
+            this.saveLocalAlerts();
+            this.notifyListeners();
+
+        } catch (error) {
+            console.error('Error clearing alerts:', error);
+        }
+    }
+
+    // ============================================
+    // ADD INITIAL GUIDELINE ALERTS
+    // ============================================
+    async addInitialAlerts() {
+        const initialAlerts = [
+            {
+                icon: '🎉',
+                message: 'You have created an account successfully! Welcome to Gliimu.',
+                type: 'success'
+            },
+            {
+                icon: '✉️',
+                message: 'Click the Messages tab to send applications or ask questions.',
+                link: '#',
+                type: 'info'
+            },
+            {
+                icon: '📜',
+                message: 'By using our platform, you agree to our Terms & Conditions.',
+                link: 'https://gliimu.com/policy',
+                type: 'info'
+            },
+            {
+                icon: '🚀',
+                message: 'Start by exploring the Library and earning GP points!',
+                type: 'info'
+            }
+        ];
+
+        // Check if initial alerts already added
+        const existing = this.alerts.filter(a => 
+            a.message.includes('created an account successfully') ||
+            a.message.includes('Terms & Conditions')
+        );
+
+        if (existing.length === 0) {
+            for (const alert of initialAlerts) {
+                await this.createAlert(alert);
+            }
+        }
+    }
+
+    // ============================================
+    // REAL-TIME SUBSCRIPTION
+    // ============================================
+    setupRealtimeSubscription() {
+        if (!this.userId) return;
+
+        const channel = supabase
+            .channel('alerts_channel')
+            .on('postgres_changes', 
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'user_alerts',
+                    filter: `user_id=eq.${this.userId}`
+                },
+                (payload) => {
+                    if (payload.new) {
+                        this.alerts.unshift(payload.new);
+                        if (!payload.new.read) {
+                            this.unreadCount++;
+                        }
+                        this.saveLocalAlerts();
+                        this.notifyListeners();
+                    }
+                }
+            )
+            .subscribe();
+    }
+
+    // ============================================
+    // LISTENER SYSTEM
+    // ============================================
+    addListener(callback) {
+        this.listeners.push(callback);
+    }
+
+    notifyListeners() {
+        const data = {
+            alerts: this.alerts,
+            unreadCount: this.unreadCount
+        };
+        this.listeners.forEach(cb => cb(data));
+    }
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// ============================================
+// CREATE SINGLETON INSTANCE
+// ============================================
+
+const alertManager = new AlertManager();
 
 // ============================================
-// EXPORT
+// EXPORT FUNCTIONS
 // ============================================
+
+export async function addInitialAlerts(userId) {
+    alertManager.userId = userId;
+    await alertManager.loadAlerts();
+    await alertManager.addInitialAlerts();
+}
+
+export async function getUnreadCount(userId) {
+    if (alertManager.userId !== userId) {
+        alertManager.userId = userId;
+        await alertManager.loadAlerts();
+    }
+    return alertManager.unreadCount;
+}
+
+export async function markAllAsRead(userId) {
+    if (alertManager.userId !== userId) {
+        alertManager.userId = userId;
+        await alertManager.loadAlerts();
+    }
+    await alertManager.markAllAsRead();
+}
+
+export async function getAlertFeed(userId) {
+    if (alertManager.userId !== userId) {
+        alertManager.userId = userId;
+        await alertManager.loadAlerts();
+    }
+    return alertManager.alerts;
+}
+
+export function subscribeToAlerts(callback) {
+    alertManager.addListener(callback);
+}
+
+export async function createAlert(alertData) {
+    return await alertManager.createAlert(alertData);
+}
+
+export { alertManager };
 
 export default {
-    renderAlerts,
-    loadAlerts,
-    loadCertificates,
-    loadBadges,
-    loadMessages,
-    loadNotifications
+    alertManager,
+    addInitialAlerts,
+    getUnreadCount,
+    markAllAsRead,
+    getAlertFeed,
+    subscribeToAlerts,
+    createAlert
 };
