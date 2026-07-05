@@ -1,0 +1,465 @@
+/* ============================================
+   GLIIMU USER DASHBOARD - RESPONSIVE
+   Version: 3.0
+   ============================================ */
+
+/* ============================================
+   TABLETS & SMALL LAPTOPS (1200px and below)
+   ============================================ */
+@media (max-width: 1200px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   TABLETS (992px and below)
+   ============================================ */
+@media (max-width: 992px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .wallet-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .go-to-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+
+    .settings-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .settings-avatar {
+        flex-direction: row;
+        justify-content: center;
+    }
+
+    .settings-avatar img {
+        width: 80px;
+        height: 80px;
+    }
+
+    .theme-card {
+        padding: 16px 24px;
+        min-width: 80px;
+        flex-direction: row;
+    }
+
+    .settings-section {
+        padding: 16px;
+    }
+
+    .settings-section-header {
+        gap: 10px;
+    }
+
+    .settings-section-header i {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+
+    .alert-dropdown {
+        width: calc(100vw - 40px);
+        right: -10px;
+        max-height: 420px;
+    }
+
+    .alert-dropdown-body {
+        max-height: 340px;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .amount-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ============================================
+   MOBILE (768px and below)
+   ============================================ */
+@media (max-width: 768px) {
+    .dashboard-sidebar {
+        position: fixed;
+        top: 0;
+        left: -300px;
+        height: 100vh;
+        width: 280px;
+        transition: left 0.3s ease;
+        border-right: 1px solid var(--border-color);
+        box-shadow: var(--shadow-xl);
+        z-index: 100;
+    }
+
+    .dashboard-sidebar.mobile-open {
+        left: 0;
+    }
+
+    .dashboard-main {
+        padding: 16px 16px 90px;
+    }
+
+    .mobile-bottom-nav {
+        display: flex;
+    }
+
+    .dashboard-header {
+        flex-direction: column;
+    }
+
+    .header-badge {
+        align-self: flex-start;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .stat-card {
+        padding: 14px 16px;
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .stat-info .stat-value {
+        font-size: 1.1rem;
+    }
+
+    .stat-action-btn {
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        font-size: 0.6rem;
+    }
+
+    .wallet-amount-large,
+    .gp-amount-large {
+        font-size: 1.8rem;
+    }
+
+    .go-to-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .portfolio-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .portfolio-url-container {
+        max-width: 100%;
+    }
+
+    .leaderboard-item {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .leaderboard-gp {
+        margin-left: auto;
+    }
+
+    .leaderboard-card-full {
+        min-height: 280px;
+    }
+
+    .leaderboard-list {
+        max-height: 300px;
+    }
+
+    .modal-content {
+        max-width: 100%;
+        margin: 10px;
+        border-radius: var(--radius-md);
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.3rem;
+    }
+
+    .modal-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .theme-options {
+        flex-direction: column;
+    }
+
+    .theme-card {
+        justify-content: center;
+        flex-direction: row;
+        padding: 12px 20px;
+        min-width: auto;
+    }
+
+    .alert-dropdown {
+        width: calc(100vw - 40px);
+        right: -10px;
+        max-height: 420px;
+    }
+
+    .alert-dropdown-body {
+        max-height: 280px;
+    }
+
+    .alert-item {
+        padding: 8px 16px;
+    }
+
+    .quick-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    #toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: 100%;
+    }
+}
+
+/* ============================================
+   SMALL MOBILE (480px and below)
+   ============================================ */
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .go-to-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .stat-card {
+        padding: 12px;
+    }
+
+    .stat-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+    }
+
+    .stat-info .stat-value {
+        font-size: 1rem;
+    }
+
+    .stat-info h3 {
+        font-size: 0.65rem;
+    }
+
+    .wallet-amount-large,
+    .gp-amount-large {
+        font-size: 1.4rem;
+    }
+
+    .quick-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .go-to-item {
+        padding: 14px 12px;
+    }
+
+    .go-to-icon {
+        font-size: 1.5rem;
+    }
+
+    .go-to-label {
+        font-size: 0.8rem;
+    }
+
+    .go-to-desc {
+        font-size: 0.65rem;
+    }
+
+    .modal-content {
+        margin: 8px;
+        border-radius: var(--radius-sm);
+    }
+
+    .modal-header {
+        padding: 14px 16px;
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    .alert-dropdown {
+        width: calc(100vw - 32px);
+        right: -8px;
+        max-height: 380px;
+    }
+
+    .alert-dropdown-body {
+        max-height: 240px;
+    }
+
+    .alert-item {
+        padding: 8px 12px;
+        gap: 10px;
+    }
+
+    .alert-item .alert-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+
+    .alert-item .alert-message {
+        font-size: 0.8rem;
+    }
+
+    .settings-section {
+        padding: 12px;
+    }
+
+    .settings-avatar img {
+        width: 60px;
+        height: 60px;
+    }
+
+    .avatar-actions .btn-secondary {
+        padding: 6px 10px;
+        font-size: 0.7rem;
+    }
+
+    .transaction-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .tx-amount {
+        align-self: flex-end;
+    }
+
+    .message-thread {
+        padding: 12px 14px;
+    }
+
+    .message-subject {
+        font-size: 0.85rem;
+    }
+}
+
+/* ============================================
+   VERY SMALL (360px and below)
+   ============================================ */
+@media (max-width: 360px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .go-to-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .amount-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.1rem;
+    }
+
+    .dashboard-header p {
+        font-size: 0.85rem;
+    }
+
+    .mobile-nav-item {
+        padding: 4px 8px;
+        font-size: 0.55rem;
+    }
+
+    .mobile-nav-item i {
+        font-size: 1rem;
+    }
+
+    .alert-dropdown {
+        width: calc(100vw - 24px);
+        right: -6px;
+    }
+}
+
+/* ============================================
+   LANDSCAPE MOBILE (height constraint)
+   ============================================ */
+@media (max-height: 600px) and (orientation: landscape) {
+    .dashboard-sidebar {
+        padding-top: 8px;
+    }
+
+    .sidebar-header {
+        padding: 12px 16px;
+    }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .user-info h4 {
+        font-size: 0.8rem;
+    }
+
+    .nav-item {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+
+    .dashboard-main {
+        padding: 12px 16px 80px;
+    }
+
+    .modal-content {
+        max-height: 85vh;
+    }
+
+    .alert-dropdown {
+        max-height: 350px;
+    }
+
+    .alert-dropdown-body {
+        max-height: 220px;
+    }
+}
+
+/* ============================================
+   DARK MODE RESPONSIVE OVERRIDES
+   ============================================ */
+body.dark-mode .portfolio-qr-container #portfolioQrCode {
+    background: white;
+}
+
+body.dark-mode .modal .modal-content {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .alert-dropdown {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .alert-item.unread {
+    background: rgba(251, 176, 64, 0.06);
+}
+
+body.dark-mode .alert-item.unread:hover {
+    background: rgba(251, 176, 64, 0.1);
+}
