@@ -856,3 +856,69 @@ function subscribeToWallet(callback) {
         .subscribe();
 }
 
+// ============================================
+// EXPORT ALL FUNCTIONS - SINGLE SOURCE OF TRUTH
+// ============================================
+
+// Authentication
+export { 
+    getCurrentUser,
+    getCurrentSession,
+    signIn,
+    signUp,
+    signOutUser
+};
+
+// User Profiles
+export {
+    getUserProfile,
+    updateUserProfile,
+    updateWalletBalance
+};
+
+// User Alerts
+export {
+    getUserAlerts,
+    createUserAlert,
+    markAlertRead,
+    markAllAlertsRead
+};
+
+// User Activity
+export {
+    logUserActivity,
+    getUserActivity
+};
+
+// Applications
+export {
+    submitApplication,
+    getUserApplications,
+    getPendingApplications,
+    approveApplication,
+    rejectApplication
+};
+
+// Payments & Transactions
+export {
+    createPaymentRequest,
+    getUserPaymentRequests,
+    getUserTransactions,
+    addTransaction
+};
+
+// Referrals
+export {
+    getReferralCount,
+    createReferral
+};
+
+// Hub Content
+export {
+    getHubContent
+};
+
+// Real-time
+export {
+    subscribeToWallet
+};
