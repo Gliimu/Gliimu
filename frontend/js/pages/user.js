@@ -506,91 +506,197 @@ export class UserPage {
         }).join('');
     }
 
-    // ============================================
-    // RECENT ACTIVITY - UPDATED to show payment status
-    // ============================================
-    async loadRecentActivity() {
-        const container = document.getElementById('recentActivity');
-        if (!container) return;
+ // ============================================
+// RECENT ACTIVITY - Social & GP Activity
+// Shows: Hearts, GP earned, submissions, etc.
+// ============================================
+async loadRecentActivity() {
+    const container = document.getElementById('recentActivity');
+    if (!container) return;
 
-        try {
-            // Get both transactions and payment requests
-            const transactions = await getUserTransactions();
-            const paymentRequests = await this.getPaymentRequests(this.currentUser.id);
+    try {
+        // Fetch user activity from multiple sources
+        const [activities, transactions, paymentRequests] = await Promise.all([
+            // Get user activity (hearts, comments, shares, etc.)
+            supabase
+                .from('user_activity')
+                .select('*')
+                .eq('user_id', this.currentUser.id)
+                .order('created_at', { ascending: false })
+                .limit(10),
             
-            // Combine and sort by date
-            let allActivities = [];
+            // Get transactions
+            getUserTransactions(),
             
-            // Add transactions
-            if (transactions && transactions.length > 0) {
-                allActivities = allActivities.concat(transactions.map(tx => ({
-                    ...tx,
-                    type: 'transaction',
-                    display_type: tx.type || 'unknown',
-                    date: tx.created_at
-                })));
-            }
-            
-            // Add payment requests
-            if (paymentRequests && paymentRequests.length > 0) {
-                allActivities = allActivities.concat(paymentRequests.map(p => ({
-                    ...p,
-                    type: 'payment_request',
-                    display_type: p.status,
-                    date: p.submitted_at,
-                    amount: p.amount,
-                    description: `Wallet funding - ${p.status}`
-                })));
-            }
-            
-            // Sort by date (newest first)
-            allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            // Take top 5
-            const recent = allActivities.slice(0, 5);
-            
-            if (recent.length === 0) {
-                container.innerHTML = '<p class="text-muted">No recent activity</p>';
-                return;
-            }
+            // Get payment requests
+            this.getPaymentRequests(this.currentUser.id)
+        ]);
 
-            container.innerHTML = recent.map(item => {
-                let icon, iconClass, amountDisplay, statusDisplay = '';
-                
-                if (item.type === 'transaction') {
-                    icon = item.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up';
-                    iconClass = item.type === 'credit' ? 'credit' : 'debit';
-                    amountDisplay = `${item.type === 'credit' ? '+' : '-'}₦${(item.amount || 0).toLocaleString()}`;
-                } else if (item.type === 'payment_request') {
-                    icon = item.status === 'approved' ? 'fa-check-circle' : 
-                           item.status === 'rejected' ? 'fa-times-circle' : 'fa-clock';
-                    iconClass = item.status === 'approved' ? 'credit' : 
-                                item.status === 'rejected' ? 'debit' : 'pending';
-                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
-                    statusDisplay = `<span class="activity-status ${item.status}">${item.status}</span>`;
-                }
-                
-                return `
-                    <div class="activity-item">
-                        <div class="activity-icon ${iconClass}">
-                            <i class="fas ${icon}"></i>
-                        </div>
-                        <div class="activity-details">
-                            <p class="activity-description">${item.description || item.type}</p>
-                            <span class="activity-date">${new Date(item.date).toLocaleDateString()}</span>
-                            ${statusDisplay}
-                        </div>
-                        <div class="activity-amount ${iconClass}">
-                            ${amountDisplay}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } catch (error) {
-            console.error('Error loading activity:', error);
-            container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
+        let allActivities = [];
+
+        // Add user activities (hearts, comments, shares, GP earned, etc.)
+        if (activities.data && activities.data.length > 0) {
+            allActivities = allActivities.concat(activities.data.map(a => ({
+                ...a,
+                type: 'activity',
+                display_type: a.activity_type,
+                date: a.created_at,
+                icon: this.getActivityIcon(a.activity_type),
+                iconClass: this.getActivityIconClass(a.activity_type),
+                description: this.getActivityDescription(a.activity_type, a.gp_earned),
+                gpEarned: a.gp_earned
+            })));
         }
+
+        // Add transactions (purchases, tips, etc.)
+        if (transactions && transactions.length > 0) {
+            allActivities = allActivities.concat(transactions.slice(0, 5).map(tx => ({
+                ...tx,
+                type: 'transaction',
+                display_type: tx.type,
+                date: tx.created_at,
+                icon: tx.type === 'credit' ? 'fa-arrow-down' : 'fa-arrow-up',
+                iconClass: tx.type === 'credit' ? 'credit' : 'debit',
+                description: tx.description || `${tx.type === 'credit' ? 'Received' : 'Spent'} funds`,
+                amount: tx.amount
+            })));
+        }
+
+        // Add payment requests (wallet funding)
+        if (paymentRequests && paymentRequests.length > 0) {
+            allActivities = allActivities.concat(paymentRequests.slice(0, 3).map(p => ({
+                ...p,
+                type: 'payment_request',
+                display_type: p.status,
+                date: p.submitted_at,
+                icon: p.status === 'approved' ? 'fa-check-circle' : 
+                      p.status === 'rejected' ? 'fa-times-circle' : 'fa-clock',
+                iconClass: p.status === 'approved' ? 'credit' : 
+                            p.status === 'rejected' ? 'debit' : 'pending',
+                description: `Wallet funding request ${p.status === 'pending' ? 'submitted' : p.status}`,
+                amount: p.amount
+            })));
+        }
+
+        // Sort by date (newest first)
+        allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // Take top 8
+        const recent = allActivities.slice(0, 8);
+
+        if (recent.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>No recent activity yet</p>
+                    <small>Start engaging with the community!</small>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = recent.map(item => {
+            let amountDisplay = '';
+            let statusDisplay = '';
+            let gpDisplay = '';
+
+            if (item.type === 'activity') {
+                if (item.gpEarned) {
+                    gpDisplay = `<span class="activity-gp">+${item.gpEarned} GP</span>`;
+                }
+            } else if (item.type === 'transaction') {
+                const prefix = item.display_type === 'credit' ? '+' : '';
+                amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
+            } else if (item.type === 'payment_request') {
+                amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                const statusMap = {
+                    'pending': '⏳ Pending',
+                    'approved': '✅ Approved',
+                    'rejected': '❌ Rejected'
+                };
+                statusDisplay = `<span class="activity-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
+            }
+
+            return `
+                <div class="activity-item">
+                    <div class="activity-icon ${item.iconClass}">
+                        <i class="fas ${item.icon}"></i>
+                    </div>
+                    <div class="activity-details">
+                        <p class="activity-description">${item.description}</p>
+                        <span class="activity-date">${this.getTimeAgo(new Date(item.date))}</span>
+                        ${statusDisplay}
+                        ${gpDisplay}
+                    </div>
+                    ${amountDisplay ? `<div class="activity-amount ${item.iconClass}">${amountDisplay}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading activity:', error);
+        container.innerHTML = '<p class="text-muted">Failed to load activity</p>';
     }
+}
+
+// Helper: Get activity icon based on type
+getActivityIcon(type) {
+    const icons = {
+        'heart_received': 'fa-heart',
+        'comment': 'fa-comment',
+        'share': 'fa-share-alt',
+        'read': 'fa-book-open',
+        'submission_graded': 'fa-check-circle',
+        'streak_bonus': 'fa-fire',
+        'referral': 'fa-user-plus',
+        'default': 'fa-bolt'
+    };
+    return icons[type] || icons.default;
+}
+
+// Helper: Get activity icon class
+getActivityIconClass(type) {
+    const classes = {
+        'heart_received': 'heart',
+        'comment': 'comment',
+        'share': 'share',
+        'read': 'read',
+        'submission_graded': 'graded',
+        'streak_bonus': 'streak',
+        'referral': 'referral',
+        'default': 'default'
+    };
+    return classes[type] || classes.default;
+}
+
+// Helper: Get activity description
+getActivityDescription(type, gpEarned) {
+    const descriptions = {
+        'heart_received': 'Someone ❤️ your post!',
+        'comment': 'You commented on a post',
+        'share': 'You shared content',
+        'read': 'You read a book/article',
+        'submission_graded': 'Your submission was graded',
+        'streak_bonus': `🔥 Streak bonus! +${gpEarned || 0} GP`,
+        'referral': 'Someone joined using your referral link',
+        'default': 'You earned GP'
+    };
+    return descriptions[type] || descriptions.default;
+}
+
+// Helper: Get time ago
+getTimeAgo(date) {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString();
+}
 
     // ============================================
     // WALLET TAB - UPDATED Transaction History
@@ -640,86 +746,111 @@ export class UserPage {
         await this.loadTransactionHistory();
     }
 
-    // ============================================
-    // TRANSACTION HISTORY - UPDATED with payment status
-    // ============================================
-    async loadTransactionHistory() {
-        const container = document.getElementById('transactionHistory');
-        if (!container) return;
+  // ============================================
+// TRANSACTION HISTORY - Financial Only
+// Shows: Wallet funding, purchases, tips, etc.
+// ============================================
+async loadTransactionHistory() {
+    const container = document.getElementById('transactionHistory');
+    if (!container) return;
 
-        try {
-            // Get both transactions and payment requests
-            const transactions = await getUserTransactions();
-            const paymentRequests = await this.getPaymentRequests(this.currentUser.id);
-            
-            // Combine and sort by date
-            let allTransactions = [];
-            
-            // Add transactions
-            if (transactions && transactions.length > 0) {
-                allTransactions = allTransactions.concat(transactions.map(tx => ({
-                    ...tx,
-                    type: 'transaction',
-                    display_type: tx.type || 'unknown',
-                    date: tx.created_at
-                })));
-            }
-            
-            // Add payment requests
-            if (paymentRequests && paymentRequests.length > 0) {
-                allTransactions = allTransactions.concat(paymentRequests.map(p => ({
-                    ...p,
-                    type: 'payment_request',
-                    display_type: p.status,
-                    date: p.submitted_at,
-                    amount: p.amount,
-                    description: `Wallet funding`
-                })));
-            }
-            
-            // Sort by date (newest first)
-            allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            if (allTransactions.length === 0) {
-                container.innerHTML = '<p class="text-muted">No transactions yet</p>';
-                return;
-            }
+    try {
+        // Get transactions and payment requests
+        const [transactions, paymentRequests] = await Promise.all([
+            getUserTransactions(),
+            this.getPaymentRequests(this.currentUser.id)
+        ]);
 
-            container.innerHTML = allTransactions.map(item => {
-                let amountDisplay, statusDisplay = '', description = '';
-                
-                if (item.type === 'transaction') {
-                    amountDisplay = `${item.type === 'credit' ? '+' : '-'}₦${(item.amount || 0).toLocaleString()}`;
-                    description = item.description || item.type;
-                } else if (item.type === 'payment_request') {
-                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
-                    description = `Wallet funding request`;
-                    const statusMap = {
-                        'pending': '⏳ Pending',
-                        'approved': '✅ Approved',
-                        'rejected': '❌ Rejected'
-                    };
-                    statusDisplay = `<span class="tx-status ${item.status}">${statusMap[item.status] || item.status}</span>`;
-                }
-                
+        let allTransactions = [];
+
+        // Add financial transactions
+        if (transactions && transactions.length > 0) {
+            allTransactions = allTransactions.concat(transactions.map(tx => ({
+                ...tx,
+                type: 'transaction',
+                display_type: tx.type || 'unknown',
+                date: tx.created_at,
+                description: tx.description || `${tx.type === 'credit' ? 'Credited' : 'Debited'}`
+            })));
+        }
+
+        // Add payment requests
+        if (paymentRequests && paymentRequests.length > 0) {
+            allTransactions = allTransactions.concat(paymentRequests.map(p => ({
+                ...p,
+                type: 'payment_request',
+                display_type: p.status,
+                date: p.submitted_at,
+                amount: p.amount,
+                description: `Wallet funding request`
+            })));
+        }
+
+        // Sort by date (newest first)
+        allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (allTransactions.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-receipt" style="font-size: 32px; color: var(--text-muted);"></i>
+                    <p>No transactions yet</p>
+                    <small>Your financial activity will appear here</small>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = allTransactions.map(item => {
+            let amountDisplay = '';
+            let statusDisplay = '';
+            let description = item.description || 'Transaction';
+
+            if (item.type === 'transaction') {
+                const prefix = item.display_type === 'credit' ? '+' : '';
+                amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
+                const cls = item.display_type === 'credit' ? 'credit' : 'debit';
                 return `
                     <div class="transaction-item">
                         <div class="tx-info">
                             <span class="tx-description">${description}</span>
-                            <span class="tx-date">${new Date(item.date).toLocaleDateString()}</span>
-                            ${statusDisplay}
+                            <span class="tx-date">${new Date(item.date).toLocaleString()}</span>
                         </div>
-                        <div class="tx-amount ${item.type === 'transaction' ? (item.type === 'credit' ? 'credit' : 'debit') : 'pending'}">
-                            ${amountDisplay}
-                        </div>
+                        <div class="tx-amount ${cls}">${amountDisplay}</div>
                     </div>
                 `;
-            }).join('');
-        } catch (error) {
-            console.error('Error loading transactions:', error);
-            container.innerHTML = '<p class="text-muted">Failed to load transactions</p>';
-        }
+            } else if (item.type === 'payment_request') {
+                amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
+                const statusMap = {
+                    'pending': '⏳ Pending',
+                    'approved': '✅ Approved',
+                    'rejected': '❌ Rejected'
+                };
+                statusDisplay = `<span class="tx-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
+                const icon = item.display_type === 'approved' ? 'fa-check-circle' : 
+                             item.display_type === 'rejected' ? 'fa-times-circle' : 'fa-clock';
+                
+                return `
+                    <div class="transaction-item">
+                        <div class="tx-info">
+                            <span class="tx-description">
+                                <i class="fas ${icon}" style="margin-right: 6px;"></i>
+                                ${description}
+                            </span>
+                            <span class="tx-date">${new Date(item.date).toLocaleString()}</span>
+                            ${statusDisplay}
+                        </div>
+                        <div class="tx-amount ${item.display_type}">${amountDisplay}</div>
+                    </div>
+                `;
+            }
+            return '';
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading transactions:', error);
+        container.innerHTML = '<p class="text-muted">Failed to load transactions</p>';
     }
+}
 
     // ============================================
     // PORTFOLIO TAB (was Go To)
