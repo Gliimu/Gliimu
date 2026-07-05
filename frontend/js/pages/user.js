@@ -863,7 +863,7 @@ getTimeAgo(date) {
                                     <i class="fas ${icon}" style="margin-right: 6px;"></i>
                                     ${description}
                                 </span>
-                                <span class="tx-date">${this.getTimeAgo(new Date(item.date))}</span>
+                                <span class="tx-date">${this.getTimeAgo(item.date)}</span>
                                 ${statusDisplay}
                             </div>
                             <div class="tx-amount ${item.display_type}">${amountDisplay}</div>
