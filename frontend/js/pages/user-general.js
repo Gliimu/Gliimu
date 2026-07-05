@@ -42,6 +42,23 @@ export class GeneralDashboard {
     async render(container) {
         this.container = container;
         await this.loadDashboard();
+        await this.loadBankDetails();
+    }
+
+    // ============================================
+    // LOAD BANK DETAILS
+    // ============================================
+    async loadBankDetails() {
+        try {
+            this.bankDetails = await getBankDetails();
+        } catch (error) {
+            console.error('Error loading bank details:', error);
+            this.bankDetails = {
+                bankName: 'MoniePoint Micro Finance Bank',
+                accountName: 'Gliimu LTD',
+                accountNumber: '6315085115'
+            };
+        }
     }
 
     // ============================================
@@ -53,21 +70,17 @@ export class GeneralDashboard {
         const profile = this.currentProfile;
         const user = this.currentUser;
         
-        // Get counts
         const submissionsCount = await this.getSubmissionsCount(user.id);
         const referralsCount = await this.getReferralsCount(user.id);
         
-        // Get progress data
         const progressData = await getStudentProgress(user.id);
         const progress = progressData?.progress || 0;
         const badge = progressData?.currentBadge || { name: 'Starter', icon: '🌱', color: '#10b981' };
         const currentGP = progressData?.currentGP || 0;
         const totalStars = progressData?.totalStars || 0;
 
-        // Load leaderboard
         await this.loadLeaderboard();
 
-        // Get alerts
         const alerts = this.alertManager?.alerts || [];
         const unreadCount = this.alertManager?.unreadCount || 0;
 
@@ -82,7 +95,6 @@ export class GeneralDashboard {
                 </div>
             </div>
 
-            <!-- Stats Grid -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon wallet-icon">
@@ -134,7 +146,6 @@ export class GeneralDashboard {
                 </div>
             </div>
 
-            <!-- Progress Bar -->
             <div class="progress-section">
                 <div class="progress-header">
                     <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
@@ -149,7 +160,6 @@ export class GeneralDashboard {
                 </div>
             </div>
 
-            <!-- Quick Actions -->
             <div class="quick-actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px;">
                 <button class="action-btn" data-action="role" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: all 0.3s; font-family: inherit; font-size: 0.9rem; font-weight: 500;">
                     <i class="fas fa-user-graduate" style="color: var(--brand-gold);"></i>
@@ -165,7 +175,6 @@ export class GeneralDashboard {
                 </button>
             </div>
 
-            <!-- Leaderboard - Full Width -->
             <div class="card leaderboard-card-full">
                 <div class="leaderboard-header">
                     <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
@@ -186,10 +195,7 @@ export class GeneralDashboard {
             ` : ''}
         `;
 
-        // Render alert icon in header
         this.renderAlertIcon(unreadCount, alerts);
-
-        // Bind events
         this.bindEvents();
     }
 
@@ -221,7 +227,6 @@ export class GeneralDashboard {
             </div>
         `;
 
-        // Bind dropdown events
         this.bindAlertEvents();
     }
 
@@ -273,7 +278,6 @@ export class GeneralDashboard {
             });
         }
 
-        // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             const container = document.getElementById('alertIconContainer');
             if (container && !container.contains(e.target)) {
@@ -310,7 +314,7 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // UPDATE ALERT ICON (Called by router)
+    // UPDATE ALERT ICON
     // ============================================
     updateAlertIcon(data) {
         const unreadCount = data?.unreadCount || 0;
@@ -322,7 +326,6 @@ export class GeneralDashboard {
     // BIND EVENTS
     // ============================================
     bindEvents() {
-        // Stat action buttons
         document.querySelectorAll('.stat-action-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -341,7 +344,6 @@ export class GeneralDashboard {
             });
         });
 
-        // Quick action buttons
         document.querySelectorAll('.action-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.action;
@@ -351,7 +353,6 @@ export class GeneralDashboard {
             });
         });
 
-        // Refresh leaderboard
         document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
             await this.loadLeaderboard();
             const container = document.getElementById('dashboardLeaderboard');
@@ -568,7 +569,6 @@ export class GeneralDashboard {
             
             if (result.success) {
                 showToast(`Application for ${role} submitted successfully!`, 'success');
-                // Refresh dashboard
                 await this.loadDashboard();
             } else {
                 showToast(result.error || 'Failed to submit application', 'error');
@@ -600,7 +600,6 @@ export class GeneralDashboard {
 
             if (error) throw error;
 
-            // Update user profile status
             await supabase
                 .from('user_profiles')
                 .update({
@@ -685,9 +684,119 @@ export class GeneralDashboard {
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
             this.resetWalletModal();
+            
+            // ✅ Bind events for the modal after it's opened
+            this.bindWalletModalEvents();
         }
     }
 
+    // ============================================
+    // BIND WALLET MODAL EVENTS
+    // ============================================
+    bindWalletModalEvents() {
+        // Amount buttons
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.selectedAmount = parseInt(btn.dataset.amount);
+                this.updateAmountDisplay();
+            });
+        });
+
+        // Custom amount input
+        document.getElementById('customAmount')?.addEventListener('input', (e) => {
+            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            this.selectedAmount = parseInt(e.target.value) || 0;
+            this.updateAmountDisplay();
+        });
+
+        // Continue to bank details
+        document.getElementById('continueToBankBtn')?.addEventListener('click', () => {
+            if (this.selectedAmount < 100) {
+                showToast('Please select or enter an amount (minimum ₦100)', 'error');
+                return;
+            }
+            this.showBankDetails();
+        });
+
+        // Back button
+        document.getElementById('backToAmountBtn')?.addEventListener('click', () => {
+            this.resetWalletModal();
+        });
+
+        // Confirm payment
+        document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
+            await this.confirmPayment();
+        });
+
+        // Copy reference code
+        document.getElementById('copyRefCodeBtn')?.addEventListener('click', () => {
+            const code = document.getElementById('referenceCode')?.textContent;
+            if (code) {
+                navigator.clipboard.writeText(code).then(() => {
+                    showToast('Reference code copied!', 'success');
+                }).catch(() => {
+                    const input = document.createElement('input');
+                    input.value = code;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    showToast('Reference code copied!', 'success');
+                });
+            }
+        });
+    }
+
+    // ============================================
+    // SHOW BANK DETAILS
+    // ============================================
+    async showBankDetails() {
+        const fundingOptions = document.querySelector('.funding-options');
+        const bankDetails = document.querySelector('.bank-details');
+        
+        if (fundingOptions && bankDetails) {
+            fundingOptions.style.display = 'none';
+            bankDetails.style.display = 'block';
+            
+            // Generate reference code with username
+            const username = this.currentProfile?.username || 'user';
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            this.referenceCode = `GLM-${username}-${randomNum}`;
+            document.getElementById('referenceCode').textContent = this.referenceCode;
+            
+            // Bank accounts (no GTBank)
+            const bankAccounts = [
+                {
+                    bankName: 'MoniePoint Micro Finance Bank',
+                    accountName: 'Gliimu LTD',
+                    accountNumber: '6315085115'
+                },
+                {
+                    bankName: 'Opay',
+                    accountName: 'Gliimu LTD',
+                    accountNumber: '6142049426'
+                }
+            ];
+            
+            const selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
+            
+            document.getElementById('bankInfoCard').innerHTML = `
+                <p><strong>Bank:</strong> <span style="color: var(--brand-gold);">${selectedBank.bankName}</span></p>
+                <p><strong>Account Name:</strong> <span style="color: var(--brand-gold);">${selectedBank.accountName}</span></p>
+                <p><strong>Account Number:</strong> <span style="color: var(--brand-gold); font-size: 1.2rem; font-weight: 700;">${selectedBank.accountNumber}</span></p>
+                <p><strong>Amount:</strong> <span style="color: var(--brand-gold); font-weight: 700;">₦${this.selectedAmount.toLocaleString()}</span></p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                    <i class="fas fa-info-circle"></i> Use <strong style="color: var(--brand-gold);">${this.referenceCode}</strong> as transaction narration
+                </p>
+            `;
+        }
+    }
+
+    // ============================================
+    // RESET WALLET MODAL
+    // ============================================
     resetWalletModal() {
         const fundingOptions = document.querySelector('.funding-options');
         const bankDetails = document.querySelector('.bank-details');
@@ -696,13 +805,130 @@ export class GeneralDashboard {
             bankDetails.style.display = 'none';
         }
         document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('customAmount').value = '';
-        document.getElementById('selectedAmountDisplay').style.display = 'none';
+        const customAmount = document.getElementById('customAmount');
+        if (customAmount) customAmount.value = '';
+        const display = document.getElementById('selectedAmountDisplay');
+        if (display) display.style.display = 'none';
         this.selectedAmount = 0;
     }
 
     // ============================================
-    // WALLET TAB (Fully Implemented)
+    // UPDATE AMOUNT DISPLAY
+    // ============================================
+    updateAmountDisplay() {
+        const display = document.getElementById('selectedAmountDisplay');
+        const large = document.getElementById('selectedAmountLarge');
+        if (display && large) {
+            if (this.selectedAmount > 0) {
+                display.style.display = 'block';
+                large.textContent = `₦${this.selectedAmount.toLocaleString()}`;
+            } else {
+                display.style.display = 'none';
+            }
+        }
+    }
+
+    // ============================================
+    // CONFIRM PAYMENT
+    // ============================================
+    async confirmPayment() {
+        try {
+            const btn = document.getElementById('confirmPaymentBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            }
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                showToast('Please login first', 'error');
+                return;
+            }
+
+            const { data: profile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('name, email, username')
+                .eq('id', user.id)
+                .single();
+
+            if (profileError) {
+                console.error('Error fetching profile:', profileError);
+            }
+
+            // Get the selected bank from the modal
+            const bankInfo = document.getElementById('bankInfoCard');
+            let bankName = 'Opay';
+            if (bankInfo) {
+                const bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
+                if (bankMatch && bankMatch[1]) {
+                    bankName = bankMatch[1].trim();
+                }
+            }
+
+            const username = profile?.username || 'user';
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            const referenceCode = `GLM-${username}-${randomNum}`;
+            const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+            console.log('📝 Creating payment request:', {
+                id: paymentId,
+                user_id: user.id,
+                user_name: profile?.name || 'User',
+                user_email: profile?.email || user.email,
+                amount: this.selectedAmount,
+                bank: bankName,
+                reference_code: referenceCode,
+                status: 'pending',
+                submitted_at: new Date().toISOString()
+            });
+
+            const { data, error } = await supabase
+                .from('payment_requests')
+                .insert([{
+                    id: paymentId,
+                    user_id: user.id,
+                    user_name: profile?.name || 'User',
+                    user_email: profile?.email || user.email,
+                    amount: this.selectedAmount,
+                    bank: bankName,
+                    reference_code: referenceCode,
+                    status: 'pending',
+                    submitted_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) {
+                console.error('❌ Error creating payment request:', error);
+                showToast('Failed to submit payment: ' + error.message, 'error');
+                return;
+            }
+
+            console.log('✅ Payment request created:', data);
+            showToast(`💰 Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+            
+            this.resetWalletModal();
+            const modal = document.getElementById('fundWalletModal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            
+            await this.loadWallet(this.container);
+            
+        } catch (error) {
+            console.error('❌ Payment error:', error);
+            showToast('Failed to submit payment: ' + error.message, 'error');
+        } finally {
+            const btn = document.getElementById('confirmPaymentBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '✅ I Have Made Payment';
+            }
+        }
+    }
+
+    // ============================================
+    // WALLET TAB
     // ============================================
     async loadWallet(container) {
         if (!container) {
@@ -746,7 +972,6 @@ export class GeneralDashboard {
         `;
 
         document.getElementById('fundWalletBtn')?.addEventListener('click', () => {
-            // Close this tab and show fund modal
             this.showFundWalletModal();
         });
 
@@ -869,7 +1094,7 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // MESSAGES TAB (Fully Implemented)
+    // MESSAGES TAB
     // ============================================
     async loadMessages(container) {
         if (!container) {
@@ -1008,7 +1233,7 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // PORTFOLIO TAB (Fully Implemented)
+    // PORTFOLIO TAB
     // ============================================
     async loadPortfolio(container) {
         if (!container) {
