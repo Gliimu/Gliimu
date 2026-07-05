@@ -4,18 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Dashboard | Gliimu</title>
-    <link rel="stylesheet" href="/frontend/css/global.css">
-    <link rel="stylesheet" href="/frontend/css/user-base.css">
-    <link rel="stylesheet" href="/frontend/css/user-student.css" id="roleStylesheet">
+    
+    <!-- ========================================== -->
+    <!-- CSS - Modular Structure                    -->
+    <!-- ========================================== -->
+    <!-- Theme (Light/Dark/System) -->
+    <link rel="stylesheet" href="/frontend/css/user/user-theme.css">
+    
+    <!-- Base Styles (Layout, Components, Utilities) -->
+    <link rel="stylesheet" href="/frontend/css/user/user-base.css">
+    
+    <!-- Responsive (All Breakpoints) -->
+    <link rel="stylesheet" href="/frontend/css/user/user-responsive.css">
+    
+    <!-- Role-specific (loaded dynamically by user.js) -->
+    <link rel="stylesheet" href="/frontend/css/user/user-general.css" id="roleStylesheet">
+    
+    <!-- ========================================== -->
+    <!-- FONTS & ICONS                              -->
+    <!-- ========================================== -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- ========================================== -->
+    <!-- LIBRARIES                                  -->
+    <!-- ========================================== -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
-    <!-- Dashboard Container -->
+    <!-- ========================================== -->
+    <!-- DASHBOARD CONTAINER                        -->
+    <!-- ========================================== -->
     <div class="dashboard-container">
-        <!-- Sidebar -->
+        
+        <!-- ===== SIDEBAR ===== -->
         <aside class="dashboard-sidebar" id="dashboardSidebar">
             <div class="sidebar-header">
                 <div class="user-avatar">
@@ -27,11 +51,11 @@
                 </div>
             </div>
             <nav class="sidebar-nav" id="sidebarNav">
-                <!-- Dynamic navigation will be inserted here -->
+                <!-- Dynamic navigation inserted by user.js -->
             </nav>
         </aside>
 
-        <!-- Main Content -->
+        <!-- ===== MAIN CONTENT ===== -->
         <main class="dashboard-main">
             <div id="dashboardContent">
                 <div class="loading-spinner" id="loading">
@@ -40,12 +64,17 @@
                 </div>
             </div>
         </main>
+
     </div>
 
-    <!-- Mobile Sidebar Overlay -->
+    <!-- ========================================== -->
+    <!-- SIDEBAR OVERLAY (Mobile)                   -->
+    <!-- ========================================== -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- Mobile Bottom Navigation -->
+    <!-- ========================================== -->
+    <!-- MOBILE BOTTOM NAVIGATION                   -->
+    <!-- ========================================== -->
     <div class="mobile-bottom-nav" id="mobileBottomNav">
         <button class="mobile-nav-item active" data-tab="dashboard">
             <i class="fas fa-tachometer-alt"></i>
@@ -70,10 +99,10 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- MODALS                                      -->
+    <!-- MODALS                                     -->
     <!-- ========================================== -->
 
-    <!-- 1. MVP Modal -->
+    <!-- ===== 1. MVP MODAL ===== -->
     <div id="mvpModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -111,7 +140,7 @@
         </div>
     </div>
 
-    <!-- 2. Fund Wallet Modal -->
+    <!-- ===== 2. FUND WALLET MODAL ===== -->
     <div id="fundWalletModal" class="modal">
         <div class="modal-content wallet-modal">
             <div class="modal-header">
@@ -119,6 +148,7 @@
                 <button class="modal-close closeFundWalletModal">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- Funding Options -->
                 <div class="funding-options">
                     <h3>Select Amount</h3>
                     <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
@@ -139,6 +169,7 @@
                     <button id="continueToBankBtn" class="btn-primary" style="margin-top: 1rem; width: 100%;">Continue to Payment</button>
                 </div>
                 
+                <!-- Bank Details -->
                 <div class="bank-details" style="display: none;">
                     <h3>Bank Transfer Details</h3>
                     <div class="bank-info-card" id="bankInfoCard"></div>
@@ -163,7 +194,7 @@
         </div>
     </div>
 
-    <!-- 3. Convert GP to Stars Modal -->
+    <!-- ===== 3. CONVERT GP TO STARS MODAL ===== -->
     <div id="convertStarsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -189,7 +220,7 @@
         </div>
     </div>
 
-    <!-- 4. Message Modal -->
+    <!-- ===== 4. MESSAGE MODAL ===== -->
     <div id="messageModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -212,7 +243,7 @@
         </div>
     </div>
 
-    <!-- 5. Role Application Modal -->
+    <!-- ===== 5. ROLE APPLICATION MODAL ===== -->
     <div id="roleApplyModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -238,12 +269,24 @@
         </div>
     </div>
 
-    <!-- Toast Container -->
+    <!-- ========================================== -->
+    <!-- TOAST CONTAINER                            -->
+    <!-- ========================================== -->
     <div id="toast-container"></div>
 
-    <!-- Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT                                 -->
+    <!-- ========================================== -->
+    
+    <!-- Theme Manager -->
+    <script type="module">
+        import { initTheme } from '/frontend/js/pages/user-theme.js';
+        // Initialize theme before anything else
+        initTheme();
+    </script>
+    
+    <!-- Main Application -->
     <script type="module" src="/frontend/js/pages/user.js"></script>
+    
 </body>
 </html>
