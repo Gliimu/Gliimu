@@ -1400,25 +1400,33 @@ export async function claimFreePromotion(userId) {
 // ============================================
 
 export function subscribeToWallet(callback) {
-    const user = await getCurrentUser();
-    if (!user) return null;
-    
-    return supabase
-        .channel('wallet_changes')
-        .on('postgres_changes', 
-            { 
-                event: 'UPDATE', 
-                schema: 'public', 
-                table: 'user_profiles',
-                filter: `id=eq.${user.id}` 
-            },
-            (payload) => {
-                if (payload.new) {
-                    callback(payload.new.wallet_balance);
+    // Get user synchronously since we can't use await here
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+        if (error || !user) {
+            console.error('Error getting user for wallet subscription:', error);
+            return null;
+        }
+        
+        return supabase
+            .channel('wallet_changes')
+            .on('postgres_changes', 
+                { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'user_profiles',
+                    filter: `id=eq.${user.id}` 
+                },
+                (payload) => {
+                    if (payload.new) {
+                        callback(payload.new.wallet_balance);
+                    }
                 }
-            }
-        )
-        .subscribe();
+            )
+            .subscribe();
+    });
+    
+    // Return a dummy subscription object
+    return { unsubscribe: () => {} };
 }
 
 // ============================================
