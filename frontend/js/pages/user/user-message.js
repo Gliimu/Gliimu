@@ -1,5 +1,5 @@
 // ============================================
-// USER MESSAGE - Message Logic
+// USER MESSAGE - Message Logic (WORKING)
 // ============================================
 
 import { supabase } from '../../modules/supabase.js';
@@ -141,17 +141,16 @@ export function renderMessageThreads(messages) {
 }
 
 // ============================================
-// SHOW NEW MESSAGE MODAL
+// SHOW NEW MESSAGE MODAL - FIXED
 // ============================================
 export function showNewMessageModal(dashboard) {
-    var modal = document.getElementById('newMessageModal');
-    if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        return;
+    // Remove any existing modal
+    var existingModal = document.getElementById('newMessageModal');
+    if (existingModal) {
+        existingModal.remove();
     }
 
-    modal = document.createElement('div');
+    var modal = document.createElement('div');
     modal.id = 'newMessageModal';
     modal.className = 'modal active';
     modal.innerHTML = `
@@ -181,10 +180,12 @@ export function showNewMessageModal(dashboard) {
                             <option value="ambassador">Ambassador</option>
                         </select>
                     </div>
-                    <div class="form-group"><label>Subject *</label><input type="text" id="messageSubject" name="subject"></div>
-                    <div class="form-group"><label>Message *</label><textarea id="messageBody" name="message" rows="5"></textarea></div>
-                    <div class="form-group" id="workLinkGroup" style="display:none;"><label>Link</label><input type="url" id="workLink" name="workLink"></div>
-                    <button type="button" id="sendMessageBtn" class="btn-primary" style="width:100%;"><i class="fas fa-paper-plane"></i> Send</button>
+                    <div class="form-group"><label>Subject *</label><input type="text" id="messageSubject" name="subject" placeholder="Enter subject"></div>
+                    <div class="form-group"><label>Message *</label><textarea id="messageBody" name="message" rows="5" placeholder="Type your message..."></textarea></div>
+                    <div class="form-group" id="workLinkGroup" style="display:none;"><label>Link</label><input type="url" id="workLink" name="workLink" placeholder="https://..."></div>
+                    <button type="button" id="sendMessageBtn" class="btn-primary" style="width:100%;padding:12px;font-size:1rem;">
+                        <i class="fas fa-paper-plane"></i> Send Message
+                    </button>
                 </form>
             </div>
         </div>
@@ -193,18 +194,29 @@ export function showNewMessageModal(dashboard) {
     document.body.appendChild(modal);
     document.body.style.overflow = 'hidden';
 
+    // Close button
     document.getElementById('closeNewMessageModal')?.addEventListener('click', function() {
-        modal.classList.remove('active');
+        modal.remove();
         document.body.style.overflow = '';
     });
 
+    // Close on overlay click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+            document.body.style.overflow = '';
+        }
+    });
+
+    // Category change
     document.getElementById('messageCategory')?.addEventListener('change', function() {
         var val = this.value;
         document.getElementById('roleSelectGroup').style.display = val === 'apply' ? 'block' : 'none';
         document.getElementById('workLinkGroup').style.display = val === 'submit_work' ? 'block' : 'none';
     });
 
-    document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
+    // Send button - using onclick directly
+    document.getElementById('sendMessageBtn').onclick = async function() {
         var form = document.getElementById('newMessageForm');
         var fd = new FormData(form);
         var category = fd.get('category') || '';
@@ -230,20 +242,20 @@ export function showNewMessageModal(dashboard) {
 
         var success = await submitNewMessage(dashboard);
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
 
         if (success) {
-            modal.classList.remove('active');
+            modal.remove();
             document.body.style.overflow = '';
             form.reset();
             window._tempMessageData = null;
             await loadMessages(dashboard.container, dashboard);
         }
-    });
+    };
 }
 
 // ============================================
-// SUBMIT NEW MESSAGE - FIXED (no birth_day/month)
+// SUBMIT NEW MESSAGE
 // ============================================
 export async function submitNewMessage(dashboard) {
     var data = window._tempMessageData;
@@ -305,26 +317,4 @@ export async function submitNewMessage(dashboard) {
 
     showToast('✅ Message sent!', 'success');
     return true;
-}
-
-// ============================================
-// TEST FUNCTION - For debugging
-// ============================================
-export async function testSendMessage(dashboard) {
-    console.log('🔍 Test: Attempting to send message...');
-    console.log('🔍 Dashboard:', dashboard);
-    console.log('🔍 Current user:', dashboard.currentUser);
-    
-    var testData = {
-        category: 'inquire',
-        subject: 'Test Message',
-        message: 'This is a test message from the debug function.',
-        applyRole: 'student',
-        workLink: ''
-    };
-    
-    window._tempMessageData = testData;
-    var result = await submitNewMessage(dashboard);
-    console.log('🔍 Result:', result);
-    return result;
 }
