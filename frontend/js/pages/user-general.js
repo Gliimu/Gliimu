@@ -73,20 +73,26 @@ export class GeneralDashboard {
         if (toggle) {
             toggle.onclick = function(e) {
                 e.stopPropagation();
-                dropdown.classList.toggle('open');
+                if (dropdown) {
+                    dropdown.classList.toggle('open');
+                }
                 toggle.classList.toggle('active');
             };
         }
 
-        // Close nav when clicking outside
         document.addEventListener('click', function(e) {
             const nav = document.getElementById('stickyNav');
             if (nav && !nav.contains(e.target)) {
-                dropdown?.classList.remove('open');
-                toggle?.classList.remove('active');
-                // Also close alert dropdown
+                if (dropdown) {
+                    dropdown.classList.remove('open');
+                }
+                if (toggle) {
+                    toggle.classList.remove('active');
+                }
                 const alertDropdown = document.getElementById('alertDropdown');
-                if (alertDropdown) alertDropdown.classList.remove('open');
+                if (alertDropdown) {
+                    alertDropdown.classList.remove('open');
+                }
             }
         });
     }
@@ -101,15 +107,17 @@ export class GeneralDashboard {
         if (alertBtn) {
             alertBtn.onclick = function(e) {
                 e.stopPropagation();
-                alertDropdown.classList.toggle('open');
+                if (alertDropdown) {
+                    alertDropdown.classList.toggle('open');
+                }
             };
         }
 
         const markReadBtn = document.getElementById('alertMarkRead');
         if (markReadBtn) {
-            markReadBtn.onclick = async function(e) {
+            markReadBtn.onclick = function(e) {
                 e.stopPropagation();
-                await this.markAllAlertsRead();
+                this.markAllAlertsRead();
             }.bind(this);
         }
     }
@@ -150,17 +158,19 @@ export class GeneralDashboard {
             `;
         }
 
-        return alerts.slice(0, 10).map(alert => `
-            <div class="alert-item ${alert.read ? 'read' : 'unread'}" data-id="${alert.id}">
-                <div class="alert-icon">${alert.icon || '📌'}</div>
-                <div class="alert-content">
-                    <p class="alert-message">${alert.message}</p>
-                    <span class="alert-time">${this.getTimeAgo(alert.created_at)}</span>
-                    ${alert.link ? `<a href="${alert.link}" class="alert-link" target="_blank">Learn more →</a>` : ''}
+        return alerts.slice(0, 10).map(function(alert) {
+            return `
+                <div class="alert-item ${alert.read ? 'read' : 'unread'}" data-id="${alert.id}">
+                    <div class="alert-icon">${alert.icon || '📌'}</div>
+                    <div class="alert-content">
+                        <p class="alert-message">${alert.message}</p>
+                        <span class="alert-time">${this.getTimeAgo(alert.created_at)}</span>
+                        ${alert.link ? `<a href="${alert.link}" class="alert-link" target="_blank">Learn more →</a>` : ''}
+                    </div>
+                    ${!alert.read ? '<span class="alert-unread-dot"></span>' : ''}
                 </div>
-                ${!alert.read ? `<span class="alert-unread-dot"></span>` : ''}
-            </div>
-        `).join('');
+            `;
+        }.bind(this)).join('');
     }
 
     async markAllAlertsRead() {
@@ -297,32 +307,32 @@ export class GeneralDashboard {
     // BIND EVENTS
     // ================================================================
     bindEvents() {
-        document.querySelectorAll('.stat-action-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.stat-action-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const action = btn.dataset.action;
+                const action = this.dataset.action;
                 if (action === 'wallet') this.showFundWalletModal();
                 else if (action === 'stars') this.showConvertStarsModal();
                 else if (action === 'submissions') showToast('Submissions view coming soon!', 'info');
                 else if (action === 'referrals') {
-                    const url = `${window.location.origin}/ref/${this.currentProfile?.referral_code || this.currentUser.id}`;
-                    navigator.clipboard.writeText(url).then(() => {
+                    const url = window.location.origin + '/ref/' + (this.currentProfile?.referral_code || this.currentUser.id);
+                    navigator.clipboard.writeText(url).then(function() {
                         showToast('Referral link copied! Share it with friends.', 'success');
-                    }).catch(() => {
-                        showToast(`Share this link: ${url}`, 'info');
+                    }).catch(function() {
+                        showToast('Share this link: ' + url, 'info');
                     });
                 }
-            });
-        });
+            }.bind(this));
+        }.bind(this));
 
-        document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
+        document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async function() {
             await this.loadLeaderboard();
             const container = document.getElementById('dashboardLeaderboard');
             if (container) {
                 container.innerHTML = this.renderLeaderboardItems();
             }
             showToast('Leaderboard refreshed!', 'success');
-        });
+        }.bind(this));
     }
 
     // ================================================================
@@ -342,16 +352,16 @@ export class GeneralDashboard {
             return '<div class="empty-state"><p>No leaders yet. Be the first!</p></div>';
         }
         
-        return this.leaderboardData.map((user, index) => {
+        return this.leaderboardData.map(function(user, index) {
             const rankClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
             const medals = ['🥇', '🥈', '🥉'];
-            const rankDisplay = index < 3 ? medals[index] : `#${index + 1}`;
+            const rankDisplay = index < 3 ? medals[index] : '#' + (index + 1);
             
             return `
                 <div class="leaderboard-item ${rankClass}">
                     <div class="leaderboard-rank">${rankDisplay}</div>
                     <div class="leaderboard-avatar">
-                        <img src="${user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=fbb040&color=fff`}" alt="">
+                        <img src="${user.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || 'User') + '&background=fbb040&color=fff'}" alt="">
                     </div>
                     <div class="leaderboard-info">
                         <div class="leaderboard-name">${user.name || 'Anonymous'}</div>
@@ -361,7 +371,7 @@ export class GeneralDashboard {
                     <div class="leaderboard-gp">${(user.gp_points || 0).toLocaleString()} GP</div>
                 </div>
             `;
-        }).join('');
+        }.bind(this)).join('');
     }
 
     // ================================================================
@@ -418,7 +428,7 @@ export class GeneralDashboard {
     getTimeAgo(date) {
         if (!date) return 'Just now';
         
-        let past;
+        var past;
         if (typeof date === 'string') {
             past = new Date(date);
         } else if (date instanceof Date) {
@@ -431,46 +441,46 @@ export class GeneralDashboard {
             return 'Just now';
         }
         
-        const now = new Date();
-        const diff = Math.floor((now.getTime() - past.getTime()) / 1000);
+        var now = new Date();
+        var diff = Math.floor((now.getTime() - past.getTime()) / 1000);
         
         if (diff < 0) return 'Just now';
         if (diff < 5) return 'Just now';
-        if (diff < 60) return `${diff}s ago`;
+        if (diff < 60) return diff + 's ago';
         
-        const minutes = Math.floor(diff / 60);
-        const hours = Math.floor(diff / 3600);
-        const days = Math.floor(diff / 86400);
-        const weeks = Math.floor(diff / 604800);
-        const months = Math.floor(diff / 2592000);
-        const years = Math.floor(diff / 31536000);
+        var minutes = Math.floor(diff / 60);
+        var hours = Math.floor(diff / 3600);
+        var days = Math.floor(diff / 86400);
+        var weeks = Math.floor(diff / 604800);
+        var months = Math.floor(diff / 2592000);
+        var years = Math.floor(diff / 31536000);
 
         if (minutes < 2) return '1m ago';
-        if (minutes < 60) return `${minutes}m ago`;
+        if (minutes < 60) return minutes + 'm ago';
         if (hours < 2) return '1h ago';
-        if (hours < 24) return `${hours}h ago`;
+        if (hours < 24) return hours + 'h ago';
         if (days < 2) return '1d ago';
-        if (days < 7) return `${days}d ago`;
+        if (days < 7) return days + 'd ago';
         if (weeks < 2) return '1w ago';
-        if (weeks < 4) return `${weeks}w ago`;
+        if (weeks < 4) return weeks + 'w ago';
         if (months < 2) return '1mo ago';
-        if (months < 12) return `${months}mo ago';
+        if (months < 12) return months + 'mo ago';
         if (years < 2) return '1y ago';
-        return `${years}y ago`;
+        return years + 'y ago';
     }
 
     // ================================================================
     // SHOW APPLY ROLE MODAL
     // ================================================================
     showApplyRoleModal() {
-        const roles = ['student', 'instructor', 'ambassador'];
-        const roleLabels = {
+        var roles = ['student', 'instructor', 'ambassador'];
+        var roleLabels = {
             'student': 'Student (Learn & Build)',
             'instructor': 'Instructor (Teach & Mentor)',
             'ambassador': 'Ambassador (Represent & Lead)'
         };
 
-        const modal = document.createElement('div');
+        var modal = document.createElement('div');
         modal.className = 'modal active';
         modal.innerHTML = `
             <div class="modal-content">
@@ -483,11 +493,9 @@ export class GeneralDashboard {
                         Select the role you want to apply for. Your application will be reviewed by an admin.
                     </p>
                     <div class="role-options">
-                        ${roles.map(r => `
-                            <button class="apply-role-btn" data-role="${r}">
-                                Apply as ${roleLabels[r] || r}
-                            </button>
-                        `).join('')}
+                        ${roles.map(function(r) {
+                            return '<button class="apply-role-btn" data-role="' + r + '">Apply as ' + (roleLabels[r] || r) + '</button>';
+                        }).join('')}
                     </div>
                 </div>
             </div>
@@ -495,23 +503,25 @@ export class GeneralDashboard {
 
         document.body.appendChild(modal);
 
-        modal.querySelector('#closeRoleModal')?.addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => {
+        modal.querySelector('#closeRoleModal')?.addEventListener('click', function() {
+            modal.remove();
+        });
+        modal.addEventListener('click', function(e) {
             if (e.target === modal) modal.remove();
         });
 
-        modal.querySelectorAll('.apply-role-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const role = btn.dataset.role;
+        modal.querySelectorAll('.apply-role-btn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                var role = this.dataset.role;
                 modal.remove();
                 await this.applyForRole(role);
-            });
-        });
+            }.bind(this));
+        }.bind(this));
     }
 
     async applyForRole(role) {
         try {
-            const result = await this.submitApplication({
+            var result = await this.submitApplication({
                 role: role,
                 fullName: this.currentProfile?.name,
                 username: this.currentProfile?.username,
@@ -521,7 +531,7 @@ export class GeneralDashboard {
             });
             
             if (result.success) {
-                showToast(`Application for ${role} submitted successfully!`, 'success');
+                showToast('Application for ' + role + ' submitted successfully!', 'success');
                 await this.loadDashboard();
             } else {
                 showToast(result.error || 'Failed to submit application', 'error');
@@ -534,7 +544,7 @@ export class GeneralDashboard {
 
     async submitApplication(data) {
         try {
-            const { error } = await supabase
+            var { error } = await supabase
                 .from('applications')
                 .insert([{
                     user_id: this.currentUser.id,
@@ -569,11 +579,11 @@ export class GeneralDashboard {
     // SHOW CONVERT STARS MODAL
     // ================================================================
     showConvertStarsModal() {
-        const profile = this.currentProfile;
-        const currentGP = profile?.gp_points || 0;
-        const starsEarned = Math.floor(currentGP / 1000);
+        var profile = this.currentProfile;
+        var currentGP = profile?.gp_points || 0;
+        var starsEarned = Math.floor(currentGP / 1000);
         
-        const modal = document.createElement('div');
+        var modal = document.createElement('div');
         modal.className = 'modal active';
         modal.innerHTML = `
             <div class="modal-content">
@@ -611,25 +621,27 @@ export class GeneralDashboard {
 
         document.body.appendChild(modal);
 
-        modal.querySelector('#closeConvertModal')?.addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => {
+        modal.querySelector('#closeConvertModal')?.addEventListener('click', function() {
+            modal.remove();
+        });
+        modal.addEventListener('click', function(e) {
             if (e.target === modal) modal.remove();
         });
 
-        modal.querySelector('#confirmConvertStars')?.addEventListener('click', async () => {
-            const result = await convertGPToStars(this.currentUser.id);
+        modal.querySelector('#confirmConvertStars')?.addEventListener('click', async function() {
+            var result = await convertGPToStars(this.currentUser.id);
             if (result) {
                 modal.remove();
                 await this.loadDashboard();
             }
-        });
+        }.bind(this));
     }
 
     // ================================================================
     // SHOW FUND WALLET MODAL
     // ================================================================
     showFundWalletModal() {
-        const modal = document.getElementById('fundWalletModal');
+        var modal = document.getElementById('fundWalletModal');
         if (modal) {
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -640,44 +652,48 @@ export class GeneralDashboard {
     }
 
     bindWalletModalEvents() {
-        document.querySelectorAll('.amount-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.amount-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.amount-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                });
                 btn.classList.add('active');
                 this.selectedAmount = parseInt(btn.dataset.amount);
                 this.updateAmountDisplay();
-            });
-        });
+            }.bind(this));
+        }.bind(this));
 
-        document.getElementById('customAmount')?.addEventListener('input', (e) => {
-            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('customAmount')?.addEventListener('input', function(e) {
+            document.querySelectorAll('.amount-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
             this.selectedAmount = parseInt(e.target.value) || 0;
             this.updateAmountDisplay();
-        });
+        }.bind(this));
 
-        document.getElementById('continueToBankBtn')?.addEventListener('click', () => {
+        document.getElementById('continueToBankBtn')?.addEventListener('click', function() {
             if (this.selectedAmount < 100) {
                 showToast('Please select or enter an amount (minimum ₦100)', 'error');
                 return;
             }
             this.showBankDetails();
-        });
+        }.bind(this));
 
-        document.getElementById('backToAmountBtn')?.addEventListener('click', () => {
+        document.getElementById('backToAmountBtn')?.addEventListener('click', function() {
             this.resetWalletModal();
-        });
+        }.bind(this));
 
-        document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
+        document.getElementById('confirmPaymentBtn')?.addEventListener('click', async function() {
             await this.confirmPayment();
-        });
+        }.bind(this));
 
-        document.getElementById('copyRefCodeBtn')?.addEventListener('click', () => {
-            const code = document.getElementById('referenceCode')?.textContent;
+        document.getElementById('copyRefCodeBtn')?.addEventListener('click', function() {
+            var code = document.getElementById('referenceCode')?.textContent;
             if (code) {
-                navigator.clipboard.writeText(code).then(() => {
+                navigator.clipboard.writeText(code).then(function() {
                     showToast('Reference code copied!', 'success');
-                }).catch(() => {
-                    const input = document.createElement('input');
+                }).catch(function() {
+                    var input = document.createElement('input');
                     input.value = code;
                     document.body.appendChild(input);
                     input.select();
@@ -690,19 +706,19 @@ export class GeneralDashboard {
     }
 
     async showBankDetails() {
-        const fundingOptions = document.querySelector('.funding-options');
-        const bankDetails = document.querySelector('.bank-details');
+        var fundingOptions = document.querySelector('.funding-options');
+        var bankDetails = document.querySelector('.bank-details');
         
         if (fundingOptions && bankDetails) {
             fundingOptions.style.display = 'none';
             bankDetails.style.display = 'block';
             
-            const username = this.currentProfile?.username || 'user';
-            const randomNum = Math.floor(Math.random() * 9000) + 1000;
-            this.referenceCode = `GLM-${username}-${randomNum}`;
+            var username = this.currentProfile?.username || 'user';
+            var randomNum = Math.floor(Math.random() * 9000) + 1000;
+            this.referenceCode = 'GLM-' + username + '-' + randomNum;
             document.getElementById('referenceCode').textContent = this.referenceCode;
             
-            const bankAccounts = [
+            var bankAccounts = [
                 {
                     bankName: 'MoniePoint Micro Finance Bank',
                     accountName: 'Gliimu LTD',
@@ -715,7 +731,7 @@ export class GeneralDashboard {
                 }
             ];
             
-            const selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
+            var selectedBank = bankAccounts[Math.floor(Math.random() * bankAccounts.length)];
             
             document.getElementById('bankInfoCard').innerHTML = `
                 <p><strong>Bank:</strong> <span style="color: var(--brand-gold);">${selectedBank.bankName}</span></p>
@@ -730,27 +746,29 @@ export class GeneralDashboard {
     }
 
     resetWalletModal() {
-        const fundingOptions = document.querySelector('.funding-options');
-        const bankDetails = document.querySelector('.bank-details');
+        var fundingOptions = document.querySelector('.funding-options');
+        var bankDetails = document.querySelector('.bank-details');
         if (fundingOptions && bankDetails) {
             fundingOptions.style.display = 'block';
             bankDetails.style.display = 'none';
         }
-        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-        const customAmount = document.getElementById('customAmount');
+        document.querySelectorAll('.amount-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        var customAmount = document.getElementById('customAmount');
         if (customAmount) customAmount.value = '';
-        const display = document.getElementById('selectedAmountDisplay');
+        var display = document.getElementById('selectedAmountDisplay');
         if (display) display.style.display = 'none';
         this.selectedAmount = 0;
     }
 
     updateAmountDisplay() {
-        const display = document.getElementById('selectedAmountDisplay');
-        const large = document.getElementById('selectedAmountLarge');
+        var display = document.getElementById('selectedAmountDisplay');
+        var large = document.getElementById('selectedAmountLarge');
         if (display && large) {
             if (this.selectedAmount > 0) {
                 display.style.display = 'block';
-                large.textContent = `₦${this.selectedAmount.toLocaleString()}`;
+                large.textContent = '₦' + this.selectedAmount.toLocaleString();
             } else {
                 display.style.display = 'none';
             }
@@ -759,19 +777,19 @@ export class GeneralDashboard {
 
     async confirmPayment() {
         try {
-            const btn = document.getElementById('confirmPaymentBtn');
+            var btn = document.getElementById('confirmPaymentBtn');
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             }
 
-            const { data: { user } } = await supabase.auth.getUser();
+            var { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 showToast('Please login first', 'error');
                 return;
             }
 
-            const { data: profile, error: profileError } = await supabase
+            var { data: profile, error: profileError } = await supabase
                 .from('user_profiles')
                 .select('name, email, username')
                 .eq('id', user.id)
@@ -781,21 +799,21 @@ export class GeneralDashboard {
                 console.error('Error fetching profile:', profileError);
             }
 
-            const bankInfo = document.getElementById('bankInfoCard');
-            let bankName = 'Opay';
+            var bankInfo = document.getElementById('bankInfoCard');
+            var bankName = 'Opay';
             if (bankInfo) {
-                const bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
+                var bankMatch = bankInfo.innerHTML.match(/Bank:<\/strong> <span[^>]*>([^<]*)<\/span>/);
                 if (bankMatch && bankMatch[1]) {
                     bankName = bankMatch[1].trim();
                 }
             }
 
-            const username = profile?.username || 'user';
-            const randomNum = Math.floor(Math.random() * 9000) + 1000;
-            const referenceCode = `GLM-${username}-${randomNum}`;
-            const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+            var username = profile?.username || 'user';
+            var randomNum = Math.floor(Math.random() * 9000) + 1000;
+            var referenceCode = 'GLM-' + username + '-' + randomNum;
+            var paymentId = 'pay_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
 
-            const { data, error } = await supabase
+            var { data, error } = await supabase
                 .from('payment_requests')
                 .insert([{
                     id: paymentId,
@@ -816,10 +834,10 @@ export class GeneralDashboard {
                 return;
             }
 
-            showToast(`💰 Payment request submitted! Use code: ${referenceCode} as narration`, 'success');
+            showToast('💰 Payment request submitted! Use code: ' + referenceCode + ' as narration', 'success');
             
             this.resetWalletModal();
-            const modal = document.getElementById('fundWalletModal');
+            var modal = document.getElementById('fundWalletModal');
             if (modal) {
                 modal.classList.remove('active');
                 document.body.style.overflow = '';
@@ -831,7 +849,7 @@ export class GeneralDashboard {
             console.error('❌ Payment error:', error);
             showToast('Failed to submit payment: ' + error.message, 'error');
         } finally {
-            const btn = document.getElementById('confirmPaymentBtn');
+            var btn = document.getElementById('confirmPaymentBtn');
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '✅ I Have Made Payment';
@@ -848,8 +866,8 @@ export class GeneralDashboard {
         }
         if (!container) return;
 
-        const profile = this.currentProfile;
-        const progressData = await getStudentProgress(this.currentUser.id);
+        var profile = this.currentProfile;
+        var progressData = await getStudentProgress(this.currentUser.id);
 
         container.innerHTML = `
             <div class="dashboard-header">
@@ -883,51 +901,57 @@ export class GeneralDashboard {
             </div>
         `;
 
-        document.getElementById('fundWalletBtn')?.addEventListener('click', () => {
+        document.getElementById('fundWalletBtn')?.addEventListener('click', function() {
             this.showFundWalletModal();
-        });
+        }.bind(this));
 
-        document.getElementById('convertStarsFromWallet')?.addEventListener('click', () => {
+        document.getElementById('convertStarsFromWallet')?.addEventListener('click', function() {
             this.showConvertStarsModal();
-        });
+        }.bind(this));
 
         await this.loadTransactionHistory();
     }
 
     async loadTransactionHistory() {
-        const container = document.getElementById('transactionHistory');
+        var container = document.getElementById('transactionHistory');
         if (!container) return;
 
         try {
-            const [transactions, paymentRequests] = await Promise.all([
+            var [transactions, paymentRequests] = await Promise.all([
                 getUserTransactions(),
                 this.getPaymentRequests(this.currentUser.id)
             ]);
 
-            let allTransactions = [];
+            var allTransactions = [];
 
             if (transactions && transactions.length > 0) {
-                allTransactions = allTransactions.concat(transactions.map(tx => ({
-                    ...tx,
-                    type: 'transaction',
-                    display_type: tx.type || 'unknown',
-                    date: tx.created_at,
-                    description: tx.description || `${tx.type === 'credit' ? 'Credited' : 'Debited'}`
-                })));
+                allTransactions = allTransactions.concat(transactions.map(function(tx) {
+                    return {
+                        ...tx,
+                        type: 'transaction',
+                        display_type: tx.type || 'unknown',
+                        date: tx.created_at,
+                        description: tx.description || (tx.type === 'credit' ? 'Credited' : 'Debited')
+                    };
+                }));
             }
 
             if (paymentRequests && paymentRequests.length > 0) {
-                allTransactions = allTransactions.concat(paymentRequests.map(p => ({
-                    ...p,
-                    type: 'payment_request',
-                    display_type: p.status,
-                    date: p.submitted_at,
-                    amount: p.amount,
-                    description: 'Wallet funding request'
-                })));
+                allTransactions = allTransactions.concat(paymentRequests.map(function(p) {
+                    return {
+                        ...p,
+                        type: 'payment_request',
+                        display_type: p.status,
+                        date: p.submitted_at,
+                        amount: p.amount,
+                        description: 'Wallet funding request'
+                    };
+                }));
             }
 
-            allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            allTransactions.sort(function(a, b) {
+                return new Date(b.date) - new Date(a.date);
+            });
 
             if (allTransactions.length === 0) {
                 container.innerHTML = `
@@ -940,13 +964,13 @@ export class GeneralDashboard {
                 return;
             }
 
-            container.innerHTML = allTransactions.map(item => {
-                let amountDisplay = '';
-                let statusDisplay = '';
-                let description = item.description || 'Transaction';
-                let dateDisplay = '';
+            container.innerHTML = allTransactions.map(function(item) {
+                var amountDisplay = '';
+                var statusDisplay = '';
+                var description = item.description || 'Transaction';
+                var dateDisplay = '';
 
-                const d = new Date(item.date);
+                var d = new Date(item.date);
                 dateDisplay = d.toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -956,9 +980,9 @@ export class GeneralDashboard {
                 });
 
                 if (item.type === 'transaction') {
-                    const prefix = item.display_type === 'credit' ? '+' : '';
-                    amountDisplay = `${prefix}₦${(item.amount || 0).toLocaleString()}`;
-                    const cls = item.display_type === 'credit' ? 'credit' : 'debit';
+                    var prefix = item.display_type === 'credit' ? '+' : '';
+                    amountDisplay = prefix + '₦' + (item.amount || 0).toLocaleString();
+                    var cls = item.display_type === 'credit' ? 'credit' : 'debit';
                     return `
                         <div class="transaction-item">
                             <div class="tx-info">
@@ -969,14 +993,14 @@ export class GeneralDashboard {
                         </div>
                     `;
                 } else if (item.type === 'payment_request') {
-                    amountDisplay = `₦${(item.amount || 0).toLocaleString()}`;
-                    const statusMap = {
+                    amountDisplay = '₦' + (item.amount || 0).toLocaleString();
+                    var statusMap = {
                         'pending': '⏳ Pending',
                         'approved': '✅ Approved',
                         'rejected': '❌ Rejected'
                     };
-                    statusDisplay = `<span class="tx-status ${item.display_type}">${statusMap[item.display_type] || item.display_type}</span>`;
-                    const icon = item.display_type === 'approved' ? 'fa-check-circle' : 
+                    statusDisplay = '<span class="tx-status ' + item.display_type + '">' + (statusMap[item.display_type] || item.display_type) + '</span>';
+                    var icon = item.display_type === 'approved' ? 'fa-check-circle' : 
                                  item.display_type === 'rejected' ? 'fa-times-circle' : 'fa-clock';
                     
                     return `
@@ -1006,9 +1030,9 @@ export class GeneralDashboard {
     // SETUP MODAL CLOSE HANDLERS
     // ================================================================
     setupModalCloseHandlers() {
-        document.querySelectorAll('.modal-close').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const modal = btn.closest('.modal');
+        document.querySelectorAll('.modal-close').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                var modal = btn.closest('.modal');
                 if (modal) {
                     modal.classList.remove('active');
                     document.body.style.overflow = '';
@@ -1016,8 +1040,8 @@ export class GeneralDashboard {
             });
         });
 
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
+        document.querySelectorAll('.modal').forEach(function(modal) {
+            modal.addEventListener('click', function(e) {
                 if (e.target === modal) {
                     modal.classList.remove('active');
                     document.body.style.overflow = '';
@@ -1025,9 +1049,9 @@ export class GeneralDashboard {
             });
         });
 
-        document.addEventListener('keydown', (e) => {
+        document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                document.querySelectorAll('.modal.active').forEach(modal => {
+                document.querySelectorAll('.modal.active').forEach(function(modal) {
                     modal.classList.remove('active');
                     document.body.style.overflow = '';
                 });
@@ -1044,7 +1068,7 @@ export class GeneralDashboard {
         }
         if (!container) return;
 
-        const messages = await this.getAllUserMessages();
+        var messages = await this.getAllUserMessages();
 
         container.innerHTML = `
             <div class="dashboard-header">
@@ -1060,9 +1084,9 @@ export class GeneralDashboard {
                 
                 <div class="message-filters">
                     <button class="filter-chip active" data-filter="all">All (${messages.length})</button>
-                    <button class="filter-chip" data-filter="pending">Pending (${messages.filter(m => m._display_status === 'pending').length})</button>
-                    <button class="filter-chip" data-filter="replied">Replied (${messages.filter(m => ['replied', 'reviewed', 'approved'].includes(m._display_status)).length})</button>
-                    <button class="filter-chip" data-filter="closed">Closed (${messages.filter(m => ['closed', 'rejected'].includes(m._display_status)).length})</button>
+                    <button class="filter-chip" data-filter="pending">Pending (${messages.filter(function(m) { return m._display_status === 'pending'; }).length})</button>
+                    <button class="filter-chip" data-filter="replied">Replied (${messages.filter(function(m) { return ['replied', 'reviewed', 'approved'].includes(m._display_status); }).length})</button>
+                    <button class="filter-chip" data-filter="closed">Closed (${messages.filter(function(m) { return ['closed', 'rejected'].includes(m._display_status); }).length})</button>
                 </div>
                 
                 <div id="messageThreads">
@@ -1071,131 +1095,145 @@ export class GeneralDashboard {
             </div>
         `;
 
-        document.getElementById('newMessageBtn')?.addEventListener('click', () => {
+        document.getElementById('newMessageBtn')?.addEventListener('click', function() {
             this.showNewMessageModal();
-        });
+        }.bind(this));
 
-        document.querySelectorAll('.filter-chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.filter-chip').forEach(function(chip) {
+            chip.addEventListener('click', function() {
+                document.querySelectorAll('.filter-chip').forEach(function(c) {
+                    c.classList.remove('active');
+                });
                 chip.classList.add('active');
-                const filter = chip.dataset.filter;
-                let filtered = messages;
+                var filter = chip.dataset.filter;
+                var filtered = messages;
                 if (filter === 'pending') {
-                    filtered = messages.filter(m => m._display_status === 'pending');
+                    filtered = messages.filter(function(m) { return m._display_status === 'pending'; });
                 } else if (filter === 'replied') {
-                    filtered = messages.filter(m => ['replied', 'reviewed', 'approved'].includes(m._display_status));
+                    filtered = messages.filter(function(m) { return ['replied', 'reviewed', 'approved'].includes(m._display_status); });
                 } else if (filter === 'closed') {
-                    filtered = messages.filter(m => ['closed', 'rejected'].includes(m._display_status));
+                    filtered = messages.filter(function(m) { return ['closed', 'rejected'].includes(m._display_status); });
                 }
                 document.getElementById('messageThreads').innerHTML = this.renderMessageThreads(filtered);
-            });
-        });
+            }.bind(this));
+        }.bind(this));
 
         this.subscribeToMessages();
     }
 
     async getAllUserMessages() {
-        const userId = this.currentUser.id;
-        let allMessages = [];
+        var userId = this.currentUser.id;
+        var allMessages = [];
 
         try {
-            const { data: applications } = await supabase
+            var { data: applications } = await supabase
                 .from('applications')
                 .select('*')
                 .eq('user_id', userId)
                 .order('submitted_at', { ascending: false });
 
             if (applications) {
-                allMessages = allMessages.concat(applications.map(a => ({
-                    ...a,
-                    _table: 'applications',
-                    _category: 'apply',
-                    _display_status: a.status || 'pending',
-                    _date: a.submitted_at,
-                    _subject: `Application: ${a.role}`,
-                    _message: `Applied to become a ${a.role}`,
-                    _icon: '🎓'
-                })));
+                allMessages = allMessages.concat(applications.map(function(a) {
+                    return {
+                        ...a,
+                        _table: 'applications',
+                        _category: 'apply',
+                        _display_status: a.status || 'pending',
+                        _date: a.submitted_at,
+                        _subject: 'Application: ' + a.role,
+                        _message: 'Applied to become a ' + a.role,
+                        _icon: '🎓'
+                    };
+                }));
             }
 
-            const { data: inquiries } = await supabase
+            var { data: inquiries } = await supabase
                 .from('inquiries')
                 .select('*')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
             if (inquiries) {
-                allMessages = allMessages.concat(inquiries.map(i => ({
-                    ...i,
-                    _table: 'inquiries',
-                    _category: 'inquire',
-                    _display_status: i.status || 'pending',
-                    _date: i.created_at,
-                    _subject: i.subject || 'Inquiry',
-                    _message: i.message || '',
-                    _icon: '❓'
-                })));
+                allMessages = allMessages.concat(inquiries.map(function(i) {
+                    return {
+                        ...i,
+                        _table: 'inquiries',
+                        _category: 'inquire',
+                        _display_status: i.status || 'pending',
+                        _date: i.created_at,
+                        _subject: i.subject || 'Inquiry',
+                        _message: i.message || '',
+                        _icon: '❓'
+                    };
+                }));
             }
 
-            const { data: contracts } = await supabase
+            var { data: contracts } = await supabase
                 .from('contracts')
                 .select('*')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
             if (contracts) {
-                allMessages = allMessages.concat(contracts.map(c => ({
-                    ...c,
-                    _table: 'contracts',
-                    _category: 'contract',
-                    _display_status: c.status || 'pending',
-                    _date: c.created_at,
-                    _subject: c.subject || 'Contract Offer',
-                    _message: c.message || '',
-                    _icon: '📄'
-                })));
+                allMessages = allMessages.concat(contracts.map(function(c) {
+                    return {
+                        ...c,
+                        _table: 'contracts',
+                        _category: 'contract',
+                        _display_status: c.status || 'pending',
+                        _date: c.created_at,
+                        _subject: c.subject || 'Contract Offer',
+                        _message: c.message || '',
+                        _icon: '📄'
+                    };
+                }));
             }
 
-            const { data: submissions } = await supabase
+            var { data: submissions } = await supabase
                 .from('submissions')
                 .select('*')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
             if (submissions) {
-                allMessages = allMessages.concat(submissions.map(s => ({
-                    ...s,
-                    _table: 'submissions',
-                    _category: 'submit_work',
-                    _display_status: s.status || 'pending',
-                    _date: s.created_at,
-                    _subject: s.subject || 'Work Submission',
-                    _message: s.message || '',
-                    _icon: '💼'
-                })));
+                allMessages = allMessages.concat(submissions.map(function(s) {
+                    return {
+                        ...s,
+                        _table: 'submissions',
+                        _category: 'submit_work',
+                        _display_status: s.status || 'pending',
+                        _date: s.created_at,
+                        _subject: s.subject || 'Work Submission',
+                        _message: s.message || '',
+                        _icon: '💼'
+                    };
+                }));
             }
 
-            const { data: jobs } = await supabase
+            var { data: jobs } = await supabase
                 .from('jobs')
                 .select('*')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
             if (jobs) {
-                allMessages = allMessages.concat(jobs.map(j => ({
-                    ...j,
-                    _table: 'jobs',
-                    _category: 'hire',
-                    _display_status: j.status || 'pending',
-                    _date: j.created_at,
-                    _subject: j.subject || 'Job Request',
-                    _message: j.message || '',
-                    _icon: '👔'
-                })));
+                allMessages = allMessages.concat(jobs.map(function(j) {
+                    return {
+                        ...j,
+                        _table: 'jobs',
+                        _category: 'hire',
+                        _display_status: j.status || 'pending',
+                        _date: j.created_at,
+                        _subject: j.subject || 'Job Request',
+                        _message: j.message || '',
+                        _icon: '👔'
+                    };
+                }));
             }
 
-            allMessages.sort((a, b) => new Date(b._date) - new Date(a._date));
+            allMessages.sort(function(a, b) {
+                return new Date(b._date) - new Date(a._date);
+            });
 
             return allMessages;
 
@@ -1216,16 +1254,16 @@ export class GeneralDashboard {
             `;
         }
 
-        return messages.map((msg, index) => {
-            const statusColor = this.getStatusColor(msg._display_status);
-            const statusLabel = this.getStatusLabel(msg._display_status);
-            const fileHtml = msg.file_url ? `
+        return messages.map(function(msg, index) {
+            var statusColor = this.getStatusColor(msg._display_status);
+            var statusLabel = this.getStatusLabel(msg._display_status);
+            var fileHtml = msg.file_url ? `
                 <a href="${msg.file_url}" target="_blank" class="message-attachment">
                     <i class="fas fa-paperclip"></i> ${msg.file_name || 'Attachment'}
                 </a>
             ` : '';
 
-            const responseHtml = msg.admin_response ? `
+            var responseHtml = msg.admin_response ? `
                 <div class="admin-response">
                     <div class="response-header">
                         <i class="fas fa-reply"></i>
@@ -1236,11 +1274,11 @@ export class GeneralDashboard {
                 </div>
             ` : '';
 
-            const destinationHtml = msg.destination ? `
+            var destinationHtml = msg.destination ? `
                 <span class="destination-badge">→ ${msg.destination}</span>
             ` : '';
 
-            const gliimuLinkHtml = msg.gliimu_link ? `
+            var gliimuLinkHtml = msg.gliimu_link ? `
                 <a href="${msg.gliimu_link}" target="_blank" class="gliimu-link">
                     <i class="fas fa-external-link-alt"></i> View Submission
                 </a>
@@ -1288,11 +1326,11 @@ export class GeneralDashboard {
                     </div>
                 </div>
             `;
-        }).join('');
+        }.bind(this)).join('');
     }
 
     getCategoryLabel(category) {
-        const labels = {
+        var labels = {
             'apply': '📝 Application',
             'inquire': '❓ Inquiry',
             'contract': '📄 Contract',
@@ -1303,7 +1341,7 @@ export class GeneralDashboard {
     }
 
     getStatusLabel(status) {
-        const labels = {
+        var labels = {
             'pending': 'Pending',
             'approved': '✅ Approved',
             'rejected': '❌ Rejected',
@@ -1317,7 +1355,7 @@ export class GeneralDashboard {
     }
 
     getStatusColor(status) {
-        const colors = {
+        var colors = {
             'pending': '#f59e0b',
             'approved': '#10b981',
             'rejected': '#ef4444',
@@ -1332,7 +1370,7 @@ export class GeneralDashboard {
 
     escapeHtml(text) {
         if (!text) return '';
-        const div = document.createElement('div');
+        var div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
@@ -1341,16 +1379,16 @@ export class GeneralDashboard {
     // SHOW NEW MESSAGE MODAL
     // ================================================================
     showNewMessageModal() {
-        let modal = document.getElementById('newMessageModal');
+        var modal = document.getElementById('newMessageModal');
         if (modal) {
             modal.classList.add('active');
-            const form = document.getElementById('newMessageForm');
+            var form = document.getElementById('newMessageForm');
             if (form) form.reset();
-            const preview = document.getElementById('messageFilePreview');
+            var preview = document.getElementById('messageFilePreview');
             if (preview) preview.style.display = 'none';
-            const roleGroup = document.getElementById('roleSelectGroup');
+            var roleGroup = document.getElementById('roleSelectGroup');
             if (roleGroup) roleGroup.style.display = 'none';
-            const workGroup = document.getElementById('workLinkGroup');
+            var workGroup = document.getElementById('workLinkGroup');
             if (workGroup) workGroup.style.display = 'none';
             window._messageFileData = null;
             return;
@@ -1430,18 +1468,18 @@ export class GeneralDashboard {
 
         document.body.appendChild(modal);
 
-        document.getElementById('closeNewMessageModal')?.addEventListener('click', () => {
+        document.getElementById('closeNewMessageModal')?.addEventListener('click', function() {
             modal.classList.remove('active');
         });
-        modal.addEventListener('click', (e) => {
+        modal.addEventListener('click', function(e) {
             if (e.target === modal) modal.classList.remove('active');
         });
 
         document.getElementById('messageCategory')?.addEventListener('change', function(e) {
-            const category = this.value;
-            const hint = document.getElementById('categoryHint');
-            const roleGroup = document.getElementById('roleSelectGroup');
-            const workLinkGroup = document.getElementById('workLinkGroup');
+            var category = this.value;
+            var hint = document.getElementById('categoryHint');
+            var roleGroup = document.getElementById('roleSelectGroup');
+            var workLinkGroup = document.getElementById('workLinkGroup');
 
             roleGroup.style.display = 'none';
             workLinkGroup.style.display = 'none';
@@ -1453,7 +1491,7 @@ export class GeneralDashboard {
                 workLinkGroup.style.display = 'block';
                 hint.textContent = 'Your work submission will be sent to CRM for review.';
             } else {
-                const hints = {
+                var hints = {
                     'inquire': 'Your inquiry will be sent to CRM for response.',
                     'contract': 'Your contract offer will be sent to the Manager.',
                     'hire': 'Your job request will be sent to the Manager.'
@@ -1467,7 +1505,7 @@ export class GeneralDashboard {
         });
 
         document.getElementById('messageFileInput')?.addEventListener('change', function(e) {
-            const file = e.target.files[0];
+            var file = e.target.files[0];
             if (!file) return;
             
             if (file.size > 10 * 1024 * 1024) {
@@ -1476,7 +1514,7 @@ export class GeneralDashboard {
                 return;
             }
 
-            const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            var validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             if (!validTypes.includes(file.type)) {
                 showToast('Only PDF and Image files are allowed.', 'error');
                 this.value = '';
@@ -1484,8 +1522,8 @@ export class GeneralDashboard {
             }
 
             window._messageFileData = file;
-            const preview = document.getElementById('messageFilePreview');
-            const fileName = document.getElementById('messageFileName');
+            var preview = document.getElementById('messageFilePreview');
+            var fileName = document.getElementById('messageFileName');
             
             if (fileName) {
                 fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
@@ -1493,13 +1531,13 @@ export class GeneralDashboard {
             if (preview) {
                 preview.style.display = 'flex';
             }
-            showToast(`📎 ${file.name} selected`, 'success');
+            showToast('📎 ' + file.name + ' selected', 'success');
         });
 
         document.getElementById('removeMessageFileBtn')?.addEventListener('click', function() {
             window._messageFileData = null;
             document.getElementById('messageFileInput').value = '';
-            const preview = document.getElementById('messageFilePreview');
+            var preview = document.getElementById('messageFilePreview');
             if (preview) {
                 preview.style.display = 'none';
             }
@@ -1507,19 +1545,19 @@ export class GeneralDashboard {
         });
 
         document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
-            const form = document.getElementById('newMessageForm');
+            var form = document.getElementById('newMessageForm');
             if (!form) {
                 showToast('Form not found', 'error');
                 return;
             }
 
-            const formData = new FormData(form);
+            var formData = new FormData(form);
             
-            const category = formData.get('category') || '';
-            const subject = formData.get('subject') || '';
-            const message = formData.get('message') || '';
-            const applyRole = formData.get('applyRole') || 'student';
-            const workLink = formData.get('workLink') || '';
+            var category = formData.get('category') || '';
+            var subject = formData.get('subject') || '';
+            var message = formData.get('message') || '';
+            var applyRole = formData.get('applyRole') || 'student';
+            var workLink = formData.get('workLink') || '';
 
             if (!category) {
                 showToast('Please select a category', 'error');
@@ -1538,7 +1576,7 @@ export class GeneralDashboard {
                 return;
             }
 
-            const btn = document.getElementById('sendMessageBtn');
+            var btn = document.getElementById('sendMessageBtn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
@@ -1550,8 +1588,8 @@ export class GeneralDashboard {
                 workLink: workLink
             };
 
-            const dashboard = window._generalDashboard || this._dashboard || this;
-            const success = await dashboard.submitNewMessageV2();
+            var dashboard = window._generalDashboard || this._dashboard || this;
+            var success = await dashboard.submitNewMessageV2();
             
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
@@ -1572,37 +1610,37 @@ export class GeneralDashboard {
     }
 
     async submitNewMessageV2() {
-        const data = window._tempMessageData;
+        var data = window._tempMessageData;
         if (!data) {
             showToast('No message data found', 'error');
             return false;
         }
 
-        const { category, subject, message, applyRole, workLink } = data;
-        const file = window._messageFileData;
+        var { category, subject, message, applyRole, workLink } = data;
+        var file = window._messageFileData;
 
         try {
-            const userId = this.currentUser.id;
-            const profile = this.currentProfile;
+            var userId = this.currentUser.id;
+            var profile = this.currentProfile;
 
-            let fileUrl = null;
-            let fileName = null;
+            var fileUrl = null;
+            var fileName = null;
 
             if (file) {
-                const uploaded = await this.uploadMessageFile(file);
+                var uploaded = await this.uploadMessageFile(file);
                 if (uploaded) {
                     fileUrl = uploaded.url;
                     fileName = uploaded.name;
                 }
             }
 
-            let tableName = '';
-            let insertData = {};
+            var tableName = '';
+            var insertData = {};
 
-            const generateId = () => {
+            var generateId = function() {
                 return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                    const r = Math.random() * 16 | 0;
-                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    var r = Math.random() * 16 | 0;
+                    var v = c === 'x' ? r : (r & 0x3 | 0x8);
                     return v.toString(16);
                 });
             };
@@ -1691,7 +1729,7 @@ export class GeneralDashboard {
                     return false;
             }
 
-            const { error } = await supabase
+            var { error } = await supabase
                 .from(tableName)
                 .insert([insertData]);
 
@@ -1719,14 +1757,14 @@ export class GeneralDashboard {
     async uploadMessageFile(file) {
         if (!file) return null;
 
-        const fileExt = file.name.split('.').pop();
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(2, 8);
-        const fileName = `${timestamp}_${randomStr}.${fileExt}`;
-        const path = `message_attachments/${fileName}`;
+        var fileExt = file.name.split('.').pop();
+        var timestamp = Date.now();
+        var randomStr = Math.random().toString(36).substring(2, 8);
+        var fileName = timestamp + '_' + randomStr + '.' + fileExt;
+        var path = 'message_attachments/' + fileName;
 
         try {
-            const { data, error } = await supabase.storage
+            var { data, error } = await supabase.storage
                 .from('hub_content')
                 .upload(path, file, {
                     cacheControl: '3600',
@@ -1740,7 +1778,7 @@ export class GeneralDashboard {
                 return null;
             }
 
-            const { data: urlData } = supabase.storage
+            var { data: urlData } = supabase.storage
                 .from('hub_content')
                 .getPublicUrl(path);
 
@@ -1761,26 +1799,26 @@ export class GeneralDashboard {
             this._messageSubscription.unsubscribe();
         }
 
-        const userId = this.currentUser.id;
-        const tables = ['applications', 'inquiries', 'contracts', 'submissions', 'jobs'];
+        var userId = this.currentUser.id;
+        var tables = ['applications', 'inquiries', 'contracts', 'submissions', 'jobs'];
         
-        tables.forEach(table => {
-            const channel = supabase
-                .channel(`${table}_changes_${userId}`)
+        tables.forEach(function(table) {
+            var channel = supabase
+                .channel(table + '_changes_' + userId)
                 .on(
                     'postgres_changes',
                     {
                         event: '*',
                         schema: 'public',
                         table: table,
-                        filter: `user_id=eq.${userId}`
+                        filter: 'user_id=eq.' + userId
                     },
-                    () => {
+                    function() {
                         this.loadMessages(this.container);
-                    }
+                    }.bind(this)
                 )
                 .subscribe();
-        });
+        }.bind(this));
     }
 
     // ================================================================
@@ -1792,17 +1830,17 @@ export class GeneralDashboard {
         }
         if (!container) return;
 
-        const user = this.currentUser;
-        const profile = this.currentProfile;
-        const role = profile?.role || 'user';
-        const username = profile?.username || user?.email?.split('@')[0] || 'user';
-        const portfolioUrl = `${window.location.origin}/u/${username}`;
+        var user = this.currentUser;
+        var profile = this.currentProfile;
+        var role = profile?.role || 'user';
+        var username = profile?.username || user?.email?.split('@')[0] || 'user';
+        var portfolioUrl = window.location.origin + '/u/' + username;
 
-        const isStudent = role === 'student';
-        const isInstructor = role === 'instructor';
-        const canAccessFull = isStudent || isInstructor;
+        var isStudent = role === 'student';
+        var isInstructor = role === 'instructor';
+        var canAccessFull = isStudent || isInstructor;
 
-        let portfolioContent = '';
+        var portfolioContent = '';
 
         if (isStudent) {
             portfolioContent = `
@@ -1844,7 +1882,7 @@ export class GeneralDashboard {
             `;
         }
 
-        const navLinks = `
+        var navLinks = `
             <div class="card portfolio-nav-card" style="margin-top: 20px;">
                 <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--text-secondary);">
                     <i class="fas fa-compass" style="color: var(--brand-gold);"></i> Quick Access
@@ -1904,8 +1942,8 @@ export class GeneralDashboard {
             ${navLinks}
         `;
 
-        document.getElementById('copyPortfolioUrl')?.addEventListener('click', () => {
-            const urlInput = document.getElementById('portfolioUrl');
+        document.getElementById('copyPortfolioUrl')?.addEventListener('click', function() {
+            var urlInput = document.getElementById('portfolioUrl');
             if (urlInput) {
                 urlInput.select();
                 document.execCommand('copy');
@@ -1917,18 +1955,18 @@ export class GeneralDashboard {
             this.generateQRCode(portfolioUrl);
         }
 
-        document.querySelectorAll('.portfolio-nav-item[data-locked="true"]').forEach(item => {
-            item.addEventListener('click', (e) => {
+        document.querySelectorAll('.portfolio-nav-item[data-locked="true"]').forEach(function(item) {
+            item.addEventListener('click', function(e) {
                 e.preventDefault();
-                if (item.dataset.locked === 'true') {
+                if (this.dataset.locked === 'true') {
                     this.showAccessModal();
                 }
-            });
-        });
+            }.bind(this));
+        }.bind(this));
     }
 
     showAccessModal() {
-        const modal = document.createElement('div');
+        var modal = document.createElement('div');
         modal.className = 'modal active';
         modal.innerHTML = `
             <div class="modal-content" style="max-width: 450px; text-align: center;">
@@ -1956,13 +1994,17 @@ export class GeneralDashboard {
         `;
         document.body.appendChild(modal);
 
-        document.getElementById('closeAccessModal')?.addEventListener('click', () => modal.remove());
-        document.getElementById('closeAccessBtn')?.addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => {
+        document.getElementById('closeAccessModal')?.addEventListener('click', function() {
+            modal.remove();
+        });
+        document.getElementById('closeAccessBtn')?.addEventListener('click', function() {
+            modal.remove();
+        });
+        modal.addEventListener('click', function(e) {
             if (e.target === modal) modal.remove();
         });
 
-        document.getElementById('applyNowBtn')?.addEventListener('click', () => {
+        document.getElementById('applyNowBtn')?.addEventListener('click', function() {
             modal.remove();
             if (window.switchTab) {
                 window.switchTab('messages');
@@ -1975,16 +2017,16 @@ export class GeneralDashboard {
 
     generateQRCode(url) {
         if (typeof QRCode === 'undefined') {
-            const script = document.createElement('script');
+            var script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
-            script.onload = () => {
+            script.onload = function() {
                 this.generateQRCode(url);
-            };
+            }.bind(this);
             document.head.appendChild(script);
             return;
         }
 
-        const canvas = document.getElementById('qrCanvas');
+        var canvas = document.getElementById('qrCanvas');
         if (canvas) {
             try {
                 new QRCode(canvas, {
