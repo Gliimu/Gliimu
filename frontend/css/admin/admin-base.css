@@ -2093,3 +2093,51 @@ body {
 .partnership-card .partnership-link:hover {
     text-decoration: underline;
 }
+
+/* Admin Notes */
+.admin-notes {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(251, 176, 64, 0.06);
+    border-radius: 6px;
+    border-left: 3px solid var(--brand-gold);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.admin-notes strong {
+    color: var(--text-primary);
+}
+
+/* Record Actions */
+.record-actions .btn-outline {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-secondary);
+}
+
+.record-actions .btn-outline:hover {
+    border-color: var(--brand-gold);
+    color: var(--brand-gold);
+}
+
+.record-actions .btn-danger {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    border: 1px solid #ef4444;
+    background: transparent;
+    cursor: pointer;
+    transition: var(--transition);
+    color: #ef4444;
+}
+
+.record-actions .btn-danger:hover {
+    background: #ef4444;
+    color: white;
+}
