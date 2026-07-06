@@ -1,21 +1,10 @@
 // ============================================
 // USER TABS - Universal Tab Logic
-// Path: /frontend/js/pages/user/user-tabs.js
-// Purpose: Universal tabs that appear in all roles (Overview, Messages)
 // ============================================
 
 import { supabase } from '../../modules/supabase.js';
 import { showToast } from '../../modules/toast.js';
-import { 
-    getTimeAgo, 
-    escapeHtml, 
-    getStatusColor, 
-    getStatusLabel, 
-    getCategoryLabel,
-    getCategoryIcon,
-    formatCurrency
-} from './user-utils.js';
-import { modalManager } from './user-modals.js';
+import { formatCurrency } from './user-utils.js';
 
 // ============================================
 // BADGE HELPERS
@@ -87,7 +76,6 @@ async function getStudentProgress(userId) {
         
         if (error) {
             if (error.code === 'PGRST205' || error.code === 'PGRST116') {
-                // Try to get from user_profiles
                 var { data: profile } = await supabase
                     .from('user_profiles')
                     .select('gp_points')
@@ -322,9 +310,9 @@ function bindOverviewEvents(container, dashboard) {
 
     document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async function() {
         await dashboard.loadLeaderboard();
-        var container = document.getElementById('dashboardLeaderboard');
-        if (container) {
-            container.innerHTML = dashboard.renderLeaderboardItems();
+        var leaderboardContainer = document.getElementById('dashboardLeaderboard');
+        if (leaderboardContainer) {
+            leaderboardContainer.innerHTML = dashboard.renderLeaderboardItems();
         }
         showToast('Leaderboard refreshed!', 'success');
     });
