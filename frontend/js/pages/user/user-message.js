@@ -141,6 +141,28 @@ export function renderMessageThreads(messages) {
 }
 
 // ============================================
+// TEST FUNCTION - For debugging
+// ============================================
+export async function testSendMessage(dashboard) {
+    console.log('🔍 Test: Attempting to send message...');
+    console.log('🔍 Dashboard:', dashboard);
+    console.log('🔍 Current user:', dashboard.currentUser);
+    
+    var testData = {
+        category: 'inquire',
+        subject: 'Test Message',
+        message: 'This is a test message from the debug function.',
+        applyRole: 'student',
+        workLink: ''
+    };
+    
+    window._tempMessageData = testData;
+    var result = await submitNewMessage(dashboard);
+    console.log('🔍 Result:', result);
+    return result;
+}
+
+// ============================================
 // SHOW NEW MESSAGE MODAL
 // ============================================
 export function showNewMessageModal(dashboard) {
