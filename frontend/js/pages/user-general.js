@@ -1421,204 +1421,233 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // SHOW NEW MESSAGE MODAL
-    // ============================================
-    showNewMessageModal() {
-        // Check if modal already exists
-        let modal = document.getElementById('newMessageModal');
-        if (modal) {
-            modal.classList.add('active');
+// SHOW NEW MESSAGE MODAL (FIXED - V2)
+// ============================================
+showNewMessageModal() {
+    // Check if modal already exists
+    let modal = document.getElementById('newMessageModal');
+    if (modal) {
+        modal.classList.add('active');
+        // Reset form
+        const form = document.getElementById('newMessageForm');
+        if (form) form.reset();
+        document.getElementById('messageFilePreview').style.display = 'none';
+        document.getElementById('roleSelectGroup').style.display = 'none';
+        document.getElementById('workLinkGroup').style.display = 'none';
+        window._messageFileData = null;
+        return;
+    }
+
+    modal = document.createElement('div');
+    modal.id = 'newMessageModal';
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-paper-plane"></i> New Message</h2>
+                <button class="modal-close" id="closeNewMessageModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="newMessageForm" novalidate>
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="messageCategory">
+                            <option value="">Select a category...</option>
+                            <option value="apply">📝 Apply (Become a Student/Instructor/Ambassador)</option>
+                            <option value="inquire">❓ Inquire (Ask a question)</option>
+                            <option value="contract">📄 Offer Contract (Propose a contract)</option>
+                            <option value="submit_work">💼 Submit Work (Share your project)</option>
+                            <option value="hire">👔 Employ/Hire (Request employment)</option>
+                        </select>
+                        <small id="categoryHint">Select a category to route your message to the right admin</small>
+                    </div>
+
+                    <div class="form-group" id="roleSelectGroup" style="display:none;">
+                        <label>Apply for Role</label>
+                        <select id="applyRole">
+                            <option value="student">Student</option>
+                            <option value="instructor">Instructor</option>
+                            <option value="ambassador">Ambassador</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Subject *</label>
+                        <input type="text" id="messageSubject" placeholder="Enter message subject">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Message *</label>
+                        <textarea id="messageBody" rows="5" placeholder="Type your message in detail..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Attachments (PDF or Images)</label>
+                        <div class="upload-field" onclick="document.getElementById('messageFileInput').click()">
+                            <span class="upload-icon">📎</span>
+                            <span class="upload-text">Click to upload file</span>
+                            <small>Supports PDF, JPG, PNG (Max 10MB)</small>
+                            <input type="file" id="messageFileInput" accept=".pdf,image/*">
+                        </div>
+                        <div class="file-preview" id="messageFilePreview" style="display:none;">
+                            <i class="fas fa-file"></i>
+                            <span class="file-name" id="messageFileName">No file selected</span>
+                            <button type="button" class="btn-remove-file" id="removeMessageFileBtn">✕ Remove</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="workLinkGroup" style="display:none;">
+                        <label>Gliimu Link (for work submissions)</label>
+                        <input type="url" id="workLink" placeholder="https://gliimu.com/submit/your-work">
+                        <small>If you have a published work on Gliimu, paste the link here</small>
+                    </div>
+
+                    <button type="button" id="sendMessageBtn" class="btn-primary" style="width:100%;">
+                        <i class="fas fa-paper-plane"></i> Send Message
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    document.getElementById('closeNewMessageModal')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+    });
+
+    // Category change handler
+    document.getElementById('messageCategory')?.addEventListener('change', (e) => {
+        const category = e.target.value;
+        const hint = document.getElementById('categoryHint');
+        const roleGroup = document.getElementById('roleSelectGroup');
+        const workLinkGroup = document.getElementById('workLinkGroup');
+
+        // Reset all conditional groups
+        roleGroup.style.display = 'none';
+        workLinkGroup.style.display = 'none';
+
+        // Show/hide role select for apply
+        if (category === 'apply') {
+            roleGroup.style.display = 'block';
+            hint.textContent = 'Your application will be sent to the Manager for review.';
+        } else if (category === 'submit_work') {
+            workLinkGroup.style.display = 'block';
+            hint.textContent = 'Your work submission will be sent to CRM for review.';
+        } else {
+            const hints = {
+                'inquire': 'Your inquiry will be sent to CRM for response.',
+                'contract': 'Your contract offer will be sent to the Manager.',
+                'hire': 'Your job request will be sent to the Manager.'
+            };
+            hint.textContent = hints[category] || 'Select a category to route your message to the right admin';
+        }
+    });
+
+    // File upload handler - using direct event listener
+    document.getElementById('messageFileInput')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (file.size > 10 * 1024 * 1024) {
+            showToast('File too large. Maximum 10MB.', 'error');
+            e.target.value = '';
+            return;
+        }
+
+        const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            showToast('Only PDF and Image files are allowed.', 'error');
+            e.target.value = '';
+            return;
+        }
+
+        window._messageFileData = file;
+        const preview = document.getElementById('messageFilePreview');
+        const fileName = document.getElementById('messageFileName');
+        
+        if (fileName) {
+            fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+        }
+        if (preview) {
+            preview.style.display = 'flex';
+        }
+        showToast(`📎 ${file.name} selected`, 'success');
+    });
+
+    // Remove file button
+    document.getElementById('removeMessageFileBtn')?.addEventListener('click', () => {
+        window._messageFileData = null;
+        document.getElementById('messageFileInput').value = '';
+        const preview = document.getElementById('messageFilePreview');
+        if (preview) {
+            preview.style.display = 'none';
+        }
+        document.getElementById('messageFileName').textContent = 'No file selected';
+    });
+
+    // Send button - MAIN SUBMIT HANDLER
+    document.getElementById('sendMessageBtn')?.addEventListener('click', async () => {
+        // Get form values directly
+        const category = document.getElementById('messageCategory').value;
+        const subject = document.getElementById('messageSubject').value.trim();
+        const message = document.getElementById('messageBody').value.trim();
+
+        // Debug
+        console.log('📝 Form values:', { category, subject, message });
+
+        // Validate
+        if (!category) {
+            showToast('Please select a category', 'error');
+            return;
+        }
+        if (!subject) {
+            showToast('Please enter a subject', 'error');
+            document.getElementById('messageSubject').focus();
+            return;
+        }
+        if (!message) {
+            showToast('Please enter a message', 'error');
+            document.getElementById('messageBody').focus();
+            return;
+        }
+
+        // Disable button to prevent double submission
+        const btn = document.getElementById('sendMessageBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+        // Submit
+        const success = await this.submitNewMessage();
+        
+        // Re-enable button
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+
+        if (success) {
+            modal.classList.remove('active');
             // Reset form
-            const form = document.getElementById('newMessageForm');
-            if (form) form.reset();
+            document.getElementById('newMessageForm').reset();
             document.getElementById('messageFilePreview').style.display = 'none';
             document.getElementById('roleSelectGroup').style.display = 'none';
             document.getElementById('workLinkGroup').style.display = 'none';
             window._messageFileData = null;
-            return;
-        }
-
-        modal = document.createElement('div');
-        modal.id = 'newMessageModal';
-        modal.className = 'modal active';
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 600px;">
-                <div class="modal-header">
-                    <h2><i class="fas fa-paper-plane"></i> New Message</h2>
-                    <button class="modal-close" id="closeNewMessageModal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="newMessageForm">
-                        <div class="form-group">
-                            <label>Category *</label>
-                            <select id="messageCategory" required>
-                                <option value="">Select a category...</option>
-                                <option value="apply">📝 Apply (Become a Student/Instructor/Ambassador)</option>
-                                <option value="inquire">❓ Inquire (Ask a question)</option>
-                                <option value="contract">📄 Offer Contract (Propose a contract)</option>
-                                <option value="submit_work">💼 Submit Work (Share your project)</option>
-                                <option value="hire">👔 Employ/Hire (Request employment)</option>
-                            </select>
-                            <small id="categoryHint">Select a category to route your message to the right admin</small>
-                        </div>
-
-                        <div class="form-group" id="roleSelectGroup" style="display:none;">
-                            <label>Apply for Role</label>
-                            <select id="applyRole">
-                                <option value="student">Student</option>
-                                <option value="instructor">Instructor</option>
-                                <option value="ambassador">Ambassador</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Subject *</label>
-                            <input type="text" id="messageSubject" required placeholder="Enter message subject">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Message *</label>
-                            <textarea id="messageBody" rows="5" required placeholder="Type your message in detail..."></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Attachments (PDF or Images)</label>
-                            <div class="upload-field" onclick="document.getElementById('messageFileInput').click()">
-                                <span class="upload-icon">📎</span>
-                                <span class="upload-text">Click to upload file</span>
-                                <small>Supports PDF, JPG, PNG (Max 10MB)</small>
-                                <input type="file" id="messageFileInput" accept=".pdf,image/*" onchange="window.handleMessageFileUpload(this.files[0])">
-                            </div>
-                            <div class="file-preview" id="messageFilePreview" style="display:none;">
-                                <i class="fas fa-file"></i>
-                                <span class="file-name" id="messageFileName">No file selected</span>
-                                <button type="button" class="btn-remove-file" onclick="window.removeMessageFile()">✕ Remove</button>
-                            </div>
-                        </div>
-
-                        <div class="form-group" id="workLinkGroup" style="display:none;">
-                            <label>Gliimu Link (for work submissions)</label>
-                            <input type="url" id="workLink" placeholder="https://gliimu.com/submit/your-work">
-                            <small>If you have a published work on Gliimu, paste the link here</small>
-                        </div>
-
-                        <button type="submit" class="btn-primary" style="width:100%;">
-                            <i class="fas fa-paper-plane"></i> Send Message
-                        </button>
-                    </form>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Close handlers
-        document.getElementById('closeNewMessageModal')?.addEventListener('click', () => {
-            modal.classList.remove('active');
-        });
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.remove('active');
-        });
-
-        // Category change handler
-        document.getElementById('messageCategory')?.addEventListener('change', (e) => {
-            const category = e.target.value;
-            const hint = document.getElementById('categoryHint');
-            const roleGroup = document.getElementById('roleSelectGroup');
-            const workLinkGroup = document.getElementById('workLinkGroup');
-
-            // Reset all conditional groups
-            roleGroup.style.display = 'none';
-            workLinkGroup.style.display = 'none';
-
-            // Show/hide role select for apply
-            if (category === 'apply') {
-                roleGroup.style.display = 'block';
-                hint.textContent = 'Your application will be sent to the Manager for review.';
-            } else if (category === 'submit_work') {
-                workLinkGroup.style.display = 'block';
-                hint.textContent = 'Your work submission will be sent to CRM for review.';
-            } else {
-                const hints = {
-                    'inquire': 'Your inquiry will be sent to CRM for response.',
-                    'contract': 'Your contract offer will be sent to the Manager.',
-                    'hire': 'Your job request will be sent to the Manager.'
-                };
-                hint.textContent = hints[category] || 'Select a category to route your message to the right admin';
-            }
-        });
-
-        // File upload handler
-        window.handleMessageFileUpload = (file) => {
-            if (!file) return;
-            
-            if (file.size > 10 * 1024 * 1024) {
-                showToast('File too large. Maximum 10MB.', 'error');
-                return;
-            }
-
-            const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            if (!validTypes.includes(file.type)) {
-                showToast('Only PDF and Image files are allowed.', 'error');
-                return;
-            }
-
-            window._messageFileData = file;
-            const preview = document.getElementById('messageFilePreview');
-            const fileName = document.getElementById('messageFileName');
-            
-            if (fileName) {
-                fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
-            }
-            if (preview) {
-                preview.style.display = 'flex';
-            }
-            showToast(`📎 ${file.name} selected`, 'success');
-        };
-
-        window.removeMessageFile = () => {
-            window._messageFileData = null;
             document.getElementById('messageFileInput').value = '';
-            const preview = document.getElementById('messageFilePreview');
-            if (preview) {
-                preview.style.display = 'none';
-            }
-            document.getElementById('messageFileName').textContent = 'No file selected';
-        };
+        }
+    });
 
-        // Form submission
-        document.getElementById('newMessageForm')?.addEventListener('submit', async (e) => {
+    // Also allow Enter key to submit
+    modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            e.stopPropagation();
-            
-            const category = document.getElementById('messageCategory').value;
-            const subject = document.getElementById('messageSubject').value.trim();
-            const message = document.getElementById('messageBody').value.trim();
-
-            if (!category) {
-                showToast('Please select a category', 'error');
-                return;
-            }
-            if (!subject) {
-                showToast('Please enter a subject', 'error');
-                return;
-            }
-            if (!message) {
-                showToast('Please enter a message', 'error');
-                return;
-            }
-
-            const success = await this.submitNewMessage();
-            if (success) {
-                modal.classList.remove('active');
-                document.getElementById('newMessageForm').reset();
-                document.getElementById('messageFilePreview').style.display = 'none';
-                document.getElementById('roleSelectGroup').style.display = 'none';
-                document.getElementById('workLinkGroup').style.display = 'none';
-                window._messageFileData = null;
-            }
-        });
-    }
+            document.getElementById('sendMessageBtn')?.click();
+        }
+    });
+}
 
     // ============================================
     // SUBMIT NEW MESSAGE
