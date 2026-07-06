@@ -171,24 +171,122 @@ function bindOverviewEvents(container, dashboard) {
 }
 
 // ============================================
-// GET STUDENT PROGRESS
+// GET STUDENT PROGRESS - FIXED
 // ============================================
 async function getStudentProgress(userId) {
     try {
+        // Try to get from student_progress table
         var { data, error } = await supabase
             .from('student_progress')
             .select('*')
             .eq('student_id', userId)
             .single();
         
-        if (error) throw error;
-        return data || null;
+        if (error) {
+            // If table doesn't exist, use user_profiles gp_points
+            if (error.code === 'PGRST205') {
+                var { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('gp_points')
+                    .eq('id', userId)
+                    .single();
+                
+                if (profile) {
+                    return {
+                        currentGP: profile.gp_points || 0,
+                        progress: (profile.gp_points || 0) / 50,
+                        totalStars: 0,
+                        currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+                        nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+                        progressToNext: 0
+                    };
+                }
+                return null;
+            }
+            throw error;
+        }
+        
+        if (!data) return null;
+
+        // Calculate badge based on GP
+        var gp = data.current_gp || 0;
+        var progress = data.progress || 0;
+        var totalStars = data.stars_earned || 0;
+        var currentBadge = getBadgeFromGP(gp);
+        var nextBadge = getNextBadgeFromGP(gp);
+        var progressToNext = getProgressToNextBadgeFromGP(gp);
+
+        return {
+            currentGP: gp,
+            progress: progress,
+            totalStars: totalStars,
+            currentBadge: currentBadge,
+            nextBadge: nextBadge,
+            progressToNext: progressToNext
+        };
     } catch (error) {
         console.error('Error getting student progress:', error);
         return null;
     }
 }
 
+// ============================================
+// BADGE HELPERS
+// ============================================
+function getBadgeFromGP(gp) {
+    var badges = [
+        { name: 'Starter', icon: '🌱', color: '#10b981', maxGP: 1250 },
+        { name: 'Diploma', icon: '📜', color: '#3b82f6', maxGP: 2500 },
+        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', maxGP: 3750 },
+        { name: 'Mastery', icon: '🏆', color: '#f59e0b', maxGP: 4950 },
+        { name: 'Ambassador', icon: '👑', color: '#ef4444', maxGP: Infinity }
+    ];
+    
+    for (var i = 0; i < badges.length; i++) {
+        if (gp <= badges[i].maxGP) {
+            return badges[i];
+        }
+    }
+    return badges[0];
+}
+
+function getNextBadgeFromGP(gp) {
+    var badges = [
+        { name: 'Diploma', icon: '📜', color: '#3b82f6', minGP: 1250 },
+        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', minGP: 2500 },
+        { name: 'Mastery', icon: '🏆', color: '#f59e0b', minGP: 3750 },
+        { name: 'Ambassador', icon: '👑', color: '#ef4444', minGP: 4950 }
+    ];
+    
+    for (var i = 0; i < badges.length; i++) {
+        if (gp < badges[i].minGP) {
+            return badges[i];
+        }
+    }
+    return null;
+}
+
+function getProgressToNextBadgeFromGP(gp) {
+    var nextBadge = getNextBadgeFromGP(gp);
+    if (!nextBadge) return 100;
+    
+    var previousMax = 0;
+    var badges = [0, 1250, 2500, 3750, 4950];
+    var currentIndex = 0;
+    
+    for (var i = 0; i < badges.length; i++) {
+        if (gp >= badges[i]) {
+            currentIndex = i;
+        }
+    }
+    
+    var currentMin = badges[currentIndex] || 0;
+    var nextMax = badges[currentIndex + 1] || 4950;
+    var range = nextMax - currentMin;
+    var progressInRange = gp - currentMin;
+    
+    return Math.min(100, Math.round((progressInRange / range) * 100));
+}
 // ============================================
 // GET SUBMISSIONS COUNT
 // ============================================
