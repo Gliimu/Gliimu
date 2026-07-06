@@ -7,11 +7,11 @@ import { showToast } from '../../modules/toast.js';
 import { formatCurrency } from './user-utils.js';
 
 // ============================================
-// GET STUDENT PROGRESS - FIXED for 406 error
+// GET STUDENT PROGRESS - FIXED
 // ============================================
 async function getStudentProgress(userId) {
     try {
-        // Try to get from student_progress table with specific columns
+        // Use maybeSingle() instead of single() to handle multiple rows
         var { data, error } = await supabase
             .from('student_progress')
             .select('current_gp, progress, stars_earned, current_badge')
@@ -42,7 +42,17 @@ async function getStudentProgress(userId) {
             return null;
         }
         
-        if (!data) return null;
+        if (!data) {
+            // No progress record exists, return default
+            return {
+                currentGP: 0,
+                progress: 0,
+                totalStars: 0,
+                currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+                nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+                progressToNext: 0
+            };
+        }
 
         var gp = data.current_gp || 0;
         var progress = data.progress || 0;
@@ -58,7 +68,14 @@ async function getStudentProgress(userId) {
         };
     } catch (error) {
         console.error('Error getting student progress:', error);
-        return null;
+        return {
+            currentGP: 0,
+            progress: 0,
+            totalStars: 0,
+            currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+            nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+            progressToNext: 0
+        };
     }
 }
 
