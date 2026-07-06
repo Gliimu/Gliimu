@@ -15,23 +15,24 @@ import {
 import { getBankDetails } from '../modules/settings.js';
 
 export class GeneralDashboard {
-constructor(user, profile) {
-    this.currentUser = user;
-    this.currentProfile = profile;
-    this.alertManager = null;
-    this.selectedAmount = 0;
-    this.referenceCode = '';
-    this.leaderboardData = [];
-    this.bankDetails = null;
-    this._messageSubscription = null;
-    
-    // Store reference to this instance globally for modal access
-    window._generalDashboard = this;
-    
-    // DOM references
-    this.container = null;
-    this.currentTab = 'dashboard';
-}
+    constructor(user, profile) {
+        this.currentUser = user;
+        this.currentProfile = profile;
+        this.alertManager = null;
+        this.selectedAmount = 0;
+        this.referenceCode = '';
+        this.leaderboardData = [];
+        this.bankDetails = null;
+        this._messageSubscription = null;
+        
+        // Store reference to this instance globally for modal access
+        window._generalDashboard = this;
+        
+        // DOM references
+        this.container = null;
+        this.currentTab = 'dashboard';
+    }
+
     // ============================================
     // SET ALERT MANAGER
     // ============================================
@@ -65,7 +66,7 @@ constructor(user, profile) {
     }
 
     // ============================================
-    // LOAD DASHBOARD (Overview Tab) - WITHOUT Quick Actions
+    // LOAD DASHBOARD (Overview Tab)
     // ============================================
     async loadDashboard() {
         if (!this.container) return;
@@ -165,7 +166,7 @@ constructor(user, profile) {
                 </div>
             </div>
 
-            <!-- Leaderboard - Full Width -->
+            <!-- Leaderboard -->
             <div class="card leaderboard-card-full">
                 <div class="leaderboard-header">
                     <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
@@ -685,7 +686,6 @@ constructor(user, profile) {
     // BIND WALLET MODAL EVENTS
     // ============================================
     bindWalletModalEvents() {
-        // Amount buttons
         document.querySelectorAll('.amount-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
@@ -695,14 +695,12 @@ constructor(user, profile) {
             });
         });
 
-        // Custom amount input
         document.getElementById('customAmount')?.addEventListener('input', (e) => {
             document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
             this.selectedAmount = parseInt(e.target.value) || 0;
             this.updateAmountDisplay();
         });
 
-        // Continue to bank details
         document.getElementById('continueToBankBtn')?.addEventListener('click', () => {
             if (this.selectedAmount < 100) {
                 showToast('Please select or enter an amount (minimum ₦100)', 'error');
@@ -711,17 +709,14 @@ constructor(user, profile) {
             this.showBankDetails();
         });
 
-        // Back button
         document.getElementById('backToAmountBtn')?.addEventListener('click', () => {
             this.resetWalletModal();
         });
 
-        // Confirm payment
         document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
             await this.confirmPayment();
         });
 
-        // Copy reference code
         document.getElementById('copyRefCodeBtn')?.addEventListener('click', () => {
             const code = document.getElementById('referenceCode')?.textContent;
             if (code) {
@@ -1110,7 +1105,6 @@ constructor(user, profile) {
         }
         if (!container) return;
 
-        // Get user's messages from all tables
         const messages = await this.getAllUserMessages();
 
         container.innerHTML = `
@@ -1138,12 +1132,10 @@ constructor(user, profile) {
             </div>
         `;
 
-        // New Message Button
         document.getElementById('newMessageBtn')?.addEventListener('click', () => {
             this.showNewMessageModal();
         });
 
-        // Filter Chips
         document.querySelectorAll('.filter-chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
@@ -1161,7 +1153,6 @@ constructor(user, profile) {
             });
         });
 
-        // Set up real-time subscription for new messages
         this.subscribeToMessages();
     }
 
@@ -1173,7 +1164,6 @@ constructor(user, profile) {
         let allMessages = [];
 
         try {
-            // 1. Applications (role applications)
             const { data: applications } = await supabase
                 .from('applications')
                 .select('*')
@@ -1193,7 +1183,6 @@ constructor(user, profile) {
                 })));
             }
 
-            // 2. Inquiries
             const { data: inquiries } = await supabase
                 .from('inquiries')
                 .select('*')
@@ -1213,7 +1202,6 @@ constructor(user, profile) {
                 })));
             }
 
-            // 3. Contracts
             const { data: contracts } = await supabase
                 .from('contracts')
                 .select('*')
@@ -1233,7 +1221,6 @@ constructor(user, profile) {
                 })));
             }
 
-            // 4. Submissions (work submissions)
             const { data: submissions } = await supabase
                 .from('submissions')
                 .select('*')
@@ -1253,7 +1240,6 @@ constructor(user, profile) {
                 })));
             }
 
-            // 5. Jobs (employ/hire)
             const { data: jobs } = await supabase
                 .from('jobs')
                 .select('*')
@@ -1273,7 +1259,6 @@ constructor(user, profile) {
                 })));
             }
 
-            // Sort all messages by date (newest first)
             allMessages.sort((a, b) => new Date(b._date) - new Date(a._date));
 
             return allMessages;
@@ -1285,7 +1270,7 @@ constructor(user, profile) {
     }
 
     // ============================================
-    // RENDER MESSAGE THREADS (Accordion Style)
+    // RENDER MESSAGE THREADS
     // ============================================
     renderMessageThreads(messages) {
         if (!messages || messages.length === 0) {
@@ -1422,407 +1407,394 @@ constructor(user, profile) {
         return div.innerHTML;
     }
 
-// ============================================
-// SHOW NEW MESSAGE MODAL (FIXED - V4)
-// ============================================
-showNewMessageModal() {
-    // Check if modal already exists
-    let modal = document.getElementById('newMessageModal');
-    if (modal) {
-        modal.classList.add('active');
-        // Reset form
-        const form = document.getElementById('newMessageForm');
-        if (form) form.reset();
-        const preview = document.getElementById('messageFilePreview');
-        if (preview) preview.style.display = 'none';
-        const roleGroup = document.getElementById('roleSelectGroup');
-        if (roleGroup) roleGroup.style.display = 'none';
-        const workGroup = document.getElementById('workLinkGroup');
-        if (workGroup) workGroup.style.display = 'none';
-        window._messageFileData = null;
-        return;
-    }
-
-    modal = document.createElement('div');
-    modal.id = 'newMessageModal';
-    modal.className = 'modal active';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h2><i class="fas fa-paper-plane"></i> New Message</h2>
-                <button class="modal-close" id="closeNewMessageModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="newMessageForm" novalidate>
-                    <div class="form-group">
-                        <label>Category *</label>
-                        <select id="messageCategory">
-                            <option value="">Select a category...</option>
-                            <option value="apply">📝 Apply (Become a Student/Instructor/Ambassador)</option>
-                            <option value="inquire">❓ Inquire (Ask a question)</option>
-                            <option value="contract">📄 Offer Contract (Propose a contract)</option>
-                            <option value="submit_work">💼 Submit Work (Share your project)</option>
-                            <option value="hire">👔 Employ/Hire (Request employment)</option>
-                        </select>
-                        <small id="categoryHint">Select a category to route your message to the right admin</small>
-                    </div>
-
-                    <div class="form-group" id="roleSelectGroup" style="display:none;">
-                        <label>Apply for Role</label>
-                        <select id="applyRole">
-                            <option value="student">Student</option>
-                            <option value="instructor">Instructor</option>
-                            <option value="ambassador">Ambassador</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Subject *</label>
-                        <input type="text" id="messageSubject" placeholder="Enter message subject">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Message *</label>
-                        <textarea id="messageBody" rows="5" placeholder="Type your message in detail..."></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Attachments (PDF or Images)</label>
-                        <div class="upload-field" id="uploadField">
-                            <span class="upload-icon">📎</span>
-                            <span class="upload-text">Click to upload file</span>
-                            <small>Supports PDF, JPG, PNG (Max 10MB)</small>
-                            <input type="file" id="messageFileInput" accept=".pdf,image/*" style="display:none;">
-                        </div>
-                        <div class="file-preview" id="messageFilePreview" style="display:none;">
-                            <i class="fas fa-file"></i>
-                            <span class="file-name" id="messageFileName">No file selected</span>
-                            <button type="button" class="btn-remove-file" id="removeMessageFileBtn">✕ Remove</button>
-                        </div>
-                    </div>
-
-                    <div class="form-group" id="workLinkGroup" style="display:none;">
-                        <label>Gliimu Link (for work submissions)</label>
-                        <input type="url" id="workLink" placeholder="https://gliimu.com/submit/your-work">
-                        <small>If you have a published work on Gliimu, paste the link here</small>
-                    </div>
-
-                    <button type="button" id="sendMessageBtn" class="btn-primary" style="width:100%;">
-                        <i class="fas fa-paper-plane"></i> Send Message
-                    </button>
-                </form>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Close handlers
-    document.getElementById('closeNewMessageModal')?.addEventListener('click', () => {
-        modal.classList.remove('active');
-    });
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('active');
-    });
-
-    // Category change handler
-    document.getElementById('messageCategory')?.addEventListener('change', function(e) {
-        const category = this.value;
-        const hint = document.getElementById('categoryHint');
-        const roleGroup = document.getElementById('roleSelectGroup');
-        const workLinkGroup = document.getElementById('workLinkGroup');
-
-        roleGroup.style.display = 'none';
-        workLinkGroup.style.display = 'none';
-
-        if (category === 'apply') {
-            roleGroup.style.display = 'block';
-            hint.textContent = 'Your application will be sent to the Manager for review.';
-        } else if (category === 'submit_work') {
-            workLinkGroup.style.display = 'block';
-            hint.textContent = 'Your work submission will be sent to CRM for review.';
-        } else {
-            const hints = {
-                'inquire': 'Your inquiry will be sent to CRM for response.',
-                'contract': 'Your contract offer will be sent to the Manager.',
-                'hire': 'Your job request will be sent to the Manager.'
-            };
-            hint.textContent = hints[category] || 'Select a category to route your message to the right admin';
-        }
-    });
-
-    // File upload - click on upload field triggers file input
-    document.getElementById('uploadField')?.addEventListener('click', function() {
-        document.getElementById('messageFileInput').click();
-    });
-
-    // File input change
-    document.getElementById('messageFileInput')?.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        if (file.size > 10 * 1024 * 1024) {
-            showToast('File too large. Maximum 10MB.', 'error');
-            this.value = '';
-            return;
-        }
-
-        const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!validTypes.includes(file.type)) {
-            showToast('Only PDF and Image files are allowed.', 'error');
-            this.value = '';
-            return;
-        }
-
-        window._messageFileData = file;
-        const preview = document.getElementById('messageFilePreview');
-        const fileName = document.getElementById('messageFileName');
-        
-        if (fileName) {
-            fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
-        }
-        if (preview) {
-            preview.style.display = 'flex';
-        }
-        showToast(`📎 ${file.name} selected`, 'success');
-    });
-
-    // Remove file button
-    document.getElementById('removeMessageFileBtn')?.addEventListener('click', function() {
-        window._messageFileData = null;
-        document.getElementById('messageFileInput').value = '';
-        const preview = document.getElementById('messageFilePreview');
-        if (preview) {
-            preview.style.display = 'none';
-        }
-        document.getElementById('messageFileName').textContent = 'No file selected';
-    });
-
     // ============================================
-    // SEND BUTTON - Using form data approach
+    // SHOW NEW MESSAGE MODAL (FIXED - WITH NAME ATTRIBUTES)
     // ============================================
-    document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
-        // Get the form element directly
-        const form = document.getElementById('newMessageForm');
-        if (!form) {
-            showToast('Form not found', 'error');
+    showNewMessageModal() {
+        let modal = document.getElementById('newMessageModal');
+        if (modal) {
+            modal.classList.add('active');
+            const form = document.getElementById('newMessageForm');
+            if (form) form.reset();
+            const preview = document.getElementById('messageFilePreview');
+            if (preview) preview.style.display = 'none';
+            const roleGroup = document.getElementById('roleSelectGroup');
+            if (roleGroup) roleGroup.style.display = 'none';
+            const workGroup = document.getElementById('workLinkGroup');
+            if (workGroup) workGroup.style.display = 'none';
+            window._messageFileData = null;
             return;
         }
 
-        // Get form data using FormData API
-        const formData = new FormData(form);
-        
-        // Extract values from FormData
-        const category = formData.get('category') || '';
-        const subject = formData.get('subject') || '';
-        const message = formData.get('message') || '';
-        const applyRole = formData.get('applyRole') || 'student';
-        const workLink = formData.get('workLink') || '';
+        modal = document.createElement('div');
+        modal.id = 'newMessageModal';
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2><i class="fas fa-paper-plane"></i> New Message</h2>
+                    <button class="modal-close" id="closeNewMessageModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="newMessageForm" novalidate>
+                        <div class="form-group">
+                            <label>Category *</label>
+                            <select id="messageCategory" name="category">
+                                <option value="">Select a category...</option>
+                                <option value="apply">📝 Apply (Become a Student/Instructor/Ambassador)</option>
+                                <option value="inquire">❓ Inquire (Ask a question)</option>
+                                <option value="contract">📄 Offer Contract (Propose a contract)</option>
+                                <option value="submit_work">💼 Submit Work (Share your project)</option>
+                                <option value="hire">👔 Employ/Hire (Request employment)</option>
+                            </select>
+                            <small id="categoryHint">Select a category to route your message to the right admin</small>
+                        </div>
 
-        // Log values for debugging
-        console.log('📝 FormData Category:', category);
-        console.log('📝 FormData Subject:', subject);
-        console.log('📝 FormData Message:', message);
-        console.log('📝 Subject length:', subject.length);
-        console.log('📝 Message length:', message.length);
+                        <div class="form-group" id="roleSelectGroup" style="display:none;">
+                            <label>Apply for Role</label>
+                            <select id="applyRole" name="applyRole">
+                                <option value="student">Student</option>
+                                <option value="instructor">Instructor</option>
+                                <option value="ambassador">Ambassador</option>
+                            </select>
+                        </div>
 
-        // Validate
-        if (!category) {
-            showToast('Please select a category', 'error');
-            return;
-        }
+                        <div class="form-group">
+                            <label>Subject *</label>
+                            <input type="text" id="messageSubject" name="subject" placeholder="Enter message subject">
+                        </div>
 
-        if (!subject || subject.length === 0) {
-            showToast('Please enter a subject', 'error');
-            return;
-        }
+                        <div class="form-group">
+                            <label>Message *</label>
+                            <textarea id="messageBody" name="message" rows="5" placeholder="Type your message in detail..."></textarea>
+                        </div>
 
-        if (!message || message.length === 0) {
-            showToast('Please enter a message', 'error');
-            return;
-        }
+                        <div class="form-group">
+                            <label>Attachments (PDF or Images)</label>
+                            <div class="upload-field" id="uploadField">
+                                <span class="upload-icon">📎</span>
+                                <span class="upload-text">Click to upload file</span>
+                                <small>Supports PDF, JPG, PNG (Max 10MB)</small>
+                                <input type="file" id="messageFileInput" accept=".pdf,image/*" style="display:none;">
+                            </div>
+                            <div class="file-preview" id="messageFilePreview" style="display:none;">
+                                <i class="fas fa-file"></i>
+                                <span class="file-name" id="messageFileName">No file selected</span>
+                                <button type="button" class="btn-remove-file" id="removeMessageFileBtn">✕ Remove</button>
+                            </div>
+                        </div>
 
-        // Disable button
-        const btn = document.getElementById('sendMessageBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+                        <div class="form-group" id="workLinkGroup" style="display:none;">
+                            <label>Gliimu Link (for work submissions)</label>
+                            <input type="url" id="workLink" name="workLink" placeholder="https://gliimu.com/submit/your-work">
+                            <small>If you have a published work on Gliimu, paste the link here</small>
+                        </div>
 
-        // Store values in window for the submit method
-        window._tempMessageData = {
-            category: category,
-            subject: subject,
-            message: message,
-            applyRole: applyRole,
-            workLink: workLink
-        };
+                        <button type="button" id="sendMessageBtn" class="btn-primary" style="width:100%;">
+                            <i class="fas fa-paper-plane"></i> Send Message
+                        </button>
+                    </form>
+                </div>
+            </div>
+        `;
 
-        // Submit
-        const dashboard = window._generalDashboard || this._dashboard || this;
-        const success = await dashboard.submitNewMessageV2();
-        
-        // Re-enable button
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+        document.body.appendChild(modal);
 
-        if (success) {
+        // Close handlers
+        document.getElementById('closeNewMessageModal')?.addEventListener('click', () => {
             modal.classList.remove('active');
-            form.reset();
-            document.getElementById('messageFilePreview').style.display = 'none';
-            document.getElementById('roleSelectGroup').style.display = 'none';
-            document.getElementById('workLinkGroup').style.display = 'none';
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.remove('active');
+        });
+
+        // Category change handler
+        document.getElementById('messageCategory')?.addEventListener('change', function(e) {
+            const category = this.value;
+            const hint = document.getElementById('categoryHint');
+            const roleGroup = document.getElementById('roleSelectGroup');
+            const workLinkGroup = document.getElementById('workLinkGroup');
+
+            roleGroup.style.display = 'none';
+            workLinkGroup.style.display = 'none';
+
+            if (category === 'apply') {
+                roleGroup.style.display = 'block';
+                hint.textContent = 'Your application will be sent to the Manager for review.';
+            } else if (category === 'submit_work') {
+                workLinkGroup.style.display = 'block';
+                hint.textContent = 'Your work submission will be sent to CRM for review.';
+            } else {
+                const hints = {
+                    'inquire': 'Your inquiry will be sent to CRM for response.',
+                    'contract': 'Your contract offer will be sent to the Manager.',
+                    'hire': 'Your job request will be sent to the Manager.'
+                };
+                hint.textContent = hints[category] || 'Select a category to route your message to the right admin';
+            }
+        });
+
+        // File upload - click on upload field triggers file input
+        document.getElementById('uploadField')?.addEventListener('click', function() {
+            document.getElementById('messageFileInput').click();
+        });
+
+        // File input change
+        document.getElementById('messageFileInput')?.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('File too large. Maximum 10MB.', 'error');
+                this.value = '';
+                return;
+            }
+
+            const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showToast('Only PDF and Image files are allowed.', 'error');
+                this.value = '';
+                return;
+            }
+
+            window._messageFileData = file;
+            const preview = document.getElementById('messageFilePreview');
+            const fileName = document.getElementById('messageFileName');
+            
+            if (fileName) {
+                fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            }
+            if (preview) {
+                preview.style.display = 'flex';
+            }
+            showToast(`📎 ${file.name} selected`, 'success');
+        });
+
+        // Remove file button
+        document.getElementById('removeMessageFileBtn')?.addEventListener('click', function() {
             window._messageFileData = null;
             document.getElementById('messageFileInput').value = '';
-            window._tempMessageData = null;
-        }
-    });
+            const preview = document.getElementById('messageFilePreview');
+            if (preview) {
+                preview.style.display = 'none';
+            }
+            document.getElementById('messageFileName').textContent = 'No file selected';
+        });
 
-    // Store reference to dashboard instance for the button
-    window._generalDashboard = this;
-}
+        // ============================================
+        // SEND BUTTON - Using FormData
+        // ============================================
+        document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
+            const form = document.getElementById('newMessageForm');
+            if (!form) {
+                showToast('Form not found', 'error');
+                return;
+            }
 
-// ============================================
-// SUBMIT NEW MESSAGE V2 - Using stored data
-// ============================================
-async submitNewMessageV2() {
-    // Get data from window object
-    const data = window._tempMessageData;
-    if (!data) {
-        showToast('No message data found', 'error');
-        return false;
+            const formData = new FormData(form);
+            
+            const category = formData.get('category') || '';
+            const subject = formData.get('subject') || '';
+            const message = formData.get('message') || '';
+            const applyRole = formData.get('applyRole') || 'student';
+            const workLink = formData.get('workLink') || '';
+
+            console.log('📝 FormData Category:', category);
+            console.log('📝 FormData Subject:', subject);
+            console.log('📝 FormData Message:', message);
+            console.log('📝 Subject length:', subject.length);
+            console.log('📝 Message length:', message.length);
+
+            if (!category) {
+                showToast('Please select a category', 'error');
+                return;
+            }
+
+            if (!subject || subject.length === 0) {
+                showToast('Please enter a subject', 'error');
+                document.getElementById('messageSubject').focus();
+                return;
+            }
+
+            if (!message || message.length === 0) {
+                showToast('Please enter a message', 'error');
+                document.getElementById('messageBody').focus();
+                return;
+            }
+
+            const btn = document.getElementById('sendMessageBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+            window._tempMessageData = {
+                category: category,
+                subject: subject,
+                message: message,
+                applyRole: applyRole,
+                workLink: workLink
+            };
+
+            const dashboard = window._generalDashboard || this._dashboard || this;
+            const success = await dashboard.submitNewMessageV2();
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+
+            if (success) {
+                modal.classList.remove('active');
+                form.reset();
+                document.getElementById('messageFilePreview').style.display = 'none';
+                document.getElementById('roleSelectGroup').style.display = 'none';
+                document.getElementById('workLinkGroup').style.display = 'none';
+                window._messageFileData = null;
+                document.getElementById('messageFileInput').value = '';
+                window._tempMessageData = null;
+            }
+        });
+
+        window._generalDashboard = this;
     }
 
-    const { category, subject, message, applyRole, workLink } = data;
-    const file = window._messageFileData;
-
-    console.log('📤 Submitting V2:', { category, subject, message, applyRole, workLink, file: !!file });
-
-    try {
-        const userId = this.currentUser.id;
-        const profile = this.currentProfile;
-
-        let fileUrl = null;
-        let fileName = null;
-
-        if (file) {
-            const uploaded = await this.uploadMessageFile(file);
-            if (uploaded) {
-                fileUrl = uploaded.url;
-                fileName = uploaded.name;
-            }
-        }
-
-        let tableName = '';
-        let insertData = {};
-
-        switch(category) {
-            case 'apply':
-                tableName = 'applications';
-                insertData = {
-                    user_id: userId,
-                    full_name: profile?.name || 'User',
-                    email: this.currentUser.email,
-                    username: profile?.username || 'user',
-                    role: applyRole || 'student',
-                    birth_day: profile?.birth_day || null,
-                    birth_month: profile?.birth_month || null,
-                    status: 'pending',
-                    submitted_at: new Date().toISOString()
-                };
-                // Update user profile
-                await supabase
-                    .from('user_profiles')
-                    .update({
-                        application_status: 'pending',
-                        applied_role: applyRole || 'student'
-                    })
-                    .eq('id', userId);
-                break;
-
-            case 'inquire':
-                tableName = 'inquiries';
-                insertData = {
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            case 'contract':
-                tableName = 'contracts';
-                insertData = {
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            case 'submit_work':
-                tableName = 'submissions';
-                insertData = {
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    gliimu_link: workLink || null,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            case 'hire':
-                tableName = 'jobs';
-                insertData = {
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            default:
-                showToast('Invalid category selected', 'error');
-                return false;
-        }
-
-        console.log('📤 Inserting into', tableName, insertData);
-
-        const { error } = await supabase
-            .from(tableName)
-            .insert([insertData]);
-
-        if (error) {
-            console.error('Error sending message:', error);
-            showToast('Failed to send message: ' + error.message, 'error');
+    // ============================================
+    // SUBMIT NEW MESSAGE V2 - Using stored data
+    // ============================================
+    async submitNewMessageV2() {
+        const data = window._tempMessageData;
+        if (!data) {
+            showToast('No message data found', 'error');
             return false;
         }
 
-        showToast('✅ Message sent successfully!', 'success');
-        await this.loadMessages(this.container);
+        const { category, subject, message, applyRole, workLink } = data;
+        const file = window._messageFileData;
 
-        // Clean up
-        window._messageFileData = null;
-        window._tempMessageData = null;
+        console.log('📤 Submitting V2:', { category, subject, message, applyRole, workLink, file: !!file });
 
-        return true;
+        try {
+            const userId = this.currentUser.id;
+            const profile = this.currentProfile;
 
-    } catch (error) {
-        console.error('Error submitting message:', error);
-        showToast('Failed to send message: ' + error.message, 'error');
-        return false;
+            let fileUrl = null;
+            let fileName = null;
+
+            if (file) {
+                const uploaded = await this.uploadMessageFile(file);
+                if (uploaded) {
+                    fileUrl = uploaded.url;
+                    fileName = uploaded.name;
+                }
+            }
+
+            let tableName = '';
+            let insertData = {};
+
+            switch(category) {
+                case 'apply':
+                    tableName = 'applications';
+                    insertData = {
+                        user_id: userId,
+                        full_name: profile?.name || 'User',
+                        email: this.currentUser.email,
+                        username: profile?.username || 'user',
+                        role: applyRole || 'student',
+                        birth_day: profile?.birth_day || null,
+                        birth_month: profile?.birth_month || null,
+                        status: 'pending',
+                        submitted_at: new Date().toISOString()
+                    };
+                    await supabase
+                        .from('user_profiles')
+                        .update({
+                            application_status: 'pending',
+                            applied_role: applyRole || 'student'
+                        })
+                        .eq('id', userId);
+                    break;
+
+                case 'inquire':
+                    tableName = 'inquiries';
+                    insertData = {
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                case 'contract':
+                    tableName = 'contracts';
+                    insertData = {
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                case 'submit_work':
+                    tableName = 'submissions';
+                    insertData = {
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        gliimu_link: workLink || null,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                case 'hire':
+                    tableName = 'jobs';
+                    insertData = {
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                default:
+                    showToast('Invalid category selected', 'error');
+                    return false;
+            }
+
+            console.log('📤 Inserting into', tableName, insertData);
+
+            const { error } = await supabase
+                .from(tableName)
+                .insert([insertData]);
+
+            if (error) {
+                console.error('Error sending message:', error);
+                showToast('Failed to send message: ' + error.message, 'error');
+                return false;
+            }
+
+            showToast('✅ Message sent successfully!', 'success');
+            await this.loadMessages(this.container);
+
+            window._messageFileData = null;
+            window._tempMessageData = null;
+
+            return true;
+
+        } catch (error) {
+            console.error('Error submitting message:', error);
+            showToast('Failed to send message: ' + error.message, 'error');
+            return false;
+        }
     }
-}
 
     // ============================================
     // UPLOAD MESSAGE FILE
@@ -1868,7 +1840,7 @@ async submitNewMessageV2() {
     }
 
     // ============================================
-    // SUBSCRIBE TO MESSAGES (Real-time)
+    // SUBSCRIBE TO MESSAGES
     // ============================================
     subscribeToMessages() {
         if (this._messageSubscription) {
