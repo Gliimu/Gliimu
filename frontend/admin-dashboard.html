@@ -6,7 +6,7 @@
     <title>Admin Dashboard | Gliimu Institute</title>
     
     <!-- CSS -->
-    <link rel="stylesheet" href="/css/admin/admin-base.css">
+    <link rel="stylesheet" href="/frontend/css/admin/admin-base.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -22,9 +22,7 @@
                 <span id="dashboardTitle">Admin Dashboard</span>
             </div>
             <div class="header-right">
-                <button id="themeToggle" class="theme-toggle-btn" title="Toggle Theme">
-                    <i class="fas fa-moon"></i>
-                </button>
+                <!-- Theme toggle removed from here -->
                 <div class="admin-info">
                     <span class="admin-name" id="adminName">Loading...</span>
                     <span class="admin-role" id="adminRole">Loading...</span>
@@ -323,16 +321,6 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- REPLY MODAL (Dynamic - created by JS) -->
-    <!-- ============================================ -->
-    <!-- This is created dynamically by openReplyModal() in admin-super.js -->
-
-    <!-- ============================================ -->
-    <!-- RECORD MODAL (Dynamic - created by JS) -->
-    <!-- ============================================ -->
-    <!-- This is created dynamically by openRecordModal() in admin-super.js -->
-
-    <!-- ============================================ -->
     <!-- SCRIPTS -->
     <!-- ============================================ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -340,28 +328,6 @@
     
     <!-- Main Admin Dashboard -->
     <script type="module" src="/frontend/js/pages/admin/admin-dashboard.js"></script>
-    
-    <!-- ============================================ -->
-    <!-- THEME TOGGLE HANDLER -->
-    <!-- ============================================ -->
-    <script>
-        // Simple theme toggle for the admin header
-        document.addEventListener('DOMContentLoaded', function() {
-            const themeBtn = document.getElementById('themeToggle');
-            if (themeBtn) {
-                themeBtn.addEventListener('click', function() {
-                    document.body.classList.toggle('dark-mode');
-                    const isDark = document.body.classList.contains('dark-mode');
-                    localStorage.setItem('admin_theme', isDark ? 'dark' : 'light');
-                    this.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-                });
-                
-                // Set initial icon
-                const isDark = document.body.classList.contains('dark-mode');
-                themeBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-            }
-        });
-    </script>
 
 </body>
 </html>
