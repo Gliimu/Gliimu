@@ -31,54 +31,25 @@ export class UserPage {
         this.settingsManager = null;
         this.isInitialized = false;
         
-        // Store reference to this instance for global navigation
         window._userPage = this;
         
         this.init();
     }
 
-    // ============================================
-    // INITIALIZE
-    // ============================================
     async init() {
         try {
-            // Check authentication
             const session = await getCurrentSession();
             if (!session) {
                 window.location.href = '/signin.html';
                 return;
             }
 
-            // Initialize theme
             initTheme();
-
-            // Load user data
             await this.loadUserData();
-
-            // Initialize alerts
             await this.initAlerts();
-
-            // Initialize settings
             this.initSettings();
-
-            // Setup navigation
             this.setupNavigation();
-
-            // Setup sticky nav global functions
             this.setupStickyNavFunctions();
-
-            // Setup alert dropdown after DOM is fully loaded
-            setTimeout(() => {
-            this.setupAlertDropdown();
-            }, 500);
-
-            // Load default tab
-            this.loadTab('dashboard');
-            
-            // Setup sticky nav global functions
-            this.setupStickyNavFunctions();
-
-            // Load default tab
             this.loadTab('dashboard');
 
             this.isInitialized = true;
@@ -89,9 +60,6 @@ export class UserPage {
         }
     }
 
-    // ============================================
-    // LOAD USER DATA
-    // ============================================
     async loadUserData() {
         try {
             this.showLoading(true);
@@ -112,11 +80,8 @@ export class UserPage {
             }
 
             this.currentProfile = profile;
-
-            // Update UI
             this.updateUserUI(user, profile);
             
-            // Store user data globally
             window.currentUser = user;
             window.currentProfile = profile;
             
@@ -139,54 +104,11 @@ export class UserPage {
         }
     }
 
-    // ============================================
-// SETUP ALERT DROPDOWN (Fallback in router)
-// ============================================
-setupAlertDropdown() {
-    console.log('🔔 Setting up alert dropdown from router...');
-    
-    const alertBtn = document.getElementById('alertIconBtn');
-    const alertDropdown = document.getElementById('alertDropdown');
-    
-    if (!alertBtn) {
-        console.warn('⚠️ Alert button not found yet, will retry...');
-        setTimeout(() => this.setupAlertDropdown(), 500);
-        return;
-    }
-    
-    if (!alertDropdown) {
-        console.warn('⚠️ Alert dropdown not found');
-        return;
-    }
-    
-    // Remove old listeners
-    const newBtn = alertBtn.cloneNode(true);
-    alertBtn.parentNode.replaceChild(newBtn, alertBtn);
-    
-    // Add click listener to the new button
-    newBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🔔 Alert clicked!');
-        alertDropdown.classList.toggle('open');
-        console.log('Dropdown open:', alertDropdown.classList.contains('open'));
-    });
-    
-    console.log('✅ Alert dropdown setup complete');
-}
-
-    // ============================================
-    // INITIALIZE ALERTS
-    // ============================================
     async initAlerts() {
         try {
-            // Initialize alert manager
             this.alertManager = await initializeAlerts(this.currentUser.id);
-            
-            // Add initial alerts if needed
             await addInitialAlerts(this.currentUser.id);
             
-            // Subscribe to alert updates
             subscribeToAlerts((data) => {
                 this.updateAlertIcon(data);
             });
@@ -197,9 +119,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // INITIALIZE SETTINGS
-    // ============================================
     initSettings() {
         try {
             this.settingsManager = initSettings(
@@ -213,9 +132,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // UPDATE USER UI
-    // ============================================
     updateUserUI(user, profile) {
         const userNameEl = document.getElementById('userName');
         const userRoleEl = document.getElementById('userRole');
@@ -236,18 +152,12 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // UPDATE ALERT ICON
-    // ============================================
     updateAlertIcon(data) {
         if (this.activeModule && typeof this.activeModule.updateAlertIcon === 'function') {
             this.activeModule.updateAlertIcon(data);
         }
     }
 
-    // ============================================
-    // NAVIGATION SETUP
-    // ============================================
     setupNavigation() {
         const sidebarNav = document.getElementById('sidebarNav');
         if (sidebarNav) {
@@ -262,7 +172,6 @@ setupAlertDropdown() {
             });
         }
 
-        // Mobile bottom navigation
         document.querySelectorAll('.mobile-nav-item').forEach(item => {
             item.addEventListener('click', () => {
                 const tab = item.dataset.tab;
@@ -271,18 +180,13 @@ setupAlertDropdown() {
             });
         });
 
-        // Sidebar overlay
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
             overlay.addEventListener('click', () => this.closeSidebar());
         }
     }
 
-    // ============================================
-    // SETUP STICKY NAV GLOBAL FUNCTIONS
-    // ============================================
     setupStickyNavFunctions() {
-        // Navigation functions - exposed to window
         window.goToDashboard = () => {
             window.location.href = '/user';
         };
@@ -342,9 +246,6 @@ setupAlertDropdown() {
         };
     }
 
-    // ============================================
-    // SHOW ACCESS MODAL (Virtual Room / Courses)
-    // ============================================
     showAccessModal() {
         const modal = document.createElement('div');
         modal.className = 'modal active';
@@ -382,15 +283,11 @@ setupAlertDropdown() {
 
         document.getElementById('applyNowBtn')?.addEventListener('click', () => {
             modal.remove();
-            // Switch to messages tab where they can apply
             this.loadTab('messages');
             showToast('Go to Messages to apply for a role', 'info');
         });
     }
 
-    // ============================================
-    // GET NAVIGATION ITEMS
-    // ============================================
     getNavItems() {
         const role = this.currentProfile?.role || 'partner';
         const items = [
@@ -418,13 +315,9 @@ setupAlertDropdown() {
         `).join('');
     }
 
-    // ============================================
-    // LOAD TAB
-    // ============================================
     async loadTab(tab) {
         this.currentTab = tab;
         
-        // Update active states
         document.querySelectorAll('.nav-item, .mobile-nav-item').forEach(el => {
             el.classList.remove('active');
             if (el.dataset.tab === tab) {
@@ -432,7 +325,6 @@ setupAlertDropdown() {
             }
         });
 
-        // Load module based on tab
         switch(tab) {
             case 'dashboard':
                 await this.loadDashboard();
@@ -462,16 +354,12 @@ setupAlertDropdown() {
         this.closeSidebar();
     }
 
-    // ============================================
-    // LOAD ROLE-SPECIFIC DASHBOARD
-    // ============================================
     async loadDashboard() {
         const role = this.currentProfile?.role || 'partner';
         
         try {
             let module;
             
-            // Students and regular users both use GeneralDashboard
             if (role === 'student' || role === 'user' || role === 'partner' || role === 'ambassador') {
                 const { default: GeneralDashboard } = await import('./user-general.js');
                 module = new GeneralDashboard(this.currentUser, this.currentProfile);
@@ -479,24 +367,19 @@ setupAlertDropdown() {
                 const { default: InstructorDashboard } = await import('./user-instructor.js');
                 module = new InstructorDashboard(this.currentUser, this.currentProfile);
             } else if (role === 'admin' || role === 'super_admin' || role === 'crm' || role === 'manager' || role === 'secretary' || role === 'member') {
-                // Admin roles redirect to admin dashboard
                 window.location.href = '/admin';
                 return;
             } else {
-                // Fallback to GeneralDashboard
                 const { default: GeneralDashboard } = await import('./user-general.js');
                 module = new GeneralDashboard(this.currentUser, this.currentProfile);
             }
             
-            // Store reference to active module
             this.activeModule = module;
             
-            // Pass alert manager to module
             if (this.alertManager) {
                 module.setAlertManager(this.alertManager);
             }
             
-            // Render the dashboard
             await module.render(this.dashboardContent);
             
         } catch (error) {
@@ -512,9 +395,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // OTHER TABS (Delegated to modules)
-    // ============================================
     async loadWallet() {
         if (this.activeModule && typeof this.activeModule.loadWallet === 'function') {
             await this.activeModule.loadWallet(this.dashboardContent);
@@ -572,13 +452,17 @@ setupAlertDropdown() {
     }
 
     async loadManage() {
-        this.dashboardContent.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-users-cog"></i>
-                <h3>Management Dashboard</h3>
-                <p>Management features coming soon...</p>
-            </div>
-        `;
+        if (this.activeModule && typeof this.activeModule.loadManage === 'function') {
+            await this.activeModule.loadManage(this.dashboardContent);
+        } else {
+            this.dashboardContent.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users-cog"></i>
+                    <h3>Management Dashboard</h3>
+                    <p>Management features coming soon...</p>
+                </div>
+            `;
+        }
     }
 
     async loadAdmin() {
@@ -591,9 +475,6 @@ setupAlertDropdown() {
         `;
     }
 
-    // ============================================
-    // UTILITY METHODS
-    // ============================================
     showLoading(show) {
         if (this.loadingDiv) {
             this.loadingDiv.style.display = show ? 'flex' : 'none';
@@ -631,7 +512,6 @@ setupAlertDropdown() {
     }
 }
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     new UserPage();
 });
