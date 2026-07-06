@@ -214,7 +214,7 @@ async function getUserData(userId) {
 }
 
 // ============================================
-// GET STUDENT PROGRESS - FIXED for 406 error
+// GET STUDENT PROGRESS - FIXED
 // ============================================
 export async function getStudentProgress(studentId) {
     try {
