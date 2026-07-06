@@ -6,6 +6,8 @@
 import { supabase } from '../../modules/supabase.js';
 import { showToast } from '../../modules/toast.js';
 import { initTheme } from './admin-shared.js';
+import { getRenderFunction } from './admin-role.js';
+import { renderSettings, initSettings } from './admin-settings.js';
 
 // ============================================
 // GLOBAL STATE
@@ -71,9 +73,12 @@ async function checkAuth() {
         console.log('Dev admin mode enabled');
         currentUser = { id: 'dev_admin', email: 'admin@test.com', role: 'super_admin' };
         currentRole = 'super_admin';
-        document.getElementById('adminName').textContent = 'Super Admin (Dev Mode)';
-        document.getElementById('adminRole').textContent = 'Super Admin';
-        document.getElementById('dashboardTitle').textContent = 'Super Admin Dashboard';
+        const nameEl = document.getElementById('adminName');
+        const roleEl = document.getElementById('adminRole');
+        const titleEl = document.getElementById('dashboardTitle');
+        if (nameEl) nameEl.textContent = 'Super Admin (Dev Mode)';
+        if (roleEl) roleEl.textContent = 'Super Admin';
+        if (titleEl) titleEl.textContent = 'Super Admin Dashboard';
         return true;
     }
     
@@ -119,9 +124,16 @@ async function checkAuth() {
         member: 'Board Member'
     };
     
-    document.getElementById('adminName').textContent = profile?.name || 'Admin';
-    document.getElementById('adminRole').textContent = roleNames[currentRole] || currentRole;
-    document.getElementById('dashboardTitle').textContent = `${roleNames[currentRole] || currentRole} Dashboard`;
+    const nameEl = document.getElementById('adminName');
+    const roleEl = document.getElementById('adminRole');
+    const titleEl = document.getElementById('dashboardTitle');
+    
+    if (nameEl) nameEl.textContent = profile?.name || 'Admin';
+    if (roleEl) roleEl.textContent = roleNames[currentRole] || currentRole;
+    if (titleEl) titleEl.textContent = `${roleNames[currentRole] || currentRole} Dashboard`;
+    
+    // Initialize settings with user data
+    initSettings(currentUser, currentRole);
     
     return true;
 }
@@ -196,23 +208,16 @@ async function loadTabData(tabId) {
     if (!container) return;
     
     try {
-        // Dynamically import the role-specific module
-        const moduleMap = {
-            'overview': () => import(`./admin-${currentRole}.js`).then(m => m.renderOverview),
-            'update': () => import(`./admin-${currentRole}.js`).then(m => m.renderUpdate || (() => {})),
-            'inquiries': () => import(`./admin-${currentRole}.js`).then(m => m.renderInquiries || (() => {})),
-            'events': () => import(`./admin-${currentRole}.js`).then(m => m.renderEvents || (() => {})),
-            'payments': () => import(`./admin-${currentRole}.js`).then(m => m.renderPayments || (() => {})),
-            'sales': () => import(`./admin-${currentRole}.js`).then(m => m.renderSales || (() => {})),
-            'records': () => import(`./admin-${currentRole}.js`).then(m => m.renderRecords || (() => {})),
-            'submissions': () => import(`./admin-${currentRole}.js`).then(m => m.renderSubmissions || (() => {})),
-            'users': () => import(`./admin-${currentRole}.js`).then(m => m.renderUsers || (() => {})),
-            'partnerships': () => import(`./admin-${currentRole}.js`).then(m => m.renderPartnerships || (() => {})),
-            'admin_management': () => import(`./admin-${currentRole}.js`).then(m => m.renderAdminManagement || (() => {})),
-            'settings': () => import(`./admin-settings.js`).then(m => m.renderSettings)
-        };
+        let renderFn = null;
         
-        const renderFn = await moduleMap[tabId]?.();
+        // Settings is shared
+        if (tabId === 'settings') {
+            renderFn = renderSettings;
+        } else {
+            // Get the render function for this role and tab
+            renderFn = getRenderFunction(currentRole, tabId);
+        }
+        
         if (renderFn) {
             await renderFn(container);
         } else {
