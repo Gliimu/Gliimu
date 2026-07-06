@@ -272,69 +272,115 @@ export class UserRouter {
         return years + 'y ago';
     }
 
-    // ============================================
-    // SETUP ALERT MODAL
-    // ============================================
-    setupAlertModal() {
-        var alertBtn = document.getElementById('alertIconBtn');
-        var alertModal = document.getElementById('alertModal');
-        var closeBtn = document.getElementById('closeAlertModal');
-        var markReadBtn = document.getElementById('alertModalMarkRead');
+   // ============================================
+// SETUP ALERT MODAL - FIXED
+// ============================================
+setupAlertModal() {
+    var alertBtn = document.getElementById('alertIconBtn');
+    var alertModal = document.getElementById('alertModal');
+    var closeBtn = document.getElementById('closeAlertModal');
+    var markReadBtn = document.getElementById('alertModalMarkRead');
 
-        if (alertBtn) {
-            alertBtn.onclick = function(e) {
-                e.stopPropagation();
-                this.refreshAlerts();
-                if (alertModal) {
-                    alertModal.classList.add('active');
-                    document.body.style.overflow = 'hidden';
-                }
-            }.bind(this);
-        }
-
-        if (closeBtn) {
-            closeBtn.onclick = function() {
-                if (alertModal) {
-                    alertModal.classList.remove('active');
-                    document.body.style.overflow = '';
-                }
-            };
-        }
-
-        if (alertModal) {
-            alertModal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('active');
-                    document.body.style.overflow = '';
-                }
-            });
-        }
-
-        if (markReadBtn) {
-            markReadBtn.onclick = async function() {
-                await this.markAllAlertsRead();
-                this.refreshAlerts();
-            }.bind(this);
-        }
+    if (alertBtn) {
+        alertBtn.onclick = function(e) {
+            e.stopPropagation();
+            this.refreshAlerts();
+            if (alertModal) {
+                alertModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            } else {
+                // Fallback - create modal if not found
+                this.showAlertModal();
+            }
+        }.bind(this);
     }
 
-    async refreshAlerts() {
-        if (this.alertManager) {
-            var alerts = await this.alertManager.getAlerts();
-            var unreadCount = await this.alertManager.getUnreadCount();
-            this.updateAlertIcon({ alerts: alerts, unreadCount: unreadCount });
-        }
+    if (closeBtn) {
+        closeBtn.onclick = function() {
+            if (alertModal) {
+                alertModal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        };
     }
 
-    async markAllAlertsRead() {
-        if (this.alertManager) {
-            await this.alertManager.markAllAsRead();
-            var unreadCount = await this.alertManager.getUnreadCount();
-            var alerts = this.alertManager.alerts || [];
-            this.updateAlertIcon({ unreadCount: unreadCount, alerts: alerts });
-            showToast('All notifications marked as read', 'success');
-        }
+    if (alertModal) {
+        alertModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
     }
+
+    if (markReadBtn) {
+        markReadBtn.onclick = async function() {
+            await this.markAllAlertsRead();
+            this.refreshAlerts();
+        }.bind(this);
+    }
+}
+
+// ============================================
+// REFRESH ALERTS - FIXED
+// ============================================
+async refreshAlerts() {
+    if (this.alertManager) {
+        var alerts = await this.alertManager.getAlerts();
+        var unreadCount = await this.alertManager.getUnreadCount();
+        this.updateAlertIcon({ alerts: alerts, unreadCount: unreadCount });
+        
+        // Also update the badge
+        this.updateAlertBadge(unreadCount);
+    }
+}
+    
+// ============================================
+// SHOW ALERT MODAL - FALLBACK
+// ============================================
+showAlertModal() {
+    var modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'alertModal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; max-height: 80vh;">
+            <div class="modal-header">
+                <h2><i class="fas fa-bell" style="color: var(--brand-gold);"></i> Notifications</h2>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button id="alertModalMarkRead" class="alert-mark-read" style="font-size: 0.75rem; background: none; border: none; color: var(--brand-gold); cursor: pointer; font-family: inherit;">
+                        Mark all read
+                    </button>
+                    <button class="modal-close" id="closeAlertModal">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" id="alertModalBody">
+                <!-- Alert items rendered here -->
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+
+    document.getElementById('closeAlertModal').addEventListener('click', function() {
+        modal.remove();
+        document.body.style.overflow = '';
+    });
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+            document.body.style.overflow = '';
+        }
+    });
+
+    document.getElementById('alertModalMarkRead').addEventListener('click', async function() {
+        await this.markAllAlertsRead();
+        this.refreshAlerts();
+    }.bind(this));
+
+    // Populate with alerts
+    this.refreshAlerts();
+}
 
    // ============================================
 // LOAD TAB - UPDATED with submissions lock
