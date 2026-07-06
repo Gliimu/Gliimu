@@ -1,7 +1,5 @@
 // ============================================
 // GLIIMU USER DASHBOARD - GENERAL/PARTNER
-// Path: /frontend/js/pages/user-general.js
-// Purpose: Handles general user dashboard features
 // ============================================
 
 import { supabase } from '../modules/supabase.js';
@@ -25,21 +23,14 @@ export class GeneralDashboard {
         this.bankDetails = null;
         this._messageSubscription = null;
         
-        // Store reference to this instance globally for modal access
         window._generalDashboard = this;
         
-        // DOM references
         this.container = null;
         this.currentTab = 'dashboard';
-        this._isAlertDropdownOpen = false;
     }
 
-    // ============================================
-    // SET ALERT MANAGER
-    // ============================================
     setAlertManager(alertManager) {
         this.alertManager = alertManager;
-        // After setting alert manager, update the alert icon
         if (this.alertManager) {
             this.updateAlertIcon({
                 alerts: this.alertManager.alerts || [],
@@ -48,42 +39,17 @@ export class GeneralDashboard {
         }
     }
 
-  // ============================================
-// RENDER DASHBOARD - FIXED
-// ============================================
-async render(container) {
-    this.container = container;
-    
-    console.log('📋 Rendering dashboard...');
-    
-    // Setup sticky nav event listeners
-    this.setupStickyNav();
-    
-    // Setup alert dropdown toggle (with a small delay to ensure DOM is ready)
-    setTimeout(() => {
+    async render(container) {
+        this.container = container;
+        this.setupStickyNav();
         this.setupAlertDropdown();
-    }, 100);
-    
-    await this.loadDashboard();
-    await this.loadBankDetails();
-    
-    // Update alert badge after loading
-    if (this.alertManager) {
-        this.updateAlertBadge(this.alertManager.unreadCount || 0);
+        await this.loadDashboard();
+        await this.loadBankDetails();
+        if (this.alertManager) {
+            this.updateAlertBadge(this.alertManager.unreadCount || 0);
+        }
     }
-    
-    // Also update alert dropdown content
-    this.updateAlertIcon({
-        alerts: this.alertManager?.alerts || [],
-        unreadCount: this.alertManager?.unreadCount || 0
-    });
-    
-    console.log('✅ Dashboard rendered');
-}
 
-    // ============================================
-    // LOAD BANK DETAILS
-    // ============================================
     async loadBankDetails() {
         try {
             this.bankDetails = await getBankDetails();
@@ -97,9 +63,119 @@ async render(container) {
         }
     }
 
-    // ============================================
-    // LOAD DASHBOARD (Overview Tab)
-    // ============================================
+    // ================================================================
+    // SETUP STICKY NAV
+    // ================================================================
+    setupStickyNav() {
+        const toggle = document.getElementById('navToggle');
+        const dropdown = document.getElementById('navDropdown');
+        
+        if (toggle) {
+            toggle.onclick = function(e) {
+                e.stopPropagation();
+                dropdown.classList.toggle('open');
+                toggle.classList.toggle('active');
+            };
+        }
+
+        // Close nav when clicking outside
+        document.addEventListener('click', function(e) {
+            const nav = document.getElementById('stickyNav');
+            if (nav && !nav.contains(e.target)) {
+                dropdown?.classList.remove('open');
+                toggle?.classList.remove('active');
+                // Also close alert dropdown
+                const alertDropdown = document.getElementById('alertDropdown');
+                if (alertDropdown) alertDropdown.classList.remove('open');
+            }
+        });
+    }
+
+    // ================================================================
+    // SETUP ALERT DROPDOWN
+    // ================================================================
+    setupAlertDropdown() {
+        const alertBtn = document.getElementById('alertIconBtn');
+        const alertDropdown = document.getElementById('alertDropdown');
+        
+        if (alertBtn) {
+            alertBtn.onclick = function(e) {
+                e.stopPropagation();
+                alertDropdown.classList.toggle('open');
+            };
+        }
+
+        const markReadBtn = document.getElementById('alertMarkRead');
+        if (markReadBtn) {
+            markReadBtn.onclick = async function(e) {
+                e.stopPropagation();
+                await this.markAllAlertsRead();
+            }.bind(this);
+        }
+    }
+
+    // ================================================================
+    // UPDATE ALERT ICON
+    // ================================================================
+    updateAlertIcon(data) {
+        const unreadCount = data?.unreadCount || 0;
+        const alerts = data?.alerts || [];
+        this.updateAlertBadge(unreadCount);
+        
+        const dropdownBody = document.getElementById('alertDropdownBody');
+        if (dropdownBody) {
+            dropdownBody.innerHTML = this.renderAlertItems(alerts);
+        }
+    }
+
+    updateAlertBadge(count) {
+        const badge = document.getElementById('alertBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count > 9 ? '9+' : count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+    }
+
+    renderAlertItems(alerts) {
+        if (!alerts || alerts.length === 0) {
+            return `
+                <div class="alert-empty">
+                    <i class="fas fa-inbox"></i>
+                    <p>No notifications yet</p>
+                </div>
+            `;
+        }
+
+        return alerts.slice(0, 10).map(alert => `
+            <div class="alert-item ${alert.read ? 'read' : 'unread'}" data-id="${alert.id}">
+                <div class="alert-icon">${alert.icon || '📌'}</div>
+                <div class="alert-content">
+                    <p class="alert-message">${alert.message}</p>
+                    <span class="alert-time">${this.getTimeAgo(alert.created_at)}</span>
+                    ${alert.link ? `<a href="${alert.link}" class="alert-link" target="_blank">Learn more →</a>` : ''}
+                </div>
+                ${!alert.read ? `<span class="alert-unread-dot"></span>` : ''}
+            </div>
+        `).join('');
+    }
+
+    async markAllAlertsRead() {
+        if (this.alertManager) {
+            await this.alertManager.markAllAsRead();
+            const unreadCount = await this.alertManager.getUnreadCount();
+            const alerts = this.alertManager.alerts || [];
+            this.updateAlertIcon({ unreadCount, alerts });
+            showToast('All notifications marked as read', 'success');
+        }
+    }
+
+    // ================================================================
+    // LOAD DASHBOARD
+    // ================================================================
     async loadDashboard() {
         if (!this.container) return;
 
@@ -117,7 +193,6 @@ async render(container) {
 
         await this.loadLeaderboard();
 
-        // Get unread count from alert manager
         const unreadCount = this.alertManager?.unreadCount || 0;
 
         this.container.innerHTML = `
@@ -128,7 +203,6 @@ async render(container) {
                 </div>
             </div>
 
-            <!-- Stats Grid -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon wallet-icon">
@@ -180,7 +254,6 @@ async render(container) {
                 </div>
             </div>
 
-            <!-- Progress Bar -->
             <div class="progress-section">
                 <div class="progress-header">
                     <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
@@ -195,7 +268,6 @@ async render(container) {
                 </div>
             </div>
 
-            <!-- Leaderboard -->
             <div class="card leaderboard-card-full">
                 <div class="leaderboard-header">
                     <h3><i class="fas fa-trophy" style="color: #fbb040;"></i> Top Performers</h3>
@@ -216,173 +288,14 @@ async render(container) {
             ` : ''}
         `;
 
-        // Update alert badge in sticky nav
         this.updateAlertBadge(unreadCount);
         this.bindEvents();
         this.setupModalCloseHandlers();
     }
 
-    // ============================================
-    // SETUP STICKY NAV
-    // ============================================
-    setupStickyNav() {
-        const toggle = document.getElementById('navToggle');
-        const dropdown = document.getElementById('navDropdown');
-        
-        if (toggle) {
-            // Remove existing listeners to prevent duplicates
-            toggle.removeEventListener('click', this._navToggleHandler);
-            this._navToggleHandler = (e) => {
-                e.stopPropagation();
-                dropdown?.classList.toggle('open');
-                toggle.classList.toggle('active');
-            };
-            toggle.addEventListener('click', this._navToggleHandler);
-        }
-
-        // Close nav when clicking outside
-        document.removeEventListener('click', this._closeNavHandler);
-        this._closeNavHandler = (e) => {
-            const nav = document.getElementById('stickyNav');
-            if (nav && !nav.contains(e.target)) {
-                dropdown?.classList.remove('open');
-                toggle?.classList.remove('active');
-                // Also close alert dropdown if open
-                const alertDropdown = document.getElementById('alertDropdown');
-                if (alertDropdown) alertDropdown.classList.remove('open');
-            }
-        };
-        document.addEventListener('click', this._closeNavHandler);
-    }
-
-  // ============================================
-// SETUP ALERT DROPDOWN - FIXED
-// ============================================
-setupAlertDropdown() {
-    const alertBtn = document.getElementById('alertIconBtn');
-    const alertDropdown = document.getElementById('alertDropdown');
-    
-    if (alertBtn) {
-        // Remove any existing listeners
-        alertBtn.removeEventListener('click', this._alertToggleHandler);
-        alertBtn.removeEventListener('click', this._alertDebugHandler);
-        
-        // Create a new handler with debug logging
-        this._alertToggleHandler = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('🔔 Alert button clicked!');
-            console.log('Alert dropdown element:', alertDropdown);
-            
-            if (alertDropdown) {
-                alertDropdown.classList.toggle('open');
-                console.log('Dropdown open state:', alertDropdown.classList.contains('open'));
-            } else {
-                console.error('❌ Alert dropdown not found in DOM');
-            }
-        };
-        
-        // Also add a debug handler to confirm click registration
-        this._alertDebugHandler = (e) => {
-            console.log('🔔 Alert button click event fired');
-        };
-        
-        alertBtn.addEventListener('click', this._alertToggleHandler);
-        alertBtn.addEventListener('click', this._alertDebugHandler);
-        
-        console.log('✅ Alert button listener attached');
-    } else {
-        console.error('❌ Alert button #alertIconBtn not found in DOM');
-    }
-
-    // Mark all read button
-    const markReadBtn = document.getElementById('alertMarkRead');
-    if (markReadBtn) {
-        markReadBtn.removeEventListener('click', this._markReadHandler);
-        this._markReadHandler = async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('📌 Mark all read clicked');
-            await this.markAllAlertsRead();
-        };
-        markReadBtn.addEventListener('click', this._markReadHandler);
-    }
-}
-
-    // ============================================
-    // UPDATE ALERT ICON (Called from router)
-    // ============================================
-    updateAlertIcon(data) {
-        const unreadCount = data?.unreadCount || 0;
-        const alerts = data?.alerts || [];
-        
-        // Update alert badge
-        this.updateAlertBadge(unreadCount);
-        
-        // Update alert dropdown body
-        const dropdownBody = document.getElementById('alertDropdownBody');
-        if (dropdownBody) {
-            dropdownBody.innerHTML = this.renderAlertItems(alerts);
-        }
-    }
-
-    // ============================================
-    // UPDATE ALERT BADGE
-    // ============================================
-    updateAlertBadge(count) {
-        const badge = document.getElementById('alertBadge');
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = count > 9 ? '9+' : count;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-        }
-    }
-
-    // ============================================
-    // RENDER ALERT ITEMS
-    // ============================================
-    renderAlertItems(alerts) {
-        if (!alerts || alerts.length === 0) {
-            return `
-                <div class="alert-empty">
-                    <i class="fas fa-inbox"></i>
-                    <p>No notifications yet</p>
-                </div>
-            `;
-        }
-
-        return alerts.slice(0, 10).map(alert => `
-            <div class="alert-item ${alert.read ? 'read' : 'unread'}" data-id="${alert.id}">
-                <div class="alert-icon">${alert.icon || '📌'}</div>
-                <div class="alert-content">
-                    <p class="alert-message">${alert.message}</p>
-                    <span class="alert-time">${this.getTimeAgo(alert.created_at)}</span>
-                    ${alert.link ? `<a href="${alert.link}" class="alert-link" target="_blank">Learn more →</a>` : ''}
-                </div>
-                ${!alert.read ? `<span class="alert-unread-dot"></span>` : ''}
-            </div>
-        `).join('');
-    }
-
-    // ============================================
-    // MARK ALL ALERTS READ
-    // ============================================
-    async markAllAlertsRead() {
-        if (this.alertManager) {
-            await this.alertManager.markAllAsRead();
-            const unreadCount = await this.alertManager.getUnreadCount();
-            const alerts = this.alertManager.alerts || [];
-            this.updateAlertIcon({ unreadCount, alerts });
-            showToast('All notifications marked as read', 'success');
-        }
-    }
-
-    // ============================================
+    // ================================================================
     // BIND EVENTS
-    // ============================================
+    // ================================================================
     bindEvents() {
         document.querySelectorAll('.stat-action-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -402,15 +315,6 @@ setupAlertDropdown() {
             });
         });
 
-        document.querySelectorAll('.action-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const action = btn.dataset.action;
-                if (action === 'role') this.showApplyRoleModal();
-                else if (action === 'wallet') this.showFundWalletModal();
-                else if (action === 'stars') this.showConvertStarsModal();
-            });
-        });
-
         document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
             await this.loadLeaderboard();
             const container = document.getElementById('dashboardLeaderboard');
@@ -421,9 +325,9 @@ setupAlertDropdown() {
         });
     }
 
-    // ============================================
+    // ================================================================
     // LOAD LEADERBOARD
-    // ============================================
+    // ================================================================
     async loadLeaderboard() {
         try {
             this.leaderboardData = await getIndividualLeaderboard(5);
@@ -433,9 +337,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // RENDER LEADERBOARD ITEMS
-    // ============================================
     renderLeaderboardItems() {
         if (!this.leaderboardData || this.leaderboardData.length === 0) {
             return '<div class="empty-state"><p>No leaders yet. Be the first!</p></div>';
@@ -463,9 +364,9 @@ setupAlertDropdown() {
         }).join('');
     }
 
-    // ============================================
+    // ================================================================
     // GET SUBMISSIONS COUNT
-    // ============================================
+    // ================================================================
     async getSubmissionsCount(userId) {
         try {
             const { count, error } = await supabase
@@ -482,9 +383,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // GET REFERRALS COUNT
-    // ============================================
     async getReferralsCount(userId) {
         try {
             const count = await getReferralCount(userId);
@@ -495,9 +393,9 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
+    // ================================================================
     // GET PAYMENT REQUESTS
-    // ============================================
+    // ================================================================
     async getPaymentRequests(userId) {
         try {
             const { data, error } = await supabase
@@ -514,9 +412,9 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
+    // ================================================================
     // GET TIME AGO
-    // ============================================
+    // ================================================================
     getTimeAgo(date) {
         if (!date) return 'Just now';
         
@@ -556,14 +454,14 @@ setupAlertDropdown() {
         if (weeks < 2) return '1w ago';
         if (weeks < 4) return `${weeks}w ago`;
         if (months < 2) return '1mo ago';
-        if (months < 12) return `${months}mo ago`;
+        if (months < 12) return `${months}mo ago';
         if (years < 2) return '1y ago';
         return `${years}y ago`;
     }
 
-    // ============================================
+    // ================================================================
     // SHOW APPLY ROLE MODAL
-    // ============================================
+    // ================================================================
     showApplyRoleModal() {
         const roles = ['student', 'instructor', 'ambassador'];
         const roleLabels = {
@@ -611,9 +509,6 @@ setupAlertDropdown() {
         });
     }
 
-    // ============================================
-    // APPLY FOR ROLE
-    // ============================================
     async applyForRole(role) {
         try {
             const result = await this.submitApplication({
@@ -637,9 +532,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // SUBMIT APPLICATION
-    // ============================================
     async submitApplication(data) {
         try {
             const { error } = await supabase
@@ -673,9 +565,9 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
+    // ================================================================
     // SHOW CONVERT STARS MODAL
-    // ============================================
+    // ================================================================
     showConvertStarsModal() {
         const profile = this.currentProfile;
         const currentGP = profile?.gp_points || 0;
@@ -733,9 +625,9 @@ setupAlertDropdown() {
         });
     }
 
-    // ============================================
+    // ================================================================
     // SHOW FUND WALLET MODAL
-    // ============================================
+    // ================================================================
     showFundWalletModal() {
         const modal = document.getElementById('fundWalletModal');
         if (modal) {
@@ -747,9 +639,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // BIND WALLET MODAL EVENTS
-    // ============================================
     bindWalletModalEvents() {
         document.querySelectorAll('.amount-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -800,9 +689,6 @@ setupAlertDropdown() {
         });
     }
 
-    // ============================================
-    // SHOW BANK DETAILS
-    // ============================================
     async showBankDetails() {
         const fundingOptions = document.querySelector('.funding-options');
         const bankDetails = document.querySelector('.bank-details');
@@ -843,9 +729,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // RESET WALLET MODAL
-    // ============================================
     resetWalletModal() {
         const fundingOptions = document.querySelector('.funding-options');
         const bankDetails = document.querySelector('.bank-details');
@@ -861,9 +744,6 @@ setupAlertDropdown() {
         this.selectedAmount = 0;
     }
 
-    // ============================================
-    // UPDATE AMOUNT DISPLAY
-    // ============================================
     updateAmountDisplay() {
         const display = document.getElementById('selectedAmountDisplay');
         const large = document.getElementById('selectedAmountLarge');
@@ -877,9 +757,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // CONFIRM PAYMENT
-    // ============================================
     async confirmPayment() {
         try {
             const btn = document.getElementById('confirmPaymentBtn');
@@ -962,9 +839,9 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
+    // ================================================================
     // WALLET TAB
-    // ============================================
+    // ================================================================
     async loadWallet(container) {
         if (!container) {
             container = this.container;
@@ -1017,9 +894,6 @@ setupAlertDropdown() {
         await this.loadTransactionHistory();
     }
 
-    // ============================================
-    // LOAD TRANSACTION HISTORY
-    // ============================================
     async loadTransactionHistory() {
         const container = document.getElementById('transactionHistory');
         if (!container) return;
@@ -1128,9 +1002,9 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
+    // ================================================================
     // SETUP MODAL CLOSE HANDLERS
-    // ============================================
+    // ================================================================
     setupModalCloseHandlers() {
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1161,9 +1035,9 @@ setupAlertDropdown() {
         });
     }
 
-    // ============================================
-    // MESSAGES TAB - WITH CATEGORIES & FILE UPLOAD
-    // ============================================
+    // ================================================================
+    // MESSAGES TAB
+    // ================================================================
     async loadMessages(container) {
         if (!container) {
             container = this.container;
@@ -1221,9 +1095,6 @@ setupAlertDropdown() {
         this.subscribeToMessages();
     }
 
-    // ============================================
-    // GET ALL USER MESSAGES FROM ALL TABLES
-    // ============================================
     async getAllUserMessages() {
         const userId = this.currentUser.id;
         let allMessages = [];
@@ -1334,9 +1205,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // RENDER MESSAGE THREADS
-    // ============================================
     renderMessageThreads(messages) {
         if (!messages || messages.length === 0) {
             return `
@@ -1423,9 +1291,6 @@ setupAlertDropdown() {
         }).join('');
     }
 
-    // ============================================
-    // HELPER METHODS FOR MESSAGES
-    // ============================================
     getCategoryLabel(category) {
         const labels = {
             'apply': '📝 Application',
@@ -1472,9 +1337,9 @@ setupAlertDropdown() {
         return div.innerHTML;
     }
 
-    // ============================================
+    // ================================================================
     // SHOW NEW MESSAGE MODAL
-    // ============================================
+    // ================================================================
     showNewMessageModal() {
         let modal = document.getElementById('newMessageModal');
         if (modal) {
@@ -1565,7 +1430,6 @@ setupAlertDropdown() {
 
         document.body.appendChild(modal);
 
-        // Close handlers
         document.getElementById('closeNewMessageModal')?.addEventListener('click', () => {
             modal.classList.remove('active');
         });
@@ -1573,7 +1437,6 @@ setupAlertDropdown() {
             if (e.target === modal) modal.classList.remove('active');
         });
 
-        // Category change handler
         document.getElementById('messageCategory')?.addEventListener('change', function(e) {
             const category = this.value;
             const hint = document.getElementById('categoryHint');
@@ -1599,12 +1462,10 @@ setupAlertDropdown() {
             }
         });
 
-        // File upload - click on upload field triggers file input
         document.getElementById('uploadField')?.addEventListener('click', function() {
             document.getElementById('messageFileInput').click();
         });
 
-        // File input change
         document.getElementById('messageFileInput')?.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -1635,7 +1496,6 @@ setupAlertDropdown() {
             showToast(`📎 ${file.name} selected`, 'success');
         });
 
-        // Remove file button
         document.getElementById('removeMessageFileBtn')?.addEventListener('click', function() {
             window._messageFileData = null;
             document.getElementById('messageFileInput').value = '';
@@ -1646,9 +1506,6 @@ setupAlertDropdown() {
             document.getElementById('messageFileName').textContent = 'No file selected';
         });
 
-        // ============================================
-        // SEND BUTTON - Using FormData
-        // ============================================
         document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
             const form = document.getElementById('newMessageForm');
             if (!form) {
@@ -1663,12 +1520,6 @@ setupAlertDropdown() {
             const message = formData.get('message') || '';
             const applyRole = formData.get('applyRole') || 'student';
             const workLink = formData.get('workLink') || '';
-
-            console.log('📝 FormData Category:', category);
-            console.log('📝 FormData Subject:', subject);
-            console.log('📝 FormData Message:', message);
-            console.log('📝 Subject length:', subject.length);
-            console.log('📝 Message length:', message.length);
 
             if (!category) {
                 showToast('Please select a category', 'error');
@@ -1720,9 +1571,6 @@ setupAlertDropdown() {
         window._generalDashboard = this;
     }
 
-    // ============================================
-    // SUBMIT NEW MESSAGE V2
-    // ============================================
     async submitNewMessageV2() {
         const data = window._tempMessageData;
         if (!data) {
@@ -1732,8 +1580,6 @@ setupAlertDropdown() {
 
         const { category, subject, message, applyRole, workLink } = data;
         const file = window._messageFileData;
-
-        console.log('📤 Submitting V2:', { category, subject, message, applyRole, workLink, file: !!file });
 
         try {
             const userId = this.currentUser.id;
@@ -1753,7 +1599,6 @@ setupAlertDropdown() {
             let tableName = '';
             let insertData = {};
 
-            // Generate a UUID for the id field
             const generateId = () => {
                 return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                     const r = Math.random() * 16 | 0;
@@ -1846,8 +1691,6 @@ setupAlertDropdown() {
                     return false;
             }
 
-            console.log('📤 Inserting into', tableName, insertData);
-
             const { error } = await supabase
                 .from(tableName)
                 .insert([insertData]);
@@ -1873,9 +1716,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // UPLOAD MESSAGE FILE
-    // ============================================
     async uploadMessageFile(file) {
         if (!file) return null;
 
@@ -1916,9 +1756,6 @@ setupAlertDropdown() {
         }
     }
 
-    // ============================================
-    // SUBSCRIBE TO MESSAGES
-    // ============================================
     subscribeToMessages() {
         if (this._messageSubscription) {
             this._messageSubscription.unsubscribe();
@@ -1946,9 +1783,9 @@ setupAlertDropdown() {
         });
     }
 
-    // ============================================
+    // ================================================================
     // PORTFOLIO TAB
-    // ============================================
+    // ================================================================
     async loadPortfolio(container) {
         if (!container) {
             container = this.container;
@@ -1961,7 +1798,6 @@ setupAlertDropdown() {
         const username = profile?.username || user?.email?.split('@')[0] || 'user';
         const portfolioUrl = `${window.location.origin}/u/${username}`;
 
-        // Check if user is a student
         const isStudent = role === 'student';
         const isInstructor = role === 'instructor';
         const canAccessFull = isStudent || isInstructor;
@@ -1969,7 +1805,6 @@ setupAlertDropdown() {
         let portfolioContent = '';
 
         if (isStudent) {
-            // STUDENT: Show iframe + QR code + copyable link
             portfolioContent = `
                 <div class="card portfolio-link-card">
                     <div class="portfolio-header">
@@ -1993,7 +1828,6 @@ setupAlertDropdown() {
                 </div>
             `;
         } else {
-            // NON-STUDENT: Show link to view portfolios
             portfolioContent = `
                 <div class="card portfolio-view-card" style="text-align: center; padding: 40px 20px;">
                     <div style="font-size: 4rem; margin-bottom: 1rem;">
@@ -2010,7 +1844,6 @@ setupAlertDropdown() {
             `;
         }
 
-        // Build the navigation links (Go-To items as a sticky dropdown menu)
         const navLinks = `
             <div class="card portfolio-nav-card" style="margin-top: 20px;">
                 <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--text-secondary);">
@@ -2071,7 +1904,6 @@ setupAlertDropdown() {
             ${navLinks}
         `;
 
-        // Copy URL button
         document.getElementById('copyPortfolioUrl')?.addEventListener('click', () => {
             const urlInput = document.getElementById('portfolioUrl');
             if (urlInput) {
@@ -2081,12 +1913,10 @@ setupAlertDropdown() {
             }
         });
 
-        // Generate QR code for students
         if (isStudent) {
             this.generateQRCode(portfolioUrl);
         }
 
-        // Locked link click handlers
         document.querySelectorAll('.portfolio-nav-item[data-locked="true"]').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -2097,9 +1927,6 @@ setupAlertDropdown() {
         });
     }
 
-    // ============================================
-    // SHOW ACCESS MODAL (Virtual Room / Courses)
-    // ============================================
     showAccessModal() {
         const modal = document.createElement('div');
         modal.className = 'modal active';
@@ -2137,20 +1964,15 @@ setupAlertDropdown() {
 
         document.getElementById('applyNowBtn')?.addEventListener('click', () => {
             modal.remove();
-            // Switch to messages tab where they can apply
             if (window.switchTab) {
                 window.switchTab('messages');
                 showToast('Go to Messages to apply for a role', 'info');
             } else {
-                // Fallback: redirect to user dashboard with messages tab
                 window.location.href = '/user?tab=messages';
             }
         });
     }
 
-    // ============================================
-    // GENERATE QR CODE
-    // ============================================
     generateQRCode(url) {
         if (typeof QRCode === 'undefined') {
             const script = document.createElement('script');
