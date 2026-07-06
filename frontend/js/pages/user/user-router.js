@@ -336,38 +336,106 @@ export class UserRouter {
         }
     }
 
-    // ============================================
-    // LOAD TAB
-    // ============================================
-    async loadTab(tab) {
-        this.currentTab = tab;
-        updateNavActive(tab);
+   // ============================================
+// LOAD TAB - UPDATED with submissions lock
+// ============================================
+async loadTab(tab) {
+    this.currentTab = tab;
+    updateNavActive(tab);
 
-        switch(tab) {
-            case 'dashboard':
-                await this.loadDashboard();
-                break;
-            case 'messages':
-                await this.loadMessages();
-                break;
-            case 'submissions':
-                await this.loadSubmissions();
-                break;
-            case 'wallet':
-                await this.loadWallet();
-                break;
-            case 'settings':
-                await this.loadSettings();
-                break;
-            case 'manage':
-                await this.loadManage();
-                break;
-            default:
-                await this.loadDashboard();
+    // Check if submissions tab is locked for non-students
+    if (tab === 'submissions') {
+        var role = this.currentProfile?.role || 'user';
+        if (role !== 'student' && role !== 'instructor') {
+            this.showSubmissionsLockModal();
+            return;
         }
-
-        closeSidebar();
     }
+
+    switch(tab) {
+        case 'dashboard':
+            await this.loadDashboard();
+            break;
+        case 'messages':
+            await this.loadMessages();
+            break;
+        case 'submissions':
+            await this.loadSubmissions();
+            break;
+        case 'wallet':
+            await this.loadWallet();
+            break;
+        case 'settings':
+            await this.loadSettings();
+            break;
+        case 'manage':
+            await this.loadManage();
+            break;
+        default:
+            await this.loadDashboard();
+    }
+
+    closeSidebar();
+}
+
+// ============================================
+// SHOW SUBMISSIONS LOCK MODAL
+// ============================================
+showSubmissionsLockModal() {
+    var modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px; text-align: center;">
+            <div class="modal-header">
+                <h2><i class="fas fa-lock" style="color: var(--brand-gold);"></i> Access Restricted</h2>
+                <button class="modal-close" id="closeLockModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">
+                    <i class="fas fa-tasks" style="color: var(--brand-gold);"></i>
+                </div>
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Submissions are for Students Only</h3>
+                <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem;">
+                    To access the Submissions tab and start answering questions, you need to apply to become a student first.
+                    This is where you'll earn GP points and progress through the learning path!
+                </p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button id="applyNowLockBtn" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-paper-plane"></i> Apply Now
+                    </button>
+                    <button id="closeLockBtn" class="btn-outline">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+
+    document.getElementById('closeLockModal')?.addEventListener('click', function() {
+        modal.remove();
+        document.body.style.overflow = '';
+    });
+
+    document.getElementById('closeLockBtn')?.addEventListener('click', function() {
+        modal.remove();
+        document.body.style.overflow = '';
+    });
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+            document.body.style.overflow = '';
+        }
+    });
+
+    document.getElementById('applyNowLockBtn')?.addEventListener('click', function() {
+        modal.remove();
+        document.body.style.overflow = '';
+        this.loadTab('messages');
+        showToast('Go to Messages to apply for a role', 'info');
+    }.bind(this));
+}
 
     // ============================================
     // LOAD ROLE-SPECIFIC DASHBOARD
