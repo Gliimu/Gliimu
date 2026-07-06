@@ -112,7 +112,7 @@ function toggleTheme() {
 }
 
 // ============================================
-// AUTHENTICATION CHECK WITH ROLE
+// AUTHENTICATION CHECK WITH ROLE - SECURE VERSION
 // ============================================
 async function checkAuth() {
     console.log('Checking admin authentication...');
@@ -120,11 +120,11 @@ async function checkAuth() {
     const devMode = localStorage.getItem('dev_admin_mode') === 'true';
     if (devMode) {
         console.log('Dev admin mode enabled');
-        currentUser = { id: 'dev_admin', email: 'admin@test.com', role: 'founder' };
-        currentRole = 'founder';
-        document.getElementById('adminName').textContent = 'Founder (Dev Mode)';
-        document.getElementById('adminRole').textContent = 'Founder';
-        document.getElementById('dashboardTitle').textContent = 'Founder Dashboard';
+        currentUser = { id: 'dev_admin', email: 'admin@test.com', role: 'super_admin' };
+        currentRole = 'super_admin';
+        document.getElementById('adminName').textContent = 'Super Admin (Dev Mode)';
+        document.getElementById('adminRole').textContent = 'Super Admin';
+        document.getElementById('dashboardTitle').textContent = 'Super Admin Dashboard';
         return true;
     }
     
@@ -132,12 +132,12 @@ async function checkAuth() {
     
     if (error || !user) {
         console.error('Auth error:', error);
-        showToast('Please login as admin', 'error');
+        showToast('Please login first', 'error');
         setTimeout(() => window.location.href = '/signin.html', 1500);
         return false;
     }
     
-    // FIXED: Using user_profiles instead of users
+    // Get user profile with role
     const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('role, name')
@@ -146,24 +146,46 @@ async function checkAuth() {
     
     if (profileError) {
         console.error('Profile error:', profileError);
+        showToast('Error loading profile', 'error');
+        setTimeout(() => window.location.href = '/dashboard.html', 1500);
+        return false;
     }
     
-    const userRole = profile?.role || 'secretary';
+    // ============================================
+    // SECURITY CHECK: Verify user has admin role
+    // ============================================
+    const adminRoles = ['super_admin', 'crm', 'manager', 'member', 'secretary'];
+    
+    if (!profile || !adminRoles.includes(profile.role)) {
+        console.warn('🚨 Unauthorized admin access attempt:', user.email, 'Role:', profile?.role);
+        showToast('You do not have admin access', 'error');
+        
+        // Redirect to user dashboard
+        setTimeout(() => {
+            window.location.href = '/dashboard.html';
+        }, 1500);
+        return false;
+    }
+    
+    // User is authorized
+    const userRole = profile.role;
     currentRole = userRole;
     currentUser = user;
     
     const roleNames = {
-        founder: 'Founder',
+        super_admin: 'Super Admin',
         crm: 'CRM',
         secretary: 'Secretary',
-        manager: 'Operations Manager'
+        manager: 'Operations Manager',
+        member: 'Board Member'
     };
     
     const roleTitles = {
-        founder: 'Founder Dashboard',
+        super_admin: 'Super Admin Dashboard',
         crm: 'CRM Dashboard',
         secretary: 'Secretary Dashboard',
-        manager: 'Manager Dashboard'
+        manager: 'Manager Dashboard',
+        member: 'Board Member Dashboard'
     };
     
     document.getElementById('adminName').textContent = profile?.name || 'Admin';
