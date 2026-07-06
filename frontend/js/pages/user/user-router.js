@@ -17,7 +17,8 @@ import { showToast } from '../../modules/toast.js';
 import { initTheme } from './user-theme.js';
 import { initializeAlerts, addInitialAlerts, subscribeToAlerts } from './user-alert.js';
 import { initSettings } from './user-settings.js';
-import { initStickyNav, setupStickyNavFunctions } from './user-dashboard.js';
+import { setupNavigation, updateNavActive, closeSidebar, setupStickyNavFunctions, setupStickyNav } from './user-navigation.js';
+import { modalManager } from './user-modals.js';
 
 // ============================================
 // USER ROUTER CLASS
@@ -34,10 +35,8 @@ export class UserRouter {
         this.activeModule = null;
         this.isInitialized = false;
         
-        // Store reference for global access
         window._userRouter = this;
         
-        // Initialize
         this.init();
     }
 
@@ -46,37 +45,25 @@ export class UserRouter {
     // ============================================
     async init() {
         try {
-            // Check authentication
-            const session = await getCurrentSession();
+            var session = await getCurrentSession();
             if (!session) {
                 window.location.href = '/signin.html';
                 return;
             }
 
-            // Initialize theme
             initTheme();
-
-            // Load user data
             await this.loadUserData();
-
-            // Initialize alerts
             await this.initAlerts();
-
-            // Initialize settings
             this.initSettings();
-
-            // Setup navigation
-            this.setupNavigation();
-
-            // Setup sticky nav functions
+            
+            setupNavigation(this);
             setupStickyNavFunctions(this);
-
-            // Load default tab
-            this.loadTab('dashboard');
-
+            setupStickyNav();
+            
             // Setup alert modal
             this.setupAlertModal();
-
+            
+            this.loadTab('dashboard');
             this.isInitialized = true;
 
         } catch (error) {
@@ -92,7 +79,7 @@ export class UserRouter {
         try {
             this.showLoading(true);
             
-            const user = await getAuthUser();
+            var user = await getAuthUser();
             if (!user) {
                 this.showError('User not authenticated');
                 window.location.href = '/signin.html';
@@ -100,7 +87,7 @@ export class UserRouter {
             }
 
             this.currentUser = user;
-            const profile = await getUserProfile(user.id);
+            var profile = await getUserProfile(user.id);
             
             if (!profile) {
                 this.showError('User profile not found');
@@ -110,7 +97,6 @@ export class UserRouter {
             this.currentProfile = profile;
             this.updateUserUI(user, profile);
             
-            // Store globally
             window.currentUser = user;
             window.currentProfile = profile;
             
@@ -122,7 +108,7 @@ export class UserRouter {
                 role: profile.role || 'user',
                 walletBalance: profile.wallet_balance || 0,
                 gpPoints: profile.gp_points || 0,
-                avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff`
+                avatar: profile.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(profile.name || 'User') + '&background=fbb040&color=fff'
             }));
             
             this.showLoading(false);
@@ -141,9 +127,9 @@ export class UserRouter {
             this.alertManager = await initializeAlerts(this.currentUser.id);
             await addInitialAlerts(this.currentUser.id);
             
-            subscribeToAlerts((data) => {
+            subscribeToAlerts(function(data) {
                 this.updateAlertIcon(data);
-            });
+            }.bind(this));
 
             console.log('✅ Alerts initialized');
         } catch (error) {
@@ -171,9 +157,9 @@ export class UserRouter {
     // UPDATE USER UI
     // ============================================
     updateUserUI(user, profile) {
-        const userNameEl = document.getElementById('userName');
-        const userRoleEl = document.getElementById('userRole');
-        const userAvatarImg = document.getElementById('userAvatarImg');
+        var userNameEl = document.getElementById('userName');
+        var userRoleEl = document.getElementById('userRole');
+        var userAvatarImg = document.getElementById('userAvatarImg');
         
         if (userNameEl) {
             userNameEl.textContent = profile.name || 'User';
@@ -184,8 +170,8 @@ export class UserRouter {
         }
         
         if (userAvatarImg) {
-            const avatarUrl = profile.avatar_url || 
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'User')}&background=fbb040&color=fff&size=128`;
+            var avatarUrl = profile.avatar_url || 
+                'https://ui-avatars.com/api/?name=' + encodeURIComponent(profile.name || 'User') + '&background=fbb040&color=fff&size=128';
             userAvatarImg.src = avatarUrl;
         }
     }
@@ -194,21 +180,19 @@ export class UserRouter {
     // UPDATE ALERT ICON
     // ============================================
     updateAlertIcon(data) {
-        const unreadCount = data?.unreadCount || 0;
-        const alerts = data?.alerts || [];
+        var unreadCount = data?.unreadCount || 0;
+        var alerts = data?.alerts || [];
         
-        // Update badge
         this.updateAlertBadge(unreadCount);
         
-        // Update modal body if open
-        const modalBody = document.getElementById('alertModalBody');
+        var modalBody = document.getElementById('alertModalBody');
         if (modalBody) {
             modalBody.innerHTML = this.renderAlertItems(alerts);
         }
     }
 
     updateAlertBadge(count) {
-        const badge = document.getElementById('alertBadge');
+        var badge = document.getElementById('alertBadge');
         if (badge) {
             if (count > 0) {
                 badge.textContent = count > 9 ? '9+' : count;
@@ -236,7 +220,7 @@ export class UserRouter {
                     <div class="alert-content">
                         <p class="alert-message">${alert.message}</p>
                         <span class="alert-time">${this.getTimeAgo(alert.created_at)}</span>
-                        ${alert.link ? `<a href="${alert.link}" class="alert-link" target="_blank">Learn more →</a>` : ''}
+                        ${alert.link ? '<a href="' + alert.link + '" class="alert-link" target="_blank">Learn more →</a>' : ''}
                     </div>
                     ${!alert.read ? '<span class="alert-unread-dot"></span>' : ''}
                 </div>
@@ -292,15 +276,14 @@ export class UserRouter {
     // SETUP ALERT MODAL
     // ============================================
     setupAlertModal() {
-        const alertBtn = document.getElementById('alertIconBtn');
-        const alertModal = document.getElementById('alertModal');
-        const closeBtn = document.getElementById('closeAlertModal');
-        const markReadBtn = document.getElementById('alertModalMarkRead');
+        var alertBtn = document.getElementById('alertIconBtn');
+        var alertModal = document.getElementById('alertModal');
+        var closeBtn = document.getElementById('closeAlertModal');
+        var markReadBtn = document.getElementById('alertModalMarkRead');
 
         if (alertBtn) {
             alertBtn.onclick = function(e) {
                 e.stopPropagation();
-                // Refresh alerts
                 this.refreshAlerts();
                 if (alertModal) {
                     alertModal.classList.add('active');
@@ -337,78 +320,20 @@ export class UserRouter {
 
     async refreshAlerts() {
         if (this.alertManager) {
-            const alerts = await this.alertManager.getAlerts();
-            const unreadCount = await this.alertManager.getUnreadCount();
-            this.updateAlertIcon({ alerts, unreadCount });
+            var alerts = await this.alertManager.getAlerts();
+            var unreadCount = await this.alertManager.getUnreadCount();
+            this.updateAlertIcon({ alerts: alerts, unreadCount: unreadCount });
         }
     }
 
     async markAllAlertsRead() {
         if (this.alertManager) {
             await this.alertManager.markAllAsRead();
-            const unreadCount = await this.alertManager.getUnreadCount();
-            const alerts = this.alertManager.alerts || [];
-            this.updateAlertIcon({ unreadCount, alerts });
+            var unreadCount = await this.alertManager.getUnreadCount();
+            var alerts = this.alertManager.alerts || [];
+            this.updateAlertIcon({ unreadCount: unreadCount, alerts: alerts });
             showToast('All notifications marked as read', 'success');
         }
-    }
-
-    // ============================================
-    // NAVIGATION SETUP
-    // ============================================
-    setupNavigation() {
-        const sidebarNav = document.getElementById('sidebarNav');
-        if (sidebarNav) {
-            const navItems = this.getNavItems();
-            sidebarNav.innerHTML = navItems;
-            
-            sidebarNav.querySelectorAll('.nav-item').forEach(function(item) {
-                item.addEventListener('click', function() {
-                    const tab = this.dataset.tab;
-                    this.loadTab(tab);
-                }.bind(this));
-            }.bind(this));
-        }
-
-        // Mobile bottom navigation
-        document.querySelectorAll('.mobile-nav-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                const tab = this.dataset.tab;
-                this.loadTab(tab);
-                this.closeSidebar();
-            }.bind(this));
-        }.bind(this));
-
-        // Sidebar overlay
-        const overlay = document.getElementById('sidebarOverlay');
-        if (overlay) {
-            overlay.addEventListener('click', function() {
-                this.closeSidebar();
-            }.bind(this));
-        }
-    }
-
-    // ============================================
-    // GET NAVIGATION ITEMS
-    // ============================================
-    getNavItems() {
-        const role = this.currentProfile?.role || 'user';
-        var items = [
-            { tab: 'dashboard', icon: 'fa-tachometer-alt', label: 'Overview' },
-            { tab: 'messages', icon: 'fa-envelope', label: 'Messages' },
-            { tab: 'submissions', icon: 'fa-tasks', label: 'Submissions' },
-            { tab: 'wallet', icon: 'fa-wallet', label: 'Wallet' },
-        ];
-
-        if (role === 'instructor' || role === 'admin') {
-            items.push({ tab: 'manage', icon: 'fa-users-cog', label: 'Manage' });
-        }
-
-        items.push({ tab: 'settings', icon: 'fa-cog', label: 'Settings' });
-
-        return items.map(function(item) {
-            return '<button class="nav-item" data-tab="' + item.tab + '"><i class="fas ' + item.icon + '"></i><span>' + item.label + '</span></button>';
-        }).join('');
     }
 
     // ============================================
@@ -416,16 +341,8 @@ export class UserRouter {
     // ============================================
     async loadTab(tab) {
         this.currentTab = tab;
-        
-        // Update active states
-        document.querySelectorAll('.nav-item, .mobile-nav-item').forEach(function(el) {
-            el.classList.remove('active');
-            if (el.dataset.tab === tab) {
-                el.classList.add('active');
-            }
-        });
+        updateNavActive(tab);
 
-        // Load module based on tab
         switch(tab) {
             case 'dashboard':
                 await this.loadDashboard();
@@ -449,44 +366,41 @@ export class UserRouter {
                 await this.loadDashboard();
         }
 
-        this.closeSidebar();
+        closeSidebar();
     }
 
     // ============================================
     // LOAD ROLE-SPECIFIC DASHBOARD
     // ============================================
     async loadDashboard() {
-        const role = this.currentProfile?.role || 'user';
+        var role = this.currentProfile?.role || 'user';
         
         try {
             var module;
             
-            // Import the appropriate dashboard based on role
             if (role === 'student') {
-                const { default: StudentDashboard } = await import('./user-student.js');
+                var { default: StudentDashboard } = await import('./user-student.js');
                 module = new StudentDashboard(this.currentUser, this.currentProfile);
             } else if (role === 'instructor') {
-                const { default: InstructorDashboard } = await import('./user-instructor.js');
+                var { default: InstructorDashboard } = await import('./user-instructor.js');
                 module = new InstructorDashboard(this.currentUser, this.currentProfile);
             } else if (role === 'user' || role === 'partner' || role === 'ambassador') {
-                const { default: GeneralDashboard } = await import('./user-general.js');
+                var { default: GeneralDashboard } = await import('./user-general.js');
                 module = new GeneralDashboard(this.currentUser, this.currentProfile);
             } else if (role === 'admin' || role === 'super_admin' || role === 'crm' || role === 'manager' || role === 'secretary' || role === 'member') {
                 window.location.href = '/admin';
                 return;
             } else {
-                const { default: GeneralDashboard } = await import('./user-general.js');
+                var { default: GeneralDashboard } = await import('./user-general.js');
                 module = new GeneralDashboard(this.currentUser, this.currentProfile);
             }
             
             this.activeModule = module;
             
-            // Pass alert manager to module
             if (this.alertManager) {
                 module.setAlertManager(this.alertManager);
             }
             
-            // Render the dashboard
             await module.render(this.dashboardContent);
             
         } catch (error) {
@@ -520,7 +434,7 @@ export class UserRouter {
     }
 
     // ============================================
-    // LOAD SUBMISSIONS (Questions for Students)
+    // LOAD SUBMISSIONS
     // ============================================
     async loadSubmissions() {
         if (this.activeModule && typeof this.activeModule.loadSubmissions === 'function') {
@@ -591,29 +505,10 @@ export class UserRouter {
     // SHOW ACCESS MODAL
     // ============================================
     showAccessModal() {
-        var modal = document.getElementById('accessModal');
-        if (modal) {
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-            
-            // Apply Now button
-            document.getElementById('applyNowBtn').onclick = function() {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-                this.loadTab('messages');
-                showToast('Go to Messages to apply for a role', 'info');
-            }.bind(this);
-            
-            document.getElementById('closeAccessBtn').onclick = function() {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-            };
-            
-            document.getElementById('closeAccessModal').onclick = function() {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-            };
-        }
+        modalManager.showAccessModal(function() {
+            this.loadTab('messages');
+            showToast('Go to Messages to apply for a role', 'info');
+        }.bind(this));
     }
 
     // ============================================
@@ -631,28 +526,6 @@ export class UserRouter {
 
     showError(message) {
         showToast(message, 'error');
-    }
-
-    toggleSidebar() {
-        const sidebar = document.getElementById('dashboardSidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        if (sidebar) {
-            sidebar.classList.toggle('mobile-open');
-            if (overlay) {
-                overlay.classList.toggle('active');
-            }
-        }
-    }
-
-    closeSidebar() {
-        const sidebar = document.getElementById('dashboardSidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        if (sidebar) {
-            sidebar.classList.remove('mobile-open');
-            if (overlay) {
-                overlay.classList.remove('active');
-            }
-        }
     }
 }
 
