@@ -18,7 +18,175 @@ import {
 import { modalManager } from './user-modals.js';
 
 // ============================================
-// OVERVIEW TAB
+// BADGE HELPERS
+// ============================================
+function getBadgeFromGP(gp) {
+    var badges = [
+        { name: 'Starter', icon: '🌱', color: '#10b981', maxGP: 1250 },
+        { name: 'Diploma', icon: '📜', color: '#3b82f6', maxGP: 2500 },
+        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', maxGP: 3750 },
+        { name: 'Mastery', icon: '🏆', color: '#f59e0b', maxGP: 4950 },
+        { name: 'Ambassador', icon: '👑', color: '#ef4444', maxGP: Infinity }
+    ];
+    
+    for (var i = 0; i < badges.length; i++) {
+        if (gp <= badges[i].maxGP) {
+            return badges[i];
+        }
+    }
+    return badges[0];
+}
+
+function getNextBadgeFromGP(gp) {
+    var badges = [
+        { name: 'Diploma', icon: '📜', color: '#3b82f6', minGP: 1250 },
+        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', minGP: 2500 },
+        { name: 'Mastery', icon: '🏆', color: '#f59e0b', minGP: 3750 },
+        { name: 'Ambassador', icon: '👑', color: '#ef4444', minGP: 4950 }
+    ];
+    
+    for (var i = 0; i < badges.length; i++) {
+        if (gp < badges[i].minGP) {
+            return badges[i];
+        }
+    }
+    return null;
+}
+
+function getProgressToNextBadgeFromGP(gp) {
+    var nextBadge = getNextBadgeFromGP(gp);
+    if (!nextBadge) return 100;
+    
+    var badges = [0, 1250, 2500, 3750, 4950];
+    var currentIndex = 0;
+    
+    for (var i = 0; i < badges.length; i++) {
+        if (gp >= badges[i]) {
+            currentIndex = i;
+        }
+    }
+    
+    var currentMin = badges[currentIndex] || 0;
+    var nextMax = badges[currentIndex + 1] || 4950;
+    var range = nextMax - currentMin;
+    var progressInRange = gp - currentMin;
+    
+    return Math.min(100, Math.round((progressInRange / range) * 100));
+}
+
+// ============================================
+// GET STUDENT PROGRESS
+// ============================================
+async function getStudentProgress(userId) {
+    try {
+        var { data, error } = await supabase
+            .from('student_progress')
+            .select('*')
+            .eq('student_id', userId)
+            .single();
+        
+        if (error) {
+            if (error.code === 'PGRST205' || error.code === 'PGRST116') {
+                // Try to get from user_profiles
+                var { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('gp_points')
+                    .eq('id', userId)
+                    .single();
+                
+                if (profile) {
+                    var gp = profile.gp_points || 0;
+                    var progress = Math.min(100, (gp / 5000) * 100);
+                    var currentBadge = getBadgeFromGP(gp);
+                    var nextBadge = getNextBadgeFromGP(gp);
+                    var progressToNext = getProgressToNextBadgeFromGP(gp);
+                    
+                    return {
+                        currentGP: gp,
+                        progress: progress,
+                        totalStars: 0,
+                        currentBadge: currentBadge,
+                        nextBadge: nextBadge,
+                        progressToNext: progressToNext
+                    };
+                }
+                return null;
+            }
+            throw error;
+        }
+        
+        if (!data) return null;
+
+        var gp = data.current_gp || 0;
+        var progress = data.progress || 0;
+        var totalStars = data.stars_earned || 0;
+        var currentBadge = getBadgeFromGP(gp);
+        var nextBadge = getNextBadgeFromGP(gp);
+        var progressToNext = getProgressToNextBadgeFromGP(gp);
+
+        return {
+            currentGP: gp,
+            progress: progress,
+            totalStars: totalStars,
+            currentBadge: currentBadge,
+            nextBadge: nextBadge,
+            progressToNext: progressToNext
+        };
+    } catch (error) {
+        console.error('Error getting student progress:', error);
+        return null;
+    }
+}
+
+// ============================================
+// GET SUBMISSIONS COUNT
+// ============================================
+async function getSubmissionsCount(userId) {
+    try {
+        var { count, error } = await supabase
+            .from('student_answers')
+            .select('id', { count: 'exact' })
+            .eq('student_id', userId)
+            .eq('status', 'graded');
+        
+        if (error) {
+            if (error.code === 'PGRST205' || error.code === 'PGRST116') {
+                return 0;
+            }
+            throw error;
+        }
+        return count || 0;
+    } catch (error) {
+        console.error('Error getting submissions:', error);
+        return 0;
+    }
+}
+
+// ============================================
+// GET REFERRALS COUNT
+// ============================================
+async function getReferralsCount(userId) {
+    try {
+        var { count, error } = await supabase
+            .from('referrals')
+            .select('id', { count: 'exact' })
+            .eq('referrer_id', userId);
+        
+        if (error) {
+            if (error.code === '42P01' || error.code === 'PGRST205') {
+                return 0;
+            }
+            throw error;
+        }
+        return count || 0;
+    } catch (error) {
+        console.error('Error getting referrals:', error);
+        return 0;
+    }
+}
+
+// ============================================
+// RENDER OVERVIEW
 // ============================================
 export async function renderOverview(container, dashboard) {
     if (!container) return;
@@ -121,7 +289,8 @@ export async function renderOverview(container, dashboard) {
                 ${dashboard.renderLeaderboardItems()}
             </div>
         </div>
-    // Bind events
+    `;
+
     bindOverviewEvents(container, dashboard);
     dashboard.setupModalCloseHandlers();
 }
@@ -135,7 +304,7 @@ function bindOverviewEvents(container, dashboard) {
             e.stopPropagation();
             var action = this.dataset.action;
             if (action === 'wallet') {
-                if (dashboard.loadWallet) dashboard.loadWallet(dashboard.container);
+                if (dashboard.showFundWalletModal) dashboard.showFundWalletModal();
             } else if (action === 'stars') {
                 if (dashboard.showConvertStarsModal) dashboard.showConvertStarsModal();
             } else if (action === 'submissions') {
@@ -159,161 +328,4 @@ function bindOverviewEvents(container, dashboard) {
         }
         showToast('Leaderboard refreshed!', 'success');
     });
-}
-
-// ============================================
-// GET STUDENT PROGRESS - FIXED
-// ============================================
-async function getStudentProgress(userId) {
-    try {
-        // Try to get from student_progress table
-        var { data, error } = await supabase
-            .from('student_progress')
-            .select('*')
-            .eq('student_id', userId)
-            .single();
-        
-        if (error) {
-            // If table doesn't exist, use user_profiles gp_points
-            if (error.code === 'PGRST205') {
-                var { data: profile } = await supabase
-                    .from('user_profiles')
-                    .select('gp_points')
-                    .eq('id', userId)
-                    .single();
-                
-                if (profile) {
-                    return {
-                        currentGP: profile.gp_points || 0,
-                        progress: (profile.gp_points || 0) / 50,
-                        totalStars: 0,
-                        currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
-                        nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
-                        progressToNext: 0
-                    };
-                }
-                return null;
-            }
-            throw error;
-        }
-        
-        if (!data) return null;
-
-        // Calculate badge based on GP
-        var gp = data.current_gp || 0;
-        var progress = data.progress || 0;
-        var totalStars = data.stars_earned || 0;
-        var currentBadge = getBadgeFromGP(gp);
-        var nextBadge = getNextBadgeFromGP(gp);
-        var progressToNext = getProgressToNextBadgeFromGP(gp);
-
-        return {
-            currentGP: gp,
-            progress: progress,
-            totalStars: totalStars,
-            currentBadge: currentBadge,
-            nextBadge: nextBadge,
-            progressToNext: progressToNext
-        };
-    } catch (error) {
-        console.error('Error getting student progress:', error);
-        return null;
-    }
-}
-
-// ============================================
-// BADGE HELPERS
-// ============================================
-function getBadgeFromGP(gp) {
-    var badges = [
-        { name: 'Starter', icon: '🌱', color: '#10b981', maxGP: 1250 },
-        { name: 'Diploma', icon: '📜', color: '#3b82f6', maxGP: 2500 },
-        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', maxGP: 3750 },
-        { name: 'Mastery', icon: '🏆', color: '#f59e0b', maxGP: 4950 },
-        { name: 'Ambassador', icon: '👑', color: '#ef4444', maxGP: Infinity }
-    ];
-    
-    for (var i = 0; i < badges.length; i++) {
-        if (gp <= badges[i].maxGP) {
-            return badges[i];
-        }
-    }
-    return badges[0];
-}
-
-function getNextBadgeFromGP(gp) {
-    var badges = [
-        { name: 'Diploma', icon: '📜', color: '#3b82f6', minGP: 1250 },
-        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', minGP: 2500 },
-        { name: 'Mastery', icon: '🏆', color: '#f59e0b', minGP: 3750 },
-        { name: 'Ambassador', icon: '👑', color: '#ef4444', minGP: 4950 }
-    ];
-    
-    for (var i = 0; i < badges.length; i++) {
-        if (gp < badges[i].minGP) {
-            return badges[i];
-        }
-    }
-    return null;
-}
-
-function getProgressToNextBadgeFromGP(gp) {
-    var nextBadge = getNextBadgeFromGP(gp);
-    if (!nextBadge) return 100;
-    
-    var previousMax = 0;
-    var badges = [0, 1250, 2500, 3750, 4950];
-    var currentIndex = 0;
-    
-    for (var i = 0; i < badges.length; i++) {
-        if (gp >= badges[i]) {
-            currentIndex = i;
-        }
-    }
-    
-    var currentMin = badges[currentIndex] || 0;
-    var nextMax = badges[currentIndex + 1] || 4950;
-    var range = nextMax - currentMin;
-    var progressInRange = gp - currentMin;
-    
-    return Math.min(100, Math.round((progressInRange / range) * 100));
-}
-// ============================================
-// GET SUBMISSIONS COUNT
-// ============================================
-async function getSubmissionsCount(userId) {
-    try {
-        var { count, error } = await supabase
-            .from('student_answers')
-            .select('id', { count: 'exact' })
-            .eq('student_id', userId)
-            .eq('status', 'graded');
-        
-        if (error) throw error;
-        return count || 0;
-    } catch (error) {
-        console.error('Error getting submissions:', error);
-        return 0;
-    }
-}
-
-// ============================================
-// GET REFERRALS COUNT
-// ============================================
-async function getReferralsCount(userId) {
-    try {
-        var { count, error } = await supabase
-            .from('referrals')
-            .select('id', { count: 'exact' })
-            .eq('referrer_id', userId);
-        
-        if (error) {
-            if (error.code === '42P01') return 0;
-            throw error;
-        }
-        return count || 0;
-    } catch (error) {
-        console.error('Error getting referrals:', error);
-        return 0;
-    }
 }
