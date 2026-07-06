@@ -6,7 +6,7 @@
 
 import { Dashboard } from './user-dashboard.js';
 import { renderOverview } from './user-tabs.js';
-import { loadMessages } from './user-messages.js';
+import { loadMessages } from './user-message.js';
 import { loadSubmissions } from './user-submissions.js';
 import { loadWallet, showFundWalletModal, showConvertStarsModal } from './user-wallet.js';
 import { modalManager } from './user-modals.js';
