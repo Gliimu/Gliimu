@@ -171,10 +171,31 @@ export async function loadPartnerships() {
             .from('partnerships')
             .select('*')
             .order('created_at', { ascending: false });
-        if (error) throw error;
+        if (error) {
+            // If table doesn't exist, return empty array
+            if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+                console.warn('Partnerships table not found, returning empty array');
+                return [];
+            }
+            throw error;
+        }
         return data || [];
     } catch (error) {
         console.error('Error loading partnerships:', error);
+        return [];
+    }
+}
+
+export async function loadHubContent() {
+    try {
+        const { data, error } = await supabase
+            .from('hub_contents')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error loading hub content:', error);
         return [];
     }
 }
@@ -212,68 +233,6 @@ export async function searchUsers(query) {
     }
 }
 
-// ============================================
-// LOAD HUB CONTENT
-// ============================================
-export async function loadHubContent() {
-    try {
-        const { data, error } = await supabase
-            .from('hub_contents')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    } catch (error) {
-        console.error('Error loading hub content:', error);
-        return [];
-    }
-}
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-export function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-export function renderRecentPayments(payments) {
-    if (!payments.length) return '<div class="empty-state">No payments yet</div>';
-    return payments.map(p => `
-        <div class="payment-item ${p.status}">
-            <div class="payment-info">
-                <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
-                <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
-                <div class="payment-ref">${p.user_name || p.user_email}</div>
-            </div>
-            <div class="payment-status ${p.status}">${p.status}</div>
-        </div>
-    `).join('');
-}
-
-// ============================================
-// LOAD HUB CONTENT
-// ============================================
-export async function loadHubContent() {
-    try {
-        const { data, error } = await supabase
-            .from('hub_contents')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    } catch (error) {
-        console.error('Error loading hub content:', error);
-        return [];
-    }
-}
-
-// ============================================
-// GET ADMIN LEADERBOARD
-// ============================================
 export async function getAdminLeaderboard() {
     try {
         const { data, error } = await supabase
@@ -290,8 +249,32 @@ export async function getAdminLeaderboard() {
 }
 
 // ============================================
-// RENDER LEADERBOARD ITEMS
+// HELPER FUNCTIONS
 // ============================================
+
+export function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+export function renderRecentPayments(payments) {
+    if (!payments || payments.length === 0) {
+        return '<div class="empty-state">No payments yet</div>';
+    }
+    return payments.map(p => `
+        <div class="payment-item ${p.status}">
+            <div class="payment-info">
+                <div class="payment-amount">₦${p.amount.toLocaleString()}</div>
+                <div class="payment-date">${new Date(p.submitted_at).toLocaleDateString()}</div>
+                <div class="payment-ref">${p.user_name || p.user_email}</div>
+            </div>
+            <div class="payment-status ${p.status}">${p.status}</div>
+        </div>
+    `).join('');
+}
+
 export function renderLeaderboardItems(users) {
     if (!users || users.length === 0) {
         return '<div class="empty-state">No data yet</div>';
