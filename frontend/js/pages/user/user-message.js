@@ -141,28 +141,6 @@ export function renderMessageThreads(messages) {
 }
 
 // ============================================
-// TEST FUNCTION - For debugging
-// ============================================
-export async function testSendMessage(dashboard) {
-    console.log('🔍 Test: Attempting to send message...');
-    console.log('🔍 Dashboard:', dashboard);
-    console.log('🔍 Current user:', dashboard.currentUser);
-    
-    var testData = {
-        category: 'inquire',
-        subject: 'Test Message',
-        message: 'This is a test message from the debug function.',
-        applyRole: 'student',
-        workLink: ''
-    };
-    
-    window._tempMessageData = testData;
-    var result = await submitNewMessage(dashboard);
-    console.log('🔍 Result:', result);
-    return result;
-}
-
-// ============================================
 // SHOW NEW MESSAGE MODAL
 // ============================================
 export function showNewMessageModal(dashboard) {
@@ -265,7 +243,7 @@ export function showNewMessageModal(dashboard) {
 }
 
 // ============================================
-// SUBMIT NEW MESSAGE
+// SUBMIT NEW MESSAGE - FIXED (no birth_day/month)
 // ============================================
 export async function submitNewMessage(dashboard) {
     var data = window._tempMessageData;
@@ -304,6 +282,7 @@ export async function submitNewMessage(dashboard) {
         insertData.username = profile?.username || 'user';
         insertData.role = applyRole || 'student';
         insertData.submitted_at = new Date().toISOString();
+        
         await supabase.from('user_profiles').update({ 
             application_status: 'pending', 
             applied_role: applyRole || 'student' 
@@ -315,6 +294,8 @@ export async function submitNewMessage(dashboard) {
         insertData.created_at = new Date().toISOString();
     }
 
+    console.log('📤 Inserting into', tableName, insertData);
+
     var { error } = await supabase.from(tableName).insert([insertData]);
     if (error) {
         console.error('Insert error:', error);
@@ -324,4 +305,26 @@ export async function submitNewMessage(dashboard) {
 
     showToast('✅ Message sent!', 'success');
     return true;
+}
+
+// ============================================
+// TEST FUNCTION - For debugging
+// ============================================
+export async function testSendMessage(dashboard) {
+    console.log('🔍 Test: Attempting to send message...');
+    console.log('🔍 Dashboard:', dashboard);
+    console.log('🔍 Current user:', dashboard.currentUser);
+    
+    var testData = {
+        category: 'inquire',
+        subject: 'Test Message',
+        message: 'This is a test message from the debug function.',
+        applyRole: 'student',
+        workLink: ''
+    };
+    
+    window._tempMessageData = testData;
+    var result = await submitNewMessage(dashboard);
+    console.log('🔍 Result:', result);
+    return result;
 }
