@@ -48,26 +48,38 @@ export class GeneralDashboard {
         }
     }
 
-    // ============================================
-    // RENDER DASHBOARD
-    // ============================================
-    async render(container) {
-        this.container = container;
-        
-        // Setup sticky nav event listeners
-        this.setupStickyNav();
-        
-        // Setup alert dropdown toggle
+  // ============================================
+// RENDER DASHBOARD - FIXED
+// ============================================
+async render(container) {
+    this.container = container;
+    
+    console.log('📋 Rendering dashboard...');
+    
+    // Setup sticky nav event listeners
+    this.setupStickyNav();
+    
+    // Setup alert dropdown toggle (with a small delay to ensure DOM is ready)
+    setTimeout(() => {
         this.setupAlertDropdown();
-        
-        await this.loadDashboard();
-        await this.loadBankDetails();
-        
-        // Update alert badge after loading
-        if (this.alertManager) {
-            this.updateAlertBadge(this.alertManager.unreadCount || 0);
-        }
+    }, 100);
+    
+    await this.loadDashboard();
+    await this.loadBankDetails();
+    
+    // Update alert badge after loading
+    if (this.alertManager) {
+        this.updateAlertBadge(this.alertManager.unreadCount || 0);
     }
+    
+    // Also update alert dropdown content
+    this.updateAlertIcon({
+        alerts: this.alertManager?.alerts || [],
+        unreadCount: this.alertManager?.unreadCount || 0
+    });
+    
+    console.log('✅ Dashboard rendered');
+}
 
     // ============================================
     // LOAD BANK DETAILS
@@ -243,33 +255,59 @@ export class GeneralDashboard {
         document.addEventListener('click', this._closeNavHandler);
     }
 
-    // ============================================
-    // SETUP ALERT DROPDOWN
-    // ============================================
-    setupAlertDropdown() {
-        const alertBtn = document.getElementById('alertIconBtn');
-        const alertDropdown = document.getElementById('alertDropdown');
+  // ============================================
+// SETUP ALERT DROPDOWN - FIXED
+// ============================================
+setupAlertDropdown() {
+    const alertBtn = document.getElementById('alertIconBtn');
+    const alertDropdown = document.getElementById('alertDropdown');
+    
+    if (alertBtn) {
+        // Remove any existing listeners
+        alertBtn.removeEventListener('click', this._alertToggleHandler);
+        alertBtn.removeEventListener('click', this._alertDebugHandler);
         
-        if (alertBtn) {
-            alertBtn.removeEventListener('click', this._alertToggleHandler);
-            this._alertToggleHandler = (e) => {
-                e.stopPropagation();
-                alertDropdown?.classList.toggle('open');
-            };
-            alertBtn.addEventListener('click', this._alertToggleHandler);
-        }
-
-        // Mark all read button
-        const markReadBtn = document.getElementById('alertMarkRead');
-        if (markReadBtn) {
-            markReadBtn.removeEventListener('click', this._markReadHandler);
-            this._markReadHandler = async (e) => {
-                e.stopPropagation();
-                await this.markAllAlertsRead();
-            };
-            markReadBtn.addEventListener('click', this._markReadHandler);
-        }
+        // Create a new handler with debug logging
+        this._alertToggleHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔔 Alert button clicked!');
+            console.log('Alert dropdown element:', alertDropdown);
+            
+            if (alertDropdown) {
+                alertDropdown.classList.toggle('open');
+                console.log('Dropdown open state:', alertDropdown.classList.contains('open'));
+            } else {
+                console.error('❌ Alert dropdown not found in DOM');
+            }
+        };
+        
+        // Also add a debug handler to confirm click registration
+        this._alertDebugHandler = (e) => {
+            console.log('🔔 Alert button click event fired');
+        };
+        
+        alertBtn.addEventListener('click', this._alertToggleHandler);
+        alertBtn.addEventListener('click', this._alertDebugHandler);
+        
+        console.log('✅ Alert button listener attached');
+    } else {
+        console.error('❌ Alert button #alertIconBtn not found in DOM');
     }
+
+    // Mark all read button
+    const markReadBtn = document.getElementById('alertMarkRead');
+    if (markReadBtn) {
+        markReadBtn.removeEventListener('click', this._markReadHandler);
+        this._markReadHandler = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📌 Mark all read clicked');
+            await this.markAllAlertsRead();
+        };
+        markReadBtn.addEventListener('click', this._markReadHandler);
+    }
+}
 
     // ============================================
     // UPDATE ALERT ICON (Called from router)
