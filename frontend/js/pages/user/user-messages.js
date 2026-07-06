@@ -1,7 +1,5 @@
 // ============================================
 // USER MESSAGES - Message Logic
-// Path: /frontend/js/pages/user/user-messages.js
-// Purpose: Handle all messaging, categories, file uploads
 // ============================================
 
 import { supabase } from '../../modules/supabase.js';
@@ -12,10 +10,8 @@ import {
     getStatusColor, 
     getStatusLabel, 
     getCategoryLabel,
-    getCategoryIcon,
     generateId
 } from './user-utils.js';
-import { modalManager } from './user-modals.js';
 
 // ============================================
 // LOAD MESSAGES
@@ -403,7 +399,6 @@ export function showNewMessageModal(dashboard) {
         }
     });
 
-    // Category change handler
     document.getElementById('messageCategory')?.addEventListener('change', function(e) {
         var category = this.value;
         var hint = document.getElementById('categoryHint');
@@ -473,82 +468,71 @@ export function showNewMessageModal(dashboard) {
         document.getElementById('messageFileName').textContent = 'No file selected';
     });
 
-   document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
-    var form = document.getElementById('newMessageForm');
-    if (!form) {
-        showToast('Form not found', 'error');
-        return;
-    }
+    document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
+        var form = document.getElementById('newMessageForm');
+        if (!form) {
+            showToast('Form not found', 'error');
+            return;
+        }
 
-    var formData = new FormData(form);
-    
-    var category = formData.get('category') || '';
-    var subject = formData.get('subject') || '';
-    var message = formData.get('message') || '';
-    var applyRole = formData.get('applyRole') || 'student';
-    var workLink = formData.get('workLink') || '';
+        var formData = new FormData(form);
+        
+        var category = formData.get('category') || '';
+        var subject = formData.get('subject') || '';
+        var message = formData.get('message') || '';
+        var applyRole = formData.get('applyRole') || 'student';
+        var workLink = formData.get('workLink') || '';
 
-    console.log('📝 FormData - Category:', category);
-    console.log('📝 FormData - Subject:', subject);
-    console.log('📝 FormData - Message:', message);
+        if (!category) {
+            showToast('Please select a category', 'error');
+            return;
+        }
 
-    if (!category) {
-        showToast('Please select a category', 'error');
-        return;
-    }
+        if (!subject || subject.length === 0) {
+            showToast('Please enter a subject', 'error');
+            document.getElementById('messageSubject').focus();
+            return;
+        }
 
-    if (!subject || subject.length === 0) {
-        showToast('Please enter a subject', 'error');
-        document.getElementById('messageSubject').focus();
-        return;
-    }
+        if (!message || message.length === 0) {
+            showToast('Please enter a message', 'error');
+            document.getElementById('messageBody').focus();
+            return;
+        }
 
-    if (!message || message.length === 0) {
-        showToast('Please enter a message', 'error');
-        document.getElementById('messageBody').focus();
-        return;
-    }
+        var btn = document.getElementById('sendMessageBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
-    var btn = document.getElementById('sendMessageBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        window._tempMessageData = {
+            category: category,
+            subject: subject,
+            message: message,
+            applyRole: applyRole,
+            workLink: workLink
+        };
 
-    // Store data in window for the submit function
-    window._tempMessageData = {
-        category: category,
-        subject: subject,
-        message: message,
-        applyRole: applyRole,
-        workLink: workLink
-    };
+        var success = await submitNewMessage(dashboard);
+        
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
 
-    // Get the dashboard instance
-    var dashboard = window._generalDashboard || this._dashboard || window._userRouter?.activeModule;
-    
-    // Call the submit function directly from the imported module
-    var success = await submitNewMessage(dashboard);
-    
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
-
-    if (success) {
-        var modal = document.getElementById('newMessageModal');
-        if (modal) {
+        if (success) {
             modal.classList.remove('active');
             document.body.style.overflow = '';
+            form.reset();
+            document.getElementById('messageFilePreview').style.display = 'none';
+            document.getElementById('roleSelectGroup').style.display = 'none';
+            document.getElementById('workLinkGroup').style.display = 'none';
+            window._messageFileData = null;
+            document.getElementById('messageFileInput').value = '';
+            window._tempMessageData = null;
         }
-        form.reset();
-        document.getElementById('messageFilePreview').style.display = 'none';
-        document.getElementById('roleSelectGroup').style.display = 'none';
-        document.getElementById('workLinkGroup').style.display = 'none';
-        window._messageFileData = null;
-        document.getElementById('messageFileInput').value = '';
-        window._tempMessageData = null;
-    }
-});
+    });
+}
 
 // ============================================
-// SUBMIT NEW MESSAGE - FIXED
+// SUBMIT NEW MESSAGE
 // ============================================
 export async function submitNewMessage(dashboard) {
     var data = window._tempMessageData;
@@ -559,8 +543,6 @@ export async function submitNewMessage(dashboard) {
 
     var { category, subject, message, applyRole, workLink } = data;
     var file = window._messageFileData;
-
-    console.log('📤 Submitting message:', { category, subject, message, applyRole, workLink, file: !!file });
 
     try {
         var userId = dashboard.currentUser.id;
@@ -580,15 +562,6 @@ export async function submitNewMessage(dashboard) {
         var tableName = '';
         var insertData = {};
 
-        // Generate a UUID for the id field
-        function generateId() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0;
-                var v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
         switch(category) {
             case 'apply':
                 tableName = 'applications';
@@ -602,7 +575,6 @@ export async function submitNewMessage(dashboard) {
                     status: 'pending',
                     submitted_at: new Date().toISOString()
                 };
-                // Update user profile to show they have a pending application
                 await supabase
                     .from('user_profiles')
                     .update({
@@ -674,8 +646,6 @@ export async function submitNewMessage(dashboard) {
                 return false;
         }
 
-        console.log('📤 Inserting into', tableName, insertData);
-
         var { error } = await supabase
             .from(tableName)
             .insert([insertData]);
@@ -687,11 +657,8 @@ export async function submitNewMessage(dashboard) {
         }
 
         showToast('✅ Message sent successfully!', 'success');
-        
-        // Refresh messages
         await loadMessages(dashboard.container, dashboard);
 
-        // Clean up
         window._messageFileData = null;
         window._tempMessageData = null;
 
@@ -705,7 +672,7 @@ export async function submitNewMessage(dashboard) {
 }
 
 // ============================================
-// UPLOAD MESSAGE FILE - Make sure it's exported
+// UPLOAD MESSAGE FILE
 // ============================================
 export async function uploadMessageFile(file) {
     if (!file) return null;
