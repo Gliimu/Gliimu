@@ -1649,16 +1649,19 @@ showNewMessageModal() {
     });
 }
 
-    // ============================================
-    // SUBMIT NEW MESSAGE
-    // ============================================
-    async submitNewMessage() {
-        const category = document.getElementById('messageCategory').value;
-        const subject = document.getElementById('messageSubject').value.trim();
-        const message = document.getElementById('messageBody').value.trim();
-        const file = window._messageFileData;
-        const applyRole = document.getElementById('applyRole')?.value || 'student';
-        const workLink = document.getElementById('workLink')?.value.trim() || null;
+// ============================================
+// SUBMIT NEW MESSAGE (Already correct)
+// ============================================
+async submitNewMessage() {
+    // Get form values directly from DOM
+    const category = document.getElementById('messageCategory').value;
+    const subject = document.getElementById('messageSubject').value.trim();
+    const message = document.getElementById('messageBody').value.trim();
+    const file = window._messageFileData;
+    const applyRole = document.getElementById('applyRole')?.value || 'student';
+    const workLink = document.getElementById('workLink')?.value.trim() || null;
+
+    console.log('📤 Submitting:', { category, subject, message, applyRole, workLink, file: !!file });
 
         try {
             const userId = this.currentUser.id;
