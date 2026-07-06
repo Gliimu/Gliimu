@@ -7,63 +7,6 @@ import { showToast } from '../../modules/toast.js';
 import { formatCurrency } from './user-utils.js';
 
 // ============================================
-// BADGE HELPERS
-// ============================================
-function getBadgeFromGP(gp) {
-    var badges = [
-        { name: 'Starter', icon: '🌱', color: '#10b981', maxGP: 1250 },
-        { name: 'Diploma', icon: '📜', color: '#3b82f6', maxGP: 2500 },
-        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', maxGP: 3750 },
-        { name: 'Mastery', icon: '🏆', color: '#f59e0b', maxGP: 4950 },
-        { name: 'Ambassador', icon: '👑', color: '#ef4444', maxGP: Infinity }
-    ];
-    
-    for (var i = 0; i < badges.length; i++) {
-        if (gp <= badges[i].maxGP) {
-            return badges[i];
-        }
-    }
-    return badges[0];
-}
-
-function getNextBadgeFromGP(gp) {
-    var badges = [
-        { name: 'Diploma', icon: '📜', color: '#3b82f6', minGP: 1250 },
-        { name: 'Advanced Diploma', icon: '🎓', color: '#8b5cf6', minGP: 2500 },
-        { name: 'Mastery', icon: '🏆', color: '#f59e0b', minGP: 3750 },
-        { name: 'Ambassador', icon: '👑', color: '#ef4444', minGP: 4950 }
-    ];
-    
-    for (var i = 0; i < badges.length; i++) {
-        if (gp < badges[i].minGP) {
-            return badges[i];
-        }
-    }
-    return null;
-}
-
-function getProgressToNextBadgeFromGP(gp) {
-    var nextBadge = getNextBadgeFromGP(gp);
-    if (!nextBadge) return 100;
-    
-    var badges = [0, 1250, 2500, 3750, 4950];
-    var currentIndex = 0;
-    
-    for (var i = 0; i < badges.length; i++) {
-        if (gp >= badges[i]) {
-            currentIndex = i;
-        }
-    }
-    
-    var currentMin = badges[currentIndex] || 0;
-    var nextMax = badges[currentIndex + 1] || 4950;
-    var range = nextMax - currentMin;
-    var progressInRange = gp - currentMin;
-    
-    return Math.min(100, Math.round((progressInRange / range) * 100));
-}
-
-// ============================================
 // GET STUDENT PROGRESS
 // ============================================
 async function getStudentProgress(userId) {
@@ -85,17 +28,13 @@ async function getStudentProgress(userId) {
                 if (profile) {
                     var gp = profile.gp_points || 0;
                     var progress = Math.min(100, (gp / 5000) * 100);
-                    var currentBadge = getBadgeFromGP(gp);
-                    var nextBadge = getNextBadgeFromGP(gp);
-                    var progressToNext = getProgressToNextBadgeFromGP(gp);
-                    
                     return {
                         currentGP: gp,
                         progress: progress,
                         totalStars: 0,
-                        currentBadge: currentBadge,
-                        nextBadge: nextBadge,
-                        progressToNext: progressToNext
+                        currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+                        nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+                        progressToNext: 0
                     };
                 }
                 return null;
@@ -108,17 +47,14 @@ async function getStudentProgress(userId) {
         var gp = data.current_gp || 0;
         var progress = data.progress || 0;
         var totalStars = data.stars_earned || 0;
-        var currentBadge = getBadgeFromGP(gp);
-        var nextBadge = getNextBadgeFromGP(gp);
-        var progressToNext = getProgressToNextBadgeFromGP(gp);
 
         return {
             currentGP: gp,
             progress: progress,
             totalStars: totalStars,
-            currentBadge: currentBadge,
-            nextBadge: nextBadge,
-            progressToNext: progressToNext
+            currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+            nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+            progressToNext: 0
         };
     } catch (error) {
         console.error('Error getting student progress:', error);
@@ -254,7 +190,7 @@ export async function renderOverview(container, dashboard) {
 
         <div class="progress-section">
             <div class="progress-header">
-                <span>Progress to ${progressData?.nextBadge?.name || 'Ambassador'}</span>
+                <span>Progress to Ambassador</span>
                 <span>${Math.round(progress)}%</span>
             </div>
             <div class="progress-bar-container">
@@ -279,14 +215,7 @@ export async function renderOverview(container, dashboard) {
         </div>
     `;
 
-    bindOverviewEvents(container, dashboard);
-    dashboard.setupModalCloseHandlers();
-}
-
-// ============================================
-// BIND OVERVIEW EVENTS
-// ============================================
-function bindOverviewEvents(container, dashboard) {
+    // Bind events
     document.querySelectorAll('.stat-action-btn').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -316,4 +245,6 @@ function bindOverviewEvents(container, dashboard) {
         }
         showToast('Leaderboard refreshed!', 'success');
     });
+
+    dashboard.setupModalCloseHandlers();
 }
