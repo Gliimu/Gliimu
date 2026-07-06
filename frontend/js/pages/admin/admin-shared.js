@@ -213,6 +213,23 @@ export async function searchUsers(query) {
 }
 
 // ============================================
+// LOAD HUB CONTENT
+// ============================================
+export async function loadHubContent() {
+    try {
+        const { data, error } = await supabase
+            .from('hub_contents')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error loading hub content:', error);
+        return [];
+    }
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
