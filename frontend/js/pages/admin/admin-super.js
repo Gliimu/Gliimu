@@ -21,55 +21,179 @@ import {
 } from './admin-shared.js';
 
 // ============================================
-// OVERVIEW
+// OVERVIEW - Updated with all metrics
 // ============================================
 export async function renderOverview(container) {
     if (!container) return;
     
-    const [payments, users, inquiries, submissions] = await Promise.all([
+    // Load all data in parallel
+    const [payments, users, inquiries, submissions, applications, contracts, jobs, partnerships, hubContent] = await Promise.all([
         loadPayments(),
         loadAllUsers(),
         loadInquiries(),
-        loadAllSubmissions()
+        loadAllSubmissions(),
+        loadApplications(),
+        loadContracts(),
+        loadJobs(),
+        loadPartnerships(),
+        loadHubContent()
     ]);
     
+    // Calculate stats
     const pendingPayments = payments.filter(p => p.status === 'pending');
     const approvedPayments = payments.filter(p => p.status === 'approved');
     const totalRevenue = approvedPayments.reduce((sum, p) => sum + p.amount, 0);
+    
     const pendingInquiries = inquiries.filter(i => i.status === 'pending');
     const pendingSubmissions = submissions.filter(s => s.status === 'pending');
+    const pendingApplications = applications.filter(a => a.status === 'pending');
+    const pendingContracts = contracts.filter(c => c.status === 'pending');
+    const pendingJobs = jobs.filter(j => j.status === 'pending');
+    
+    const totalPending = pendingApplications.length + pendingContracts.length + pendingJobs.length;
+    const newPosts = hubContent.filter(c => {
+        const daysAgo = (Date.now() - new Date(c.created_at).getTime()) / (1000 * 60 * 60 * 24);
+        return daysAgo <= 7 && c.is_active !== false;
+    });
+    
+    // Get top performers for leaderboard
+    const leaderboardData = await getAdminLeaderboard();
     
     container.innerHTML = `
-        <div class="dashboard-overview">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-users"></i></div>
-                    <div class="stat-info"><h3>Total Users</h3><div class="stat-value">${users.length}</div></div>
+        <div class="tab-header">
+            <h2><i class="fas fa-tachometer-alt"></i> Overview</h2>
+            <p>Real-time dashboard metrics and insights</p>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(251, 176, 64, 0.15); color: var(--brand-gold);">
+                    <i class="fas fa-users"></i>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-clock"></i></div>
-                    <div class="stat-info"><h3>Pending Payments</h3><div class="stat-value">${pendingPayments.length}</div></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-question-circle"></i></div>
-                    <div class="stat-info"><h3>Pending Inquiries</h3><div class="stat-value">${pendingInquiries.length}</div></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-briefcase"></i></div>
-                    <div class="stat-info"><h3>Pending Submissions</h3><div class="stat-value">${pendingSubmissions.length}</div></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="stat-info"><h3>Approved Payments</h3><div class="stat-value">${approvedPayments.length}</div></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
-                    <div class="stat-info"><h3>Total Revenue</h3><div class="stat-value">₦${totalRevenue.toLocaleString()}</div></div>
+                <div class="stat-info">
+                    <h3>Total Users</h3>
+                    <div class="stat-value">${users.length}</div>
                 </div>
             </div>
-            <div class="recent-section">
-                <h3>Recent Payments</h3>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Pending Applications</h3>
+                    <div class="stat-value">${pendingApplications.length}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Pending Payments</h3>
+                    <div class="stat-value">${pendingPayments.length}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+                    <i class="fas fa-question-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Pending Inquiries</h3>
+                    <div class="stat-value">${pendingInquiries.length}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Pending Submissions</h3>
+                    <div class="stat-value">${pendingSubmissions.length}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                    <i class="fas fa-file-contract"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Pending Requests</h3>
+                    <div class="stat-value">${totalPending}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Second Row: Revenue & Activity -->
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Approved Payments</h3>
+                    <div class="stat-value">${approvedPayments.length}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(251, 176, 64, 0.15); color: var(--brand-gold);">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Total Revenue</h3>
+                    <div class="stat-value">₦${totalRevenue.toLocaleString()}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                    <i class="fas fa-handshake"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>New Partnerships</h3>
+                    <div class="stat-value">${partnerships.filter(p => p.status === 'active').length}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                    <i class="fas fa-newspaper"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>New Hub Posts (7d)</h3>
+                    <div class="stat-value">${newPosts.length}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity Section -->
+        <div class="recent-activity-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+            <!-- Recent Payments -->
+            <div class="card">
+                <h3><i class="fas fa-wallet" style="color: var(--brand-gold);"></i> Recent Payments</h3>
                 <div class="recent-payments">${renderRecentPayments(payments.slice(0, 5))}</div>
+            </div>
+            
+            <!-- Leaderboard -->
+            <div class="card">
+                <h3><i class="fas fa-trophy" style="color: var(--brand-gold);"></i> Top Performers</h3>
+                <div class="leaderboard-list">
+                    ${renderLeaderboardItems(leaderboardData)}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Applications -->
+        <div class="card" style="margin-top: 20px;">
+            <h3><i class="fas fa-user-plus" style="color: var(--brand-gold);"></i> Recent Applications</h3>
+            <div class="recent-applications">
+                ${applications.slice(0, 5).map(app => `
+                    <div class="application-item">
+                        <div class="app-info">
+                            <span class="app-name">${escapeHtml(app.full_name)}</span>
+                            <span class="app-role">→ ${app.role}</span>
+                            <span class="app-date">${new Date(app.submitted_at).toLocaleDateString()}</span>
+                        </div>
+                        <span class="app-status ${app.status}">${app.status}</span>
+                    </div>
+                `).join('') || '<div class="empty-state">No applications yet</div>'}
             </div>
         </div>
     `;
