@@ -1157,147 +1157,361 @@ async loadMessages(container) {
         </div>
     `;
 
-    // New Message Button
-    document.getElementById('newMessageBtn')?.addEventListener('click', () => {
-        this.showNewMessageModal();
+// ============================================
+// SHOW NEW MESSAGE MODAL (FIXED)
+// ============================================
+showNewMessageModal() {
+    // Check if modal already exists
+    let modal = document.getElementById('newMessageModal');
+    if (modal) {
+        modal.classList.add('active');
+        // Reset form
+        const form = document.getElementById('newMessageForm');
+        if (form) form.reset();
+        document.getElementById('messageFilePreview').style.display = 'none';
+        document.getElementById('roleSelectGroup').style.display = 'none';
+        document.getElementById('workLinkGroup').style.display = 'none';
+        window._messageFileData = null;
+        return;
+    }
+
+    modal = document.createElement('div');
+    modal.id = 'newMessageModal';
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-paper-plane"></i> New Message</h2>
+                <button class="modal-close" id="closeNewMessageModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="newMessageForm">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="messageCategory" required>
+                            <option value="">Select a category...</option>
+                            <option value="apply">📝 Apply (Become a Student/Instructor/Ambassador)</option>
+                            <option value="inquire">❓ Inquire (Ask a question)</option>
+                            <option value="contract">📄 Offer Contract (Propose a contract)</option>
+                            <option value="submit_work">💼 Submit Work (Share your project)</option>
+                            <option value="hire">👔 Employ/Hire (Request employment)</option>
+                        </select>
+                        <small id="categoryHint">Select a category to route your message to the right admin</small>
+                    </div>
+
+                    <div class="form-group" id="roleSelectGroup" style="display:none;">
+                        <label>Apply for Role</label>
+                        <select id="applyRole">
+                            <option value="student">Student</option>
+                            <option value="instructor">Instructor</option>
+                            <option value="ambassador">Ambassador</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Subject *</label>
+                        <input type="text" id="messageSubject" required placeholder="Enter message subject">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Message *</label>
+                        <textarea id="messageBody" rows="5" required placeholder="Type your message in detail..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Attachments (PDF or Images)</label>
+                        <div class="upload-field" onclick="document.getElementById('messageFileInput').click()">
+                            <span class="upload-icon">📎</span>
+                            <span class="upload-text">Click to upload file</span>
+                            <small>Supports PDF, JPG, PNG (Max 10MB)</small>
+                            <input type="file" id="messageFileInput" accept=".pdf,image/*" onchange="window.handleMessageFileUpload(this.files[0])">
+                        </div>
+                        <div class="file-preview" id="messageFilePreview" style="display:none;">
+                            <i class="fas fa-file"></i>
+                            <span class="file-name" id="messageFileName">No file selected</span>
+                            <button type="button" class="btn-remove-file" onclick="window.removeMessageFile()">✕ Remove</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="workLinkGroup" style="display:none;">
+                        <label>Gliimu Link (for work submissions)</label>
+                        <input type="url" id="workLink" placeholder="https://gliimu.com/submit/your-work">
+                        <small>If you have a published work on Gliimu, paste the link here</small>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="width:100%;">
+                        <i class="fas fa-paper-plane"></i> Send Message
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    document.getElementById('closeNewMessageModal')?.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
     });
 
-    // Filter Chips
-    document.querySelectorAll('.filter-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            const filter = chip.dataset.filter;
-            const filtered = filter === 'all' ? messages : messages.filter(m => {
-                if (filter === 'pending') return m.status === 'pending';
-                if (filter === 'replied') return ['replied', 'reviewed', 'approved'].includes(m.status);
-                if (filter === 'closed') return ['closed', 'rejected'].includes(m.status);
-                return true;
-            });
-            document.getElementById('messageThreads').innerHTML = this.renderMessageThreads(filtered);
-        });
+    // Category change handler
+    document.getElementById('messageCategory')?.addEventListener('change', (e) => {
+        const category = e.target.value;
+        const hint = document.getElementById('categoryHint');
+        const roleGroup = document.getElementById('roleSelectGroup');
+        const workLinkGroup = document.getElementById('workLinkGroup');
+
+        // Reset all conditional groups
+        roleGroup.style.display = 'none';
+        workLinkGroup.style.display = 'none';
+
+        // Show/hide role select for apply
+        if (category === 'apply') {
+            roleGroup.style.display = 'block';
+            hint.textContent = 'Your application will be sent to the Manager for review.';
+        } else if (category === 'submit_work') {
+            workLinkGroup.style.display = 'block';
+            hint.textContent = 'Your work submission will be sent to CRM for review.';
+        } else {
+            // Update hints for other categories
+            const hints = {
+                'inquire': 'Your inquiry will be sent to CRM for response.',
+                'contract': 'Your contract offer will be sent to the Manager.',
+                'hire': 'Your job request will be sent to the Manager.'
+            };
+            hint.textContent = hints[category] || 'Select a category to route your message to the right admin';
+        }
     });
 
-    // Set up real-time subscription for new messages
-    this.subscribeToMessages();
+    // File upload handler
+    window.handleMessageFileUpload = (file) => {
+        if (!file) return;
+        
+        // Check file size (10MB limit)
+        if (file.size > 10 * 1024 * 1024) {
+            showToast('File too large. Maximum 10MB.', 'error');
+            return;
+        }
+
+        // Check file type
+        const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            showToast('Only PDF and Image files are allowed.', 'error');
+            return;
+        }
+
+        window._messageFileData = file;
+        const preview = document.getElementById('messageFilePreview');
+        const fileName = document.getElementById('messageFileName');
+        
+        if (fileName) {
+            fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+        }
+        if (preview) {
+            preview.style.display = 'flex';
+        }
+        showToast(`📎 ${file.name} selected`, 'success');
+    };
+
+    window.removeMessageFile = () => {
+        window._messageFileData = null;
+        document.getElementById('messageFileInput').value = '';
+        const preview = document.getElementById('messageFilePreview');
+        if (preview) {
+            preview.style.display = 'none';
+        }
+        document.getElementById('messageFileName').textContent = 'No file selected';
+    };
+
+    // Form submission - FIXED
+    document.getElementById('newMessageForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Get form values directly
+        const category = document.getElementById('messageCategory').value;
+        const subject = document.getElementById('messageSubject').value.trim();
+        const message = document.getElementById('messageBody').value.trim();
+        
+        // Debug logging
+        console.log('Form values:', { category, subject, message });
+
+        // Validate required fields
+        if (!category) {
+            showToast('Please select a category', 'error');
+            return;
+        }
+        if (!subject) {
+            showToast('Please enter a subject', 'error');
+            return;
+        }
+        if (!message) {
+            showToast('Please enter a message', 'error');
+            return;
+        }
+
+        // Submit the message
+        const success = await this.submitNewMessage();
+        if (success) {
+            modal.classList.remove('active');
+            // Reset form
+            document.getElementById('newMessageForm').reset();
+            document.getElementById('messageFilePreview').style.display = 'none';
+            document.getElementById('roleSelectGroup').style.display = 'none';
+            document.getElementById('workLinkGroup').style.display = 'none';
+            window._messageFileData = null;
+        }
+    });
 }
 
 // ============================================
-// GET ALL USER MESSAGES FROM ALL TABLES
+// SUBMIT NEW MESSAGE (FIXED)
 // ============================================
-async getAllUserMessages() {
-    const userId = this.currentUser.id;
-    let allMessages = [];
+async submitNewMessage() {
+    // Get form values directly from DOM
+    const category = document.getElementById('messageCategory').value;
+    const subject = document.getElementById('messageSubject').value.trim();
+    const message = document.getElementById('messageBody').value.trim();
+    const file = window._messageFileData;
+    const applyRole = document.getElementById('applyRole')?.value || 'student';
+    const workLink = document.getElementById('workLink')?.value.trim() || null;
+
+    console.log('Submitting message:', { category, subject, message, applyRole, workLink });
 
     try {
-        // 1. Applications (role applications)
-        const { data: applications } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('user_id', userId)
-            .order('submitted_at', { ascending: false });
+        const userId = this.currentUser.id;
+        const profile = this.currentProfile;
 
-        if (applications) {
-            allMessages = allMessages.concat(applications.map(a => ({
-                ...a,
-                _table: 'applications',
-                _category: 'apply',
-                _display_status: a.status,
-                _date: a.submitted_at,
-                _subject: `Application: ${a.role}`,
-                _message: `Applied to become a ${a.role}`,
-                _icon: '🎓'
-            })));
+        let fileUrl = null;
+        let fileName = null;
+
+        // Upload file if present
+        if (file) {
+            const uploaded = await this.uploadMessageFile(file);
+            if (uploaded) {
+                fileUrl = uploaded.url;
+                fileName = uploaded.name;
+            }
         }
 
-        // 2. Inquiries
-        const { data: inquiries } = await supabase
-            .from('inquiries')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        let result;
+        let tableName = '';
+        let data = {};
 
-        if (inquiries) {
-            allMessages = allMessages.concat(inquiries.map(i => ({
-                ...i,
-                _table: 'inquiries',
-                _category: 'inquire',
-                _display_status: i.status,
-                _date: i.created_at,
-                _subject: i.subject,
-                _message: i.message,
-                _icon: '❓'
-            })));
+        switch(category) {
+            case 'apply':
+                tableName = 'applications';
+                data = {
+                    user_id: userId,
+                    full_name: profile?.name || 'User',
+                    email: this.currentUser.email,
+                    username: profile?.username || 'user',
+                    role: applyRole || 'student',
+                    birth_day: profile?.birth_day || null,
+                    birth_month: profile?.birth_month || null,
+                    status: 'pending',
+                    submitted_at: new Date().toISOString()
+                };
+                // Also update user profile
+                await supabase
+                    .from('user_profiles')
+                    .update({
+                        application_status: 'pending',
+                        applied_role: applyRole || 'student'
+                    })
+                    .eq('id', userId);
+                break;
+
+            case 'inquire':
+                tableName = 'inquiries';
+                data = {
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
+
+            case 'contract':
+                tableName = 'contracts';
+                data = {
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
+
+            case 'submit_work':
+                tableName = 'submissions';
+                data = {
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    gliimu_link: workLink || null,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
+
+            case 'hire':
+                tableName = 'jobs';
+                data = {
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
+
+            default:
+                showToast('Invalid category selected', 'error');
+                return false;
         }
 
-        // 3. Contracts
-        const { data: contracts } = await supabase
-            .from('contracts')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        console.log('Inserting into', tableName, data);
 
-        if (contracts) {
-            allMessages = allMessages.concat(contracts.map(c => ({
-                ...c,
-                _table: 'contracts',
-                _category: 'contract',
-                _display_status: c.status,
-                _date: c.created_at,
-                _subject: c.subject,
-                _message: c.message,
-                _icon: '📄'
-            })));
+        // Insert into the appropriate table
+        const { error } = await supabase
+            .from(tableName)
+            .insert([data]);
+
+        if (error) {
+            console.error('Error sending message:', error);
+            showToast('Failed to send message: ' + error.message, 'error');
+            return false;
         }
 
-        // 4. Submissions (work submissions)
-        const { data: submissions } = await supabase
-            .from('submissions')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        showToast('✅ Message sent successfully!', 'success');
 
-        if (submissions) {
-            allMessages = allMessages.concat(submissions.map(s => ({
-                ...s,
-                _table: 'submissions',
-                _category: 'submit_work',
-                _display_status: s.status,
-                _date: s.created_at,
-                _subject: s.subject,
-                _message: s.message,
-                _icon: '💼'
-            })));
-        }
+        // Refresh messages
+        await this.loadMessages(this.container);
 
-        // 5. Jobs (employ/hire)
-        const { data: jobs } = await supabase
-            .from('jobs')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        // Clean up
+        window._messageFileData = null;
+        document.getElementById('messageFileInput').value = '';
+        document.getElementById('messageFilePreview').style.display = 'none';
 
-        if (jobs) {
-            allMessages = allMessages.concat(jobs.map(j => ({
-                ...j,
-                _table: 'jobs',
-                _category: 'hire',
-                _display_status: j.status,
-                _date: j.created_at,
-                _subject: j.subject,
-                _message: j.message,
-                _icon: '💼'
-            })));
-        }
-
-        // Sort all messages by date (newest first)
-        allMessages.sort((a, b) => new Date(b._date) - new Date(a._date));
-
-        return allMessages;
+        return true;
 
     } catch (error) {
-        console.error('Error loading messages:', error);
-        return [];
+        console.error('Error submitting message:', error);
+        showToast('Failed to send message: ' + error.message, 'error');
+        return false;
     }
 }
 
