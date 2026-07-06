@@ -31,6 +31,9 @@ export class UserPage {
         this.settingsManager = null;
         this.isInitialized = false;
         
+        // Store reference to this instance for global navigation
+        window._userPage = this;
+        
         this.init();
     }
 
@@ -60,6 +63,9 @@ export class UserPage {
 
             // Setup navigation
             this.setupNavigation();
+
+            // Setup sticky nav global functions
+            this.setupStickyNavFunctions();
 
             // Load default tab
             this.loadTab('dashboard');
@@ -99,7 +105,10 @@ export class UserPage {
             // Update UI
             this.updateUserUI(user, profile);
             
-            // Store user data
+            // Store user data globally
+            window.currentUser = user;
+            window.currentProfile = profile;
+            
             localStorage.setItem('glimu_user', JSON.stringify({
                 id: user.id,
                 name: profile.name,
@@ -184,8 +193,6 @@ export class UserPage {
     // UPDATE ALERT ICON
     // ============================================
     updateAlertIcon(data) {
-        // This will be handled by the general dashboard
-        // We'll pass this to the active module
         if (this.activeModule && typeof this.activeModule.updateAlertIcon === 'function') {
             this.activeModule.updateAlertIcon(data);
         }
@@ -222,6 +229,116 @@ export class UserPage {
         if (overlay) {
             overlay.addEventListener('click', () => this.closeSidebar());
         }
+    }
+
+    // ============================================
+    // SETUP STICKY NAV GLOBAL FUNCTIONS
+    // ============================================
+    setupStickyNavFunctions() {
+        // Navigation functions - exposed to window
+        window.goToDashboard = () => {
+            window.location.href = '/user';
+        };
+
+        window.goToHub = () => {
+            window.location.href = '/hub';
+        };
+
+        window.goToLearningPath = () => {
+            const role = this.currentProfile?.role || 'user';
+            if (role === 'student' || role === 'instructor') {
+                window.location.href = '/course';
+            } else {
+                this.showAccessModal();
+            }
+        };
+
+        window.goToVirtualRoom = () => {
+            const role = this.currentProfile?.role || 'user';
+            if (role === 'student' || role === 'instructor') {
+                window.location.href = '/virtualroom';
+            } else {
+                this.showAccessModal();
+            }
+        };
+
+        window.goToChat = () => {
+            window.location.href = '/chat';
+        };
+
+        window.goToMerchandise = () => {
+            window.location.href = '/merchandise';
+        };
+
+        window.goToUser = () => {
+            window.location.href = '/user';
+        };
+
+        window.goBack = () => {
+            if (document.referrer && document.referrer.includes('/user')) {
+                window.history.back();
+            } else {
+                window.location.href = '/user';
+            }
+        };
+
+        window.goToContact = () => {
+            window.location.href = '/contact';
+        };
+
+        window.reportIssue = () => {
+            showToast('📝 Report an issue? Our team will investigate.', 'info');
+        };
+
+        window.switchTab = (tab) => {
+            this.loadTab(tab);
+        };
+    }
+
+    // ============================================
+    // SHOW ACCESS MODAL (Virtual Room / Courses)
+    // ============================================
+    showAccessModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 450px; text-align: center;">
+                <div class="modal-header">
+                    <h2><i class="fas fa-lock" style="color: var(--brand-gold);"></i> Access Restricted</h2>
+                    <button class="modal-close" id="closeAccessModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">
+                        <i class="fas fa-graduation-cap" style="color: var(--brand-gold);"></i>
+                    </div>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Only Students and Instructors Can Access</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem;">
+                        Virtual Rooms and Courses are exclusive to students and instructors. 
+                        Apply to become a student to unlock these features and start learning from industry experts!
+                    </p>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <button id="applyNowBtn" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-paper-plane"></i> Apply Now
+                        </button>
+                        <button id="closeAccessBtn" class="btn-outline">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('closeAccessModal')?.addEventListener('click', () => modal.remove());
+        document.getElementById('closeAccessBtn')?.addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        document.getElementById('applyNowBtn')?.addEventListener('click', () => {
+            modal.remove();
+            // Switch to messages tab where they can apply
+            this.loadTab('messages');
+            showToast('Go to Messages to apply for a role', 'info');
+        });
     }
 
     // ============================================
@@ -307,24 +424,21 @@ export class UserPage {
         try {
             let module;
             
-            switch(role) {
-                case 'student':
-                    const { default: StudentDashboard } = await import('./user-student.js');
-                    module = new StudentDashboard(this.currentUser, this.currentProfile);
-                    break;
-                case 'instructor':
-                    const { default: InstructorDashboard } = await import('./user-instructor.js');
-                    module = new InstructorDashboard(this.currentUser, this.currentProfile);
-                    break;
-                case 'admin':
-                    // Use existing admin dashboard or import
-                    const { default: AdminDashboard } = await import('./user-admin.js');
-                    module = new AdminDashboard(this.currentUser, this.currentProfile);
-                    break;
-                default:
-                    // Partner/General user
-                    const { default: GeneralDashboard } = await import('./user-general.js');
-                    module = new GeneralDashboard(this.currentUser, this.currentProfile);
+            // Students and regular users both use GeneralDashboard
+            if (role === 'student' || role === 'user' || role === 'partner' || role === 'ambassador') {
+                const { default: GeneralDashboard } = await import('./user-general.js');
+                module = new GeneralDashboard(this.currentUser, this.currentProfile);
+            } else if (role === 'instructor') {
+                const { default: InstructorDashboard } = await import('./user-instructor.js');
+                module = new InstructorDashboard(this.currentUser, this.currentProfile);
+            } else if (role === 'admin' || role === 'super_admin' || role === 'crm' || role === 'manager' || role === 'secretary' || role === 'member') {
+                // Admin roles redirect to admin dashboard
+                window.location.href = '/admin';
+                return;
+            } else {
+                // Fallback to GeneralDashboard
+                const { default: GeneralDashboard } = await import('./user-general.js');
+                module = new GeneralDashboard(this.currentUser, this.currentProfile);
             }
             
             // Store reference to active module
