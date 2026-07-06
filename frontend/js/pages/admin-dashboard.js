@@ -147,7 +147,7 @@ async function checkAuth() {
     if (profileError) {
         console.error('Profile error:', profileError);
         showToast('Error loading profile', 'error');
-        setTimeout(() => window.location.href = '/dashboard.html', 1500);
+        setTimeout(() => window.location.href = '/user.html', 1500);
         return false;
     }
     
@@ -162,7 +162,7 @@ async function checkAuth() {
         
         // Redirect to user dashboard
         setTimeout(() => {
-            window.location.href = '/dashboard.html';
+            window.location.href = '/user.html';
         }, 1500);
         return false;
     }
