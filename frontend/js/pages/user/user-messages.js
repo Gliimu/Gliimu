@@ -473,68 +473,79 @@ export function showNewMessageModal(dashboard) {
         document.getElementById('messageFileName').textContent = 'No file selected';
     });
 
-    document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
-        var form = document.getElementById('newMessageForm');
-        if (!form) {
-            showToast('Form not found', 'error');
-            return;
-        }
+   document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
+    var form = document.getElementById('newMessageForm');
+    if (!form) {
+        showToast('Form not found', 'error');
+        return;
+    }
 
-        var formData = new FormData(form);
-        
-        var category = formData.get('category') || '';
-        var subject = formData.get('subject') || '';
-        var message = formData.get('message') || '';
-        var applyRole = formData.get('applyRole') || 'student';
-        var workLink = formData.get('workLink') || '';
+    var formData = new FormData(form);
+    
+    var category = formData.get('category') || '';
+    var subject = formData.get('subject') || '';
+    var message = formData.get('message') || '';
+    var applyRole = formData.get('applyRole') || 'student';
+    var workLink = formData.get('workLink') || '';
 
-        if (!category) {
-            showToast('Please select a category', 'error');
-            return;
-        }
+    console.log('📝 FormData - Category:', category);
+    console.log('📝 FormData - Subject:', subject);
+    console.log('📝 FormData - Message:', message);
 
-        if (!subject || subject.length === 0) {
-            showToast('Please enter a subject', 'error');
-            document.getElementById('messageSubject').focus();
-            return;
-        }
+    if (!category) {
+        showToast('Please select a category', 'error');
+        return;
+    }
 
-        if (!message || message.length === 0) {
-            showToast('Please enter a message', 'error');
-            document.getElementById('messageBody').focus();
-            return;
-        }
+    if (!subject || subject.length === 0) {
+        showToast('Please enter a subject', 'error');
+        document.getElementById('messageSubject').focus();
+        return;
+    }
 
-        var btn = document.getElementById('sendMessageBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    if (!message || message.length === 0) {
+        showToast('Please enter a message', 'error');
+        document.getElementById('messageBody').focus();
+        return;
+    }
 
-        window._tempMessageData = {
-            category: category,
-            subject: subject,
-            message: message,
-            applyRole: applyRole,
-            workLink: workLink
-        };
+    var btn = document.getElementById('sendMessageBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
-        var success = await submitNewMessage(dashboard);
-        
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+    // Store data in window for the submit function
+    window._tempMessageData = {
+        category: category,
+        subject: subject,
+        message: message,
+        applyRole: applyRole,
+        workLink: workLink
+    };
 
-        if (success) {
+    // Get the dashboard instance
+    var dashboard = window._generalDashboard || this._dashboard || window._userRouter?.activeModule;
+    
+    // Call the submit function directly from the imported module
+    var success = await submitNewMessage(dashboard);
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+
+    if (success) {
+        var modal = document.getElementById('newMessageModal');
+        if (modal) {
             modal.classList.remove('active');
             document.body.style.overflow = '';
-            form.reset();
-            document.getElementById('messageFilePreview').style.display = 'none';
-            document.getElementById('roleSelectGroup').style.display = 'none';
-            document.getElementById('workLinkGroup').style.display = 'none';
-            window._messageFileData = null;
-            document.getElementById('messageFileInput').value = '';
-            window._tempMessageData = null;
         }
-    });
-}
+        form.reset();
+        document.getElementById('messageFilePreview').style.display = 'none';
+        document.getElementById('roleSelectGroup').style.display = 'none';
+        document.getElementById('workLinkGroup').style.display = 'none';
+        window._messageFileData = null;
+        document.getElementById('messageFileInput').value = '';
+        window._tempMessageData = null;
+    }
+});
 
 // ============================================
 // SUBMIT NEW MESSAGE - FIXED
