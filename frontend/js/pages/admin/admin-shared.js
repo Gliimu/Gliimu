@@ -236,3 +236,68 @@ export function renderRecentPayments(payments) {
         </div>
     `).join('');
 }
+
+// ============================================
+// LOAD HUB CONTENT
+// ============================================
+export async function loadHubContent() {
+    try {
+        const { data, error } = await supabase
+            .from('hub_contents')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error loading hub content:', error);
+        return [];
+    }
+}
+
+// ============================================
+// GET ADMIN LEADERBOARD
+// ============================================
+export async function getAdminLeaderboard() {
+    try {
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('id, name, avatar_url, gp_points, role')
+            .order('gp_points', { ascending: false })
+            .limit(10);
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error loading leaderboard:', error);
+        return [];
+    }
+}
+
+// ============================================
+// RENDER LEADERBOARD ITEMS
+// ============================================
+export function renderLeaderboardItems(users) {
+    if (!users || users.length === 0) {
+        return '<div class="empty-state">No data yet</div>';
+    }
+    
+    const medals = ['🥇', '🥈', '🥉'];
+    
+    return users.map((user, index) => {
+        const rankClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
+        const rankDisplay = index < 3 ? medals[index] : `#${index + 1}`;
+        
+        return `
+            <div class="leaderboard-item ${rankClass}">
+                <div class="leaderboard-rank">${rankDisplay}</div>
+                <div class="leaderboard-avatar">
+                    <img src="${user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=fbb040&color=fff`}" alt="">
+                </div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">${escapeHtml(user.name || 'Anonymous')}</div>
+                    <div class="leaderboard-badge">${user.role || 'User'}</div>
+                </div>
+                <div class="leaderboard-gp">${(user.gp_points || 0).toLocaleString()} GP</div>
+            </div>
+        `;
+    }).join('');
+}
