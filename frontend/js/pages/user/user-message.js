@@ -1,5 +1,5 @@
 // ============================================
-// USER MESSAGE - Message Logic (NEW FILE)
+// USER MESSAGE - Message Logic
 // ============================================
 
 import { supabase } from '../../modules/supabase.js';
@@ -247,7 +247,10 @@ export function showNewMessageModal(dashboard) {
 // ============================================
 export async function submitNewMessage(dashboard) {
     var data = window._tempMessageData;
-    if (!data) return false;
+    if (!data) {
+        showToast('No message data', 'error');
+        return false;
+    }
 
     var { category, subject, message, applyRole, workLink } = data;
     var userId = dashboard.currentUser.id;
@@ -262,7 +265,10 @@ export async function submitNewMessage(dashboard) {
     };
 
     var tableName = tableMap[category];
-    if (!tableName) return false;
+    if (!tableName) {
+        showToast('Invalid category', 'error');
+        return false;
+    }
 
     var insertData = {
         id: generateId(),
@@ -276,7 +282,10 @@ export async function submitNewMessage(dashboard) {
         insertData.username = profile?.username || 'user';
         insertData.role = applyRole || 'student';
         insertData.submitted_at = new Date().toISOString();
-        await supabase.from('user_profiles').update({ application_status: 'pending', applied_role: applyRole || 'student' }).eq('id', userId);
+        await supabase.from('user_profiles').update({ 
+            application_status: 'pending', 
+            applied_role: applyRole || 'student' 
+        }).eq('id', userId);
     } else {
         insertData.subject = subject;
         insertData.message = message;
@@ -286,6 +295,7 @@ export async function submitNewMessage(dashboard) {
 
     var { error } = await supabase.from(tableName).insert([insertData]);
     if (error) {
+        console.error('Insert error:', error);
         showToast('Failed: ' + error.message, 'error');
         return false;
     }
