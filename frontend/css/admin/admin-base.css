@@ -1180,3 +1180,88 @@ body {
         height: 55px;
     }
 }
+
+/* ============================================
+   APPLICATION ITEMS
+   ============================================ */
+.application-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.application-item:last-child {
+    border-bottom: none;
+}
+
+.app-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.app-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.app-role {
+    color: var(--brand-gold);
+    font-size: 0.85rem;
+}
+
+.app-date {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.app-status {
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.app-status.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.app-status.approved {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.app-status.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+/* Recent Activity Grid */
+.recent-activity-grid .card {
+    padding: 16px 20px;
+}
+
+.recent-activity-grid .card h3 {
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+.recent-activity-grid .card h3 i {
+    margin-right: 6px;
+}
+
+/* Stats Grid - Second Row */
+.stats-grid .stat-card .stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
