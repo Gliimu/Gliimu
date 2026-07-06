@@ -1016,6 +1016,296 @@ export async function getQuestionsForSquad(squadId, badgeLevel = null) {
 }
 
 // ============================================
+// ADD THESE FUNCTIONS TO progression.js
+// ============================================
+
+// ============================================
+// GET NEXT QUESTION
+// ============================================
+export async function getNextQuestion(studentId) {
+    try {
+        // First, get the questions the student has already answered
+        const { data: answered, error: answeredError } = await supabase
+            .from('student_answers')
+            .select('question_id')
+            .eq('student_id', studentId);
+
+        if (answeredError) throw answeredError;
+
+        const answeredIds = answered.map(a => a.question_id);
+
+        // Build query for unanswered questions
+        let query = supabase
+            .from('questions')
+            .select('*')
+            .order('created_at', { ascending: true })
+            .limit(1);
+
+        if (answeredIds.length > 0) {
+            query = query.not('id', 'in', '(' + answeredIds.join(',') + ')');
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        return data?.[0] || null;
+
+    } catch (error) {
+        console.error('Error getting next question:', error);
+        return null;
+    }
+}
+
+// ============================================
+// SUBMIT ANSWER
+// ============================================
+export async function submitAnswer(studentId, questionId, answer) {
+    try {
+        // Check if already answered
+        const { data: existing, error: checkError } = await supabase
+            .from('student_answers')
+            .select('id')
+            .eq('student_id', studentId)
+            .eq('question_id', questionId)
+            .maybeSingle();
+
+        if (existing) {
+            showToast('You already answered this question', 'warning');
+            return false;
+        }
+
+        // Get question details for GP reward
+        const { data: question, error: questionError } = await supabase
+            .from('questions')
+            .select('gp_reward')
+            .eq('id', questionId)
+            .single();
+
+        if (questionError) throw questionError;
+
+        const gpReward = question?.gp_reward || 10;
+
+        // Insert answer
+        const { data, error } = await supabase
+            .from('student_answers')
+            .insert([{
+                id: generateId(),
+                student_id: studentId,
+                question_id: questionId,
+                answer: answer,
+                status: 'pending',
+                gp_earned: gpReward,
+                answered_at: new Date().toISOString()
+            }])
+            .select();
+
+        if (error) throw error;
+
+        // Update student progress
+        await updateStudentProgress(studentId, gpReward);
+
+        // Create alert
+        await createUserAlert({
+            user_id: studentId,
+            icon: '⭐',
+            message: `You earned ${gpReward} GP for answering a question!`,
+            type: 'success'
+        });
+
+        return true;
+
+    } catch (error) {
+        console.error('Error submitting answer:', error);
+        return false;
+    }
+}
+
+// ============================================
+// UPDATE STUDENT PROGRESS
+// ============================================
+export async function updateStudentProgress(studentId, gpEarned) {
+    try {
+        // Get current progress
+        const { data: current, error: getError } = await supabase
+            .from('student_progress')
+            .select('current_gp, progress, stars_earned')
+            .eq('student_id', studentId)
+            .single();
+
+        if (getError && getError.code !== 'PGRST116') throw getError;
+
+        let currentGP = current?.current_gp || 0;
+        let currentProgress = current?.progress || 0;
+        let starsEarned = current?.stars_earned || 0;
+
+        const newGP = currentGP + gpEarned;
+        const newProgress = Math.min(100, (newGP / 5000) * 100);
+        const newStars = Math.floor(newGP / 1000);
+
+        // Check for badge upgrade
+        const newBadge = getCurrentBadge(newGP);
+
+        const { error } = await supabase
+            .from('student_progress')
+            .upsert({
+                student_id: studentId,
+                current_gp: newGP,
+                progress: newProgress,
+                stars_earned: newStars,
+                current_badge: newBadge.name,
+                updated_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+
+        return { currentGP: newGP, progress: newProgress, starsEarned: newStars, badge: newBadge };
+
+    } catch (error) {
+        console.error('Error updating student progress:', error);
+        return null;
+    }
+}
+
+// ============================================
+// GET STUDENT PROGRESS
+// ============================================
+export async function getStudentProgress(studentId) {
+    try {
+        const { data, error } = await supabase
+            .from('student_progress')
+            .select('*')
+            .eq('student_id', studentId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        if (!data) {
+            return {
+                currentGP: 0,
+                progress: 0,
+                starsEarned: 0,
+                currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+                nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+                progressToNext: 0
+            };
+        }
+
+        const currentBadge = getCurrentBadge(data.current_gp || 0);
+        const nextBadge = getNextBadge(data.current_gp || 0);
+        const progressToNext = getProgressToNextBadge(data.current_gp || 0);
+
+        return {
+            currentGP: data.current_gp || 0,
+            progress: data.progress || 0,
+            totalStars: data.stars_earned || 0,
+            currentBadge: currentBadge,
+            nextBadge: nextBadge,
+            progressToNext: progressToNext
+        };
+
+    } catch (error) {
+        console.error('Error getting student progress:', error);
+        return null;
+    }
+}
+
+// ============================================
+// GET STUDENT PORTFOLIO (for public portfolio page)
+// ============================================
+export async function getStudentPortfolio(studentId, isPublic = false) {
+    try {
+        let query = supabase
+            .from('student_answers')
+            .select(`
+                *,
+                questions(title, question)
+            `)
+            .eq('student_id', studentId);
+
+        if (isPublic) {
+            query = query.eq('status', 'graded');
+        }
+
+        const { data, error } = await query
+            .order('answered_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map(item => ({
+            id: item.id,
+            title: item.questions?.title || 'Answer',
+            description: item.questions?.question || item.answer?.substring(0, 100) || 'No description',
+            type: 'answer',
+            grade: item.grade,
+            status: item.status,
+            created_at: item.answered_at
+        }));
+
+    } catch (error) {
+        console.error('Error getting student portfolio:', error);
+        return [];
+    }
+}
+
+// ============================================
+// GENERATE ID HELPER
+// ============================================
+function generateId() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0;
+        var v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+// ============================================
+// CREATE USER ALERT HELPER
+// ============================================
+async function createUserAlert(alertData) {
+    try {
+        const { error } = await supabase
+            .from('user_alerts')
+            .insert([{
+                user_id: alertData.user_id,
+                icon: alertData.icon || '📌',
+                message: alertData.message,
+                type: alertData.type || 'info',
+                read: false,
+                created_at: new Date().toISOString()
+            }]);
+
+        if (error) {
+            if (error.code === '42P01' || error.code === 'PGRST205') {
+                // Table doesn't exist, store in localStorage
+                storeAlertLocal(alertData);
+                return;
+            }
+            throw error;
+        }
+    } catch (error) {
+        console.error('Error creating user alert:', error);
+        // Fallback to localStorage
+        storeAlertLocal(alertData);
+    }
+}
+
+function storeAlertLocal(alertData) {
+    try {
+        const key = 'alerts_' + alertData.user_id;
+        let alerts = JSON.parse(localStorage.getItem(key) || '[]');
+        alerts.unshift({
+            id: 'alert_' + Date.now(),
+            ...alertData,
+            read: false,
+            created_at: new Date().toISOString()
+        });
+        localStorage.setItem(key, JSON.stringify(alerts));
+    } catch (e) {
+        console.warn('Could not store alert locally:', e);
+    }
+}
+
+// ============================================
 // COMPLETED FUNCTIONS
 // ============================================
 
