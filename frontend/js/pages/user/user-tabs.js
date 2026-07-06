@@ -121,15 +121,6 @@ export async function renderOverview(container, dashboard) {
                 ${dashboard.renderLeaderboardItems()}
             </div>
         </div>
-
-        ${profile?.application_status === 'pending' ? `
-            <div class="alert alert-warning">
-                <i class="fas fa-clock"></i>
-                Your application for <strong>${profile.applied_role}</strong> is pending review.
-            </div>
-        ` : ''}
-    `;
-
     // Bind events
     bindOverviewEvents(container, dashboard);
     dashboard.setupModalCloseHandlers();
