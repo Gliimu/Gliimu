@@ -5,57 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Dashboard | Gliimu</title>
     
-    <!-- ========================================== -->
-    <!-- CSS - Modular Structure                    -->
-    <!-- ========================================== -->
-    <!-- Theme (Light/Dark/System) -->
+    <!-- CSS -->
     <link rel="stylesheet" href="/frontend/css/user/user-theme.css">
-    
-    <!-- Base Styles (Layout, Components, Utilities) -->
     <link rel="stylesheet" href="/frontend/css/user/user-base.css">
-    
-    <!-- Responsive (All Breakpoints) -->
     <link rel="stylesheet" href="/frontend/css/user/user-responsive.css">
-    
-    <!-- Role-specific (loaded dynamically by user.js) -->
     <link rel="stylesheet" href="/frontend/css/user/user-general.css" id="roleStylesheet">
     
-    <!-- ========================================== -->
-    <!-- FONTS & ICONS                              -->
-    <!-- ========================================== -->
+    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- ========================================== -->
-    <!-- LIBRARIES                                  -->
-    <!-- ========================================== -->
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
-    <!-- ========================================== -->
-    <!-- STICKY NAVIGATION - Bottom Right with Icons -->
-    <!-- ========================================== -->
+    <!-- ============================================================ -->
+    <!-- STICKY NAVIGATION - Bottom Right                             -->
+    <!-- ============================================================ -->
     <div class="sticky-nav" id="stickyNav">
+        <!-- Toggle Button -->
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
             <i class="fas fa-ellipsis-v"></i>
         </button>
+        
+        <!-- Dropdown -->
         <div class="nav-dropdown" id="navDropdown">
             <!-- Alerts Section -->
-            <div class="nav-section alerts-section" id="alertsSection">
+            <div class="nav-section alerts-section">
                 <button class="nav-btn alert-btn" id="alertIconBtn" aria-label="Alerts">
                     <i class="fas fa-bell"></i>
                     <span>Notifications</span>
-                    <span class="alert-badge" id="alertBadge">0</span>
+                    <span class="alert-badge hidden" id="alertBadge">0</span>
                 </button>
+                
+                <!-- Alert Dropdown Panel -->
                 <div class="alert-dropdown" id="alertDropdown">
                     <div class="alert-dropdown-header">
                         <span>Notifications</span>
                         <button class="alert-mark-read" id="alertMarkRead">Mark all read</button>
                     </div>
                     <div class="alert-dropdown-body" id="alertDropdownBody">
-                        <!-- Alert items rendered here -->
+                        <div class="alert-empty">
+                            <i class="fas fa-inbox"></i>
+                            <p>No notifications yet</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -64,43 +59,43 @@
             <div class="nav-divider"></div>
             
             <!-- Navigation Links -->
-            <button class="nav-btn" onclick="window.goToDashboard()" aria-label="Dashboard">
+            <button class="nav-btn" onclick="window.goToDashboard()">
                 <i class="fas fa-tachometer-alt"></i>
                 <span>Dashboard</span>
             </button>
-            <button class="nav-btn" onclick="window.goToHub()" aria-label="Hub">
+            <button class="nav-btn" onclick="window.goToHub()">
                 <i class="fas fa-th-large"></i>
                 <span>Hub</span>
             </button>
-            <button class="nav-btn" onclick="window.goToLearningPath()" aria-label="Learning Path">
+            <button class="nav-btn" onclick="window.goToLearningPath()">
                 <i class="fas fa-road"></i>
                 <span>Learning Path</span>
             </button>
-            <button class="nav-btn" onclick="window.goToVirtualRoom()" aria-label="Virtual Room">
+            <button class="nav-btn" onclick="window.goToVirtualRoom()">
                 <i class="fas fa-video"></i>
                 <span>Virtual Room</span>
             </button>
-            <button class="nav-btn" onclick="window.goToChat()" aria-label="Chat">
+            <button class="nav-btn" onclick="window.goToChat()">
                 <i class="fas fa-comments"></i>
                 <span>Chat</span>
             </button>
-            <button class="nav-btn" onclick="window.goToMerchandise()" aria-label="Merchandise">
+            <button class="nav-btn" onclick="window.goToMerchandise()">
                 <i class="fas fa-shopping-bag"></i>
                 <span>Merchandise</span>
             </button>
-            <button class="nav-btn home-nav" onclick="window.goToUser()" aria-label="User Profile">
+            <button class="nav-btn home-nav" onclick="window.goToUser()">
                 <i class="fas fa-user"></i>
                 <span>Profile</span>
             </button>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- DASHBOARD CONTAINER                        -->
-    <!-- ========================================== -->
+    <!-- ============================================================ -->
+    <!-- DASHBOARD CONTAINER                                          -->
+    <!-- ============================================================ -->
     <div class="dashboard-container">
         
-        <!-- ===== SIDEBAR ===== -->
+        <!-- Sidebar -->
         <aside class="dashboard-sidebar" id="dashboardSidebar">
             <div class="sidebar-header">
                 <div class="user-avatar">
@@ -116,7 +111,7 @@
             </nav>
         </aside>
 
-        <!-- ===== MAIN CONTENT ===== -->
+        <!-- Main Content -->
         <main class="dashboard-main">
             <div id="dashboardContent">
                 <div class="loading-spinner" id="loading">
@@ -128,14 +123,10 @@
 
     </div>
 
-    <!-- ========================================== -->
-    <!-- SIDEBAR OVERLAY (Mobile)                   -->
-    <!-- ========================================== -->
+    <!-- Sidebar Overlay (Mobile) -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- ========================================== -->
-    <!-- MOBILE BOTTOM NAVIGATION                   -->
-    <!-- ========================================== -->
+    <!-- Mobile Bottom Navigation -->
     <div class="mobile-bottom-nav" id="mobileBottomNav">
         <button class="mobile-nav-item active" data-tab="dashboard">
             <i class="fas fa-tachometer-alt"></i>
@@ -159,11 +150,11 @@
         </button>
     </div>
 
-    <!-- ========================================== -->
-    <!-- MODALS                                     -->
-    <!-- ========================================== -->
+    <!-- ============================================================ -->
+    <!-- MODALS                                                       -->
+    <!-- ============================================================ -->
 
-    <!-- ===== 1. MVP MODAL ===== -->
+    <!-- MVP Modal -->
     <div id="mvpModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -201,7 +192,7 @@
         </div>
     </div>
 
-    <!-- ===== 2. FUND WALLET MODAL ===== -->
+    <!-- Fund Wallet Modal -->
     <div id="fundWalletModal" class="modal">
         <div class="modal-content wallet-modal">
             <div class="modal-header">
@@ -209,7 +200,6 @@
                 <button class="modal-close closeFundWalletModal">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Funding Options -->
                 <div class="funding-options">
                     <h3>Select Amount</h3>
                     <div class="selected-amount-display" id="selectedAmountDisplay" style="display: none;">
@@ -229,8 +219,6 @@
                     </div>
                     <button id="continueToBankBtn" class="btn-primary" style="margin-top: 1rem; width: 100%;">Continue to Payment</button>
                 </div>
-                
-                <!-- Bank Details -->
                 <div class="bank-details" style="display: none;">
                     <h3>Bank Transfer Details</h3>
                     <div class="bank-info-card" id="bankInfoCard"></div>
@@ -255,7 +243,7 @@
         </div>
     </div>
 
-    <!-- ===== 3. CONVERT GP TO STARS MODAL ===== -->
+    <!-- Convert GP to Stars Modal -->
     <div id="convertStarsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -281,7 +269,7 @@
         </div>
     </div>
 
-    <!-- ===== 4. MESSAGE MODAL ===== -->
+    <!-- Message Modal -->
     <div id="messageModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -304,7 +292,7 @@
         </div>
     </div>
 
-    <!-- ===== 5. ROLE APPLICATION MODAL ===== -->
+    <!-- Role Application Modal -->
     <div id="roleApplyModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -330,24 +318,21 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- TOAST CONTAINER                            -->
-    <!-- ========================================== -->
+    <!-- Toast Container -->
     <div id="toast-container"></div>
 
-    <!-- ========================================== -->
-    <!-- JAVASCRIPT                                 -->
-    <!-- ========================================== -->
+    <!-- ============================================================ -->
+    <!-- JAVASCRIPT                                                   -->
+    <!-- ============================================================ -->
     
     <!-- Theme Manager -->
     <script type="module">
         import { initTheme } from '/frontend/js/pages/user-theme.js';
-        // Initialize theme before anything else
         initTheme();
     </script>
     
     <!-- Main Application -->
     <script type="module" src="/frontend/js/pages/user.js"></script>
-    
+
 </body>
 </html>
