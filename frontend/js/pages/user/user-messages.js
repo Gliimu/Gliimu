@@ -537,7 +537,7 @@ export function showNewMessageModal(dashboard) {
 }
 
 // ============================================
-// SUBMIT NEW MESSAGE
+// SUBMIT NEW MESSAGE - FIXED
 // ============================================
 export async function submitNewMessage(dashboard) {
     var data = window._tempMessageData;
@@ -548,6 +548,8 @@ export async function submitNewMessage(dashboard) {
 
     var { category, subject, message, applyRole, workLink } = data;
     var file = window._messageFileData;
+
+    console.log('📤 Submitting message:', { category, subject, message, applyRole, workLink, file: !!file });
 
     try {
         var userId = dashboard.currentUser.id;
@@ -567,6 +569,15 @@ export async function submitNewMessage(dashboard) {
         var tableName = '';
         var insertData = {};
 
+        // Generate a UUID for the id field
+        function generateId() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0;
+                var v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
         switch(category) {
             case 'apply':
                 tableName = 'applications';
@@ -580,6 +591,7 @@ export async function submitNewMessage(dashboard) {
                     status: 'pending',
                     submitted_at: new Date().toISOString()
                 };
+                // Update user profile to show they have a pending application
                 await supabase
                     .from('user_profiles')
                     .update({
@@ -651,6 +663,8 @@ export async function submitNewMessage(dashboard) {
                 return false;
         }
 
+        console.log('📤 Inserting into', tableName, insertData);
+
         var { error } = await supabase
             .from(tableName)
             .insert([insertData]);
@@ -662,7 +676,13 @@ export async function submitNewMessage(dashboard) {
         }
 
         showToast('✅ Message sent successfully!', 'success');
+        
+        // Refresh messages
         await loadMessages(dashboard.container, dashboard);
+
+        // Clean up
+        window._messageFileData = null;
+        window._tempMessageData = null;
 
         return true;
 
