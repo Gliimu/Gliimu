@@ -1,277 +1,186 @@
 // ============================================
 // GLIIMU USER DASHBOARD - STUDENT FEATURES
+// Path: /frontend/js/pages/user-student.js
+// Purpose: Student-specific features (extends GeneralDashboard)
 // ============================================
 
-import { supabase } from '../modules/supabase.js';
+import { GeneralDashboard } from './user-general.js';
 import { showToast } from '../modules/toast.js';
-import {
-    getStudentScore,
-    getCurrentBadge,
-    getNextBadge,
-    getProgressToNextBadge,
-    getNextQuestion,
-    getLeaderboard,
-    submitMVPProposal
-} from '../modules/progression.js';
 
-import { QuestionRenderer, renderProgressBar } from '../modules/questions.js';
-
-// Export student features
-export default {
-    renderDashboard,
-    renderQuestionBar,
-    renderLeaderboard,
-    renderProgress,
-    renderBadges
-};
-
-// ============================================
-// STUDENT DASHBOARD
-// ============================================
-async function renderDashboard(container) {
-    if (!container) return;
-    
-    try {
-        // Get currentUser from window object (set by user.js)
-        const user = window.currentUser;
-        if (!user) {
-            console.error('No user found');
-            container.innerHTML = `<div class="empty-state"><h3>Please log in</h3></div>`;
-            return;
-        }
-        
-        const scoreData = await getStudentScore(user.id);
-        const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-        const nextBadge = getNextBadge(scoreData?.current_score || 0);
-        const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
-        const leaderboardData = await getLeaderboard(10);
-        const isAmbassador = (scoreData?.current_score || 0) >= 100;
-        const walletBalance = user?.walletBalance || 14500;
-        
-        container.innerHTML = `
-            <div class="progress-section">
-                ${renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext)}
-            </div>
-            
-            <div class="quick-stats">
-                <div class="quick-stat-card">
-                    <i class="fas fa-wallet"></i>
-                    <div>
-                        <span class="quick-stat-label">Wallet Balance</span>
-                        <span class="quick-stat-value quick-balance">₦${walletBalance.toLocaleString()}</span>
-                    </div>
-                    <button class="quick-add-funds" id="quickAddFundsBtn">+ Add</button>
-                </div>
-            </div>
-            
-            ${isAmbassador ? `
-                <div class="mvp-section">
-                    <div class="mvp-header">
-                        <i class="fas fa-rocket"></i>
-                        <h3>MVP Ambassador Zone</h3>
-                    </div>
-                    <p>You've reached 100%! Submit your real-world project proposal.</p>
-                    <button id="openMvpFormBtn" class="btn-primary">Submit MVP Proposal</button>
-                </div>
-            ` : `
-                <div class="mvp-locked-section">
-                    <div class="mvp-locked-header">
-                        <i class="fas fa-lock"></i>
-                        <h3>Unlock Ambassador Zone</h3>
-                    </div>
-                    <p>Reach 100% score to submit real-world project proposals.</p>
-                    <div class="progress-to-unlock">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: ${scoreData?.current_score || 0}%; background: var(--accent)"></div>
-                        </div>
-                        <span>${Math.round(scoreData?.current_score || 0)}% to Ambassador</span>
-                    </div>
-                </div>
-            `}
-            
-            <div class="leaderboard-section">
-                <div class="leaderboard-header">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Top Performers</h3>
-                    <button id="refreshLeaderboardBtn" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
-                </div>
-                <div class="leaderboard-list">
-                    ${renderLeaderboardList(leaderboardData)}
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('quickAddFundsBtn')?.addEventListener('click', () => {
-            if (window.switchTab) window.switchTab('wallet');
-        });
-        document.getElementById('openMvpFormBtn')?.addEventListener('click', () => openMvpModal());
-        document.getElementById('refreshLeaderboardBtn')?.addEventListener('click', async () => {
-            const newLeaderboard = await getLeaderboard(10);
-            const leaderboardList = document.querySelector('.leaderboard-list');
-            if (leaderboardList) {
-                leaderboardList.innerHTML = renderLeaderboardList(newLeaderboard);
-            }
-            showToast('Leaderboard refreshed!', 'success');
-        });
-        
-    } catch (error) {
-        console.error('Error rendering student dashboard:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Dashboard</h3>
-                <p>${error.message || 'Unknown error'}</p>
-                <button class="btn-primary" onclick="location.reload()">Refresh Page</button>
-            </div>
-        `;
+export class StudentDashboard extends GeneralDashboard {
+    constructor(user, profile) {
+        super(user, profile);
+        this.isStudent = true;
+        console.log('🎓 Student dashboard initialized');
     }
-}
 
-function renderLeaderboardList(leaderboardData) {
-    if (!leaderboardData || leaderboardData.length === 0) {
-        return '<div class="empty-state"><i class="fas fa-trophy"></i><p>No leaders yet. Be the first!</p></div>';
-    }
-    
-    return leaderboardData.map((entry, index) => `
-        <div class="leaderboard-item ${index < 3 ? 'top-' + (index + 1) : ''}">
-            <div class="leaderboard-rank">#${index + 1}</div>
-            <div class="leaderboard-avatar">
-                <img src="${entry.users?.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(entry.users?.name || 'User') + '&background=fbb040&color=fff'}" alt="">
-            </div>
-            <div class="leaderboard-info">
-                <div class="leaderboard-name">${entry.users?.name || 'Anonymous'}</div>
-                <div class="leaderboard-badge">${entry.current_badge || 'Starter'}</div>
-            </div>
-            <div class="leaderboard-score">${Math.round(entry.current_score)}%</div>
-        </div>
-    `).join('');
-}
-
-function openMvpModal() {
-    const user = window.currentUser;
-    if (!user) {
-        showToast('Please log in', 'error');
-        return;
-    }
-    
-    let modal = document.getElementById('mvpModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'mvpModal';
-        modal.className = 'modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Submit MVP Proposal</h2>
-                    <button class="modal-close" id="closeMvpModal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="mvpForm">
-                        <div class="form-group">
-                            <label>Project Title</label>
-                            <input type="text" id="mvpTitle" required placeholder="e.g., The Documentary Project">
-                        </div>
-                        <div class="form-group">
-                            <label>Project Type</label>
-                            <select id="mvpType" required>
-                                <option value="">Select type</option>
-                                <option value="book">Book</option>
-                                <option value="documentary">Documentary</option>
-                                <option value="movie">Movie</option>
-                                <option value="business">Business</option>
-                                <option value="movement">Movement</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Project Description</label>
-                            <textarea id="mvpDescription" rows="4" required placeholder="Describe your project in detail..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Proposal / Execution Plan</label>
-                            <textarea id="mvpProposal" rows="6" required placeholder="How do you plan to execute this project?"></textarea>
-                        </div>
-                        <button type="submit" class="btn-primary">Submit MVP Proposal</button>
-                    </form>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
+    // ============================================
+    // OVERRIDE: Load Dashboard with Student-specific content
+    // ============================================
+    async loadDashboard() {
+        // Call parent method first
+        await super.loadDashboard();
         
-        document.getElementById('closeMvpModal').onclick = () => modal.classList.remove('active');
-        document.getElementById('mvpForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const title = document.getElementById('mvpTitle').value;
-            const type = document.getElementById('mvpType').value;
-            const description = document.getElementById('mvpDescription').value;
-            const proposal = document.getElementById('mvpProposal').value;
-            
-            const result = await submitMVPProposal(user.id, title, description, type, proposal);
-            if (result) {
-                modal.classList.remove('active');
-                showToast('MVP Proposal submitted! The school will review and reach out.', 'success');
-            }
-        });
+        // Add student-specific elements after parent renders
+        this.addStudentElements();
     }
-    modal.classList.add('active');
-}
 
-// ============================================
-// STUDENT QUESTIONS
-// ============================================
-async function renderQuestionBar(container) {
-    if (!container) return;
-    
-    const user = window.currentUser;
-    if (!user) {
-        container.innerHTML = `<div class="empty-state"><h3>Please log in</h3></div>`;
-        return;
-    }
-    
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading next question...</div>';
-    
-    try {
-        const nextQuestion = await getNextQuestion(user.id);
-        
-        if (!nextQuestion) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>All Questions Complete!</h3>
-                    <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-primary" onclick="switchTab('dashboard')">Return to Dashboard</button>
-                </div>
+    // ============================================
+    // ADD STUDENT-SPECIFIC ELEMENTS
+    // ============================================
+    addStudentElements() {
+        // Find the progress section and add student-specific info
+        const progressSection = document.querySelector('.progress-section');
+        if (progressSection) {
+            // Add student badge
+            const studentBadge = document.createElement('div');
+            studentBadge.className = 'student-badge-container';
+            studentBadge.style.cssText = `
+                margin-top: 8px;
+                padding: 8px 16px;
+                background: rgba(251, 176, 64, 0.12);
+                border-radius: 8px;
+                border: 1px solid rgba(251, 176, 64, 0.2);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.85rem;
+                color: var(--brand-gold);
             `;
-            return;
+            studentBadge.innerHTML = `
+                <i class="fas fa-user-graduate"></i>
+                <span>You are enrolled as a <strong>Student</strong> 🎓</span>
+                <span style="margin-left: auto; font-size: 0.7rem; opacity: 0.7;">
+                    ${new Date().toLocaleDateString()}
+                </span>
+            `;
+            
+            // Insert after progress section
+            progressSection.parentNode.insertBefore(studentBadge, progressSection.nextSibling);
         }
-        
-        const questionRenderer = new QuestionRenderer(
-            'question-section',
-            user.id,
-            async (result) => {
-                const scoreData = await getStudentScore(user.id);
-                const currentBadge = getCurrentBadge(scoreData?.current_score || 0);
-                const nextBadge = getNextBadge(scoreData?.current_score || 0);
-                const progressToNext = getProgressToNextBadge(scoreData?.current_score || 0);
+
+        // Add student-only quick action
+        const statsGrid = document.querySelector('.stats-grid');
+        if (statsGrid) {
+            // Check if we already have a student stat card
+            const existing = statsGrid.querySelector('.stat-card.student-stat');
+            if (!existing) {
+                const studentStat = document.createElement('div');
+                studentStat.className = 'stat-card student-stat';
+                studentStat.style.cssText = `
+                    background: var(--bg-secondary);
+                    border-radius: var(--radius-md);
+                    padding: 20px 24px;
+                    border: 1px solid var(--border-color);
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                    transition: var(--transition);
+                    box-shadow: var(--shadow-sm);
+                `;
+                studentStat.innerHTML = `
+                    <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Learning Progress</h3>
+                        <p class="stat-value" style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary);">
+                            ${this.currentProfile?.progress || 0}%
+                        </p>
+                    </div>
+                    <button class="stat-action-btn" data-action="learning" title="View Learning Path" style="position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                `;
                 
-                const progressSection = document.querySelector('.progress-section');
-                if (progressSection) {
-                    progressSection.innerHTML = renderProgressBar(scoreData?.current_score || 0, currentBadge, nextBadge, progressToNext);
-                }
+                // Add click handler for learning path
+                studentStat.querySelector('.stat-action-btn')?.addEventListener('click', () => {
+                    window.location.href = '/course';
+                });
                 
-                setTimeout(() => renderQuestionBar(container), 2000);
+                statsGrid.appendChild(studentStat);
             }
-        );
+        }
+    }
+
+    // ============================================
+    // OVERRIDE: Portfolio with Student-specific view
+    // ============================================
+    async loadPortfolio(container) {
+        // Use parent method but pass student flag
+        await super.loadPortfolio(container);
         
-        await questionRenderer.renderQuestion(nextQuestion);
+        // Additional student-specific portfolio features can be added here
+        // For example, adding a "My Projects" section
+        const portfolioContainer = container || this.container;
+        if (portfolioContainer) {
+            this.addStudentPortfolioElements(portfolioContainer);
+        }
+    }
+
+    // ============================================
+    // ADD STUDENT PORTFOLIO ELEMENTS
+    // ============================================
+    addStudentPortfolioElements(container) {
+        // Check if we already have the student projects section
+        const existing = container.querySelector('.student-projects-section');
+        if (existing) return;
+
+        // Get portfolio items from the student
+        const projects = this.getStudentProjects();
         
-    } catch (error) {
-        console.error('Error loading question:', error);
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Unable to load question</h3>
-                <button class="btn-primary" onclick="location.reload()">Try Again</button>
+        const projectsSection = document.createElement('div');
+        projectsSection.className = 'student-projects-section card';
+        projectsSection.style.cssText = `
+            margin-top: 20px;
+            padding: 20px 24px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        `;
+        projectsSection.innerHTML = `
+            <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-folder-open" style="color: var(--brand-gold);"></i>
+                My Projects
+                <span style="margin-left: auto; font-size: 0.75rem; color: var(--text-muted);">${projects.length} projects</span>
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+                ${projects.length > 0 ? projects.map(project => `
+                    <div style="background: var(--bg-primary); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">${project.title}</h4>
+                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">${project.description || 'No description'}</p>
+                        ${project.grade ? `<span style="display: inline-block; margin-top: 6px; padding: 2px 10px; background: rgba(16, 185, 129, 0.15); color: #10b981; border-radius: 10px; font-size: 0.65rem; font-weight: 600;">Grade: ${project.grade}%</span>` : ''}
+                    </div>
+                `).join('') : `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--text-muted);">
+                        <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>
+                        <p style="font-size: 0.85rem;">No projects yet. Start learning to build your portfolio!</p>
+                    </div>
+                `}
             </div>
         `;
+        
+        // Insert after the portfolio link card
+        const linkCard = container.querySelector('.portfolio-link-card');
+        if (linkCard) {
+            linkCard.parentNode.insertBefore(projectsSection, linkCard.nextSibling);
+        } else {
+            container.appendChild(projectsSection);
+        }
+    }
+
+    // ============================================
+    // GET STUDENT PROJECTS
+    // ============================================
+    getStudentProjects() {
+        // This would fetch from Supabase in a real implementation
+        // For now, return sample data or empty array
+        return [];
     }
 }
+
+// Export default for dynamic import
+export default StudentDashboard;
+
+// Also export as named export for compatibility
+export { StudentDashboard };
