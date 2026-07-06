@@ -1656,7 +1656,7 @@ export class GeneralDashboard {
     }
 
 // ============================================
-// SUBMIT NEW MESSAGE V2 - With ID generation
+// SUBMIT NEW MESSAGE V2 - Updated for new table structure
 // ============================================
 async submitNewMessageV2() {
     const data = window._tempMessageData;
@@ -1702,17 +1702,16 @@ async submitNewMessageV2() {
                 tableName = 'applications';
                 insertData = {
                     id: generateId(),
-                    user_id: userId,
+                    user_id: userId,  // Now required and NOT NULL
                     full_name: profile?.name || 'User',
                     email: this.currentUser.email,
                     username: profile?.username || 'user',
                     role: applyRole || 'student',
-                    birth_day: profile?.birth_day || null,
-                    birth_month: profile?.birth_month || null,
                     status: 'pending',
                     submitted_at: new Date().toISOString()
+                    // Removed: birth_day, birth_month, password_hash, recovery_phrase, phone, reviewed_at
                 };
-                // Update user profile
+                // Update user profile to show they have a pending application
                 await supabase
                     .from('user_profiles')
                     .update({
@@ -1799,6 +1798,7 @@ async submitNewMessageV2() {
         showToast('✅ Message sent successfully!', 'success');
         await this.loadMessages(this.container);
 
+        // Clean up
         window._messageFileData = null;
         window._tempMessageData = null;
 
