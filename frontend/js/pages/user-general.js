@@ -31,6 +31,7 @@ export class GeneralDashboard {
         // DOM references
         this.container = null;
         this.currentTab = 'dashboard';
+        this._isAlertDropdownOpen = false;
     }
 
     // ============================================
@@ -38,6 +39,13 @@ export class GeneralDashboard {
     // ============================================
     setAlertManager(alertManager) {
         this.alertManager = alertManager;
+        // After setting alert manager, update the alert icon
+        if (this.alertManager) {
+            this.updateAlertIcon({
+                alerts: this.alertManager.alerts || [],
+                unreadCount: this.alertManager.unreadCount || 0
+            });
+        }
     }
 
     // ============================================
@@ -45,8 +53,20 @@ export class GeneralDashboard {
     // ============================================
     async render(container) {
         this.container = container;
+        
+        // Setup sticky nav event listeners
+        this.setupStickyNav();
+        
+        // Setup alert dropdown toggle
+        this.setupAlertDropdown();
+        
         await this.loadDashboard();
         await this.loadBankDetails();
+        
+        // Update alert badge after loading
+        if (this.alertManager) {
+            this.updateAlertBadge(this.alertManager.unreadCount || 0);
+        }
     }
 
     // ============================================
@@ -85,7 +105,7 @@ export class GeneralDashboard {
 
         await this.loadLeaderboard();
 
-        const alerts = this.alertManager?.alerts || [];
+        // Get unread count from alert manager
         const unreadCount = this.alertManager?.unreadCount || 0;
 
         this.container.innerHTML = `
@@ -93,9 +113,6 @@ export class GeneralDashboard {
                 <div>
                     <h1>Overview</h1>
                     <p>Welcome back, ${profile?.name || 'User'}!</p>
-                </div>
-                <div class="header-badge" id="headerBadge">
-                    <!-- Alert icon rendered here -->
                 </div>
             </div>
 
@@ -187,40 +204,103 @@ export class GeneralDashboard {
             ` : ''}
         `;
 
-        this.renderAlertIcon(unreadCount, alerts);
+        // Update alert badge in sticky nav
+        this.updateAlertBadge(unreadCount);
         this.bindEvents();
         this.setupModalCloseHandlers();
     }
 
     // ============================================
-    // RENDER ALERT ICON
+    // SETUP STICKY NAV
     // ============================================
-    renderAlertIcon(unreadCount, alerts) {
-        const headerBadge = document.getElementById('headerBadge');
-        if (!headerBadge) return;
+    setupStickyNav() {
+        const toggle = document.getElementById('navToggle');
+        const dropdown = document.getElementById('navDropdown');
+        
+        if (toggle) {
+            // Remove existing listeners to prevent duplicates
+            toggle.removeEventListener('click', this._navToggleHandler);
+            this._navToggleHandler = (e) => {
+                e.stopPropagation();
+                dropdown?.classList.toggle('open');
+                toggle.classList.toggle('active');
+            };
+            toggle.addEventListener('click', this._navToggleHandler);
+        }
 
-        const hasUnread = unreadCount > 0;
+        // Close nav when clicking outside
+        document.removeEventListener('click', this._closeNavHandler);
+        this._closeNavHandler = (e) => {
+            const nav = document.getElementById('stickyNav');
+            if (nav && !nav.contains(e.target)) {
+                dropdown?.classList.remove('open');
+                toggle?.classList.remove('active');
+                // Also close alert dropdown if open
+                const alertDropdown = document.getElementById('alertDropdown');
+                if (alertDropdown) alertDropdown.classList.remove('open');
+            }
+        };
+        document.addEventListener('click', this._closeNavHandler);
+    }
 
-        headerBadge.innerHTML = `
-            <div class="alert-icon-container" id="alertIconContainer">
-                <button class="alert-icon-btn" id="alertIconBtn" aria-label="Alerts">
-                    <i class="fas fa-bell"></i>
-                    ${hasUnread ? `<span class="alert-dot">${unreadCount > 9 ? '9+' : unreadCount}</span>` : ''}
-                </button>
-                
-                <div class="alert-dropdown" id="alertDropdown">
-                    <div class="alert-dropdown-header">
-                        <span>Notifications</span>
-                        ${hasUnread ? `<button class="alert-mark-read" id="alertMarkRead">Mark all read</button>` : ''}
-                    </div>
-                    <div class="alert-dropdown-body" id="alertDropdownBody">
-                        ${this.renderAlertItems(alerts)}
-                    </div>
-                </div>
-            </div>
-        `;
+    // ============================================
+    // SETUP ALERT DROPDOWN
+    // ============================================
+    setupAlertDropdown() {
+        const alertBtn = document.getElementById('alertIconBtn');
+        const alertDropdown = document.getElementById('alertDropdown');
+        
+        if (alertBtn) {
+            alertBtn.removeEventListener('click', this._alertToggleHandler);
+            this._alertToggleHandler = (e) => {
+                e.stopPropagation();
+                alertDropdown?.classList.toggle('open');
+            };
+            alertBtn.addEventListener('click', this._alertToggleHandler);
+        }
 
-        this.bindAlertEvents();
+        // Mark all read button
+        const markReadBtn = document.getElementById('alertMarkRead');
+        if (markReadBtn) {
+            markReadBtn.removeEventListener('click', this._markReadHandler);
+            this._markReadHandler = async (e) => {
+                e.stopPropagation();
+                await this.markAllAlertsRead();
+            };
+            markReadBtn.addEventListener('click', this._markReadHandler);
+        }
+    }
+
+    // ============================================
+    // UPDATE ALERT ICON (Called from router)
+    // ============================================
+    updateAlertIcon(data) {
+        const unreadCount = data?.unreadCount || 0;
+        const alerts = data?.alerts || [];
+        
+        // Update alert badge
+        this.updateAlertBadge(unreadCount);
+        
+        // Update alert dropdown body
+        const dropdownBody = document.getElementById('alertDropdownBody');
+        if (dropdownBody) {
+            dropdownBody.innerHTML = this.renderAlertItems(alerts);
+        }
+    }
+
+    // ============================================
+    // UPDATE ALERT BADGE
+    // ============================================
+    updateAlertBadge(count) {
+        const badge = document.getElementById('alertBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count > 9 ? '9+' : count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
     }
 
     // ============================================
@@ -237,7 +317,7 @@ export class GeneralDashboard {
         }
 
         return alerts.slice(0, 10).map(alert => `
-            <div class="alert-item ${alert.read ? 'read' : 'unread'}">
+            <div class="alert-item ${alert.read ? 'read' : 'unread'}" data-id="${alert.id}">
                 <div class="alert-icon">${alert.icon || '📌'}</div>
                 <div class="alert-content">
                     <p class="alert-message">${alert.message}</p>
@@ -250,69 +330,16 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // BIND ALERT EVENTS
+    // MARK ALL ALERTS READ
     // ============================================
-    bindAlertEvents() {
-        const iconBtn = document.getElementById('alertIconBtn');
-        const dropdown = document.getElementById('alertDropdown');
-        const markReadBtn = document.getElementById('alertMarkRead');
-
-        if (iconBtn) {
-            iconBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleAlertDropdown();
-            });
-        }
-
-        if (markReadBtn) {
-            markReadBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                await this.markAllAlertsRead();
-            });
-        }
-
-        document.addEventListener('click', (e) => {
-            const container = document.getElementById('alertIconContainer');
-            if (container && !container.contains(e.target)) {
-                this.closeAlertDropdown();
-            }
-        });
-    }
-
-    // ============================================
-    // ALERT DROPDOWN CONTROLS
-    // ============================================
-    toggleAlertDropdown() {
-        const dropdown = document.getElementById('alertDropdown');
-        if (dropdown) {
-            dropdown.classList.toggle('open');
-        }
-    }
-
-    closeAlertDropdown() {
-        const dropdown = document.getElementById('alertDropdown');
-        if (dropdown) {
-            dropdown.classList.remove('open');
-        }
-    }
-
     async markAllAlertsRead() {
         if (this.alertManager) {
             await this.alertManager.markAllAsRead();
             const unreadCount = await this.alertManager.getUnreadCount();
             const alerts = this.alertManager.alerts || [];
-            this.renderAlertIcon(unreadCount, alerts);
+            this.updateAlertIcon({ unreadCount, alerts });
             showToast('All notifications marked as read', 'success');
         }
-    }
-
-    // ============================================
-    // UPDATE ALERT ICON
-    // ============================================
-    updateAlertIcon(data) {
-        const unreadCount = data?.unreadCount || 0;
-        const alerts = data?.alerts || [];
-        this.renderAlertIcon(unreadCount, alerts);
     }
 
     // ============================================
@@ -1408,7 +1435,7 @@ export class GeneralDashboard {
     }
 
     // ============================================
-    // SHOW NEW MESSAGE MODAL (FIXED - WITH NAME ATTRIBUTES)
+    // SHOW NEW MESSAGE MODAL
     // ============================================
     showNewMessageModal() {
         let modal = document.getElementById('newMessageModal');
@@ -1655,161 +1682,158 @@ export class GeneralDashboard {
         window._generalDashboard = this;
     }
 
-// ============================================
-// SUBMIT NEW MESSAGE V2 - Updated for new table structure
-// ============================================
-async submitNewMessageV2() {
-    const data = window._tempMessageData;
-    if (!data) {
-        showToast('No message data found', 'error');
-        return false;
-    }
-
-    const { category, subject, message, applyRole, workLink } = data;
-    const file = window._messageFileData;
-
-    console.log('📤 Submitting V2:', { category, subject, message, applyRole, workLink, file: !!file });
-
-    try {
-        const userId = this.currentUser.id;
-        const profile = this.currentProfile;
-
-        let fileUrl = null;
-        let fileName = null;
-
-        if (file) {
-            const uploaded = await this.uploadMessageFile(file);
-            if (uploaded) {
-                fileUrl = uploaded.url;
-                fileName = uploaded.name;
-            }
-        }
-
-        let tableName = '';
-        let insertData = {};
-
-        // Generate a UUID for the id field
-        const generateId = () => {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                const r = Math.random() * 16 | 0;
-                const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        };
-
-        switch(category) {
-            case 'apply':
-                tableName = 'applications';
-                insertData = {
-                    id: generateId(),
-                    user_id: userId,  // Now required and NOT NULL
-                    full_name: profile?.name || 'User',
-                    email: this.currentUser.email,
-                    username: profile?.username || 'user',
-                    role: applyRole || 'student',
-                    status: 'pending',
-                    submitted_at: new Date().toISOString()
-                    // Removed: birth_day, birth_month, password_hash, recovery_phrase, phone, reviewed_at
-                };
-                // Update user profile to show they have a pending application
-                await supabase
-                    .from('user_profiles')
-                    .update({
-                        application_status: 'pending',
-                        applied_role: applyRole || 'student'
-                    })
-                    .eq('id', userId);
-                break;
-
-            case 'inquire':
-                tableName = 'inquiries';
-                insertData = {
-                    id: generateId(),
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            case 'contract':
-                tableName = 'contracts';
-                insertData = {
-                    id: generateId(),
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            case 'submit_work':
-                tableName = 'submissions';
-                insertData = {
-                    id: generateId(),
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    gliimu_link: workLink || null,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            case 'hire':
-                tableName = 'jobs';
-                insertData = {
-                    id: generateId(),
-                    user_id: userId,
-                    subject: subject,
-                    message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-                break;
-
-            default:
-                showToast('Invalid category selected', 'error');
-                return false;
-        }
-
-        console.log('📤 Inserting into', tableName, insertData);
-
-        const { error } = await supabase
-            .from(tableName)
-            .insert([insertData]);
-
-        if (error) {
-            console.error('Error sending message:', error);
-            showToast('Failed to send message: ' + error.message, 'error');
+    // ============================================
+    // SUBMIT NEW MESSAGE V2
+    // ============================================
+    async submitNewMessageV2() {
+        const data = window._tempMessageData;
+        if (!data) {
+            showToast('No message data found', 'error');
             return false;
         }
 
-        showToast('✅ Message sent successfully!', 'success');
-        await this.loadMessages(this.container);
+        const { category, subject, message, applyRole, workLink } = data;
+        const file = window._messageFileData;
 
-        // Clean up
-        window._messageFileData = null;
-        window._tempMessageData = null;
+        console.log('📤 Submitting V2:', { category, subject, message, applyRole, workLink, file: !!file });
 
-        return true;
+        try {
+            const userId = this.currentUser.id;
+            const profile = this.currentProfile;
 
-    } catch (error) {
-        console.error('Error submitting message:', error);
-        showToast('Failed to send message: ' + error.message, 'error');
-        return false;
+            let fileUrl = null;
+            let fileName = null;
+
+            if (file) {
+                const uploaded = await this.uploadMessageFile(file);
+                if (uploaded) {
+                    fileUrl = uploaded.url;
+                    fileName = uploaded.name;
+                }
+            }
+
+            let tableName = '';
+            let insertData = {};
+
+            // Generate a UUID for the id field
+            const generateId = () => {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            };
+
+            switch(category) {
+                case 'apply':
+                    tableName = 'applications';
+                    insertData = {
+                        id: generateId(),
+                        user_id: userId,
+                        full_name: profile?.name || 'User',
+                        email: this.currentUser.email,
+                        username: profile?.username || 'user',
+                        role: applyRole || 'student',
+                        status: 'pending',
+                        submitted_at: new Date().toISOString()
+                    };
+                    await supabase
+                        .from('user_profiles')
+                        .update({
+                            application_status: 'pending',
+                            applied_role: applyRole || 'student'
+                        })
+                        .eq('id', userId);
+                    break;
+
+                case 'inquire':
+                    tableName = 'inquiries';
+                    insertData = {
+                        id: generateId(),
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                case 'contract':
+                    tableName = 'contracts';
+                    insertData = {
+                        id: generateId(),
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                case 'submit_work':
+                    tableName = 'submissions';
+                    insertData = {
+                        id: generateId(),
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        gliimu_link: workLink || null,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                case 'hire':
+                    tableName = 'jobs';
+                    insertData = {
+                        id: generateId(),
+                        user_id: userId,
+                        subject: subject,
+                        message: message,
+                        file_url: fileUrl,
+                        file_name: fileName,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    };
+                    break;
+
+                default:
+                    showToast('Invalid category selected', 'error');
+                    return false;
+            }
+
+            console.log('📤 Inserting into', tableName, insertData);
+
+            const { error } = await supabase
+                .from(tableName)
+                .insert([insertData]);
+
+            if (error) {
+                console.error('Error sending message:', error);
+                showToast('Failed to send message: ' + error.message, 'error');
+                return false;
+            }
+
+            showToast('✅ Message sent successfully!', 'success');
+            await this.loadMessages(this.container);
+
+            window._messageFileData = null;
+            window._tempMessageData = null;
+
+            return true;
+
+        } catch (error) {
+            console.error('Error submitting message:', error);
+            showToast('Failed to send message: ' + error.message, 'error');
+            return false;
+        }
     }
-}
 
     // ============================================
     // UPLOAD MESSAGE FILE
@@ -1895,85 +1919,121 @@ async submitNewMessageV2() {
 
         const user = this.currentUser;
         const profile = this.currentProfile;
+        const role = profile?.role || 'user';
         const username = profile?.username || user?.email?.split('@')[0] || 'user';
         const portfolioUrl = `${window.location.origin}/u/${username}`;
+
+        // Check if user is a student
+        const isStudent = role === 'student';
+        const isInstructor = role === 'instructor';
+        const canAccessFull = isStudent || isInstructor;
+
+        let portfolioContent = '';
+
+        if (isStudent) {
+            // STUDENT: Show iframe + QR code + copyable link
+            portfolioContent = `
+                <div class="card portfolio-link-card">
+                    <div class="portfolio-header">
+                        <h3><i class="fas fa-link"></i> Your Portfolio</h3>
+                        <div class="portfolio-url-container">
+                            <input type="text" id="portfolioUrl" value="${portfolioUrl}" readonly>
+                            <button id="copyPortfolioUrl" class="btn-icon" title="Copy URL">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="portfolio-iframe-container" style="margin-top: 16px; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; height: 400px;">
+                        <iframe src="${portfolioUrl}" style="width: 100%; height: 100%; border: none;" loading="lazy"></iframe>
+                    </div>
+                    <div class="portfolio-qr-container" style="margin-top: 16px; display: flex; flex-direction: column; align-items: center;">
+                        <div id="portfolioQrCode" style="display: flex; justify-content: center; padding: 10px; background: white; border-radius: 12px;">
+                            <canvas id="qrCanvas"></canvas>
+                        </div>
+                        <p class="qr-hint" style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);">Scan to view my portfolio</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            // NON-STUDENT: Show link to view portfolios
+            portfolioContent = `
+                <div class="card portfolio-view-card" style="text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">
+                        <i class="fas fa-users" style="color: var(--brand-gold);"></i>
+                    </div>
+                    <h3 style="font-size: 1.3rem; margin-bottom: 0.5rem; color: var(--text-primary);">View Student & Ambassador Portfolios</h3>
+                    <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto 1.5rem;">
+                        Explore the amazing work created by our students and ambassadors. See what they've built and get inspired!
+                    </p>
+                    <a href="/portfolio" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 32px;">
+                        <i class="fas fa-external-link-alt"></i> Browse Portfolios
+                    </a>
+                </div>
+            `;
+        }
+
+        // Build the navigation links (Go-To items as a sticky dropdown menu)
+        const navLinks = `
+            <div class="card portfolio-nav-card" style="margin-top: 20px;">
+                <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--text-secondary);">
+                    <i class="fas fa-compass" style="color: var(--brand-gold);"></i> Quick Access
+                </h3>
+                <div class="portfolio-nav-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+                    <a href="/library" class="portfolio-nav-item ${canAccessFull ? '' : 'locked'}" 
+                       ${!canAccessFull ? 'data-locked="true"' : ''}>
+                        <div class="nav-icon"><i class="fas fa-book"></i></div>
+                        <div class="nav-label">Library</div>
+                    </a>
+                    <a href="/hub" class="portfolio-nav-item ${canAccessFull ? '' : 'locked'}"
+                       ${!canAccessFull ? 'data-locked="true"' : ''}>
+                        <div class="nav-icon"><i class="fas fa-th-large"></i></div>
+                        <div class="nav-label">Hub</div>
+                    </a>
+                    <a href="/chat" class="portfolio-nav-item ${canAccessFull ? '' : 'locked'}"
+                       ${!canAccessFull ? 'data-locked="true"' : ''}>
+                        <div class="nav-icon"><i class="fas fa-comments"></i></div>
+                        <div class="nav-label">Chat Room</div>
+                    </a>
+                    <a href="/merchandise" class="portfolio-nav-item ${canAccessFull ? '' : 'locked'}"
+                       ${!canAccessFull ? 'data-locked="true"' : ''}>
+                        <div class="nav-icon"><i class="fas fa-shopping-bag"></i></div>
+                        <div class="nav-label">Merchandise</div>
+                    </a>
+                    <a href="/virtualroom" class="portfolio-nav-item ${canAccessFull ? '' : 'locked'}"
+                       data-locked="${!canAccessFull}">
+                        <div class="nav-icon"><i class="fas fa-video"></i></div>
+                        <div class="nav-label">Virtual Room</div>
+                        ${!canAccessFull ? '<span class="lock-icon"><i class="fas fa-lock"></i></span>' : ''}
+                    </a>
+                    <a href="/course" class="portfolio-nav-item ${canAccessFull ? '' : 'locked'}"
+                       data-locked="${!canAccessFull}">
+                        <div class="nav-icon"><i class="fas fa-graduation-cap"></i></div>
+                        <div class="nav-label">Courses</div>
+                        ${!canAccessFull ? '<span class="lock-icon"><i class="fas fa-lock"></i></span>' : ''}
+                    </a>
+                </div>
+                ${!canAccessFull ? `
+                    <div style="margin-top: 12px; padding: 12px 16px; background: rgba(251, 176, 64, 0.1); border-radius: 8px; border: 1px solid rgba(251, 176, 64, 0.2);">
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0;">
+                            <i class="fas fa-info-circle" style="color: var(--brand-gold);"></i> 
+                            <strong>Apply to become a student</strong> to unlock Virtual Room and Courses.
+                        </p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
 
         container.innerHTML = `
             <div class="dashboard-header">
                 <h1><i class="fas fa-user-circle"></i> Portfolio</h1>
-                <p>Your creative showcase</p>
+                <p>${isStudent ? 'Your creative showcase' : 'Discover the work of our community'}</p>
             </div>
 
-            <div class="card portfolio-link-card">
-                <div class="portfolio-header">
-                    <h3><i class="fas fa-link"></i> Your Portfolio Link</h3>
-                    <div class="portfolio-url-container">
-                        <input type="text" id="portfolioUrl" value="${portfolioUrl}" readonly>
-                        <button id="copyPortfolioUrl" class="btn-icon" title="Copy URL">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="portfolio-qr-container" id="portfolioQrContainer">
-                    <div id="portfolioQrCode" style="display: flex; justify-content: center; padding: 10px;">
-                        <canvas id="qrCanvas"></canvas>
-                    </div>
-                    <p class="qr-hint">Scan to view my portfolio</p>
-                </div>
-            </div>
-
-            <div class="go-to-grid">
-                <a href="/library.html" class="go-to-item">
-                    <div class="go-to-icon"><i class="fas fa-book"></i></div>
-                    <div class="go-to-label">Library</div>
-                    <div class="go-to-desc">Browse books & content</div>
-                </a>
-                <a href="/hub.html" class="go-to-item">
-                    <div class="go-to-icon"><i class="fas fa-store"></i></div>
-                    <div class="go-to-label">Hub</div>
-                    <div class="go-to-desc">Community marketplace</div>
-                </a>
-                <a href="/chat.html" class="go-to-item">
-                    <div class="go-to-icon"><i class="fas fa-comments"></i></div>
-                    <div class="go-to-label">Chat Room</div>
-                    <div class="go-to-desc">Connect with peers</div>
-                </a>
-                <a href="/virtualroom.html" class="go-to-item">
-                    <div class="go-to-icon"><i class="fas fa-video"></i></div>
-                    <div class="go-to-label">Virtual Room</div>
-                    <div class="go-to-desc">Live sessions</div>
-                </a>
-                <a href="/courses.html" class="go-to-item">
-                    <div class="go-to-icon"><i class="fas fa-graduation-cap"></i></div>
-                    <div class="go-to-label">Courses</div>
-                    <div class="go-to-desc">Your learning path</div>
-                </a>
-                <a href="/merchandise.html" class="go-to-item">
-                    <div class="go-to-icon"><i class="fas fa-tshirt"></i></div>
-                    <div class="go-to-label">Merchandise</div>
-                    <div class="go-to-desc">Shop Gliimu gear</div>
-                </a>
-            </div>
-
-            <div class="card quick-stats-card">
-                <h3>Your Stats</h3>
-                <div class="quick-stats-grid">
-                    <div class="quick-stat">
-                        <span class="stat-number">${profile?.gp_points?.toLocaleString() || 0}</span>
-                        <span class="stat-label">GP Points</span>
-                    </div>
-                    <div class="quick-stat">
-                        <span class="stat-number">${profile?.total_stars || 0} ⭐</span>
-                        <span class="stat-label">Stars</span>
-                    </div>
-                    <div class="quick-stat">
-                        <span class="stat-number">${profile?.role || 'Student'}</span>
-                        <span class="stat-label">Role</span>
-                    </div>
-                </div>
-            </div>
+            ${portfolioContent}
+            ${navLinks}
         `;
 
+        // Copy URL button
         document.getElementById('copyPortfolioUrl')?.addEventListener('click', () => {
             const urlInput = document.getElementById('portfolioUrl');
             if (urlInput) {
@@ -1983,7 +2043,71 @@ async submitNewMessageV2() {
             }
         });
 
-        this.generateQRCode(portfolioUrl);
+        // Generate QR code for students
+        if (isStudent) {
+            this.generateQRCode(portfolioUrl);
+        }
+
+        // Locked link click handlers
+        document.querySelectorAll('.portfolio-nav-item[data-locked="true"]').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (item.dataset.locked === 'true') {
+                    this.showAccessModal();
+                }
+            });
+        });
+    }
+
+    // ============================================
+    // SHOW ACCESS MODAL (Virtual Room / Courses)
+    // ============================================
+    showAccessModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 450px; text-align: center;">
+                <div class="modal-header">
+                    <h2><i class="fas fa-lock" style="color: var(--brand-gold);"></i> Access Restricted</h2>
+                    <button class="modal-close" id="closeAccessModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">
+                        <i class="fas fa-graduation-cap" style="color: var(--brand-gold);"></i>
+                    </div>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Only Students and Instructors Can Access</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem;">
+                        Virtual Rooms and Courses are exclusive to students and instructors. 
+                        Apply to become a student to unlock these features and start learning from industry experts!
+                    </p>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <button id="applyNowBtn" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-paper-plane"></i> Apply Now
+                        </button>
+                        <button id="closeAccessBtn" class="btn-outline">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('closeAccessModal')?.addEventListener('click', () => modal.remove());
+        document.getElementById('closeAccessBtn')?.addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        document.getElementById('applyNowBtn')?.addEventListener('click', () => {
+            modal.remove();
+            // Switch to messages tab where they can apply
+            if (window.switchTab) {
+                window.switchTab('messages');
+                showToast('Go to Messages to apply for a role', 'info');
+            } else {
+                // Fallback: redirect to user dashboard with messages tab
+                window.location.href = '/user?tab=messages';
+            }
+        });
     }
 
     // ============================================
