@@ -289,7 +289,7 @@ export async function renderInquiries(container) {
 }
 
 // ============================================
-// SUBMISSIONS (Info tab - Manager Role)
+// SUBMISSIONS (Info tab - Manager Role) - COMPLETE
 // ============================================
 export async function renderSubmissions(container) {
     if (!container) return;
@@ -319,6 +319,7 @@ export async function renderSubmissions(container) {
         </div>
     `;
     
+    // Tab switching
     document.querySelectorAll('.info-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.info-tab-btn').forEach(b => b.classList.remove('active'));
@@ -327,12 +328,97 @@ export async function renderSubmissions(container) {
             const content = document.getElementById('info-content');
             const data = { applications, contracts, jobs, submissions };
             content.innerHTML = renderInfoTab(tab, data);
+            
+            // Re-bind events after content update
+            bindInfoEvents(tab, data);
+        });
+    });
+    
+    // Initial bind
+    bindInfoEvents('applications', { applications, contracts, jobs, submissions });
+}
+
+// ============================================
+// BIND INFO EVENTS
+// ============================================
+function bindInfoEvents(tab, data) {
+    // Approve Application
+    document.querySelectorAll('.approve-application').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const userId = btn.dataset.user;
+            const role = btn.dataset.role;
+            if (confirm(`Approve ${role} application? The user will be promoted to ${role}.`)) {
+                const success = await approveApplication(id, userId, role);
+                if (success) {
+                    // Refresh the submissions tab
+                    const container = document.querySelector('#submissions-section');
+                    if (container) await renderSubmissions(container);
+                }
+            }
+        });
+    });
+    
+    // Reject Application
+    document.querySelectorAll('.reject-application').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const userId = btn.dataset.user;
+            if (confirm('Reject this application?')) {
+                const success = await rejectApplication(id, userId);
+                if (success) {
+                    const container = document.querySelector('#submissions-section');
+                    if (container) await renderSubmissions(container);
+                }
+            }
+        });
+    });
+    
+    // Reply to Contract
+    document.querySelectorAll('.reply-contract').forEach(btn => {
+        btn.addEventListener('click', () => {
+            openReplyModal('contract', btn.dataset.id);
+        });
+    });
+    
+    // Reply to Job
+    document.querySelectorAll('.reply-job').forEach(btn => {
+        btn.addEventListener('click', () => {
+            openReplyModal('job', btn.dataset.id);
+        });
+    });
+    
+    // Approve Submission
+    document.querySelectorAll('.approve-submission').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            if (confirm('Approve this submission? You will be asked to choose a destination.')) {
+                const success = await approveSubmission(id);
+                if (success) {
+                    const container = document.querySelector('#submissions-section');
+                    if (container) await renderSubmissions(container);
+                }
+            }
+        });
+    });
+    
+    // Reject Submission
+    document.querySelectorAll('.reject-submission').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            if (confirm('Reject this submission?')) {
+                const success = await rejectSubmission(id);
+                if (success) {
+                    const container = document.querySelector('#submissions-section');
+                    if (container) await renderSubmissions(container);
+                }
+            }
         });
     });
 }
 
 // ============================================
-// RENDER FUNCTIONS FOR INFO TABS
+// RENDER APPLICATIONS LIST - WITH USER ID
 // ============================================
 function renderApplicationsList(applications) {
     if (!applications || applications.length === 0) {
@@ -346,8 +432,9 @@ function renderApplicationsList(applications) {
                 <span class="info-date">${new Date(app.submitted_at).toLocaleString()}</span>
             </div>
             <div class="info-body">
-                <p>Email: ${app.email}</p>
-                <p>Username: ${app.username}</p>
+                <p>📧 ${escapeHtml(app.email)}</p>
+                <p>👤 ${escapeHtml(app.username)}</p>
+                ${app.user_id ? `<p>🆔 ${app.user_id}</p>` : ''}
             </div>
             <div class="info-meta">
                 <span class="info-status ${app.status}">${app.status.toUpperCase()}</span>
@@ -366,6 +453,11 @@ function renderApplicationsList(applications) {
             ` : `
                 <span class="rejected-label"><i class="fas fa-ban"></i> Rejected</span>
             `}
+            ${app.admin_notes ? `
+                <div class="admin-notes">
+                    <strong>Admin Notes:</strong> ${escapeHtml(app.admin_notes)}
+                </div>
+            ` : ''}
         </div>
     `).join('');
 }
@@ -467,6 +559,9 @@ function renderSubmissionsList(submissions) {
     `).join('');
 }
 
+// ============================================
+// RENDER INFO TAB
+// ============================================
 function renderInfoTab(tab, data) {
     const map = {
         applications: data.applications,
