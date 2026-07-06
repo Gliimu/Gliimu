@@ -694,7 +694,7 @@ export async function submitNewMessage(dashboard) {
 }
 
 // ============================================
-// UPLOAD MESSAGE FILE
+// UPLOAD MESSAGE FILE - Make sure it's exported
 // ============================================
 export async function uploadMessageFile(file) {
     if (!file) return null;
