@@ -11,7 +11,7 @@ import { formatCurrency, getTimeAgo, escapeHtml } from './user-utils.js';
 import { modalManager } from './user-modals.js';
 
 // ============================================
-// LOAD SUBMISSIONS
+// LOAD SUBMISSIONS - FIXED
 // ============================================
 export async function loadSubmissions(container, dashboard) {
     if (!container) {
@@ -19,15 +19,27 @@ export async function loadSubmissions(container, dashboard) {
     }
     if (!container) return;
 
-    var profile = dashboard.currentProfile;
+    // Use getStudentProgress from progression module
     var progressData = await getStudentProgress(dashboard.currentUser.id);
-    var nextQuestion = await getNextQuestion(dashboard.currentUser.id);
-    var answeredQuestions = await getAnsweredQuestions(dashboard.currentUser.id);
-
     var progress = progressData?.progress || 0;
-    var badge = progressData?.currentBadge || { name: 'Starter', icon: '🌱', color: '#10b981' };
     var currentGP = progressData?.currentGP || 0;
     var totalStars = progressData?.totalStars || 0;
+
+    // Get next question - handle gracefully if table doesn't exist
+    var nextQuestion = null;
+    try {
+        nextQuestion = await getNextQuestion(dashboard.currentUser.id);
+    } catch (e) {
+        console.warn('Could not get next question:', e);
+    }
+
+    // Get answered questions - handle gracefully
+    var answeredQuestions = [];
+    try {
+        answeredQuestions = await getAnsweredQuestions(dashboard.currentUser.id);
+    } catch (e) {
+        console.warn('Could not get answered questions:', e);
+    }
 
     container.innerHTML = `
         <div class="dashboard-header">
@@ -35,7 +47,6 @@ export async function loadSubmissions(container, dashboard) {
             <p>Answer questions to earn GP and increase your progress!</p>
         </div>
 
-        <!-- Progress Overview -->
         <div class="card" style="margin-bottom: 20px;">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
                 <div style="text-align: center;">
@@ -55,29 +66,19 @@ export async function loadSubmissions(container, dashboard) {
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">Answered</div>
                 </div>
             </div>
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                <span style="font-size: 0.85rem; color: var(--text-secondary);">
-                    <i class="fas fa-${badge.icon === '🌱' ? 'seedling' : badge.icon === '📜' ? 'scroll' : badge.icon === '🎓' ? 'graduation-cap' : badge.icon === '🏆' ? 'trophy' : 'crown'}"></i>
-                    Current Badge: <strong style="color: var(--brand-gold);">${badge.name}</strong>
-                </span>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">
-                    Next: ${progressData?.nextBadge?.name || 'Ambassador'} (${Math.round(progressData?.progressToNext || 0)}%)
-                </span>
-            </div>
         </div>
 
-        <!-- Next Question -->
         <div class="card" style="margin-bottom: 20px;">
             <h3><i class="fas fa-question-circle" style="color: var(--brand-gold);"></i> Next Question</h3>
             ${nextQuestion ? `
                 <div style="margin-top: 12px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
                     <p style="font-size: 1rem; font-weight: 500; margin-bottom: 8px;">${escapeHtml(nextQuestion.question)}</p>
                     <p style="font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(nextQuestion.description || '')}</p>
-                    <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <div style="margin-top: 12px;">
                         <button id="answerQuestionBtn" class="btn-primary">
                             <i class="fas fa-pen"></i> Answer Question
                         </button>
-                        <span style="font-size: 0.75rem; color: var(--text-muted); align-self: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 12px;">
                             <i class="fas fa-star" style="color: var(--brand-gold);"></i> +${nextQuestion.gp_reward || 10} GP
                         </span>
                     </div>
@@ -87,50 +88,6 @@ export async function loadSubmissions(container, dashboard) {
                     <i class="fas fa-check-circle" style="font-size: 3rem; color: #10b981; margin-bottom: 12px; display: block;"></i>
                     <h3>All Questions Complete!</h3>
                     <p>You've answered all available questions. Check back later for more.</p>
-                    <button class="btn-outline" onclick="window.location.reload()" style="margin-top: 12px;">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-            `}
-        </div>
-
-        <!-- Answered Questions -->
-        <div class="card">
-            <h3><i class="fas fa-history" style="color: var(--brand-gold);"></i> Answered Questions</h3>
-            ${answeredQuestions.length > 0 ? `
-                <div style="margin-top: 12px;">
-                    ${answeredQuestions.map(function(aq) {
-                        return `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="font-weight: 500; color: var(--text-primary);">${escapeHtml(aq.question_title || 'Question')}</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-muted);">
-                                        ${getTimeAgo(aq.answered_at)}
-                                        ${aq.gp_earned ? ` • <span style="color: var(--brand-gold);">+${aq.gp_earned} GP</span>` : ''}
-                                    </div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    ${aq.status === 'graded' ? `
-                                        <span style="padding: 2px 10px; background: rgba(16, 185, 129, 0.15); color: #10b981; border-radius: 10px; font-size: 0.65rem; font-weight: 600;">
-                                            ${aq.grade || 'Graded'}
-                                        </span>
-                                    ` : `
-                                        <span style="padding: 2px 10px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-radius: 10px; font-size: 0.65rem; font-weight: 600;">
-                                            Pending
-                                        </span>
-                                    `}
-                                    <button class="btn-outline view-answer-btn" style="padding: 2px 10px; font-size: 0.7rem;" data-id="${aq.id}">
-                                        <i class="fas fa-eye"></i> View
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            ` : `
-                <div style="text-align: center; padding: 30px 20px; color: var(--text-secondary);">
-                    <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>
-                    <p>No questions answered yet. Start learning!</p>
                 </div>
             `}
         </div>
@@ -138,17 +95,9 @@ export async function loadSubmissions(container, dashboard) {
 
     // Bind events
     document.getElementById('answerQuestionBtn')?.addEventListener('click', function() {
-        showQuestionModal(dashboard, nextQuestion);
-    });
-
-    document.querySelectorAll('.view-answer-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var id = this.dataset.id;
-            var answer = answeredQuestions.find(function(a) { return a.id === id; });
-            if (answer) {
-                showAnswerModal(answer);
-            }
-        });
+        if (nextQuestion) {
+            showQuestionModal(dashboard, nextQuestion);
+        }
     });
 
     dashboard.setupModalCloseHandlers();
