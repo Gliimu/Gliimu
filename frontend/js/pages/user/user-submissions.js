@@ -155,13 +155,16 @@ export async function loadSubmissions(container, dashboard) {
 }
 
 // ============================================
-// GET ANSWERED QUESTIONS
+// GET ANSWERED QUESTIONS - FIXED
 // ============================================
 export async function getAnsweredQuestions(userId) {
     try {
         var { data, error } = await supabase
             .from('student_answers')
-            .select('*, questions(title)')
+            .select(`
+                *,
+                questions(question, description)
+            `)
             .eq('student_id', userId)
             .order('answered_at', { ascending: false });
 
@@ -170,7 +173,7 @@ export async function getAnsweredQuestions(userId) {
         return data.map(function(a) {
             return {
                 ...a,
-                question_title: a.questions?.title || 'Question'
+                question_title: a.questions?.question || 'Question'
             };
         }) || [];
     } catch (error) {
