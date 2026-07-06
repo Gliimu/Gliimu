@@ -14,7 +14,7 @@ const PROGRESSION_CONFIG = {
     // 1/50 × GP = Progress %
     GP_TO_PROGRESS_RATIO: 1/50,
     MAX_PROGRESS: 100,
-    MAX_GP_FOR_100_PERCENT: 5000, // 5000 / 50 = 100%
+    MAX_GP_FOR_100_PERCENT: 5000,
     
     // Star conversion
     GP_PER_STAR: 1000,
@@ -93,7 +93,7 @@ const PROGRESSION_CONFIG = {
         baseDiscount: 10,
         maxDiscount: 45,
         gpThreshold: 100,
-        multiplier: 0.1 // 10% + (GP_Spent × 0.1)
+        multiplier: 0.1
     }
 };
 
@@ -124,7 +124,7 @@ function calculateGPForProgress(progress) {
     return Math.ceil(progress / PROGRESSION_CONFIG.GP_TO_PROGRESS_RATIO);
 }
 
-function getNextBadge(currentGP) {
+function getNextBadgeFunc(currentGP) {
     const progress = calculateProgress(currentGP);
     const badges = PROGRESSION_CONFIG.BADGES;
     
@@ -135,9 +135,9 @@ function getNextBadge(currentGP) {
     return null;
 }
 
-function getProgressToNextBadge(currentGP) {
+function getProgressToNextBadgeFunc(currentGP) {
     const progress = calculateProgress(currentGP);
-    const nextBadge = getNextBadge(currentGP);
+    const nextBadge = getNextBadgeFunc(currentGP);
     
     if (!nextBadge) return 100;
     
@@ -150,6 +150,35 @@ function getProgressToNextBadge(currentGP) {
     const progressInRange = progress - currentMin;
     const rangeSize = nextMax - currentMin;
     return Math.min(100, (progressInRange / rangeSize) * 100);
+}
+
+function getCurrentBadgeFunc(currentGP) {
+    const progress = calculateProgress(currentGP);
+    return getBadgeFromProgress(progress);
+}
+
+function generateId() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0;
+        var v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+function storeAlertLocal(alertData) {
+    try {
+        const key = 'alerts_' + alertData.user_id;
+        let alerts = JSON.parse(localStorage.getItem(key) || '[]');
+        alerts.unshift({
+            id: 'alert_' + Date.now(),
+            ...alertData,
+            read: false,
+            created_at: new Date().toISOString()
+        });
+        localStorage.setItem(key, JSON.stringify(alerts));
+    } catch (e) {
+        console.warn('Could not store alert locally:', e);
+    }
 }
 
 // ============================================
@@ -185,69 +214,93 @@ async function getUserData(userId) {
 }
 
 // ============================================
-// CORE PROGRESSION FUNCTIONS
+// EXPORTED FUNCTIONS
 // ============================================
 
-export async function getStudentProgress(userId) {
+export async function getStudentProgress(studentId) {
     try {
-        const userData = await getUserData(userId);
-        if (!userData) return null;
-        
-        const currentGP = userData.gp_points || 0;
-        const progress = calculateProgress(currentGP);
-        const currentBadge = getBadgeFromProgress(progress);
-        const nextBadge = getNextBadge(currentGP);
-        const progressToNext = getProgressToNextBadge(currentGP);
-        const totalStars = userData.total_stars || 0;
-        
-        // Get available stars (total - used)
-        const usedStars = await getUsedStars(userId);
-        const availableStars = totalStars - usedStars;
-        
+        const { data, error } = await supabase
+            .from('student_progress')
+            .select('*')
+            .eq('student_id', studentId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        if (!data) {
+            return {
+                currentGP: 0,
+                progress: 0,
+                starsEarned: 0,
+                currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+                nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+                progressToNext: 0
+            };
+        }
+
+        const currentBadge = getCurrentBadgeFunc(data.current_gp || 0);
+        const nextBadge = getNextBadgeFunc(data.current_gp || 0);
+        const progressToNext = getProgressToNextBadgeFunc(data.current_gp || 0);
+
         return {
-            userId: userData.id,
-            name: userData.name,
-            role: userData.role,
-            currentGP: currentGP,
-            progress: progress,
+            currentGP: data.current_gp || 0,
+            progress: data.progress || 0,
+            totalStars: data.stars_earned || 0,
             currentBadge: currentBadge,
             nextBadge: nextBadge,
-            progressToNext: progressToNext,
-            totalStars: totalStars,
-            availableStars: availableStars,
-            usedStars: usedStars,
-            streak: userData.login_streak || 0,
-            lifetimeGPEarned: userData.total_gp_earned_lifetime || 0,
-            gpConverted: userData.total_gp_converted || 0
+            progressToNext: progressToNext
         };
+
     } catch (error) {
         console.error('Error getting student progress:', error);
         return null;
     }
 }
 
-// ============================================
-// GP EARNING FUNCTIONS
-// ============================================
-
-export async function earnGP(userId, activityType, gpAmount, referenceId = null) {
+export async function getIndividualLeaderboard(limit = 5) {
     try {
-        // Validate activity type
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select(`
+                id,
+                name,
+                gp_points,
+                total_stars,
+                avatar_url,
+                role
+            `)
+            .order('gp_points', { ascending: false })
+            .limit(limit);
+        
+        if (error) throw error;
+        
+        return data.map(function(user) {
+            return {
+                ...user,
+                progress: calculateProgress(user.gp_points || 0),
+                badge: getBadgeFromProgress(calculateProgress(user.gp_points || 0))
+            };
+        });
+    } catch (error) {
+        console.error('Error getting leaderboard:', error);
+        return [];
+    }
+}
+
+export async function earnGP(userId, activityType, gpAmount, referenceId) {
+    try {
         const validActivities = ['read', 'comment', 'share', 'heart_received', 'submission_graded', 'streak_bonus'];
         if (!validActivities.includes(activityType)) {
             console.error('Invalid activity type:', activityType);
             return false;
         }
         
-        // Get current user data
         const userData = await getUserData(userId);
         if (!userData) return false;
         
-        // Calculate new GP
         const currentGP = userData.gp_points || 0;
         const newGP = currentGP + gpAmount;
         
-        // Update user profile
         const { error: updateError } = await supabase
             .from('user_profiles')
             .update({
@@ -263,46 +316,34 @@ export async function earnGP(userId, activityType, gpAmount, referenceId = null)
         }
         
         // Record activity
-        const { error: activityError } = await supabase
-            .from('user_activity')
-            .insert([{
-                user_id: userId,
-                activity_type: activityType,
-                gp_earned: gpAmount,
-                reference_id: referenceId,
-                created_at: new Date().toISOString()
-            }]);
-        
-        if (activityError) {
-            console.error('Error recording activity:', activityError);
-            // Don't fail the whole operation, just log
+        try {
+            await supabase
+                .from('user_activity')
+                .insert([{
+                    user_id: userId,
+                    activity_type: activityType,
+                    gp_earned: gpAmount,
+                    reference_id: referenceId || null,
+                    created_at: new Date().toISOString()
+                }]);
+        } catch (activityError) {
+            console.warn('Error recording activity:', activityError);
         }
         
-        // Check for badge upgrade
-        const oldBadge = getBadgeFromProgress(calculateProgress(currentGP));
-        const newBadge = getBadgeFromProgress(calculateProgress(newGP));
-        
-        if (newBadge.name !== oldBadge.name) {
-            showToast(`🎉 LEVEL UP! You're now a ${newBadge.icon} ${newBadge.name}!`, 'success');
-        }
-        
-        // Check for star eligibility (every 1000 GP)
+        // Check for star eligibility
         const newStars = Math.floor(newGP / PROGRESSION_CONFIG.GP_PER_STAR);
         const oldStars = Math.floor(currentGP / PROGRESSION_CONFIG.GP_PER_STAR);
         
         if (newStars > oldStars) {
             const earnedStars = newStars - oldStars;
             await addStars(userId, earnedStars);
-            showToast(`⭐ CONGRATULATIONS! You earned ${earnedStars} star${earnedStars > 1 ? 's' : ''}!`, 'success');
         }
         
         return {
             success: true,
             previousGP: currentGP,
             newGP: newGP,
-            gpEarned: gpAmount,
-            newBadge: newBadge,
-            newStars: newStars
+            gpEarned: gpAmount
         };
         
     } catch (error) {
@@ -311,16 +352,54 @@ export async function earnGP(userId, activityType, gpAmount, referenceId = null)
     }
 }
 
-// ============================================
-// STAR MANAGEMENT
-// ============================================
+export async function convertGPToStars(userId) {
+    try {
+        const userData = await getUserData(userId);
+        if (!userData) {
+            showToast('User not found', 'error');
+            return false;
+        }
+        
+        const currentGP = userData.gp_points || 0;
+        
+        if (currentGP < PROGRESSION_CONFIG.GP_PER_STAR) {
+            showToast('Need ' + PROGRESSION_CONFIG.GP_PER_STAR + ' GP to convert to a star!', 'error');
+            return false;
+        }
+        
+        const newGP = currentGP - PROGRESSION_CONFIG.GP_PER_STAR;
+        
+        const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({
+                gp_points: newGP,
+                total_gp_converted: (userData.total_gp_converted || 0) + PROGRESSION_CONFIG.GP_PER_STAR,
+                total_stars: (userData.total_stars || 0) + 1,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+        
+        if (updateError) throw updateError;
+        
+        showToast('⭐ Converted ' + PROGRESSION_CONFIG.GP_PER_STAR + ' GP to 1 Star!', 'success');
+        return true;
+        
+    } catch (error) {
+        console.error('Error converting GP to stars:', error);
+        showToast('Failed to convert GP', 'error');
+        return false;
+    }
+}
 
 export async function addStars(userId, count) {
     try {
+        const userData = await getUserData(userId);
+        if (!userData) return false;
+        
         const { error } = await supabase
             .from('user_profiles')
             .update({
-                total_stars: supabase.raw(`total_stars + ${count}`)
+                total_stars: (userData.total_stars || 0) + count
             })
             .eq('id', userId);
         
@@ -341,690 +420,21 @@ export async function getUsedStars(userId) {
             .eq('status', 'active');
         
         if (error) {
-            // If table doesn't exist, return 0
-            if (error.code === 'PGRST205') {
-                return 0;
-            }
+            if (error.code === 'PGRST205') return 0;
             throw error;
         }
         
-        const usedStars = data.reduce((sum, item) => sum + (item.stars_used || 0), 0);
-        return usedStars;
+        return data.reduce(function(sum, item) {
+            return sum + (item.stars_used || 0);
+        }, 0);
     } catch (error) {
         console.error('Error getting used stars:', error);
-        return 0; // Return 0 on error so dashboard doesn't break
-    }
-}
-
-export async function convertGPToStars(userId) {
-    try {
-        const userData = await getUserData(userId);
-        if (!userData) {
-            showToast('User not found', 'error');
-            return false;
-        }
-        
-        const currentGP = userData.gp_points || 0;
-        
-        if (currentGP < PROGRESSION_CONFIG.GP_PER_STAR) {
-            showToast(`Need ${PROGRESSION_CONFIG.GP_PER_STAR} GP to convert to a star!`, 'error');
-            return false;
-        }
-        
-        // Deduct GP and add star
-        const newGP = currentGP - PROGRESSION_CONFIG.GP_PER_STAR;
-        
-        const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({
-                gp_points: newGP,
-                total_gp_converted: (userData.total_gp_converted || 0) + PROGRESSION_CONFIG.GP_PER_STAR,
-                total_stars: (userData.total_stars || 0) + 1,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-        
-        if (updateError) throw updateError;
-        
-        // Record conversion
-        const { error: conversionError } = await supabase
-            .from('star_conversions')
-            .insert([{
-                user_id: userId,
-                gp_converted: PROGRESSION_CONFIG.GP_PER_STAR,
-                stars_earned: 1,
-                converted_at: new Date().toISOString()
-            }]);
-        
-        if (conversionError) {
-            console.error('Error recording conversion:', conversionError);
-        }
-        
-        showToast(`⭐ Converted ${PROGRESSION_CONFIG.GP_PER_STAR} GP to 1 Star! Company will send a surprise gift!`, 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error converting GP to stars:', error);
-        showToast('Failed to convert GP. Please try again.', 'error');
-        return false;
-    }
-}
-
-// ============================================
-// PROMOTION SYSTEM
-// ============================================
-
-export async function activatePromotion(userId, promotionType) {
-    try {
-        const userData = await getUserData(userId);
-        if (!userData) {
-            showToast('User not found', 'error');
-            return false;
-        }
-        
-        const promotion = PROGRESSION_CONFIG.PROMOTIONS[promotionType];
-        if (!promotion) {
-            showToast('Invalid promotion type', 'error');
-            return false;
-        }
-        
-        // Check ambassador requirement
-        if (promotion.requiresAmbassador) {
-            const progress = calculateProgress(userData.gp_points || 0);
-            if (progress < 100) {
-                showToast('Need Ambassador status for this promotion!', 'error');
-                return false;
-            }
-            
-            const stars = userData.total_stars || 0;
-            if (promotion.requiresStars && stars < promotion.requiresStars) {
-                showToast(`Need ${promotion.requiresStars} stars for free promotion!`, 'error');
-                return false;
-            }
-        }
-        
-        // Check if user has enough stars
-        const availableStars = (userData.total_stars || 0) - (await getUsedStars(userId));
-        if (promotion.stars > 0 && availableStars < promotion.stars) {
-            showToast(`Need ${promotion.stars} stars for this promotion!`, 'error');
-            return false;
-        }
-        
-        // Create promotion record
-        const { data, error } = await supabase
-            .from('user_promotions')
-            .insert([{
-                user_id: userId,
-                promotion_type: promotionType,
-                stars_used: promotion.stars,
-                duration: promotion.duration,
-                duration_unit: promotion.unit,
-                status: 'active',
-                started_at: new Date().toISOString(),
-                expires_at: new Date(Date.now() + (promotion.duration * 24 * 60 * 60 * 1000)).toISOString()
-            }])
-            .select()
-            .single();
-        
-        if (error) throw error;
-        
-        showToast(`✅ ${promotionType.replace('_', ' ').toUpperCase()} activated!`, 'success');
-        return data;
-        
-    } catch (error) {
-        console.error('Error activating promotion:', error);
-        showToast('Failed to activate promotion', 'error');
-        return false;
-    }
-}
-
-export async function getActivePromotions(userId) {
-    try {
-        const { data, error } = await supabase
-            .from('user_promotions')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .gt('expires_at', new Date().toISOString())
-            .order('started_at', { ascending: false });
-        
-        if (error) throw error;
-        return data || [];
-    } catch (error) {
-        console.error('Error getting promotions:', error);
-        return [];
-    }
-}
-
-// ============================================
-// STREAK SYSTEM
-// ============================================
-
-export async function checkAndUpdateStreak(userId) {
-    try {
-        const userData = await getUserData(userId);
-        if (!userData) return null;
-        
-        const today = new Date().toISOString().split('T')[0];
-        const lastLogin = userData.last_login_date;
-        
-        // If already logged in today, just return current streak
-        if (lastLogin === today) {
-            return userData.login_streak || 0;
-        }
-        
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        
-        let newStreak = 0;
-        let bonusEarned = 0;
-        
-        if (lastLogin === yesterdayStr) {
-            // Consecutive day - increase streak
-            newStreak = (userData.login_streak || 0) + 1;
-        } else {
-            // Streak broken
-            newStreak = 1;
-        }
-        
-        // Check for streak rewards
-        const streakRewards = PROGRESSION_CONFIG.STREAK_REWARDS;
-        if (streakRewards[newStreak]) {
-            bonusEarned = streakRewards[newStreak].bonus;
-            
-            // Award bonus GP
-            await earnGP(userId, 'streak_bonus', bonusEarned, null);
-            
-            showToast(`🔥 ${streakRewards[newStreak].label}! You earned ${bonusEarned} bonus GP!`, 'success');
-        }
-        
-        // Update user profile
-        const { error } = await supabase
-            .from('user_profiles')
-            .update({
-                login_streak: newStreak,
-                last_login_date: today,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-        
-        if (error) throw error;
-        
-        return { streak: newStreak, bonusEarned: bonusEarned };
-        
-    } catch (error) {
-        console.error('Error updating streak:', error);
-        return null;
-    }
-}
-
-// ============================================
-// DISCOUNT SYSTEM
-// ============================================
-
-export async function calculateDiscount(userId, gpToSpend) {
-    try {
-        const userData = await getUserData(userId);
-        if (!userData) return 0;
-        
-        const currentGP = userData.gp_points || 0;
-        
-        if (gpToSpend < PROGRESSION_CONFIG.DISCOUNTS.gpThreshold) {
-            showToast(`Need at least ${PROGRESSION_CONFIG.DISCOUNTS.gpThreshold} GP for a discount`, 'error');
-            return 0;
-        }
-        
-        if (gpToSpend > currentGP) {
-            showToast(`Not enough GP. You have ${currentGP} GP`, 'error');
-            return 0;
-        }
-        
-        // Base discount + bonus based on GP spent
-        const baseDiscount = PROGRESSION_CONFIG.DISCOUNTS.baseDiscount;
-        const bonusMultiplier = PROGRESSION_CONFIG.DISCOUNTS.multiplier;
-        let discount = baseDiscount + (gpToSpend * bonusMultiplier);
-        
-        // Cap at max discount
-        const maxDiscount = PROGRESSION_CONFIG.DISCOUNTS.maxDiscount;
-        discount = Math.min(maxDiscount, discount);
-        
-        // Apply progress level bonus
-        const progress = calculateProgress(currentGP);
-        if (progress >= 76) {
-            discount = Math.min(maxDiscount, discount + 10); // Mastery+ get extra 10%
-        } else if (progress >= 51) {
-            discount = Math.min(maxDiscount, discount + 5); // Advanced get extra 5%
-        }
-        
-        return Math.floor(discount);
-        
-    } catch (error) {
-        console.error('Error calculating discount:', error);
         return 0;
     }
 }
 
-export async function redeemDiscount(userId, itemId, itemType, gpSpent) {
-    try {
-        const discount = await calculateDiscount(userId, gpSpent);
-        if (discount === 0) {
-            showToast('No discount available', 'error');
-            return false;
-        }
-        
-        // Deduct GP from user
-        const userData = await getUserData(userId);
-        if (!userData) return false;
-        
-        const newGP = (userData.gp_points || 0) - gpSpent;
-        
-        const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({
-                gp_points: newGP,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-        
-        if (updateError) throw updateError;
-        
-        // Record discount redemption
-        const { error: redemptionError } = await supabase
-            .from('discount_redemptions')
-            .insert([{
-                user_id: userId,
-                discount_percentage: discount,
-                gp_spent: gpSpent,
-                item_id: itemId,
-                item_type: itemType,
-                redeemed_at: new Date().toISOString()
-            }]);
-        
-        if (redemptionError) {
-            console.error('Error recording redemption:', redemptionError);
-        }
-        
-        showToast(`✅ ${discount}% discount applied! ${gpSpent} GP spent.`, 'success');
-        return { success: true, discount: discount };
-        
-    } catch (error) {
-        console.error('Error redeeming discount:', error);
-        showToast('Failed to redeem discount', 'error');
-        return false;
-    }
-}
-
-// ============================================
-// LEADERBOARD FUNCTIONS
-// ============================================
-
-export async function getIndividualLeaderboard(limit = 10) {
-    try {
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select(`
-                id,
-                name,
-                gp_points,
-                total_stars,
-                avatar_url,
-                role
-            `)
-            .neq('role', 'admin')
-            .order('gp_points', { ascending: false })
-            .limit(limit);
-        
-        if (error) throw error;
-        
-        return data.map(user => ({
-            ...user,
-            progress: calculateProgress(user.gp_points || 0),
-            badge: getBadgeFromProgress(calculateProgress(user.gp_points || 0))
-        }));
-    } catch (error) {
-        console.error('Error getting leaderboard:', error);
-        return [];
-    }
-}
-
-export async function getSquadLeaderboard(squadId) {
-    try {
-        // Get all members of the squad
-        const { data: squadMembers, error: membersError } = await supabase
-            .from('squad_members')
-            .select('user_id')
-            .eq('squad_id', squadId);
-        
-        if (membersError) throw membersError;
-        
-        const userIds = squadMembers.map(m => m.user_id);
-        
-        if (userIds.length === 0) return null;
-        
-        // Get total GP for the squad
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select('gp_points')
-            .in('id', userIds);
-        
-        if (error) throw error;
-        
-        const totalGP = data.reduce((sum, user) => sum + (user.gp_points || 0), 0);
-        const averageGP = totalGP / userIds.length;
-        const progress = calculateProgress(averageGP);
-        
-        return {
-            squadId: squadId,
-            memberCount: userIds.length,
-            totalGP: totalGP,
-            averageGP: averageGP,
-            progress: progress,
-            badge: getBadgeFromProgress(progress)
-        };
-    } catch (error) {
-        console.error('Error getting squad leaderboard:', error);
-        return null;
-    }
-}
-
-export async function getCohortLeaderboard(cohortId) {
-    try {
-        // Get all squads in cohort
-        const { data: squads, error: squadsError } = await supabase
-            .from('squads')
-            .select('id')
-            .eq('cohort_id', cohortId);
-        
-        if (squadsError) throw squadsError;
-        
-        const squadLeaderboards = await Promise.all(
-            squads.map(squad => getSquadLeaderboard(squad.id))
-        );
-        
-        // Sort by total GP
-        return squadLeaderboards
-            .filter(s => s !== null)
-            .sort((a, b) => b.totalGP - a.totalGP);
-    } catch (error) {
-        console.error('Error getting cohort leaderboard:', error);
-        return [];
-    }
-}
-
-// ============================================
-// HEART SYSTEM (Content Quality)
-// ============================================
-
-export async function addHeart(contentId, contentType, userId) {
-    try {
-        // Check if user already hearted
-        const { data: existing, error: checkError } = await supabase
-            .from('hearts')
-            .select('id')
-            .eq('content_id', contentId)
-            .eq('user_id', userId)
-            .single();
-        
-        if (existing) {
-            showToast('Already hearted this content!', 'info');
-            return false;
-        }
-        
-        // Add heart
-        const { error: heartError } = await supabase
-            .from('hearts')
-            .insert([{
-                content_id: contentId,
-                content_type: contentType,
-                user_id: userId,
-                created_at: new Date().toISOString()
-            }]);
-        
-        if (heartError) throw heartError;
-        
-        // Count total hearts for this content
-        const { data: heartCount, error: countError } = await supabase
-            .from('hearts')
-            .select('id', { count: 'exact' })
-            .eq('content_id', contentId);
-        
-        if (countError) throw countError;
-        
-        // If 12 hearts reached, award GP to content creator
-        if (heartCount.length === 12) {
-            // Get content creator
-            const { data: content, error: contentError } = await supabase
-                .from(contentType === 'post' ? 'posts' : 'hub_contents')
-                .select('created_by')
-                .eq('id', contentId)
-                .single();
-            
-            if (!contentError && content) {
-                await earnGP(content.created_by, 'heart_received', 5, contentId);
-                showToast(`🎉 Content reached 12 hearts! Creator earned 5 GP!`, 'success');
-            }
-        }
-        
-        showToast('❤️ Heart added!', 'success');
-        return { success: true, totalHearts: heartCount.length };
-        
-    } catch (error) {
-        console.error('Error adding heart:', error);
-        showToast('Failed to add heart', 'error');
-        return false;
-    }
-}
-
-// ============================================
-// PORTFOLIO & PROMOTION FUNCTIONS
-// ============================================
-
-export async function getPortfolioStatus(userId) {
-    try {
-        const userData = await getUserData(userId);
-        if (!userData) return null;
-        
-        const progress = calculateProgress(userData.gp_points || 0);
-        const isAmbassador = progress >= 100;
-        const hasFiveStars = (userData.total_stars || 0) >= 5;
-        
-        // Check if currently promoted
-        const { data: promotions, error: promoError } = await supabase
-            .from('user_promotions')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .eq('promotion_type', 'hub_featured')
-            .gt('expires_at', new Date().toISOString());
-        
-        if (promoError) throw promoError;
-        
-        const isCurrentlyPromoted = promotions && promotions.length > 0;
-        
-        return {
-            isAmbassador: isAmbassador,
-            hasFiveStars: hasFiveStars,
-            isCurrentlyPromoted: isCurrentlyPromoted,
-            qualifiesForFreePromotion: isAmbassador && hasFiveStars && !isCurrentlyPromoted,
-            promotionExpiry: isCurrentlyPromoted ? promotions[0].expires_at : null
-        };
-    } catch (error) {
-        console.error('Error getting portfolio status:', error);
-        return null;
-    }
-}
-
-export async function requestFreePortfolioPromotion(userId) {
-    try {
-        const status = await getPortfolioStatus(userId);
-        if (!status) return false;
-        
-        if (!status.qualifiesForFreePromotion) {
-            showToast('Must be Ambassador with 5+ stars for free promotion!', 'error');
-            return false;
-        }
-        
-        return await activatePromotion(userId, 'hub_featured');
-    } catch (error) {
-        console.error('Error requesting portfolio promotion:', error);
-        showToast('Failed to activate promotion', 'error');
-        return false;
-    }
-}
-
-// ============================================
-// SQUAD FUNCTIONS
-// ============================================
-
-export async function joinSquad(userId, squadId) {
-    try {
-        // Check if squad is full
-        const { data: squad, error: squadError } = await supabase
-            .from('squads')
-            .select('member_count, max_members')
-            .eq('id', squadId)
-            .single();
-        
-        if (squadError) throw squadError;
-        
-        if (squad.member_count >= squad.max_members) {
-            showToast('This squad is full!', 'error');
-            return false;
-        }
-        
-        // Add user to squad
-        const { error: joinError } = await supabase
-            .from('squad_members')
-            .insert([{
-                squad_id: squadId,
-                user_id: userId,
-                joined_at: new Date().toISOString()
-            }]);
-        
-        if (joinError) throw joinError;
-        
-        // Update squad member count
-        const { error: updateError } = await supabase
-            .from('squads')
-            .update({
-                member_count: squad.member_count + 1,
-                is_full: squad.member_count + 1 >= squad.max_members
-            })
-            .eq('id', squadId);
-        
-        if (updateError) throw updateError;
-        
-        showToast('✅ Joined squad successfully!', 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error joining squad:', error);
-        showToast('Failed to join squad', 'error');
-        return false;
-    }
-}
-
-// ============================================
-// ADMIN FUNCTIONS (Question Management)
-// ============================================
-
-export async function addQuestionToPool(questionData) {
-    try {
-        const { error } = await supabase
-            .from('questions')
-            .insert([{
-                text: questionData.text,
-                type: questionData.type || 'mcq',
-                badge_level: questionData.badge_level || 'starter',
-                options: questionData.options || null,
-                correct_answer: questionData.correct_answer,
-                explanation: questionData.explanation || null,
-                difficulty_level: questionData.difficulty_level || 1,
-                category: questionData.category || null,
-                source_type: questionData.source_type || null,
-                source_title: questionData.source_title || null,
-                source_author: questionData.source_author || null,
-                requires_creation: questionData.requires_creation || false,
-                created_by: questionData.created_by,
-                is_approved: true,
-                created_at: new Date().toISOString()
-            }]);
-        
-        if (error) throw error;
-        
-        showToast('✅ Question added successfully!', 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error adding question:', error);
-        showToast('Failed to add question', 'error');
-        return false;
-    }
-}
-
-export async function getQuestionsForSquad(squadId, badgeLevel = null) {
-    try {
-        // Get squad members to determine their level
-        const { data: members, error: membersError } = await supabase
-            .from('squad_members')
-            .select('user_id')
-            .eq('squad_id', squadId);
-        
-        if (membersError) throw membersError;
-        
-        // Get average GP of squad
-        const { data: users, error: usersError } = await supabase
-            .from('user_profiles')
-            .select('gp_points')
-            .in('id', members.map(m => m.user_id));
-        
-        if (usersError) throw usersError;
-        
-        const avgGP = users.reduce((sum, u) => sum + (u.gp_points || 0), 0) / users.length;
-        const avgProgress = calculateProgress(avgGP);
-        const avgBadge = getBadgeFromProgress(avgProgress);
-        
-        // Get questions matching the squad's level
-        let query = supabase
-            .from('questions')
-            .select('*')
-            .eq('is_approved', true);
-        
-        if (badgeLevel) {
-            query = query.eq('badge_level', badgeLevel);
-        } else {
-            // Get questions at or below squad's average level
-            const badgeLevels = ['starter', 'diploma', 'advanced', 'mastery', 'ambassador'];
-            const currentIndex = badgeLevels.indexOf(avgBadge.name.toLowerCase());
-            const allowedLevels = badgeLevels.slice(0, currentIndex + 1);
-            query = query.in('badge_level', allowedLevels);
-        }
-        
-        const { data, error } = await query
-            .order('difficulty_level', { ascending: true })
-            .limit(5); // Show 5 questions at a time
-        
-        if (error) throw error;
-        
-        return data || [];
-        
-    } catch (error) {
-        console.error('Error getting squad questions:', error);
-        return [];
-    }
-}
-
-// ============================================
-// ADD THESE FUNCTIONS TO progression.js
-// ============================================
-
-// ============================================
-// GET NEXT QUESTION
-// ============================================
 export async function getNextQuestion(studentId) {
     try {
-        // First, get the questions the student has already answered
         const { data: answered, error: answeredError } = await supabase
             .from('student_answers')
             .select('question_id')
@@ -1032,9 +442,8 @@ export async function getNextQuestion(studentId) {
 
         if (answeredError) throw answeredError;
 
-        const answeredIds = answered.map(a => a.question_id);
+        const answeredIds = answered.map(function(a) { return a.question_id; });
 
-        // Build query for unanswered questions
         let query = supabase
             .from('questions')
             .select('*')
@@ -1056,12 +465,8 @@ export async function getNextQuestion(studentId) {
     }
 }
 
-// ============================================
-// SUBMIT ANSWER
-// ============================================
 export async function submitAnswer(studentId, questionId, answer) {
     try {
-        // Check if already answered
         const { data: existing, error: checkError } = await supabase
             .from('student_answers')
             .select('id')
@@ -1074,7 +479,6 @@ export async function submitAnswer(studentId, questionId, answer) {
             return false;
         }
 
-        // Get question details for GP reward
         const { data: question, error: questionError } = await supabase
             .from('questions')
             .select('gp_reward')
@@ -1085,7 +489,6 @@ export async function submitAnswer(studentId, questionId, answer) {
 
         const gpReward = question?.gp_reward || 10;
 
-        // Insert answer
         const { data, error } = await supabase
             .from('student_answers')
             .insert([{
@@ -1101,14 +504,12 @@ export async function submitAnswer(studentId, questionId, answer) {
 
         if (error) throw error;
 
-        // Update student progress
         await updateStudentProgress(studentId, gpReward);
 
-        // Create alert
         await createUserAlert({
             user_id: studentId,
             icon: '⭐',
-            message: `You earned ${gpReward} GP for answering a question!`,
+            message: 'You earned ' + gpReward + ' GP for answering a question!',
             type: 'success'
         });
 
@@ -1120,12 +521,8 @@ export async function submitAnswer(studentId, questionId, answer) {
     }
 }
 
-// ============================================
-// UPDATE STUDENT PROGRESS
-// ============================================
 export async function updateStudentProgress(studentId, gpEarned) {
     try {
-        // Get current progress
         const { data: current, error: getError } = await supabase
             .from('student_progress')
             .select('current_gp, progress, stars_earned')
@@ -1142,8 +539,7 @@ export async function updateStudentProgress(studentId, gpEarned) {
         const newProgress = Math.min(100, (newGP / 5000) * 100);
         const newStars = Math.floor(newGP / 1000);
 
-        // Check for badge upgrade
-        const newBadge = getCurrentBadge(newGP);
+        const newBadge = getCurrentBadgeFunc(newGP);
 
         const { error } = await supabase
             .from('student_progress')
@@ -1166,53 +562,7 @@ export async function updateStudentProgress(studentId, gpEarned) {
     }
 }
 
-// ============================================
-// GET STUDENT PROGRESS
-// ============================================
-export async function getStudentProgress(studentId) {
-    try {
-        const { data, error } = await supabase
-            .from('student_progress')
-            .select('*')
-            .eq('student_id', studentId)
-            .single();
-
-        if (error && error.code !== 'PGRST116') throw error;
-
-        if (!data) {
-            return {
-                currentGP: 0,
-                progress: 0,
-                starsEarned: 0,
-                currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
-                nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
-                progressToNext: 0
-            };
-        }
-
-        const currentBadge = getCurrentBadge(data.current_gp || 0);
-        const nextBadge = getNextBadge(data.current_gp || 0);
-        const progressToNext = getProgressToNextBadge(data.current_gp || 0);
-
-        return {
-            currentGP: data.current_gp || 0,
-            progress: data.progress || 0,
-            totalStars: data.stars_earned || 0,
-            currentBadge: currentBadge,
-            nextBadge: nextBadge,
-            progressToNext: progressToNext
-        };
-
-    } catch (error) {
-        console.error('Error getting student progress:', error);
-        return null;
-    }
-}
-
-// ============================================
-// GET STUDENT PORTFOLIO (for public portfolio page)
-// ============================================
-export async function getStudentPortfolio(studentId, isPublic = false) {
+export async function getStudentPortfolio(studentId, isPublic) {
     try {
         let query = supabase
             .from('student_answers')
@@ -1231,31 +581,22 @@ export async function getStudentPortfolio(studentId, isPublic = false) {
 
         if (error) throw error;
 
-        return data.map(item => ({
-            id: item.id,
-            title: item.questions?.title || 'Answer',
-            description: item.questions?.question || item.answer?.substring(0, 100) || 'No description',
-            type: 'answer',
-            grade: item.grade,
-            status: item.status,
-            created_at: item.answered_at
-        }));
+        return data.map(function(item) {
+            return {
+                id: item.id,
+                title: item.questions?.title || 'Answer',
+                description: item.questions?.question || item.answer?.substring(0, 100) || 'No description',
+                type: 'answer',
+                grade: item.grade,
+                status: item.status,
+                created_at: item.answered_at
+            };
+        });
 
     } catch (error) {
         console.error('Error getting student portfolio:', error);
         return [];
     }
-}
-
-// ============================================
-// GENERATE ID HELPER
-// ============================================
-function generateId() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0;
-        var v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
 }
 
 // ============================================
@@ -1276,7 +617,6 @@ async function createUserAlert(alertData) {
 
         if (error) {
             if (error.code === '42P01' || error.code === 'PGRST205') {
-                // Table doesn't exist, store in localStorage
                 storeAlertLocal(alertData);
                 return;
             }
@@ -1284,69 +624,41 @@ async function createUserAlert(alertData) {
         }
     } catch (error) {
         console.error('Error creating user alert:', error);
-        // Fallback to localStorage
         storeAlertLocal(alertData);
     }
 }
 
-function storeAlertLocal(alertData) {
-    try {
-        const key = 'alerts_' + alertData.user_id;
-        let alerts = JSON.parse(localStorage.getItem(key) || '[]');
-        alerts.unshift({
-            id: 'alert_' + Date.now(),
-            ...alertData,
-            read: false,
-            created_at: new Date().toISOString()
-        });
-        localStorage.setItem(key, JSON.stringify(alerts));
-    } catch (e) {
-        console.warn('Could not store alert locally:', e);
-    }
+// ============================================
+// EXPORT THE HELPER FUNCTIONS THAT ARE NEEDED
+// ============================================
+export function getCurrentBadge(gp) {
+    return getCurrentBadgeFunc(gp);
+}
+
+export function getNextBadge(gp) {
+    return getNextBadgeFunc(gp);
+}
+
+export function getProgressToNextBadge(gp) {
+    return getProgressToNextBadgeFunc(gp);
 }
 
 // ============================================
-// COMPLETED FUNCTIONS
+// DEFAULT EXPORT
 // ============================================
-
 export default {
-    // Core
     getStudentProgress,
+    getIndividualLeaderboard,
     earnGP,
-    
-    // Stars
     convertGPToStars,
     addStars,
     getUsedStars,
-    
-    // Promotions
-    activatePromotion,
-    getActivePromotions,
-    getPortfolioStatus,
-    requestFreePortfolioPromotion,
-    
-    // Streaks
-    checkAndUpdateStreak,
-    
-    // Discounts
-    calculateDiscount,
-    redeemDiscount,
-    
-    // Leaderboards
-    getIndividualLeaderboard,
-    getSquadLeaderboard,
-    getCohortLeaderboard,
-    
-    // Hearts
-    addHeart,
-    
-    // Squads
-    joinSquad,
-    
-    // Admin
-    addQuestionToPool,
-    getQuestionsForSquad,
-    
-    // Constants
+    getNextQuestion,
+    submitAnswer,
+    updateStudentProgress,
+    getStudentPortfolio,
+    getCurrentBadge,
+    getNextBadge,
+    getProgressToNextBadge,
     PROGRESSION_CONFIG
 };
