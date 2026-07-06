@@ -8,7 +8,7 @@ import { supabase } from '../../modules/supabase.js';
 import { showToast } from '../../modules/toast.js';
 import { GeneralDashboard } from './user-general.js';
 import { renderOverview } from './user-tabs.js';
-import { loadMessages } from './user-messages.js';
+import { loadMessages } from './user-message.js';
 import { loadWallet, showFundWalletModal, showConvertStarsModal } from './user-wallet.js';
 import { modalManager } from './user-modals.js';
 import { formatDateTime, escapeHtml } from './user-utils.js';
