@@ -1655,146 +1655,161 @@ export class GeneralDashboard {
         window._generalDashboard = this;
     }
 
-    // ============================================
-    // SUBMIT NEW MESSAGE V2 - Using stored data
-    // ============================================
-    async submitNewMessageV2() {
-        const data = window._tempMessageData;
-        if (!data) {
-            showToast('No message data found', 'error');
-            return false;
+// ============================================
+// SUBMIT NEW MESSAGE V2 - With ID generation
+// ============================================
+async submitNewMessageV2() {
+    const data = window._tempMessageData;
+    if (!data) {
+        showToast('No message data found', 'error');
+        return false;
+    }
+
+    const { category, subject, message, applyRole, workLink } = data;
+    const file = window._messageFileData;
+
+    console.log('📤 Submitting V2:', { category, subject, message, applyRole, workLink, file: !!file });
+
+    try {
+        const userId = this.currentUser.id;
+        const profile = this.currentProfile;
+
+        let fileUrl = null;
+        let fileName = null;
+
+        if (file) {
+            const uploaded = await this.uploadMessageFile(file);
+            if (uploaded) {
+                fileUrl = uploaded.url;
+                fileName = uploaded.name;
+            }
         }
 
-        const { category, subject, message, applyRole, workLink } = data;
-        const file = window._messageFileData;
+        let tableName = '';
+        let insertData = {};
 
-        console.log('📤 Submitting V2:', { category, subject, message, applyRole, workLink, file: !!file });
+        // Generate a UUID for the id field
+        const generateId = () => {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        };
 
-        try {
-            const userId = this.currentUser.id;
-            const profile = this.currentProfile;
+        switch(category) {
+            case 'apply':
+                tableName = 'applications';
+                insertData = {
+                    id: generateId(),
+                    user_id: userId,
+                    full_name: profile?.name || 'User',
+                    email: this.currentUser.email,
+                    username: profile?.username || 'user',
+                    role: applyRole || 'student',
+                    birth_day: profile?.birth_day || null,
+                    birth_month: profile?.birth_month || null,
+                    status: 'pending',
+                    submitted_at: new Date().toISOString()
+                };
+                // Update user profile
+                await supabase
+                    .from('user_profiles')
+                    .update({
+                        application_status: 'pending',
+                        applied_role: applyRole || 'student'
+                    })
+                    .eq('id', userId);
+                break;
 
-            let fileUrl = null;
-            let fileName = null;
+            case 'inquire':
+                tableName = 'inquiries';
+                insertData = {
+                    id: generateId(),
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
 
-            if (file) {
-                const uploaded = await this.uploadMessageFile(file);
-                if (uploaded) {
-                    fileUrl = uploaded.url;
-                    fileName = uploaded.name;
-                }
-            }
+            case 'contract':
+                tableName = 'contracts';
+                insertData = {
+                    id: generateId(),
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
 
-            let tableName = '';
-            let insertData = {};
+            case 'submit_work':
+                tableName = 'submissions';
+                insertData = {
+                    id: generateId(),
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    gliimu_link: workLink || null,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
 
-            switch(category) {
-                case 'apply':
-                    tableName = 'applications';
-                    insertData = {
-                        user_id: userId,
-                        full_name: profile?.name || 'User',
-                        email: this.currentUser.email,
-                        username: profile?.username || 'user',
-                        role: applyRole || 'student',
-                        birth_day: profile?.birth_day || null,
-                        birth_month: profile?.birth_month || null,
-                        status: 'pending',
-                        submitted_at: new Date().toISOString()
-                    };
-                    await supabase
-                        .from('user_profiles')
-                        .update({
-                            application_status: 'pending',
-                            applied_role: applyRole || 'student'
-                        })
-                        .eq('id', userId);
-                    break;
+            case 'hire':
+                tableName = 'jobs';
+                insertData = {
+                    id: generateId(),
+                    user_id: userId,
+                    subject: subject,
+                    message: message,
+                    file_url: fileUrl,
+                    file_name: fileName,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                break;
 
-                case 'inquire':
-                    tableName = 'inquiries';
-                    insertData = {
-                        user_id: userId,
-                        subject: subject,
-                        message: message,
-                        file_url: fileUrl,
-                        file_name: fileName,
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    };
-                    break;
-
-                case 'contract':
-                    tableName = 'contracts';
-                    insertData = {
-                        user_id: userId,
-                        subject: subject,
-                        message: message,
-                        file_url: fileUrl,
-                        file_name: fileName,
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    };
-                    break;
-
-                case 'submit_work':
-                    tableName = 'submissions';
-                    insertData = {
-                        user_id: userId,
-                        subject: subject,
-                        message: message,
-                        file_url: fileUrl,
-                        file_name: fileName,
-                        gliimu_link: workLink || null,
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    };
-                    break;
-
-                case 'hire':
-                    tableName = 'jobs';
-                    insertData = {
-                        user_id: userId,
-                        subject: subject,
-                        message: message,
-                        file_url: fileUrl,
-                        file_name: fileName,
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    };
-                    break;
-
-                default:
-                    showToast('Invalid category selected', 'error');
-                    return false;
-            }
-
-            console.log('📤 Inserting into', tableName, insertData);
-
-            const { error } = await supabase
-                .from(tableName)
-                .insert([insertData]);
-
-            if (error) {
-                console.error('Error sending message:', error);
-                showToast('Failed to send message: ' + error.message, 'error');
+            default:
+                showToast('Invalid category selected', 'error');
                 return false;
-            }
+        }
 
-            showToast('✅ Message sent successfully!', 'success');
-            await this.loadMessages(this.container);
+        console.log('📤 Inserting into', tableName, insertData);
 
-            window._messageFileData = null;
-            window._tempMessageData = null;
+        const { error } = await supabase
+            .from(tableName)
+            .insert([insertData]);
 
-            return true;
-
-        } catch (error) {
-            console.error('Error submitting message:', error);
+        if (error) {
+            console.error('Error sending message:', error);
             showToast('Failed to send message: ' + error.message, 'error');
             return false;
         }
+
+        showToast('✅ Message sent successfully!', 'success');
+        await this.loadMessages(this.container);
+
+        window._messageFileData = null;
+        window._tempMessageData = null;
+
+        return true;
+
+    } catch (error) {
+        console.error('Error submitting message:', error);
+        showToast('Failed to send message: ' + error.message, 'error');
+        return false;
     }
+}
 
     // ============================================
     // UPLOAD MESSAGE FILE
