@@ -19,6 +19,7 @@ import { initializeAlerts, addInitialAlerts, subscribeToAlerts } from './user-al
 import { initSettings } from './user-settings.js';
 import { setupNavigation, updateNavActive, closeSidebar, setupStickyNavFunctions, setupStickyNav } from './user-navigation.js';
 import { modalManager } from './user-modals.js';
+import { loadMessages } from './user-message.js';
 
 // ============================================
 // USER ROUTER CLASS
