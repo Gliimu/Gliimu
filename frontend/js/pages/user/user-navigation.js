@@ -7,7 +7,7 @@
 import { showToast } from '../../modules/toast.js';
 
 // ============================================
-// NAVIGATION FUNCTIONS
+// SETUP NAVIGATION - UPDATED mobile nav
 // ============================================
 export function setupNavigation(router) {
     var sidebarNav = document.getElementById('sidebarNav');
@@ -23,14 +23,37 @@ export function setupNavigation(router) {
         });
     }
 
-    // Mobile bottom navigation
-    document.querySelectorAll('.mobile-nav-item').forEach(function(item) {
-        item.addEventListener('click', function() {
-            var tab = this.dataset.tab;
-            router.loadTab(tab);
-            closeSidebar();
+    // Mobile bottom navigation - Update dynamically
+    var mobileNav = document.getElementById('mobileBottomNav');
+    if (mobileNav) {
+        var role = router.currentProfile?.role || 'user';
+        var mobileItems = [
+            { tab: 'dashboard', icon: 'fa-tachometer-alt', label: 'Home' },
+            { tab: 'messages', icon: 'fa-envelope', label: 'Messages' }
+        ];
+        
+        if (role === 'student' || role === 'instructor') {
+            mobileItems.push({ tab: 'submissions', icon: 'fa-tasks', label: 'Submissions' });
+        }
+        
+        mobileItems.push(
+            { tab: 'wallet', icon: 'fa-wallet', label: 'Wallet' },
+            { tab: 'settings', icon: 'fa-cog', label: 'Profile' }
+        );
+        
+        mobileNav.innerHTML = mobileItems.map(function(item) {
+            var active = item.tab === 'dashboard' ? 'active' : '';
+            return '<button class="mobile-nav-item ' + active + '" data-tab="' + item.tab + '"><i class="fas ' + item.icon + '"></i><span>' + item.label + '</span></button>';
+        }).join('');
+        
+        mobileNav.querySelectorAll('.mobile-nav-item').forEach(function(item) {
+            item.addEventListener('click', function() {
+                var tab = this.dataset.tab;
+                router.loadTab(tab);
+                closeSidebar();
+            });
         });
-    });
+    }
 
     // Sidebar overlay
     var overlay = document.getElementById('sidebarOverlay');
@@ -42,7 +65,7 @@ export function setupNavigation(router) {
 }
 
 // ============================================
-// GET NAVIGATION ITEMS
+// GET NAVIGATION ITEMS - UPDATED
 // ============================================
 export function getNavItems(router) {
     var role = router.currentProfile?.role || 'user';
@@ -51,7 +74,12 @@ export function getNavItems(router) {
     // Base items for all users
     items.push({ tab: 'dashboard', icon: 'fa-tachometer-alt', label: 'Overview' });
     items.push({ tab: 'messages', icon: 'fa-envelope', label: 'Messages' });
-    items.push({ tab: 'submissions', icon: 'fa-tasks', label: 'Submissions' });
+    
+    // Only show Submissions for students and instructors
+    if (role === 'student' || role === 'instructor') {
+        items.push({ tab: 'submissions', icon: 'fa-tasks', label: 'Submissions' });
+    }
+    
     items.push({ tab: 'wallet', icon: 'fa-wallet', label: 'Wallet' });
 
     // Instructor-specific items
