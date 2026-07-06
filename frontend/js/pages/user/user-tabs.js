@@ -7,39 +7,39 @@ import { showToast } from '../../modules/toast.js';
 import { formatCurrency } from './user-utils.js';
 
 // ============================================
-// GET STUDENT PROGRESS
+// GET STUDENT PROGRESS - FIXED for 406 error
 // ============================================
 async function getStudentProgress(userId) {
     try {
+        // Try to get from student_progress table with specific columns
         var { data, error } = await supabase
             .from('student_progress')
-            .select('*')
+            .select('current_gp, progress, stars_earned, current_badge')
             .eq('student_id', userId)
-            .single();
+            .maybeSingle();
         
         if (error) {
-            if (error.code === 'PGRST205' || error.code === 'PGRST116') {
-                var { data: profile } = await supabase
-                    .from('user_profiles')
-                    .select('gp_points')
-                    .eq('id', userId)
-                    .single();
-                
-                if (profile) {
-                    var gp = profile.gp_points || 0;
-                    var progress = Math.min(100, (gp / 5000) * 100);
-                    return {
-                        currentGP: gp,
-                        progress: progress,
-                        totalStars: 0,
-                        currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
-                        nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
-                        progressToNext: 0
-                    };
-                }
-                return null;
+            console.warn('Student progress table error:', error);
+            // Fallback to user_profiles gp_points
+            var { data: profile } = await supabase
+                .from('user_profiles')
+                .select('gp_points')
+                .eq('id', userId)
+                .single();
+            
+            if (profile) {
+                var gp = profile.gp_points || 0;
+                var progress = Math.min(100, (gp / 5000) * 100);
+                return {
+                    currentGP: gp,
+                    progress: progress,
+                    totalStars: 0,
+                    currentBadge: { name: 'Starter', icon: '🌱', color: '#10b981' },
+                    nextBadge: { name: 'Diploma', icon: '📜', color: '#3b82f6' },
+                    progressToNext: 0
+                };
             }
-            throw error;
+            return null;
         }
         
         if (!data) return null;
