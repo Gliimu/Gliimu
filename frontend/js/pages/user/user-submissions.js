@@ -6,7 +6,7 @@
 
 import { supabase } from '../../modules/supabase.js';
 import { showToast } from '../../modules/toast.js';
-import { getStudentProgress, getNextQuestion, submitAnswer } from '../../modules/progression.js';
+import { getStudentProgress, getNextQuestion, submitAnswer, getCurrentBadge } from '../../modules/progression.js';
 import { formatCurrency, getTimeAgo, escapeHtml } from './user-utils.js';
 import { modalManager } from './user-modals.js';
 
