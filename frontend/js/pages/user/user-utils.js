@@ -272,3 +272,25 @@ export function throttle(func, limit) {
         }
     };
 }
+
+// At the very bottom of user-utils.js, add:
+export default {
+    getTimeAgo,
+    escapeHtml,
+    generateId,
+    formatCurrency,
+    formatDate,
+    formatDateTime,
+    truncateText,
+    copyToClipboard,
+    getStatusColor,
+    getStatusLabel,
+    getCategoryLabel,
+    getCategoryIcon,
+    isValidEmail,
+    isValidPhone,
+    deepClone,
+    isEmptyObject,
+    debounce,
+    throttle
+};
