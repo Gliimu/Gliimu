@@ -67,6 +67,17 @@ export class UserPage {
             // Setup sticky nav global functions
             this.setupStickyNavFunctions();
 
+            // Setup alert dropdown after DOM is fully loaded
+            setTimeout(() => {
+            this.setupAlertDropdown();
+            }, 500);
+
+            // Load default tab
+            this.loadTab('dashboard');
+            
+            // Setup sticky nav global functions
+            this.setupStickyNavFunctions();
+
             // Load default tab
             this.loadTab('dashboard');
 
@@ -127,6 +138,42 @@ export class UserPage {
             this.showLoading(false);
         }
     }
+
+    // ============================================
+// SETUP ALERT DROPDOWN (Fallback in router)
+// ============================================
+setupAlertDropdown() {
+    console.log('🔔 Setting up alert dropdown from router...');
+    
+    const alertBtn = document.getElementById('alertIconBtn');
+    const alertDropdown = document.getElementById('alertDropdown');
+    
+    if (!alertBtn) {
+        console.warn('⚠️ Alert button not found yet, will retry...');
+        setTimeout(() => this.setupAlertDropdown(), 500);
+        return;
+    }
+    
+    if (!alertDropdown) {
+        console.warn('⚠️ Alert dropdown not found');
+        return;
+    }
+    
+    // Remove old listeners
+    const newBtn = alertBtn.cloneNode(true);
+    alertBtn.parentNode.replaceChild(newBtn, alertBtn);
+    
+    // Add click listener to the new button
+    newBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔔 Alert clicked!');
+        alertDropdown.classList.toggle('open');
+        console.log('Dropdown open:', alertDropdown.classList.contains('open'));
+    });
+    
+    console.log('✅ Alert dropdown setup complete');
+}
 
     // ============================================
     // INITIALIZE ALERTS
