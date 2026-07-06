@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Add this meta tag to prevent caching -->
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-    
     <title>Admin Dashboard | Gliimu Institute</title>
-    <link rel="stylesheet" href="/css/global.css">
-    <link rel="stylesheet" href="/frontend/css/admin-dashboard.css">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/frontend/css/admin/admin-base.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
-    <!-- Dynamic Header for Admin Dashboard -->
+    <!-- ============================================ -->
+    <!-- HEADER -->
+    <!-- ============================================ -->
     <div class="admin-header">
         <div class="header-container">
             <div class="logo">
@@ -24,6 +22,9 @@
                 <span id="dashboardTitle">Admin Dashboard</span>
             </div>
             <div class="header-right">
+                <button id="themeToggle" class="theme-toggle-btn" title="Toggle Theme">
+                    <i class="fas fa-moon"></i>
+                </button>
                 <div class="admin-info">
                     <span class="admin-name" id="adminName">Loading...</span>
                     <span class="admin-role" id="adminRole">Loading...</span>
@@ -35,16 +36,18 @@
         </div>
     </div>
 
-    <!-- Admin Dashboard Container -->
+    <!-- ============================================ -->
+    <!-- ADMIN CONTAINER -->
+    <!-- ============================================ -->
     <div class="admin-container">
-        <!-- Sidebar - Dynamically populated -->
-        <aside class="admin-sidebar">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar" id="adminSidebar">
             <nav class="admin-nav" id="sidebarNav">
                 <div class="loading-nav">Loading...</div>
             </nav>
         </aside>
 
-        <!-- Main Content - Dynamically populated -->
+        <!-- Main Content -->
         <main class="admin-main" id="dashboardContent">
             <div class="loading-container">
                 <div class="loading-spinner">
@@ -56,9 +59,7 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- LIBRARY ITEM MODAL - WITH FILE UPLOAD -->
-    <!-- REMOVED: Description field -->
-    <!-- RENAMED: First Chapter → Book Teaser -->
+    <!-- LIBRARY ITEM MODAL -->
     <!-- ============================================ -->
     <div id="libraryItemModal" class="modal">
         <div class="modal-content" style="max-width:700px;">
@@ -70,7 +71,6 @@
                 <form id="libraryItemForm" onsubmit="window.saveLibraryItem(event)">
                     <input type="hidden" id="editItemId">
                     
-                    <!-- Basic Info -->
                     <div class="form-row">
                         <div class="form-group">
                             <label>Title *</label>
@@ -97,9 +97,6 @@
                         </div>
                     </div>
                     
-                    <!-- REMOVED: Description field -->
-                    
-                    <!-- Pricing -->
                     <div class="form-row">
                         <div class="form-group">
                             <label>Digital Price (₦)</label>
@@ -115,7 +112,7 @@
                         </div>
                     </div>
                     
-                    <!-- COVER IMAGE UPLOAD - Direct from computer -->
+                    <!-- Cover Image -->
                     <div class="form-group">
                         <label>Cover Image</label>
                         <div class="upload-field" onclick="document.getElementById('coverFileInput').click()">
@@ -133,7 +130,7 @@
                         </div>
                     </div>
                     
-                    <!-- CONTENT FILE UPLOAD - Direct from computer -->
+                    <!-- Content File -->
                     <div class="form-group">
                         <label>Content File (PDF, EPUB, Video, etc.)</label>
                         <div class="upload-field" onclick="document.getElementById('contentFileInput').click()">
@@ -149,24 +146,22 @@
                         </div>
                     </div>
                     
-                    <!-- Bundle Download URL (only for bundles) -->
+                    <!-- Bundle Download URL -->
                     <div class="form-group" id="bundleDownloadGroup" style="display:none;">
                         <label>Bundle Download URL (optional)</label>
                         <input type="url" id="itemDownloadUrl" placeholder="https://example.com/bundle.zip">
-                        <small>If you uploaded a ZIP file above, this is optional</small>
                     </div>
                     
-                    <!-- Duration (only for talks) -->
+                    <!-- Duration -->
                     <div class="form-group" id="talkDurationGroup" style="display:none;">
                         <label>Duration (for talks)</label>
                         <input type="text" id="itemDuration" placeholder="e.g., 12:34">
                     </div>
                     
-                    <!-- RENAMED: First Chapter → Book Teaser -->
+                    <!-- Book Teaser -->
                     <div class="form-group">
                         <label>Book Teaser</label>
                         <textarea id="itemFirstChapter" rows="4" placeholder="Paste the teaser content here..."></textarea>
-                        <small>This will be displayed as a preview in the book modal</small>
                     </div>
                     
                     <!-- Level & Status -->
@@ -220,7 +215,6 @@
                     <div class="form-group">
                         <label>Display Order</label>
                         <input type="number" id="faqOrder" value="0" placeholder="0, 1, 2...">
-                        <small>Lower numbers appear first</small>
                     </div>
                     <button type="submit" class="btn-primary">Save FAQ</button>
                 </form>
@@ -328,8 +322,46 @@
         </div>
     </div>
 
+    <!-- ============================================ -->
+    <!-- REPLY MODAL (Dynamic - created by JS) -->
+    <!-- ============================================ -->
+    <!-- This is created dynamically by openReplyModal() in admin-super.js -->
+
+    <!-- ============================================ -->
+    <!-- RECORD MODAL (Dynamic - created by JS) -->
+    <!-- ============================================ -->
+    <!-- This is created dynamically by openRecordModal() in admin-super.js -->
+
+    <!-- ============================================ -->
+    <!-- SCRIPTS -->
+    <!-- ============================================ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script type="module" src="/js/pages/admin-dashboard.js"></script>
+    
+    <!-- Main Admin Dashboard -->
+    <script type="module" src="/frontend/js/pages/admin/admin-dashboard.js"></script>
+    
+    <!-- ============================================ -->
+    <!-- THEME TOGGLE HANDLER -->
+    <!-- ============================================ -->
+    <script>
+        // Simple theme toggle for the admin header
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeBtn = document.getElementById('themeToggle');
+            if (themeBtn) {
+                themeBtn.addEventListener('click', function() {
+                    document.body.classList.toggle('dark-mode');
+                    const isDark = document.body.classList.contains('dark-mode');
+                    localStorage.setItem('admin_theme', isDark ? 'dark' : 'light');
+                    this.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+                });
+                
+                // Set initial icon
+                const isDark = document.body.classList.contains('dark-mode');
+                themeBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            }
+        });
+    </script>
+
 </body>
 </html>
