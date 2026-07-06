@@ -1,17 +1,10 @@
 // ============================================
-// USER MESSAGES - Message Logic
+// USER MESSAGES - Simplified
 // ============================================
 
 import { supabase } from '../../modules/supabase.js';
 import { showToast } from '../../modules/toast.js';
-import { 
-    getTimeAgo, 
-    escapeHtml, 
-    getStatusColor, 
-    getStatusLabel, 
-    getCategoryLabel,
-    generateId
-} from './user-utils.js';
+import { getTimeAgo, escapeHtml, generateId } from './user-utils.js';
 
 // ============================================
 // LOAD MESSAGES
@@ -27,7 +20,7 @@ export async function loadMessages(container, dashboard) {
     container.innerHTML = `
         <div class="dashboard-header">
             <h1><i class="fas fa-envelope"></i> Messages</h1>
-            <p>Communicate with administrators based on your needs</p>
+            <p>Communicate with administrators</p>
         </div>
         
         <div class="card messages-container">
@@ -82,7 +75,6 @@ export async function getAllUserMessages(userId) {
     var allMessages = [];
 
     try {
-        // Applications
         var { data: applications } = await supabase
             .from('applications')
             .select('*')
@@ -90,8 +82,8 @@ export async function getAllUserMessages(userId) {
             .order('submitted_at', { ascending: false });
 
         if (applications) {
-            allMessages = allMessages.concat(applications.map(function(a) {
-                return {
+            applications.forEach(function(a) {
+                allMessages.push({
                     ...a,
                     _table: 'applications',
                     _category: 'apply',
@@ -100,11 +92,10 @@ export async function getAllUserMessages(userId) {
                     _subject: 'Application: ' + a.role,
                     _message: 'Applied to become a ' + a.role,
                     _icon: '🎓'
-                };
-            }));
+                });
+            });
         }
 
-        // Inquiries
         var { data: inquiries } = await supabase
             .from('inquiries')
             .select('*')
@@ -112,8 +103,8 @@ export async function getAllUserMessages(userId) {
             .order('created_at', { ascending: false });
 
         if (inquiries) {
-            allMessages = allMessages.concat(inquiries.map(function(i) {
-                return {
+            inquiries.forEach(function(i) {
+                allMessages.push({
                     ...i,
                     _table: 'inquiries',
                     _category: 'inquire',
@@ -122,11 +113,10 @@ export async function getAllUserMessages(userId) {
                     _subject: i.subject || 'Inquiry',
                     _message: i.message || '',
                     _icon: '❓'
-                };
-            }));
+                });
+            });
         }
 
-        // Contracts
         var { data: contracts } = await supabase
             .from('contracts')
             .select('*')
@@ -134,8 +124,8 @@ export async function getAllUserMessages(userId) {
             .order('created_at', { ascending: false });
 
         if (contracts) {
-            allMessages = allMessages.concat(contracts.map(function(c) {
-                return {
+            contracts.forEach(function(c) {
+                allMessages.push({
                     ...c,
                     _table: 'contracts',
                     _category: 'contract',
@@ -144,11 +134,10 @@ export async function getAllUserMessages(userId) {
                     _subject: c.subject || 'Contract Offer',
                     _message: c.message || '',
                     _icon: '📄'
-                };
-            }));
+                });
+            });
         }
 
-        // Submissions
         var { data: submissions } = await supabase
             .from('submissions')
             .select('*')
@@ -156,8 +145,8 @@ export async function getAllUserMessages(userId) {
             .order('created_at', { ascending: false });
 
         if (submissions) {
-            allMessages = allMessages.concat(submissions.map(function(s) {
-                return {
+            submissions.forEach(function(s) {
+                allMessages.push({
                     ...s,
                     _table: 'submissions',
                     _category: 'submit_work',
@@ -166,11 +155,10 @@ export async function getAllUserMessages(userId) {
                     _subject: s.subject || 'Work Submission',
                     _message: s.message || '',
                     _icon: '💼'
-                };
-            }));
+                });
+            });
         }
 
-        // Jobs
         var { data: jobs } = await supabase
             .from('jobs')
             .select('*')
@@ -178,8 +166,8 @@ export async function getAllUserMessages(userId) {
             .order('created_at', { ascending: false });
 
         if (jobs) {
-            allMessages = allMessages.concat(jobs.map(function(j) {
-                return {
+            jobs.forEach(function(j) {
+                allMessages.push({
                     ...j,
                     _table: 'jobs',
                     _category: 'hire',
@@ -188,8 +176,8 @@ export async function getAllUserMessages(userId) {
                     _subject: j.subject || 'Job Request',
                     _message: j.message || '',
                     _icon: '👔'
-                };
-            }));
+                });
+            });
         }
 
         allMessages.sort(function(a, b) {
@@ -209,62 +197,67 @@ export async function getAllUserMessages(userId) {
 // ============================================
 export function renderMessageThreads(messages) {
     if (!messages || messages.length === 0) {
-        return `
-            <div class="empty-state">
-                <i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i>
-                <h3>No Messages</h3>
-                <p>Start a conversation by clicking "New Message"</p>
-            </div>
-        `;
+        return '<div class="empty-state"><i class="fas fa-inbox" style="font-size: 48px; color: var(--text-secondary);"></i><h3>No Messages</h3><p>Start a conversation by clicking "New Message"</p></div>';
     }
 
-    return messages.map(function(msg, index) {
-        var statusColor = getStatusColor(msg._display_status);
-        var statusLabel = getStatusLabel(msg._display_status);
-        var fileHtml = msg.file_url ? `
-            <a href="${msg.file_url}" target="_blank" class="message-attachment">
-                <i class="fas fa-paperclip"></i> ${msg.file_name || 'Attachment'}
-            </a>
-        ` : '';
+    var html = '';
+    messages.forEach(function(msg, index) {
+        var statusColor = '#64748b';
+        var statusLabel = msg._display_status || 'Pending';
+        
+        var fileHtml = msg.file_url ? '<a href="' + msg.file_url + '" target="_blank" class="message-attachment"><i class="fas fa-paperclip"></i> ' + (msg.file_name || 'Attachment') + '</a>' : '';
+        var responseHtml = msg.admin_response ? '<div class="admin-response"><div class="response-header"><i class="fas fa-reply"></i><strong>Admin Response</strong><span class="response-date">' + getTimeAgo(msg.replied_at || msg.updated_at) + '</span></div><div class="response-body">' + escapeHtml(msg.admin_response) + '</div></div>' : '';
+        var destinationHtml = msg.destination ? '<span class="destination-badge">→ ' + msg.destination + '</span>' : '';
+        var gliimuLinkHtml = msg.gliimu_link ? '<a href="' + msg.gliimu_link + '" target="_blank" class="gliimu-link"><i class="fas fa-external-link-alt"></i> View Submission</a>' : '';
 
-        var responseHtml = msg.admin_response ? `
-            <div class="admin-response">
-                <div class="response-header">
-                    <i class="fas fa-reply"></i>
-                    <strong>Admin Response</strong>
-                    <span class="response-date">${getTimeAgo(msg.replied_at || msg.updated_at)}</span>
-                </div>
-                <div class="response-body">${escapeHtml(msg.admin_response)}</div>
-            </div>
-        ` : '';
+        var statusColors = {
+            'pending': '#f59e0b',
+            'approved': '#10b981',
+            'rejected': '#ef4444',
+            'replied': '#3b82f6',
+            'reviewed': '#8b5cf6',
+            'closed': '#64748b',
+            'accepted': '#10b981',
+            'graded': '#8b5cf6'
+        };
+        statusColor = statusColors[msg._display_status] || '#64748b';
 
-        var destinationHtml = msg.destination ? `
-            <span class="destination-badge">→ ${msg.destination}</span>
-        ` : '';
+        var statusLabels = {
+            'pending': 'Pending',
+            'approved': '✅ Approved',
+            'rejected': '❌ Rejected',
+            'replied': '💬 Replied',
+            'reviewed': '📋 Reviewed',
+            'closed': '🔒 Closed',
+            'accepted': '✅ Accepted',
+            'graded': '📊 Graded'
+        };
+        statusLabel = statusLabels[msg._display_status] || msg._display_status;
 
-        var gliimuLinkHtml = msg.gliimu_link ? `
-            <a href="${msg.gliimu_link}" target="_blank" class="gliimu-link">
-                <i class="fas fa-external-link-alt"></i> View Submission
-            </a>
-        ` : '';
+        var categoryLabels = {
+            'apply': '📝 Application',
+            'inquire': '❓ Inquiry',
+            'contract': '📄 Contract',
+            'submit_work': '💼 Work Submission',
+            'hire': '👔 Job Request'
+        };
+        var categoryLabel = categoryLabels[msg._category] || msg._category;
 
-        return `
+        html += `
             <div class="message-accordion ${msg._display_status}" id="msg-${index}">
                 <div class="accordion-header" onclick="document.getElementById('msg-body-${index}').classList.toggle('open')">
                     <div class="accordion-left">
-                        <span class="msg-icon">${msg._icon}</span>
+                        <span class="msg-icon">${msg._icon || '📌'}</span>
                         <div class="msg-info">
                             <div class="msg-subject">${escapeHtml(msg._subject)}</div>
                             <div class="msg-meta">
-                                <span class="msg-category">${getCategoryLabel(msg._category)}</span>
+                                <span class="msg-category">${categoryLabel}</span>
                                 <span class="msg-date">${getTimeAgo(msg._date)}</span>
                             </div>
                         </div>
                     </div>
                     <div class="accordion-right">
-                        <span class="status-badge" style="background: ${statusColor}; color: white; padding: 3px 12px; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">
-                            ${statusLabel}
-                        </span>
+                        <span class="status-badge" style="background: ${statusColor}; color: white; padding: 3px 12px; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${statusLabel}</span>
                         <i class="fas fa-chevron-down accordion-arrow"></i>
                     </div>
                 </div>
@@ -277,20 +270,14 @@ export function renderMessageThreads(messages) {
                     </div>
                     ${responseHtml}
                     <div class="message-actions">
-                        ${msg._display_status === 'pending' ? `
-                            <span class="pending-label"><i class="fas fa-clock"></i> Waiting for admin response...</span>
-                        ` : ''}
-                        ${msg._category === 'submit_work' && msg._display_status === 'approved' ? `
-                            <span class="approved-label"><i class="fas fa-check-circle"></i> Work Approved!</span>
-                        ` : ''}
-                        ${msg._category === 'apply' && msg._display_status === 'approved' ? `
-                            <span class="approved-label"><i class="fas fa-check-circle"></i> Application Approved! Your role has been updated.</span>
-                        ` : ''}
+                        ${msg._display_status === 'pending' ? '<span class="pending-label"><i class="fas fa-clock"></i> Waiting for admin response...</span>' : ''}
                     </div>
                 </div>
             </div>
         `;
-    }).join('');
+    });
+
+    return html;
 }
 
 // ============================================
@@ -301,15 +288,6 @@ export function showNewMessageModal(dashboard) {
     if (modal) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
-        var form = document.getElementById('newMessageForm');
-        if (form) form.reset();
-        var preview = document.getElementById('messageFilePreview');
-        if (preview) preview.style.display = 'none';
-        var roleGroup = document.getElementById('roleSelectGroup');
-        if (roleGroup) roleGroup.style.display = 'none';
-        var workGroup = document.getElementById('workLinkGroup');
-        if (workGroup) workGroup.style.display = 'none';
-        window._messageFileData = null;
         return;
     }
 
@@ -328,15 +306,13 @@ export function showNewMessageModal(dashboard) {
                         <label>Category *</label>
                         <select id="messageCategory" name="category">
                             <option value="">Select a category...</option>
-                            <option value="apply">📝 Apply (Become a Student/Instructor/Ambassador)</option>
-                            <option value="inquire">❓ Inquire (Ask a question)</option>
-                            <option value="contract">📄 Offer Contract (Propose a contract)</option>
-                            <option value="submit_work">💼 Submit Work (Share your project)</option>
-                            <option value="hire">👔 Employ/Hire (Request employment)</option>
+                            <option value="apply">📝 Apply</option>
+                            <option value="inquire">❓ Inquire</option>
+                            <option value="contract">📄 Contract</option>
+                            <option value="submit_work">💼 Submit Work</option>
+                            <option value="hire">👔 Hire</option>
                         </select>
-                        <small id="categoryHint">Select a category to route your message to the right admin</small>
                     </div>
-
                     <div class="form-group" id="roleSelectGroup" style="display:none;">
                         <label>Apply for Role</label>
                         <select id="applyRole" name="applyRole">
@@ -345,38 +321,18 @@ export function showNewMessageModal(dashboard) {
                             <option value="ambassador">Ambassador</option>
                         </select>
                     </div>
-
                     <div class="form-group">
                         <label>Subject *</label>
                         <input type="text" id="messageSubject" name="subject" placeholder="Enter message subject">
                     </div>
-
                     <div class="form-group">
                         <label>Message *</label>
-                        <textarea id="messageBody" name="message" rows="5" placeholder="Type your message in detail..."></textarea>
+                        <textarea id="messageBody" name="message" rows="5" placeholder="Type your message..."></textarea>
                     </div>
-
-                    <div class="form-group">
-                        <label>Attachments (PDF or Images)</label>
-                        <div class="upload-field" id="uploadField">
-                            <span class="upload-icon">📎</span>
-                            <span class="upload-text">Click to upload file</span>
-                            <small>Supports PDF, JPG, PNG (Max 10MB)</small>
-                            <input type="file" id="messageFileInput" accept=".pdf,image/*" style="display:none;">
-                        </div>
-                        <div class="file-preview" id="messageFilePreview" style="display:none;">
-                            <i class="fas fa-file"></i>
-                            <span class="file-name" id="messageFileName">No file selected</span>
-                            <button type="button" class="btn-remove-file" id="removeMessageFileBtn">✕ Remove</button>
-                        </div>
-                    </div>
-
                     <div class="form-group" id="workLinkGroup" style="display:none;">
-                        <label>Gliimu Link (for work submissions)</label>
-                        <input type="url" id="workLink" name="workLink" placeholder="https://gliimu.com/submit/your-work">
-                        <small>If you have a published work on Gliimu, paste the link here</small>
+                        <label>Gliimu Link</label>
+                        <input type="url" id="workLink" name="workLink" placeholder="https://gliimu.com/...">
                     </div>
-
                     <button type="button" id="sendMessageBtn" class="btn-primary" style="width:100%;">
                         <i class="fas fa-paper-plane"></i> Send Message
                     </button>
@@ -392,89 +348,17 @@ export function showNewMessageModal(dashboard) {
         modal.classList.remove('active');
         document.body.style.overflow = '';
     });
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    });
 
-    document.getElementById('messageCategory')?.addEventListener('change', function(e) {
+    document.getElementById('messageCategory')?.addEventListener('change', function() {
         var category = this.value;
-        var hint = document.getElementById('categoryHint');
         var roleGroup = document.getElementById('roleSelectGroup');
-        var workLinkGroup = document.getElementById('workLinkGroup');
-
-        roleGroup.style.display = 'none';
-        workLinkGroup.style.display = 'none';
-
-        if (category === 'apply') {
-            roleGroup.style.display = 'block';
-            hint.textContent = 'Your application will be sent to the Manager for review.';
-        } else if (category === 'submit_work') {
-            workLinkGroup.style.display = 'block';
-            hint.textContent = 'Your work submission will be sent to CRM for review.';
-        } else {
-            var hints = {
-                'inquire': 'Your inquiry will be sent to CRM for response.',
-                'contract': 'Your contract offer will be sent to the Manager.',
-                'hire': 'Your job request will be sent to the Manager.'
-            };
-            hint.textContent = hints[category] || 'Select a category to route your message to the right admin';
-        }
-    });
-
-    document.getElementById('uploadField')?.addEventListener('click', function() {
-        document.getElementById('messageFileInput').click();
-    });
-
-    document.getElementById('messageFileInput')?.addEventListener('change', function(e) {
-        var file = e.target.files[0];
-        if (!file) return;
-        
-        if (file.size > 10 * 1024 * 1024) {
-            showToast('File too large. Maximum 10MB.', 'error');
-            this.value = '';
-            return;
-        }
-
-        var validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!validTypes.includes(file.type)) {
-            showToast('Only PDF and Image files are allowed.', 'error');
-            this.value = '';
-            return;
-        }
-
-        window._messageFileData = file;
-        var preview = document.getElementById('messageFilePreview');
-        var fileName = document.getElementById('messageFileName');
-        
-        if (fileName) {
-            fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
-        }
-        if (preview) {
-            preview.style.display = 'flex';
-        }
-        showToast('📎 ' + file.name + ' selected', 'success');
-    });
-
-    document.getElementById('removeMessageFileBtn')?.addEventListener('click', function() {
-        window._messageFileData = null;
-        document.getElementById('messageFileInput').value = '';
-        var preview = document.getElementById('messageFilePreview');
-        if (preview) {
-            preview.style.display = 'none';
-        }
-        document.getElementById('messageFileName').textContent = 'No file selected';
+        var workGroup = document.getElementById('workLinkGroup');
+        roleGroup.style.display = category === 'apply' ? 'block' : 'none';
+        workGroup.style.display = category === 'submit_work' ? 'block' : 'none';
     });
 
     document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
         var form = document.getElementById('newMessageForm');
-        if (!form) {
-            showToast('Form not found', 'error');
-            return;
-        }
-
         var formData = new FormData(form);
         
         var category = formData.get('category') || '';
@@ -483,35 +367,16 @@ export function showNewMessageModal(dashboard) {
         var applyRole = formData.get('applyRole') || 'student';
         var workLink = formData.get('workLink') || '';
 
-        if (!category) {
-            showToast('Please select a category', 'error');
+        if (!category || !subject || !message) {
+            showToast('Please fill in all required fields', 'error');
             return;
         }
 
-        if (!subject || subject.length === 0) {
-            showToast('Please enter a subject', 'error');
-            document.getElementById('messageSubject').focus();
-            return;
-        }
-
-        if (!message || message.length === 0) {
-            showToast('Please enter a message', 'error');
-            document.getElementById('messageBody').focus();
-            return;
-        }
-
-        var btn = document.getElementById('sendMessageBtn');
+        var btn = this;
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
-        window._tempMessageData = {
-            category: category,
-            subject: subject,
-            message: message,
-            applyRole: applyRole,
-            workLink: workLink
-        };
-
+        window._tempMessageData = { category, subject, message, applyRole, workLink };
         var success = await submitNewMessage(dashboard);
         
         btn.disabled = false;
@@ -521,12 +386,8 @@ export function showNewMessageModal(dashboard) {
             modal.classList.remove('active');
             document.body.style.overflow = '';
             form.reset();
-            document.getElementById('messageFilePreview').style.display = 'none';
-            document.getElementById('roleSelectGroup').style.display = 'none';
-            document.getElementById('workLinkGroup').style.display = 'none';
-            window._messageFileData = null;
-            document.getElementById('messageFileInput').value = '';
             window._tempMessageData = null;
+            await loadMessages(dashboard.container, dashboard);
         }
     });
 }
@@ -537,28 +398,15 @@ export function showNewMessageModal(dashboard) {
 export async function submitNewMessage(dashboard) {
     var data = window._tempMessageData;
     if (!data) {
-        showToast('No message data found', 'error');
+        showToast('No message data', 'error');
         return false;
     }
 
     var { category, subject, message, applyRole, workLink } = data;
-    var file = window._messageFileData;
 
     try {
         var userId = dashboard.currentUser.id;
         var profile = dashboard.currentProfile;
-
-        var fileUrl = null;
-        var fileName = null;
-
-        if (file) {
-            var uploaded = await uploadMessageFile(file);
-            if (uploaded) {
-                fileUrl = uploaded.url;
-                fileName = uploaded.name;
-            }
-        }
-
         var tableName = '';
         var insertData = {};
 
@@ -577,13 +425,9 @@ export async function submitNewMessage(dashboard) {
                 };
                 await supabase
                     .from('user_profiles')
-                    .update({
-                        application_status: 'pending',
-                        applied_role: applyRole || 'student'
-                    })
+                    .update({ application_status: 'pending', applied_role: applyRole || 'student' })
                     .eq('id', userId);
                 break;
-
             case 'inquire':
                 tableName = 'inquiries';
                 insertData = {
@@ -591,13 +435,10 @@ export async function submitNewMessage(dashboard) {
                     user_id: userId,
                     subject: subject,
                     message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
                     status: 'pending',
                     created_at: new Date().toISOString()
                 };
                 break;
-
             case 'contract':
                 tableName = 'contracts';
                 insertData = {
@@ -605,13 +446,10 @@ export async function submitNewMessage(dashboard) {
                     user_id: userId,
                     subject: subject,
                     message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
                     status: 'pending',
                     created_at: new Date().toISOString()
                 };
                 break;
-
             case 'submit_work':
                 tableName = 'submissions';
                 insertData = {
@@ -619,14 +457,11 @@ export async function submitNewMessage(dashboard) {
                     user_id: userId,
                     subject: subject,
                     message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
                     gliimu_link: workLink || null,
                     status: 'pending',
                     created_at: new Date().toISOString()
                 };
                 break;
-
             case 'hire':
                 tableName = 'jobs';
                 insertData = {
@@ -634,83 +469,25 @@ export async function submitNewMessage(dashboard) {
                     user_id: userId,
                     subject: subject,
                     message: message,
-                    file_url: fileUrl,
-                    file_name: fileName,
                     status: 'pending',
                     created_at: new Date().toISOString()
                 };
                 break;
-
             default:
-                showToast('Invalid category selected', 'error');
+                showToast('Invalid category', 'error');
                 return false;
         }
 
-        var { error } = await supabase
-            .from(tableName)
-            .insert([insertData]);
-
-        if (error) {
-            console.error('Error sending message:', error);
-            showToast('Failed to send message: ' + error.message, 'error');
-            return false;
-        }
+        var { error } = await supabase.from(tableName).insert([insertData]);
+        if (error) throw error;
 
         showToast('✅ Message sent successfully!', 'success');
-        await loadMessages(dashboard.container, dashboard);
-
-        window._messageFileData = null;
-        window._tempMessageData = null;
-
         return true;
 
     } catch (error) {
-        console.error('Error submitting message:', error);
-        showToast('Failed to send message: ' + error.message, 'error');
+        console.error('Error sending message:', error);
+        showToast('Failed to send: ' + error.message, 'error');
         return false;
-    }
-}
-
-// ============================================
-// UPLOAD MESSAGE FILE
-// ============================================
-export async function uploadMessageFile(file) {
-    if (!file) return null;
-
-    var fileExt = file.name.split('.').pop();
-    var timestamp = Date.now();
-    var randomStr = Math.random().toString(36).substring(2, 8);
-    var fileName = timestamp + '_' + randomStr + '.' + fileExt;
-    var path = 'message_attachments/' + fileName;
-
-    try {
-        var { data, error } = await supabase.storage
-            .from('hub_content')
-            .upload(path, file, {
-                cacheControl: '3600',
-                upsert: false,
-                contentType: file.type || 'application/octet-stream'
-            });
-
-        if (error) {
-            console.error('Upload error:', error);
-            showToast('File upload failed: ' + error.message, 'error');
-            return null;
-        }
-
-        var { data: urlData } = supabase.storage
-            .from('hub_content')
-            .getPublicUrl(path);
-
-        return {
-            url: urlData.publicUrl,
-            name: file.name
-        };
-
-    } catch (error) {
-        console.error('Upload error:', error);
-        showToast('File upload failed', 'error');
-        return null;
     }
 }
 
@@ -718,28 +495,20 @@ export async function uploadMessageFile(file) {
 // SUBSCRIBE TO MESSAGES
 // ============================================
 export function subscribeToMessages(dashboard) {
-    if (dashboard._messageSubscription) {
-        dashboard._messageSubscription.unsubscribe();
-    }
-
     var userId = dashboard.currentUser.id;
     var tables = ['applications', 'inquiries', 'contracts', 'submissions', 'jobs'];
     
     tables.forEach(function(table) {
-        var channel = supabase
+        supabase
             .channel(table + '_changes_' + userId)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: table,
-                    filter: 'user_id=eq.' + userId
-                },
-                function() {
-                    loadMessages(dashboard.container, dashboard);
-                }
-            )
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: table,
+                filter: 'user_id=eq.' + userId
+            }, function() {
+                loadMessages(dashboard.container, dashboard);
+            })
             .subscribe();
     });
 }
