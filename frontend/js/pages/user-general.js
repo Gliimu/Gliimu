@@ -15,21 +15,23 @@ import {
 import { getBankDetails } from '../modules/settings.js';
 
 export class GeneralDashboard {
-    constructor(user, profile) {
-        this.currentUser = user;
-        this.currentProfile = profile;
-        this.alertManager = null;
-        this.selectedAmount = 0;
-        this.referenceCode = '';
-        this.leaderboardData = [];
-        this.bankDetails = null;
-        this._messageSubscription = null;
-        
-        // DOM references
-        this.container = null;
-        this.currentTab = 'dashboard';
-    }
-
+constructor(user, profile) {
+    this.currentUser = user;
+    this.currentProfile = profile;
+    this.alertManager = null;
+    this.selectedAmount = 0;
+    this.referenceCode = '';
+    this.leaderboardData = [];
+    this.bankDetails = null;
+    this._messageSubscription = null;
+    
+    // Store reference to this instance globally for modal access
+    window._generalDashboard = this;
+    
+    // DOM references
+    this.container = null;
+    this.currentTab = 'dashboard';
+}
     // ============================================
     // SET ALERT MANAGER
     // ============================================
@@ -1420,8 +1422,8 @@ export class GeneralDashboard {
         return div.innerHTML;
     }
 
-    // ============================================
-// SHOW NEW MESSAGE MODAL (FIXED - V2)
+// ============================================
+// SHOW NEW MESSAGE MODAL (FIXED - V3)
 // ============================================
 showNewMessageModal() {
     // Check if modal already exists
@@ -1431,9 +1433,12 @@ showNewMessageModal() {
         // Reset form
         const form = document.getElementById('newMessageForm');
         if (form) form.reset();
-        document.getElementById('messageFilePreview').style.display = 'none';
-        document.getElementById('roleSelectGroup').style.display = 'none';
-        document.getElementById('workLinkGroup').style.display = 'none';
+        const preview = document.getElementById('messageFilePreview');
+        if (preview) preview.style.display = 'none';
+        const roleGroup = document.getElementById('roleSelectGroup');
+        if (roleGroup) roleGroup.style.display = 'none';
+        const workGroup = document.getElementById('workLinkGroup');
+        if (workGroup) workGroup.style.display = 'none';
         window._messageFileData = null;
         return;
     }
@@ -1483,11 +1488,11 @@ showNewMessageModal() {
 
                     <div class="form-group">
                         <label>Attachments (PDF or Images)</label>
-                        <div class="upload-field" onclick="document.getElementById('messageFileInput').click()">
+                        <div class="upload-field" id="uploadField">
                             <span class="upload-icon">📎</span>
                             <span class="upload-text">Click to upload file</span>
                             <small>Supports PDF, JPG, PNG (Max 10MB)</small>
-                            <input type="file" id="messageFileInput" accept=".pdf,image/*">
+                            <input type="file" id="messageFileInput" accept=".pdf,image/*" style="display:none;">
                         </div>
                         <div class="file-preview" id="messageFilePreview" style="display:none;">
                             <i class="fas fa-file"></i>
@@ -1521,17 +1526,15 @@ showNewMessageModal() {
     });
 
     // Category change handler
-    document.getElementById('messageCategory')?.addEventListener('change', (e) => {
-        const category = e.target.value;
+    document.getElementById('messageCategory')?.addEventListener('change', function(e) {
+        const category = this.value;
         const hint = document.getElementById('categoryHint');
         const roleGroup = document.getElementById('roleSelectGroup');
         const workLinkGroup = document.getElementById('workLinkGroup');
 
-        // Reset all conditional groups
         roleGroup.style.display = 'none';
         workLinkGroup.style.display = 'none';
 
-        // Show/hide role select for apply
         if (category === 'apply') {
             roleGroup.style.display = 'block';
             hint.textContent = 'Your application will be sent to the Manager for review.';
@@ -1548,21 +1551,26 @@ showNewMessageModal() {
         }
     });
 
-    // File upload handler - using direct event listener
-    document.getElementById('messageFileInput')?.addEventListener('change', (e) => {
+    // File upload - click on upload field triggers file input
+    document.getElementById('uploadField')?.addEventListener('click', function() {
+        document.getElementById('messageFileInput').click();
+    });
+
+    // File input change
+    document.getElementById('messageFileInput')?.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
         
         if (file.size > 10 * 1024 * 1024) {
             showToast('File too large. Maximum 10MB.', 'error');
-            e.target.value = '';
+            this.value = '';
             return;
         }
 
         const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         if (!validTypes.includes(file.type)) {
             showToast('Only PDF and Image files are allowed.', 'error');
-            e.target.value = '';
+            this.value = '';
             return;
         }
 
@@ -1580,7 +1588,7 @@ showNewMessageModal() {
     });
 
     // Remove file button
-    document.getElementById('removeMessageFileBtn')?.addEventListener('click', () => {
+    document.getElementById('removeMessageFileBtn')?.addEventListener('click', function() {
         window._messageFileData = null;
         document.getElementById('messageFileInput').value = '';
         const preview = document.getElementById('messageFilePreview');
@@ -1590,39 +1598,55 @@ showNewMessageModal() {
         document.getElementById('messageFileName').textContent = 'No file selected';
     });
 
-    // Send button - MAIN SUBMIT HANDLER
-    document.getElementById('sendMessageBtn')?.addEventListener('click', async () => {
-        // Get form values directly
-        const category = document.getElementById('messageCategory').value;
-        const subject = document.getElementById('messageSubject').value.trim();
-        const message = document.getElementById('messageBody').value.trim();
+    // ============================================
+    // SEND BUTTON - MAIN SUBMIT HANDLER
+    // ============================================
+    document.getElementById('sendMessageBtn')?.addEventListener('click', async function() {
+        // Get form values - USING let to avoid scope issues
+        const categorySelect = document.getElementById('messageCategory');
+        const subjectInput = document.getElementById('messageSubject');
+        const messageInput = document.getElementById('messageBody');
 
-        // Debug
-        console.log('📝 Form values:', { category, subject, message });
+        const category = categorySelect ? categorySelect.value : '';
+        const subject = subjectInput ? subjectInput.value.trim() : '';
+        const message = messageInput ? messageInput.value.trim() : '';
+
+        // Log values for debugging
+        console.log('📝 Category:', category);
+        console.log('📝 Subject:', subject);
+        console.log('📝 Message:', message);
+        console.log('📝 Subject length:', subject.length);
+        console.log('📝 Message length:', message.length);
 
         // Validate
         if (!category) {
             showToast('Please select a category', 'error');
-            return;
-        }
-        if (!subject) {
-            showToast('Please enter a subject', 'error');
-            document.getElementById('messageSubject').focus();
-            return;
-        }
-        if (!message) {
-            showToast('Please enter a message', 'error');
-            document.getElementById('messageBody').focus();
+            if (categorySelect) categorySelect.focus();
             return;
         }
 
-        // Disable button to prevent double submission
+        if (!subject || subject.length === 0) {
+            showToast('Please enter a subject', 'error');
+            if (subjectInput) subjectInput.focus();
+            return;
+        }
+
+        if (!message || message.length === 0) {
+            showToast('Please enter a message', 'error');
+            if (messageInput) messageInput.focus();
+            return;
+        }
+
+        // Disable button
         const btn = document.getElementById('sendMessageBtn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
+        // Get the GeneralDashboard instance
+        const dashboard = window._generalDashboard || this._dashboard || this;
+        
         // Submit
-        const success = await this.submitNewMessage();
+        const success = await dashboard.submitNewMessage();
         
         // Re-enable button
         btn.disabled = false;
@@ -1631,22 +1655,21 @@ showNewMessageModal() {
         if (success) {
             modal.classList.remove('active');
             // Reset form
-            document.getElementById('newMessageForm').reset();
-            document.getElementById('messageFilePreview').style.display = 'none';
-            document.getElementById('roleSelectGroup').style.display = 'none';
-            document.getElementById('workLinkGroup').style.display = 'none';
+            const form = document.getElementById('newMessageForm');
+            if (form) form.reset();
+            const preview = document.getElementById('messageFilePreview');
+            if (preview) preview.style.display = 'none';
+            const roleGroup = document.getElementById('roleSelectGroup');
+            if (roleGroup) roleGroup.style.display = 'none';
+            const workGroup = document.getElementById('workLinkGroup');
+            if (workGroup) workGroup.style.display = 'none';
             window._messageFileData = null;
             document.getElementById('messageFileInput').value = '';
         }
     });
 
-    // Also allow Enter key to submit
-    modal.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-            e.preventDefault();
-            document.getElementById('sendMessageBtn')?.click();
-        }
-    });
+    // Store reference to dashboard instance for the button
+    window._generalDashboard = this;
 }
 
 // ============================================
