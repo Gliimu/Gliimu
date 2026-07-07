@@ -13,15 +13,10 @@
 
   <!-- External CSS Files -->
   <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/header.css">
-  <link rel="stylesheet" href="css/footer.css">
   <link rel="stylesheet" href="css/modal.css">
   <link rel="stylesheet" href="css/about.css">
 </head>
 <body class="">
-
-  <!-- Header (loaded via JS) -->
-  <div id="header-placeholder"></div>
 
   <!-- Main Content -->
   <main>
@@ -131,24 +126,5 @@
    <!-- then page-specific JS -->
   <script src="js/pages/about.js"></script>
 
-  <!-- then partials loader -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      if (document.getElementById('header-placeholder')) {
-        Promise.all([
-          fetch('partials/header.html').then(function(r) { return r.text(); }),
-          fetch('partials/footer.html').then(function(r) { return r.text(); }),
-          fetch('partials/login-modal.html').then(function(r) { return r.text(); })
-        ]).then(function(results) {
-          document.getElementById('header-placeholder').innerHTML = results[0];
-          document.getElementById('footer-placeholder').innerHTML = results[1];
-          document.getElementById('login-modal-placeholder').innerHTML = results[2];
-          console.log('Partials loaded. mobileNav:', !!document.getElementById('mobileNavMenu'));
-        }).catch(function(err) {
-          console.error('Failed to load partials:', err);
-        });
-      }
-    });
-  </script>
 </body>
 </html>
