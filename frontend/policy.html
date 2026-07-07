@@ -281,32 +281,7 @@
     
   </div>
 
-  <!-- Footer Placeholder -->
-  <div id="footer-placeholder"></div>
-
-  <!-- Login Modal Placeholder -->
-  <div id="login-modal-placeholder"></div>
-
-  <!-- JS Files -->
-  <script src="js/pages/header.js"></script>
   <script src="js/pages/policy.js"></script>
 
-  <!-- Load Partials -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      if (document.getElementById('header-placeholder')) {
-        Promise.all([
-          fetch('partials/header.html').then(r => r.text()),
-          fetch('partials/footer.html').then(r => r.text()),
-          fetch('partials/login-modal.html').then(r => r.text())
-        ]).then(results => {
-          document.getElementById('header-placeholder').innerHTML = results[0];
-          document.getElementById('footer-placeholder').innerHTML = results[1];
-          document.getElementById('login-modal-placeholder').innerHTML = results[2];
-          console.log('Partials loaded');
-        }).catch(err => console.error('Failed to load partials:', err));
-      }
-    });
-  </script>
 </body>
 </html>
