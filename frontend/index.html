@@ -497,23 +497,9 @@
         </button>
     </div>
 
-    <!-- Login Modal Placeholder -->
-    <div id="login-modal-placeholder"></div>
-
     <!-- JS Files -->
     <script src="js/pages/index.js" type="module"></script>
-    
-    <!-- Load Login Modal Partial -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            fetch('partials/login-modal.html')
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('login-modal-placeholder').innerHTML = html;
-                })
-                .catch(err => console.error('Failed to load login modal:', err));
-        });
-    </script>
+
     <!-- frontend/index.html - Add this before closing body -->
 <script>
     (function() {
