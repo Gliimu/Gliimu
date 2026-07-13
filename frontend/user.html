@@ -35,63 +35,6 @@
 <body>
 
     <!-- ============================================================ -->
-    <!-- STICKY NAVIGATION - Bottom Right                             -->
-    <!-- ============================================================ -->
-    <div class="sticky-nav" id="stickyNav">
-        <!-- Toggle Button -->
-        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-            <i class="fas fa-ellipsis-v"></i>
-        </button>
-        
-        <!-- Dropdown -->
-        <div class="nav-dropdown" id="navDropdown">
-            <!-- Alerts Section -->
-            <div class="nav-section alerts-section">
-                <button class="nav-btn alert-btn" id="alertIconBtn" aria-label="Alerts">
-                    <i class="fas fa-bell"></i>
-                    <span>Notifications</span>
-                    <span class="alert-badge hidden" id="alertBadge">0</span>
-                </button>
-                
-                <!-- Alert Dropdown Panel - Will be replaced by modal -->
-            </div>
-            
-            <!-- Divider -->
-            <div class="nav-divider"></div>
-            
-            <!-- Navigation Links -->
-            <button class="nav-btn" onclick="window.goToDashboard()">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>Dashboard</span>
-            </button>
-            <button class="nav-btn" onclick="window.goToHub()">
-                <i class="fas fa-th-large"></i>
-                <span>Hub</span>
-            </button>
-            <button class="nav-btn" onclick="window.goToLearningPath()">
-                <i class="fas fa-road"></i>
-                <span>Learning Path</span>
-            </button>
-            <button class="nav-btn" onclick="window.goToVirtualRoom()">
-                <i class="fas fa-video"></i>
-                <span>Virtual Room</span>
-            </button>
-            <button class="nav-btn" onclick="window.goToChat()">
-                <i class="fas fa-comments"></i>
-                <span>Chat</span>
-            </button>
-            <button class="nav-btn" onclick="window.goToMerchandise()">
-                <i class="fas fa-shopping-bag"></i>
-                <span>Merchandise</span>
-            </button>
-            <button class="nav-btn home-nav" onclick="window.goToUser()">
-                <i class="fas fa-user"></i>
-                <span>Portfolio</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- ============================================================ -->
     <!-- DASHBOARD CONTAINER                                          -->
     <!-- ============================================================ -->
     <div class="dashboard-container">
@@ -454,15 +397,21 @@
     <!-- ============================================================ -->
     <!-- JAVASCRIPT                                                   -->
     <!-- ============================================================ -->
+
+<!-- Navigation Component -->
+    <script type="module">
+        import { initNavigation } from '/frontend/js/components/navigation.js';
+        initNavigation();
+    </script>
+
+    <!-- Main Application -->
+    <script type="module" src="/frontend/js/pages/user/user-router.js"></script>
     
     <!-- Theme Manager -->
     <script type="module">
         import { initTheme } from '/frontend/js/pages/user/user-theme.js';
         initTheme();
     </script>
-    
-    <!-- Main Application - Router -->
-    <script type="module" src="/frontend/js/pages/user/user-router.js"></script>
-
+  
 </body>
 </html>
