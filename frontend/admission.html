@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gliimu LTD – Become a Media Architect</title>
+    <!-- Font Awesome for icons (optional but nice) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* --- Header / Brand --- */
+        .brand {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 20px;
+        }
+
+        .brand h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .brand h1 span {
+            color: #e8491d;
+        }
+
+        .brand .tagline {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .nav a {
+            margin-left: 24px;
+            text-decoration: none;
+            color: #334155;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav a:hover {
+            color: #e8491d;
+        }
+
+        .nav .apply-btn {
+            background: #0f172a;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+        }
+
+        .nav .apply-btn:hover {
+            background: #e8491d;
+            color: white;
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            text-align: center;
+            padding: 50px 20px 40px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            margin-bottom: 50px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero .badge {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 4px 16px;
+            border-radius: 30px;
+            letter-spacing: 0.3px;
+            margin-bottom: 16px;
+        }
+
+        .hero h2 {
+            font-size: 42px;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+
+        .hero h2 .highlight {
+            color: #e8491d;
+            text-decoration: underline;
+            text-underline-offset: 6px;
+        }
+
+        .hero .subhead {
+            font-size: 18px;
+            color: #475569;
+            max-width: 600px;
+            margin: 0 auto 24px;
+        }
+
+        .hero .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            margin: 30px 0 20px;
+        }
+
+        .hero .stat-item {
+            text-align: center;
+        }
+
+        .hero .stat-number {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .hero .stat-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .hero .cta-group {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 28px;
+        }
+
+        .btn-primary {
+            background: #0f172a;
+            color: white;
+            padding: 14px 40px;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary:hover {
+            background: #e8491d;
+            transform: scale(1.02);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #0f172a;
+            padding: 14px 40px;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 16px;
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-secondary:hover {
+            border-color: #0f172a;
+            background: #f1f5f9;
+        }
+
+        /* --- Value Props --- */
+        .value-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 30px;
+            margin: 50px 0;
+        }
+
+        .value-card {
+            background: white;
+            padding: 30px 24px;
+            border-radius: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            border: 1px solid #f1f5f9;
+            transition: 0.2s;
+        }
+
+        .value-card:hover {
+            transform: translateY(-4px);
+            border-color: #cbd5e1;
+        }
+
+        .value-card .icon {
+            font-size: 28px;
+            color: #e8491d;
+            margin-bottom: 12px;
+        }
+
+        .value-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .value-card p {
+            color: #475569;
+            font-size: 15px;
+        }
+
+        /* --- Testimonial / Social Proof --- */
+        .testimonial {
+            background: white;
+            padding: 40px 36px;
+            border-radius: 24px;
+            margin: 40px 0;
+            border-left: 6px solid #e8491d;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        }
+
+        .testimonial blockquote {
+            font-size: 18px;
+            font-style: italic;
+            color: #1e293b;
+        }
+
+        .testimonial .attribution {
+            margin-top: 16px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .testimonial .attribution span {
+            font-weight: 400;
+            color: #64748b;
+        }
+
+        /* --- Waitlist / CTA Section --- */
+        .waitlist-section {
+            background: #0f172a;
+            color: white;
+            padding: 50px 40px;
+            border-radius: 24px;
+            text-align: center;
+            margin: 50px 0;
+        }
+
+        .waitlist-section h3 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .waitlist-section p {
+            color: #cbd5e1;
+            max-width: 600px;
+            margin: 0 auto 24px;
+            font-size: 17px;
+        }
+
+        .waitlist-section .btn-primary {
+            background: white;
+            color: #0f172a;
+        }
+
+        .waitlist-section .btn-primary:hover {
+            background: #e8491d;
+            color: white;
+        }
+
+        /* --- Footer --- */
+        .footer {
+            text-align: center;
+            padding: 30px 0 10px;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 40px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .footer .brand-footer {
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .footer .brand-footer span {
+            color: #e8491d;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 700px) {
+            .brand {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .nav a {
+                margin-left: 0;
+                margin-right: 16px;
+            }
+            .hero h2 {
+                font-size: 30px;
+            }
+            .hero .stats {
+                gap: 20px;
+            }
+            .hero .stat-number {
+                font-size: 22px;
+            }
+            .waitlist-section {
+                padding: 30px 20px;
+            }
+            .testimonial {
+                padding: 24px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- ====== BRAND HEADER ====== -->
+    <header class="brand">
+        <div>
+            <h1>Gliimu <span>LTD</span></h1>
+            <div class="tagline">Full Stack Media Architects</div>
+        </div>
+        <nav class="nav">
+            <a href="#">About</a>
+            <a href="#">Library</a>
+            <a href="#">Hub</a>
+            <a href="#" class="apply-btn">Apply Now</a>
+        </nav>
+    </header>
+
+    <!-- ====== HERO ====== -->
+    <section class="hero">
+        <div class="badge"><i class="fas fa-crown" style="margin-right:6px;"></i> 9 Spots · Next Cohort: [Start Date]</div>
+
+        <h2>
+            Not everyone gets in.<br>
+            <span class="highlight">You could be one of the few.</span>
+        </h2>
+
+        <p class="subhead">
+            Become a Full Stack Media Architect — without the ₦5 million price tag.<br>
+            ₦5,000/month. Selected, not accepted.
+        </p>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number">9</div>
+                <div class="stat-label">Spots per cohort</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">3</div>
+                <div class="stat-label">Students per squad</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">₦5k</div>
+                <div class="stat-label">Monthly tuition</div>
+            </div>
+        </div>
+
+        <div class="cta-group">
+            <a href="#" class="btn-primary"><i class="fas fa-arrow-right" style="margin-right:8px;"></i>Apply Now</a>
+            <a href="#" class="btn-secondary">Join Waitlist</a>
+        </div>
+
+        <p style="margin-top:20px;font-size:14px;color:#94a3b8;">
+            <i class="fas fa-check-circle" style="color:#16a34a;"></i> No prior experience needed · 12-month program
+        </p>
+    </section>
+
+    <!-- ====== VALUE PROPOSITION CARDS ====== -->
+    <section class="value-grid">
+        <div class="value-card">
+            <div class="icon"><i class="fas fa-users"></i></div>
+            <h3>Exclusive Squad of 3</h3>
+            <p>Deep mentorship, not crowded lectures. You're a builder in a tight-knit squad that grows together.</p>
+        </div>
+        <div class="value-card">
+            <div class="icon"><i class="fas fa-laptop-code"></i></div>
+            <h3>Real Projects. Real Clients.</h3>
+            <p>From day one, you're working on real client projects. Build a portfolio that speaks for itself.</p>
+        </div>
+        <div class="value-card">
+            <div class="icon"><i class="fas fa-gem"></i></div>
+            <h3>Media Architecture Trinity</h3>
+            <p>Master Create, Design, and Compute. You'll conceive, design, and build — complete skills for the future.</p>
+        </div>
+        <div class="value-card">
+            <div class="icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <h3>Learn & Earn</h3>
+            <p>Our students earn before graduation — real income from real work. ₦0 → ₦50k → ₦150k+ progression.</p>
+        </div>
+    </section>
+
+    <!-- ====== TESTIMONIAL ====== -->
+    <div class="testimonial">
+        <blockquote>
+            “I applied thinking I wouldn't get in. I didn't think I was good enough.<br>
+            But Gliimu saw something in me that I didn't see myself. Now, 6 months later, I've built 3 websites, designed 2 brand identities, and have a portfolio that landed me my first paying client.<br>
+            <strong>₦5,000/month for this? It's not a payment. It's a privilege.”</strong>
+        </blockquote>
+        <div class="attribution">— [Name] <span>· Current Student</span></div>
+    </div>
+
+    <!-- ====== WAITLIST / CTA SECTION ====== -->
+    <section class="waitlist-section">
+        <h3>You're on our list.</h3>
+        <p>
+            You weren't ready for this cohort. That's okay.<br>
+            We see potential. We see drive.<br>
+            When a spot opens, you're first in line.
+        </p>
+        <p style="font-size:15px;color:#e2e8f0;">
+            <i class="fas fa-book-open" style="margin-right:8px;"></i> In the meantime: Read our Library · Join our Hub · Build your portfolio
+        </p>
+        <a href="#" class="btn-primary">Join the Waitlist</a>
+        <p style="margin-top:16px;font-size:13px;color:#94a3b8;">We're not closing the door. We're just not opening it yet.</p>
+    </section>
+
+    <!-- ====== FOOTER ====== -->
+    <footer class="footer">
+        <div class="brand-footer">Gliimu <span>LTD</span> — Full Stack Media Architects</div>
+        <div style="margin-top:6px;">© 2026 · Gwarinpa, Abuja · <a href="#" style="color:#64748b;text-decoration:none;">Privacy</a> · <a href="#" style="color:#64748b;text-decoration:none;">T&Cs</a></div>
+    </footer>
+
+</div>
+
+<!-- (Optional) Smooth scroll / simple interactivity can go here -->
+</body>
+</html>
