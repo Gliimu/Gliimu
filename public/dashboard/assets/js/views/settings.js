@@ -56,7 +56,7 @@ export default {
         <form id="password-form">
           <div class="form-group">
             <label>New Password</label>
-            <input type="password" id="new-password" class="input" placeholder="Enter new password" required>
+            <input type="password" id="new-password" class="input" placeholder="Min. 8 characters" required>
           </div>
 
           <div class="form-group">
@@ -149,7 +149,7 @@ export default {
       const currentPass = document.getElementById('current-password').value;
       const passPhrase = document.getElementById('recovery-phrase-input').value.trim();
 
-      if (!newPass) return alert("Please enter a new password.");
+      if (newPass.length < 8) return alert("New password must be at least 8 characters.");
       if (!currentPass && !passPhrase) return alert("Please verify your identity.");
 
       let isVerified = false;
@@ -168,8 +168,12 @@ export default {
       }
 
       if (isVerified) {
+        // FIX: Refresh session to prevent 400 Bad Request on older tokens
+        await supabase.auth.refreshSession();
+
         const { data, error: updateError } = await supabase.auth.updateUser({ password: newPass });
         if (updateError) {
+          console.error("Password Update Error:", updateError);
           alert("Error updating password: " + updateError.message);
         } else {
           alert("Password updated successfully!");

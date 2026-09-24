@@ -1,12 +1,12 @@
 export default {
-  title: 'Hub',
+  title: 'Applications',
   template: `
     <div class="card">
-      <h2>Welcome to the Hub</h2>
-      <p>This is where live posts, trending topics, and community updates will appear.</p>
+      <h2>Applications</h2>
+      <p>Apply for apprenticeships, authorships, or partnerships here.</p>
     </div>
   `,
   init() {
-    console.log('Hub View Loaded');
+    console.log('Applications View Loaded');
   }
 };
