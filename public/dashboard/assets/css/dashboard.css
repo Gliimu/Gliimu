@@ -544,3 +544,35 @@
   .print-btn { display: none !important; }
   .sidebar, .topbar { display: none !important; }
 }
+
+/* Avatar Upload Settings */
+.avatar-upload-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.settings-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+.portfolio-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-xl);
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-extrabold);
+  flex-shrink: 0;
+  object-fit: cover;
+}

@@ -22,14 +22,16 @@ export default {
       return;
     }
 
-    // Split skills and interests into arrays for tags
     const skills = profile.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
     const interests = profile.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
+    const avatarHtml = profile.avatar_url
+      ? `<img src="${profile.avatar_url}" class="portfolio-avatar" style="object-fit: cover;">`
+      : `<div class="portfolio-avatar">${profile.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
     container.innerHTML = `
       <div class="card printable-portfolio">
         <div class="portfolio-header">
-          <div class="portfolio-avatar">${profile.full_name?.charAt(0).toUpperCase() || 'G'}</div>
+          ${avatarHtml}
           <div>
             <h1>${profile.full_name || 'Gliimait'}</h1>
             <p class="portfolio-username">@${profile.username}</p>

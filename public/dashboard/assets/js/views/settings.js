@@ -11,7 +11,17 @@ export default {
         <h2>Profile Settings</h2>
         <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">Update your identity. This will reflect on your Portfolio.</p>
 
-        <form id="profile-form">
+        <!-- Avatar Upload -->
+        <div class="avatar-upload-section">
+          <img id="avatar-preview" src="https://via.placeholder.com/100" class="settings-avatar">
+          <div>
+            <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+            <button class="btn-secondary" id="upload-avatar-btn">Change Picture</button>
+            <p style="font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--space-2);">JPG or PNG. Max 2MB.</p>
+          </div>
+        </div>
+
+        <form id="profile-form" style="margin-top: var(--space-6);">
           <div class="form-group">
             <label>Full Name</label>
             <input type="text" id="settings-name" class="input">
@@ -65,7 +75,6 @@ export default {
         </form>
       </div>
 
-      <!-- Session Settings -->
       <div class="card" style="margin-top: var(--space-6);">
         <h2>Session</h2>
         <button id="logout-btn" class="btn-secondary">Log Out</button>
@@ -74,7 +83,6 @@ export default {
     </div>
   `,
   async init() {
-    // 1. Fetch Profile Data
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
@@ -87,32 +95,54 @@ export default {
       document.getElementById('settings-bio').value = profile.bio || '';
       document.getElementById('settings-skills').value = profile.skills || '';
       document.getElementById('settings-interests').value = profile.interests || '';
+      if (profile.avatar_url) document.getElementById('avatar-preview').src = profile.avatar_url;
     }
 
-    // 2. Handle Profile Update
+    // --- Handle Avatar Upload ---
+    const fileInput = document.getElementById('avatar-input');
+    document.getElementById('upload-avatar-btn').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${store.user.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) {
+        alert("Error uploading image.");
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const publicUrl = publicUrlData.publicUrl;
+
+      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', store.user.id);
+
+      if (updateError) {
+        alert("Error saving profile picture.");
+      } else {
+        document.getElementById('avatar-preview').src = publicUrl + `?t=${Date.now()}`; // Cache busting
+        alert("Profile picture updated!");
+      }
+    });
+
+    // --- Handle Profile Update ---
     document.getElementById('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = e.target.querySelector('button[type="submit"]');
-      btn.innerText = "Saving...";
-      btn.disabled = true;
-
       const updates = {
         full_name: document.getElementById('settings-name').value,
         bio: document.getElementById('settings-bio').value,
         skills: document.getElementById('settings-skills').value,
         interests: document.getElementById('settings-interests').value
       };
-
-      const { error } = await supabase.from('profiles').update(updates).eq('id', store.user.id);
-
-      if (error) alert("Error updating profile.");
-      else alert("Profile saved successfully!");
-
-      btn.innerText = "Save Changes";
-      btn.disabled = false;
+      await supabase.from('profiles').update(updates).eq('id', store.user.id);
+      alert("Profile saved successfully!");
     });
 
-    // 3. Handle Password Update
+    // --- Handle Password Update ---
     document.getElementById('password-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const newPass = document.getElementById('new-password').value;
@@ -120,38 +150,25 @@ export default {
       const passPhrase = document.getElementById('recovery-phrase-input').value.trim();
 
       if (!newPass) return alert("Please enter a new password.");
-      if (!currentPass && !passPhrase) return alert("Please verify your identity with your current password or passphrase.");
+      if (!currentPass && !passPhrase) return alert("Please verify your identity.");
 
       let isVerified = false;
 
-      // Verify via Current Password
       if (currentPass) {
         const fakeEmail = `${store.profile.username}@gliimu.app`;
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: fakeEmail,
-          password: currentPass
-        });
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password: currentPass });
         if (signInError) return alert("Current password is incorrect.");
         isVerified = true;
       }
 
-      // Verify via Passphrase
       if (!isVerified && passPhrase) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('recovery_phrase')
-          .eq('id', store.user.id)
-          .single();
-
-        if (profileError || profileData.recovery_phrase !== passPhrase) {
-          return alert("Recovery passphrase is incorrect.");
-        }
+        const { data: profileData } = await supabase.from('profiles').select('recovery_phrase').eq('id', store.user.id).single();
+        if (profileData.recovery_phrase !== passPhrase) return alert("Recovery passphrase is incorrect.");
         isVerified = true;
       }
 
-      // Update Password if Verified
       if (isVerified) {
-        const { error: updateError } = await supabase.auth.updateUser({ password: newPass });
+        const { data, error: updateError } = await supabase.auth.updateUser({ password: newPass });
         if (updateError) {
           alert("Error updating password: " + updateError.message);
         } else {
@@ -161,9 +178,6 @@ export default {
       }
     });
 
-    // 4. Handle Logout
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      store.signOut();
-    });
+    document.getElementById('logout-btn').addEventListener('click', () => store.signOut());
   }
 };

@@ -1,26 +1,12 @@
-import { supabase } from '../../shared/js/config.js';
-
-export const store = {
-  user: null,
-  profile: null,
-
-  async fetchUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    this.user = user;
-
-    if (user) {
-      // Extract data from the metadata we saved during signup
-      this.profile = {
-        username: user.user_metadata?.username || 'Gliimait',
-        full_name: user.user_metadata?.full_name || 'User',
-      };
-    }
-
-    return this.user;
-  },
-
-  async signOut() {
-    await supabase.auth.signOut();
-    window.location.href = '/auth.html';
+export default {
+  title: 'Wallet',
+  template: `
+    <div class="card">
+      <h2>Wallet</h2>
+      <p>This is where you will fund your account and view transactions.</p>
+    </div>
+  `,
+  init() {
+    console.log('Wallet View Loaded');
   }
 };
