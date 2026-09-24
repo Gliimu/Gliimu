@@ -576,3 +576,140 @@
   flex-shrink: 0;
   object-fit: cover;
 }
+
+/* Applications Layout */
+.applications-layout {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.form-card {
+  padding: var(--space-8);
+}
+
+.text-muted {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* Waitlist Status */
+.waitlist-status-card {
+  text-align: center;
+  padding: var(--space-10);
+}
+
+.rank-grid {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-8);
+  margin: var(--space-6) 0;
+}
+
+.rank-box {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rank-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-widest);
+  margin-bottom: var(--space-1);
+}
+
+.rank-value {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-extrabold);
+  color: var(--brand-primary);
+}
+
+.info-banner {
+  background: var(--brand-primary-light);
+  border: 1px solid var(--brand-primary-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-align: left;
+  margin-top: var(--space-4);
+}
+
+.info-banner p {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Leaderboard */
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  transition: var(--transition-fast);
+}
+
+.leaderboard-item.is-me {
+  background: var(--brand-primary-light);
+  border-left: 3px solid var(--brand-primary);
+}
+
+.lb-rank {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  color: var(--text-muted);
+  width: 30px;
+}
+
+.lb-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-xs);
+}
+
+.lb-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.lb-name {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.lb-username {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.lb-score {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+}
+
+/* Accepted Card */
+.accepted-card {
+  text-align: center;
+  padding: var(--space-12);
+}
