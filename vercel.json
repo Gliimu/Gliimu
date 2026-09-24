@@ -1,0 +1,25 @@
+{
+  "rewrites": [
+    {
+      "source": "/auth",
+      "destination": "/public/auth.html"
+    },
+    {
+      "source": "/auth.html",
+      "destination": "/public/auth.html"
+    },
+    {
+      "source": "/dashboard/:path*",
+      "destination": "/dashboard/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}
