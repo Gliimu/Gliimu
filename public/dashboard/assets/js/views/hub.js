@@ -103,7 +103,10 @@ export default {
   },
 
   setupRealtime() {
-    // Listen for new posts in real-time
+    // 1. Remove existing channel to prevent duplicate listener crash in SPA
+    supabase.removeChannel(supabase.channel('public:posts'));
+
+    // 2. Listen for new posts in real-time
     supabase
       .channel('public:posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
@@ -122,6 +125,8 @@ export default {
 
         // Prepend to the DOM
         const container = document.getElementById('posts-container');
+        if (!container) return; // Safety check if user switched tabs
+
         const currentHTML = container.innerHTML;
         const postHTML = `
           <div class="post-item">
