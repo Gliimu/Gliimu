@@ -390,3 +390,157 @@
   .printable-portfolio { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: none; }
   .print-btn { display: none !important; }
 }
+
+/* ============================================
+   FIXED SETTINGS & PORTFOLIO STYLES
+   ============================================ */
+
+/* Settings Layout */
+.settings-layout {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.card h2 {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  margin-bottom: var(--space-2);
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.separator {
+  text-align: center;
+  margin: var(--space-4) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-widest);
+  position: relative;
+}
+
+.separator::before,
+.separator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: var(--border);
+}
+
+.separator::before { left: 0; }
+.separator::after { right: 0; }
+
+/* Portfolio Layout */
+.portfolio-layout {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.printable-portfolio {
+  padding: var(--space-10);
+}
+
+.portfolio-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-8);
+  margin-bottom: var(--space-8);
+}
+
+.portfolio-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-xl);
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-extrabold);
+  flex-shrink: 0;
+}
+
+.portfolio-header h1 {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-extrabold);
+  letter-spacing: var(--ls-tight);
+  margin-bottom: var(--space-1);
+}
+
+.portfolio-username {
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  font-family: var(--font-mono);
+}
+
+.print-btn {
+  margin-left: auto;
+}
+
+.portfolio-section {
+  margin-bottom: var(--space-8);
+}
+
+.portfolio-section h3 {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-widest);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+  font-weight: var(--fw-semibold);
+}
+
+.portfolio-section p {
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tag {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.tag-primary {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+}
+
+.tag-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.portfolio-footer {
+  margin-top: var(--space-12);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* Print Styles */
+@media print {
+  body * { visibility: hidden; }
+  .printable-portfolio, .printable-portfolio * { visibility: visible; }
+  .printable-portfolio { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: none; }
+  .print-btn { display: none !important; }
+  .sidebar, .topbar { display: none !important; }
+}
