@@ -278,3 +278,115 @@
 .text-error {
   color: var(--error);
 }
+
+/* Settings Styles */
+.settings-layout {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Portfolio Styles */
+.portfolio-layout {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.printable-portfolio {
+  padding: var(--space-12);
+}
+
+.portfolio-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-8);
+  margin-bottom: var(--space-8);
+  position: relative;
+}
+
+.portfolio-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-xl);
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-extrabold);
+}
+
+.portfolio-header h1 {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-extrabold);
+  letter-spacing: var(--ls-tight);
+}
+
+.portfolio-username {
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+}
+
+.print-btn {
+  margin-left: auto;
+}
+
+.portfolio-section {
+  margin-bottom: var(--space-8);
+}
+
+.portfolio-section h3 {
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-widest);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.portfolio-section p {
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tag {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.tag-primary {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+}
+
+.tag-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.portfolio-footer {
+  margin-top: var(--space-12);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* Print Styles */
+@media print {
+  body * { visibility: hidden; }
+  .printable-portfolio, .printable-portfolio * { visibility: visible; }
+  .printable-portfolio { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: none; }
+  .print-btn { display: none !important; }
+}
