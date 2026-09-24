@@ -148,40 +148,39 @@ export default {
       const newPass = document.getElementById('new-password').value;
       const currentPass = document.getElementById('current-password').value;
       const passPhrase = document.getElementById('recovery-phrase-input').value.trim();
+      const fakeEmail = `${store.profile.username}@gliimu.app`;
 
       if (newPass.length < 8) return alert("New password must be at least 8 characters.");
       if (!currentPass && !passPhrase) return alert("Please verify your identity.");
 
       let isVerified = false;
 
+      // 1. Verify Identity
       if (currentPass) {
-        const fakeEmail = `${store.profile.username}@gliimu.app`;
         const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password: currentPass });
         if (signInError) return alert("Current password is incorrect.");
         isVerified = true;
-      }
-
-      if (!isVerified && passPhrase) {
+      } else if (passPhrase) {
         const { data: profileData } = await supabase.from('profiles').select('recovery_phrase').eq('id', store.user.id).single();
         if (profileData.recovery_phrase !== passPhrase) return alert("Recovery passphrase is incorrect.");
+
+        // To update the password without currentPass, we must refresh the existing session token
+        await supabase.auth.refreshSession();
         isVerified = true;
       }
 
+      // 2. Update Password
       if (isVerified) {
-        // FIX: Refresh session to prevent 400 Bad Request on older tokens
-        await supabase.auth.refreshSession();
+        const { error: updateError } = await supabase.auth.updateUser({ password: newPass });
 
-        const { data, error: updateError } = await supabase.auth.updateUser({ password: newPass });
         if (updateError) {
           console.error("Password Update Error:", updateError);
           alert("Error updating password: " + updateError.message);
         } else {
-          alert("Password updated successfully!");
-          document.getElementById('password-form').reset();
+          alert("Password updated successfully! Please log in with your new password.");
+          store.signOut(); // Force logout so they login with the new password
         }
       }
     });
 
     document.getElementById('logout-btn').addEventListener('click', () => store.signOut());
-  }
-};
