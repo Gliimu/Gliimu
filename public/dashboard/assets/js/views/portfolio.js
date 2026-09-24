@@ -17,6 +17,9 @@ export default {
 
     const container = document.getElementById('portfolio-container');
 
+    // SAFETY CHECK: If user clicked away to another tab while loading, stop execution.
+    if (!container) return;
+
     if (error || !profile) {
       container.innerHTML = '<p style="color: var(--error); text-align: center;">Failed to load portfolio.</p>';
       return;
