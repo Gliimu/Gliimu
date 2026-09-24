@@ -5,17 +5,19 @@ export default {
   title: 'Hub',
   template: `
     <div class="hub-layout">
-      <!-- Post Creation Box -->
       <div class="card post-creator">
         <h3>Share an update</h3>
         <textarea id="post-content" class="input" placeholder="What's happening in your Gliimait journey?" rows="3"></textarea>
+        <input type="file" id="media-input" accept="image/*,video/*" style="display: none;">
         <div class="post-actions">
-          <span id="post-error" class="text-error" style="font-size: var(--fs-xs);"></span>
+          <div style="display: flex; gap: var(--space-3); align-items: center;">
+            <button id="upload-media-btn" class="btn-icon" title="Attach Image/Video">🖼️</button>
+            <span id="file-name" style="font-size: var(--fs-xs); color: var(--text-muted);"></span>
+          </div>
           <button id="submit-post-btn" class="btn-primary">Post Update</button>
         </div>
       </div>
 
-      <!-- Live Feed -->
       <div class="card live-feed">
         <div class="feed-header">
           <h3>Live Hub Feed</h3>
@@ -27,34 +29,56 @@ export default {
       </div>
     </div>
   `,
+
   init() {
+    // Expose methods to window for inline onclick handlers
+    window.hubInstance = {
+      toggleComments: (id) => this.toggleComments(id),
+      submitComment: (id) => this.submitComment(id),
+      toggleLike: (id, likes) => this.toggleLike(id, likes),
+      sharePost: (id, content) => this.sharePost(id, content)
+    };
+
+    this.selectedFile = null;
     this.fetchPosts();
     this.setupRealtime();
 
-    // Handle New Post Submission
+    const fileInput = document.getElementById('media-input');
+    document.getElementById('upload-media-btn').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      this.selectedFile = e.target.files[0];
+      document.getElementById('file-name').innerText = this.selectedFile ? this.selectedFile.name : '';
+    });
+
     document.getElementById('submit-post-btn').addEventListener('click', async () => {
       const content = document.getElementById('post-content').value.trim();
-      const errorEl = document.getElementById('post-error');
+      if (!content && !this.selectedFile) return alert("Post cannot be empty.");
 
-      if (!content) {
-        errorEl.innerText = "Post cannot be empty.";
-        return;
-      }
-
-      errorEl.innerText = "";
       const btn = document.getElementById('submit-post-btn');
       btn.innerText = "Posting...";
       btn.disabled = true;
 
+      let mediaUrl = null, mediaType = null;
+
+      if (this.selectedFile) {
+        mediaType = this.selectedFile.type.startsWith('image/') ? 'image' : 'video';
+        const fileName = `${store.user.id}/${Date.now()}_${this.selectedFile.name}`;
+        const { error: upErr } = await supabase.storage.from('avatars').upload(fileName, this.selectedFile);
+        if (upErr) { alert("Upload failed."); btn.innerText = "Post Update"; btn.disabled = false; return; }
+        const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        mediaUrl = data.publicUrl;
+      }
+
       const { error } = await supabase.from('posts').insert({
-        content: content,
-        user_id: store.user.id
+        content, user_id: store.user.id, media_url: mediaUrl, media_type: mediaType
       });
 
-      if (error) {
-        errorEl.innerText = "Failed to post. Try again.";
-      } else {
+      if (error) alert("Failed: " + error.message);
+      else {
         document.getElementById('post-content').value = "";
+        this.selectedFile = null;
+        document.getElementById('file-name').innerText = "";
       }
 
       btn.innerText = "Post Update";
@@ -65,82 +89,155 @@ export default {
   async fetchPosts() {
     const { data, error } = await supabase
       .from('posts')
-      .select(`
-        content,
-        created_at,
-        profiles:profiles(username)
-      `)
+      .select(`id, content, media_url, media_type, likes, created_at, user_id, profiles:profiles!posts_user_id_fkey(username, full_name, avatar_url)`)
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
+    if (error) { console.error(error); return; }
     this.renderPosts(data);
   },
 
   renderPosts(posts) {
     const container = document.getElementById('posts-container');
+    if (!container) return;
     if (posts.length === 0) {
-      container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No posts yet. Be the first!</p>';
+      container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No posts yet.</p>';
       return;
     }
 
-    container.innerHTML = posts.map(post => `
-      <div class="post-item">
-        <div class="post-avatar">${post.profiles?.username?.charAt(0).toUpperCase() || 'G'}</div>
-        <div class="post-content-wrap">
-          <div class="post-meta">
-            <span class="post-username">@${post.profiles?.username || 'gliimait'}</span>
-            <span class="post-time">${new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+    container.innerHTML = posts.map(post => {
+      const avatar = post.profiles?.avatar_url
+        ? `<img src="${post.profiles.avatar_url}" class="post-avatar" style="object-fit:cover;">`
+        : `<div class="post-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+
+      const mediaHtml = post.media_url ? (
+        post.media_type === 'image'
+          ? `<img src="${post.media_url}" class="post-media">`
+          : `<video src="${post.media_url}" class="post-media" controls></video>`
+      ) : '';
+
+      return `
+        <div class="post-item" id="post-${post.id}">
+          ${avatar}
+          <div class="post-content-wrap">
+            <div class="post-meta">
+              <span class="post-username">${post.profiles?.full_name || 'Gliimait'}</span>
+              <span class="post-handle">@${post.profiles?.username || 'gliimait'}</span>
+              <span class="post-time">· ${new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+            <p class="post-text">${post.content || ''}</p>
+            ${mediaHtml}
+            <div class="post-actions-bar">
+              <button class="action-btn" onclick="hubInstance.toggleComments('${post.id}')">💬</button>
+              <button class="action-btn like-btn" onclick="hubInstance.toggleLike('${post.id}', ${post.likes})">❤️ <span>${post.likes}</span></button>
+              <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', \`${(post.content || '').replace(/`/g, '\\`')}\`)">↗️</button>
+            </div>
+            <div class="comments-section" id="comments-${post.id}" style="display: none;">
+              <div class="existing-comments" id="existing-comments-${post.id}"></div>
+              <div class="new-comment-box">
+                <input type="text" class="input" placeholder="Write a comment..." id="comment-input-${post.id}">
+                <button class="btn-primary" onclick="hubInstance.submitComment('${post.id}')">Reply</button>
+              </div>
+            </div>
           </div>
-          <p class="post-text">${post.content}</p>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+  },
+
+  async toggleComments(postId) {
+    const section = document.getElementById(`comments-${postId}`);
+    if (section.style.display === 'none') {
+      section.style.display = 'block';
+      const { data: comments } = await supabase
+        .from('comments')
+        .select('content, profiles:profiles!comments_user_id_fkey(username, avatar_url)')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+      const commentsEl = document.getElementById(`existing-comments-${postId}`);
+      if (comments && comments.length > 0) {
+        commentsEl.innerHTML = comments.map(c => `
+          <div class="comment-item">
+            <div class="comment-avatar">${c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">` : '💬'}</div>
+            <div>
+              <span class="comment-author">@${c.profiles?.username || 'gliimait'}</span>
+              <p class="comment-text">${c.content}</p>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        commentsEl.innerHTML = '<p style="font-size: var(--fs-xs); color: var(--text-muted);">No comments yet.</p>';
+      }
+    } else {
+      section.style.display = 'none';
+    }
+  },
+
+  async submitComment(postId) {
+    const input = document.getElementById(`comment-input-${postId}`);
+    const content = input.value.trim();
+    if (!content) return;
+
+    await supabase.from('comments').insert({ post_id: postId, user_id: store.user.id, content });
+    input.value = "";
+    this.toggleComments(postId);
+    this.toggleComments(postId);
+  },
+
+  async toggleLike(postId, currentLikes) {
+    await supabase.from('posts').update({ likes: currentLikes + 1 }).eq('id', postId);
+    const btn = document.querySelector(`#post-${postId} .like-btn span`);
+    if (btn) btn.innerText = currentLikes + 1;
+  },
+
+  sharePost(postId, content) {
+    if (navigator.share) {
+      navigator.share({ title: 'Gliimu Post', text: content, url: window.location.href })
+        .catch(err => console.log('Share cancelled'));
+    } else {
+      alert("Sharing not supported. Copy URL.");
+    }
   },
 
   setupRealtime() {
-    // 1. Remove existing channel to prevent duplicate listener crash in SPA
     supabase.removeChannel(supabase.channel('public:posts'));
-
-    // 2. Listen for new posts in real-time
     supabase
       .channel('public:posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
-        // When a new post arrives, fetch the user data for it
         const { data: profile } = await supabase
           .from('profiles')
-          .select('username')
+          .select('username, full_name, avatar_url')
           .eq('id', payload.new.user_id)
           .single();
 
-        const newPost = {
-          content: payload.new.content,
-          created_at: payload.new.created_at,
-          profiles: profile
-        };
-
-        // Prepend to the DOM
+        const newPost = { ...payload.new, profiles: profile };
         const container = document.getElementById('posts-container');
-        if (!container) return; // Safety check if user switched tabs
+        if (!container) return;
 
-        const currentHTML = container.innerHTML;
-        const postHTML = `
-          <div class="post-item">
-            <div class="post-avatar">${newPost.profiles?.username?.charAt(0).toUpperCase() || 'G'}</div>
+        const avatar = profile?.avatar_url
+          ? `<img src="${profile.avatar_url}" class="post-avatar" style="object-fit:cover;">`
+          : `<div class="post-avatar">${profile?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+
+        const html = `
+          <div class="post-item" id="post-${newPost.id}">
+            ${avatar}
             <div class="post-content-wrap">
               <div class="post-meta">
-                <span class="post-username">@${newPost.profiles?.username || 'gliimait'}</span>
-                <span class="post-time">Just now</span>
+                <span class="post-username">${profile?.full_name || 'Gliimait'}</span>
+                <span class="post-handle">@${profile?.username || 'gliimait'}</span>
+                <span class="post-time">· Just now</span>
               </div>
-              <p class="post-text">${newPost.content}</p>
+              <p class="post-text">${newPost.content || ''}</p>
+              <div class="post-actions-bar">
+                <button class="action-btn" onclick="hubInstance.toggleComments('${newPost.id}')">💬</button>
+                <button class="action-btn like-btn" onclick="hubInstance.toggleLike('${newPost.id}', 0)">❤️ <span>0</span></button>
+                <button class="action-btn" onclick="hubInstance.sharePost('${newPost.id}', \`${(newPost.content || '').replace(/`/g, '\\`')}\`)">↗️</button>
+              </div>
             </div>
           </div>`;
 
-        container.innerHTML = postHTML + currentHTML;
+        container.innerHTML = html + container.innerHTML;
       })
       .subscribe();
   }
