@@ -1,5 +1,5 @@
 // FIXED: Added an extra ../ to escape the dashboard folder
-import { supabase } from '../../../shared/js/config.js';
+import { supabase } from '/shared/js/config.js';
 
 export const store = {
   user: null,

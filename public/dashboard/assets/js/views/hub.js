@@ -1,4 +1,4 @@
-import { supabase } from '../../../shared/js/config.js';
+import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 
 export default {
