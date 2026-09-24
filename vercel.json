@@ -1,19 +1,15 @@
 {
   "rewrites": [
-    {
-      "source": "/auth",
-      "destination": "/public/auth.html"
-    },
-    {
-      "source": "/auth.html",
-      "destination": "/public/auth.html"
-    },
-    {
-      "source": "/dashboard/:path*",
-      "destination": "/dashboard/index.html"
-    }
+    { "source": "/auth", "destination": "/auth.html" },
+    { "source": "/dashboard/:path*", "destination": "/dashboard/index.html" }
   ],
   "headers": [
+    {
+      "source": "/(.*).(css|js)",
+      "headers": [
+        { "key": "Content-Type", "value": "text/$1" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
