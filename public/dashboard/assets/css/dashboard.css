@@ -1498,3 +1498,14 @@
   padding: var(--space-2) var(--space-4);
   font-size: var(--fs-xs);
 }
+
+.message.sent {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+  align-self: flex-end;
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.message.sent .msg-time {
+  color: rgba(255, 255, 255, 0.7);
+}
