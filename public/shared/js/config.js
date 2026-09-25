@@ -5,3 +5,6 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_5csTtIuipKucVlYncRGG0Q_VrokRdoD
 
 // Initialize and export the Supabase client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Backend API URL (Replace with your actual Render URL)
+export const API_BASE_URL = 'https://gliimu-server.onrender.com';
