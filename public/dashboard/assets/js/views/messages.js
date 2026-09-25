@@ -79,43 +79,6 @@ export default {
       this.chatHistory.push({ role: 'user', content: text });
 
       try {
-        // 3. Call Node.js Backend
-        const response = await fetch(`${API_BASE_URL}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: this.chatHistory })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.reply) {
-          // Add AI response to UI
-          messagesContainer.innerHTML += `
-            <div class="message received">
-              <p>${data.reply}</p>
-              <span class="msg-time">Just now</span>
-            </div>
-          `;
-          // Add to history
-          this.chatHistory.push({ role: 'assistant', content: data.reply });
-        } else if (data.error) {
-          // Show server error in chat
-          messagesContainer.innerHTML += `
-            <div class="message received" style="background: var(--error-light); color: var(--error-text);">
-              <p>Server says: ${data.error}</p>
-            </div>
-          `;
-        } else {
-          throw new Error('Unknown server response.');
-        }
-      } catch (error) {
-        console.error("Frontend Fetch Error:", error);
-        messagesContainer.innerHTML += `
-          <div class="message received" style="background: var(--error-light); color: var(--error-text);">
-            <p>Connection error: ${error.message}</p>
-          </div>
-        `;
-      }
 
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
       sendBtn.innerText = 'Send';
