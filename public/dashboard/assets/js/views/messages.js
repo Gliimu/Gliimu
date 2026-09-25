@@ -88,7 +88,7 @@ export default {
 
         const data = await response.json();
 
-        if (data.reply) {
+        if (response.ok && data.reply) {
           // Add AI response to UI
           messagesContainer.innerHTML += `
             <div class="message received">
@@ -98,13 +98,21 @@ export default {
           `;
           // Add to history
           this.chatHistory.push({ role: 'assistant', content: data.reply });
+        } else if (data.error) {
+          // Show server error in chat
+          messagesContainer.innerHTML += `
+            <div class="message received" style="background: var(--error-light); color: var(--error-text);">
+              <p>Server says: ${data.error}</p>
+            </div>
+          `;
         } else {
-          throw new Error(data.error);
+          throw new Error('Unknown server response.');
         }
       } catch (error) {
+        console.error("Frontend Fetch Error:", error);
         messagesContainer.innerHTML += `
           <div class="message received" style="background: var(--error-light); color: var(--error-text);">
-            <p>Connection error. Is the server awake?</p>
+            <p>Connection error: ${error.message}</p>
           </div>
         `;
       }
