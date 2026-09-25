@@ -1,32 +1,25 @@
 import { supabase } from '/shared/js/config.js';
 
-// ============================================
-// ACCORDION LOGIC
-// ============================================
+// Accordion Logic
 function initAccordion() {
   const accordionItems = document.querySelectorAll('.accordion-item');
 
-  // Ensure all are closed initially
   accordionItems.forEach(item => item.classList.remove('active'));
 
   accordionItems.forEach(item => {
     const header = item.querySelector('.accordion-header');
     header.addEventListener('click', () => {
-      // Close others
       accordionItems.forEach(other => {
         if (other !== item && other.classList.contains('active')) {
           other.classList.remove('active');
         }
       });
-      // Toggle current
       item.classList.toggle('active');
     });
   });
 }
 
-// ============================================
-// HUB HIGHLIGHTS FETCH
-// ============================================
+// Hub Highlights Fetch
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
@@ -56,9 +49,7 @@ async function loadHubHighlights() {
   `).join('');
 }
 
-// ============================================
-// INITIALIZE
-// ============================================
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
   initAccordion();
   loadHubHighlights();
