@@ -15,25 +15,19 @@ function initAccordion() {
   });
 }
 
-// Fetch Hero Stats (Earnings, Updates, Users)
+// Fetch Hero Stats
 async function loadHeroStats() {
   const earningsEl = document.getElementById('stat-earnings');
   const updatesEl = document.getElementById('stat-updates');
   const usersEl = document.getElementById('stat-users');
   if (!earningsEl) return;
 
-  // Fetch Users
   const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-
-  // Fetch Updates (Posts)
   const { count: postCount } = await supabase.from('posts').select('*', { count: 'exact', head: true });
-
-  // Fetch Earnings (Sum of all successful purchases)
   const { data: txns } = await supabase.from('transactions').select('amount').eq('type', 'purchase');
+
   let totalEarnings = 0;
-  if (txns) {
-    txns.forEach(t => totalEarnings += Math.abs(t.amount));
-  }
+  if (txns) txns.forEach(t => totalEarnings += Math.abs(t.amount));
 
   usersEl.innerText = userCount || 0;
   updatesEl.innerText = postCount || 0;

@@ -37,14 +37,14 @@
         <img src="/icons/logo.png" alt="Gliimu">
       </a>
       <div class="hero-nav-actions">
-        <button class="theme-toggle-hero" id="nav-theme-btn" onclick="toggleTheme()">
-          <i class="fas fa-sun" id="sun-icon-nav"></i>
-          <i class="fas fa-moon" id="moon-icon-nav" style="display:none;"></i>
+        <button class="theme-toggle-hero" onclick="toggleTheme()">
+          <i class="fas fa-moon" id="moon-icon"></i>
+          <i class="fas fa-sun" id="sun-icon" style="display:none;"></i>
         </button>
       </div>
     </nav>
 
-    <div class="container hero-container">
+    <div class="hero-container">
       <div class="hero-content">
         <h1 class="hero-title">
           We are <span class="highlight">Full Stack Media Architects</span>
@@ -70,11 +70,9 @@
           <a href="/auth.html" class="btn-primary btn-lg">
             Join Us <i class="fas fa-arrow-right"></i>
           </a>
-          <button class="btn-outline btn-lg theme-toggle-hero-bottom" onclick="toggleTheme()">
-            <i class="fas fa-sun" id="sun-icon-hero"></i>
-            <i class="fas fa-moon" id="moon-icon-hero" style="display:none;"></i>
-            Toggle Theme
-          </button>
+          <a href="#curriculum" class="btn-outline btn-lg">
+            Explore <i class="fas fa-play-circle"></i>
+          </a>
         </div>
       </div>
     </div>
@@ -142,22 +140,19 @@
     </div>
   </section>
 
-  <!-- SQUAD SYSTEM -->
+  <!-- SQUAD SYSTEM (Background Image) -->
   <section class="squad-section">
     <div class="container">
       <div class="squad-grid">
         <div class="squad-content">
           <h2 class="section-title" style="text-align: left;">Learn in Pods. Build Together.</h2>
-          <p style="margin-top: 16px; color: var(--text-secondary); font-size: var(--fs-md);">Each instructor (Captain) mentors only <strong>3 students (a Triad)</strong>. You're not a number — you're a builder in a tight-knit squad that grows together.</p>
+          <p style="margin-top: 16px;">Each instructor (Captain) mentors only <strong>3 students (a Triad)</strong>. You're not a number — you're a builder in a tight-knit squad that grows together.</p>
           <ul class="squad-features">
             <li><i class="fas fa-users"></i> Deep mentorship, not crowded lectures</li>
             <li><i class="fas fa-project-diagram"></i> Real projects from real clients</li>
             <li><i class="fas fa-trophy"></i> Gamified leaderboard for apprenticeship</li>
             <li><i class="fas fa-handshake"></i> Elite network for life</li>
           </ul>
-        </div>
-        <div class="squad-visual">
-          <img src="/pictures/triad.png" alt="Gliimu Triad System" class="triad-img">
         </div>
       </div>
     </div>
@@ -233,16 +228,16 @@
   <section class="contact-faq-section">
     <div class="container">
       <div class="cf-grid">
-        <a href="/contact.html" class="cf-card">
+        <div class="cf-card" onclick="openModal('contact-modal')">
           <i class="fas fa-headset"></i>
           <h3>Contact Us</h3>
           <p>Have questions? Reach out to our team.</p>
-        </a>
-        <a href="/faq.html" class="cf-card">
+        </div>
+        <div class="cf-card" onclick="openModal('faq-modal')">
           <i class="fas fa-question-circle"></i>
           <h3>FAQ</h3>
           <p>Find answers to common questions.</p>
-        </a>
+        </div>
       </div>
     </div>
   </section>
@@ -279,23 +274,28 @@
     </div>
   </footer>
 
+  <!-- MODALS -->
+  <div class="modal-overlay" id="contact-modal" style="display: none;">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('contact-modal')">×</button>
+      <h2 style="margin-bottom: var(--space-4);">Contact Us</h2>
+      <p style="color: var(--text-secondary); line-height: 1.6;">Contact information will go here.</p>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="faq-modal" style="display: none;">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('faq-modal')">×</button>
+      <h2 style="margin-bottom: var(--space-4);">Frequently Asked Questions</h2>
+      <p style="color: var(--text-secondary); line-height: 1.6;">FAQ content will go here.</p>
+    </div>
+  </div>
+
   <script src="/shared/js/theme.js"></script>
   <script type="module" src="/assets/js/main.js"></script>
-
   <script>
-    (function() {
-      const checkAuth = () => {
-        const supabaseSession = localStorage.getItem('sb-vsgvscemqtqgolrindcx-auth-token');
-        if (supabaseSession) {
-          window.location.replace('/dashboard/index.html');
-          return true;
-        }
-        return false;
-      };
-      if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-        checkAuth();
-      }
-    })();
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
   </script>
 </body>
 </html>
