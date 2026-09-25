@@ -97,7 +97,7 @@ export default {
     // FIXED: Explicit join syntax to prevent 400 Bad Request
     const { data: pendingApps } = await supabase
       .from('applications')
-      .select('user_id, created_at, profiles:profiles!user_id(username, full_name)')
+      .select('user_id, created_at, profiles:profiles!user_id(username, full_name, avatar_url)')
       .eq('status', 'pending')
       .eq('type', 'apprenticeship');
 
