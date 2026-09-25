@@ -131,7 +131,11 @@ export default {
           ${rankedApplicants.slice(0, 10).map((app, index) => `
             <div class="leaderboard-item ${app.user_id === store.user.id ? 'is-me' : ''}">
               <span class="lb-rank">#${index + 1}</span>
-              <div class="lb-avatar">${app.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>
+              <div class="lb-avatar">
+                ${app.profiles?.avatar_url
+                  ? `<img src="${app.profiles.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`
+                  : (app.profiles?.full_name?.charAt(0).toUpperCase() || 'G')}
+              </div>
               <div class="lb-info">
                 <span class="lb-name">${app.profiles?.full_name || 'Unknown'}</span>
                 <span class="lb-username">@${app.profiles?.username || 'gliimait'}</span>
