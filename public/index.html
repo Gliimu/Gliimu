@@ -32,19 +32,23 @@
       <source src="/videos/pnp.mp4" type="video/mp4">
     </video>
 
+    <!-- Strict Container for Nav -->
     <nav class="hero-nav">
-      <a href="/" class="hero-nav-logo">
-        <img src="/icons/logo.png" alt="Gliimu">
-      </a>
-      <div class="hero-nav-actions">
-        <button class="theme-toggle-hero" onclick="toggleTheme()">
-          <i class="fas fa-moon" id="moon-icon"></i>
-          <i class="fas fa-sun" id="sun-icon" style="display:none;"></i>
-        </button>
+      <div class="container hero-nav-inner">
+        <a href="/" class="hero-nav-logo">
+          <img src="/icons/logo.png" alt="Gliimu">
+        </a>
+        <div class="hero-nav-actions">
+          <button class="theme-toggle-hero" onclick="toggleTheme()">
+            <i class="fas fa-moon" id="moon-icon"></i>
+            <i class="fas fa-sun" id="sun-icon" style="display:none;"></i>
+          </button>
+        </div>
       </div>
     </nav>
 
-    <div class="hero-container">
+    <!-- Strict Container for Hero Content -->
+    <div class="container hero-container">
       <div class="hero-content">
         <h1 class="hero-title">
           We are <span class="highlight">Full Stack Media Architects</span>
@@ -81,7 +85,7 @@
   <!-- THREE PILLARS SECTION -->
   <section class="pillars-section">
     <div class="container">
-      <div="pillars-header">
+      <div class="pillars-header">
         <h2 class="section-title">Three Platforms. One Mission.</h2>
         <p class="section-subtitle">Your complete functional ecosystem</p>
       </div>
@@ -274,20 +278,68 @@
     </div>
   </footer>
 
-  <!-- MODALS -->
+  <!-- CONTACT MODAL -->
   <div class="modal-overlay" id="contact-modal" style="display: none;">
-    <div class="modal-content">
+    <div class="modal-content modal-lg">
       <button class="modal-close" onclick="closeModal('contact-modal')">×</button>
-      <h2 style="margin-bottom: var(--space-4);">Contact Us</h2>
-      <p style="color: var(--text-secondary); line-height: 1.6;">Contact information will go here.</p>
+      <h2 class="modal-title">Let's Talk</h2>
+      <p class="modal-subtitle">Have questions? We're here to help. Reach out to us anytime.</p>
+
+      <div class="contact-info-grid">
+        <div class="contact-info-item">
+          <i class="fas fa-map-marker-alt"></i>
+          <h4>Visit Us</h4>
+          <p>2 Sanusi Street, Foreign Affairs Estate,<br>1st Avenue, Gwarinpa, Abuja, Nigeria.</p>
+        </div>
+        <div class="contact-info-item">
+          <i class="fas fa-phone-alt"></i>
+          <h4>Call Us</h4>
+          <p><a href="tel:+2347058929080">+234 (0) 705 8929 080</a></p>
+          <span class="meta">Mon - Fri, 9AM - 5PM</span>
+        </div>
+        <div class="contact-info-item">
+          <i class="fas fa-envelope-open-text"></i>
+          <h4>Email Us</h4>
+          <p><a href="mailto:gliimu@protonmail.com">gliimu@protonmail.com</a></p>
+          <span class="meta">Response within 24 hours</span>
+        </div>
+      </div>
+
+      <div class="social-section-modal">
+        <p>Follow us for updates and news</p>
+        <div class="social-icons-modal">
+          <a href="https://www.youtube.com/@gliimu" target="_blank"><i class="fab fa-youtube"></i></a>
+          <a href="https://www.tiktok.com/@officialgliimu" target="_blank"><i class="fab fa-tiktok"></i></a>
+          <a href="https://www.facebook.com/gliimu" target="_blank"><i class="fab fa-facebook-f"></i></a>
+          <a href="https://pinterest.com/gliimu" target="_blank"><i class="fab fa-pinterest-p"></i></a>
+        </div>
+      </div>
     </div>
   </div>
 
+  <!-- FAQ MODAL -->
   <div class="modal-overlay" id="faq-modal" style="display: none;">
-    <div class="modal-content">
+    <div class="modal-content modal-lg">
       <button class="modal-close" onclick="closeModal('faq-modal')">×</button>
-      <h2 style="margin-bottom: var(--space-4);">Frequently Asked Questions</h2>
-      <p style="color: var(--text-secondary); line-height: 1.6;">FAQ content will go here.</p>
+      <h2 class="modal-title">Frequently Asked Questions</h2>
+      <p class="modal-subtitle">Find answers to common questions about admissions, tuition, and more.</p>
+
+      <div class="faq-item-modal">
+        <h4>How long is the program?</h4>
+        <p>The program is untimed, but expected to take about a year. You graduate when you prove competence through practical work, which can take as little as 2 months.</p>
+      </div>
+      <div class="faq-item-modal">
+        <h4>How much is the tuition?</h4>
+        <p>We charge a premium of ₦650,000 for absolute value. We take a maximum of 9 students per Hub to deliver our absolute best.</p>
+      </div>
+      <div class="faq-item-modal">
+        <h4>Do I need prior experience?</h4>
+        <p>No. We train elite minds from the ground up, grouping you in a Triad to ensure you learn at your own pace without holding others back.</p>
+      </div>
+      <div class="faq-item-modal">
+        <h4>Will I get a job after graduation?</h4>
+        <p>We don't train employees; we train independent bosses. You will start earning from real paid gigs before you even graduate.</p>
+      </div>
     </div>
   </div>
 
