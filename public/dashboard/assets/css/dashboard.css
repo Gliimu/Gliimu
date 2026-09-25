@@ -834,3 +834,127 @@
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+
+/* Wallet Styles */
+.wallet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .wallet-grid { grid-template-columns: 1fr; }
+}
+
+.balance-card {
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.balance-label {
+  font-size: var(--fs-sm);
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-widest);
+}
+
+.balance-amount {
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-extrabold);
+  margin: var(--space-2) 0;
+}
+
+.balance-card .btn-primary {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-inverse);
+  backdrop-filter: blur(10px);
+}
+
+.balance-card .btn-primary:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.quick-actions-card {
+  padding: var(--space-6);
+}
+
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.quick-action-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.qa-icon {
+  font-size: var(--fs-lg);
+}
+
+/* Transactions */
+.transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.transaction-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--surface-divider);
+}
+
+.tx-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-md);
+}
+
+.tx-topup { background: var(--success-light); color: var(--success); }
+.tx-spend { background: var(--error-light); color: var(--error); }
+
+.tx-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tx-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.tx-date {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.tx-amount {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+}
+
+.amount-positive { color: var(--success); }
+.amount-negative { color: var(--error); }
