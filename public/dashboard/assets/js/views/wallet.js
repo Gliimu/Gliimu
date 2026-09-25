@@ -14,14 +14,12 @@ export default {
   },
 
   async fetchData() {
-    // Fetch user's profile to get balance
     const { data: profile } = await supabase
       .from('profiles')
       .select('wallet_balance')
       .eq('id', store.user.id)
       .single();
 
-    // Fetch transaction history
     const { data: transactions } = await supabase
       .from('transactions')
       .select('*')
@@ -59,8 +57,8 @@ export default {
               <span>Tip Creator</span>
             </div>
             <div class="quick-action-item">
-              <span class="qa-icon">📈</span>
-              <span>Subscribe</span>
+              <span class="qa-icon">⏳</span>
+              <span>Pending Approvals</span>
             </div>
           </div>
         </div>
@@ -74,11 +72,11 @@ export default {
             ? '<p style="color: var(--text-muted); text-align: center; padding: var(--space-4);">No transactions yet.</p>'
             : this.transactions.map(tx => `
               <div class="transaction-item">
-                <div class="tx-icon ${tx.type === 'topup' ? 'tx-topup' : 'tx-spend'}">
+                <div class="tx-icon ${tx.type === 'topup' ? 'tx-topup' : 'tx-spend'} ${tx.status === 'pending' ? 'tx-pending' : ''}">
                   ${tx.type === 'topup' ? '↓' : '↑'}
                 </div>
                 <div class="tx-details">
-                  <span class="tx-title">${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}</span>
+                  <span class="tx-title">${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)} <span style="font-size: var(--fs-xs); color: ${tx.status === 'pending' ? 'var(--warning)' : 'var(--success)'};">(${tx.status})</span></span>
                   <span class="tx-date">${new Date(tx.created_at).toLocaleDateString()} ${new Date(tx.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
                 <span class="tx-amount ${tx.type === 'topup' ? 'amount-positive' : 'amount-negative'}">
@@ -90,34 +88,88 @@ export default {
       </div>
     `;
 
-    document.getElementById('topup-btn').addEventListener('click', () => this.handleTopUp());
+    document.getElementById('topup-btn').addEventListener('click', () => this.openTopUpModal());
   },
 
-  async handleTopUp() {
-    // MOCK TOP-UP: In production, this will trigger a Paystack popup
-    const amount = 5000; // ₦5,000 mock top-up
+  openTopUpModal() {
+    // Create a modal overlay
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" id="close-modal">×</button>
+        <h2 style="margin-bottom: var(--space-4);">Fund Wallet</h2>
 
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: store.user.id,
-      amount: amount,
-      type: 'topup',
-      status: 'success',
-      reference: `mock_${Date.now()}`
+        <div class="form-group">
+          <label>Enter Amount (₦)</label>
+          <input type="number" id="topup-amount" class="input" placeholder="e.g. 5000" min="100">
+        </div>
+
+        <button id="generate-details-btn" class="btn-primary" style="width: 100%; margin-bottom: var(--space-4);">Generate Bank Details</button>
+
+        <div id="bank-details-area" style="display: none;">
+          <div class="info-banner" style="margin-bottom: var(--space-4);">
+            <p>Transfer the exact amount to the account below. Use the <strong>Reference Code</strong> as the narration. Your wallet will be funded after confirmation.</p>
+          </div>
+
+          <div class="bank-details-box">
+            <div class="bd-row"><span>Bank:</span> <strong id="bd-bank"></strong></div>
+            <div class="bd-row"><span>Account No:</span> <strong id="bd-acct"></strong></div>
+            <div class="bd-row"><span>Account Name:</span> <strong>Gliimu ltd</strong></div>
+            <div class="bd-row highlight"><span>Reference:</span> <strong id="bd-ref"></strong></div>
+          </div>
+
+          <button id="confirm-sent-btn" class="btn-secondary" style="width: 100%; margin-top: var(--space-4);">I Have Sent the Cash</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Modal Logic
+    document.getElementById('close-modal').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    document.getElementById('generate-details-btn').addEventListener('click', () => {
+      const amount = parseInt(document.getElementById('topup-amount').value);
+      if (!amount || amount < 100) return alert("Please enter a valid amount (min ₦100).");
+
+      // Randomly select bank
+      const banks = [
+        { name: 'Opay', acct: '7058929080' },
+        { name: 'Moniepoint', acct: '7058929080' }
+      ];
+      const selectedBank = banks[Math.floor(Math.random() * banks.length)];
+
+      // Generate Reference
+      const ref = `GLI-${store.profile.username.substring(0, 4).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      this.pendingTopUp = { amount, bank: selectedBank, ref };
+
+      document.getElementById('bd-bank').innerText = selectedBank.name;
+      document.getElementById('bd-acct').innerText = selectedBank.acct;
+      document.getElementById('bd-ref').innerText = ref;
+
+      document.getElementById('bank-details-area').style.display = 'block';
+      document.getElementById('generate-details-btn').style.display = 'none';
     });
 
-    if (txError) return alert("Error processing top-up.");
+    document.getElementById('confirm-sent-btn').addEventListener('click', async () => {
+      const { amount, ref } = this.pendingTopUp;
 
-    // Update user's balance
-    const newBalance = this.balance + amount;
-    const { error: balanceError } = await supabase
-      .from('profiles')
-      .update({ wallet_balance: newBalance })
-      .eq('id', store.user.id);
+      const { error } = await supabase.from('transactions').insert({
+        user_id: store.user.id,
+        amount: amount,
+        type: 'topup',
+        status: 'pending', // Awaiting admin approval
+        reference: ref
+      });
 
-    if (balanceError) return alert("Error updating balance.");
+      if (error) return alert("Error logging transaction.");
 
-    alert("₦5,000 added successfully!");
-    await this.fetchData();
-    this.render(); // Re-render to show new balance and transaction
+      alert("Transaction received! Your wallet will be credited once the payment is verified.");
+      modal.remove();
+      await this.fetchData();
+      this.render();
+    });
   }
 };

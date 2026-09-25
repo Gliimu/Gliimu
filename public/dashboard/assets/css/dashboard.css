@@ -1259,3 +1259,78 @@
     display: none;
   }
 }
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.modal-content {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  width: 100%;
+  max-width: 450px;
+  position: relative;
+  box-shadow: var(--shadow-2xl);
+}
+
+.modal-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  background: none;
+  border: none;
+  font-size: var(--fs-2xl);
+  cursor: pointer;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+/* Bank Details Box */
+.bank-details-box {
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.bd-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  font-size: var(--fs-sm);
+}
+
+.bd-row span {
+  color: var(--text-muted);
+}
+
+.bd-row strong {
+  color: var(--text-primary);
+}
+
+.bd-row.highlight {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.bd-row.highlight strong {
+  color: var(--brand-primary);
+  font-family: var(--font-mono);
+}
+
+/* Pending Transaction Icon */
+.tx-pending {
+  background: var(--warning-light) !important;
+  color: var(--warning) !important;
+}
