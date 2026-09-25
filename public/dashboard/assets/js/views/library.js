@@ -5,7 +5,7 @@ export default {
       <div class="library-header">
         <div>
           <h2>Gliimu Elite Library</h2>
-          <p>Premium publications, documentaries, research, and bundles.</p>
+          <p>Premium publications, audiolites, and bundles.</p>
         </div>
         <div class="subscription-badge">
           <span>Elite Sub: Active</span>
@@ -14,108 +14,54 @@ export default {
 
       <div class="library-tabs">
         <button class="lib-tab active">All</button>
-        <button class="lib-tab">Documentaries</button>
-        <button class="lib-tab">Publications</button>
-        <button class="lib-tab">Audiobooks</button>
         <button class="lib-tab">Bundles</button>
+        <button class="lib-tab">Publications</button>
+        <button class="lib-tab">Audiolites</button>
       </div>
 
-      <div class="masonry-grid" id="library-grid">
-
-        <!-- Documentary (Horizontal) -->
-        <div class="library-item lib-horizontal">
-          <div class="lib-thumb" style="background: linear-gradient(135deg, #6366F1, #8B5CF6);">
-            <span class="lib-type">DOCUMENTARY</span>
-          </div>
-          <div class="lib-info">
-            <h4>Full Stack Media: The Documentary</h4>
-            <p class="lib-author">by Gliimu Originals</p>
-            <div class="lib-footer">
-              <span class="lib-price">₦15,000</span>
-              <button class="btn-primary btn-sm">Buy Now</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Publication / Book (Vertical) -->
-        <div class="library-item lib-vertical">
-          <div class="lib-thumb" style="background: linear-gradient(135deg, #10B981, #06B6D4);">
-            <span class="lib-type">PUBLICATION</span>
-          </div>
-          <div class="lib-info">
-            <h4>Business Services Playbook</h4>
-            <p class="lib-author">by Captain A.</p>
-            <div class="lib-footer">
-              <span class="lib-price">₦7,500</span>
-              <button class="btn-primary btn-sm">Buy Now</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Audiobook (Square) -->
-        <div class="library-item lib-square">
-          <div class="lib-thumb" style="background: linear-gradient(135deg, #3B82F6, #8B5CF6);">
-            <span class="lib-type">AUDIOBOOK</span>
-          </div>
-          <div class="lib-info">
-            <h4>Mindset of an Elite Gliimait</h4>
-            <p class="lib-author">by Captain B.</p>
-            <div class="lib-footer">
-              <span class="lib-price">₦5,000</span>
-              <button class="btn-primary btn-sm">Buy Now</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Publication / Book (Vertical) -->
-        <div class="library-item lib-vertical">
-          <div class="lib-thumb" style="background: linear-gradient(135deg, #F59E0B, #EF4444);">
-            <span class="lib-type">PUBLICATION</span>
-          </div>
-          <div class="lib-info">
-            <h4>Elite Freelancing Guide</h4>
-            <p class="lib-author">by Gliimu Ltd</p>
-            <div class="lib-footer">
-              <span class="lib-price">₦6,000</span>
-              <button class="btn-primary btn-sm">Buy Now</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Bundle (Square) -->
-        <div class="library-item lib-square">
-          <div class="lib-thumb" style="background: linear-gradient(135deg, #F97316, #F59E0B);">
-            <span class="lib-type">BUNDLE</span>
-          </div>
-          <div class="lib-info">
-            <h4>Ultimate Media Kit</h4>
-            <p class="lib-author">by Gliimu Ltd</p>
-            <div class="lib-footer">
-              <span class="lib-price">₦45,000</span>
-              <button class="btn-primary btn-sm">Buy Now</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Documentary (Horizontal) -->
-        <div class="library-item lib-horizontal">
-          <div class="lib-thumb" style="background: linear-gradient(135deg, #0F172A, #334155);">
-            <span class="lib-type">DOCUMENTARY</span>
-          </div>
-          <div class="lib-info">
-            <h4>Building from Scratch: No Code</h4>
-            <p class="lib-author">by Captain C.</p>
-            <div class="lib-footer">
-              <span class="lib-price">₦12,000</span>
-              <button class="btn-primary btn-sm">Buy Now</button>
-            </div>
-          </div>
-        </div>
-
+      <div class="lib-masonry-grid" id="library-grid">
+        <!-- Items injected by JS -->
       </div>
     </div>
   `,
   init() {
-    console.log('Library View Loaded');
+    const items = [
+      { id: 1, type: 'bundle', title: 'Ultimate Media Kit', author: 'Gliimu Ltd', color: 'linear-gradient(135deg, #F97316, #F59E0B)', desc: 'All the tools, presets, and templates you need to launch your media empire.' },
+      { id: 2, type: 'publication', title: 'Business Services Playbook', author: 'Captain A.', color: 'linear-gradient(135deg, #10B981, #06B6D4)', desc: 'A comprehensive guide to structuring your freelance business for high-ticket clients.' },
+      { id: 3, type: 'audiolite', title: 'Mindset of an Elite Gliimait', author: 'Captain B.', color: 'linear-gradient(135deg, #3B82F6, #8B5CF6)', desc: 'Audio series on building the mental resilience required for independent success.' },
+      { id: 4, type: 'publication', title: 'Elite Freelancing Guide', author: 'Gliimu Ltd', color: 'linear-gradient(135deg, #F59E0B, #EF4444)', desc: 'How to find, pitch, and close premium clients globally.' },
+      { id: 5, type: 'bundle', title: 'Full Stack Media Architecture', author: 'Gliimu Originals', color: 'linear-gradient(135deg, #6366F1, #8B5CF6)', desc: 'The complete blueprint for building media empires from scratch.' },
+      { id: 6, type: 'audiolite', title: 'Creative Flow States', author: 'Captain C.', color: 'linear-gradient(135deg, #0F172A, #334155)', desc: 'Audio guides for entering deep work and creative flow.' }
+    ];
+
+    const grid = document.getElementById('library-grid');
+    grid.innerHTML = items.map(item => `
+      <div class="lib-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.title}', '${item.author}', '${item.desc}')">
+        <div class="lib-thumb" style="background: ${item.color};">
+          <span class="lib-type">${item.type}</span>
+        </div>
+        <div class="lib-overlay">
+          <h4>${item.title}</h4>
+        </div>
+      </div>
+    `).join('');
+
+    window.libraryInstance = {
+      openDetails: (title, author, desc) => this.openDetails(title, author, desc)
+    };
+  },
+  openDetails(title, author, desc) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <h2 style="margin-bottom: var(--space-2); font-size: var(--fs-xl);">${title}</h2>
+        <p style="color: var(--text-muted); margin-bottom: var(--space-6); font-size: var(--fs-sm);">by ${author}</p>
+        <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-6);">${desc}</p>
+        <button class="btn-primary" style="width: 100%;" onclick="alert('Purchase logic will go here'); this.parentElement.parentElement.remove();">Unlock with Wallet</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
   }
 };
