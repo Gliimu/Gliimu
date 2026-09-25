@@ -11,7 +11,9 @@ export default {
         <input type="file" id="media-input" accept="image/*,video/*" style="display: none;">
         <div class="post-actions">
           <div style="display: flex; gap: var(--space-3); align-items: center;">
-            <button id="upload-media-btn" class="btn-icon" title="Attach Image/Video">🖼️</button>
+          <button id="upload-media-btn" class="btn-icon" title="Attach Image/Video">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          </button>
             <span id="file-name" style="font-size: var(--fs-xs); color: var(--text-muted);"></span>
           </div>
           <button id="submit-post-btn" class="btn-primary">Post Update</button>
@@ -89,7 +91,7 @@ export default {
   async fetchPosts() {
     const { data, error } = await supabase
       .from('posts')
-      .select(`id, content, media_url, media_type, likes, created_at, user_id, profiles:profiles!posts_user_id_fkey(username, full_name, avatar_url)`)
+      .select(`id, content, media_url, media_type, likes, created_at, user_id, profiles:profiles!user_id(username, full_name, avatar_url)`)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -112,8 +114,8 @@ export default {
 
       const mediaHtml = post.media_url ? (
         post.media_type === 'image'
-          ? `<img src="${post.media_url}" class="post-media">`
-          : `<video src="${post.media_url}" class="post-media" controls></video>`
+          ? `<img src="${post.media_url}" class="post-media" style="max-height: 400px; object-fit: contain; background: var(--bg-tertiary);">`
+          : `<video src="${post.media_url}" class="post-media" style="max-height: 400px; object-fit: contain; background: black;" controls></video>`
       ) : '';
 
       return `
@@ -151,7 +153,7 @@ export default {
       section.style.display = 'block';
       const { data: comments } = await supabase
         .from('comments')
-        .select('content, profiles:profiles!comments_user_id_fkey(username, avatar_url)')
+        .select('content, profiles:profiles!user_id(username, avatar_url)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
 

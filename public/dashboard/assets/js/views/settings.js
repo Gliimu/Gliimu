@@ -13,7 +13,7 @@ export default {
 
         <!-- Avatar Upload -->
         <div class="avatar-upload-section">
-          <img id="avatar-preview" src="https://via.placeholder.com/100" class="settings-avatar">
+          <img id="avatar-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E" class="settings-avatar">
           <div>
             <input type="file" id="avatar-input" accept="image/*" style="display: none;">
             <button type="button" class="btn-secondary" id="upload-avatar-btn">Change Picture</button>
