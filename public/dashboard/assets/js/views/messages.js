@@ -79,10 +79,51 @@ export default {
       this.chatHistory.push({ role: 'user', content: text });
 
       try {
+        // 3. Call Node.js Backend
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: this.chatHistory })
+        });
 
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      sendBtn.innerText = 'Send';
-      sendBtn.disabled = false;
+        // Check if server returned HTML (sleeping) instead of JSON
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Server is waking up. Please wait 30 seconds and try again.");
+        }
+
+        const data = await response.json();
+
+        if (response.ok && data.reply) {
+          messagesContainer.innerHTML += `
+            <div class="message received">
+              <p>${data.reply}</p>
+              <span class="msg-time">Just now</span>
+            </div>
+          `;
+          this.chatHistory.push({ role: 'assistant', content: data.reply });
+        } else if (data.error) {
+          messagesContainer.innerHTML += `
+            <div class="message received" style="background: var(--error-light); color: var(--error-text);">
+              <p>Server says: ${data.error}</p>
+            </div>
+          `;
+        } else {
+          throw new Error('Unknown server response.');
+        }
+      } catch (error) {
+        console.error("Frontend Fetch Error:", error);
+        messagesContainer.innerHTML += `
+          <div class="message received" style="background: var(--error-light); color: var(--error-text);">
+            <p>${error.message}</p>
+          </div>
+        `;
+      } finally {
+        // This runs no matter what (success or error)
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        sendBtn.innerText = 'Send';
+        sendBtn.disabled = false;
+      }
     };
 
     sendBtn.addEventListener('click', sendMessage);
