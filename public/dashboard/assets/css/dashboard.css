@@ -1334,3 +1334,167 @@
   background: var(--warning-light) !important;
   color: var(--warning) !important;
 }
+
+/* ============================================
+   LIBRARY STYLES (Masonry)
+   ============================================ */
+.library-layout {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--space-6);
+}
+
+.library-header h2 {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-extrabold);
+  letter-spacing: var(--ls-tight);
+}
+
+.subscription-badge {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.library-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.lib-tab {
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.lib-tab.active, .lib-tab:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--brand-primary);
+}
+
+/* Masonry Grid Setup */
+.masonry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-auto-rows: 120px; /* Base row height */
+  gap: var(--space-4);
+  grid-auto-flow: dense; /* Fills in the gaps */
+}
+
+.library-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-base);
+}
+
+.library-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+}
+
+/* Aspect Ratio Spans */
+.lib-vertical {
+  grid-row: span 3; /* Taller */
+}
+
+.lib-horizontal {
+  grid-column: span 2; /* Wider */
+  grid-row: span 2;
+}
+
+.lib-square {
+  grid-row: span 2;
+}
+
+/* Adjust horizontal items to show image and text side-by-side on larger screens */
+@media (min-width: 768px) {
+  .lib-horizontal {
+    flex-direction: row;
+  }
+  .lib-horizontal .lib-thumb {
+    width: 50%;
+    height: 100%;
+  }
+  .lib-horizontal .lib-info {
+    width: 50%;
+  }
+}
+
+.lib-thumb {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  padding: var(--space-3);
+  min-height: 100px;
+}
+
+.lib-type {
+  background: rgba(0,0,0,0.6);
+  color: white;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  letter-spacing: var(--ls-wide);
+  backdrop-filter: blur(4px);
+}
+
+.lib-info {
+  padding: var(--space-4);
+  background: var(--surface);
+}
+
+.lib-info h4 {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  margin-bottom: var(--space-1);
+  line-height: 1.3;
+}
+
+.lib-author {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.lib-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.lib-price {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-extrabold);
+  color: var(--text-primary);
+}
+
+.btn-sm {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--fs-xs);
+}
