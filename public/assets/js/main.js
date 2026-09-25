@@ -3,23 +3,44 @@ import { supabase } from '/shared/js/config.js';
 // Accordion Logic
 function initAccordion() {
   const accordionItems = document.querySelectorAll('.accordion-item');
-
   accordionItems.forEach(item => item.classList.remove('active'));
-
   accordionItems.forEach(item => {
     const header = item.querySelector('.accordion-header');
     header.addEventListener('click', () => {
       accordionItems.forEach(other => {
-        if (other !== item && other.classList.contains('active')) {
-          other.classList.remove('active');
-        }
+        if (other !== item && other.classList.contains('active')) other.classList.remove('active');
       });
       item.classList.toggle('active');
     });
   });
 }
 
-// Hub Highlights Fetch
+// Fetch Hero Stats (Earnings, Updates, Users)
+async function loadHeroStats() {
+  const earningsEl = document.getElementById('stat-earnings');
+  const updatesEl = document.getElementById('stat-updates');
+  const usersEl = document.getElementById('stat-users');
+  if (!earningsEl) return;
+
+  // Fetch Users
+  const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+
+  // Fetch Updates (Posts)
+  const { count: postCount } = await supabase.from('posts').select('*', { count: 'exact', head: true });
+
+  // Fetch Earnings (Sum of all successful purchases)
+  const { data: txns } = await supabase.from('transactions').select('amount').eq('type', 'purchase');
+  let totalEarnings = 0;
+  if (txns) {
+    txns.forEach(t => totalEarnings += Math.abs(t.amount));
+  }
+
+  usersEl.innerText = userCount || 0;
+  updatesEl.innerText = postCount || 0;
+  earningsEl.innerText = `₦${totalEarnings.toLocaleString()}`;
+}
+
+// Fetch Hub Highlights
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
@@ -52,5 +73,6 @@ async function loadHubHighlights() {
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   initAccordion();
+  loadHeroStats();
   loadHubHighlights();
 });
