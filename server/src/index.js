@@ -1,8 +1,6 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-
-dotenv.config();
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,26 +9,26 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Simple root route to test if server is running
+// Simple root route to test if server is alive
 app.get('/', (req, res) => {
-  res.json({ status: 'Gliimu API is running' });
+  res.send('Gliimu Server is running!');
 });
 
 // ==========================================
-// GLIIM-PA AI ENDPOINT
+// GLIIM-PA AI CHAT ROUTE
 // ==========================================
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body;
 
-    // System prompt to give Gliim-PA its personality
+    // System prompt to define Gliim-PA's personality
     const systemPrompt = {
       role: 'system',
-      content: 'You are Gliim-PA, an elite personal assistant for the Gliimu EdTech platform. Your job is to guide users, answer research questions, and help them become Full Stack Media Architects. Be concise, professional, and encouraging.'
+      content: 'You are Gliim-PA, an elite personal assistant for the Gliimu EdTech platform. Your users are "Gliimaits" training to become Full Stack Media Architects. You guide them through media, tech, and business services. Keep responses concise, professional, and action-oriented. Encourage an independent, boss-like mindset.'
     };
 
     // Call DeepSeek API
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,20 +43,21 @@ app.post('/api/chat', async (req, res) => {
 
     const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'AI API failed');
+    if (data.choices && data.choices.length > 0) {
+      const aiReply = data.choices[0].message.content;
+      res.json({ reply: aiReply });
+    } else {
+      console.error('DeepSeek API Error:', data);
+      res.status(500).json({ error: 'AI failed to respond.' });
     }
 
-    // Send AI response back to frontend
-    res.json({ reply: data.choices[0].message.content });
-
   } catch (error) {
-    console.error('AI Error:', error);
-    res.status(500).json({ error: 'Failed to get AI response' });
+    console.error('Server Error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
 // Start Server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Gliimu Server running on port ${PORT}`);
 });
