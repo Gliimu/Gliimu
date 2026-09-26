@@ -42,6 +42,14 @@ async function loadSiteSettings() {
     // Hero Video
     document.getElementById('hero-video-src').src = data.hero_video_url;
 
+    // Hero Fallback Image (Set as background of the section just in case)
+    const heroSection = document.getElementById('hero-section');
+    if (heroSection && data.hero_fallback_image_url) {
+      heroSection.style.backgroundImage = `url('${data.hero_fallback_image_url}')`;
+      heroSection.style.backgroundSize = 'cover';
+      heroSection.style.backgroundPosition = 'center';
+    }
+
     // Squad Background
     const squadSection = document.getElementById('squad-section');
     squadSection.style.background = `linear-gradient(to right, rgba(10, 15, 30, 0.95), rgba(10, 15, 30, 0.85)), url('${data.squad_bg_url}')`;
@@ -145,23 +153,26 @@ function animateValue(element, start, end, duration) {
 }
 
 // ============================================
-// FORCE VIDEO AUTOPLAY ON iOS
+// FORCE VIDEO AUTOPLAY ON iOS (With Fallback)
 // ============================================
 function forceVideoAutoplay() {
   const video = document.getElementById('hero-video');
   if (!video) return;
 
-  // Try to play immediately
-  video.play().catch(error => {
-    // If iOS blocks it, try again as soon as the user interacts with the screen
-    const playOnInteraction = () => {
-      video.play();
-      document.removeEventListener('touchstart', playOnInteraction);
-      document.removeEventListener('click', playOnInteraction);
-    };
-    document.addEventListener('touchstart', playOnInteraction);
-    document.addEventListener('click', playOnInteraction);
-  });
+  // Attempt to play
+  const playPromise = video.play();
+
+  if (playPromise !== undefined) {
+    playPromise.then(_ => {
+      // Autoplay started successfully! Ensure video is visible.
+      video.style.display = 'block';
+    }).catch(error => {
+      // Autoplay was blocked (Low Power Mode, iOS restrictions, etc.)
+      // Hide the video element completely so the background image shows.
+      console.log("Autoplay blocked. Showing static fallback image.");
+      video.style.display = 'none';
+    });
+  }
 }
 
 // ============================================
