@@ -108,7 +108,7 @@ async function loadContactInfo() {
 }
 
 // ============================================
-// FETCH HERO STATS
+// FETCH HERO STATS (With Count-Up Animation)
 // ============================================
 async function loadHeroStats() {
   const updatesEl = document.getElementById('stat-updates');
@@ -116,10 +116,32 @@ async function loadHeroStats() {
   if (!updatesEl) return;
 
   const { data, error } = await supabase.from('public_stats').select('*').single();
+
   if (data) {
-    usersEl.innerText = data.users || 0;
-    updatesEl.innerText = data.updates || 0;
+    const targetUsers = data.users || 0;
+    const targetUpdates = data.updates || 0;
+
+    // Animate the numbers counting up
+    animateValue(usersEl, 0, targetUsers, 1500);
+    animateValue(updatesEl, 0, targetUpdates, 1500);
   }
+}
+
+// Helper function for the count-up animation
+function animateValue(element, start, end, duration) {
+  const range = end - start;
+  let current = start;
+  const increment = end > 0 ? Math.ceil(range / (duration / 16)) : 0; // 16ms is roughly 60fps
+  const stepTime = 16;
+
+  const timer = setInterval(() => {
+    current += increment;
+    if (current >= end) {
+      current = end;
+      clearInterval(timer);
+    }
+    element.innerText = current.toLocaleString();
+  }, stepTime);
 }
 
 // ============================================
