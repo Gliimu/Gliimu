@@ -15,26 +15,21 @@ function initAccordion() {
   });
 }
 
-// Fetch Hero Stats (Using Secure View)
+// Fetch Hero Stats
 async function loadHeroStats() {
-  const earningsEl = document.getElementById('stat-earnings');
   const updatesEl = document.getElementById('stat-updates');
   const usersEl = document.getElementById('stat-users');
-  if (!earningsEl) return;
+  if (!updatesEl) return;
 
-  // .single() gets the one row from the stats view
   const { data, error } = await supabase.from('public_stats').select('*').single();
 
   if (data) {
     usersEl.innerText = data.users || 0;
     updatesEl.innerText = data.updates || 0;
-    earningsEl.innerText = `₦${Math.abs(data.earnings || 0).toLocaleString()}`;
-  } else {
-    console.error("Stats Error:", error);
   }
 }
 
-// Fetch Hub Highlights (Using Secure View)
+// Fetch Hub Highlights
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
@@ -73,9 +68,38 @@ async function loadHubHighlights() {
   }).join('');
 }
 
+// Fetch FAQs
+async function loadFAQs() {
+  const container = document.getElementById('faq-accordion-container');
+  if (!container) return;
+
+  const { data: faqs, error } = await supabase
+    .from('faqs')
+    .select('question, answer')
+    .order('created_at', { ascending: true });
+
+  if (error || !faqs || faqs.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No FAQs available at the moment.</p>';
+    return;
+  }
+
+  container.innerHTML = faqs.map(faq => `
+    <div class="faq-acc-item">
+      <div class="faq-acc-header" onclick="toggleFAQ(this)">
+        <h4>${faq.question}</h4>
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-acc-content">
+        <p>${faq.answer}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   initAccordion();
   loadHeroStats();
   loadHubHighlights();
+  loadFAQs();
 });
