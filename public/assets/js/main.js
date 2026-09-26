@@ -1,6 +1,26 @@
 import { supabase } from '/shared/js/config.js';
 
-// Accordion Logic
+// ============================================
+// SCROLL REVEAL ANIMATIONS
+// ============================================
+function initScrollReveal() {
+  const reveals = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target); // Stop observing once visible
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' }); // Trigger slightly before fully in view
+
+  reveals.forEach(el => observer.observe(el));
+}
+
+// ============================================
+// ACCORDION LOGIC
+// ============================================
 function initAccordion() {
   const accordionItems = document.querySelectorAll('.accordion-item');
   accordionItems.forEach(item => item.classList.remove('active'));
@@ -15,7 +35,9 @@ function initAccordion() {
   });
 }
 
-// Fetch Hero Stats
+// ============================================
+// FETCH HERO STATS
+// ============================================
 async function loadHeroStats() {
   const updatesEl = document.getElementById('stat-updates');
   const usersEl = document.getElementById('stat-users');
@@ -29,7 +51,9 @@ async function loadHeroStats() {
   }
 }
 
-// Fetch Hub Highlights
+// ============================================
+// FETCH HUB HIGHLIGHTS
+// ============================================
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
@@ -53,7 +77,7 @@ async function loadHubHighlights() {
     ) : '';
 
     return `
-      <div class="hub-card">
+      <div class="hub-card reveal" style="transition-delay: 0.1s;">
         <div class="hub-card-meta">
           ${post.avatar_url
             ? `<img src="${post.avatar_url}" class="hub-card-avatar" style="object-fit:cover;">`
@@ -66,9 +90,14 @@ async function loadHubHighlights() {
       </div>
     `;
   }).join('');
+
+  // Re-initialize scroll reveal for the newly added hub cards
+  initScrollReveal();
 }
 
-// Fetch FAQs
+// ============================================
+// FETCH FAQS
+// ============================================
 async function loadFAQs() {
   const container = document.getElementById('faq-accordion-container');
   if (!container) return;
@@ -96,8 +125,11 @@ async function loadFAQs() {
   `).join('');
 }
 
-// Initialize
+// ============================================
+// INITIALIZE
+// ============================================
 document.addEventListener('DOMContentLoaded', () => {
+  initScrollReveal();
   initAccordion();
   loadHeroStats();
   loadHubHighlights();

@@ -20,8 +20,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
-  <link rel="stylesheet" href="/shared/css/design-system.css">
-  <link rel="stylesheet" href="/assets/css/public.css">
+  <link rel="stylesheet" href="/shared/css/design-system.css?v=4">
+  <link rel="stylesheet" href="/assets/css/public.css?v=4">
 </head>
 <body>
 
@@ -56,10 +56,6 @@
         </p>
         <div class="hero-stats">
           <div class="hero-stat">
-            <span class="hero-stat-number" id="stat-earnings">₦0</span>
-            <span class="hero-stat-label">Earnings</span>
-          </div>
-          <div class="hero-stat">
             <span class="hero-stat-number" id="stat-updates">0</span>
             <span class="hero-stat-label">Updates</span>
           </div>
@@ -80,25 +76,25 @@
   <!-- THREE PILLARS SECTION -->
   <section class="pillars-section">
     <div class="container">
-      <div class="pillars-header">
+      <div class="pillars-header reveal">
         <h2 class="section-title">Three Platforms. One Mission.</h2>
         <p class="section-subtitle">Your complete functional ecosystem</p>
       </div>
 
       <div class="pillars-grid">
-        <div class="pillar-card">
+        <div class="pillar-card reveal" style="transition-delay: 0.1s;">
           <div class="pillar-icon"><i class="fas fa-book"></i></div>
           <h3>Elite Library</h3>
           <p>Premium publications, audiolites, and bundles crafted by industry experts.</p>
         </div>
 
-        <div class="pillar-card">
+        <div class="pillar-card reveal" style="transition-delay: 0.2s;">
           <div class="pillar-icon"><i class="fas fa-users"></i></div>
           <h3>Community Hub</h3>
           <p>Connect with elite Gliimaits. Share works, get feedback & grow together.</p>
         </div>
 
-        <div class="pillar-card">
+        <div class="pillar-card reveal" style="transition-delay: 0.3s;">
           <div class="pillar-icon"><i class="fas fa-brain"></i></div>
           <h3>Gliim-PA</h3>
           <p>Your personal AI assistant for deep research, brainstorming, and platform navigation.</p>
@@ -111,7 +107,7 @@
   <section class="earn-section">
     <div class="container">
       <div class="earn-grid">
-        <div class="earn-content">
+        <div class="earn-content reveal-left">
           <h2 class="section-title" style="text-align: left;">Earn While You Build</h2>
           <p class="section-subtitle" style="margin: 0 0 32px 0; text-align: left;">From day one, you're working on real client projects. Our students earn before graduation — building portfolios that speak for themselves.</p>
           <div class="earn-stats">
@@ -129,7 +125,7 @@
             </div>
           </div>
         </div>
-        <div class="earn-image">
+        <div class="earn-image reveal-right">
           <div class="earn-graphic">
             <i class="fas fa-coins"></i>
             <div class="earn-pulse"></div>
@@ -143,7 +139,7 @@
   <section class="squad-section">
     <div class="container">
       <div class="squad-grid">
-        <div class="squad-content">
+        <div class="squad-content reveal">
           <h2 class="section-title" style="text-align: left;">Learn in Pods. Build Together.</h2>
           <p style="margin-top: 16px;">Each instructor (Captain) mentors only <strong>3 students (a Triad)</strong>. You're not a number — you're a builder in a tight-knit squad that grows together.</p>
           <ul class="squad-features">
@@ -160,13 +156,13 @@
   <!-- WHAT YOU'LL MASTER -->
   <section id="curriculum" class="course-redesign">
     <div class="container">
-      <div class="course-header">
+      <div class="course-header reveal">
         <h2 class="section-title">What You'll Master</h2>
         <p class="section-subtitle">The only curriculum that builds complete Full Stack Media Architects — not one-skill specialists.</p>
       </div>
 
       <div class="accordion-container">
-        <div class="accordion-item">
+        <div class="accordion-item reveal" style="transition-delay: 0.1s;">
           <div class="accordion-header">
             <div class="accordion-number">01</div>
             <div class="accordion-icon"><i class="fas fa-video"></i></div>
@@ -184,7 +180,7 @@
           </div>
         </div>
 
-        <div class="accordion-item">
+        <div class="accordion-item reveal" style="transition-delay: 0.2s;">
           <div class="accordion-header">
             <div class="accordion-number">02</div>
             <div class="accordion-icon"><i class="fas fa-palette"></i></div>
@@ -202,7 +198,7 @@
           </div>
         </div>
 
-        <div class="accordion-item">
+        <div class="accordion-item reveal" style="transition-delay: 0.3s;">
           <div class="accordion-header">
             <div class="accordion-number">03</div>
             <div class="accordion-icon"><i class="fas fa-code"></i></div>
@@ -226,7 +222,7 @@
   <!-- HUB HIGHLIGHTS -->
   <section class="hub-highlights-section" id="hub-highlights">
     <div class="container">
-      <div class="pillars-header">
+      <div class="pillars-header reveal">
         <h2 class="section-title">Latest Hub Posts</h2>
         <p class="section-subtitle">Stay informed, skilled, and future-proof with live updates.</p>
       </div>
@@ -236,39 +232,30 @@
     </div>
   </section>
 
-  <!-- CONTACT & FAQ SECTION -->
+  <!-- CONTACT, FAQ & JOIN US SECTION -->
   <section class="contact-faq-section">
     <div class="container">
       <div class="cf-grid">
-        <div class="cf-card" onclick="openModal('contact-modal')">
+        <div class="cf-card reveal-left" onclick="openModal('contact-modal')">
           <i class="fas fa-headset"></i>
           <h3>Contact Us</h3>
           <p>Have questions? Reach out to our team.</p>
         </div>
-        <div class="cf-card" onclick="openModal('faq-modal')">
+        <div class="cf-card reveal-right" onclick="openModal('faq-modal')">
           <i class="fas fa-question-circle"></i>
           <h3>FAQ</h3>
           <p>Find answers to common questions.</p>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- FINAL CTA -->
-  <section class="final-cta">
-    <div class="container">
-      <div class="cta-content">
-        <h2>Ready to Become a Full Stack Media Architect?</h2>
-        <p>Join an elite guild of creators. Build real-world projects. Find your own gigs.</p>
-        <div class="cta-buttons">
-          <a href="/auth.html" class="btn-primary btn-lg">Join Us <i class="fas fa-arrow-right"></i></a>
-        </div>
+      <div class="cta-content reveal" style="margin-top: 40px;">
+        <a href="/auth.html" class="btn-primary btn-lg">Join Us <i class="fas fa-arrow-right"></i></a>
       </div>
     </div>
   </section>
 
   <footer class="copyright-footer">
     <div class="container">
+      <img src="/icons/logo.png?v=2" alt="Gliimu" class="footer-logo-img">
       <p>&copy; 2024 Gliimu Ltd. All rights reserved.</p>
     </div>
   </footer>
@@ -319,30 +306,21 @@
       <h2 class="modal-title">Frequently Asked Questions</h2>
       <p class="modal-subtitle">Find answers to common questions about admissions, tuition, and more.</p>
 
-      <div class="faq-item-modal">
-        <h4>How long is the program?</h4>
-        <p>The program is untimed, but expected to take about a year. You graduate when you prove competence through practical work, which can take as little as 2 months.</p>
-      </div>
-      <div class="faq-item-modal">
-        <h4>How much is the tuition?</h4>
-        <p>We charge a premium of ₦650,000 for absolute value. We take a maximum of 9 students per Hub to deliver our absolute best.</p>
-      </div>
-      <div class="faq-item-modal">
-        <h4>Do I need prior experience?</h4>
-        <p>No. We train elite minds from the ground up, grouping you in a Triad to ensure you learn at your own pace without holding others back.</p>
-      </div>
-      <div class="faq-item-modal">
-        <h4>Will I get a job after graduation?</h4>
-        <p>We don't train employees; we train independent bosses. You will start earning from real paid gigs before you even graduate.</p>
+      <div id="faq-accordion-container" class="faq-accordion-container">
+        <p style="text-align: center; color: var(--text-muted);">Loading FAQs...</p>
       </div>
     </div>
   </div>
 
-  <script src="/shared/js/theme.js"></script>
-  <script type="module" src="/assets/js/main.js"></script>
+  <script src="/shared/js/theme.js?v=2"></script>
+  <script type="module" src="/assets/js/main.js?v=4"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    window.toggleFAQ = (header) => {
+      const item = header.parentElement;
+      item.classList.toggle('active');
+    }
   </script>
 </body>
 </html>
