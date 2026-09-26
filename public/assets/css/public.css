@@ -250,3 +250,10 @@ section { padding: 100px 0; }
 .faq-acc-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
 .faq-acc-item.active .faq-acc-content { max-height: 300px; padding-bottom: 16px; }
 .faq-acc-content p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+
+/* Force 10px margin */
+.hero-nav { padding: 10px 0 !important; }
+.hero-nav .container { padding-left: 10px !important; padding-right: 10px !important; }
+
+/* Center Join Us Button */
+.contact-faq-section .cta-content { text-align: center; }

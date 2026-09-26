@@ -5,16 +5,14 @@ import { supabase } from '/shared/js/config.js';
 // ============================================
 function initScrollReveal() {
   const reveals = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
-
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible');
-        observer.unobserve(entry.target); // Stop observing once visible
+        observer.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' }); // Trigger slightly before fully in view
-
+  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
   reveals.forEach(el => observer.observe(el));
 }
 
@@ -36,6 +34,72 @@ function initAccordion() {
 }
 
 // ============================================
+// FETCH SITE SETTINGS (Video & Image)
+// ============================================
+async function loadSiteSettings() {
+  const { data, error } = await supabase.from('site_settings').select('*').single();
+  if (data) {
+    document.getElementById('hero-video-src').src = data.hero_video_url;
+
+    const squadSection = document.getElementById('squad-section');
+    squadSection.style.background = `linear-gradient(to right, rgba(10, 15, 30, 0.95), rgba(10, 15, 30, 0.85)), url('${data.squad_bg_url}')`;
+    squadSection.style.backgroundSize = 'cover';
+    squadSection.style.backgroundPosition = 'center';
+  }
+}
+
+// ============================================
+// FETCH CURRICULUM
+// ============================================
+async function loadCurriculum() {
+  const container = document.getElementById('curriculum-container');
+  if (!container) return;
+
+  const { data: courses, error } = await supabase.from('curriculum').select('*').order('created_at', { ascending: true });
+
+  if (error || !courses) return;
+
+  container.innerHTML = courses.map((course, index) => `
+    <div class="accordion-item reveal" style="transition-delay: ${0.1 * (index + 1)}s;">
+      <div class="accordion-header">
+        <div class="accordion-number">${course.number}</div>
+        <div class="accordion-icon"><i class="${course.icon}"></i></div>
+        <h3>${course.title}</h3>
+        <i class="fas fa-chevron-down accordion-arrow"></i>
+      </div>
+      <div class="accordion-content">
+        <p>${course.description}</p>
+        <ul>
+          ${course.modules.map(m => `<li>${m}</li>`).join('')}
+        </ul>
+      </div>
+    </div>
+  `).join('');
+
+  initAccordion(); // Re-init click listeners for new items
+  initScrollReveal(); // Observe new items for animation
+}
+
+// ============================================
+// FETCH CONTACT INFO
+// ============================================
+async function loadContactInfo() {
+  const { data, error } = await supabase.from('contact_info').select('*').single();
+  if (error || !data) return;
+
+  document.getElementById('contact-address').innerHTML = data.address;
+  document.getElementById('contact-phone').innerText = data.phone;
+  document.getElementById('contact-phone-link').href = `tel:${data.phone.replace(/\s/g, '')}`;
+  document.getElementById('contact-email').innerText = data.email;
+  document.getElementById('contact-email-link').href = `mailto:${data.email}`;
+
+  document.getElementById('social-yt').href = data.youtube || '#';
+  document.getElementById('social-tt').href = data.tiktok || '#';
+  document.getElementById('social-fb').href = data.facebook || '#';
+  document.getElementById('social-pt').href = data.pinterest || '#';
+}
+
+// ============================================
 // FETCH HERO STATS
 // ============================================
 async function loadHeroStats() {
@@ -44,7 +108,6 @@ async function loadHeroStats() {
   if (!updatesEl) return;
 
   const { data, error } = await supabase.from('public_stats').select('*').single();
-
   if (data) {
     usersEl.innerText = data.users || 0;
     updatesEl.innerText = data.updates || 0;
@@ -91,7 +154,6 @@ async function loadHubHighlights() {
     `;
   }).join('');
 
-  // Re-initialize scroll reveal for the newly added hub cards
   initScrollReveal();
 }
 
@@ -102,10 +164,7 @@ async function loadFAQs() {
   const container = document.getElementById('faq-accordion-container');
   if (!container) return;
 
-  const { data: faqs, error } = await supabase
-    .from('faqs')
-    .select('question, answer')
-    .order('created_at', { ascending: true });
+  const { data: faqs, error } = await supabase.from('faqs').select('question, answer').order('created_at', { ascending: true });
 
   if (error || !faqs || faqs.length === 0) {
     container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No FAQs available at the moment.</p>';
@@ -131,6 +190,9 @@ async function loadFAQs() {
 document.addEventListener('DOMContentLoaded', () => {
   initScrollReveal();
   initAccordion();
+  loadSiteSettings();
+  loadCurriculum();
+  loadContactInfo();
   loadHeroStats();
   loadHubHighlights();
   loadFAQs();
