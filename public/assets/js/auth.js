@@ -1,9 +1,12 @@
-import { supabase } from '../../shared/js/config.js';
+import { supabase } from '/shared/js/config.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Sync Theme Icons on Load
+  if (typeof updateThemeIcon === 'function') updateThemeIcon();
+
   const tabs = document.querySelectorAll('.auth-tab');
   const forms = document.querySelectorAll('.auth-form');
-  const authView = document.getElementById('auth-view');
+  const authCard = document.querySelector('.auth-card');
   const recoveryView = document.getElementById('recovery-view');
 
   // Tab Switching
@@ -19,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Generate a random 16-word phrase
+  // Generate 16-word phrase
   function generateRecoveryPhrase() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let phrase = [];
@@ -39,13 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const username = document.getElementById('login-username').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
-    const fakeEmail = `${username}@gliimu.app`; // Supabase requires email format
+    const fakeEmail = `${username}@gliimu.app`;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: fakeEmail,
-      password: password,
-    });
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password: password });
     if (error) {
       alert('Error logging in: ' + error.message);
     } else {
@@ -53,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle Join Us (Sign Up)
+  // Handle Join Us
   const joinForm = document.getElementById('join-form');
   joinForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -62,32 +61,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = document.getElementById('join-password').value;
     const confirmPass = document.getElementById('join-confirm').value;
 
-    if (password !== confirmPass) {
-      alert('Passwords do not match!');
-      return;
-    }
+    if (password !== confirmPass) return alert('Passwords do not match!');
+    if (password.length < 8) return alert('Password must be at least 8 characters.');
 
     const fakeEmail = `${username}@gliimu.app`;
     const recoveryPhrase = generateRecoveryPhrase();
 
-    // Sign up user in Supabase
     const { data, error } = await supabase.auth.signUp({
       email: fakeEmail,
       password: password,
       options: {
-        data: {
-          full_name: fullName,
-          username: username,
-          recovery_phrase: recoveryPhrase // Save to user metadata for later verification
-        }
+        data: { full_name: fullName, username: username, recovery_phrase: recoveryPhrase }
       }
     });
 
     if (error) {
       alert('Error signing up: ' + error.message);
     } else {
-      // Switch to Recovery View
-      authView.style.display = 'none';
+      authCard.style.display = 'none';
       recoveryView.style.display = 'block';
       document.getElementById('recovery-phrase').value = recoveryPhrase;
     }
@@ -99,17 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const enteredPassword = document.getElementById('recovery-password').value;
     const actualPassword = document.getElementById('join-password').value;
 
-    if (enteredPassword !== actualPassword) {
-      alert('Password does not match the one you just created.');
-      return;
-    }
+    if (enteredPassword !== actualPassword) return alert('Password does not match the one you just created.');
 
-    // Generate PDF using jsPDF
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
     doc.setFontSize(22);
-    doc.setTextColor(99, 102, 241); // Gliimu Indigo
+    doc.setTextColor(99, 102, 241);
     doc.text("Gliimu Recovery Kit", 105, 30, { align: 'center' });
 
     doc.setFontSize(12);
