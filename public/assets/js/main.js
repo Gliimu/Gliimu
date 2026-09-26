@@ -41,7 +41,7 @@ async function loadHubHighlights() {
 
   const { data: posts, error } = await supabase
     .from('posts')
-    .select('content, created_at, profiles:profiles!user_id(username, full_name, avatar_url)')
+    .select('content, media_url, media_type, created_at, profiles:profiles!user_id(username, full_name, avatar_url)')
     .order('created_at', { ascending: false })
     .limit(3);
 
@@ -50,18 +50,28 @@ async function loadHubHighlights() {
     return;
   }
 
-  grid.innerHTML = posts.map(post => `
-    <div class="hub-card">
-      <div class="hub-card-meta">
-        ${post.profiles?.avatar_url
-          ? `<img src="${post.profiles.avatar_url}" class="hub-card-avatar" style="object-fit:cover;">`
-          : `<div class="hub-card-avatar"></div>`
-        }
-        <span class="hub-card-author">${post.profiles?.full_name || 'Gliimait'}</span>
+  grid.innerHTML = posts.map(post => {
+    // Render media if it exists
+    const mediaHtml = post.media_url ? (
+      post.media_type === 'image'
+        ? `<img src="${post.media_url}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;">`
+        : `<video src="${post.media_url}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;" controls></video>`
+    ) : '';
+
+    return `
+      <div class="hub-card">
+        <div class="hub-card-meta">
+          ${post.profiles?.avatar_url
+            ? `<img src="${post.profiles.avatar_url}" class="hub-card-avatar" style="object-fit:cover;">`
+            : `<div class="hub-card-avatar"></div>`
+          }
+          <span class="hub-card-author">${post.profiles?.full_name || 'Gliimait'}</span>
+        </div>
+        <p class="hub-card-text">${post.content}</p>
+        ${mediaHtml}
       </div>
-      <p class="hub-card-text">${post.content}</p>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // Initialize
