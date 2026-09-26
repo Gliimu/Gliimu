@@ -34,17 +34,25 @@ function initAccordion() {
 }
 
 // ============================================
-// FETCH SITE SETTINGS (Video & Image)
+// FETCH SITE SETTINGS (Video, Image, Earn Graphic)
 // ============================================
 async function loadSiteSettings() {
   const { data, error } = await supabase.from('site_settings').select('*').single();
   if (data) {
+    // Hero Video
     document.getElementById('hero-video-src').src = data.hero_video_url;
 
+    // Squad Background
     const squadSection = document.getElementById('squad-section');
     squadSection.style.background = `linear-gradient(to right, rgba(10, 15, 30, 0.95), rgba(10, 15, 30, 0.85)), url('${data.squad_bg_url}')`;
     squadSection.style.backgroundSize = 'cover';
     squadSection.style.backgroundPosition = 'center';
+
+    // Earn Graphic Image
+    const earnGraphic = document.getElementById('earn-graphic-container');
+    if (earnGraphic && data.earnings_image_url) {
+      earnGraphic.innerHTML = `<img src="${data.earnings_image_url}" alt="Earnings" class="earn-icon-img"><div class="earn-pulse"></div>`;
+    }
   }
 }
 
