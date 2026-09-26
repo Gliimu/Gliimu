@@ -145,6 +145,26 @@ function animateValue(element, start, end, duration) {
 }
 
 // ============================================
+// FORCE VIDEO AUTOPLAY ON iOS
+// ============================================
+function forceVideoAutoplay() {
+  const video = document.getElementById('hero-video');
+  if (!video) return;
+
+  // Try to play immediately
+  video.play().catch(error => {
+    // If iOS blocks it, try again as soon as the user interacts with the screen
+    const playOnInteraction = () => {
+      video.play();
+      document.removeEventListener('touchstart', playOnInteraction);
+      document.removeEventListener('click', playOnInteraction);
+    };
+    document.addEventListener('touchstart', playOnInteraction);
+    document.addEventListener('click', playOnInteraction);
+  });
+}
+
+// ============================================
 // FETCH HUB HIGHLIGHTS
 // ============================================
 async function loadHubHighlights() {
@@ -226,4 +246,5 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHeroStats();
   loadHubHighlights();
   loadFAQs();
+  forceVideoAutoplay();
 });

@@ -204,3 +204,16 @@ section { padding: 100px 0; }
   .earn-grid { grid-template-columns: 1fr; gap: var(--space-12); }
   .cf-grid { grid-template-columns: 1fr; }
 }
+
+/* Hide native iOS video controls overlay */
+.hero-background-video::-webkit-media-controls-panel,
+.hero-background-video::-webkit-media-controls-play-button,
+.hero-background-video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+
+/* Ensure video ignores pointer events so iOS doesn't make it clickable */
+.hero-background-video {
+  pointer-events: none !important;
+}
