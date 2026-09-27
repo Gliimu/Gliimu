@@ -17,85 +17,85 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="/shared/css/design-system.css">
-  <link rel="stylesheet" href="/assets/css/public.css?v=9">
+  <link rel="stylesheet" href="/assets/css/public.css?v=10">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="auth-body">
 
-  <div class="auth-container">
-    <!-- Left Panel: Video Background -->
-    <div class="auth-brand-panel" id="auth-brand-panel">
-      <div class="auth-video-overlay"></div>
-      <video id="auth-video" class="auth-background-video" autoplay muted loop playsinline webkit-playsinline disablePictureInPicture>
-        <source id="auth-video-src" src="/videos/pnp.mp4" type="video/mp4">
-      </video>
+  <!-- Full Page Background Video -->
+  <video id="auth-video" class="auth-bg-video" autoplay muted loop playsinline webkit-playsinline>
+    <source id="auth-video-src" src="/videos/pnp.mp4" type="video/mp4">
+  </video>
+  <div class="auth-bg-overlay" id="auth-bg-overlay"></div>
+
+  <!-- Centered Auth Wrapper -->
+  <div class="auth-wrapper">
+    <div class="auth-logo-container">
+      <img src="/icons/logo.png" alt="Gliimu" class="auth-logo-img">
     </div>
 
-    <!-- Right Panel: Form (Overlaps on mobile) -->
-    <div class="auth-form-panel">
-      <div class="auth-card">
-        <div class="auth-tabs">
-          <button class="auth-tab active" data-tab="login">Log In</button>
-          <button class="auth-tab" data-tab="join">Join Us</button>
-        </div>
-
-        <!-- Log In -->
-        <form id="login-form" class="auth-form active">
-          <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="login-username" class="input" placeholder="your_username" required>
-          </div>
-          <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="login-password" class="input" placeholder="Enter your password" required>
-          </div>
-          <div class="form-footer">
-            <a href="#" class="link-muted" id="forgot-link">Forgot password?</a>
-          </div>
-          <button type="submit" class="btn-primary w-full">Log In to Dashboard</button>
-        </form>
-
-        <!-- Join Us -->
-        <form id="join-form" class="auth-form">
-          <div class="form-group">
-            <label>Full Name</label>
-            <input type="text" id="join-name" class="input" placeholder="John Doe" required>
-          </div>
-          <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="join-username" class="input" placeholder="Choose a unique username" required>
-            <div id="username-check" class="username-check"></div>
-          </div>
-          <div class="form-group">
-            <label>Create Password</label>
-            <input type="password" id="join-password" class="input" placeholder="Min. 8 characters" required>
-          </div>
-          <div class="form-group">
-            <label>Confirm Password</label>
-            <input type="password" id="join-confirm" class="input" placeholder="Re-enter password" required>
-          </div>
-          <button type="submit" class="btn-primary w-full">Create Gliimait Account</button>
-          <p class="auth-disclaimer">By signing up, you agree to our Terms of Service and Privacy Policy.</p>
-        </form>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Log In</button>
+        <button class="auth-tab" data-tab="join">Join Us</button>
       </div>
 
-      <!-- Recovery Kit (Signup) -->
-      <div id="recovery-view" class="auth-card" style="display: none;">
-        <div class="recovery-header">
-          <h2>Save Your Recovery Kit</h2>
-          <p class="recovery-warning">⚠️ We do not collect your email. If you lose your password, this phrase is the <strong>only</strong> way to recover your account. Store it securely.</p>
+      <!-- Log In -->
+      <form id="login-form" class="auth-form active">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="login-username" class="input" placeholder="your_username" required>
         </div>
         <div class="form-group">
-          <label>Your Unique Recovery Phrase</label>
-          <textarea id="recovery-phrase" class="input" readonly style="height: 100px; font-family: var(--font-mono); font-size: var(--fs-sm);"></textarea>
+          <label>Password</label>
+          <input type="password" id="login-password" class="input" placeholder="Enter your password" required>
+        </div>
+        <div class="form-footer">
+          <a href="#" class="link-muted" id="forgot-link">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn-primary w-full">Log In to Dashboard</button>
+      </form>
+
+      <!-- Join Us -->
+      <form id="join-form" class="auth-form">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="join-name" class="input" placeholder="John Doe" required>
         </div>
         <div class="form-group">
-          <label for="recovery-password">Enter Password to Download PDF</label>
-          <input type="password" id="recovery-password" class="input" placeholder="Enter your account password" required>
+          <label>Username</label>
+          <input type="text" id="join-username" class="input" placeholder="Choose a unique username" required>
+          <div id="username-check" class="username-check"></div>
         </div>
-        <button id="download-pdf-btn" class="btn-primary w-full" style="margin-bottom: 1rem;">Download Recovery PDF</button>
-        <button id="proceed-to-dashboard-btn" class="btn-secondary w-full">Proceed to Dashboard</button>
+        <div class="form-group">
+          <label>Create Password</label>
+          <input type="password" id="join-password" class="input" placeholder="Min. 8 characters" required>
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input type="password" id="join-confirm" class="input" placeholder="Re-enter password" required>
+        </div>
+        <button type="submit" class="btn-primary w-full">Create Gliimait Account</button>
+        <p class="auth-disclaimer">By signing up, you agree to our Terms of Service and Privacy Policy.</p>
+      </form>
+    </div>
+
+    <!-- Recovery Kit (Signup) -->
+    <div id="recovery-view" class="auth-card" style="display: none;">
+      <div class="recovery-header">
+        <h2>Save Your Recovery Kit</h2>
+        <p class="recovery-warning">⚠️ We do not collect your email. If you lose your password, this phrase is the <strong>only</strong> way to recover your account. Store it securely.</p>
       </div>
+      <div class="form-group">
+        <label>Your Unique Recovery Phrase</label>
+        <textarea id="recovery-phrase" class="input" readonly style="height: 100px; font-family: var(--font-mono); font-size: var(--fs-sm);"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="recovery-password">Enter Password to Download PDF</label>
+        <input type="password" id="recovery-password" class="input" placeholder="Enter your account password" required>
+      </div>
+      <button id="download-pdf-btn" class="btn-primary w-full" style="margin-bottom: 1rem;">Download Recovery PDF</button>
+      <button id="proceed-to-dashboard-btn" class="btn-secondary w-full">Proceed to Dashboard</button>
     </div>
   </div>
 
@@ -145,6 +145,6 @@
     </div>
   </div>
 
-  <script type="module" src="/assets/js/auth.js?v=10"></script>
+  <script type="module" src="/assets/js/auth.js?v=11"></script>
 </body>
 </html>

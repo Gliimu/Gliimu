@@ -17,52 +17,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (data) {
       const video = document.getElementById('auth-video');
       const source = document.getElementById('auth-video-src');
-      const panel = document.getElementById('auth-brand-panel');
+      const overlay = document.getElementById('auth-bg-overlay');
 
       if (data.hero_video_url) {
         source.src = data.hero_video_url;
         video.load();
         video.play().catch(err => {
-          // If iOS blocks autoplay, hide video and show fallback image
+          // If iOS blocks autoplay, hide video and show fallback image on the overlay
           video.style.display = 'none';
           if (data.hero_fallback_image_url) {
-            panel.style.backgroundImage = `url('${data.hero_fallback_image_url}')`;
-            panel.style.backgroundSize = 'cover';
-            panel.style.backgroundPosition = 'center';
+            overlay.style.backgroundImage = `url('${data.hero_fallback_image_url}')`;
+            overlay.style.backgroundSize = 'cover';
+            overlay.style.backgroundPosition = 'center';
           }
         });
       }
     }
   }
   loadAuthVideo();
-
-  const tabs = document.querySelectorAll('.auth-tab');
-  const forms = document.querySelectorAll('.auth-form');
-  const authCard = document.querySelector('.auth-card');
-  const recoveryView = document.getElementById('recovery-view');
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetTab = tab.getAttribute('data-tab');
-      tabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      forms.forEach(form => {
-        form.classList.remove('active');
-        if (form.id === `${targetTab}-form`) form.classList.add('active');
-      });
-    });
-  });
-
-  function generateRecoveryPhrase() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let phrase = [];
-    for (let i = 0; i < 4; i++) {
-      let block = '';
-      for (let j = 0; j < 4; j++) block += chars.charAt(Math.floor(Math.random() * chars.length));
-      phrase.push(block);
-    }
-    return phrase.join('-');
-  }
 
   // ============================================
   // Live Username Availability Checker
