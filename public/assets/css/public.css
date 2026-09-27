@@ -287,3 +287,39 @@ section { padding: 100px 0; }
   .earn-grid { grid-template-columns: 1fr; gap: var(--space-12); }
   .cf-grid { grid-template-columns: 1fr; }
 }
+
+/* Fix Hero Button Width */
+.hero-actions .btn-primary, .hero-actions .btn-outline {
+  width: auto !important;
+  display: inline-flex;
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+/* Auth Checkbox Agreement */
+.form-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.form-check input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--brand-primary);
+}
+.form-check label {
+  cursor: pointer;
+}
+.form-check a {
+  color: var(--brand-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.form-check a:hover {
+  text-decoration: underline;
+}

@@ -126,12 +126,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     else window.location.href = '/dashboard/index.html';
   });
 
-  // ============================================
   // Handle Join Us
-  // ============================================
-  document.getElementById('join-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (usernameCheck.style.color === 'var(--error)') return alert('Please choose an available username.');
+    document.getElementById('join-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Checkbox Check
+      if (!document.getElementById('agree-terms').checked) {
+        return alert('You must agree to the terms and policy to create an account.');
+      }
+
+      if (usernameCheck.style.color === 'var(--error)') return alert('Please choose an available username.');
 
     const fullName = document.getElementById('join-name').value.trim();
     const username = document.getElementById('join-username').value.trim().toLowerCase();
@@ -172,6 +176,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.location.href = '/dashboard/index.html');
+
+  // ============================================
+  // TERMS MODAL LOGIC
+  // ============================================
+  document.getElementById('terms-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('terms-modal').style.display = 'flex';
+  });
 
   // ============================================
   // FORGOT PASSWORD MODAL LOGIC

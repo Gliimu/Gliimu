@@ -76,7 +76,10 @@
           <input type="password" id="join-confirm" class="input" placeholder="Re-enter password" required>
         </div>
         <button type="submit" class="btn-primary w-full">Create Gliimait Account</button>
-        <p class="auth-disclaimer">By signing up, you agree to our Terms of Service and Privacy Policy.</p>
+        <div class="form-check">
+          <input type="checkbox" id="agree-terms" required>
+          <label for="agree-terms">I agree to the <a href="#" id="terms-link">terms and policy</a></label>
+        </div>
       </form>
     </div>
 
@@ -146,5 +149,28 @@
   </div>
 
   <script type="module" src="/assets/js/auth.js?v=11"></script>
+  <!-- TERMS AND POLICY MODAL -->
+  <div class="modal-overlay" id="terms-modal" style="display: none;">
+    <div class="modal-content modal-lg">
+      <button class="modal-close" onclick="document.getElementById('terms-modal').style.display = 'none'">×</button>
+      <h2 class="modal-title">Terms & Policy</h2>
+      <p class="modal-subtitle">Last Updated: October 2024</p>
+
+      <div class="terms-content" style="text-align: left; max-height: 50vh; overflow-y: auto; padding-right: 16px;">
+        <p style="color: var(--text-secondary); line-height: 1.6;">Welcome to Gliimu. By creating an account, you agree to the following terms:</p>
+
+        <h4 style="margin-top: 24px; margin-bottom: 8px;">1. The Elite Standard</h4>
+        <p style="color: var(--text-secondary); line-height: 1.6; font-size: 14px;">Gliimu trains Full Stack Media Architects. We do not guarantee employment; we guarantee elite skills. You are responsible for your own success.</p>
+
+        <h4 style="margin-top: 24px; margin-bottom: 8px;">2. Account Security & Privacy</h4>
+        <p style="color: var(--text-secondary); line-height: 1.6; font-size: 14px;">We use a privacy-first system. We do not collect emails. You are solely responsible for safeguarding your 16-word recovery phrase. If you lose it, we cannot recover your account.</p>
+
+        <h4 style="margin-top: 24px; margin-bottom: 8px;">3. Tuition & Earnings</h4>
+        <p style="color: var(--text-secondary); line-height: 1.6; font-size: 14px;">Tuition is priced at a premium to reflect absolute value. Earnings from platform gigs are credited to your wallet, but tuition must be cleared before withdrawals are permitted.</p>
+
+        <p style="color: var(--text-muted); font-size: 12px; margin-top: 24px;">*(This is a preliminary draft. We will replace this with the final legal text once we finalize the details).*</p>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
