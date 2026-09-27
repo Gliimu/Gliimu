@@ -19,16 +19,15 @@
   top: 0; left: 0;
   width: 100%; height: 100%;
   z-index: -1;
-  backdrop-filter: blur(2px); /* Slightly blurred (reduced from 8px to 2px) */
-  -webkit-backdrop-filter: blur(2px);
+  /* Removed blur so video is clear like the landing page */
 }
 /* Light Mode Overlay (White-ish) */
 [data-theme="light"] .auth-bg-overlay {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.8);
 }
 /* Dark Mode Overlay (Dark-ish) */
 [data-theme="dark"] .auth-bg-overlay {
-  background: rgba(10, 15, 30, 0.75);
+  background: rgba(10, 15, 30, 0.8);
 }
 
 /* Centered Wrapper */

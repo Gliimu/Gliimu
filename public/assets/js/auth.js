@@ -2,7 +2,9 @@ import { supabase } from '/shared/js/config.js';
 import { API_BASE_URL } from '/shared/js/config.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // ============================================
   // Auto-redirect if already logged in
+  // ============================================
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
     window.location.href = '/dashboard/index.html';
@@ -35,6 +37,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   loadAuthVideo();
+
+  // ============================================
+  // Tab Switching
+  // ============================================
+  const tabs = document.querySelectorAll('.auth-tab');
+  const forms = document.querySelectorAll('.auth-form');
+  const authCard = document.querySelector('.auth-card');
+  const recoveryView = document.getElementById('recovery-view');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.getAttribute('data-tab');
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      forms.forEach(form => {
+        form.classList.remove('active');
+        if (form.id === `${targetTab}-form`) form.classList.add('active');
+      });
+    });
+  });
+
+  // ============================================
+  // Helper: Generate 16-word phrase
+  // ============================================
+  function generateRecoveryPhrase() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let phrase = [];
+    for (let i = 0; i < 4; i++) {
+      let block = '';
+      for (let j = 0; j < 4; j++) {
+        block += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      phrase.push(block);
+    }
+    return phrase.join('-');
+  }
 
   // ============================================
   // Live Username Availability Checker
@@ -74,7 +112,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 400);
   });
 
+  // ============================================
   // Handle Log In
+  // ============================================
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('login-username').value.trim().toLowerCase();
@@ -86,7 +126,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     else window.location.href = '/dashboard/index.html';
   });
 
+  // ============================================
   // Handle Join Us
+  // ============================================
   document.getElementById('join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (usernameCheck.style.color === 'var(--error)') return alert('Please choose an available username.');
@@ -108,15 +150,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       options: { data: { full_name: fullName, username, recovery_phrase: recoveryPhrase } }
     });
 
-    if (error) alert('Error signing up: ' + error.message);
-    else {
+    if (error) {
+      alert('Error signing up: ' + error.message);
+    } else {
       authCard.style.display = 'none';
       recoveryView.style.display = 'block';
       document.getElementById('recovery-phrase').value = recoveryPhrase;
     }
   });
 
+  // ============================================
   // Handle PDF Download (Signup)
+  // ============================================
   document.getElementById('download-pdf-btn').addEventListener('click', () => {
     const phrase = document.getElementById('recovery-phrase').value;
     const enteredPassword = document.getElementById('recovery-password').value;
