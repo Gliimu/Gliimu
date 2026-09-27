@@ -69,13 +69,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (data === true) {
         const suggestion = val + Math.floor(Math.random() * 90 + 10);
         usernameCheck.innerText = `This username is already used. Try ${suggestion}`;
-        usernameCheck.classList.add('taken');
+        usernameCheck.style.color = 'var(--error)'; // Explicitly set Red
       } else {
         usernameCheck.innerText = 'This username is available';
-        usernameCheck.classList.add('available');
+        usernameCheck.style.color = 'var(--success)'; // Explicitly set Green
       }
-    }, 400);
-  });
 
   // Handle Log In
   document.getElementById('login-form').addEventListener('submit', async (e) => {

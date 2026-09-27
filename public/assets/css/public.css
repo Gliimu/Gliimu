@@ -240,6 +240,7 @@ section { padding: 100px 0; }
   background-size: cover; background-position: center;
 }
 .auth-brand-content { position: relative; z-index: 2; max-width: 500px; padding: 0 48px; }
+
 /* Left Panel */
 .auth-brand-panel {
   flex: 1;
@@ -251,15 +252,23 @@ section { padding: 100px 0; }
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
 }
-.auth-brand-content { position: relative; z-index: 2; max-width: 500px; padding: 0 48px; }
+.auth-brand-content {
+  position: relative;
+  z-index: 2;
+  max-width: 500px;
+  padding: 0 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
 
-/* Default (Desktop): Rotate anticlockwise & 4x bigger */
+/* Default (Desktop): Rotate anticlockwise & 30% smaller */
 .auth-logo img {
-  height: 200px; /* 4x bigger than 50px */
+  height: 140px; /* 30% smaller than 200px */
   width: auto;
   filter: brightness(0) invert(0); /* Black for Light Mode */
   transform: rotate(-90deg);
-  margin: 80px 0; /* Adds vertical breathing room for the rotation */
   transition: filter 0.3s ease;
 }
 /* White for Dark Mode */
@@ -309,11 +318,11 @@ section { padding: 100px 0; }
 @media (max-width: 768px) {
   .auth-container { flex-direction: column; }
   .auth-brand-panel { min-height: 25vh; border-right: none; border-bottom: 1px solid var(--border); }
-  .auth-brand-content { padding: 0 24px; text-align: center; }
+  .auth-brand-content { padding: 0 24px; text-align: center; display: block; height: auto; }
   .auth-logo img {
     height: 48px; /* Back to normal size */
     transform: rotate(0deg); /* Keep horizontal on mobile */
-    margin: 0 auto 24px;
+    margin: 0 auto 12px; /* 50% closer (was 24px, now 12px) */
   }
   .auth-brand-content h1 { font-size: 28px; }
   .auth-form-panel { padding: 24px; }
