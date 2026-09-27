@@ -300,3 +300,15 @@ section { padding: 100px 0; }
   .auth-brand-content h1 { font-size: 28px; }
   .auth-form-panel { padding: 24px; }
 }
+
+/* Auth Tagline */
+.auth-tagline {
+  color: rgba(255,255,255,0.8);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--ls-widest);
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+/* Modal Padding Fix */
+.modal-content { padding: 40px !important; }
