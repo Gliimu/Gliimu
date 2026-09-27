@@ -9,6 +9,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // ============================================
+  // Load Video Settings from Database
+  // ============================================
+  async function loadAuthVideo() {
+    const { data } = await supabase.from('site_settings').select('hero_video_url, hero_fallback_image_url').single();
+    if (data) {
+      const video = document.getElementById('auth-video');
+      const source = document.getElementById('auth-video-src');
+      const panel = document.getElementById('auth-brand-panel');
+
+      if (data.hero_video_url) {
+        source.src = data.hero_video_url;
+        video.load();
+        video.play().catch(err => {
+          // If iOS blocks autoplay, hide video and show fallback image
+          video.style.display = 'none';
+          if (data.hero_fallback_image_url) {
+            panel.style.backgroundImage = `url('${data.hero_fallback_image_url}')`;
+            panel.style.backgroundSize = 'cover';
+            panel.style.backgroundPosition = 'center';
+          }
+        });
+      }
+    }
+  }
+  loadAuthVideo();
+
   const tabs = document.querySelectorAll('.auth-tab');
   const forms = document.querySelectorAll('.auth-form');
   const authCard = document.querySelector('.auth-card');
@@ -64,16 +91,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      usernameCheck.style.color = '';
-
       if (data === true) {
         const suggestion = val + Math.floor(Math.random() * 90 + 10);
         usernameCheck.innerText = `This username is already used. Try ${suggestion}`;
-        usernameCheck.style.color = 'var(--error)'; // Explicitly set Red
+        usernameCheck.style.color = 'var(--error)';
       } else {
         usernameCheck.innerText = 'This username is available';
-        usernameCheck.style.color = 'var(--success)'; // Explicitly set Green
+        usernameCheck.style.color = 'var(--success)';
       }
+    }, 400);
+  });
 
   // Handle Log In
   document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -90,7 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Handle Join Us
   document.getElementById('join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (usernameCheck.classList.contains('taken')) return alert('Please choose an available username.');
+    if (usernameCheck.style.color === 'var(--error)') return alert('Please choose an available username.');
 
     const fullName = document.getElementById('join-name').value.trim();
     const username = document.getElementById('join-username').value.trim().toLowerCase();
@@ -184,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ============================================
-  // Helper: Generate PDF with Logo (Reduced Size)
+  // Helper: Generate PDF with Logo
   // ============================================
   async function downloadRecoveryPDF(phrase, isNew) {
     const { jsPDF } = window.jspdf;
@@ -199,9 +226,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       reader.onloadend = () => {
         const base64data = reader.result;
 
-        // Reduced total size by 50%, reduced height by 25%
-        // New Width: 35, New Height: 12.5. Centered X: 87.5
-        doc.addImage(base64data, 'PNG', 87.5, 20, 35, 12.5);
+        // Logo dimensions: 35x9.1
+        doc.addImage(base64data, 'PNG', 87.5, 22, 35, 9.1);
 
         doc.setFontSize(22);
         doc.setTextColor(99, 102, 241);
