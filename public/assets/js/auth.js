@@ -2,16 +2,13 @@ import { supabase } from '/shared/js/config.js';
 import { API_BASE_URL } from '/shared/js/config.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // ============================================
   // Auto-redirect if already logged in
-  // ============================================
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
     window.location.href = '/dashboard/index.html';
-    return; // Stop executing the rest of the script
+    return;
   }
 
-  // Sync Theme Icons on Load
   if (typeof updateThemeIcon === 'function') updateThemeIcon();
 
   const tabs = document.querySelectorAll('.auth-tab');
@@ -19,9 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const authCard = document.querySelector('.auth-card');
   const recoveryView = document.getElementById('recovery-view');
 
-  // ============================================
-  // Tab Switching
-  // ============================================
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetTab = tab.getAttribute('data-tab');
@@ -34,46 +28,67 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // ============================================
-  // Helper: Generate 16-word phrase
-  // ============================================
   function generateRecoveryPhrase() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let phrase = [];
     for (let i = 0; i < 4; i++) {
       let block = '';
-      for (let j = 0; j < 4; j++) {
-        block += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
+      for (let j = 0; j < 4; j++) block += chars.charAt(Math.floor(Math.random() * chars.length));
       phrase.push(block);
     }
     return phrase.join('-');
   }
 
   // ============================================
-  // Handle Log In
+  // Live Username Availability Checker
   // ============================================
-  const loginForm = document.getElementById('login-form');
-  loginForm.addEventListener('submit', async (e) => {
+  const usernameInput = document.getElementById('join-username');
+  const usernameCheck = document.getElementById('username-check');
+  let usernameTimer = null;
+
+  usernameInput.addEventListener('input', (e) => {
+    const val = e.target.value.trim().toLowerCase();
+    usernameCheck.innerText = '';
+    usernameCheck.className = 'username-check';
+
+    clearTimeout(usernameTimer);
+    if (val.length < 3) return;
+
+    usernameTimer = setTimeout(async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('username')
+        .ilike('username', val)
+        .maybeSingle();
+
+      if (data) {
+        const suggestion = val + Math.floor(Math.random() * 90 + 10);
+        usernameCheck.innerText = `This username is already used. Try ${suggestion}`;
+        usernameCheck.classList.add('taken');
+      } else {
+        usernameCheck.innerText = 'This username is available';
+        usernameCheck.classList.add('available');
+      }
+    }, 400); // 400ms debounce
+  });
+
+  // Handle Log In
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('login-username').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
     const fakeEmail = `${username}@gliimu.app`;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password: password });
-    if (error) {
-      alert('Error logging in: ' + error.message);
-    } else {
-      window.location.href = '/dashboard/index.html';
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+    if (error) alert('Error logging in: ' + error.message);
+    else window.location.href = '/dashboard/index.html';
   });
 
-  // ============================================
   // Handle Join Us
-  // ============================================
-  const joinForm = document.getElementById('join-form');
-  joinForm.addEventListener('submit', async (e) => {
+  document.getElementById('join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (usernameCheck.classList.contains('taken')) return alert('Please choose an available username.');
+
     const fullName = document.getElementById('join-name').value.trim();
     const username = document.getElementById('join-username').value.trim().toLowerCase();
     const password = document.getElementById('join-password').value;
@@ -85,64 +100,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fakeEmail = `${username}@gliimu.app`;
     const recoveryPhrase = generateRecoveryPhrase();
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: fakeEmail,
-      password: password,
-      options: {
-        data: { full_name: fullName, username: username, recovery_phrase: recoveryPhrase }
-      }
+      password,
+      options: { data: { full_name: fullName, username, recovery_phrase: recoveryPhrase } }
     });
 
-    if (error) {
-      alert('Error signing up: ' + error.message);
-    } else {
+    if (error) alert('Error signing up: ' + error.message);
+    else {
       authCard.style.display = 'none';
       recoveryView.style.display = 'block';
       document.getElementById('recovery-phrase').value = recoveryPhrase;
     }
   });
 
-  // ============================================
   // Handle PDF Download (Signup)
-  // ============================================
   document.getElementById('download-pdf-btn').addEventListener('click', () => {
     const phrase = document.getElementById('recovery-phrase').value;
     const enteredPassword = document.getElementById('recovery-password').value;
     const actualPassword = document.getElementById('join-password').value;
 
     if (enteredPassword !== actualPassword) return alert('Password does not match the one you just created.');
-
     downloadRecoveryPDF(phrase, false);
   });
 
-  // Proceed to Dashboard
-  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => {
-    window.location.href = '/dashboard/index.html';
-  });
+  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.location.href = '/dashboard/index.html');
 
   // ============================================
   // FORGOT PASSWORD MODAL LOGIC
   // ============================================
   const forgotModal = document.getElementById('forgot-modal');
-
-  // Open Modal
   document.getElementById('forgot-link').addEventListener('click', (e) => {
     e.preventDefault();
     forgotModal.style.display = 'flex';
   });
 
-  // Step 1: Move to Step 2 (Backend does the actual verification)
   document.getElementById('verify-recovery-btn').addEventListener('click', () => {
     const username = document.getElementById('forgot-username').value.trim().toLowerCase();
     const phrase = document.getElementById('forgot-phrase').value.trim();
-
     if (!username || !phrase) return alert('Please enter your username and recovery phrase.');
-
     document.getElementById('forgot-step-1').style.display = 'none';
     document.getElementById('forgot-step-2').style.display = 'block';
   });
 
-  // Step 2 & 3: Verify & Update Password via Backend
   document.getElementById('update-pass-btn').addEventListener('click', async () => {
     const username = document.getElementById('forgot-username').value.trim().toLowerCase();
     const phrase = document.getElementById('forgot-phrase').value.trim();
@@ -162,14 +162,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Success! Show the new recovery phrase.
         document.getElementById('forgot-step-2').style.display = 'none';
         document.getElementById('forgot-step-3').style.display = 'block';
         document.getElementById('new-recovery-phrase').value = data.newRecoveryPhrase;
       } else {
-        // Backend rejected (e.g. invalid phrase or user not found)
         alert(data.error || 'Failed to reset password. Check your details.');
-        // Send them back to step 1 to try again
         document.getElementById('forgot-step-2').style.display = 'none';
         document.getElementById('forgot-step-1').style.display = 'block';
       }
@@ -178,45 +175,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // ============================================
-  // Handle PDF Download (Forgot Password - New Phrase)
-  // ============================================
   document.getElementById('download-new-pdf-btn').addEventListener('click', () => {
     const newPhrase = document.getElementById('new-recovery-phrase').value;
     downloadRecoveryPDF(newPhrase, true);
   });
 
   // ============================================
-  // Helper: Generate PDF
+  // Helper: Generate PDF with Logo
   // ============================================
-  function downloadRecoveryPDF(phrase, isNew) {
+  async function downloadRecoveryPDF(phrase, isNew) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    doc.setFontSize(22);
-    doc.setTextColor(99, 102, 241);
-    doc.text("Gliimu Recovery Kit", 105, 30, { align: 'center' });
+    // Fetch logo as Base64 to bypass CORS issues in jsPDF
+    try {
+      const logoUrl = '/icons/logo.png';
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        // Add Logo (x, y, width, height)
+        doc.addImage(base64data, 'PNG', 85, 10, 40, 15);
 
-    doc.setFontSize(12);
-    doc.setTextColor(40, 40, 40);
-    if (isNew) {
-      doc.text("This is your NEW recovery phrase.", 105, 45, { align: 'center' });
-      doc.text("Your old phrase is no longer valid.", 105, 53, { align: 'center' });
-    } else {
-      doc.text("Keep this document private and secure.", 105, 45, { align: 'center' });
-      doc.text("Do not share this phrase with anyone.", 105, 53, { align: 'center' });
+        doc.setFontSize(22);
+        doc.setTextColor(99, 102, 241);
+        doc.text("Recovery Kit", 105, 40, { align: 'center' }); // Moved down to make room for logo
+
+        doc.setFontSize(12);
+        doc.setTextColor(40, 40, 40);
+        if (isNew) {
+          doc.text("This is your NEW recovery phrase.", 105, 55, { align: 'center' });
+          doc.text("Your old phrase is no longer valid.", 105, 63, { align: 'center' });
+        } else {
+          doc.text("Keep this document private and secure.", 105, 55, { align: 'center' });
+          doc.text("Do not share this phrase with anyone.", 105, 63, { align: 'center' });
+        }
+
+        doc.setDrawColor(200, 200, 200);
+        doc.roundedRect(20, 75, 170, 30, 3, 3, 'S');
+        doc.setFontSize(16);
+        doc.setTextColor(15, 23, 42);
+        doc.text(phrase, 105, 93, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Gliimu EdTech Platform", 105, 280, { align: 'center' });
+
+        doc.save("Gliimu_Recovery_Kit.pdf");
+      };
+    } catch (error) {
+      console.error("Failed to generate PDF with logo", error);
+      alert("Error generating PDF. Please try again.");
     }
-
-    doc.setDrawColor(200, 200, 200);
-    doc.roundedRect(20, 65, 170, 30, 3, 3, 'S');
-    doc.setFontSize(16);
-    doc.setTextColor(15, 23, 42);
-    doc.text(phrase, 105, 83, { align: 'center' });
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text("Gliimu EdTech Platform", 105, 280, { align: 'center' });
-
-    doc.save("Gliimu_Recovery_Kit.pdf");
   }
 });

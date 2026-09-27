@@ -304,12 +304,23 @@ section { padding: 100px 0; }
 /* Auth Tagline */
 .auth-tagline {
   color: rgba(255,255,255,0.3);
-  font-size: 5px; /* Smaller */
-  letter-spacing: 1px; /* Tighter, more mature spacing */
+  font-size: 8px; /* Slightly larger than 5px so it's at least legible if someone squints */
+  letter-spacing: 1px;
   text-transform: uppercase;
-  margin-top: -7px; /* Closer to the logo */
+  margin-top: -7px; /* Pulls it closer to the logo */
   font-weight: 100;
+  padding: 0;
 }
+
+/* Username Checker */
+.username-check {
+  font-size: 11px;
+  margin-top: 4px;
+  min-height: 14px;
+  font-weight: 500;
+}
+.username-check.available { color: var(--success); }
+.username-check.taken { color: var(--error); }
 
 /* Modal Padding Fix */
 .modal-content { padding: 40px !important; }
