@@ -39,6 +39,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadAuthVideo();
 
   // ============================================
+  // Load Terms & Policy from Database
+  // ============================================
+  async function loadTermsAndPolicy() {
+    const { data, error } = await supabase
+      .from('legal_documents')
+      .select('content')
+      .eq('type', 'terms')
+      .single();
+
+    const container = document.getElementById('terms-content-container');
+    if (container) {
+      if (data && data.content) {
+        container.innerHTML = data.content;
+      } else {
+        container.innerHTML = '<p style="color: var(--error);">Failed to load terms.</p>';
+      }
+    }
+  }
+  loadTermsAndPolicy();
+
+  // ============================================
   // Tab Switching
   // ============================================
   const tabs = document.querySelectorAll('.auth-tab');
