@@ -307,7 +307,7 @@ section { padding: 100px 0; }
   font-size: 7px; /* Smaller */
   letter-spacing: .7px; /* Tighter, more mature spacing */
   text-transform: uppercase;
-  margin-top: 1px; /* Closer to the logo */
+  margin-top: -7px; /* Closer to the logo */
   font-weight: 200;
 }
 
