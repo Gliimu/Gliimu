@@ -304,11 +304,11 @@ section { padding: 100px 0; }
 /* Auth Tagline */
 .auth-tagline {
   color: rgba(255,255,255,0.6);
-  font-size: 11px; /* Smaller */
-  letter-spacing: 1px; /* Tighter, more mature spacing */
+  font-size: 7px; /* Smaller */
+  letter-spacing: .7px; /* Tighter, more mature spacing */
   text-transform: uppercase;
-  margin-top: 4px; /* Closer to the logo */
-  font-weight: 500;
+  margin-top: 1px; /* Closer to the logo */
+  font-weight: 200;
 }
 
 /* Modal Padding Fix */
