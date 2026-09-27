@@ -304,10 +304,10 @@ section { padding: 100px 0; }
 /* Auth Tagline */
 .auth-tagline {
   color: rgba(255,255,255,0.3);
-  font-size: 8px; /* Slightly larger than 5px so it's at least legible if someone squints */
+  font-size: 3px; /* Slightly larger than 5px so it's at least legible if someone squints */
   letter-spacing: 1px;
   text-transform: uppercase;
-  margin-top: -7px; /* Pulls it closer to the logo */
+  margin-top: -12px; /* Pulls it closer to the logo */
   font-weight: 100;
   padding: 0;
 }

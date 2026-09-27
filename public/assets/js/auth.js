@@ -54,14 +54,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearTimeout(usernameTimer);
     if (val.length < 3) return;
 
-    usernameTimer = setTimeout(async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('username')
-        .ilike('username', val)
-        .maybeSingle();
+    // Show a "checking..." state
+    usernameCheck.innerText = 'Checking...';
+    usernameCheck.style.color = 'var(--text-muted)';
 
-      if (data) {
+    usernameTimer = setTimeout(async () => {
+      // Call the secure database function
+      const { data, error } = await supabase.rpc('is_username_taken', { input_username: val });
+
+      if (error) {
+        usernameCheck.innerText = 'Error checking username.';
+        usernameCheck.style.color = 'var(--error)';
+        return;
+      }
+
+      // Reset color before applying available/taken class
+      usernameCheck.style.color = '';
+
+      if (data === true) {
         const suggestion = val + Math.floor(Math.random() * 90 + 10);
         usernameCheck.innerText = `This username is already used. Try ${suggestion}`;
         usernameCheck.classList.add('taken');
