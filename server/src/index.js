@@ -84,12 +84,19 @@ app.post('/api/reset-password', async (req, res) => {
     // 1. Fetch user by username to verify recovery phrase
     const { data: userData, error: fetchError } = await supabaseAdmin
       .from('profiles')
-      .select('id, recovery_phrase')
-      .eq('username', username)
-      .single();
+      .select('id, recovery_phrase, username')
+      .ilike('username', username) // Use ilike for case-insensitive matching
+      .maybeSingle();
 
-    if (fetchError || !userData) {
-      return res.status(404).json({ error: 'User not found.' });
+    console.log("Lookup result for username:", username, userData); // Log what the DB found
+
+    if (fetchError) {
+      console.error("Database fetch error:", fetchError);
+      return res.status(500).json({ error: 'Database error.' });
+    }
+
+    if (!userData) {
+      return res.status(404).json({ error: 'User not found. Check your username.' });
     }
 
     // 2. Verify Phrase
