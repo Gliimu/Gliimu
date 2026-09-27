@@ -88,11 +88,10 @@ app.post('/api/reset-password', async (req, res) => {
       .ilike('username', username) // Use ilike for case-insensitive matching
       .maybeSingle();
 
-    console.log("Lookup result for username:", username, userData); // Log what the DB found
-
     if (fetchError) {
       console.error("Database fetch error:", fetchError);
-      return res.status(500).json({ error: 'Database error.' });
+      // Send the EXACT error message back to the frontend so we can see it
+      return res.status(500).json({ error: `DB Error: ${fetchError.message}` });
     }
 
     if (!userData) {
