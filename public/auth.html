@@ -146,10 +146,9 @@
         <div class="form-group">
           <textarea id="new-recovery-phrase" class="input" readonly style="height: 100px; font-family: var(--font-mono); font-size: var(--fs-sm);"></textarea>
         </div>
-        <button onclick="document.getElementById('forgot-modal').style.display = 'none'; window.location.href='/auth.html';" class="btn-primary w-full">Done</button>
+        <button id="download-new-pdf-btn" class="btn-primary w-full" style="margin-bottom: 1rem;">Download New Recovery PDF</button>
+        <button onclick="document.getElementById('forgot-modal').style.display = 'none'; window.location.href='/auth.html';" class="btn-secondary w-full">Done</button>
       </div>
-    </div>
-  </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
   <script type="module" src="/assets/js/auth.js?v=5"></script>

@@ -1,7 +1,16 @@
 import { supabase } from '/shared/js/config.js';
 import { API_BASE_URL } from '/shared/js/config.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // ============================================
+  // Auto-redirect if already logged in
+  // ============================================
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    window.location.href = '/dashboard/index.html';
+    return; // Stop executing the rest of the script
+  }
+
   // Sync Theme Icons on Load
   if (typeof updateThemeIcon === 'function') updateThemeIcon();
 
@@ -103,29 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (enteredPassword !== actualPassword) return alert('Password does not match the one you just created.');
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    doc.setFontSize(22);
-    doc.setTextColor(99, 102, 241);
-    doc.text("Gliimu Recovery Kit", 105, 30, { align: 'center' });
-
-    doc.setFontSize(12);
-    doc.setTextColor(40, 40, 40);
-    doc.text("Keep this document private and secure.", 105, 45, { align: 'center' });
-    doc.text("Do not share this phrase with anyone.", 105, 53, { align: 'center' });
-
-    doc.setDrawColor(200, 200, 200);
-    doc.roundedRect(20, 65, 170, 30, 3, 3, 'S');
-    doc.setFontSize(16);
-    doc.setTextColor(15, 23, 42);
-    doc.text(phrase, 105, 83, { align: 'center' });
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text("Gliimu EdTech Platform", 105, 280, { align: 'center' });
-
-    doc.save("Gliimu_Recovery_Kit.pdf");
+    downloadRecoveryPDF(phrase, false);
   });
 
   // Proceed to Dashboard
@@ -190,4 +177,46 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Server connection error. Is the backend awake?');
     }
   });
+
+  // ============================================
+  // Handle PDF Download (Forgot Password - New Phrase)
+  // ============================================
+  document.getElementById('download-new-pdf-btn').addEventListener('click', () => {
+    const newPhrase = document.getElementById('new-recovery-phrase').value;
+    downloadRecoveryPDF(newPhrase, true);
+  });
+
+  // ============================================
+  // Helper: Generate PDF
+  // ============================================
+  function downloadRecoveryPDF(phrase, isNew) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(22);
+    doc.setTextColor(99, 102, 241);
+    doc.text("Gliimu Recovery Kit", 105, 30, { align: 'center' });
+
+    doc.setFontSize(12);
+    doc.setTextColor(40, 40, 40);
+    if (isNew) {
+      doc.text("This is your NEW recovery phrase.", 105, 45, { align: 'center' });
+      doc.text("Your old phrase is no longer valid.", 105, 53, { align: 'center' });
+    } else {
+      doc.text("Keep this document private and secure.", 105, 45, { align: 'center' });
+      doc.text("Do not share this phrase with anyone.", 105, 53, { align: 'center' });
+    }
+
+    doc.setDrawColor(200, 200, 200);
+    doc.roundedRect(20, 65, 170, 30, 3, 3, 'S');
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    doc.text(phrase, 105, 83, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Gliimu EdTech Platform", 105, 280, { align: 'center' });
+
+    doc.save("Gliimu_Recovery_Kit.pdf");
+  }
 });
