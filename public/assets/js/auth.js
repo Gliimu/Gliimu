@@ -9,8 +9,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  if (typeof updateThemeIcon === 'function') updateThemeIcon();
-
   const tabs = document.querySelectorAll('.auth-tab');
   const forms = document.querySelectorAll('.auth-form');
   const authCard = document.querySelector('.auth-card');
@@ -54,12 +52,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearTimeout(usernameTimer);
     if (val.length < 3) return;
 
-    // Show a "checking..." state
     usernameCheck.innerText = 'Checking...';
     usernameCheck.style.color = 'var(--text-muted)';
 
     usernameTimer = setTimeout(async () => {
-      // Call the secure database function
       const { data, error } = await supabase.rpc('is_username_taken', { input_username: val });
 
       if (error) {
@@ -68,7 +64,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // Reset color before applying available/taken class
       usernameCheck.style.color = '';
 
       if (data === true) {
@@ -79,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         usernameCheck.innerText = 'This username is available';
         usernameCheck.classList.add('available');
       }
-    }, 400); // 400ms debounce
+    }, 400);
   });
 
   // Handle Log In
@@ -191,13 +186,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ============================================
-  // Helper: Generate PDF with Logo
+  // Helper: Generate PDF with Logo (Reduced Size)
   // ============================================
   async function downloadRecoveryPDF(phrase, isNew) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // Fetch logo as Base64 to bypass CORS issues in jsPDF
     try {
       const logoUrl = '/icons/logo.png';
       const response = await fetch(logoUrl);
@@ -206,28 +200,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
         const base64data = reader.result;
-        // Add Logo (x, y, width, height) - Made wider!
-        doc.addImage(base64data, 'PNG', 70, 10, 70, 25);
+
+        // Reduced total size by 50%, reduced height by 25%
+        // New Width: 35, New Height: 12.5. Centered X: 87.5
+        doc.addImage(base64data, 'PNG', 87.5, 20, 35, 12.5);
 
         doc.setFontSize(22);
         doc.setTextColor(99, 102, 241);
-        doc.text("Recovery Kit", 105, 50, { align: 'center' }); // Moved down to make room for wider logo
+        doc.text("Recovery Kit", 105, 45, { align: 'center' });
 
         doc.setFontSize(12);
         doc.setTextColor(40, 40, 40);
         if (isNew) {
-          doc.text("This is your NEW recovery phrase.", 105, 65, { align: 'center' });
-          doc.text("Your old phrase is no longer valid.", 105, 73, { align: 'center' });
+          doc.text("This is your NEW recovery phrase.", 105, 55, { align: 'center' });
+          doc.text("Your old phrase is no longer valid.", 105, 63, { align: 'center' });
         } else {
-          doc.text("Keep this document private and secure.", 105, 65, { align: 'center' });
-          doc.text("Do not share this phrase with anyone.", 105, 73, { align: 'center' });
+          doc.text("Keep this document private and secure.", 105, 55, { align: 'center' });
+          doc.text("Do not share this phrase with anyone.", 105, 63, { align: 'center' });
         }
 
         doc.setDrawColor(200, 200, 200);
-        doc.roundedRect(20, 85, 170, 30, 3, 3, 'S'); // Moved down
+        doc.roundedRect(20, 75, 170, 30, 3, 3, 'S');
         doc.setFontSize(16);
         doc.setTextColor(15, 23, 42);
-        doc.text(phrase, 105, 103, { align: 'center' }); // Moved down
+        doc.text(phrase, 105, 93, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
