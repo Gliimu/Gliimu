@@ -312,3 +312,9 @@ section { padding: 100px 0; }
 
 /* Modal Padding Fix */
 .modal-content { padding: 40px !important; }
+
+/* Fix Join Us button width in Contact/FAQ section */
+.contact-faq-section .cta-content .btn-primary {
+  display: inline-block;
+  width: auto;
+}
