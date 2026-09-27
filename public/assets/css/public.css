@@ -58,18 +58,18 @@
   padding: 32px;
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-2xl);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px); /* Kept a slight blur so text stays readable */
+  -webkit-backdrop-filter: blur(8px);
 }
-/* Light Mode Card */
+/* Light Mode Card (40% Opaque) */
 [data-theme="light"] .auth-card {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
-/* Dark Mode Card */
+/* Dark Mode Card (40% Opaque) */
 [data-theme="dark"] .auth-card {
-  background: rgba(17, 24, 39, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(17, 24, 39, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Tabs */
