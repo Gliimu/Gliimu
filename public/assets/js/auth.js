@@ -206,28 +206,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
         const base64data = reader.result;
-        // Add Logo (x, y, width, height)
-        doc.addImage(base64data, 'PNG', 85, 10, 40, 15);
+        // Add Logo (x, y, width, height) - Made wider!
+        doc.addImage(base64data, 'PNG', 70, 10, 70, 25);
 
         doc.setFontSize(22);
         doc.setTextColor(99, 102, 241);
-        doc.text("Recovery Kit", 105, 40, { align: 'center' }); // Moved down to make room for logo
+        doc.text("Recovery Kit", 105, 50, { align: 'center' }); // Moved down to make room for wider logo
 
         doc.setFontSize(12);
         doc.setTextColor(40, 40, 40);
         if (isNew) {
-          doc.text("This is your NEW recovery phrase.", 105, 55, { align: 'center' });
-          doc.text("Your old phrase is no longer valid.", 105, 63, { align: 'center' });
+          doc.text("This is your NEW recovery phrase.", 105, 65, { align: 'center' });
+          doc.text("Your old phrase is no longer valid.", 105, 73, { align: 'center' });
         } else {
-          doc.text("Keep this document private and secure.", 105, 55, { align: 'center' });
-          doc.text("Do not share this phrase with anyone.", 105, 63, { align: 'center' });
+          doc.text("Keep this document private and secure.", 105, 65, { align: 'center' });
+          doc.text("Do not share this phrase with anyone.", 105, 73, { align: 'center' });
         }
 
         doc.setDrawColor(200, 200, 200);
-        doc.roundedRect(20, 75, 170, 30, 3, 3, 'S');
+        doc.roundedRect(20, 85, 170, 30, 3, 3, 'S'); // Moved down
         doc.setFontSize(16);
         doc.setTextColor(15, 23, 42);
-        doc.text(phrase, 105, 93, { align: 'center' });
+        doc.text(phrase, 105, 103, { align: 'center' }); // Moved down
 
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);

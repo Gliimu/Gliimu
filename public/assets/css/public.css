@@ -240,7 +240,30 @@ section { padding: 100px 0; }
   background-size: cover; background-position: center;
 }
 .auth-brand-content { position: relative; z-index: 2; max-width: 500px; padding: 0 48px; }
-.auth-logo img { height: 48px; filter: brightness(0) invert(1); margin-bottom: 48px; }
+/* Left Panel */
+.auth-brand-panel {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0F172A;
+}
+.auth-brand-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to right, rgba(10, 15, 30, 0.8), rgba(10, 15, 30, 0.95)), url('https://images.unsplash.com/photo-1620712943543-bcc4688e391b?q=80&w=1920');
+  background-size: cover; background-position: center;
+}
+.auth-brand-content { position: relative; z-index: 2; max-width: 500px; padding: 0 48px; }
+
+/* Default (Desktop): Rotate anticlockwise */
+.auth-logo img {
+  height: 48px;
+  filter: brightness(0) invert(1);
+  transform: rotate(-90deg);
+  margin: 60px 0; /* Adds vertical breathing room for the rotation */
+}
 .auth-brand-content h1 { font-size: var(--fs-4xl); font-weight: var(--fw-extrabold); color: white; line-height: 1.1; margin-bottom: 24px; letter-spacing: var(--ls-tight); }
 .auth-brand-content p { font-size: var(--fs-lg); color: rgba(255,255,255,0.8); line-height: 1.6; }
 
@@ -292,24 +315,17 @@ section { padding: 100px 0; }
 .recovery-warning { font-size: 12px; color: var(--text-tertiary); line-height: 1.5; }
 
 /* Responsive */
+/* Responsive */
 @media (max-width: 768px) {
   .auth-container { flex-direction: column; }
   .auth-brand-panel { min-height: 25vh; }
   .auth-brand-content { padding: 0 24px; text-align: center; }
-  .auth-logo img { margin: 0 auto 24px; }
+  .auth-logo img {
+    transform: rotate(0deg); /* Keep horizontal on mobile */
+    margin: 0 auto 24px;
+  }
   .auth-brand-content h1 { font-size: 28px; }
   .auth-form-panel { padding: 24px; }
-}
-
-/* Auth Tagline */
-.auth-tagline {
-  color: rgba(255,255,255,0.3);
-  font-size: 3px; /* Slightly larger than 5px so it's at least legible if someone squints */
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-top: -12px; /* Pulls it closer to the logo */
-  font-weight: 100;
-  padding: 0;
 }
 
 /* Username Checker */
