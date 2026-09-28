@@ -93,30 +93,41 @@
 .lib-section { margin-bottom: 48px; }
 .lib-section-title { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; opacity: 0.8; }
 
-/* Perfect Pinterest Masonry (Strict Geometry & Dense Packing) */
+/* Perfect Pinterest Masonry (Absolute Fixed Math) */
 .lib-masonry-grid {
   display: grid;
-  /* 140px base width */
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  /* 10px base height */
-  grid-auto-rows: 10px;
-  grid-auto-flow: dense; /* Forces perfect packing with zero gaps */
+  /* Fixed 160px width. No 1fr to prevent stretching! */
+  grid-template-columns: repeat(auto-fill, 160px);
+  /* Fixed 160px height to match width, creating perfect 1x1 blocks */
+  grid-auto-rows: 160px;
+  grid-auto-flow: dense; /* Forces perfect brick packing with zero gaps */
   gap: 12px;
+  justify-content: center; /* Centers the grid nicely on wide screens */
 }
 
-.lib-card { border-radius: 10px; overflow: hidden; position: relative; cursor: pointer; border: 1px solid var(--border); box-shadow: var(--shadow-sm); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.lib-card {
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  height: 100%;
+}
 .lib-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); z-index: 2; }
 .lib-card:hover .lib-overlay { opacity: 1; }
 
 /*
-  Strict Sizing Math (140px width, 10px height):
-  Audiolite (Square): 140x140 -> 14 rows.
-  Publication (Vertical Rect): 140x280 -> 28 rows. (Audiolite is exactly half this height)
-  Bundle (Horizontal Rect): 2 cols (280px) x 200px -> 20 rows.
+  Strict Sizing Math (1 block = 160x160px):
+  Audiolite (Square): 1x1 block (Area = 1)
+  Bundle (Horizontal Rect): 2x1 blocks (Area = 2)
+  Publication (Vertical Rect): 1x2 blocks (Area = 2)
 */
-.lib-audiolite { grid-column: span 1; grid-row: span 14; }
-.lib-bundle { grid-column: span 2; grid-row: span 20; }
-.lib-publication { grid-column: span 1; grid-row: span 28; }
+.lib-audiolite { grid-column: span 1; grid-row: span 1; }
+.lib-bundle { grid-column: span 2; grid-row: span 1; }
+.lib-publication { grid-column: span 1; grid-row: span 2; }
 
 .lib-thumb { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
 .lib-owned-badge { position: absolute; top: 8px; right: 8px; background: var(--success); color: white; padding: 3px 8px; border-radius: 20px; font-size: 9px; font-weight: bold; text-transform: uppercase; z-index: 2; }
@@ -148,8 +159,10 @@
 }
 .modal-content .modal-close:hover { background: rgba(0,0,0,0.8); }
 
-/* Responsive Grid */
+/* Responsive Grid (Fixed Math) */
 @media (max-width: 768px) {
-  .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-  .lib-bundle { grid-column: span 2; }
+  .lib-masonry-grid {
+    grid-template-columns: repeat(auto-fill, 130px);
+    grid-auto-rows: 130px;
+  }
 }
