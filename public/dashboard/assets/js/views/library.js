@@ -54,20 +54,20 @@ export default {
       supabase.from('profiles').select('wallet_balance, interests, subscription_expires_at').eq('id', store.user.id).single()
     ]);
 
-    // Rich Mock Data with Thumbnails
-    this.allItems = items?.length > 0 ? items : [
-      { id: '1', type: 'bundle', title: 'Ultimate Media Kit', author: 'Gliimu Ltd', price: 15000, cover_url: 'https://images.unsplash.com/photo-1620712943543-bcc4688e391b?q=80&w=800', description: 'All the tools, presets, and templates you need to launch your media empire.', created_at: new Date().toISOString(), sales: 120 },
-      { id: '2', type: 'publication', title: 'Business Services Playbook', author: 'Captain A.', price: 7500, cover_url: 'https://images.unsplash.com/photo-1454165804609-c3dadc57d400?q=80&w=800', description: 'A comprehensive guide to structuring your freelance business for high-ticket clients.', created_at: new Date().toISOString(), sales: 85 },
-      { id: '3', type: 'audiolite', title: 'Mindset of an Elite Gliimait', author: 'Captain B.', price: 5000, cover_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800', description: 'Audio series on building the mental resilience required for independent success.', created_at: new Date().toISOString(), sales: 200 },
-      { id: '4', type: 'publication', title: 'Elite Freelancing Guide', author: 'Gliimu Ltd', price: 6000, cover_url: 'https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=800', description: 'How to find, pitch, and close premium clients globally.', created_at: new Date(Date.now() - 86400000).toISOString(), sales: 50 },
-      { id: '5', type: 'bundle', title: 'Full Stack Media Architecture', author: 'Gliimu Originals', price: 12000, cover_url: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?q=80&w=800', description: 'The complete blueprint for building media empires from scratch.', created_at: new Date(Date.now() - 172800000).toISOString(), sales: 300 },
-      { id: '6', type: 'audiolite', title: 'Creative Flow States', author: 'Captain C.', price: 3000, cover_url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800', description: 'Audio guides for entering deep work and creative flow.', created_at: new Date(Date.now() - 259200000).toISOString(), sales: 15 },
-      { id: '7', type: 'publication', title: 'Cinematic LUT Pack', author: 'Captain D.', price: 8000, cover_url: 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?q=80&w=800', description: 'Hollywood-grade color grading presets for your video projects.', created_at: new Date().toISOString(), sales: 90 },
-      { id: '8', type: 'audiolite', title: 'Client Acquisition Audio', author: 'Captain A.', price: 4000, cover_url: 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=800', description: 'Listen to real cold calls and pitch breakdowns.', created_at: new Date().toISOString(), sales: 45 },
-      { id: '9', type: 'bundle', title: 'UI/UX Wireframe Kit', author: 'Gliimu Ltd', price: 10000, cover_url: 'https://images.unsplash.com/photo-1545235617-9465d5a6c59f?q=80&w=800', description: 'Steal my exact Figma wireframes for client web projects.', created_at: new Date(Date.now() - 300000000).toISOString(), sales: 150 },
-      { id: '10', type: 'publication', title: 'The 1B Naira Mindset', author: 'Gliimu', price: 5000, cover_url: 'https://images.unsplash.com/photo-1542744095-291d1f67b221?q=80&w=800', description: 'Reprogramming your brain for premium value.', created_at: new Date().toISOString(), sales: 210 },
-      { id: '11', type: 'audiolite', title: 'Audio Mixing Presets', author: 'Captain E.', price: 3500, cover_url: 'https://images.unsplash.com/photo-1598488035136-b9b8a8710c46?q=80&w=800', description: 'Studio-grade EQ and compression presets for podcasts.', created_at: new Date().toISOString(), sales: 60 },
-      { id: '12', type: 'bundle', title: 'Legal Contract Templates', author: 'Gliimu Ltd', price: 9000, cover_url: 'https://images.unsplash.com/photo-1589829085413-56de8db18f14?q=80&w=800', description: 'Never get scammed. Protect your payments with these lawyer-approved templates.', created_at: new Date().toISOString(), sales: 180 }
+    // Rich Mock Data
+    this.allItems = [
+      { id: '1', type: 'bundle', title: 'Ultimate Media Kit', author: 'Gliimu Ltd', price: 15000, cover_color: 'linear-gradient(135deg, #F97316, #F59E0B)', description: 'All the tools, presets, and templates you need to launch your media empire.', created_at: new Date().toISOString(), sales: 120 },
+      { id: '2', type: 'publication', title: 'Business Services Playbook', author: 'Captain A.', price: 7500, cover_color: 'linear-gradient(135deg, #10B981, #06B6D4)', description: 'A comprehensive guide to structuring your freelance business for high-ticket clients.', created_at: new Date().toISOString(), sales: 85 },
+      { id: '3', type: 'audiolite', title: 'Mindset of an Elite Gliimait', author: 'Captain B.', price: 5000, cover_color: 'linear-gradient(135deg, #3B82F6, #8B5CF6)', description: 'Audio series on building the mental resilience required for independent success.', created_at: new Date().toISOString(), sales: 200 },
+      { id: '4', type: 'publication', title: 'Elite Freelancing Guide', author: 'Gliimu Ltd', price: 6000, cover_color: 'linear-gradient(135deg, #F59E0B, #EF4444)', description: 'How to find, pitch, and close premium clients globally.', created_at: new Date(Date.now() - 86400000).toISOString(), sales: 50 },
+      { id: '5', type: 'bundle', title: 'Full Stack Media Architecture', author: 'Gliimu Originals', price: 12000, cover_color: 'linear-gradient(135deg, #6366F1, #8B5CF6)', description: 'The complete blueprint for building media empires from scratch.', created_at: new Date(Date.now() - 172800000).toISOString(), sales: 300 },
+      { id: '6', type: 'audiolite', title: 'Creative Flow States', author: 'Captain C.', price: 3000, cover_color: 'linear-gradient(135deg, #0F172A, #334155)', description: 'Audio guides for entering deep work and creative flow.', created_at: new Date(Date.now() - 259200000).toISOString(), sales: 15 },
+      { id: '7', type: 'publication', title: 'Cinematic LUT Pack', author: 'Captain D.', price: 8000, cover_color: 'linear-gradient(135deg, #EC4899, #8B5CF6)', description: 'Hollywood-grade color grading presets for your video projects.', created_at: new Date().toISOString(), sales: 90 },
+      { id: '8', type: 'audiolite', title: 'Client Acquisition Audio', author: 'Captain A.', price: 4000, cover_color: 'linear-gradient(135deg, #14B8A6, #06B6D4)', description: 'Listen to real cold calls and pitch breakdowns.', created_at: new Date().toISOString(), sales: 45 },
+      { id: '9', type: 'bundle', title: 'UI/UX Wireframe Kit', author: 'Gliimu Ltd', price: 10000, cover_color: 'linear-gradient(135deg, #6366F1, #3B82F6)', description: 'Steal my exact Figma wireframes for client web projects.', created_at: new Date(Date.now() - 300000000).toISOString(), sales: 150 },
+      { id: '10', type: 'publication', title: 'The 1B Naira Mindset', author: 'Gliimu', price: 5000, cover_color: 'linear-gradient(135deg, #F59E0B, #F97316)', description: 'Reprogramming your brain for premium value.', created_at: new Date().toISOString(), sales: 210 },
+      { id: '11', type: 'audiolite', title: 'Audio Mixing Presets', author: 'Captain E.', price: 3500, cover_color: 'linear-gradient(135deg, #334155, #0F172A)', description: 'Studio-grade EQ and compression presets for podcasts.', created_at: new Date().toISOString(), sales: 60 },
+      { id: '12', type: 'bundle', title: 'Legal Contract Templates', author: 'Gliimu Ltd', price: 9000, cover_color: 'linear-gradient(135deg, #10B981, #14B8A6)', description: 'Never get scammed. Protect your payments with these lawyer-approved templates.', created_at: new Date().toISOString(), sales: 180 }
     ];
 
     this.ownedItems = new Set(purchases?.map(p => p.item_id) || []);
@@ -137,7 +137,6 @@ export default {
     let filtered = this.allItems;
 
     if (this.currentFilter === 'owned') {
-      // My Collections: Shows owned AND saved items
       filtered = filtered.filter(item => this.ownedItems.has(item.id) || this.savedItems.has(item.id));
     } else if (this.currentFilter !== 'all') {
       filtered = filtered.filter(item => item.type === this.currentFilter);
@@ -215,39 +214,6 @@ export default {
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
-
-    const menuHtml = `
-      <div class="lib-modal-menu">
-        <button class="lib-menu-btn" id="lib-menu-toggle">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-        </button>
-        <div class="lib-menu-dropdown" id="lib-menu-dropdown">
-          <div class="lib-menu-item" id="save-item-btn">
-            ${isSaved ? 'Unsave Item' : 'Save Item'}
-          </div>
-          <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
-          <div class="lib-menu-item ask-me-item">
-            <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar">
-            Ask Me
-          </div>
-        </div>
-      </div>
-    `;
-
-    const unlockBtnHtml = `
-      <button class="btn-primary lib-modal-action-btn" onclick="libraryInstance.purchase('${item.id}')">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        ${balance >= item.price ? 'Unlock' : 'Insufficient Balance'}
-      </button>
-    `;
-
-    const accessBtnHtml = `
-      <button class="btn-primary lib-modal-action-btn" onclick="alert('Opening file...');">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        Access Content
-      </button>
-    `;
-
     modal.innerHTML = `
       <div class="modal-content lib-modal-content">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
@@ -258,30 +224,41 @@ export default {
           <p class="lib-modal-author">by ${item.author || 'Gliimu Originals'}</p>
           <p class="lib-modal-desc">${item.description}</p>
 
-          ${isOwned
-            ? `
-              <div class="lib-modal-actions">
-                ${accessBtnHtml}
-                ${menuHtml}
+          ${!isOwned ? `<div class="lib-modal-price">Price: <strong>₦${item.price?.toLocaleString() || 0}</strong></div>` : ''}
+
+          <div class="lib-action-row">
+            ${isOwned
+              ? `<button class="btn-primary lib-action-btn" onclick="alert('Opening file...');">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  Access Content
+                </button>`
+              : `<button class="btn-primary lib-action-btn" onclick="libraryInstance.purchase('${item.id}')">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  ${balance >= item.price ? 'Unlock' : 'Insufficient'}
+                </button>`
+            }
+
+            <div class="lib-modal-menu">
+              <button class="lib-menu-btn" id="lib-menu-toggle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+              <div class="lib-menu-dropdown" id="lib-menu-dropdown">
+                <div class="lib-menu-item" id="save-item-btn">
+                  ${isSaved ? 'Unsave Item' : 'Save Item'}
+                </div>
+                <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
+                <div class="lib-menu-item ask-me-item">
+                  <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar">
+                  Ask Me
+                </div>
               </div>
-            `
-            : `
-              <div class="lib-modal-price">
-                <span class="lib-price-label">Price</span>
-                <span class="lib-price-value">₦${item.price?.toLocaleString() || 0}</span>
-              </div>
-              <div class="lib-modal-actions">
-                ${unlockBtnHtml}
-                ${menuHtml}
-              </div>
-            `
-          }
+            </div>
+          </div>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
 
-    // Menu Logic
     document.getElementById('lib-menu-toggle').addEventListener('click', (e) => {
       e.stopPropagation();
       document.getElementById('lib-menu-dropdown').classList.toggle('active');
