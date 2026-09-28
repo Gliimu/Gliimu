@@ -9,13 +9,25 @@ export const store = {
     this.user = user;
 
     if (user) {
-      const { data: profile } = await supabase
+      // Fetch live data from the profiles table instead of just signup metadata
+      const { data: profile, error } = await supabase
         .from('profiles')
-        .select('username, full_name, avatar_url, total_gp')
+        .select('username, full_name, avatar_url, total_gp, wallet_balance')
         .eq('id', user.id)
         .single();
 
-      this.profile = profile || { username: 'Gliimait', full_name: 'User', total_gp: 0 };
+      if (profile) {
+        this.profile = profile;
+      } else {
+        // Fallback to metadata if profile table fetch fails
+        this.profile = {
+          username: user.user_metadata?.username || 'Gliimait',
+          full_name: user.user_metadata?.full_name || 'User',
+          total_gp: 0,
+          avatar_url: null,
+          wallet_balance: 0
+        };
+      }
     }
 
     return this.user;
