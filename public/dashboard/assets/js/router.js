@@ -16,6 +16,10 @@ export async function router() {
 
   const app = document.getElementById('app');
   const pageTitle = document.getElementById('page-title');
+  const topbarDynamic = document.getElementById('topbar-dynamic-content'); // Get dynamic div
+
+  // Clear dynamic topbar content (like Hub search) when changing routes
+  if (topbarDynamic) topbarDynamic.innerHTML = '';
 
   // Update active nav item
   document.querySelectorAll('.nav-item').forEach(item => {
