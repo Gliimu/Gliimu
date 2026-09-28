@@ -10,20 +10,21 @@ export default {
           <h2>Gliimu Elite Library</h2>
           <p>Premium publications, audiolites, and bundles.</p>
         </div>
-        <div class="subscription-badge">
-          <span>Balance: ₦<span id="lib-balance">0</span></span>
+        <div class="subscription-badge" id="sub-badge">
+          <span class="sub-indicator" id="sub-indicator"></span>
+          <span>₦<span id="lib-balance">0</span></span>
         </div>
       </div>
 
       <div class="lib-controls">
-        <div class="lib-filter-tabs">
-          <button class="lib-tab active" data-filter="all">All</button>
-          <button class="lib-tab" data-filter="owned">My Collections</button>
-          <button class="lib-tab" data-filter="bundle">Bundles</button>
-          <button class="lib-tab" data-filter="publication">Publications</button>
-          <button class="lib-tab" data-filter="audiolite">Audiolites</button>
-        </div>
-        <input type="text" id="lib-search" class="lib-search-input" placeholder="Search...">
+        <input type="text" id="lib-search" class="lib-search-input" placeholder="Search library...">
+        <select id="lib-filter" class="lib-dropdown">
+          <option value="all">All Contents</option>
+          <option value="owned">My Collections</option>
+          <option value="bundle">Bundles</option>
+          <option value="publication">Publications</option>
+          <option value="audiolite">Audiolites</option>
+        </select>
       </div>
 
       <div id="library-content">
@@ -41,10 +42,10 @@ export default {
     const [{ data: items }, { data: purchases }, { data: profile }] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
-      supabase.from('profiles').select('wallet_balance, interests').eq('id', store.user.id).single()
+      supabase.from('profiles').select('wallet_balance, interests, subscription_expires_at').eq('id', store.user.id).single()
     ]);
 
-    // FORCED RICH MOCK DATA FOR VISUAL TESTING
+    // Rich Mock Data
     this.allItems = [
       { id: '1', type: 'bundle', title: 'Ultimate Media Kit', author: 'Gliimu Ltd', price: 15000, cover_color: 'linear-gradient(135deg, #F97316, #F59E0B)', description: 'All the tools, presets, and templates you need to launch your media empire.', created_at: new Date().toISOString(), sales: 120 },
       { id: '2', type: 'publication', title: 'Business Services Playbook', author: 'Captain A.', price: 7500, cover_color: 'linear-gradient(135deg, #10B981, #06B6D4)', description: 'A comprehensive guide to structuring your freelance business for high-ticket clients.', created_at: new Date().toISOString(), sales: 85 },
@@ -64,11 +65,12 @@ export default {
     this.walletBalance = profile?.wallet_balance || 0;
     this.userInterests = profile?.interests ? profile.interests.toLowerCase().split(',') : [];
 
+    // Update Header UI
     document.getElementById('lib-balance').innerText = this.walletBalance.toLocaleString();
+    this.updateSubIndicator(profile?.subscription_expires_at);
 
     this.applyFilters();
 
-    // Expose instance for onclick
     window.libraryInstance = {
       openDetails: (id) => {
         const item = this.allItems.find(i => i.id == id);
@@ -77,34 +79,50 @@ export default {
       purchase: (id) => this.purchaseItem(id)
     };
 
-    // Search Listener
+    // Listeners
     document.getElementById('lib-search').addEventListener('input', (e) => {
       this.searchQuery = e.target.value.toLowerCase();
       this.applyFilters();
     });
 
-    // Filter Tabs Listener
-    document.querySelectorAll('.lib-tab').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.lib-tab').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        this.currentFilter = e.target.dataset.filter;
-        this.applyFilters();
-      });
+    document.getElementById('lib-filter').addEventListener('change', (e) => {
+      this.currentFilter = e.target.value;
+      this.applyFilters();
     });
+  },
+
+  updateSubIndicator(expiresAt) {
+    const indicator = document.getElementById('sub-indicator');
+    if (!expiresAt) {
+      indicator.style.background = 'var(--error)';
+      indicator.style.boxShadow = '0 0 8px var(--error)';
+      return;
+    }
+
+    const now = new Date();
+    const expiry = new Date(expiresAt);
+    const diffTime = expiry - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let color;
+    if (diffDays <= 0) color = 'var(--error)'; // Red
+    else if (diffDays <= 7) color = '#F97316'; // Orange
+    else if (diffDays <= 14) color = 'var(--warning)'; // Yellow
+    else color = 'var(--success)'; // Green
+
+    indicator.style.background = color;
+    indicator.style.boxShadow = `0 0 10px ${color}`;
   },
 
   applyFilters() {
     let filtered = this.allItems;
 
-    // 1. Filter by Tab
     if (this.currentFilter === 'owned') {
       filtered = filtered.filter(item => this.ownedItems.has(item.id));
     } else if (this.currentFilter !== 'all') {
       filtered = filtered.filter(item => item.type === this.currentFilter);
     }
 
-    // 2. Filter by Search
     if (this.searchQuery) {
       filtered = filtered.filter(item =>
         item.title.toLowerCase().includes(this.searchQuery) ||
@@ -125,7 +143,6 @@ export default {
       return;
     }
 
-    // Only show sections if viewing "All"
     if (this.currentFilter === 'all' && !this.searchQuery) {
       const trending = [...items].sort((a, b) => (b.sales || 0) - (a.sales || 0)).slice(0, 4);
       const newToShelf = [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4);
