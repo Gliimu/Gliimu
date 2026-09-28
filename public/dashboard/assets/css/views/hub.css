@@ -79,3 +79,39 @@
 .hub-topbar-search { display: flex; align-items: center; gap: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; width: 100%; max-width: 400px; }
 .hub-topbar-search svg { color: var(--text-muted); flex-shrink: 0; }
 .hub-topbar-search input { background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); width: 100%; font-family: var(--font-sans); }
+
+/* Hide Grid Toggle on Mobile */
+@media (max-width: 768px) {
+  .view-toggle-wrapper { display: none !important; }
+}
+
+/* Comment Section */
+.comment-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
+.comment-input-wrapper { display: flex; gap: 12px; margin-bottom: 24px; }
+.comment-input-wrapper .input { flex: 1; }
+.comment-send-btn {
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+.comment-send-btn:hover { background: var(--brand-primary-hover); }
+
+.comment-list { display: flex; flex-direction: column; gap: 16px; }
+.comment-item { display: flex; gap: 12px; }
+.comment-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.comment-author { font-weight: 600; color: var(--text-primary); margin-right: 8px; font-size: 14px; }
+.comment-text { font-size: 14px; color: var(--text-secondary); line-height: 1.5; display: inline; }
+
+/* Menu Dropdown positioning for Hub Read View */
+.read-body .lib-modal-menu { position: relative; }
+.read-body .lib-menu-btn { background: var(--bg-tertiary); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; }
+.read-body .lib-menu-btn:hover { background: var(--surface-hover); }
+.read-body .lib-menu-dropdown { bottom: 110%; top: auto; right: 0; }

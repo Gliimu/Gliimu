@@ -64,7 +64,10 @@ export default {
       openReadView: (id) => this.openReadView(id),
       toggleLike: (id) => this.toggleLike(id),
       sharePost: (id, title) => this.sharePost(id, title),
-      commentPost: (id) => this.commentPost(id)
+      toggleCommentBox: (id) => this.toggleCommentBox(id),
+      submitComment: (id) => this.submitComment(id),
+      toggleHubMenu: (id) => this.toggleHubMenu(id),
+      deletePost: (id) => this.deletePost(id)
     };
 
     this.setupTopbarSearch();
@@ -91,11 +94,9 @@ export default {
   },
 
   setupSubheader() {
-    // Apply active class to saved view style
     const activeBtn = document.querySelector(`.view-toggle-btn[data-view="${this.viewStyle}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 
-    // Filter Dropdown
     document.getElementById('hub-filter-btn').addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       document.getElementById('hub-dropdown').classList.toggle('active');
@@ -111,7 +112,6 @@ export default {
       });
     });
 
-    // View Toggle
     document.querySelectorAll('.view-toggle-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
@@ -248,7 +248,7 @@ export default {
   async fetchPosts() {
     const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
       supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(username, full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
-      supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount'),
+      supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount, comment_text'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single()
     ]);
     if (error) { console.error(error); return; }
@@ -287,6 +287,13 @@ export default {
     const star = post.profiles?.total_gp >= 1000 ? '<div class="eligibility-star">★</div>' : '';
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
+
+    const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
+    let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
+    if (postComments.length > 0) {
+      commentsHtml = postComments.map(c => `<div class="comment-item"><div class="comment-avatar">${c.profiles?.username?.charAt(0).toUpperCase() || 'G'}</div><div><span class="comment-author">${c.profiles?.username || 'Gliimait'}</span><p class="comment-text">${c.comment_text}</p></div></div>`).join('');
+    }
+
     let blocksHtml = '';
     if (post.blocks && post.blocks.length > 0) {
       blocksHtml = post.blocks.map(b => {
@@ -299,10 +306,122 @@ export default {
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
     const coverHtml = post.cover_url ? `<div class="read-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
 
+    // Menu Logic
+    const isOwner = post.user_id === store.user.id;
+    let menuHtml = `
+      <div class="lib-menu-item" onclick="alert('Gliim saved!'); hubInstance.toggleHubMenu('${post.id}')">Save Gliim</div>
+      <div class="lib-menu-item" onclick="alert('Content reported.'); hubInstance.toggleHubMenu('${post.id}')">Report</div>
+    `;
+    if (isOwner) {
+      menuHtml += `<div class="lib-menu-item danger" onclick="hubInstance.deletePost('${post.id}')">Delete</div>`;
+    }
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay read-view-overlay';
-    modal.innerHTML = `<div class="modal-content read-view-content"><button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>${coverHtml}<div class="read-body"><span class="blog-category">${post.category || 'General'}</span><h1 class="read-title">${post.title || 'Untitled Gliim'}</h1><div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border);"><div style="position:relative;">${avatar}${star}</div><div><span style="font-weight: 700; color: var(--text-primary);">${post.profiles?.full_name || 'Gliimait'}</span><br><span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span></div></div>${blocksHtml}<div class="post-actions-bar" style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px;"><button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')"><i class="fas fa-sign-language"></i><span>${likes}</span></button><button class="action-btn" onclick="hubInstance.commentPost('${post.id}')"><i class="fas fa-comment-dots"></i></button><button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')"><i class="fas fa-paper-plane"></i></button></div></div></div>`;
+    modal.innerHTML = `
+      <div class="modal-content read-view-content">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        ${coverHtml}
+        <div class="read-body">
+          <span class="blog-category">${post.category || 'General'}</span>
+          <h1 class="read-title">${post.title || 'Untitled Gliim'}</h1>
+          <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+            <div style="position:relative;">${avatar}${star}</div>
+            <div>
+              <span style="font-weight: 700; color: var(--text-primary);">${post.profiles?.full_name || 'Gliimait'}</span><br>
+              <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+          ${blocksHtml}
+
+          <div class="post-actions-bar">
+            <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5 5 18l-1.5-1.5L8.5 12"/><path d="M16 15 11 20l-1.5-1.5L15 14"/><path d="m12 4 4 4"/><path d="m16 8 4-4"/><path d="m9 11 4-4"/></svg>
+              <span>${likes}</span>
+            </button>
+            <button class="action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            </button>
+
+            <div class="lib-modal-menu" style="margin-left: auto;">
+              <button class="lib-menu-btn" onclick="hubInstance.toggleHubMenu('${post.id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+              <div class="lib-menu-dropdown" id="hub-menu-${post.id}">
+                ${menuHtml}
+              </div>
+            </div>
+          </div>
+
+          <!-- Comment Section -->
+          <div class="comment-section" id="comment-box-${post.id}" style="display: none;">
+            <div class="comment-input-wrapper">
+              <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment...">
+              <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
+            </div>
+            <div class="comment-list" id="comment-list-${post.id}">
+              ${commentsHtml}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
     document.body.appendChild(modal);
+  },
+
+  toggleHubMenu(postId) {
+    const menu = document.getElementById(`hub-menu-${postId}`);
+    if (menu) menu.classList.toggle('active');
+  },
+
+  async deletePost(postId) {
+    if (!confirm("Are you sure you want to delete this Gliim?")) return;
+    const { error } = await supabase.from('posts').delete().eq('id', postId);
+    if (error) return alert("Error deleting post.");
+    alert("Post deleted.");
+    document.querySelector('.modal-overlay')?.remove();
+    this.fetchPosts();
+  },
+
+  toggleCommentBox(postId) {
+    const box = document.getElementById(`comment-box-${postId}`);
+    if (box) {
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+  },
+
+  async submitComment(postId) {
+    const input = document.getElementById(`comment-text-${postId}`);
+    const text = input.value.trim();
+    if (!text) return;
+
+    const post = this.currentPosts.find(p => p.id === postId);
+
+    // Insert interaction
+    const { data } = await supabase.from('hub_interactions').insert({
+      post_id: postId,
+      user_id: store.user.id,
+      interaction_type: 'comment',
+      comment_text: text
+    }).select('*').single();
+
+    if (data) {
+      data.profiles = { username: store.profile.username }; // Attach own username for UI
+      this.allInteractions.push(data);
+
+      // Update UI
+      const list = document.getElementById(`comment-list-${postId}`);
+      list.innerHTML += `<div class="comment-item"><div class="comment-avatar">${store.profile.username.charAt(0).toUpperCase()}</div><div><span class="comment-author">${store.profile.username}</span><p class="comment-text">${text}</p></div></div>`;
+      input.value = "";
+    }
+
+    // Award 4 GP to Author
+    if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
   },
 
   async toggleLike(postId) {
@@ -314,7 +433,6 @@ export default {
     } else {
       const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
       if (data) this.allInteractions.push(data);
-      // Award 3 GP to Author
       if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 3 });
     }
     this.renderPosts(this.currentPosts);
@@ -326,17 +444,6 @@ export default {
       const hasLiked = this.allInteractions.some(i => i.post_id === postId && i.user_id === store.user.id && i.interaction_type === 'like');
       if (btnParent) btnParent.classList.toggle('liked', hasLiked);
     }
-  },
-
-  async commentPost(postId) {
-    const text = prompt("Write a comment:");
-    if (!text) return;
-    const post = this.currentPosts.find(p => p.id === postId);
-
-    await this.logInteraction(postId, 'comment');
-    if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
-    alert("Comment posted! The author earned 4 GP.");
-    this.fetchPosts();
   },
 
   async sharePost(postId, title) {
