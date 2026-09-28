@@ -294,3 +294,22 @@
 .post-menu-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .post-menu-item.danger { color: var(--error); }
 .post-menu-item.danger:hover { background: var(--error-light); }
+
+.action-icon-img {
+  filter: brightness(0) invert(var(--invert-percent, 0%)); /* Makes it black in light mode, white in dark mode */
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+.like-btn.liked .action-icon-img {
+  filter: invert(20%) sepia(90%) saturate(3000%) hue-rotate(315deg); /* Makes it red/pink when liked */
+  opacity: 1;
+}
+.action-btn:hover .action-icon-img { opacity: 1; }
+
+/* Ensure dark mode inverts the icon */
+[data-theme="dark"] .action-icon-img {
+  --invert-percent: 100%;
+}
+[data-theme="dark"] .like-btn.liked .action-icon-img {
+  filter: invert(30%) sepia(90%) saturate(3000%) hue-rotate(315deg);
+}

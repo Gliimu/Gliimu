@@ -335,7 +335,7 @@ export default {
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             </button>
             <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 12l3 -3a2 2 0 0 1 3 3l-5 5a3 3 0 0 1 -3 0l-5 -5a2 2 0 0 1 0 -3l1 -1"></path><path d="M12 7l-3 -3a2 2 0 0 0 -3 3l3 3"></path><path d="M8 8l-2 -2a2 2 0 0 0 -3 3l3 3"></path><path d="M5 11l-2 -2a2 2 0 0 0 -3 3l3 3"></path><path d="M11 6l3 -3a2 2 0 0 1 3 3l-3 3"></path></svg>
+              <img src="/icons/gliim.svg" alt="Clap" class="action-icon-img" style="width:18px; height:18px;">
               <span>${likes}</span>
             </button>
             <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
