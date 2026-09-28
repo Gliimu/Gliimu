@@ -220,22 +220,6 @@ export default {
       <div class="modal-content lib-modal-content">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
 
-        <div class="lib-modal-menu">
-          <button class="lib-menu-btn" id="lib-menu-toggle">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-          </button>
-          <div class="lib-menu-dropdown" id="lib-menu-dropdown">
-            <div class="lib-menu-item" id="save-item-btn">
-              ${isSaved ? 'Unsave Item' : 'Save Item'}
-            </div>
-            <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
-            <div class="lib-menu-item ask-me-item">
-              <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar">
-              Ask Me
-            </div>
-          </div>
-        </div>
-
         <div class="lib-modal-body">
           <span class="lib-modal-type">${item.type}</span>
           <h2>${item.title}</h2>
@@ -243,20 +227,56 @@ export default {
           <p class="lib-modal-desc">${item.description}</p>
 
           ${isOwned
-            ? `<button class="btn-primary" style="width: 100%;" onclick="alert('Opening file...');">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                Access Content
-              </button>`
-            : `<div class="lib-purchase-footer">
-                <div>
-                  <span class="lib-price-label">Price</span><br>
-                  <span class="lib-price-value">₦${item.price?.toLocaleString() || 0}</span>
+            ? `
+              <div class="lib-modal-actions">
+                <button class="btn-primary lib-modal-action-btn" onclick="alert('Opening file...');">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  Access Content
+                </button>
+                <div class="lib-modal-menu">
+                  <button class="lib-menu-btn" id="lib-menu-toggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                  </button>
+                  <div class="lib-menu-dropdown" id="lib-menu-dropdown">
+                    <div class="lib-menu-item" id="save-item-btn">
+                      ${isSaved ? 'Unsave Item' : 'Save Item'}
+                    </div>
+                    <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
+                    <div class="lib-menu-item ask-me-item">
+                      <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar">
+                      Ask Me
+                    </div>
+                  </div>
                 </div>
-                <button class="btn-primary" style="flex: 1; margin-left: 16px;" onclick="libraryInstance.purchase('${item.id}')">
+              </div>
+            `
+            : `
+              <div class="lib-modal-price">
+                <span class="lib-price-label">Price</span>
+                <span class="lib-price-value">₦${item.price?.toLocaleString() || 0}</span>
+              </div>
+              <div class="lib-modal-actions">
+                <button class="btn-primary lib-modal-action-btn" onclick="libraryInstance.purchase('${item.id}')">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                   ${balance >= item.price ? 'Unlock' : 'Insufficient Balance'}
                 </button>
-              </div>`
+                <div class="lib-modal-menu">
+                  <button class="lib-menu-btn" id="lib-menu-toggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                  </button>
+                  <div class="lib-menu-dropdown" id="lib-menu-dropdown">
+                    <div class="lib-menu-item" id="save-item-btn">
+                      ${isSaved ? 'Unsave Item' : 'Save Item'}
+                    </div>
+                    <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
+                    <div class="lib-menu-item ask-me-item">
+                      <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar">
+                      Ask Me
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `
           }
         </div>
       </div>
@@ -273,50 +293,3 @@ export default {
       libraryInstance.toggleSave(item.id, isSaved);
     });
   },
-
-  async toggleSave(itemId, isCurrentlySaved) {
-    if (isCurrentlySaved) {
-      await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('item_id', itemId);
-      this.savedItems.delete(itemId);
-      alert("Item removed from collections.");
-    } else {
-      await supabase.from('saved_items').insert({ user_id: store.user.id, item_id: itemId });
-      this.savedItems.add(itemId);
-      alert("Item saved to your collections! You can view it in 'My Collections'.");
-    }
-    // Close modal and re-render to update the UI badges
-    document.querySelector('.modal-overlay')?.remove();
-    this.applyFilters();
-  },
-
-  async purchaseItem(itemId) {
-    const item = this.allItems.find(i => i.id == itemId);
-    if (!item) return alert("Item not found.");
-
-    if (this.walletBalance < item.price) {
-      return alert("Insufficient funds. Please top up your wallet.");
-    }
-
-    const earnedPoints = Math.round(item.price / 1000);
-    const newBalance = this.walletBalance - item.price;
-    const { error: walletError } = await supabase.from('profiles')
-      .update({ wallet_balance: newBalance })
-      .eq('id', store.user.id);
-
-    if (walletError) return alert("Error processing payment.");
-
-    await supabase.from('purchases').insert({ user_id: store.user.id, item_id: item.id });
-    await supabase.from('transactions').insert({
-      user_id: store.user.id,
-      amount: -item.price,
-      type: 'purchase',
-      status: 'success',
-      description: `Library Unlock: ${item.title}`,
-      points: earnedPoints
-    });
-
-    alert(`Purchase successful! You earned ${earnedPoints} GP.`);
-    document.querySelector('.modal-overlay')?.remove();
-    this.init();
-  }
-};
