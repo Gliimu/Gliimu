@@ -292,4 +292,4 @@ export default {
     document.getElementById('save-item-btn').addEventListener('click', () => {
       libraryInstance.toggleSave(item.id, isSaved);
     });
-  },
+  }
