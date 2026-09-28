@@ -225,6 +225,10 @@ export default {
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.allInteractions = interactions || [];
+
+    // ADD THIS LINE HERE:
+    this.currentPosts = posts || [];
+
     this.renderPosts(posts || []);
   },
 
