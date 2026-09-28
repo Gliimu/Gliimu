@@ -5,6 +5,26 @@ export default {
   title: 'Hub',
   template: `
     <div class="hub-layout">
+      <!-- Sub Header (Filter & View Toggle) -->
+      <div class="hub-subheader">
+        <select id="hub-filter" class="lib-dropdown">
+          <option value="all">All Categories</option>
+          <option value="Media">Media</option>
+          <option value="Tech">Tech</option>
+          <option value="Business">Business</option>
+          <option value="Personal">Personal</option>
+          <option value="Education">Education</option>
+        </select>
+        <div class="view-toggle-wrapper">
+          <button class="view-toggle-btn active" data-view="list" title="List View">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          </button>
+          <button class="view-toggle-btn" data-view="grid" title="Grid View">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </button>
+        </div>
+      </div>
+
       <!-- Blog Feed -->
       <div class="blog-feed" id="posts-container">
         <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading published Gliims...</p>
@@ -28,6 +48,12 @@ export default {
   `,
 
   init() {
+    this.currentPosts = [];
+    this.allInteractions = [];
+    this.searchQuery = '';
+    this.currentFilter = 'all';
+    this.viewStyle = 'list';
+
     window.hubInstance = {
       openReadView: (id) => this.openReadView(id),
       toggleLike: (id) => this.toggleLike(id),
@@ -36,6 +62,7 @@ export default {
     };
 
     this.setupTopbarSearch();
+    this.setupSubheader();
     this.fetchPosts();
     this.setupRealtime();
     this.setupFab();
@@ -50,7 +77,27 @@ export default {
           <input type="text" id="hub-search" placeholder="Search the Hub...">
         </div>
       `;
+      document.getElementById('hub-search').addEventListener('input', (e) => {
+        this.searchQuery = e.target.value.toLowerCase();
+        this.renderPosts(this.currentPosts);
+      });
     }
+  },
+
+  setupSubheader() {
+    document.getElementById('hub-filter').addEventListener('change', (e) => {
+      this.currentFilter = e.target.value;
+      this.renderPosts(this.currentPosts);
+    });
+
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        this.viewStyle = e.currentTarget.dataset.view;
+        this.renderPosts(this.currentPosts);
+      });
+    });
   },
 
   setupFab() {
@@ -78,11 +125,9 @@ export default {
   },
 
   // ============================================
-  // GLIIM BUILDER MODAL
+  // GLIIM STUDIO (MAKER)
   // ============================================
   openCreateModal() {
-    this.postBlocks = []; // Reset blocks
-
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -113,8 +158,8 @@ export default {
         </div>
 
         <div class="form-group">
-          <label>Cover Image URL (Optional)</label>
-          <input type="text" id="post-cover" class="input" placeholder="https://image-url...">
+          <label>Cover Image Upload</label>
+          <input type="file" id="post-cover-file" class="input" accept="image/*">
         </div>
 
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
@@ -124,8 +169,9 @@ export default {
 
         <div class="builder-toolbar">
           <button class="btn-secondary" id="add-text-block">+ Text</button>
-          <button class="btn-secondary" id="add-image-block">+ Image URL</button>
-          <button class="btn-secondary" id="add-video-block">+ Video URL</button>
+          <button class="btn-secondary" id="add-image-block">+ Image</button>
+          <button class="btn-secondary" id="add-video-block">+ Video</button>
+          <button class="btn-secondary" id="add-audio-block">+ Audio</button>
         </div>
 
         <button id="submit-post-btn" class="btn-primary" style="width: 100%; margin-top: 32px;">Publish Gliim</button>
@@ -135,20 +181,56 @@ export default {
 
     const blocksContainer = document.getElementById('blocks-container');
 
+    const handleFileUpload = async (file, blockDiv, type) => {
+      const statusEl = blockDiv.querySelector('.upload-status');
+      const hiddenInput = blockDiv.querySelector('.block-content-input');
+
+      statusEl.innerText = "Uploading...";
+      statusEl.style.color = "var(--brand-primary)";
+
+      const fileName = `${store.user.id}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from('media').upload(fileName, file);
+
+      if (error) {
+        statusEl.innerText = "Upload failed.";
+        statusEl.style.color = "var(--error)";
+        return false;
+      }
+
+      const { data } = supabase.storage.from('media').getPublicUrl(fileName);
+      hiddenInput.value = data.publicUrl;
+      statusEl.innerText = "Upload complete!";
+      statusEl.style.color = "var(--success)";
+
+      // Show preview
+      const preview = blockDiv.querySelector('.block-preview');
+      preview.innerHTML = type === 'image' ? `<img src="${data.publicUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready: ${file.name}</div>`;
+      return true;
+    };
+
     const addBlock = (type) => {
-      const id = Date.now();
       const blockDiv = document.createElement('div');
       blockDiv.className = 'builder-block';
-      blockDiv.dataset.id = id;
       blockDiv.dataset.type = type;
 
       let inputHtml = '';
       if (type === 'text') {
-        inputHtml = `<textarea class="input" placeholder="Write your text..." rows="4"></textarea>`;
-      } else if (type === 'image') {
-        inputHtml = `<input type="text" class="input" placeholder="Paste Image URL...">`;
-      } else if (type === 'video') {
-        inputHtml = `<input type="text" class="input" placeholder="Paste Video URL...">`;
+        inputHtml = `
+          <select class="input block-style-select" style="margin-bottom: 8px;">
+            <option value="paragraph">Paragraph</option>
+            <option value="title">Title</option>
+            <option value="subtitle">Subtitle</option>
+          </select>
+          <textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>
+        `;
+      } else {
+        const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
+        inputHtml = `
+          <input type="file" class="input block-file-input" accept="${accept}" style="margin-bottom: 8px;">
+          <div class="upload-status" style="font-size: 12px; margin-bottom: 8px;"></div>
+          <div class="block-preview"></div>
+          <input type="hidden" class="block-content-input">
+        `;
       }
 
       blockDiv.innerHTML = `
@@ -159,30 +241,50 @@ export default {
         ${inputHtml}
       `;
       blocksContainer.appendChild(blockDiv);
+
+      if (type !== 'text') {
+        const fileInput = blockDiv.querySelector('.block-file-input');
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files[0]) handleFileUpload(e.target.files[0], blockDiv, type);
+        });
+      }
     };
 
     document.getElementById('add-text-block').addEventListener('click', () => addBlock('text'));
     document.getElementById('add-image-block').addEventListener('click', () => addBlock('image'));
     document.getElementById('add-video-block').addEventListener('click', () => addBlock('video'));
+    document.getElementById('add-audio-block').addEventListener('click', () => addBlock('audio'));
 
-    // Add one default text block
-    addBlock('text');
+    addBlock('text'); // Default block
 
     document.getElementById('submit-post-btn').addEventListener('click', async () => {
       const title = document.getElementById('post-title').value.trim();
       const category = document.getElementById('post-category').value;
       const description = document.getElementById('post-description').value.trim();
-      const coverUrl = document.getElementById('post-cover').value.trim();
+
+      // Handle Cover Upload
+      let coverUrl = null;
+      const coverFile = document.getElementById('post-cover-file').files[0];
+      if (coverFile) {
+        const coverFileName = `${store.user.id}/cover_${Date.now()}_${coverFile.name}`;
+        const { error: coverErr } = await supabase.storage.from('media').upload(coverFileName, coverFile);
+        if (!coverErr) {
+          coverUrl = supabase.storage.from('media').getPublicUrl(coverFileName).data.publicUrl;
+        }
+      }
 
       if (!title) return alert("Title is required.");
 
-      // Gather Blocks
       const finalBlocks = [];
       document.querySelectorAll('.builder-block').forEach(b => {
         const type = b.dataset.type;
-        const value = b.querySelector('.input').value.trim();
-        if (value) {
-          finalBlocks.push({ type, content: value });
+        const content = b.querySelector('.block-content-input').value.trim();
+        if (content) {
+          const blockData = { type, content };
+          if (type === 'text') {
+            blockData.style = b.querySelector('.block-style-select').value;
+          }
+          finalBlocks.push(blockData);
         }
       });
 
@@ -193,12 +295,10 @@ export default {
       btn.disabled = true;
 
       const { error } = await supabase.from('posts').insert({
-        title,
-        category,
-        description,
-        cover_url: coverUrl || null,
+        title, category, description,
+        cover_url: coverUrl,
         blocks: finalBlocks,
-        content: description, // Fallback for old logic
+        content: description,
         user_id: store.user.id
       });
 
@@ -225,22 +325,37 @@ export default {
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.allInteractions = interactions || [];
-
-    // ADD THIS LINE HERE:
     this.currentPosts = posts || [];
 
-    this.renderPosts(posts || []);
+    this.renderPosts(this.currentPosts);
   },
 
   renderPosts(posts) {
     const container = document.getElementById('posts-container');
     if (!container) return;
-    if (posts.length === 0) {
-      container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No Gliims published yet.</p>';
+
+    // Apply Filters
+    let filtered = posts;
+    if (this.currentFilter !== 'all') {
+      filtered = filtered.filter(p => p.category === this.currentFilter);
+    }
+    if (this.searchQuery) {
+      filtered = filtered.filter(p =>
+        p.title?.toLowerCase().includes(this.searchQuery) ||
+        p.description?.toLowerCase().includes(this.searchQuery) ||
+        p.category?.toLowerCase().includes(this.searchQuery)
+      );
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No Gliims found.</p>';
       return;
     }
 
-    container.innerHTML = posts.map(post => {
+    // Apply Grid or List Class to Container
+    container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
+
+    container.innerHTML = filtered.map(post => {
       const avatar = post.profiles?.avatar_url
         ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">`
         : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
@@ -283,9 +398,6 @@ export default {
   // READ VIEW (Modal)
   // ============================================
   openReadView(postId) {
-    // We need to fetch the specific post to get the full blocks
-    // Since we already fetched 20 posts, we can find it in memory if we store it, but for simplicity, let's just use the data we have or fetch it.
-    // To avoid a network request, let's modify fetchPosts to store the posts.
     const post = this.currentPosts.find(p => p.id === postId);
     if (!post) return;
 
@@ -300,9 +412,14 @@ export default {
     let blocksHtml = '';
     if (post.blocks && post.blocks.length > 0) {
       blocksHtml = post.blocks.map(b => {
-        if (b.type === 'text') return `<p class="read-block-text">${b.content}</p>`;
+        if (b.type === 'text') {
+          if (b.style === 'title') return `<h2 class="read-block-title">${b.content}</h2>`;
+          if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${b.content}</h3>`;
+          return `<p class="read-block-text">${b.content}</p>`;
+        }
         if (b.type === 'image') return `<img src="${b.content}" class="read-block-media">`;
         if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
+        if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><i class="fas fa-podcast"></i><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
         return '';
       }).join('');
     } else {
@@ -360,9 +477,8 @@ export default {
       const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
       if (data) this.allInteractions.push(data);
     }
-    // Update UI locally
-    this.fetchPosts(); // Easiest way to ensure UI is perfectly synced
-    // Also update the modal if open
+    this.renderPosts(this.currentPosts);
+
     const likeBtn = document.querySelector('.read-view-content .like-btn span');
     if (likeBtn) {
       const likes = this.allInteractions.filter(i => i.post_id === postId && i.interaction_type === 'like').length;
