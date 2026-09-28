@@ -10,21 +10,20 @@ export default {
         <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading posts...</p>
       </div>
 
-      <!-- Fixed Bottom Action Bar -->
-      <nav class="hub-bottom-nav">
-        <div class="hub-bottom-inner">
-          <button class="hub-nav-btn" id="create-post-btn" title="Create Post">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      <!-- Floating Action Button (FAB) -->
+      <div class="hub-fab-wrapper">
+        <div class="hub-fab-menu" id="hub-fab-menu" style="display: none;">
+          <button class="fab-menu-btn" id="fab-live-btn" title="Go Live">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
           </button>
-          <div class="hub-search-wrapper">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hub-search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input type="text" id="hub-search" class="hub-search-input" placeholder="Search the Hub...">
-          </div>
-          <button class="hub-nav-btn live-btn" id="live-btn" title="Go Live">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+          <button class="fab-menu-btn" id="fab-upload-btn" title="Upload Post">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
           </button>
         </div>
-      </nav>
+        <button class="hub-fab-main" id="hub-fab-main">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+      </div>
     </div>
   `,
 
@@ -34,23 +33,60 @@ export default {
       submitComment: (id) => this.submitComment(id),
       toggleLike: (id) => this.toggleLike(id),
       sharePost: (id, content) => this.sharePost(id, content),
-      supportCreator: (id, authorId) => this.openSupportModal(id, authorId)
+      supportCreator: (id, authorId) => this.openSupportModal(id, authorId),
+      toggleSavePost: (id, isSaved) => this.toggleSavePost(id, isSaved),
+      deletePost: (id) => this.deletePost(id),
+      togglePostMenu: (id) => this.togglePostMenu(id)
     };
 
+    this.setupTopbarSearch();
     this.fetchPosts();
     this.setupRealtime();
+    this.setupFab();
+  },
 
-    // Action Bar Listeners
-    document.getElementById('create-post-btn').addEventListener('click', () => this.openCreateModal());
-    document.getElementById('live-btn').addEventListener('click', () => alert('Live session starting soon!'));
+  setupTopbarSearch() {
+    const topbarDynamic = document.getElementById('topbar-dynamic-content');
+    if (topbarDynamic) {
+      topbarDynamic.innerHTML = `
+        <div class="hub-topbar-search">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="hub-search" placeholder="Search the Hub...">
+        </div>
+      `;
 
-    let searchTimer = null;
-    document.getElementById('hub-search').addEventListener('input', (e) => {
-      clearTimeout(searchTimer);
-      const query = e.target.value.trim();
-      if (query.length > 2) {
-        searchTimer = setTimeout(() => this.logSearch(query), 800);
-      }
+      let searchTimer = null;
+      document.getElementById('hub-search').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        const query = e.target.value.trim();
+        if (query.length > 2) {
+          searchTimer = setTimeout(() => this.logSearch(query), 800);
+        }
+      });
+    }
+  },
+
+  setupFab() {
+    const fabMain = document.getElementById('hub-fab-main');
+    const fabMenu = document.getElementById('hub-fab-menu');
+
+    fabMain.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fabMenu.style.display = fabMenu.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    document.addEventListener('click', () => fabMenu.style.display = 'none');
+
+    document.getElementById('fab-upload-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fabMenu.style.display = 'none';
+      this.openCreateModal();
+    });
+
+    document.getElementById('fab-live-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fabMenu.style.display = 'none';
+      alert('Live session starting soon!');
     });
   },
 
@@ -86,7 +122,6 @@ export default {
     const suggestionsBox = document.getElementById('tag-suggestions');
     this.selectedFile = null;
 
-    // Tagging Logic
     textarea.addEventListener('input', async (e) => {
       const text = e.target.value;
       const cursorPos = e.target.selectionStart;
@@ -121,7 +156,6 @@ export default {
       } else { suggestionsBox.style.display = 'none'; }
     });
 
-    // Media & PDF Upload Logic
     const fileInput = document.getElementById('media-input');
     document.getElementById('upload-media-btn').addEventListener('click', () => fileInput.click());
 
@@ -129,14 +163,12 @@ export default {
       const file = e.target.files[0];
       if (!file) return;
 
-      // PDF Validation (Max 5MB)
       if (file.type === 'application/pdf' && file.size > 5 * 1024 * 1024) {
         alert("PDF must be under 5MB.");
         fileInput.value = '';
         return;
       }
 
-      // Video Validation (Max 5 Min - requires async duration check)
       if (file.type.startsWith('video/')) {
         const video = document.createElement('video');
         video.preload = 'metadata';
@@ -158,7 +190,6 @@ export default {
       }
     });
 
-    // Submit Logic
     document.getElementById('submit-post-btn').addEventListener('click', async () => {
       const btn = document.getElementById('submit-post-btn');
       const content = document.getElementById('post-content').value.trim();
@@ -198,15 +229,17 @@ export default {
   // FETCH & RENDER POSTS
   // ============================================
   async fetchPosts() {
-    const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
+    const [{ data: posts, error }, { data: interactions }, { data: profile }, { data: savedPosts }] = await Promise.all([
       supabase.from('posts').select(`id, content, media_url, media_type, created_at, user_id, tagged_users, profiles:profiles!user_id(username, full_name, avatar_url)`).order('created_at', { ascending: false }).limit(50),
       supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount'),
-      supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single()
+      supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single(),
+      supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
     ]);
 
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.allInteractions = interactions || [];
+    this.savedPosts = new Set(savedPosts?.map(s => s.post_id) || []);
     this.renderPosts(posts || []);
   },
 
@@ -233,7 +266,6 @@ export default {
         ? `<img src="${post.profiles.avatar_url}" class="post-avatar" style="object-fit:cover;">`
         : `<div class="post-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
-      // Render Media (Image, Video, or PDF Chip)
       let mediaHtml = '';
       if (post.media_url) {
         if (post.media_type === 'image') {
@@ -241,7 +273,6 @@ export default {
         } else if (post.media_type === 'video') {
           mediaHtml = `<video src="${post.media_url}" class="post-media" controls></video>`;
         } else if (post.media_type === 'pdf') {
-          // Sleek PDF Chip
           const fileName = post.media_url.split('/').pop().replace(/^\d+_/, '');
           mediaHtml = `
             <a href="${post.media_url}" target="_blank" class="pdf-chip">
@@ -258,9 +289,25 @@ export default {
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
       const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
+      const isSaved = this.savedPosts.has(post.id);
       const trendingBadge = this.isTrending(post.id) ? '<span class="trending-badge">🔥 Trending</span>' : '';
+      const isOwnPost = post.user_id === store.user.id;
 
-      // Strict SVG Icons for Actions
+      // Post Menu (...) HTML
+      let menuHtml = `
+        <div class="post-menu-wrapper">
+          <button class="post-menu-btn" onclick="hubInstance.togglePostMenu('${post.id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+          </button>
+          <div class="post-menu-dropdown" id="menu-${post.id}" style="display: none;">
+            <div class="post-menu-item" onclick="hubInstance.toggleSavePost('${post.id}', ${isSaved})">${isSaved ? 'Unsave Post' : 'Save for Later'}</div>
+            <div class="post-menu-item" onclick="alert('Post reported.')">Report Post</div>
+            ${isOwnPost ? `<div class="post-menu-item danger" onclick="hubInstance.deletePost('${post.id}')">Delete Post</div>` : ''}
+          </div>
+        </div>
+      `;
+
+      // Ordered Actions: Share, Clap (Like), Support
       return `
         <div class="post-card" id="post-${post.id}">
           <div class="post-header">
@@ -272,6 +319,7 @@ export default {
               </div>
               <span class="post-time">${new Date(post.created_at).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'})}</span>
             </div>
+            ${menuHtml}
           </div>
 
           <div class="post-body">
@@ -280,19 +328,16 @@ export default {
           </div>
 
           <div class="post-actions-bar">
-            <button class="action-btn" onclick="hubInstance.toggleComments('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            </button>
-            <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-              <span>${likes}</span>
-            </button>
             <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', \`${(post.content || '').replace(/`/g, '\\`')}\`)">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             </button>
+            <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 11l-2 2-2-2"></path><path d="M11.5 2C6.8 2 3 5.8 3 10.5c0 2.2.9 4.2 2.4 5.7L6 19l3.5-1.5c.9.3 1.9.5 3 .5 4.7 0 8.5-3.8 8.5-8.5S16.2 2 11.5 2z"></path></svg>
+              <span>${likes}</span>
+            </button>
             <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              <span>${supports > 0 ? supports : 'Support'}</span>
+              ${supports > 0 ? `<span>${supports}</span>` : ''}
             </button>
           </div>
 
@@ -306,6 +351,40 @@ export default {
         </div>
       `;
     }).join('');
+  },
+
+  togglePostMenu(postId) {
+    const menu = document.getElementById(`menu-${postId}`);
+    const isOpen = menu.style.display === 'block';
+
+    // Close all other menus
+    document.querySelectorAll('.post-menu-dropdown').forEach(m => m.style.display = 'none');
+
+    // Toggle current menu
+    if (!isOpen) {
+      menu.style.display = 'block';
+    }
+  },
+
+  async toggleSavePost(postId, isCurrentlySaved) {
+    if (isCurrentlySaved) {
+      await supabase.from('saved_posts').delete().eq('user_id', store.user.id).eq('post_id', postId);
+      this.savedPosts.delete(postId);
+    } else {
+      await supabase.from('saved_posts').insert({ user_id: store.user.id, post_id: postId });
+      this.savedPosts.add(postId);
+    }
+    // Close menu and re-render
+    document.getElementById(`menu-${postId}`).style.display = 'none';
+    this.fetchPosts();
+  },
+
+  async deletePost(postId) {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+
+    await supabase.from('posts').delete().eq('id', postId).eq('user_id', store.user.id);
+    document.getElementById(`menu-${postId}`).style.display = 'none';
+    this.fetchPosts();
   },
 
   async toggleComments(postId) {
@@ -387,11 +466,7 @@ export default {
     supabase
       .channel('public:posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
-        const { data: profile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', payload.new.user_id).single();
-        const newPost = { ...payload.new, profiles: profile };
-        const container = document.getElementById('posts-container');
-        if (!container) return;
-        this.fetchPosts(); // Simply refetch to keep it clean and apply trending logic
+        this.fetchPosts();
       })
       .subscribe();
   }
