@@ -3,7 +3,6 @@ import { router } from './router.js';
 import { supabase } from '/shared/js/config.js';
 
 async function initApp() {
-  // 1. Auth Guard: Check if user is logged in
   const user = await store.fetchUser();
 
   if (!user) {
@@ -11,13 +10,11 @@ async function initApp() {
     return;
   }
 
-  // 2. Update UI with user data
   document.getElementById('user-name').innerText = store.profile.username;
 
-  // Fetch profile to get avatar
   const { data: profile } = await supabase
     .from('profiles')
-    .select('avatar_url')
+    .select('avatar_url, total_gp')
     .eq('id', store.user.id)
     .single();
 
@@ -25,9 +22,13 @@ async function initApp() {
     document.getElementById('user-avatar').src = profile.avatar_url;
   }
 
-  // 3. Initialize Router
+  // Show Elite Star if >= 1000 GP
+  if (profile && profile.total_gp >= 1000) {
+    document.getElementById('user-star').style.display = 'flex';
+  }
+
   window.addEventListener('hashchange', router);
-  router(); // Trigger initial route
+  router();
 }
 
 initApp();
