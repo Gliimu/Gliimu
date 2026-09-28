@@ -5,7 +5,6 @@ export default {
   title: 'Hub',
   template: `
     <div class="hub-layout">
-      <!-- Sub Header (Filter & View Toggle) -->
       <div class="hub-subheader">
         <div class="view-toggle-wrapper">
           <button class="view-toggle-btn" data-view="list" title="List View">
@@ -30,12 +29,10 @@ export default {
         </div>
       </div>
 
-      <!-- Blog Feed -->
       <div class="blog-feed" id="posts-container">
         <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading published Gliims...</p>
       </div>
 
-      <!-- Floating Action Button (FAB) -->
       <div class="hub-fab-wrapper">
         <div class="hub-fab-menu" id="hub-fab-menu" style="display: none;">
           <button class="fab-menu-btn" id="fab-live-btn" title="Go Live">
@@ -148,9 +145,6 @@ export default {
     });
   },
 
-  // ============================================
-  // GLIIM STUDIO (MAKER)
-  // ============================================
   openCreateModal() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -242,13 +236,11 @@ export default {
     });
   },
 
-  // ============================================
-  // FETCH & RENDER BLOG FEED
-  // ============================================
   async fetchPosts() {
+    // Updated to fetch full_name and avatar_url for interactions (comments)
     const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
-      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(username, full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
-      supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount, comment_text'),
+      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
+      supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount, comment_text, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single()
     ]);
     if (error) { console.error(error); return; }
@@ -273,13 +265,19 @@ export default {
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
+      // Use full_name for privacy
       return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}${star}</div><span>${post.profiles?.full_name || 'Gliimait'}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
     }).join('');
   },
 
-  // ============================================
-  // READ VIEW (Modal)
-  // ============================================
+  // Helper: Parse @tags in comments
+  parseTags(text) {
+    if (!text) return '';
+    return text.replace(/@([a-zA-Z0-9_ ]+)/g, (match, name) => {
+      return `<span class="comment-tag">${match}</span>`;
+    });
+  },
+
   openReadView(postId) {
     const post = this.currentPosts.find(p => p.id === postId);
     if (!post) return;
@@ -291,7 +289,12 @@ export default {
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
     if (postComments.length > 0) {
-      commentsHtml = postComments.map(c => `<div class="comment-item"><div class="comment-avatar">${c.profiles?.username?.charAt(0).toUpperCase() || 'G'}</div><div><span class="comment-author">${c.profiles?.username || 'Gliimait'}</span><p class="comment-text">${c.comment_text}</p></div></div>`).join('');
+      commentsHtml = postComments.map(c => {
+        // Use full_name and avatar_url for commenters
+        const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+        const parsedText = this.parseTags(c.comment_text);
+        return `<div class="comment-item">${cAvatar}<div><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${parsedText}</p></div></div>`;
+      }).join('');
     }
 
     let blocksHtml = '';
@@ -306,7 +309,6 @@ export default {
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
     const coverHtml = post.cover_url ? `<div class="read-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
 
-    // Menu Logic
     const isOwner = post.user_id === store.user.id;
     let menuHtml = `
       <div class="lib-menu-item" onclick="alert('Gliim saved!'); hubInstance.toggleHubMenu('${post.id}')">Save Gliim</div>
@@ -356,10 +358,9 @@ export default {
             </div>
           </div>
 
-          <!-- Comment Section -->
           <div class="comment-section" id="comment-box-${post.id}" style="display: none;">
             <div class="comment-input-wrapper">
-              <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment...">
+              <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
               <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </button>
@@ -402,7 +403,6 @@ export default {
 
     const post = this.currentPosts.find(p => p.id === postId);
 
-    // Insert interaction
     const { data } = await supabase.from('hub_interactions').insert({
       post_id: postId,
       user_id: store.user.id,
@@ -411,16 +411,21 @@ export default {
     }).select('*').single();
 
     if (data) {
-      data.profiles = { username: store.profile.username }; // Attach own username for UI
+      // Attach current user's real name and avatar for instant UI render
+      data.profiles = {
+        full_name: store.profile.full_name,
+        avatar_url: store.profile.avatar_url
+      };
       this.allInteractions.push(data);
 
-      // Update UI
       const list = document.getElementById(`comment-list-${postId}`);
-      list.innerHTML += `<div class="comment-item"><div class="comment-avatar">${store.profile.username.charAt(0).toUpperCase()}</div><div><span class="comment-author">${store.profile.username}</span><p class="comment-text">${text}</p></div></div>`;
+      const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${data.profiles.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+      const parsedText = this.parseTags(text);
+
+      list.innerHTML += `<div class="comment-item">${cAvatar}<div><span class="comment-author">${data.profiles.full_name}</span><p class="comment-text">${parsedText}</p></div></div>`;
       input.value = "";
     }
 
-    // Award 4 GP to Author
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
   },
 

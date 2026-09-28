@@ -115,3 +115,13 @@
 .read-body .lib-menu-btn { background: var(--bg-tertiary); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; }
 .read-body .lib-menu-btn:hover { background: var(--surface-hover); }
 .read-body .lib-menu-dropdown { bottom: 110%; top: auto; right: 0; }
+
+/* Comment Tags */
+.comment-tag {
+  color: var(--brand-primary);
+  font-weight: 600;
+  background: var(--brand-primary-light);
+  padding: 0 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}

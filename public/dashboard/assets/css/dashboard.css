@@ -50,3 +50,8 @@
   .menu-toggle { display: block; }
   body.sidebar-open .sidebar { transform: translateX(0); }
 }
+/* Sidebar Icon Alignment */
+.nav-item svg {
+  margin-right: 12px;
+  flex-shrink: 0;
+}
