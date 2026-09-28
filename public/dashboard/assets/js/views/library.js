@@ -47,12 +47,15 @@ export default {
     const container = document.getElementById('library-container');
     if (!container) return;
 
-    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }] = await Promise.all([
+    // Fetch all data needed in parallel
+    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: stats }] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
       supabase.from('profiles').select('wallet_balance, interests, subscription_expires_at').eq('id', store.user.id).single(),
-      supabase.from('content_info').select('item_id, rating, review') // Fetch all ratings for trending calc
+      supabase.from('content_info').select('item_id, rating, review'),
+      supabase.from('library_interactions').select('item_id, interaction_type, user_id, created_at'),
+      supabase.from('public_stats').select('*').single()
     ]);
 
     this.allItems = items || [];
@@ -61,6 +64,8 @@ export default {
     this.walletBalance = profile?.wallet_balance || 0;
     this.userInterests = profile?.interests ? profile.interests.toLowerCase().split(',') : [];
     this.ratings = ratings || [];
+    this.interactions = interactions || [];
+    this.totalUsers = stats?.users || 100; // Fallback to 100 to test 9% rule
 
     document.getElementById('lib-balance').innerText = this.walletBalance.toLocaleString();
     this.updateSubIndicator(profile?.subscription_expires_at);
@@ -74,7 +79,8 @@ export default {
       },
       purchase: (id) => this.purchaseItem(id),
       toggleSave: (id, isSaved) => this.toggleSave(id, isSaved),
-      rateItem: (id) => this.promptRate(id)
+      rateItem: (id) => this.promptRate(id),
+      logAction: (id, type) => this.logInteraction(id, type)
     };
 
     document.getElementById('lib-search').addEventListener('input', (e) => {
@@ -104,22 +110,38 @@ export default {
     });
   },
 
-  // Helper: Calculate Trending Score
-  calculateTrendScore(item) {
-    let score = item.sales || 0;
+  // Elite Trending Algorithm
+  isTrending(item) {
+    const itemInteractions = this.interactions.filter(i => i.item_id === item.id);
     const itemRatings = this.ratings.filter(r => r.item_id === item.id);
 
-    itemRatings.forEach(r => {
-      if (r.rating > 5) score += 20; // High rating boosts trend
-      if (r.review) {
-        const lowerReview = r.review.toLowerCase();
-        const positiveWords = ['good', 'great', 'excellent', 'amazing', 'helpful', 'elite', 'best', 'top', 'love', 'perfect', 'quality'];
-        positiveWords.forEach(w => {
-          if (lowerReview.includes(w)) score += 10; // Positive words boost trend
-        });
-      }
+    // Combine all interactions (including ratings) into a unified point system
+    let allEvents = [];
+    itemInteractions.forEach(i => allEvents.push({ user_id: i.user_id, created_at: i.created_at }));
+    itemRatings.forEach(r => allEvents.push({ user_id: r.user_id, created_at: r.created_at }));
+
+    // 1. Check 1-Day Velocity Rule (9 unique users in 1 day)
+    const oneDayAgo = new Date(Date.now() - 86400000);
+    const dailyUsers = new Set(allEvents.filter(e => new Date(e.created_at) >= oneDayAgo).map(e => e.user_id));
+    if (dailyUsers.size >= 9) return true;
+
+    // 2. Check 1-Week Consensus Rule (3 points from 9% of total users in 1 week)
+    const oneWeekAgo = new Date(Date.now() - 604800000);
+    const weekEvents = allEvents.filter(e => new Date(e.created_at) >= oneWeekAgo);
+    const weekUniqueUsers = new Set(weekEvents.map(e => e.user_id));
+    const requiredUsers = Math.max(1, Math.ceil(this.totalUsers * 0.09));
+
+    if (weekUniqueUsers.size >= requiredUsers && weekEvents.length >= 3) return true;
+
+    return false;
+  },
+
+  async logInteraction(itemId, type) {
+    await supabase.from('library_interactions').insert({
+      user_id: store.user.id,
+      item_id: itemId,
+      interaction_type: type
     });
-    return score;
   },
 
   updateSubIndicator(expiresAt) {
@@ -169,8 +191,8 @@ export default {
     }
 
     if (this.currentFilter === 'all' && !this.searchQuery) {
-      // Use new Trending Algorithm
-      const trending = [...items].sort((a, b) => this.calculateTrendScore(b) - this.calculateTrendScore(a)).slice(0, 4);
+      // Use Elite Trending Algorithm
+      const trending = items.filter(item => this.isTrending(item));
       const newToShelf = [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4);
       const forYou = items.filter(item =>
         this.userInterests.some(interest => item.title.toLowerCase().includes(interest.trim()) || item.description.toLowerCase().includes(interest.trim()))
@@ -227,7 +249,10 @@ export default {
 
     let menuActionHtml = '';
     if (isOwned) {
-      menuActionHtml = `<div class="lib-menu-item" id="rate-item-btn">Rate Item</div>`;
+      menuActionHtml = `
+        <div class="lib-menu-item" id="rate-item-btn">Rate Item</div>
+        <div class="lib-menu-item" id="share-item-btn">Share Item</div>
+      `;
     } else {
       menuActionHtml = `<div class="lib-menu-item" id="save-item-btn">${isSaved ? 'Unsave Item' : 'Save Item'}</div>`;
     }
@@ -248,7 +273,7 @@ export default {
 
           <div class="lib-action-row">
             ${isOwned
-              ? `<button class="btn-primary lib-action-btn" onclick="alert('Opening file...');">
+              ? `<button class="btn-primary lib-action-btn" id="access-content-btn">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   Access Content
                 </button>`
@@ -264,8 +289,7 @@ export default {
               </button>
               <div class="lib-menu-dropdown" id="lib-menu-dropdown">
                 ${menuActionHtml}
-                <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
-                <div class="lib-menu-item ask-me-item">
+                <div class="lib-menu-item ask-me-item" id="ask-author-btn">
                   <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar">
                   Ask Me
                 </div>
@@ -284,9 +308,25 @@ export default {
     });
 
     if (isOwned) {
+      // Log Read to End (Simulated by clicking Access Content)
+      document.getElementById('access-content-btn').addEventListener('click', () => {
+        alert('Opening file...');
+        libraryInstance.logAction(item.id, 'read_end');
+      });
+
       document.getElementById('rate-item-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         libraryInstance.rateItem(item.id);
+      });
+
+      document.getElementById('share-item-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        libraryInstance.logAction(item.id, 'share');
+        if (navigator.share) {
+          navigator.share({ title: item.title, text: item.description }).catch(() => {});
+        } else {
+          alert('Share link copied!');
+        }
       });
     } else {
       document.getElementById('save-item-btn').addEventListener('click', (e) => {
@@ -294,6 +334,13 @@ export default {
         libraryInstance.toggleSave(item.id, isSaved);
       });
     }
+
+    // Log Ask Author
+    document.getElementById('ask-author-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      libraryInstance.logAction(item.id, 'ask_author');
+      alert('Connecting you to the author...');
+    });
   },
 
   async toggleSave(itemId, isCurrentlySaved) {
