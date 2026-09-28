@@ -1,0 +1,27 @@
+/* Wallet Styles */
+.wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); }
+.balance-card { background: var(--gradient-primary); color: var(--text-inverse); padding: var(--space-8); display: flex; flex-direction: column; justify-content: center; }
+.balance-label { font-size: var(--fs-sm); opacity: 0.9; text-transform: uppercase; letter-spacing: var(--ls-widest); }
+.balance-amount { font-size: var(--fs-4xl); font-weight: var(--fw-extrabold); margin-top: var(--space-2); }
+.quick-actions-card { padding: var(--space-6); }
+.quick-actions { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-4); }
+.quick-action-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); background: var(--bg-tertiary); border-radius: var(--radius-md); cursor: pointer; }
+.quick-action-item:hover { background: var(--surface-hover); }
+.qa-icon { font-size: var(--fs-xl); }
+.transaction-list { margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.transaction-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); background: var(--bg-tertiary); }
+.tx-icon { width: 36px; height: 36px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; font-weight: var(--fw-bold); }
+.tx-topup { background: var(--success-light); color: var(--success-text); }
+.tx-spend { background: var(--error-light); color: var(--error-text); }
+.tx-pending { background: var(--warning-light); color: var(--warning-text); }
+.tx-details { flex: 1; display: flex; flex-direction: column; }
+.tx-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.tx-date { font-size: var(--fs-xs); color: var(--text-muted); }
+.tx-amount { font-size: var(--fs-md); font-weight: var(--fw-bold); }
+.amount-positive { color: var(--success); }
+.amount-negative { color: var(--error); }
+.bank-details-box { background: var(--bg-tertiary); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.bd-row { display: flex; justify-content: space-between; font-size: var(--fs-sm); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.bd-row:last-child { border-bottom: none; }
+.bd-row.highlight { color: var(--brand-primary); font-weight: var(--fw-bold); }
+@media (max-width: 768px) { .wallet-grid { grid-template-columns: 1fr; } }
