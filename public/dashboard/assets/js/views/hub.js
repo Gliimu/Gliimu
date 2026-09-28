@@ -328,11 +328,14 @@ export default {
           </div>
 
           <div class="post-actions-bar">
+            <button class="action-btn" onclick="hubInstance.toggleComments('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+            </button>
             <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', \`${(post.content || '').replace(/`/g, '\\`')}\`)">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             </button>
             <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 11l-2 2-2-2"></path><path d="M11.5 2C6.8 2 3 5.8 3 10.5c0 2.2.9 4.2 2.4 5.7L6 19l3.5-1.5c.9.3 1.9.5 3 .5 4.7 0 8.5-3.8 8.5-8.5S16.2 2 11.5 2z"></path></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 12l3 -3a2 2 0 0 1 3 3l-5 5a3 3 0 0 1 -3 0l-5 -5a2 2 0 0 1 0 -3l1 -1"></path><path d="M12 7l-3 -3a2 2 0 0 0 -3 3l3 3"></path><path d="M8 8l-2 -2a2 2 0 0 0 -3 3l3 3"></path><path d="M5 11l-2 -2a2 2 0 0 0 -3 3l3 3"></path><path d="M11 6l3 -3a2 2 0 0 1 3 3l-3 3"></path></svg>
               <span>${likes}</span>
             </button>
             <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
