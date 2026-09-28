@@ -47,11 +47,12 @@ export default {
     const container = document.getElementById('library-container');
     if (!container) return;
 
-    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }] = await Promise.all([
+    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
-      supabase.from('profiles').select('wallet_balance, interests, subscription_expires_at').eq('id', store.user.id).single()
+      supabase.from('profiles').select('wallet_balance, interests, subscription_expires_at').eq('id', store.user.id).single(),
+      supabase.from('content_info').select('item_id, rating, review') // Fetch all ratings for trending calc
     ]);
 
     this.allItems = items || [];
@@ -59,6 +60,7 @@ export default {
     this.savedItems = new Set(saved?.map(s => s.item_id) || []);
     this.walletBalance = profile?.wallet_balance || 0;
     this.userInterests = profile?.interests ? profile.interests.toLowerCase().split(',') : [];
+    this.ratings = ratings || [];
 
     document.getElementById('lib-balance').innerText = this.walletBalance.toLocaleString();
     this.updateSubIndicator(profile?.subscription_expires_at);
@@ -72,7 +74,7 @@ export default {
       },
       purchase: (id) => this.purchaseItem(id),
       toggleSave: (id, isSaved) => this.toggleSave(id, isSaved),
-      deleteItem: (id) => this.promptDelete(id)
+      rateItem: (id) => this.promptRate(id)
     };
 
     document.getElementById('lib-search').addEventListener('input', (e) => {
@@ -80,7 +82,6 @@ export default {
       this.applyFilters();
     });
 
-    // Fixed Filter Button Click (preventDefault stops SVG from stealing the click)
     document.getElementById('lib-filter-btn').addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -101,6 +102,24 @@ export default {
     document.addEventListener('click', () => {
       document.getElementById('lib-dropdown').classList.remove('active');
     });
+  },
+
+  // Helper: Calculate Trending Score
+  calculateTrendScore(item) {
+    let score = item.sales || 0;
+    const itemRatings = this.ratings.filter(r => r.item_id === item.id);
+
+    itemRatings.forEach(r => {
+      if (r.rating > 5) score += 20; // High rating boosts trend
+      if (r.review) {
+        const lowerReview = r.review.toLowerCase();
+        const positiveWords = ['good', 'great', 'excellent', 'amazing', 'helpful', 'elite', 'best', 'top', 'love', 'perfect', 'quality'];
+        positiveWords.forEach(w => {
+          if (lowerReview.includes(w)) score += 10; // Positive words boost trend
+        });
+      }
+    });
+    return score;
   },
 
   updateSubIndicator(expiresAt) {
@@ -150,7 +169,8 @@ export default {
     }
 
     if (this.currentFilter === 'all' && !this.searchQuery) {
-      const trending = [...items].sort((a, b) => (b.sales || 0) - (a.sales || 0)).slice(0, 4);
+      // Use new Trending Algorithm
+      const trending = [...items].sort((a, b) => this.calculateTrendScore(b) - this.calculateTrendScore(a)).slice(0, 4);
       const newToShelf = [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4);
       const forYou = items.filter(item =>
         this.userInterests.some(interest => item.title.toLowerCase().includes(interest.trim()) || item.description.toLowerCase().includes(interest.trim()))
@@ -186,7 +206,6 @@ export default {
     const isSaved = this.savedItems.has(item.id);
     const bg = item.cover_url ? `background-image: url('${item.cover_url}'); background-size: cover;` : `background: ${item.cover_color || item.color};`;
 
-    // Subtle Tick Icon for Owned, Bookmark for Saved
     const ownedBadge = isOwned ? '<span class="lib-tick-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : '';
     const savedBadge = (isSaved && !isOwned) ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>' : '';
 
@@ -206,10 +225,9 @@ export default {
   openDetails(item, isOwned, balance, isSaved) {
     document.querySelector('.modal-overlay')?.remove();
 
-    // Determine Menu Action
     let menuActionHtml = '';
     if (isOwned) {
-      menuActionHtml = `<div class="lib-menu-item danger" id="delete-item-btn">Delete Item</div>`;
+      menuActionHtml = `<div class="lib-menu-item" id="rate-item-btn">Rate Item</div>`;
     } else {
       menuActionHtml = `<div class="lib-menu-item" id="save-item-btn">${isSaved ? 'Unsave Item' : 'Save Item'}</div>`;
     }
@@ -266,9 +284,9 @@ export default {
     });
 
     if (isOwned) {
-      document.getElementById('delete-item-btn').addEventListener('click', (e) => {
+      document.getElementById('rate-item-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        libraryInstance.deleteItem(item.id);
+        libraryInstance.rateItem(item.id);
       });
     } else {
       document.getElementById('save-item-btn').addEventListener('click', (e) => {
@@ -292,30 +310,57 @@ export default {
     this.applyFilters();
   },
 
-  async promptDelete(itemId) {
-    const password = prompt("To permanently delete this item from your collection, please enter your password:");
-    if (!password) return; // User cancelled
-
-    // 1. Verify Password via Supabase Auth
-    const fakeEmail = `${store.profile.username}@gliimu.app`;
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
-
-    if (signInError) {
-      return alert("Incorrect password. Deletion cancelled.");
-    }
-
-    // 2. Delete from Database
-    const { error: deleteError } = await supabase.from('purchases').delete().eq('user_id', store.user.id).eq('item_id', itemId);
-
-    if (deleteError) {
-      return alert("Error deleting item from database.");
-    }
-
-    // 3. Update Local State & UI
-    this.ownedItems.delete(itemId);
-    alert("Item successfully deleted from your collection.");
+  promptRate(itemId) {
     document.querySelector('.modal-overlay')?.remove();
-    this.applyFilters();
+    const item = this.allItems.find(i => i.id == itemId);
+    if (!item) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content lib-modal-content">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <div class="lib-modal-body">
+          <span class="lib-modal-type">Feedback</span>
+          <h2>Rate: ${item.title}</h2>
+          <p class="lib-modal-author">Your feedback helps us identify trending content.</p>
+
+          <div class="form-group" style="margin-top: 24px;">
+            <label>How good is this content? (1 - 10)</label>
+            <input type="number" id="rate-score" class="input" min="1" max="10" placeholder="e.g. 8">
+          </div>
+          <div class="form-group">
+            <label>Review (Max 50 words)</label>
+            <textarea id="rate-review" class="input" rows="3" maxlength="300" placeholder="Share your thoughts..."></textarea>
+          </div>
+          <button class="btn-primary" style="width: 100%;" id="submit-rate-btn">Submit Rating</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('submit-rate-btn').addEventListener('click', async () => {
+      const score = parseInt(document.getElementById('rate-score').value);
+      const review = document.getElementById('rate-review').value.trim();
+
+      if (!score || score < 1 || score > 10) return alert("Please enter a score between 1 and 10.");
+
+      const { error } = await supabase.from('content_info').insert({
+        user_id: store.user.id,
+        item_id: item.id,
+        rating: score,
+        review: review
+      });
+
+      if (error) {
+        if (error.code === '23505') return alert("You have already rated this item.");
+        return alert("Error submitting rating: " + error.message);
+      }
+
+      alert("Thank you for your rating!");
+      modal.remove();
+      this.init(); // Reload to update trending scores
+    });
   },
 
   async purchaseItem(itemId) {
