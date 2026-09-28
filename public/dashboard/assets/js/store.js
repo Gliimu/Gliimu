@@ -1,4 +1,3 @@
-// FIXED: Added an extra ../ to escape the dashboard folder
 import { supabase } from '/shared/js/config.js';
 
 export const store = {
@@ -10,11 +9,13 @@ export const store = {
     this.user = user;
 
     if (user) {
-      // Extract data from the metadata we saved during signup
-      this.profile = {
-        username: user.user_metadata?.username || 'Gliimait',
-        full_name: user.user_metadata?.full_name || 'User',
-      };
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, full_name, avatar_url, total_gp')
+        .eq('id', user.id)
+        .single();
+
+      this.profile = profile || { username: 'Gliimait', full_name: 'User', total_gp: 0 };
     }
 
     return this.user;
