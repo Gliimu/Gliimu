@@ -54,22 +54,7 @@ export default {
       supabase.from('profiles').select('wallet_balance, interests, subscription_expires_at').eq('id', store.user.id).single()
     ]);
 
-    // Rich Mock Data
-    this.allItems = [
-      { id: '1', type: 'bundle', title: 'Ultimate Media Kit', author: 'Gliimu Ltd', price: 15000, cover_color: 'linear-gradient(135deg, #F97316, #F59E0B)', description: 'All the tools, presets, and templates you need to launch your media empire.', created_at: new Date().toISOString(), sales: 120 },
-      { id: '2', type: 'publication', title: 'Business Services Playbook', author: 'Captain A.', price: 7500, cover_color: 'linear-gradient(135deg, #10B981, #06B6D4)', description: 'A comprehensive guide to structuring your freelance business for high-ticket clients.', created_at: new Date().toISOString(), sales: 85 },
-      { id: '3', type: 'audiolite', title: 'Mindset of an Elite Gliimait', author: 'Captain B.', price: 5000, cover_color: 'linear-gradient(135deg, #3B82F6, #8B5CF6)', description: 'Audio series on building the mental resilience required for independent success.', created_at: new Date().toISOString(), sales: 200 },
-      { id: '4', type: 'publication', title: 'Elite Freelancing Guide', author: 'Gliimu Ltd', price: 6000, cover_color: 'linear-gradient(135deg, #F59E0B, #EF4444)', description: 'How to find, pitch, and close premium clients globally.', created_at: new Date(Date.now() - 86400000).toISOString(), sales: 50 },
-      { id: '5', type: 'bundle', title: 'Full Stack Media Architecture', author: 'Gliimu Originals', price: 12000, cover_color: 'linear-gradient(135deg, #6366F1, #8B5CF6)', description: 'The complete blueprint for building media empires from scratch.', created_at: new Date(Date.now() - 172800000).toISOString(), sales: 300 },
-      { id: '6', type: 'audiolite', title: 'Creative Flow States', author: 'Captain C.', price: 3000, cover_color: 'linear-gradient(135deg, #0F172A, #334155)', description: 'Audio guides for entering deep work and creative flow.', created_at: new Date(Date.now() - 259200000).toISOString(), sales: 15 },
-      { id: '7', type: 'publication', title: 'Cinematic LUT Pack', author: 'Captain D.', price: 8000, cover_color: 'linear-gradient(135deg, #EC4899, #8B5CF6)', description: 'Hollywood-grade color grading presets for your video projects.', created_at: new Date().toISOString(), sales: 90 },
-      { id: '8', type: 'audiolite', title: 'Client Acquisition Audio', author: 'Captain A.', price: 4000, cover_color: 'linear-gradient(135deg, #14B8A6, #06B6D4)', description: 'Listen to real cold calls and pitch breakdowns.', created_at: new Date().toISOString(), sales: 45 },
-      { id: '9', type: 'bundle', title: 'UI/UX Wireframe Kit', author: 'Gliimu Ltd', price: 10000, cover_color: 'linear-gradient(135deg, #6366F1, #3B82F6)', description: 'Steal my exact Figma wireframes for client web projects.', created_at: new Date(Date.now() - 300000000).toISOString(), sales: 150 },
-      { id: '10', type: 'publication', title: 'The 1B Naira Mindset', author: 'Gliimu', price: 5000, cover_color: 'linear-gradient(135deg, #F59E0B, #F97316)', description: 'Reprogramming your brain for premium value.', created_at: new Date().toISOString(), sales: 210 },
-      { id: '11', type: 'audiolite', title: 'Audio Mixing Presets', author: 'Captain E.', price: 3500, cover_color: 'linear-gradient(135deg, #334155, #0F172A)', description: 'Studio-grade EQ and compression presets for podcasts.', created_at: new Date().toISOString(), sales: 60 },
-      { id: '12', type: 'bundle', title: 'Legal Contract Templates', author: 'Gliimu Ltd', price: 9000, cover_color: 'linear-gradient(135deg, #10B981, #14B8A6)', description: 'Never get scammed. Protect your payments with these lawyer-approved templates.', created_at: new Date().toISOString(), sales: 180 }
-    ];
-
+    this.allItems = items || [];
     this.ownedItems = new Set(purchases?.map(p => p.item_id) || []);
     this.savedItems = new Set(saved?.map(s => s.item_id) || []);
     this.walletBalance = profile?.wallet_balance || 0;
@@ -137,7 +122,6 @@ export default {
     let filtered = this.allItems;
 
     if (this.currentFilter === 'owned') {
-      // My Collections: Shows UNLOCKED (owned) items AND SAVED items
       filtered = filtered.filter(item => this.ownedItems.has(item.id) || this.savedItems.has(item.id));
     } else if (this.currentFilter !== 'all') {
       filtered = filtered.filter(item => item.type === this.currentFilter);
@@ -271,14 +255,12 @@ export default {
   },
 
   async toggleSave(itemId, isCurrentlySaved) {
-    const isMockData = itemId.length < 10; // Mock IDs are '1', '2', etc.
-
     if (isCurrentlySaved) {
-      if (!isMockData) await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('item_id', itemId);
+      await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('item_id', itemId);
       this.savedItems.delete(itemId);
       alert("Item removed from collections.");
     } else {
-      if (!isMockData) await supabase.from('saved_items').insert({ user_id: store.user.id, item_id: itemId });
+      await supabase.from('saved_items').insert({ user_id: store.user.id, item_id: itemId });
       this.savedItems.add(itemId);
       alert("Item saved to your collections! You can view it in 'My Collections'.");
     }
@@ -296,24 +278,22 @@ export default {
 
     const earnedPoints = Math.round(item.price / 1000);
     const newBalance = this.walletBalance - item.price;
-    const isMockData = itemId.length < 10;
 
-    if (!isMockData) {
-      const { error: walletError } = await supabase.from('profiles')
-        .update({ wallet_balance: newBalance })
-        .eq('id', store.user.id);
-      if (walletError) return alert("Error processing payment.");
+    const { error: walletError } = await supabase.from('profiles')
+      .update({ wallet_balance: newBalance })
+      .eq('id', store.user.id);
 
-      await supabase.from('purchases').insert({ user_id: store.user.id, item_id: item.id });
-      await supabase.from('transactions').insert({
-        user_id: store.user.id,
-        amount: -item.price,
-        type: 'purchase',
-        status: 'success',
-        description: `Library Unlock: ${item.title}`,
-        points: earnedPoints
-      });
-    }
+    if (walletError) return alert("Error processing payment.");
+
+    await supabase.from('purchases').insert({ user_id: store.user.id, item_id: item.id });
+    await supabase.from('transactions').insert({
+      user_id: store.user.id,
+      amount: -item.price,
+      type: 'purchase',
+      status: 'success',
+      description: `Library Unlock: ${item.title}`,
+      points: earnedPoints
+    });
 
     this.ownedItems.add(item.id);
     this.walletBalance = newBalance;
