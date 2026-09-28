@@ -5,9 +5,9 @@ export default {
   title: 'Hub',
   template: `
     <div class="hub-layout">
-      <!-- Live Feed -->
-      <div class="live-feed" id="posts-container">
-        <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading posts...</p>
+      <!-- Blog Feed -->
+      <div class="blog-feed" id="posts-container">
+        <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading published Gliims...</p>
       </div>
 
       <!-- Floating Action Button (FAB) -->
@@ -16,8 +16,8 @@ export default {
           <button class="fab-menu-btn" id="fab-live-btn" title="Go Live">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
           </button>
-          <button class="fab-menu-btn" id="fab-upload-btn" title="Upload Post">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+          <button class="fab-menu-btn" id="fab-upload-btn" title="Publish Gliim">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
           </button>
         </div>
         <button class="hub-fab-main" id="hub-fab-main">
@@ -29,14 +29,10 @@ export default {
 
   init() {
     window.hubInstance = {
-      toggleComments: (id) => this.toggleComments(id),
-      submitComment: (id) => this.submitComment(id),
+      openReadView: (id) => this.openReadView(id),
       toggleLike: (id) => this.toggleLike(id),
-      sharePost: (id, content) => this.sharePost(id, content),
-      supportCreator: (id, authorId) => this.openSupportModal(id, authorId),
-      toggleSavePost: (id, isSaved) => this.toggleSavePost(id, isSaved),
-      deletePost: (id) => this.deletePost(id),
-      togglePostMenu: (id) => this.togglePostMenu(id)
+      sharePost: (id, title) => this.sharePost(id, title),
+      supportCreator: (id, authorId) => this.openSupportModal(id, authorId)
     };
 
     this.setupTopbarSearch();
@@ -54,15 +50,6 @@ export default {
           <input type="text" id="hub-search" placeholder="Search the Hub...">
         </div>
       `;
-
-      let searchTimer = null;
-      document.getElementById('hub-search').addEventListener('input', (e) => {
-        clearTimeout(searchTimer);
-        const query = e.target.value.trim();
-        if (query.length > 2) {
-          searchTimer = setTimeout(() => this.logSearch(query), 800);
-        }
-      });
     }
   },
 
@@ -91,326 +78,273 @@ export default {
   },
 
   // ============================================
-  // CREATE POST MODAL & TAGGING SYSTEM
+  // GLIIM BUILDER MODAL
   // ============================================
   openCreateModal() {
-    this.taggedUsers = [];
+    this.postBlocks = []; // Reset blocks
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-      <div class="modal-content">
+      <div class="modal-content gliim-builder">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <h2 style="margin-bottom: 16px;">Create Post</h2>
-        <textarea id="post-content" class="input" style="min-height: 100px; resize: vertical; border-color: var(--border);" placeholder="What's happening? Use @ to tag someone..."></textarea>
+        <h2 style="margin-bottom: 24px;">Publish a Gliim</h2>
 
-        <div id="tag-suggestions" class="tag-suggestions" style="display: none;"></div>
-
-        <input type="file" id="media-input" accept="image/*,video/*,application/pdf" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;">
-          <button class="btn-icon" id="upload-media-btn" title="Attach Media (Img, Vid, PDF)">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-          </button>
-          <div id="file-name" style="font-size: 12px; color: var(--text-muted); flex: 1; margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
-          <button id="submit-post-btn" class="btn-primary" style="width: auto; padding: 10px 28px;">Post</button>
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="post-title" class="input" placeholder="An elite headline...">
         </div>
+
+        <div class="form-row" style="gap: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label>Category</label>
+            <select id="post-category" class="input">
+              <option>Media</option>
+              <option>Tech</option>
+              <option>Business</option>
+              <option>Personal</option>
+              <option>Education</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 2;">
+            <label>Description (SEO Summary)</label>
+            <input type="text" id="post-description" class="input" placeholder="Brief summary...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Cover Image URL (Optional)</label>
+          <input type="text" id="post-cover" class="input" placeholder="https://image-url...">
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
+
+        <h3 style="margin-bottom: 16px;">Content Blocks</h3>
+        <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
+
+        <div class="builder-toolbar">
+          <button class="btn-secondary" id="add-text-block">+ Text</button>
+          <button class="btn-secondary" id="add-image-block">+ Image URL</button>
+          <button class="btn-secondary" id="add-video-block">+ Video URL</button>
+        </div>
+
+        <button id="submit-post-btn" class="btn-primary" style="width: 100%; margin-top: 32px;">Publish Gliim</button>
       </div>
     `;
     document.body.appendChild(modal);
 
-    const textarea = document.getElementById('post-content');
-    const suggestionsBox = document.getElementById('tag-suggestions');
-    this.selectedFile = null;
+    const blocksContainer = document.getElementById('blocks-container');
 
-    textarea.addEventListener('input', async (e) => {
-      const text = e.target.value;
-      const cursorPos = e.target.selectionStart;
-      const textBeforeCursor = text.substring(0, cursorPos);
-      const atMatch = textBeforeCursor.match(/@(\w+)$/);
+    const addBlock = (type) => {
+      const id = Date.now();
+      const blockDiv = document.createElement('div');
+      blockDiv.className = 'builder-block';
+      blockDiv.dataset.id = id;
+      blockDiv.dataset.type = type;
 
-      if (atMatch) {
-        const query = atMatch[1];
-        const { data: users } = await supabase.from('profiles').select('id, full_name, avatar_url').ilike('full_name', `%${query}%`).limit(5);
-
-        if (users && users.length > 0) {
-          suggestionsBox.style.display = 'block';
-          suggestionsBox.innerHTML = users.map(u => `
-            <div class="tag-suggestion-item" data-id="${u.id}" data-name="${u.full_name}">
-              ${u.avatar_url ? `<img src="${u.avatar_url}" class="tag-avatar">` : `<div class="tag-avatar">${u.full_name.charAt(0)}</div>`}
-              <span>${u.full_name}</span>
-            </div>
-          `).join('');
-
-          document.querySelectorAll('.tag-suggestion-item').forEach(item => {
-            item.addEventListener('click', () => {
-              const id = item.dataset.id;
-              const name = item.dataset.name;
-              if (!this.taggedUsers.some(u => u.id === id)) this.taggedUsers.push(id);
-              const newText = text.substring(0, cursorPos - query.length - 1) + `@${name} ` + text.substring(cursorPos);
-              textarea.value = newText;
-              suggestionsBox.style.display = 'none';
-              textarea.focus();
-            });
-          });
-        } else { suggestionsBox.style.display = 'none'; }
-      } else { suggestionsBox.style.display = 'none'; }
-    });
-
-    const fileInput = document.getElementById('media-input');
-    document.getElementById('upload-media-btn').addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      if (file.type === 'application/pdf' && file.size > 5 * 1024 * 1024) {
-        alert("PDF must be under 5MB.");
-        fileInput.value = '';
-        return;
+      let inputHtml = '';
+      if (type === 'text') {
+        inputHtml = `<textarea class="input" placeholder="Write your text..." rows="4"></textarea>`;
+      } else if (type === 'image') {
+        inputHtml = `<input type="text" class="input" placeholder="Paste Image URL...">`;
+      } else if (type === 'video') {
+        inputHtml = `<input type="text" class="input" placeholder="Paste Video URL...">`;
       }
 
-      if (file.type.startsWith('video/')) {
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.onloadedmetadata = () => {
-          if (video.duration > 300) {
-            alert("Video must be under 5 minutes.");
-            this.selectedFile = null;
-            document.getElementById('file-name').innerText = '';
-          } else {
-            this.selectedFile = file;
-            document.getElementById('file-name').innerText = file.name;
-          }
-          URL.revokeObjectURL(video.src);
-        };
-        video.src = URL.createObjectURL(file);
-      } else {
-        this.selectedFile = file;
-        document.getElementById('file-name').innerText = file.name;
-      }
-    });
+      blockDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span class="block-label">${type.toUpperCase()}</span>
+          <button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">Remove</button>
+        </div>
+        ${inputHtml}
+      `;
+      blocksContainer.appendChild(blockDiv);
+    };
+
+    document.getElementById('add-text-block').addEventListener('click', () => addBlock('text'));
+    document.getElementById('add-image-block').addEventListener('click', () => addBlock('image'));
+    document.getElementById('add-video-block').addEventListener('click', () => addBlock('video'));
+
+    // Add one default text block
+    addBlock('text');
 
     document.getElementById('submit-post-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('submit-post-btn');
-      const content = document.getElementById('post-content').value.trim();
-      if (!content && !this.selectedFile) return alert("Post cannot be empty.");
+      const title = document.getElementById('post-title').value.trim();
+      const category = document.getElementById('post-category').value;
+      const description = document.getElementById('post-description').value.trim();
+      const coverUrl = document.getElementById('post-cover').value.trim();
 
-      btn.innerText = "Posting...";
-      btn.disabled = true;
+      if (!title) return alert("Title is required.");
 
-      let mediaUrl = null, mediaType = null;
-      if (this.selectedFile) {
-        if (this.selectedFile.type.startsWith('image/')) mediaType = 'image';
-        else if (this.selectedFile.type.startsWith('video/')) mediaType = 'video';
-        else if (this.selectedFile.type === 'application/pdf') mediaType = 'pdf';
-
-        const fileName = `${store.user.id}/${Date.now()}_${this.selectedFile.name}`;
-        const { error: upErr } = await supabase.storage.from('avatars').upload(fileName, this.selectedFile);
-        if (!upErr) {
-          const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-          mediaUrl = data.publicUrl;
+      // Gather Blocks
+      const finalBlocks = [];
+      document.querySelectorAll('.builder-block').forEach(b => {
+        const type = b.dataset.type;
+        const value = b.querySelector('.input').value.trim();
+        if (value) {
+          finalBlocks.push({ type, content: value });
         }
-      }
-
-      const { error } = await supabase.from('posts').insert({
-        content, user_id: store.user.id, media_url: mediaUrl, media_type: mediaType, tagged_users: this.taggedUsers
       });
 
-      if (error) alert("Failed: " + error.message);
-      modal.remove();
+      if (finalBlocks.length === 0 && !coverUrl) return alert("Add some content blocks.");
+
+      const btn = document.getElementById('submit-post-btn');
+      btn.innerText = "Publishing...";
+      btn.disabled = true;
+
+      const { error } = await supabase.from('posts').insert({
+        title,
+        category,
+        description,
+        cover_url: coverUrl || null,
+        blocks: finalBlocks,
+        content: description, // Fallback for old logic
+        user_id: store.user.id
+      });
+
+      if (error) {
+        alert("Failed: " + error.message);
+        btn.innerText = "Publish Gliim";
+        btn.disabled = false;
+      } else {
+        modal.remove();
+      }
     });
   },
 
-  async logSearch(keyword) {
-    await supabase.from('user_history_data').insert({ user_id: store.user.id, keyword: keyword.toLowerCase() });
-  },
-
   // ============================================
-  // FETCH & RENDER POSTS
+  // FETCH & RENDER BLOG FEED
   // ============================================
   async fetchPosts() {
-    const [{ data: posts, error }, { data: interactions }, { data: profile }, { data: savedPosts }] = await Promise.all([
-      supabase.from('posts').select(`id, content, media_url, media_type, created_at, user_id, tagged_users, profiles:profiles!user_id(username, full_name, avatar_url)`).order('created_at', { ascending: false }).limit(50),
+    const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
+      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(username, full_name, avatar_url)`).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount'),
-      supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single(),
-      supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
+      supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single()
     ]);
 
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.allInteractions = interactions || [];
-    this.savedPosts = new Set(savedPosts?.map(s => s.post_id) || []);
     this.renderPosts(posts || []);
-  },
-
-  isTrending(postId) {
-    const postInteractions = this.allInteractions.filter(i => i.post_id === postId);
-    const oneDayAgo = new Date(Date.now() - 86400000);
-    const dailyInteractions = postInteractions.filter(i => new Date(i.created_at) >= oneDayAgo);
-    const points = dailyInteractions.length;
-    const uniqueUsers = new Set(dailyInteractions.map(i => i.user_id)).size;
-    if (points >= 3 && (uniqueUsers >= 21 || uniqueUsers >= 9)) return true;
-    return false;
   },
 
   renderPosts(posts) {
     const container = document.getElementById('posts-container');
     if (!container) return;
     if (posts.length === 0) {
-      container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No posts yet.</p>';
+      container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No Gliims published yet.</p>';
       return;
     }
 
     container.innerHTML = posts.map(post => {
       const avatar = post.profiles?.avatar_url
-        ? `<img src="${post.profiles.avatar_url}" class="post-avatar" style="object-fit:cover;">`
-        : `<div class="post-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-
-      let mediaHtml = '';
-      if (post.media_url) {
-        if (post.media_type === 'image') {
-          mediaHtml = `<img src="${post.media_url}" class="post-media">`;
-        } else if (post.media_type === 'video') {
-          mediaHtml = `<video src="${post.media_url}" class="post-media" controls></video>`;
-        } else if (post.media_type === 'pdf') {
-          const fileName = post.media_url.split('/').pop().replace(/^\d+_/, '');
-          mediaHtml = `
-            <a href="${post.media_url}" target="_blank" class="pdf-chip">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-              <div class="pdf-info">
-                <span class="pdf-title">${fileName}</span>
-                <span class="pdf-subtitle">PDF Document</span>
-              </div>
-            </a>
-          `;
-        }
-      }
+        ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">`
+        : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
-      const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
+      const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
-      const isSaved = this.savedPosts.has(post.id);
-      const trendingBadge = this.isTrending(post.id) ? '<span class="trending-badge">🔥 Trending</span>' : '';
-      const isOwnPost = post.user_id === store.user.id;
 
-      // Post Menu (...) HTML
-      let menuHtml = `
-        <div class="post-menu-wrapper">
-          <button class="post-menu-btn" onclick="hubInstance.togglePostMenu('${post.id}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-          </button>
-          <div class="post-menu-dropdown" id="menu-${post.id}" style="display: none;">
-            <div class="post-menu-item" onclick="hubInstance.toggleSavePost('${post.id}', ${isSaved})">${isSaved ? 'Unsave Post' : 'Save for Later'}</div>
-            <div class="post-menu-item" onclick="alert('Post reported.')">Report Post</div>
-            ${isOwnPost ? `<div class="post-menu-item danger" onclick="hubInstance.deletePost('${post.id}')">Delete Post</div>` : ''}
-          </div>
-        </div>
-      `;
+      const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
 
-      // Ordered Actions: Share, Clap (Like), Support
       return `
-        <div class="post-card" id="post-${post.id}">
-          <div class="post-header">
-            ${avatar}
-            <div class="post-meta">
-              <div class="post-author-row">
-                <span class="post-username">${post.profiles?.full_name || 'Gliimait'}</span>
-                ${trendingBadge}
+        <article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">
+          ${coverHtml}
+          <div class="blog-content">
+            <div class="blog-meta">
+              <span class="blog-category">${post.category || 'General'}</span>
+              <span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>
+            </div>
+            <h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2>
+            <p class="blog-desc">${post.description || ''}</p>
+
+            <div class="blog-footer">
+              <div class="blog-author">
+                ${avatar}
+                <span>${post.profiles?.full_name || 'Gliimait'}</span>
               </div>
-              <span class="post-time">${new Date(post.created_at).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'})}</span>
-            </div>
-            ${menuHtml}
-          </div>
-
-          <div class="post-body">
-            <p class="post-text">${post.content || ''}</p>
-            ${mediaHtml}
-          </div>
-
-          <div class="post-actions-bar">
-            <button class="action-btn" onclick="hubInstance.toggleComments('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-            </button>
-            <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', \`${(post.content || '').replace(/`/g, '\\`')}\`)">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-            </button>
-            <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-              <img src="/icons/gliim.svg" alt="Clap" class="action-icon-img" style="width:18px; height:18px;">
-              <span>${likes}</span>
-            </button>
-            <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              ${supports > 0 ? `<span>${supports}</span>` : ''}
-            </button>
-          </div>
-
-          <div class="comments-section" id="comments-${post.id}" style="display: none;">
-            <div class="existing-comments" id="existing-comments-${post.id}"></div>
-            <div class="new-comment-box">
-              <input type="text" class="input" placeholder="Write a comment..." id="comment-input-${post.id}">
-              <button class="btn-primary" onclick="hubInstance.submitComment('${post.id}')">Reply</button>
+              <div class="blog-stats">
+                <span>${likes} Claps</span>
+                <span>${comments} Comments</span>
+                ${supports > 0 ? `<span>${supports} Supports</span>` : ''}
+              </div>
             </div>
           </div>
-        </div>
+        </article>
       `;
     }).join('');
   },
 
-  togglePostMenu(postId) {
-    const menu = document.getElementById(`menu-${postId}`);
-    const isOpen = menu.style.display === 'block';
+  // ============================================
+  // READ VIEW (Modal)
+  // ============================================
+  openReadView(postId) {
+    // We need to fetch the specific post to get the full blocks
+    // Since we already fetched 20 posts, we can find it in memory if we store it, but for simplicity, let's just use the data we have or fetch it.
+    // To avoid a network request, let's modify fetchPosts to store the posts.
+    const post = this.currentPosts.find(p => p.id === postId);
+    if (!post) return;
 
-    // Close all other menus
-    document.querySelectorAll('.post-menu-dropdown').forEach(m => m.style.display = 'none');
+    const avatar = post.profiles?.avatar_url
+      ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">`
+      : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
-    // Toggle current menu
-    if (!isOpen) {
-      menu.style.display = 'block';
-    }
-  },
+    const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
+    const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
+    const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
 
-  async toggleSavePost(postId, isCurrentlySaved) {
-    if (isCurrentlySaved) {
-      await supabase.from('saved_posts').delete().eq('user_id', store.user.id).eq('post_id', postId);
-      this.savedPosts.delete(postId);
+    let blocksHtml = '';
+    if (post.blocks && post.blocks.length > 0) {
+      blocksHtml = post.blocks.map(b => {
+        if (b.type === 'text') return `<p class="read-block-text">${b.content}</p>`;
+        if (b.type === 'image') return `<img src="${b.content}" class="read-block-media">`;
+        if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
+        return '';
+      }).join('');
     } else {
-      await supabase.from('saved_posts').insert({ user_id: store.user.id, post_id: postId });
-      this.savedPosts.add(postId);
+      blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`;
     }
-    // Close menu and re-render
-    document.getElementById(`menu-${postId}`).style.display = 'none';
-    this.fetchPosts();
-  },
 
-  async deletePost(postId) {
-    if (!confirm("Are you sure you want to delete this post?")) return;
+    const coverHtml = post.cover_url ? `<div class="read-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
 
-    await supabase.from('posts').delete().eq('id', postId).eq('user_id', store.user.id);
-    document.getElementById(`menu-${postId}`).style.display = 'none';
-    this.fetchPosts();
-  },
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay read-view-overlay';
+    modal.innerHTML = `
+      <div class="modal-content read-view-content">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
 
-  async toggleComments(postId) {
-    const section = document.getElementById(`comments-${postId}`);
-    if (section.style.display === 'none') {
-      section.style.display = 'block';
-      this.logInteraction(postId, 'view');
-      const { data: comments } = await supabase.from('comments').select('content, profiles:profiles!user_id(username, avatar_url)').eq('post_id', postId).order('created_at', { ascending: true });
-      const commentsEl = document.getElementById(`existing-comments-${postId}`);
-      if (comments && comments.length > 0) {
-        commentsEl.innerHTML = comments.map(c => `<div class="comment-item"><div class="comment-avatar">${c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">` : '💬'}</div><div><span class="comment-author">@${c.profiles?.username || 'gliimait'}</span><p class="comment-text">${c.content}</p></div></div>`).join('');
-      } else { commentsEl.innerHTML = '<p style="font-size: var(--fs-xs); color: var(--text-muted);">No comments yet.</p>'; }
-    } else { section.style.display = 'none'; }
-  },
+        ${coverHtml}
 
-  async submitComment(postId) {
-    const input = document.getElementById(`comment-input-${postId}`);
-    const content = input.value.trim();
-    if (!content) return;
-    await supabase.from('comments').insert({ post_id: postId, user_id: store.user.id, content });
-    this.logInteraction(postId, 'comment');
-    input.value = "";
-    this.toggleComments(postId); this.toggleComments(postId);
+        <div class="read-body">
+          <span class="blog-category">${post.category || 'General'}</span>
+          <h1 class="read-title">${post.title || 'Untitled Gliim'}</h1>
+
+          <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+            ${avatar}
+            <div>
+              <span style="font-weight: 700; color: var(--text-primary);">${post.profiles?.full_name || 'Gliimait'}</span><br>
+              <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          ${blocksHtml}
+
+          <div class="post-actions-bar" style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px;">
+            <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+              <img src="/icons/gliim.svg" alt="Clap" class="action-icon-img" style="width:18px; height:18px;">
+              <span>${likes}</span>
+            </button>
+            <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            </button>
+            <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
   },
 
   async toggleLike(postId) {
@@ -422,16 +356,22 @@ export default {
       const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
       if (data) this.allInteractions.push(data);
     }
-    const post = this.allInteractions.filter(i => i.post_id === postId && i.interaction_type === 'like');
-    const btn = document.querySelector(`#post-${postId} .like-btn span`);
-    const btnParent = document.querySelector(`#post-${postId} .like-btn`);
-    if (btn) btn.innerText = post.length;
-    if (btnParent) btnParent.classList.toggle('liked', !existingLike);
+    // Update UI locally
+    this.fetchPosts(); // Easiest way to ensure UI is perfectly synced
+    // Also update the modal if open
+    const likeBtn = document.querySelector('.read-view-content .like-btn span');
+    if (likeBtn) {
+      const likes = this.allInteractions.filter(i => i.post_id === postId && i.interaction_type === 'like').length;
+      likeBtn.innerText = likes;
+      const btnParent = document.querySelector('.read-view-content .like-btn');
+      const hasLiked = this.allInteractions.some(i => i.post_id === postId && i.user_id === store.user.id && i.interaction_type === 'like');
+      if (btnParent) btnParent.classList.toggle('liked', hasLiked);
+    }
   },
 
-  async sharePost(postId, content) {
+  sharePost(postId, title) {
     this.logInteraction(postId, 'share');
-    if (navigator.share) { navigator.share({ title: 'Gliimu Post', text: content, url: window.location.href }).catch(() => {}); } else { alert("Share link copied."); }
+    if (navigator.share) { navigator.share({ title: title || 'Gliimu Post', url: window.location.href }).catch(() => {}); } else { alert("Share link copied."); }
   },
 
   openSupportModal(postId, authorId) {
