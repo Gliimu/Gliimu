@@ -271,12 +271,14 @@ export default {
   },
 
   async toggleSave(itemId, isCurrentlySaved) {
+    const isMockData = itemId.length < 10; // Mock IDs are '1', '2', etc.
+
     if (isCurrentlySaved) {
-      await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('item_id', itemId);
+      if (!isMockData) await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('item_id', itemId);
       this.savedItems.delete(itemId);
       alert("Item removed from collections.");
     } else {
-      await supabase.from('saved_items').insert({ user_id: store.user.id, item_id: itemId });
+      if (!isMockData) await supabase.from('saved_items').insert({ user_id: store.user.id, item_id: itemId });
       this.savedItems.add(itemId);
       alert("Item saved to your collections! You can view it in 'My Collections'.");
     }
@@ -294,21 +296,15 @@ export default {
 
     const earnedPoints = Math.round(item.price / 1000);
     const newBalance = this.walletBalance - item.price;
-    const { error: walletError } = await supabase.from('profiles')
-      .update({ wallet_balance: newBalance })
-      .eq('id', store.user.id);
+    const isMockData = itemId.length < 10;
 
-    if (walletError) return alert("Error processing payment.");
+    if (!isMockData) {
+      const { error: walletError } = await supabase.from('profiles')
+        .update({ wallet_balance: newBalance })
+        .eq('id', store.user.id);
+      if (walletError) return alert("Error processing payment.");
 
-    // 1. Record Purchase (Wrapped in try/catch because mock data IDs might be rejected by DB foreign keys)
-    try {
       await supabase.from('purchases').insert({ user_id: store.user.id, item_id: item.id });
-    } catch (e) {
-      console.log("Mock data purchase saved locally only.");
-    }
-
-    // 2. Record Transaction
-    try {
       await supabase.from('transactions').insert({
         user_id: store.user.id,
         amount: -item.price,
@@ -317,16 +313,13 @@ export default {
         description: `Library Unlock: ${item.title}`,
         points: earnedPoints
       });
-    } catch (e) {
-      console.log("Mock data transaction saved locally only.");
     }
 
-    // 3. Manually add to local ownedItems set so it instantly shows in "My Collections"
     this.ownedItems.add(item.id);
     this.walletBalance = newBalance;
 
     alert(`Purchase successful! You earned ${earnedPoints} GP.`);
     document.querySelector('.modal-overlay')?.remove();
-    this.init(); // Reload library
+    this.init();
   }
 };
