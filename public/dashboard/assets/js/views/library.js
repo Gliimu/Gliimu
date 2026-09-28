@@ -251,6 +251,10 @@ export default {
       return alert("Insufficient funds. Please top up your wallet.");
     }
 
+    // 1. Calculate GP Points (Price / 1000)
+    const earnedPoints = Math.round(item.price / 1000);
+
+    // 2. Deduct Wallet
     const newBalance = this.walletBalance - item.price;
     const { error: walletError } = await supabase.from('profiles')
       .update({ wallet_balance: newBalance })
@@ -258,10 +262,20 @@ export default {
 
     if (walletError) return alert("Error processing payment.");
 
+    // 3. Record Purchase
     await supabase.from('purchases').insert({ user_id: store.user.id, item_id: item.id });
-    await supabase.from('transactions').insert({ user_id: store.user.id, amount: -item.price, type: 'purchase', status: 'success', description: `Library: ${item.title}` });
 
-    alert("Purchase successful! You now own this item.");
+    // 4. Record Transaction with Points
+    await supabase.from('transactions').insert({
+      user_id: store.user.id,
+      amount: -item.price,
+      type: 'purchase',
+      status: 'success',
+      description: `Library: ${item.title}`,
+      points: earnedPoints // Saving the points!
+    });
+
+    alert(`Purchase successful! You earned ${earnedPoints} GP.`);
     document.querySelector('.modal-overlay')?.remove();
     this.init(); // Reload library
   }
