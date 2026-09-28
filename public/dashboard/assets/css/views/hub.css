@@ -49,3 +49,22 @@
 .like-btn.liked { color: var(--error); }
 .like-btn.liked span { font-weight: 800; }
 .support-btn:hover { color: var(--gold); }
+
+/* Hub Action Bar */
+.hub-action-bar { display: flex; gap: 12px; margin-bottom: 24px; align-items: center; background: var(--surface); padding: 12px; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.hub-action-btn { background: var(--bg-tertiary); border: none; width: 44px; height: 44px; border-radius: 12px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; flex-shrink: 0; }
+.hub-action-btn:hover { background: var(--brand-primary-light); color: var(--brand-primary); }
+.hub-action-btn.live-btn { width: auto; padding: 0 16px; gap: 8px; color: var(--error); font-weight: 700; font-size: 14px; }
+.hub-action-btn.live-btn:hover { background: var(--error-light); }
+.hub-search-wrapper { position: relative; flex: 1; }
+.hub-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; pointer-events: none; }
+.hub-search-input { width: 100%; padding: 12px 16px 12px 44px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-tertiary); font-size: 14px; font-weight: 500; color: var(--text-primary); transition: all 0.2s ease; }
+.hub-search-input:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-primary-soft); background: var(--surface); }
+
+/* Tagging Suggestions */
+.tag-suggestions { margin-top: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); overflow: hidden; max-height: 200px; overflow-y: auto; }
+.tag-suggestion-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.2s; }
+.tag-suggestion-item:last-child { border-bottom: none; }
+.tag-suggestion-item:hover { background: var(--bg-tertiary); }
+.tag-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--brand-primary-light); color: var(--brand-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; object-fit: cover; }
+.tag-suggestion-item span { font-size: 14px; font-weight: 500; color: var(--text-primary); }
