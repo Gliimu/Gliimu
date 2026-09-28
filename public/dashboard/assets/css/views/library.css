@@ -27,33 +27,78 @@
 
 /* Controls (Search Left, Dropdown Right) */
 .lib-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
-.lib-search-input { max-width: 300px; flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-size: 14px; color: var(--text-primary); }
-.lib-search-input:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-primary-soft); }
 
-.lib-dropdown {
-  padding: 12px 16px;
+.lib-search-wrapper { position: relative; flex: 1; max-width: 400px; }
+.lib-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; }
+.lib-search-input {
+  width: 100%;
+  padding: 14px 16px 14px 44px; /* Extra left padding for icon */
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--bg-tertiary); /* More obvious darker background */
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary);
-  cursor: pointer;
-  font-family: var(--font-sans);
 }
-.lib-dropdown:focus { outline: none; border-color: var(--brand-primary); }
+.lib-search-input::placeholder { color: var(--text-secondary); font-weight: 400; }
+.lib-search-input:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-primary-soft); background: var(--surface); }
+
+.lib-filter-wrapper { position: relative; }
+.lib-filter-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.lib-filter-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+.lib-dropdown-menu {
+  position: absolute;
+  top: 110%;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  min-width: 180px;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+.lib-dropdown-menu.active { opacity: 1; visibility: visible; transform: translateY(0); }
+.lib-dropdown-item {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.lib-dropdown-item:last-child { border-bottom: none; }
+.lib-dropdown-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.lib-dropdown-item.active { color: var(--brand-primary); background: var(--brand-primary-light); font-weight: 600; }
 
 /* Subtle Section Titles */
 .lib-section { margin-bottom: 48px; }
 .lib-section-title { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; opacity: 0.8; }
 
-/* Perfect Pinterest Masonry (Adjusted Sizes) */
+/* Perfect Pinterest Masonry (Strict Geometry) */
 .lib-masonry-grid {
   display: grid;
-  /* +12% width: changed from 120px to 135px */
-  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
-  grid-auto-rows: 8px;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Base width ~120px */
+  grid-auto-rows: 8px; /* Base height unit */
+  gap: 12px;
 }
 
 .lib-card { border-radius: 10px; overflow: hidden; position: relative; cursor: pointer; border: 1px solid var(--border); box-shadow: var(--shadow-sm); transition: transform 0.2s ease, box-shadow 0.2s ease; }
@@ -61,26 +106,46 @@
 .lib-card:hover .lib-overlay { opacity: 1; }
 
 /*
-  Size Math:
-  Base width ~135px. 8px rows.
-  Audiolite (Square): 135x135 -> ~17 rows. Let's use 16.
-  Bundle (Wide Square): 2 cols (270px) x 135px -> 16 rows.
-  Publication (Tall Rect): -36% height. Was 20 rows (160px). 160 * 0.64 = 102px. 102px / 8px = 13 rows. Let's use 14 rows to keep it slightly taller than wide.
+  Strict Sizing Math:
+  1 col = 120px.
+  Audiolite (Square): 120x120 -> 15 rows (120/8).
+  Bundle (Horizontal): 2 cols (240px) x 120px -> 15 rows.
+  Publication (Vertical): 120px wide x 180px tall -> 23 rows.
 */
-.lib-publication { grid-column: span 1; grid-row: span 14; }
-.lib-audiolite { grid-column: span 1; grid-row: span 16; }
-.lib-bundle { grid-column: span 2; grid-row: span 16; }
+.lib-audiolite { grid-column: span 1; grid-row: span 15; }
+.lib-bundle { grid-column: span 2; grid-row: span 15; }
+.lib-publication { grid-column: span 1; grid-row: span 23; }
 
 .lib-thumb { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
-.lib-type { position: absolute; top: 6px; left: 6px; background: rgba(0, 0, 0, 0.6); color: white; padding: 2px 6px; border-radius: 20px; font-size: 8px; font-weight: bold; text-transform: uppercase; backdrop-filter: blur(4px); }
-.lib-owned-badge { position: absolute; top: 6px; right: 6px; background: var(--success); color: white; padding: 2px 6px; border-radius: 20px; font-size: 8px; font-weight: bold; text-transform: uppercase; }
-.lib-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; align-items: flex-end; padding: 10px; opacity: 0; transition: opacity 0.2s ease; }
-.lib-overlay h4 { color: white; font-size: 12px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.lib-owned-badge { position: absolute; top: 8px; right: 8px; background: var(--success); color: white; padding: 3px 8px; border-radius: 20px; font-size: 9px; font-weight: bold; text-transform: uppercase; z-index: 2; }
+.lib-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; align-items: flex-end; padding: 12px; opacity: 0; transition: opacity 0.2s ease; z-index: 1; }
+.lib-overlay h4 { color: white; font-size: 13px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 
 .lib-modal-header { height: 120px; border-radius: 16px 16px 0 0; position: relative; margin: -24px -24px 0 -24px; }
 .lib-purchase-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; }
 
+/* Ensure Modal Close Button is perfect */
+.modal-content .modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-content .modal-close:hover { background: rgba(0,0,0,0.8); }
+
+/* Responsive Grid */
 @media (max-width: 768px) {
-  .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
   .lib-bundle { grid-column: span 2; }
 }

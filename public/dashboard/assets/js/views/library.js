@@ -17,14 +17,22 @@ export default {
       </div>
 
       <div class="lib-controls">
-        <input type="text" id="lib-search" class="lib-search-input" placeholder="Search library...">
-        <select id="lib-filter" class="lib-dropdown">
-          <option value="all">All Contents</option>
-          <option value="owned">My Collections</option>
-          <option value="bundle">Bundles</option>
-          <option value="publication">Publications</option>
-          <option value="audiolite">Audiolites</option>
-        </select>
+        <div class="lib-search-wrapper">
+          <i class="fas fa-search lib-search-icon"></i>
+          <input type="text" id="lib-search" class="lib-search-input" placeholder="Search for elite contents...">
+        </div>
+        <div class="lib-filter-wrapper">
+          <button class="lib-filter-btn" id="lib-filter-btn">
+            <i class="fas fa-sliders-h"></i>
+          </button>
+          <div class="lib-dropdown-menu" id="lib-dropdown">
+            <div class="lib-dropdown-item active" data-filter="all">All Contents</div>
+            <div class="lib-dropdown-item" data-filter="owned">My Collections</div>
+            <div class="lib-dropdown-item" data-filter="bundle">Bundles</div>
+            <div class="lib-dropdown-item" data-filter="publication">Publications</div>
+            <div class="lib-dropdown-item" data-filter="audiolite">Audiolites</div>
+          </div>
+        </div>
       </div>
 
       <div id="library-content">
@@ -65,7 +73,6 @@ export default {
     this.walletBalance = profile?.wallet_balance || 0;
     this.userInterests = profile?.interests ? profile.interests.toLowerCase().split(',') : [];
 
-    // Update Header UI
     document.getElementById('lib-balance').innerText = this.walletBalance.toLocaleString();
     this.updateSubIndicator(profile?.subscription_expires_at);
 
@@ -85,9 +92,24 @@ export default {
       this.applyFilters();
     });
 
-    document.getElementById('lib-filter').addEventListener('change', (e) => {
-      this.currentFilter = e.target.value;
-      this.applyFilters();
+    document.getElementById('lib-filter-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('lib-dropdown').classList.toggle('active');
+    });
+
+    document.querySelectorAll('.lib-dropdown-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.lib-dropdown-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        this.currentFilter = item.dataset.filter;
+        document.getElementById('lib-dropdown').classList.remove('active');
+        this.applyFilters();
+      });
+    });
+
+    // Close dropdown if clicked outside
+    document.addEventListener('click', () => {
+      document.getElementById('lib-dropdown').classList.remove('active');
     });
   },
 
@@ -178,10 +200,10 @@ export default {
   renderCard(item) {
     const isOwned = this.ownedItems.has(item.id);
     const bg = item.cover_url ? `background-image: url('${item.cover_url}'); background-size: cover;` : `background: ${item.cover_color || item.color};`;
+    // Removed text badge, kept Owned badge
     return `
       <div class="lib-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
         <div class="lib-thumb" style="${bg}">
-          <span class="lib-type">${item.type}</span>
           ${isOwned ? '<span class="lib-owned-badge">Owned</span>' : ''}
         </div>
         <div class="lib-overlay">
@@ -197,9 +219,7 @@ export default {
     modal.innerHTML = `
       <div class="modal-content">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <div class="lib-modal-header" style="background: ${item.cover_color || item.color};">
-          <span class="lib-type">${item.type}</span>
-        </div>
+        <div class="lib-modal-header" style="background: ${item.cover_color || item.color};"></div>
         <div style="padding: 24px;">
           <h2 style="margin-bottom: 8px; font-size: 24px;">${item.title}</h2>
           <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 14px;">by ${item.author || 'Gliimu Originals'}</p>
