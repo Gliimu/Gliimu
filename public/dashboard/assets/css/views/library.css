@@ -212,3 +212,25 @@
   .lib-bundle { grid-column: span 2; grid-row: span 2; }
   .lib-publication { grid-column: span 1; grid-row: span 3; }
 }
+
+/* Fix Filter SVG stealing clicks */
+.lib-filter-btn svg { pointer-events: none; }
+.lib-menu-btn svg { pointer-events: none; }
+
+/* Subtle Tick Badge for Owned Items */
+.lib-tick-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.6);
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* Danger color for Delete Item */
+.lib-menu-item.danger { color: var(--error); }
+.lib-menu-item.danger:hover { background: var(--error-light); color: var(--error); }

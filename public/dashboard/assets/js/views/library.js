@@ -71,7 +71,8 @@ export default {
         if (item) this.openDetails(item, this.ownedItems.has(item.id), this.walletBalance, this.savedItems.has(item.id));
       },
       purchase: (id) => this.purchaseItem(id),
-      toggleSave: (id, isSaved) => this.toggleSave(id, isSaved)
+      toggleSave: (id, isSaved) => this.toggleSave(id, isSaved),
+      deleteItem: (id) => this.promptDelete(id)
     };
 
     document.getElementById('lib-search').addEventListener('input', (e) => {
@@ -79,13 +80,16 @@ export default {
       this.applyFilters();
     });
 
+    // Fixed Filter Button Click (preventDefault stops SVG from stealing the click)
     document.getElementById('lib-filter-btn').addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       document.getElementById('lib-dropdown').classList.toggle('active');
     });
 
     document.querySelectorAll('.lib-dropdown-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
         document.querySelectorAll('.lib-dropdown-item').forEach(i => i.classList.remove('active'));
         item.classList.add('active');
         this.currentFilter = item.dataset.filter;
@@ -181,11 +185,16 @@ export default {
     const isOwned = this.ownedItems.has(item.id);
     const isSaved = this.savedItems.has(item.id);
     const bg = item.cover_url ? `background-image: url('${item.cover_url}'); background-size: cover;` : `background: ${item.cover_color || item.color};`;
+
+    // Subtle Tick Icon for Owned, Bookmark for Saved
+    const ownedBadge = isOwned ? '<span class="lib-tick-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : '';
+    const savedBadge = (isSaved && !isOwned) ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>' : '';
+
     return `
       <div class="lib-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
         <div class="lib-thumb" style="${bg}">
-          ${isOwned ? '<span class="lib-owned-badge">Owned</span>' : ''}
-          ${isSaved && !isOwned ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>' : ''}
+          ${ownedBadge}
+          ${savedBadge}
         </div>
         <div class="lib-overlay">
           <h4>${item.title}</h4>
@@ -196,6 +205,14 @@ export default {
 
   openDetails(item, isOwned, balance, isSaved) {
     document.querySelector('.modal-overlay')?.remove();
+
+    // Determine Menu Action
+    let menuActionHtml = '';
+    if (isOwned) {
+      menuActionHtml = `<div class="lib-menu-item danger" id="delete-item-btn">Delete Item</div>`;
+    } else {
+      menuActionHtml = `<div class="lib-menu-item" id="save-item-btn">${isSaved ? 'Unsave Item' : 'Save Item'}</div>`;
+    }
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -228,9 +245,7 @@ export default {
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
               </button>
               <div class="lib-menu-dropdown" id="lib-menu-dropdown">
-                <div class="lib-menu-item" id="save-item-btn">
-                  ${isSaved ? 'Unsave Item' : 'Save Item'}
-                </div>
+                ${menuActionHtml}
                 <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
                 <div class="lib-menu-item ask-me-item">
                   <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar">
@@ -245,13 +260,22 @@ export default {
     document.body.appendChild(modal);
 
     document.getElementById('lib-menu-toggle').addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       document.getElementById('lib-menu-dropdown').classList.toggle('active');
     });
 
-    document.getElementById('save-item-btn').addEventListener('click', () => {
-      libraryInstance.toggleSave(item.id, isSaved);
-    });
+    if (isOwned) {
+      document.getElementById('delete-item-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        libraryInstance.deleteItem(item.id);
+      });
+    } else {
+      document.getElementById('save-item-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        libraryInstance.toggleSave(item.id, isSaved);
+      });
+    }
   },
 
   async toggleSave(itemId, isCurrentlySaved) {
@@ -264,6 +288,32 @@ export default {
       this.savedItems.add(itemId);
       alert("Item saved to your collections! You can view it in 'My Collections'.");
     }
+    document.querySelector('.modal-overlay')?.remove();
+    this.applyFilters();
+  },
+
+  async promptDelete(itemId) {
+    const password = prompt("To permanently delete this item from your collection, please enter your password:");
+    if (!password) return; // User cancelled
+
+    // 1. Verify Password via Supabase Auth
+    const fakeEmail = `${store.profile.username}@gliimu.app`;
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+
+    if (signInError) {
+      return alert("Incorrect password. Deletion cancelled.");
+    }
+
+    // 2. Delete from Database
+    const { error: deleteError } = await supabase.from('purchases').delete().eq('user_id', store.user.id).eq('item_id', itemId);
+
+    if (deleteError) {
+      return alert("Error deleting item from database.");
+    }
+
+    // 3. Update Local State & UI
+    this.ownedItems.delete(itemId);
+    alert("Item successfully deleted from your collection.");
     document.querySelector('.modal-overlay')?.remove();
     this.applyFilters();
   },
