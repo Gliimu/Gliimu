@@ -9,23 +9,18 @@ export default {
     </div>
   `,
   async init() {
-    this.currentFilter = 'week'; // Default filter
+    this.currentFilter = 'week';
     await this.fetchData();
     this.render();
   },
 
   async fetchData() {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('wallet_balance')
-      .eq('id', store.user.id)
-      .single();
+    const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
+    const { data: transactions } = await supabase.from('transactions').select('*').eq('user_id', store.user.id).order('created_at', { ascending: false });
 
-    const { data: transactions } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', store.user.id)
-      .order('created_at', { ascending: false });
+    // Fetch Leaderboard to calculate Rank
+    const { data: leaderboard } = await supabase.from('leaderboard').select('*');
+    this.myRank = leaderboard ? leaderboard.findIndex(l => l.user_id === store.user.id) + 1 : 'N/A';
 
     this.balance = profile?.wallet_balance || 0;
     this.allTransactions = transactions || [];
@@ -35,7 +30,6 @@ export default {
     const container = document.getElementById('wallet-container');
     if (!container) return;
 
-    // Calculate Activity Summary based on filter
     const summary = this.calculateSummary();
 
     container.innerHTML = `
@@ -60,9 +54,11 @@ export default {
 
           <div class="activity-stats">
             <div class="stat-item">
-              <div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+              <div class="stat-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
               <div class="stat-info">
-                <span class="stat-value">₦${summary.expenses.toLocaleString()}</span>
+                <span class="stat-value">${summary.expenses.toLocaleString()}</span>
                 <span class="stat-label">Total Expenses</span>
               </div>
             </div>
@@ -73,8 +69,12 @@ export default {
                 <span class="stat-value-small">${summary.unlocks}</span>
               </div>
               <div class="stat-item-small">
-                <span class="stat-label">Supports</span>
+                <span class="stat-label">Hub Supports</span>
                 <span class="stat-value-small">${summary.supports}</span>
+              </div>
+              <div class="stat-item-small">
+                <span class="stat-label">Rank</span>
+                <span class="stat-value-small">#${this.myRank}</span>
               </div>
             </div>
 
@@ -85,8 +85,8 @@ export default {
           </div>
 
           <div class="prize-info">
-            <strong>Top 7 GP Earners Win Monthly:</strong>
-            <span>1st: ₦100k + Sub | 2-4: ₦20k + Sub | 5-7: ₦10k</span>
+            <strong>Only Top 3 GP Earners Win Monthly:</strong>
+            <span>1st: ₦100k + Sub | 2nd: ₦20k + Sub | 3rd: ₦10k</span>
           </div>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default {
                 <div class="tx-right">
                   ${tx.points > 0 ? `<span class="tx-points">+${tx.points} GP</span>` : ''}
                   <span class="tx-amount ${tx.type === 'topup' ? 'amount-positive' : 'amount-negative'}">
-                    ${tx.type === 'topup' ? '+' : '-'}₦${Math.abs(tx.amount).toLocaleString()}
+                    ${tx.type === 'topup' ? '+' : '-'}${Math.abs(tx.amount).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -161,7 +161,7 @@ export default {
         <h2 style="margin-bottom: var(--space-4);">Fund Wallet</h2>
 
         <div class="form-group">
-          <label>Enter Amount (₦)</label>
+          <label>Enter Amount</label>
           <input type="number" id="topup-amount" class="input" placeholder="e.g. 5000" min="100">
         </div>
 
@@ -190,7 +190,7 @@ export default {
 
     document.getElementById('generate-details-btn').addEventListener('click', () => {
       const amount = parseInt(document.getElementById('topup-amount').value);
-      if (!amount || amount < 100) return alert("Please enter a valid amount (min ₦100).");
+      if (!amount || amount < 100) return alert("Please enter a valid amount (min 100).");
 
       const banks = [
         { name: 'Opay', acct: '7058929080' },
@@ -209,7 +209,6 @@ export default {
       document.getElementById('generate-details-btn').style.display = 'none';
     });
 
-    // Fixed Duplicate Click Logic
     document.getElementById('confirm-sent-btn').addEventListener('click', async (e) => {
       const btn = e.target;
       btn.innerText = 'Logging...';
