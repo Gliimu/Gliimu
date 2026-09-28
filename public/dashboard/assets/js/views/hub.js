@@ -11,9 +11,9 @@ export default {
         <input type="file" id="media-input" accept="image/*,video/*" style="display: none;">
         <div class="post-actions">
           <div style="display: flex; gap: var(--space-3); align-items: center;">
-          <button id="upload-media-btn" class="btn-icon" title="Attach Image/Video">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-          </button>
+            <button id="upload-media-btn" class="btn-icon" title="Attach Image/Video">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </button>
             <span id="file-name" style="font-size: var(--fs-xs); color: var(--text-muted);"></span>
           </div>
           <button id="submit-post-btn" class="btn-primary">Post Update</button>
@@ -33,12 +33,12 @@ export default {
   `,
 
   init() {
-    // Expose methods to window for inline onclick handlers
     window.hubInstance = {
       toggleComments: (id) => this.toggleComments(id),
       submitComment: (id) => this.submitComment(id),
-      toggleLike: (id, likes) => this.toggleLike(id, likes),
-      sharePost: (id, content) => this.sharePost(id, content)
+      toggleLike: (id) => this.toggleLike(id),
+      sharePost: (id, content) => this.sharePost(id, content),
+      supportCreator: (id, authorId) => this.openSupportModal(id, authorId)
     };
 
     this.selectedFile = null;
@@ -89,14 +89,33 @@ export default {
   },
 
   async fetchPosts() {
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`id, content, media_url, media_type, likes, created_at, user_id, profiles:profiles!user_id(username, full_name, avatar_url)`)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    // Fetch Posts, Interactions, Comments Count, and User Wallet in parallel
+    const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
+      supabase.from('posts').select(`id, content, media_url, media_type, created_at, user_id, profiles:profiles!user_id(username, full_name, avatar_url)`).order('created_at', { ascending: false }).limit(50),
+      supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount'),
+      supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single()
+    ]);
 
     if (error) { console.error(error); return; }
-    this.renderPosts(data);
+
+    this.userBalance = profile?.wallet_balance || 0;
+    this.allInteractions = interactions || [];
+
+    // Calculate likes and trending status for each post
+    this.renderPosts(posts || []);
+  },
+
+  isTrending(postId) {
+    const postInteractions = this.allInteractions.filter(i => i.post_id === postId);
+    const oneDayAgo = new Date(Date.now() - 86400000);
+    const dailyInteractions = postInteractions.filter(i => new Date(i.created_at) >= oneDayAgo);
+
+    const points = dailyInteractions.length;
+    const uniqueUsers = new Set(dailyInteractions.map(i => i.user_id)).size;
+
+    // 3 points from 21 users OR 9% of total users (mock 100 for now) in 1 day
+    if (points >= 3 && (uniqueUsers >= 21 || uniqueUsers >= 9)) return true;
+    return false;
   },
 
   renderPosts(posts) {
@@ -114,9 +133,17 @@ export default {
 
       const mediaHtml = post.media_url ? (
         post.media_type === 'image'
-          ? `<img src="${post.media_url}" class="post-media" style="max-height: 400px; object-fit: contain; background: var(--bg-tertiary);">`
-          : `<video src="${post.media_url}" class="post-media" style="max-height: 400px; object-fit: contain; background: black;" controls></video>`
+          ? `<img src="${post.media_url}" class="post-media">`
+          : `<video src="${post.media_url}" class="post-media" controls></video>`
       ) : '';
+
+      // Calculate Likes
+      const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
+      const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
+
+      // Calculate Supports
+      const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
+      const trendingBadge = this.isTrending(post.id) ? '<span class="trending-badge">🔥 Trending</span>' : '';
 
       return `
         <div class="post-item" id="post-${post.id}">
@@ -126,13 +153,15 @@ export default {
               <span class="post-username">${post.profiles?.full_name || 'Gliimait'}</span>
               <span class="post-handle">@${post.profiles?.username || 'gliimait'}</span>
               <span class="post-time">· ${new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+              ${trendingBadge}
             </div>
             <p class="post-text">${post.content || ''}</p>
             ${mediaHtml}
             <div class="post-actions-bar">
               <button class="action-btn" onclick="hubInstance.toggleComments('${post.id}')">💬</button>
-              <button class="action-btn like-btn" onclick="hubInstance.toggleLike('${post.id}', ${post.likes})">❤️ <span>${post.likes}</span></button>
+              <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">❤️ <span>${likes}</span></button>
               <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', \`${(post.content || '').replace(/`/g, '\\`')}\`)">↗️</button>
+              <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">⚡ <span>${supports > 0 ? supports : 'Support'}</span></button>
             </div>
             <div class="comments-section" id="comments-${post.id}" style="display: none;">
               <div class="existing-comments" id="existing-comments-${post.id}"></div>
@@ -151,6 +180,10 @@ export default {
     const section = document.getElementById(`comments-${postId}`);
     if (section.style.display === 'none') {
       section.style.display = 'block';
+
+      // Log View Interaction (since they expanded to read comments)
+      this.logInteraction(postId, 'view');
+
       const { data: comments } = await supabase
         .from('comments')
         .select('content, profiles:profiles!user_id(username, avatar_url)')
@@ -182,24 +215,121 @@ export default {
     if (!content) return;
 
     await supabase.from('comments').insert({ post_id: postId, user_id: store.user.id, content });
+
+    // Log Comment Interaction
+    this.logInteraction(postId, 'comment');
+
     input.value = "";
     this.toggleComments(postId);
     this.toggleComments(postId);
   },
 
-  async toggleLike(postId, currentLikes) {
-    await supabase.from('posts').update({ likes: currentLikes + 1 }).eq('id', postId);
+  async toggleLike(postId) {
+    const existingLike = this.allInteractions.find(i => i.post_id === postId && i.user_id === store.user.id && i.interaction_type === 'like');
+
+    if (existingLike) {
+      await supabase.from('hub_interactions').delete().eq('id', existingLike.id);
+      this.allInteractions = this.allInteractions.filter(i => i.id !== existingLike.id);
+    } else {
+      const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
+      if (data) this.allInteractions.push(data);
+    }
+
+    // Update UI locally without refetching everything
+    const post = this.allInteractions.filter(i => i.post_id === postId && i.interaction_type === 'like');
     const btn = document.querySelector(`#post-${postId} .like-btn span`);
-    if (btn) btn.innerText = currentLikes + 1;
+    const btnParent = document.querySelector(`#post-${postId} .like-btn`);
+    if (btn) btn.innerText = post.length;
+    if (btnParent) btnParent.classList.toggle('liked', !existingLike);
   },
 
-  sharePost(postId, content) {
+  async sharePost(postId, content) {
+    // Log Share Interaction
+    this.logInteraction(postId, 'share');
     if (navigator.share) {
-      navigator.share({ title: 'Gliimu Post', text: content, url: window.location.href })
-        .catch(err => console.log('Share cancelled'));
+      navigator.share({ title: 'Gliimu Post', text: content, url: window.location.href }).catch(() => {});
     } else {
-      alert("Sharing not supported. Copy URL.");
+      alert("Share link copied.");
     }
+  },
+
+  openSupportModal(postId, authorId) {
+    if (authorId === store.user.id) return alert("You cannot support yourself!");
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <h2 style="margin-bottom: 16px;">Support Creator</h2>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 24px;">Your wallet balance: ₦${this.userBalance.toLocaleString()}</p>
+
+        <div class="form-group">
+          <label>Enter Amount (₦)</label>
+          <input type="number" id="support-amount" class="input" placeholder="e.g. 1000" min="100">
+        </div>
+        <button id="confirm-support-btn" class="btn-primary" style="width: 100%;">Send Support</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('confirm-support-btn').addEventListener('click', async (e) => {
+      const btn = e.target;
+      btn.innerText = 'Processing...';
+      btn.disabled = true;
+
+      const amount = parseInt(document.getElementById('support-amount').value);
+      if (!amount || amount < 100) {
+        alert("Minimum support is ₦100.");
+        btn.innerText = 'Send Support';
+        btn.disabled = false;
+        return;
+      }
+
+      if (this.userBalance < amount) {
+        alert("Insufficient funds. Please top up your wallet.");
+        btn.innerText = 'Send Support';
+        btn.disabled = false;
+        return;
+      }
+
+      // 1. Deduct from Supporter
+      const newBalance = this.userBalance - amount;
+      await supabase.from('profiles').update({ wallet_balance: newBalance }).eq('id', store.user.id);
+      this.userBalance = newBalance;
+
+      // 2. Add to Author
+      await supabase.rpc('increment_wallet', { user_id: authorId, amount: amount });
+
+      // 3. Log Transaction (Earn GP: 1000 = 1 GP. For now, flat Math.round(amount/1000))
+      const earnedPoints = Math.round(amount / 1000);
+      await supabase.from('transactions').insert({
+        user_id: store.user.id,
+        amount: -amount,
+        type: 'support',
+        status: 'success',
+        description: `Hub Support`,
+        points: earnedPoints
+      });
+
+      // 4. Log Interaction for Trending
+      this.logInteraction(postId, 'support', amount);
+
+      alert(`Supported successfully! You earned ${earnedPoints} GP.`);
+      modal.remove();
+      this.fetchPosts(); // Refresh to update support count
+    });
+  },
+
+  async logInteraction(postId, type, amount = 0) {
+    const { data } = await supabase.from('hub_interactions').insert({
+      post_id: postId,
+      user_id: store.user.id,
+      interaction_type: type,
+      amount: amount
+    }).select('*').single();
+
+    if (data) this.allInteractions.push(data);
   },
 
   setupRealtime() {
@@ -233,8 +363,9 @@ export default {
               <p class="post-text">${newPost.content || ''}</p>
               <div class="post-actions-bar">
                 <button class="action-btn" onclick="hubInstance.toggleComments('${newPost.id}')">💬</button>
-                <button class="action-btn like-btn" onclick="hubInstance.toggleLike('${newPost.id}', 0)">❤️ <span>0</span></button>
+                <button class="action-btn like-btn" onclick="hubInstance.toggleLike('${newPost.id}')">❤️ <span>0</span></button>
                 <button class="action-btn" onclick="hubInstance.sharePost('${newPost.id}', \`${(newPost.content || '').replace(/`/g, '\\`')}\`)">↗️</button>
+                <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${newPost.id}', '${newPost.user_id}')">⚡ <span>Support</span></button>
               </div>
             </div>
           </div>`;
