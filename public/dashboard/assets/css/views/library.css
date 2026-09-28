@@ -5,8 +5,13 @@
 .library-header p { color: var(--text-secondary); font-size: var(--fs-sm); }
 .subscription-badge { background: var(--gradient-success); color: var(--text-inverse); padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); font-size: var(--fs-xs); font-weight: var(--fw-bold); text-transform: uppercase; }
 
-.library-search-bar { margin-bottom: 32px; }
-.lib-search-input { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-size: 14px; color: var(--text-primary); }
+/* Controls (Search + Tabs) */
+.lib-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+.lib-filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.lib-tab { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-secondary); transition: all 0.2s ease; }
+.lib-tab:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.lib-tab.active { background: var(--brand-primary); color: white; border-color: var(--brand-primary); }
+.lib-search-input { max-width: 250px; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-size: 14px; color: var(--text-primary); }
 .lib-search-input:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-primary-soft); }
 
 .lib-section { margin-bottom: 48px; }
@@ -30,4 +35,7 @@
 .lib-modal-header { height: 120px; border-radius: 16px 16px 0 0; position: relative; margin: -24px -24px 0 -24px; }
 .lib-purchase-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; }
 
-@media (max-width: 768px) { .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } .lib-bundle { grid-column: span 1; } }
+@media (max-width: 768px) {
+  .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .lib-bundle { grid-column: span 1; }
+}
