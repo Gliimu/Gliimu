@@ -5,31 +5,26 @@ export default {
   title: 'Hub',
   template: `
     <div class="hub-layout">
-      <!-- New Action Bar -->
-      <div class="hub-action-bar">
-        <button class="hub-action-btn" id="create-post-btn" title="Create Post">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        </button>
-        <button class="hub-action-btn live-btn" id="live-btn" title="Go Live">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-          <span>Live</span>
-        </button>
-        <div class="hub-search-wrapper">
-          <i class="fas fa-search hub-search-icon"></i>
-          <input type="text" id="hub-search" class="hub-search-input" placeholder="Search the Hub...">
-        </div>
+      <!-- Live Feed -->
+      <div class="live-feed" id="posts-container">
+        <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading posts...</p>
       </div>
 
-      <!-- Live Feed -->
-      <div class="card live-feed">
-        <div class="feed-header">
-          <h3>Live Hub Feed</h3>
-          <div class="pulse-dot"></div>
+      <!-- Fixed Bottom Action Bar -->
+      <nav class="hub-bottom-nav">
+        <div class="hub-bottom-inner">
+          <button class="hub-nav-btn" id="create-post-btn" title="Create Post">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <div class="hub-search-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hub-search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="hub-search" class="hub-search-input" placeholder="Search the Hub...">
+          </div>
+          <button class="hub-nav-btn live-btn" id="live-btn" title="Go Live">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+          </button>
         </div>
-        <div id="posts-container">
-          <p style="color: var(--text-muted); text-align: center;">Loading posts...</p>
-        </div>
-      </div>
+      </nav>
     </div>
   `,
 
@@ -63,7 +58,7 @@ export default {
   // CREATE POST MODAL & TAGGING SYSTEM
   // ============================================
   openCreateModal() {
-    this.taggedUsers = []; // Reset tagged users array
+    this.taggedUsers = [];
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -71,18 +66,17 @@ export default {
       <div class="modal-content">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
         <h2 style="margin-bottom: 16px;">Create Post</h2>
-        <textarea id="post-content" class="input" style="min-height: 100px; resize: vertical;" placeholder="What's happening? Use @ to tag someone..."></textarea>
+        <textarea id="post-content" class="input" style="min-height: 100px; resize: vertical; border-color: var(--border);" placeholder="What's happening? Use @ to tag someone..."></textarea>
 
-        <!-- Tag Suggestions Dropdown -->
         <div id="tag-suggestions" class="tag-suggestions" style="display: none;"></div>
 
-        <input type="file" id="media-input" accept="image/*,video/*" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
-          <button class="btn-icon" id="upload-media-btn" title="Attach Media">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        <input type="file" id="media-input" accept="image/*,video/*,application/pdf" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;">
+          <button class="btn-icon" id="upload-media-btn" title="Attach Media (Img, Vid, PDF)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
           </button>
-          <span id="file-name" style="font-size: 12px; color: var(--text-muted); flex: 1; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
-          <button id="submit-post-btn" class="btn-primary" style="width: auto; padding: 8px 24px;">Post</button>
+          <div id="file-name" style="font-size: 12px; color: var(--text-muted); flex: 1; margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+          <button id="submit-post-btn" class="btn-primary" style="width: auto; padding: 10px 28px;">Post</button>
         </div>
       </div>
     `;
@@ -101,17 +95,12 @@ export default {
 
       if (atMatch) {
         const query = atMatch[1];
-        // Fetch users by real name (ilike)
-        const { data: users } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url')
-          .ilike('full_name', `%${query}%`)
-          .limit(5);
+        const { data: users } = await supabase.from('profiles').select('id, full_name, avatar_url').ilike('full_name', `%${query}%`).limit(5);
 
         if (users && users.length > 0) {
           suggestionsBox.style.display = 'block';
           suggestionsBox.innerHTML = users.map(u => `
-            <div class="tag-suggestion-item" data-id="${u.id}" data-name="${u.full_name}" data-avatar="${u.avatar_url || ''}">
+            <div class="tag-suggestion-item" data-id="${u.id}" data-name="${u.full_name}">
               ${u.avatar_url ? `<img src="${u.avatar_url}" class="tag-avatar">` : `<div class="tag-avatar">${u.full_name.charAt(0)}</div>`}
               <span>${u.full_name}</span>
             </div>
@@ -121,33 +110,52 @@ export default {
             item.addEventListener('click', () => {
               const id = item.dataset.id;
               const name = item.dataset.name;
-
-              // Add to tagged array if not already there
-              if (!this.taggedUsers.some(u => u.id === id)) {
-                this.taggedUsers.push(id);
-              }
-
-              // Replace the @query with the real name in the textarea
+              if (!this.taggedUsers.some(u => u.id === id)) this.taggedUsers.push(id);
               const newText = text.substring(0, cursorPos - query.length - 1) + `@${name} ` + text.substring(cursorPos);
               textarea.value = newText;
               suggestionsBox.style.display = 'none';
               textarea.focus();
             });
           });
-        } else {
-          suggestionsBox.style.display = 'none';
-        }
-      } else {
-        suggestionsBox.style.display = 'none';
-      }
+        } else { suggestionsBox.style.display = 'none'; }
+      } else { suggestionsBox.style.display = 'none'; }
     });
 
-    // Media Logic
+    // Media & PDF Upload Logic
     const fileInput = document.getElementById('media-input');
     document.getElementById('upload-media-btn').addEventListener('click', () => fileInput.click());
+
     fileInput.addEventListener('change', (e) => {
-      this.selectedFile = e.target.files[0];
-      document.getElementById('file-name').innerText = this.selectedFile ? this.selectedFile.name : '';
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // PDF Validation (Max 5MB)
+      if (file.type === 'application/pdf' && file.size > 5 * 1024 * 1024) {
+        alert("PDF must be under 5MB.");
+        fileInput.value = '';
+        return;
+      }
+
+      // Video Validation (Max 5 Min - requires async duration check)
+      if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+          if (video.duration > 300) {
+            alert("Video must be under 5 minutes.");
+            this.selectedFile = null;
+            document.getElementById('file-name').innerText = '';
+          } else {
+            this.selectedFile = file;
+            document.getElementById('file-name').innerText = file.name;
+          }
+          URL.revokeObjectURL(video.src);
+        };
+        video.src = URL.createObjectURL(file);
+      } else {
+        this.selectedFile = file;
+        document.getElementById('file-name').innerText = file.name;
+      }
     });
 
     // Submit Logic
@@ -161,7 +169,10 @@ export default {
 
       let mediaUrl = null, mediaType = null;
       if (this.selectedFile) {
-        mediaType = this.selectedFile.type.startsWith('image/') ? 'image' : 'video';
+        if (this.selectedFile.type.startsWith('image/')) mediaType = 'image';
+        else if (this.selectedFile.type.startsWith('video/')) mediaType = 'video';
+        else if (this.selectedFile.type === 'application/pdf') mediaType = 'pdf';
+
         const fileName = `${store.user.id}/${Date.now()}_${this.selectedFile.name}`;
         const { error: upErr } = await supabase.storage.from('avatars').upload(fileName, this.selectedFile);
         if (!upErr) {
@@ -171,11 +182,7 @@ export default {
       }
 
       const { error } = await supabase.from('posts').insert({
-        content,
-        user_id: store.user.id,
-        media_url: mediaUrl,
-        media_type: mediaType,
-        tagged_users: this.taggedUsers // Save the UUIDs of tagged users
+        content, user_id: store.user.id, media_url: mediaUrl, media_type: mediaType, tagged_users: this.taggedUsers
       });
 
       if (error) alert("Failed: " + error.message);
@@ -184,11 +191,7 @@ export default {
   },
 
   async logSearch(keyword) {
-    await supabase.from('user_history_data').insert({
-      user_id: store.user.id,
-      keyword: keyword.toLowerCase()
-    });
-    // console.log("Saved search for For You algorithm:", keyword);
+    await supabase.from('user_history_data').insert({ user_id: store.user.id, keyword: keyword.toLowerCase() });
   },
 
   // ============================================
@@ -202,7 +205,6 @@ export default {
     ]);
 
     if (error) { console.error(error); return; }
-
     this.userBalance = profile?.wallet_balance || 0;
     this.allInteractions = interactions || [];
     this.renderPosts(posts || []);
@@ -214,7 +216,7 @@ export default {
     const dailyInteractions = postInteractions.filter(i => new Date(i.created_at) >= oneDayAgo);
     const points = dailyInteractions.length;
     const uniqueUsers = new Set(dailyInteractions.map(i => i.user_id)).size;
-    if (points >= 3 && (uniqueUsers >= 21 || uniqueUsers >= 9)) return true; // 9% rule fallback
+    if (points >= 3 && (uniqueUsers >= 21 || uniqueUsers >= 9)) return true;
     return false;
   },
 
@@ -222,7 +224,7 @@ export default {
     const container = document.getElementById('posts-container');
     if (!container) return;
     if (posts.length === 0) {
-      container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No posts yet.</p>';
+      container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No posts yet.</p>';
       return;
     }
 
@@ -231,49 +233,74 @@ export default {
         ? `<img src="${post.profiles.avatar_url}" class="post-avatar" style="object-fit:cover;">`
         : `<div class="post-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
-      // Assign CSS class based on media type for Masonry layout later
-      let mediaClass = 'post-square'; // Default for text
-      if (post.media_type === 'image' || post.media_type === 'video') {
-        // We'll use a simple trick: if it's media, give it a standard responsive class for now
-        // The true masonry math will come in the CSS phase
-        mediaClass = 'post-media-default';
+      // Render Media (Image, Video, or PDF Chip)
+      let mediaHtml = '';
+      if (post.media_url) {
+        if (post.media_type === 'image') {
+          mediaHtml = `<img src="${post.media_url}" class="post-media">`;
+        } else if (post.media_type === 'video') {
+          mediaHtml = `<video src="${post.media_url}" class="post-media" controls></video>`;
+        } else if (post.media_type === 'pdf') {
+          // Sleek PDF Chip
+          const fileName = post.media_url.split('/').pop().replace(/^\d+_/, '');
+          mediaHtml = `
+            <a href="${post.media_url}" target="_blank" class="pdf-chip">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              <div class="pdf-info">
+                <span class="pdf-title">${fileName}</span>
+                <span class="pdf-subtitle">PDF Document</span>
+              </div>
+            </a>
+          `;
+        }
       }
-
-      const mediaHtml = post.media_url ? (
-        post.media_type === 'image'
-          ? `<img src="${post.media_url}" class="post-media">`
-          : `<video src="${post.media_url}" class="post-media" controls></video>`
-      ) : '';
 
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
       const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
       const trendingBadge = this.isTrending(post.id) ? '<span class="trending-badge">🔥 Trending</span>' : '';
 
+      // Strict SVG Icons for Actions
       return `
-        <div class="post-item" id="post-${post.id}">
-          ${avatar}
-          <div class="post-content-wrap">
+        <div class="post-card" id="post-${post.id}">
+          <div class="post-header">
+            ${avatar}
             <div class="post-meta">
-              <span class="post-username">${post.profiles?.full_name || 'Gliimait'}</span>
-              <span class="post-handle">@${post.profiles?.username || 'gliimait'}</span>
-              <span class="post-time">· ${new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-              ${trendingBadge}
+              <div class="post-author-row">
+                <span class="post-username">${post.profiles?.full_name || 'Gliimait'}</span>
+                ${trendingBadge}
+              </div>
+              <span class="post-time">${new Date(post.created_at).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'})}</span>
             </div>
+          </div>
+
+          <div class="post-body">
             <p class="post-text">${post.content || ''}</p>
             ${mediaHtml}
-            <div class="post-actions-bar">
-              <button class="action-btn" onclick="hubInstance.toggleComments('${post.id}')">💬</button>
-              <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">❤️ <span>${likes}</span></button>
-              <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', \`${(post.content || '').replace(/`/g, '\\`')}\`)">↗️</button>
-              <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">⚡ <span>${supports > 0 ? supports : 'Support'}</span></button>
-            </div>
-            <div class="comments-section" id="comments-${post.id}" style="display: none;">
-              <div class="existing-comments" id="existing-comments-${post.id}"></div>
-              <div class="new-comment-box">
-                <input type="text" class="input" placeholder="Write a comment..." id="comment-input-${post.id}">
-                <button class="btn-primary" onclick="hubInstance.submitComment('${post.id}')">Reply</button>
-              </div>
+          </div>
+
+          <div class="post-actions-bar">
+            <button class="action-btn" onclick="hubInstance.toggleComments('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </button>
+            <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+              <span>${likes}</span>
+            </button>
+            <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', \`${(post.content || '').replace(/`/g, '\\`')}\`)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            </button>
+            <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span>${supports > 0 ? supports : 'Support'}</span>
+            </button>
+          </div>
+
+          <div class="comments-section" id="comments-${post.id}" style="display: none;">
+            <div class="existing-comments" id="existing-comments-${post.id}"></div>
+            <div class="new-comment-box">
+              <input type="text" class="input" placeholder="Write a comment..." id="comment-input-${post.id}">
+              <button class="btn-primary" onclick="hubInstance.submitComment('${post.id}')">Reply</button>
             </div>
           </div>
         </div>
@@ -281,7 +308,6 @@ export default {
     }).join('');
   },
 
-  // ... (Keep toggleComments, submitComment, toggleLike, sharePost, openSupportModal, logInteraction, setupRealtime exactly as they were in the previous code block)
   async toggleComments(postId) {
     const section = document.getElementById(`comments-${postId}`);
     if (section.style.display === 'none') {
@@ -291,9 +317,7 @@ export default {
       const commentsEl = document.getElementById(`existing-comments-${postId}`);
       if (comments && comments.length > 0) {
         commentsEl.innerHTML = comments.map(c => `<div class="comment-item"><div class="comment-avatar">${c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">` : '💬'}</div><div><span class="comment-author">@${c.profiles?.username || 'gliimait'}</span><p class="comment-text">${c.content}</p></div></div>`).join('');
-      } else {
-        commentsEl.innerHTML = '<p style="font-size: var(--fs-xs); color: var(--text-muted);">No comments yet.</p>';
-      }
+      } else { commentsEl.innerHTML = '<p style="font-size: var(--fs-xs); color: var(--text-muted);">No comments yet.</p>'; }
     } else { section.style.display = 'none'; }
   },
 
@@ -367,9 +391,7 @@ export default {
         const newPost = { ...payload.new, profiles: profile };
         const container = document.getElementById('posts-container');
         if (!container) return;
-        const avatar = profile?.avatar_url ? `<img src="${profile.avatar_url}" class="post-avatar" style="object-fit:cover;">` : `<div class="post-avatar">${profile?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-        const html = `<div class="post-item" id="post-${newPost.id}">${avatar}<div class="post-content-wrap"><div class="post-meta"><span class="post-username">${profile?.full_name || 'Gliimait'}</span><span class="post-handle">@${profile?.username || 'gliimait'}</span><span class="post-time">· Just now</span></div><p class="post-text">${newPost.content || ''}</p><div class="post-actions-bar"><button class="action-btn" onclick="hubInstance.toggleComments('${newPost.id}')">💬</button><button class="action-btn like-btn" onclick="hubInstance.toggleLike('${newPost.id}')">❤️ <span>0</span></button><button class="action-btn" onclick="hubInstance.sharePost('${newPost.id}', \`${(newPost.content || '').replace(/`/g, '\\`')}\`)">↗️</button><button class="action-btn support-btn" onclick="hubInstance.supportCreator('${newPost.id}', '${newPost.user_id}')">⚡ <span>Support</span></button></div></div></div>`;
-        container.innerHTML = html + container.innerHTML;
+        this.fetchPosts(); // Simply refetch to keep it clean and apply trending logic
       })
       .subscribe();
   }
