@@ -96,8 +96,10 @@
 /* Perfect Pinterest Masonry (Strict Geometry & Dense Packing) */
 .lib-masonry-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  grid-auto-rows: 8px;
+  /* 140px base width */
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* 10px base height */
+  grid-auto-rows: 10px;
   grid-auto-flow: dense; /* Forces perfect packing with zero gaps */
   gap: 12px;
 }
@@ -106,14 +108,15 @@
 .lib-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); z-index: 2; }
 .lib-card:hover .lib-overlay { opacity: 1; }
 
-/* Strict Sizing Math (120px base width, 8px base height):
-   Audiolite (Square): 120x120 -> 15 rows.
-   Bundle (Horizontal Rect): 2 cols (240px) x 120px -> 15 rows.
-   Publication (Vertical Rect): 120px wide x 192px tall -> 24 rows.
+/*
+  Strict Sizing Math (140px width, 10px height):
+  Audiolite (Square): 140x140 -> 14 rows.
+  Publication (Vertical Rect): 140x280 -> 28 rows. (Audiolite is exactly half this height)
+  Bundle (Horizontal Rect): 2 cols (280px) x 200px -> 20 rows.
 */
-.lib-audiolite { grid-column: span 1; grid-row: span 15; }
-.lib-bundle { grid-column: span 2; grid-row: span 15; }
-.lib-publication { grid-column: span 1; grid-row: span 24; }
+.lib-audiolite { grid-column: span 1; grid-row: span 14; }
+.lib-bundle { grid-column: span 2; grid-row: span 20; }
+.lib-publication { grid-column: span 1; grid-row: span 28; }
 
 .lib-thumb { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
 .lib-owned-badge { position: absolute; top: 8px; right: 8px; background: var(--success); color: white; padding: 3px 8px; border-radius: 20px; font-size: 9px; font-weight: bold; text-transform: uppercase; z-index: 2; }
@@ -147,6 +150,6 @@
 
 /* Responsive Grid */
 @media (max-width: 768px) {
-  .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
   .lib-bundle { grid-column: span 2; }
 }
