@@ -25,3 +25,4 @@
 .bd-row:last-child { border-bottom: none; }
 .bd-row.highlight { color: var(--brand-primary); font-weight: var(--fw-bold); }
 @media (max-width: 768px) { .wallet-grid { grid-template-columns: 1fr; } }
+.quick-action-item .qa-icon { color: var(--brand-primary); width: 20px; text-align: center; }
