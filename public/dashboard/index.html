@@ -15,15 +15,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../shared/css/design-system.css">
-  <link rel="stylesheet" href="assets/css/dashboard.css">
-  <link rel="stylesheet" href="assets/css/views/portfolio.css">
-  <link rel="stylesheet" href="assets/css/views/hub.css">
-  <link rel="stylesheet" href="assets/css/views/settings.css">
-  <link rel="stylesheet" href="assets/css/views/applications.css">
-  <link rel="stylesheet" href="assets/css/views/messages.css">
-  <link rel="stylesheet" href="assets/css/views/wallet.css">
-  <link rel="stylesheet" href="assets/css/views/library.css">
+
+  <!-- Use absolute paths starting with / to prevent Vercel routing issues -->
+  <link rel="stylesheet" href="/shared/css/design-system.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/portfolio.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/hub.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/settings.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/applications.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/messages.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/wallet.css">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/library.css">
 </head>
 <body>
 
@@ -31,7 +33,6 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <!-- Logo Image -->
         <a href="/dashboard/index.html" class="brand-logo">
           <img src="/icons/logo.png" alt="Gliimu Logo" class="brand-logo-img">
         </a>
@@ -68,18 +69,19 @@
           </div>
         </div>
       </div>
+    </aside> <!-- THE MISSING TAG IS NOW HERE -->
 
     <!-- Main Content -->
     <main class="main-content">
-        <header class="topbar">
-          <button class="menu-toggle" onclick="document.body.classList.toggle('sidebar-open')">☰</button>
-          <div class="topbar-title" id="page-title">Dashboard</div>
-          <div id="topbar-dynamic-content" style="flex: 1; display: flex; justify-content: center; padding: 0 16px;"></div>
-          <button class="theme-toggle-btn" id="theme-icon-btn" onclick="toggleTheme()">
-            <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-            <svg id="moon-icon" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-          </button>
-        </header>
+      <header class="topbar">
+        <button class="menu-toggle" onclick="document.body.classList.toggle('sidebar-open')">☰</button>
+        <div class="topbar-title" id="page-title">Dashboard</div>
+        <div id="topbar-dynamic-content" style="flex: 1; display: flex; justify-content: center; padding: 0 16px;"></div>
+        <button class="theme-toggle-btn" id="theme-icon-btn" onclick="toggleTheme()">
+          <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="moon-icon" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </header>
 
       <div class="view-container" id="app">
         <!-- Views will be injected here -->
@@ -87,7 +89,8 @@
     </main>
   </div>
 
-  <script src="../shared/js/theme.js"></script>
-  <script type="module" src="assets/js/app.js"></script>
+  <!-- Use absolute paths for JS as well -->
+  <script src="/shared/js/theme.js"></script>
+  <script type="module" src="/dashboard/assets/js/app.js"></script>
 </body>
 </html>
