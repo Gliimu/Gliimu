@@ -77,3 +77,13 @@
   z-index: 5;
   filter: invert(75%) sepia(70%) saturate(5000%) hue-rotate(15deg) brightness(95%);
 }
+/* Sidebar Bright Orange Star (2.7x Bigger) */
+.sidebar-star-img {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 28px !important; /* 2.7x bigger for sidebar */
+  height: 28px !important;
+  z-index: 5;
+  filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(6deg) brightness(102%) contrast(101%) drop-shadow(0 0 4px rgba(249, 115, 22, 0.8));
+}
