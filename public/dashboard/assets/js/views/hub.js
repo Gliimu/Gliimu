@@ -157,7 +157,17 @@ export default {
           <div class="form-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
           <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
         </div>
-        <div class="form-group"><label>Cover Image Upload</label><input type="file" id="post-cover-file" class="input" accept="image/*"></div>
+
+        <!-- Custom File Upload for Cover -->
+        <div class="form-group">
+          <label>Cover Image</label>
+          <label class="custom-file-upload">
+            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+            <span id="cover-file-name">Choose File</span>
+            <input type="file" id="post-cover-file" accept="image/*" hidden>
+          </label>
+        </div>
+
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
         <h3 style="margin-bottom: 16px;">Content Blocks</h3>
         <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
@@ -171,6 +181,12 @@ export default {
       </div>
     `;
     document.body.appendChild(modal);
+
+    // Update cover file label
+    document.getElementById('post-cover-file').addEventListener('change', (e) => {
+      const fileName = e.target.files[0]?.name || 'Choose File';
+      document.getElementById('cover-file-name').innerText = fileName;
+    });
 
     const blocksContainer = document.getElementById('blocks-container');
 
@@ -197,12 +213,29 @@ export default {
         inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
       } else {
         const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
-        inputHtml = `<input type="file" class="input block-file-input" accept="${accept}" style="margin-bottom: 8px;"><div class="upload-status" style="font-size: 12px; margin-bottom: 8px;"></div><div class="block-preview"></div><input type="hidden" class="block-content-input">`;
+        inputHtml = `
+          <label class="custom-file-upload">
+            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+            <span class="block-file-name">Choose ${type}</span>
+            <input type="file" class="block-file-input" accept="${accept}" hidden>
+          </label>
+          <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
+          <div class="block-preview"></div>
+          <input type="hidden" class="block-content-input">
+        `;
       }
       blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${type.toUpperCase()}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">Remove</button></div>${inputHtml}`;
       blocksContainer.appendChild(blockDiv);
+
       if (type !== 'text') {
-        blockDiv.querySelector('.block-file-input').addEventListener('change', (e) => { if (e.target.files[0]) handleFileUpload(e.target.files[0], blockDiv, type); });
+        const fileInput = blockDiv.querySelector('.block-file-input');
+        const fileNameEl = blockDiv.querySelector('.block-file-name');
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files[0]) {
+            fileNameEl.innerText = e.target.files[0].name;
+            handleFileUpload(e.target.files[0], blockDiv, type);
+          }
+        });
       }
     };
 
@@ -237,7 +270,6 @@ export default {
   },
 
   async fetchPosts() {
-    // Updated to fetch full_name and avatar_url for interactions (comments)
     const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
       supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount, comment_text, profiles:profiles!user_id(full_name, avatar_url)'),
@@ -261,16 +293,14 @@ export default {
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
     container.innerHTML = filtered.map(post => {
       const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-      const star = post.profiles?.total_gp >= 1000 ? '<div class="eligibility-star">★</div>' : '';
+      const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="eligibility-star-img">' : '';
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-      // Use full_name for privacy
       return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}${star}</div><span>${post.profiles?.full_name || 'Gliimait'}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
     }).join('');
   },
 
-  // Helper: Parse @tags in comments
   parseTags(text) {
     if (!text) return '';
     return text.replace(/@([a-zA-Z0-9_ ]+)/g, (match, name) => {
@@ -282,7 +312,7 @@ export default {
     const post = this.currentPosts.find(p => p.id === postId);
     if (!post) return;
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-    const star = post.profiles?.total_gp >= 1000 ? '<div class="eligibility-star">★</div>' : '';
+    const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="eligibility-star-img">' : '';
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
 
@@ -290,7 +320,6 @@ export default {
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
     if (postComments.length > 0) {
       commentsHtml = postComments.map(c => {
-        // Use full_name and avatar_url for commenters
         const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
         const parsedText = this.parseTags(c.comment_text);
         return `<div class="comment-item">${cAvatar}<div><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${parsedText}</p></div></div>`;
@@ -338,14 +367,14 @@ export default {
 
           <div class="post-actions-bar">
             <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5 5 18l-1.5-1.5L8.5 12"/><path d="M16 15 11 20l-1.5-1.5L15 14"/><path d="m12 4 4 4"/><path d="m16 8 4-4"/><path d="m9 11 4-4"/></svg>
+              <img src="/icons/clap.svg" class="action-icon-img" alt="Clap">
               <span>${likes}</span>
             </button>
             <button class="action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <img src="/icons/comment.svg" class="action-icon-img" alt="Comment">
             </button>
             <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+              <img src="/icons/share.svg" class="action-icon-img" alt="Share">
             </button>
 
             <div class="lib-modal-menu" style="margin-left: auto;">
@@ -411,7 +440,6 @@ export default {
     }).select('*').single();
 
     if (data) {
-      // Attach current user's real name and avatar for instant UI render
       data.profiles = {
         full_name: store.profile.full_name,
         avatar_url: store.profile.avatar_url
