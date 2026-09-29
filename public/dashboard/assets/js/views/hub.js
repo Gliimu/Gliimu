@@ -67,16 +67,16 @@ export default {
     const rightActions = document.getElementById('topbar-right-actions');
     if (rightActions) {
       rightActions.innerHTML = `
-        <div class="view-toggle-wrapper">
-          <button class="view-toggle-btn" data-view="list" title="List View">
+        <div class="hub-view-toggle">
+          <button class="hub-view-btn" data-view="list" title="List View">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
           </button>
-          <button class="view-toggle-btn" data-view="grid" title="Grid View">
+          <button class="hub-view-btn" data-view="grid" title="Grid View">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           </button>
         </div>
         <div class="hub-filter-wrapper">
-          <button class="lib-filter-btn" id="hub-filter-btn">
+          <button class="hub-filter-btn" id="hub-filter-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
           </button>
           <div class="hub-filter-menu" id="hub-dropdown">
@@ -91,7 +91,7 @@ export default {
         </div>
       `;
 
-      const activeBtn = document.querySelector(`.view-toggle-btn[data-view="${this.viewStyle}"]`);
+      const activeBtn = document.querySelector(`.hub-view-btn[data-view="${this.viewStyle}"]`);
       if (activeBtn) activeBtn.classList.add('active');
 
       document.getElementById('hub-filter-btn').addEventListener('click', (e) => {
@@ -109,9 +109,9 @@ export default {
         });
       });
 
-      document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+      document.querySelectorAll('.hub-view-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.hub-view-btn').forEach(b => b.classList.remove('active'));
           e.currentTarget.classList.add('active');
           this.viewStyle = e.currentTarget.dataset.view;
           localStorage.setItem('hub-view', this.viewStyle);
@@ -408,15 +408,15 @@ export default {
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
           </button>
           <div class="hub-read-menu" id="read-menu-${post.id}">
-            <div class="hub-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">
+            <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
               ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}
             </div>
-            <div class="hub-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
+            <div class="hub-read-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
               Report Gliim
             </div>
-            <div class="hub-menu-item danger" onclick="event.stopPropagation(); hubInstance.closeModal()">
+            <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.closeModal()">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               Close
             </div>
