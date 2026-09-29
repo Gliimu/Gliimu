@@ -32,11 +32,12 @@ export default {
       scrollToComments: (id) => this.scrollToComments(id),
       submitComment: (id) => this.submitComment(id),
       supportCreator: (id, authorId) => this.supportCreator(id, authorId),
-      showCommentMenu: (e, cId, pId, name) => this.showCommentMenu(e, cId, pId, name),
-      addReaction: (cId, emoji) => this.addReaction(cId, emoji),
+      showUserMenu: (e, userId, postId, fullName) => this.showUserMenu(e, userId, postId, fullName),
+      closeUserMenu: () => this.closeUserMenu(),
       toggleSavePost: (id) => this.toggleSavePost(id),
       toggleReadMenu: (id) => this.toggleReadMenu(id),
-      closeModal: () => this.closeModal()
+      closeModal: () => this.closeModal(),
+      addBlock: (type) => this.addBlock(type)
     };
 
     this.setupTopbarSearch();
@@ -128,6 +129,39 @@ export default {
     document.querySelector('.modal-overlay')?.remove();
   },
 
+  closeUserMenu() {
+    document.querySelectorAll('.context-menu').forEach(m => m.remove());
+  },
+
+  showUserMenu(e, userId, postId, fullName) {
+    e.stopPropagation();
+    this.closeUserMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+    menu.innerHTML = `
+      <div class="ctx-item" onclick="hubInstance.replyToUser('${postId}', '${fullName}')">Reply</div>
+      <div class="ctx-item" onclick="window.location.hash='#/portfolio'; hubInstance.closeUserMenu()">View Profile</div>
+      <div class="ctx-item" onclick="alert('User reported.'); hubInstance.closeUserMenu()">Report</div>
+    `;
+    document.body.appendChild(menu);
+
+    setTimeout(() => {
+      document.addEventListener('click', this.closeUserMenu, { once: true });
+    }, 0);
+  },
+
+  replyToUser(postId, fullName) {
+    this.closeUserMenu();
+    const input = document.getElementById(`comment-text-${postId}`);
+    if (input) {
+      input.value = `@${fullName} `;
+      input.focus();
+    }
+  },
+
   openCreateModal() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -140,20 +174,12 @@ export default {
           <div class="form-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
           <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
         </div>
-        <div class="form-group">
-          <label>Cover Image</label>
-          <label class="custom-file-upload">
-            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-            <span id="cover-file-name">Choose File</span>
-            <input type="file" id="post-cover-file" accept="image/*" hidden>
-          </label>
-        </div>
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
         <h3 style="margin-bottom: 16px;">Content Blocks</h3>
         <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
 
         <div class="builder-add-dropdown">
-          <button class="btn-secondary">+ Add Block</button>
+          <button class="btn-secondary" id="add-block-trigger">+ Add Block</button>
           <div class="dropdown-menu" id="add-block-menu">
             <div onclick="hubInstance.addBlock('text')"><span style="font-weight:700;">Aa</span> Text</div>
             <div onclick="hubInstance.addBlock('image')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Image</div>
@@ -167,10 +193,7 @@ export default {
     `;
     document.body.appendChild(modal);
 
-    // Expose addBlock to window for the dropdown
-    window.hubInstance.addBlock = (type) => this.addBlock(type);
-
-    document.querySelector('.builder-add-dropdown button').addEventListener('click', (e) => {
+    document.getElementById('add-block-trigger').addEventListener('click', (e) => {
       e.stopPropagation();
       document.getElementById('add-block-menu').classList.toggle('active');
     });
@@ -178,12 +201,55 @@ export default {
       document.getElementById('add-block-menu')?.classList.remove('active');
     });
 
-    document.getElementById('post-cover-file').addEventListener('change', (e) => {
-      const fileName = e.target.files[0]?.name || 'Choose File';
-      document.getElementById('cover-file-name').innerText = fileName;
-    });
-
     this.addBlock('text'); // Default block
+
+    document.getElementById('submit-post-btn').addEventListener('click', async () => {
+      const title = document.getElementById('post-title').value.trim();
+      const category = document.getElementById('post-category').value;
+      const description = document.getElementById('post-description').value.trim();
+
+      if (!title) return alert("Title is required.");
+
+      const finalBlocks = [];
+      let coverUrl = null;
+
+      document.querySelectorAll('.builder-block').forEach(b => {
+        const type = b.dataset.type;
+        const content = b.querySelector('.block-content-input').value.trim();
+        if (content) {
+          const blockData = { type, content };
+          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
+          finalBlocks.push(blockData);
+
+          // Set first image/video as cover
+          if (!coverUrl && (type === 'image' || type === 'video')) {
+            coverUrl = content;
+          }
+        }
+      });
+
+      if (finalBlocks.length === 0) return alert("Add some content blocks.");
+
+      const btn = document.getElementById('submit-post-btn');
+      btn.innerText = "Publishing...";
+      btn.disabled = true;
+
+      const { error } = await supabase.from('posts').insert({
+        title, category, description,
+        cover_url: coverUrl,
+        blocks: finalBlocks,
+        content: description,
+        user_id: store.user.id
+      });
+
+      if (error) {
+        alert("Failed: " + error.message);
+        btn.innerText = "Publish Gliim";
+        btn.disabled = false;
+      } else {
+        modal.remove();
+      }
+    });
   },
 
   addBlock(type) {
@@ -193,7 +259,7 @@ export default {
     blockDiv.className = 'builder-block'; blockDiv.dataset.type = type;
 
     let iconHtml = '';
-    if (type === 'text') iconHtml = '<span style="font-weight:700;">Aa</span>';
+    if (type === 'text') iconHtml = '<span style="font-weight:700; font-size: 14px;">Aa</span>';
     if (type === 'image') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
@@ -215,7 +281,6 @@ export default {
       `;
     }
 
-    // Using a minus sign for remove
     blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${iconHtml}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">−</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
 
@@ -266,14 +331,16 @@ export default {
     }
     if (this.searchQuery) filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
     if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
+
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
     container.innerHTML = filtered.map(post => {
-      const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-      const tick = post.profiles?.total_gp >= 1000 ? '<svg class="inline-tick" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : '';
+      const avatarClass = post.profiles?.total_gp >= 1000 ? 'blog-avatar glow-avatar' : 'blog-avatar';
+      const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-      return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'} ${tick}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
+      return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
     }).join('');
   },
 
@@ -285,8 +352,9 @@ export default {
   openReadView(postId) {
     const post = this.currentPosts.find(p => p.id === postId);
     if (!post) return;
-    const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-    const tick = post.profiles?.total_gp >= 1000 ? '<svg class="inline-tick" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : '';
+
+    const avatarClass = post.profiles?.total_gp >= 1000 ? 'blog-avatar glow-avatar' : 'blog-avatar';
+    const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
     const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
@@ -299,9 +367,10 @@ export default {
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
     if (postComments.length > 0) {
       commentsHtml = postComments.map(c => {
-        const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+        const cAvatarClass = c.profiles?.total_gp >= 1000 ? 'comment-avatar glow-avatar' : 'comment-avatar';
+        const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
         const parsedText = this.parseTags(c.comment_text);
-        return `<div class="comment-item" id="comment-${c.id}" oncontextmenu="hubInstance.showCommentMenu(event, '${c.id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${parsedText}</p><div class="comment-reactions" id="reactions-${c.id}"></div></div></div>`;
+        return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${parsedText}</p></div></div>`;
       }).join('');
     }
 
@@ -360,7 +429,7 @@ export default {
             <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
               <div style="position:relative;">${avatar}</div>
               <div>
-                <span style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center;">${post.profiles?.full_name || 'Gliimait'} ${tick}</span><br>
+                <span style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center;">${post.profiles?.full_name || 'Gliimait'}</span><br>
                 <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
               </div>
             </div>
@@ -431,54 +500,6 @@ export default {
     }
   },
 
-  showCommentMenu(e, commentId, postId, authorName) {
-    e.preventDefault();
-    document.querySelectorAll('.context-menu').forEach(m => m.remove());
-
-    const menu = document.createElement('div');
-    menu.className = 'context-menu';
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-    menu.innerHTML = `
-      <div class="ctx-item" onclick="hubInstance.replyToComment('${commentId}', '${postId}', '${authorName}')">Reply</div>
-      <div class="ctx-item" onclick="hubInstance.toggleReactMenu('${commentId}')">React</div>
-      <div class="ctx-submenu" id="react-submenu-${commentId}" style="display:none;">
-        <span onclick="hubInstance.addReaction('${commentId}', '👏')">👏</span>
-        <span onclick="hubInstance.addReaction('${commentId}', '😂')">😂</span>
-        <span onclick="hubInstance.addReaction('${commentId}', '😮')">😮</span>
-      </div>
-    `;
-    document.body.appendChild(menu);
-
-    setTimeout(() => {
-      document.addEventListener('click', function closeMenu() {
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-      });
-    }, 0);
-  },
-
-  toggleReactMenu(commentId) {
-    const sub = document.getElementById(`react-submenu-${commentId}`);
-    if (sub) sub.style.display = sub.style.display === 'none' ? 'flex' : 'none';
-  },
-
-  addReaction(commentId, emoji) {
-    const reactionsEl = document.getElementById(`reactions-${commentId}`);
-    if (reactionsEl) {
-      reactionsEl.innerHTML += `<span class="comment-reaction">${emoji}</span>`;
-      reactionsEl.style.display = 'flex';
-    }
-    document.querySelector('.context-menu')?.remove();
-  },
-
-  replyToComment(commentId, postId, authorName) {
-    const input = document.getElementById(`comment-text-${postId}`);
-    input.value = `@${authorName} `;
-    input.focus();
-    document.querySelector('.context-menu')?.remove();
-  },
-
   async supportCreator(postId, authorId) {
     if (authorId === store.user.id) return alert("You cannot support yourself!");
     const amountStr = prompt("Enter support amount (NGN):");
@@ -526,12 +547,13 @@ export default {
     const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text }).select('*').single();
 
     if (data) {
-      data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
+      data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp };
       this.allInteractions.push(data);
       const list = document.getElementById(`comment-list-${postId}`);
-      const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${data.profiles.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+      const cAvatarClass = data.profiles.total_gp >= 1000 ? 'comment-avatar glow-avatar' : 'comment-avatar';
+      const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">${data.profiles.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
       const parsedText = this.parseTags(text);
-      list.innerHTML += `<div class="comment-item" id="comment-${data.id}" oncontextmenu="hubInstance.showCommentMenu(event, '${data.id}', '${postId}', '${data.profiles.full_name}')">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${data.profiles.full_name}</span><p class="comment-text">${parsedText}</p></div></div>`;
+      list.innerHTML += `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${data.profiles.full_name}</span><p class="comment-text">${parsedText}</p></div></div>`;
       input.value = "";
     }
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
