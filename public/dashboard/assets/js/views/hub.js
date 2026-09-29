@@ -478,11 +478,7 @@ export default {
   toggleReadMenu(postId) {
     const menu = document.getElementById(`read-menu-${postId}`);
     if (!menu) return;
-
-    // Toggle active state
     menu.classList.toggle('active');
-
-    // If it just became active, add a one-time listener to close it when clicking outside
     if (menu.classList.contains('active')) {
       setTimeout(() => {
         document.addEventListener('click', function closeMenu(e) {
