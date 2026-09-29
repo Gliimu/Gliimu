@@ -402,26 +402,27 @@ export default {
     modal.innerHTML = `
       <div class="modal-content read-view-content">
 
-        <div class="read-top-bar">
-          <button class="read-close-btn" onclick="hubInstance.closeModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      <div class="read-top-bar">
+        <div class="lib-modal-menu">
+          <button class="lib-menu-btn" onclick="event.stopPropagation(); hubInstance.toggleReadMenu('${post.id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
           </button>
-          <div class="lib-modal-menu">
-            <button class="lib-menu-btn" onclick="hubInstance.toggleReadMenu('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-            </button>
-            <div class="lib-menu-dropdown" id="read-menu-${post.id}">
-              <div class="lib-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-                ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}
-              </div>
-              <div class="lib-menu-item" onclick="alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
-                Report Gliim
-              </div>
+          <div class="lib-menu-dropdown" id="read-menu-${post.id}">
+            <div class="lib-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+              ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}
+            </div>
+            <div class="lib-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+              Report Gliim
+            </div>
+            <div class="lib-menu-item danger" onclick="event.stopPropagation(); hubInstance.closeModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              Close
             </div>
           </div>
         </div>
+      </div>
 
         <div class="read-scroll-container">
           <div class="read-body">
@@ -476,7 +477,22 @@ export default {
 
   toggleReadMenu(postId) {
     const menu = document.getElementById(`read-menu-${postId}`);
-    if (menu) menu.classList.toggle('active');
+    if (!menu) return;
+
+    // Toggle active state
+    menu.classList.toggle('active');
+
+    // If it just became active, add a one-time listener to close it when clicking outside
+    if (menu.classList.contains('active')) {
+      setTimeout(() => {
+        document.addEventListener('click', function closeMenu(e) {
+          if (!menu.contains(e.target)) {
+            menu.classList.remove('active');
+            document.removeEventListener('click', closeMenu);
+          }
+        });
+      }, 0);
+    }
   },
 
   async toggleSavePost(postId) {
