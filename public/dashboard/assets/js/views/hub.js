@@ -30,7 +30,7 @@ export default {
       </div>
 
       <div class="blog-feed" id="posts-container">
-        <p class="hub-empty-state">Loading published Gliims...</p>
+        <p class="hub-empty-state" style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading published Gliims...</p>
       </div>
 
       <div class="hub-fab-wrapper">
@@ -152,7 +152,7 @@ export default {
     modal.innerHTML = `
       <div class="modal-content gliim-builder">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <h2 style="margin-bottom: 24px; text-align: center;">Publish a Gliim</h2>
+        <h2 style="margin-bottom: 24px;">Publish a Gliim</h2>
         <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
         <div class="form-row" style="gap: 16px;">
           <div class="form-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
@@ -288,15 +288,15 @@ export default {
     let filtered = posts;
     if (this.currentFilter !== 'all') filtered = filtered.filter(p => p.category === this.currentFilter);
     if (this.searchQuery) filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
-    if (filtered.length === 0) { container.innerHTML = '<p class="hub-empty-state">No Gliims found.</p>'; return; }
+    if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
     container.innerHTML = filtered.map(post => {
       const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-      const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="eligibility-star-img">' : '';
+      const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="inline-star">' : '';
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-            return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'} ${star}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
+      return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'} ${star}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
     }).join('');
   },
 
@@ -363,46 +363,46 @@ export default {
           <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
             <div style="position:relative;">${avatar}</div>
             <div>
-              <span style="font-weight: 700; color: var(--text-primary);">${post.profiles?.full_name || 'Gliimait'} ${star}</span><br>
+              <span style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center;">${post.profiles?.full_name || 'Gliimait'} ${star}</span><br>
               <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
             </div>
           </div>
           ${blocksHtml}
+
+          <div class="comment-section" id="comment-box-${post.id}" style="display: none;">
+            <div class="comment-input-wrapper">
+              <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
+              <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
+            </div>
+            <div class="comment-list" id="comment-list-${post.id}">
+              ${commentsHtml}
+            </div>
+          </div>
         </div>
 
         <div class="post-actions-bar">
-        <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-          <img src="/icons/clap.svg" class="action-icon-img" alt="Clap" loading="eager" decoding="async">
-          <span>${likes}</span>
-        </button>
-        <button class="action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
-          <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
-          <span>${comments}</span>
-        </button>
-        <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
-          <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
-          <span>${shares}</span>
-        </button>
+          <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+            <img src="/icons/clap.svg" class="action-icon-img" alt="Clap" loading="eager" decoding="async">
+            <span>${likes}</span>
+          </button>
+          <button class="action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
+            <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
+            <span>${comments}</span>
+          </button>
+          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
+            <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
+            <span>${shares}</span>
+          </button>
 
-          <div class="lib-modal-menu" style="margin-left: auto;">
+          <div class="lib-modal-menu">
             <button class="lib-menu-btn" onclick="hubInstance.toggleHubMenu('${post.id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
             </button>
             <div class="lib-menu-dropdown" id="hub-menu-${post.id}">
               ${menuHtml}
             </div>
-          </div>
-        </div>
-
-        <div class="comment-section" id="comment-box-${post.id}" style="display: none;">
-          <div class="comment-input-wrapper">
-            <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
-            <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
-          </div>
-          <div class="comment-list" id="comment-list-${post.id}">
-            ${commentsHtml}
           </div>
         </div>
       </div>
@@ -502,7 +502,6 @@ export default {
     const post = this.currentPosts.find(p => p.id === postId);
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
 
-    // Update share count in UI immediately
     const shareBtn = document.querySelector('.read-view-content .action-btn:nth-child(3) span');
     if (shareBtn) {
       const shares = this.allInteractions.filter(i => i.post_id === postId && i.interaction_type === 'share').length;
