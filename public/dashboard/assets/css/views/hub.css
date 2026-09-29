@@ -253,8 +253,19 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 .hub-fab-main { width: 56px; height: 56px; border-radius: 50%; background: var(--brand-primary); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4); transition: transform 0.2s ease; }
 .hub-fab-main:hover { transform: scale(1.05); background: var(--brand-primary-hover); }
 
-/* Topbar Search */
-.hub-topbar-search { display: flex; align-items: center; margin: 0 auto; gap: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; width: 100%; max-width: 400px; }
+/* Topbar Search (Wider on desktop) */
+.hub-topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  width: 100%;
+  max-width: 600px; /* Increased from 400px to utilize desktop space */
+  margin: 0 auto;
+}
 .hub-topbar-search svg { color: var(--text-muted); flex-shrink: 0; }
 .hub-topbar-search input { background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); width: 100%; font-family: var(--font-sans); }
 
@@ -434,4 +445,19 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   /* 5. Shrink fonts slightly to ensure they fit the 150px columns */
   .grid-view .blog-title { font-size: 14px; }
   .grid-view .blog-desc { font-size: 12px; -webkit-line-clamp: 2; }
+}
+
+/* Comment Time Styling */
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.comment-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.comment-text {
+  display: block; /* Make text block so it sits below the name/time */
 }
