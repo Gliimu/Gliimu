@@ -3,23 +3,29 @@ import { store } from '../store.js';
 
 export default {
   title: 'Settings',
+
+
   template: `
     <div class="settings-layout">
 
-      <!-- Profile Settings -->
+      <!-- General Settings -->
       <div class="card">
-        <h2>Profile Settings</h2>
-        <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">Update your identity. This will reflect on your Portfolio.</p>
+        <h2>General Settings</h2>
+        <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">Manage your preferences.</p>
 
-        <!-- Avatar Upload -->
-        <div class="avatar-upload-section">
-          <img id="avatar-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E" class="settings-avatar">
+        <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border);">
           <div>
-            <input type="file" id="avatar-input" accept="image/*" style="display: none;">
-            <button type="button" class="btn-secondary" id="upload-avatar-btn">Change Picture</button>
-            <p style="font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--space-2);">JPG or PNG. Max 2MB.</p>
+            <span style="font-weight: 600; font-size: 16px;">Theme</span><br>
+            <span style="font-size: 13px; color: var(--text-muted);">Toggle between light and dark mode.</span>
           </div>
+          <button class="btn-primary" onclick="toggleTheme()">
+            <span id="settings-theme-text">Toggle Theme</span>
+          </button>
         </div>
+      </div>
+
+      <!-- Profile Settings -->
+      <div class="card" style="margin-top: 24px;">
 
         <form id="profile-form" style="margin-top: var(--space-6);">
           <div class="form-group">
