@@ -48,7 +48,6 @@ export default {
     this.setupRealtime();
     this.setupFab();
 
-    // Initiate data fetch, then check for persisted modal
     this.fetchPosts().then(() => {
       this.checkPersistedModal();
     });
@@ -58,13 +57,10 @@ export default {
     const savedPostId = sessionStorage.getItem('openReadViewId');
     if (!savedPostId) return;
 
-    // Remove immediately to prevent infinite loops if user refreshes again
     sessionStorage.removeItem('openReadViewId');
 
-    // Check if the post is already in our fetched list
     let post = this.currentPosts.find(p => p.id === savedPostId);
 
-    // If not found in the initial 20 posts, fetch it directly
     if (!post) {
       const { data, error } = await supabase.from('posts')
         .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
@@ -75,7 +71,7 @@ export default {
         return;
       }
       post = data;
-      this.currentPosts.unshift(post); // Add to top of list
+      this.currentPosts.unshift(post);
       this.renderPosts(this.currentPosts);
     }
 
@@ -203,7 +199,7 @@ export default {
 
   async promptDelete(postId) {
     const password = prompt("To permanently delete this Gliim, please enter your password:");
-    if (!password) return; // User cancelled
+    if (!password) return;
 
     const fakeEmail = `${store.profile.username}@gliimu.app`;
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
@@ -259,7 +255,7 @@ export default {
       document.getElementById('add-block-menu')?.classList.remove('active');
     });
 
-    this.addBlock('text'); // Default block
+    this.addBlock('text');
 
     document.getElementById('submit-post-btn').addEventListener('click', async () => {
       const title = document.getElementById('post-title').value.trim();
@@ -279,7 +275,6 @@ export default {
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
           finalBlocks.push(blockData);
 
-          // Set first image/video as cover
           if (!coverUrl && (type === 'image' || type === 'video')) {
             coverUrl = content;
           }
@@ -322,7 +317,6 @@ export default {
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
 
-    // Trash Icon for Remove
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     let inputHtml = '';
@@ -386,7 +380,6 @@ export default {
     if (!container) return;
     let filtered = posts;
 
-    // 1. Filter by Tab
     if (this.currentFilter === 'saved') {
       filtered = filtered.filter(p => this.savedPosts.has(p.id));
     } else if (this.currentFilter === 'mine') {
@@ -404,7 +397,6 @@ export default {
       filtered = filtered.filter(p => p.category === this.currentFilter);
     }
 
-    // 2. Filter by Search
     if (this.searchQuery) {
       filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
     }
@@ -464,7 +456,6 @@ export default {
           if (b.style === 'title') return `<h2 class="read-block-title">${b.content}</h2>`;
           if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${b.content}</h3>`;
           if (b.style === 'list') {
-            // No bullets, just block elements
             const items = b.content.split('\n').map(line => `<div class="read-block-list-item">${line}</div>`).join('');
             return `<div class="read-block-list">${items}</div>`;
           }
@@ -478,10 +469,16 @@ export default {
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
 
     // Menu Icons
-    const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.682 19.758l3.535-3.536m0 0L20.753 12.7m-3.536 3.536L12.5 19.5m8.253-6.8a9 9 0 10-11.127 8.81M20.753 12.7L12.5 19.5m0 0v3.5h3.5"></path></svg>';
+    const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+    const askMeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+
+    // Ask Me Button (Only visible if user is NOT the owner)
+    const askMeBtnHtml = !isOwner ? `
+      <div class="hub-read-menu-item" onclick="event.stopPropagation(); window.location.hash='#/ping'; hubInstance.closeModal();">${askMeIcon} Ask Me</div>
+    ` : '';
 
     // Delete Button (Only visible if user is the owner)
     const deleteBtnHtml = isOwner ? `
@@ -501,6 +498,7 @@ export default {
           <div class="hub-read-menu" id="read-menu-${post.id}">
             <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.closeModal()">${closeIcon} Close Modal</div>
             <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
+            ${askMeBtnHtml}
             <div class="hub-read-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">${reportIcon} Report Gliim</div>
             ${deleteBtnHtml}
           </div>
@@ -511,13 +509,15 @@ export default {
           <div class="read-body">
             <span class="blog-category">${post.category || 'General'}</span>
             <h1 class="read-title">${post.title || 'Untitled Gliim'}</h1>
-            <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
-              <div style="position:relative;">${avatar}</div>
-              <div>
-                <span style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center;">${post.profiles?.full_name || 'Gliimait'}</span><br>
+
+            <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center;">
+              <div style="position: relative; flex-shrink: 0; margin-right: 12px;">${avatar}</div>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 700; color: var(--text-primary);">${post.profiles?.full_name || 'Gliimait'}</span>
                 <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
               </div>
             </div>
+
             ${blocksHtml}
 
             <div class="comment-section" id="comment-section-${post.id}">
