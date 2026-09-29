@@ -254,7 +254,7 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 .hub-fab-main:hover { transform: scale(1.05); background: var(--brand-primary-hover); }
 
 /* Topbar Search */
-.hub-topbar-search { display: flex; align-items: center; gap: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; width: 100%; max-width: 400px; }
+.hub-topbar-search { display: flex; align-items: center; margin: 0 auto; gap: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; width: 100%; max-width: 400px; }
 .hub-topbar-search svg { color: var(--text-muted); flex-shrink: 0; }
 .hub-topbar-search input { background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); width: 100%; font-family: var(--font-sans); }
 
