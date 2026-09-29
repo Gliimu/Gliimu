@@ -250,3 +250,27 @@ img.action-icon-img { width: 27px !important; height: 27px !important; transitio
   filter: invert(20%) sepia(90%) saturate(3000%) hue-rotate(315deg) brightness(150%) !important;
   opacity: 1 !important;
 }
+/* Modal Logo */
+.modal-logo {
+  display: block;
+  height: 36px;
+  margin: 24px auto 16px;
+}
+[data-theme="dark"] .modal-logo { filter: brightness(0) invert(1); }
+
+/* Read View Flex Layout (For Fixed Action Bar) */
+.read-view-content { display: flex; flex-direction: column; max-height: 90vh; }
+.read-body { flex: 1; overflow-y: auto; padding: 40px; }
+
+/* Fixed Action Bar at Bottom */
+.post-actions-bar {
+  flex-shrink: 0;
+  background: var(--surface);
+  padding: 16px 40px;
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+  z-index: 10;
+}
+
+/* Comment Section (Inside Scrollable Body) */
+.comment-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
