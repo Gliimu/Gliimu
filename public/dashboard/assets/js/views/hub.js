@@ -68,9 +68,13 @@ export default {
       deleteComment: (cId, pId) => this.deleteComment(cId, pId),
       openLiveSetup: () => this.openLiveSetup(),
       joinLive: (id) => this.joinLive(id),
-      addLiveBlock: (id) => this.addLiveBlock(id),
+      addLiveBlock: (id, type) => this.addLiveBlock(id, type),
       endLive: (id) => this.endLive(id),
-      sendLiveChat: (postId, userId) => this.sendLiveChat(postId, userId)
+      sendLiveChat: (postId) => this.sendLiveChat(postId),
+      handleLiveInteraction: (postId, type) => this.handleLiveInteraction(postId, type),
+      toggleMute: (type) => this.toggleMute(type),
+      toggleScreenShare: () => this.toggleScreenShare(),
+      toggleAudioOnly: () => this.toggleAudioOnly()
     };
 
     this.setupTopbarSearch();
@@ -531,7 +535,7 @@ export default {
   },
 
   // ============================================
-  // LIVE STUDIO LOGIC
+  // LIVE STUDIO LOGIC (SIMPLIFIED)
   // ============================================
   openLiveSetup() {
     const modal = document.createElement('div');
@@ -572,6 +576,9 @@ export default {
     const { data: post } = await supabase.from('posts').select(`*, profiles:profiles!user_id(full_name, avatar_url)`).eq('id', postId).single();
     if (!post) return alert("Live session not found.");
 
+    this.isAudioOnly = false;
+    this.isScreenSharing = false;
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
     modal.innerHTML = `
@@ -586,6 +593,26 @@ export default {
                 <span>Hosted by ${post.profiles?.full_name || 'Gliimait'}</span>
               </div>
             </div>
+
+            ${isHost ? `
+              <div class="live-host-toolbar">
+                <button class="live-ctrl-btn" id="mute-mic-btn" title="Mute/Unmute Mic">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                </button>
+                <button class="live-ctrl-btn" id="mute-cam-btn" title="Mute/Unmute Cam">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                </button>
+                <button class="live-ctrl-btn" id="screen-share-btn" title="Share Screen">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                </button>
+                <button class="live-ctrl-btn" id="audio-only-btn" title="Audio Only Mode">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                </button>
+                <button class="live-ctrl-btn danger" id="end-live-btn" title="End Live">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                </button>
+              </div>
+            ` : ''}
           </div>
 
           <div class="live-content-feed" id="live-content-feed">
@@ -593,56 +620,91 @@ export default {
           </div>
 
           ${isHost ? `
-            <div class="live-host-controls">
-              <input type="text" id="live-add-text" class="input" placeholder="Add a text block to live feed...">
-              <button class="btn-primary" onclick="hubInstance.addLiveBlock('${postId}')">Post to Feed</button>
-              <button class="btn-secondary" onclick="navigator.clipboard.writeText(window.location.origin + '/dashboard/index.html#/hub'); alert('Live link copied! Share it in chat.');">Copy Invite Link</button>
-              <button class="btn-danger" onclick="hubInstance.endLive('${postId}')">End Live</button>
+            <div class="live-host-add-controls">
+              <input type="text" id="live-add-text" class="input" placeholder="Add text to live feed...">
+              <button class="btn-secondary" onclick="document.getElementById('live-img-input').click()">+ Image</button>
+              <input type="file" id="live-img-input" accept="image/*" style="display:none" onchange="hubInstance.addLiveBlock('${postId}', 'image')">
+              <button class="btn-primary" onclick="hubInstance.addLiveBlock('${postId}', 'text')">Post Text</button>
             </div>
-          ` : `
-            <div class="live-viewer-controls">
-              <p style="font-size: 13px; color: var(--text-muted); text-align: center;">Viewers can see all real-time updates and chat.</p>
-            </div>
-          `}
+          ` : ''}
         </div>
 
-        <div class="live-chat-sidebar">
-          <h3>Live Chat</h3>
-          <div class="live-chat-messages" id="live-chat-messages"></div>
-          <div class="live-chat-input-wrapper">
-            <input type="text" id="live-chat-input" class="input" placeholder="Say something...">
-            <button class="comment-send-btn" onclick="hubInstance.sendLiveChat('${postId}', '${store.user.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
+        <div class="live-side-panel">
+          <div class="live-participants">
+            <h4>Co-Hosts/Viewers</h4>
+            <div class="participant-boxes" id="participant-boxes">
+              <div class="participant-placeholder">Waiting for others to join...</div>
+            </div>
           </div>
+
+          <div class="live-chat-box">
+            <div class="live-chat-messages" id="live-chat-messages"></div>
+            <div class="live-chat-input-wrapper">
+              <input type="text" id="live-chat-input" class="input" placeholder="Send a message...">
+              <button class="comment-send-btn" onclick="hubInstance.sendLiveChat('${postId}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="live-bottom-bar">
+          <button class="action-btn like-btn" onclick="hubInstance.handleLiveInteraction('${postId}', 'like')">
+            <img src="/icons/clap.svg" class="action-icon-img" alt="Clap" loading="eager" decoding="async">
+            <span id="live-claps-count">0</span>
+          </button>
+          <button class="action-btn" onclick="hubInstance.handleLiveInteraction('${postId}', 'share')">
+            <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
+            <span id="live-shares-count">0</span>
+          </button>
+          <button class="action-btn support-btn" onclick="hubInstance.handleLiveInteraction('${postId}', 'support')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span id="live-supports-count">0</span>
+          </button>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
 
+    // 1. Setup Media (Host only)
     if (isHost) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('live-video-feed').srcObject = stream;
-        this.liveStream = stream;
-      } catch (err) {
-        alert("Camera/Mic access denied. Please allow permissions to go live.");
-      }
+      this.startMedia();
+
+      document.getElementById('mute-mic-btn').addEventListener('click', () => this.toggleMute('audio'));
+      document.getElementById('mute-cam-btn').addEventListener('click', () => this.toggleMute('video'));
+      document.getElementById('screen-share-btn').addEventListener('click', () => this.toggleScreenShare());
+      document.getElementById('audio-only-btn').addEventListener('click', () => this.toggleAudioOnly());
+      document.getElementById('end-live-btn').addEventListener('click', () => this.endLive(postId));
     } else {
       document.getElementById('live-video-feed').style.background = 'var(--bg-tertiary)';
     }
 
-    const { data: existingChats } = await supabase.from('hub_interactions')
+    // 2. Fetch existing chat and interactions
+    const { data: existingData } = await supabase.from('hub_interactions')
       .select('*, profiles:profiles!user_id(full_name, avatar_url)')
-      .eq('post_id', postId).eq('interaction_type', 'live_chat').order('created_at', { ascending: true });
+      .eq('post_id', postId).order('created_at', { ascending: true });
 
     const chatBox = document.getElementById('live-chat-messages');
-    if (existingChats && existingChats.length > 0) {
-      chatBox.innerHTML = existingChats.map(c => this.renderLiveChatHtml(c)).join('');
+    const clapsEl = document.getElementById('live-claps-count');
+    const sharesEl = document.getElementById('live-shares-count');
+    const supportsEl = document.getElementById('live-supports-count');
+
+    let claps = 0, shares = 0, supports = 0;
+    if (existingData && existingData.length > 0) {
+      const chats = existingData.filter(d => d.interaction_type === 'live_chat');
+      chatBox.innerHTML = chats.map(c => this.renderLiveChatHtml(c)).join('') || '<p style="font-size: 13px; color: var(--text-muted); text-align: center; margin-top: 20px;">No messages yet.</p>';
+
+      claps = existingData.filter(d => d.interaction_type === 'like').length;
+      shares = existingData.filter(d => d.interaction_type === 'share').length;
+      supports = existingData.filter(d => d.interaction_type === 'support').length;
     } else {
       chatBox.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); text-align: center; margin-top: 20px;">No messages yet.</p>';
     }
+    clapsEl.innerText = claps;
+    sharesEl.innerText = shares;
+    supportsEl.innerText = supports;
 
+    // 3. Setup Realtime for Chat & Interactions
     this.liveChatChannel = supabase.channel(`live-chat-${postId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hub_interactions', filter: `post_id=eq.${postId}` }, payload => {
         if (payload.new.interaction_type === 'live_chat') {
@@ -651,9 +713,16 @@ export default {
             chatBox.innerHTML += this.renderLiveChatHtml(payload.new);
             chatBox.scrollTop = chatBox.scrollHeight;
           });
+        } else if (payload.new.interaction_type === 'like') {
+          clapsEl.innerText = parseInt(clapsEl.innerText) + 1;
+        } else if (payload.new.interaction_type === 'share') {
+          sharesEl.innerText = parseInt(sharesEl.innerText) + 1;
+        } else if (payload.new.interaction_type === 'support') {
+          supportsEl.innerText = parseInt(supportsEl.innerText) + 1;
         }
       }).subscribe();
 
+    // 4. Setup Realtime for Content Blocks
     this.liveContentChannel = supabase.channel(`live-content-${postId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts', filter: `id=eq.${postId}` }, payload => {
         const feed = document.getElementById('live-content-feed');
@@ -667,9 +736,82 @@ export default {
         }
       }).subscribe();
 
+    // Handle Enter key in chat
     document.getElementById('live-chat-input').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.sendLiveChat(postId, store.user.id);
+      if (e.key === 'Enter') this.sendLiveChat(postId);
     });
+  },
+
+  async startMedia() {
+    try {
+      this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      document.getElementById('live-video-feed').srcObject = this.localStream;
+    } catch (err) {
+      alert("Camera/Mic access denied. Please allow permissions to go live.");
+    }
+  },
+
+  toggleMute(type) {
+    if (!this.localStream) return;
+    if (type === 'audio') {
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      if (audioTrack) audioTrack.enabled = !audioTrack.enabled;
+    } else if (type === 'video') {
+      const videoTrack = this.localStream.getVideoTracks()[0];
+      if (videoTrack) videoTrack.enabled = !videoTrack.enabled;
+    }
+  },
+
+  async toggleScreenShare() {
+    if (!this.isScreenSharing) {
+      try {
+        this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        const videoFeed = document.getElementById('live-video-feed');
+        videoFeed.srcObject = this.displayStream;
+        this.isScreenSharing = true;
+
+        // When user stops sharing via browser UI
+        this.displayStream.getVideoTracks()[0].onended = () => {
+          this.toggleScreenShare();
+        };
+      } catch (err) {
+        console.error("Screen share error:", err);
+      }
+    } else {
+      // Revert to camera
+      this.displayStream.getTracks().forEach(track => track.stop());
+      document.getElementById('live-video-feed').srcObject = this.localStream;
+      this.isScreenSharing = false;
+    }
+  },
+
+  toggleAudioOnly() {
+    const videoFeed = document.getElementById('live-video-feed');
+    if (!this.isAudioOnly) {
+      if (this.localStream) {
+        this.localStream.getVideoTracks()[0].enabled = false;
+      }
+      videoFeed.style.display = 'none';
+
+      let audioVisual = document.getElementById('audio-visual-placeholder');
+      if (!audioVisual) {
+        audioVisual = document.createElement('div');
+        audioVisual.id = 'audio-visual-placeholder';
+        audioVisual.className = 'audio-visual-placeholder';
+        audioVisual.innerHTML = '<i class="fas fa-microphone"></i><p>Audio Only Mode</p>';
+        videoFeed.parentElement.appendChild(audioVisual);
+      }
+      audioVisual.style.display = 'flex';
+      this.isAudioOnly = true;
+    } else {
+      if (this.localStream) {
+        this.localStream.getVideoTracks()[0].enabled = true;
+      }
+      videoFeed.style.display = 'block';
+      const audioVisual = document.getElementById('audio-visual-placeholder');
+      if (audioVisual) audioVisual.style.display = 'none';
+      this.isAudioOnly = false;
+    }
   },
 
   renderLiveChatHtml(c) {
@@ -677,40 +819,191 @@ export default {
     return `<div class="comment-item">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${c.comment_text}</p></div></div>`;
   },
 
-  async sendLiveChat(postId, userId) {
+  async sendLiveChat(postId) {
     const input = document.getElementById('live-chat-input');
     const text = input.value.trim();
     if (!text) return;
 
     await supabase.from('hub_interactions').insert({
-      post_id: postId, user_id: userId, interaction_type: 'live_chat', comment_text: text
+      post_id: postId, user_id: store.user.id, interaction_type: 'live_chat', comment_text: text
     });
     input.value = "";
   },
 
-  async addLiveBlock(postId) {
-    const input = document.getElementById('live-add-text');
-    const text = input.value.trim();
-    if (!text) return;
+  async handleLiveInteraction(postId, type) {
+    await supabase.from('hub_interactions').insert({
+      post_id: postId, user_id: store.user.id, interaction_type: type
+    });
+    // The realtime channel will update the count automatically
+    if (type === 'like') {
+      const post = this.currentPosts.find(p => p.id === postId);
+      if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 3 });
+    } else if (type === 'share') {
+      const post = this.currentPosts.find(p => p.id === postId);
+      if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
+    } else if (type === 'support') {
+      const post = this.currentPosts.find(p => p.id === postId);
+      if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 10 });
+    }
+  },
 
-    const { data: post } = await supabase.from('posts').select('blocks').eq('id', postId).single();
-    const currentBlocks = post.blocks || [];
-    currentBlocks.push({ type: 'text', content: text });
+  async addLiveBlock(postId, type) {
+    if (type === 'text') {
+      const input = document.getElementById('live-add-text');
+      const text = input.value.trim();
+      if (!text) return;
 
-    await supabase.from('posts').update({ blocks: currentBlocks }).eq('id', postId);
-    input.value = "";
+      const { data: post } = await supabase.from('posts').select('blocks').eq('id', postId).single();
+      const currentBlocks = post.blocks || [];
+      currentBlocks.push({ type: 'text', content: text });
+
+      await supabase.from('posts').update({ blocks: currentBlocks }).eq('id', postId);
+      input.value = "";
+    } else if (type === 'image') {
+      const fileInput = document.getElementById('live-img-input');
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const fileName = `${store.user.id}/live_${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from('media').upload(fileName, file);
+      if (error) return alert("Image upload failed.");
+
+      const { data } = supabase.storage.from('media').getPublicUrl(fileName);
+      const imgUrl = data.publicUrl;
+
+      const { data: post } = await supabase.from('posts').select('blocks').eq('id', postId).single();
+      const currentBlocks = post.blocks || [];
+      currentBlocks.push({ type: 'image', content: imgUrl });
+
+      await supabase.from('posts').update({ blocks: currentBlocks }).eq('id', postId);
+      fileInput.value = ""; // Clear input
+    }
   },
 
   async endLive(postId) {
     if (!confirm("Are you sure you want to end this live session?")) return;
-    if (this.liveStream) {
-      this.liveStream.getTracks().forEach(track => track.stop());
+
+    // Stop media tracks
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => track.stop());
     }
-    await supabase.from('posts').update({ is_live: false, live_ended_at: new Date().toISOString() }).eq('id', postId);
+    if (this.displayStream) {
+      this.displayStream.getTracks().forEach(track => track.stop());
+    }
+
+    // Unsubscribe realtime
     if (this.liveChatChannel) supabase.removeChannel(this.liveChatChannel);
     if (this.liveContentChannel) supabase.removeChannel(this.liveContentChannel);
-    alert("Live session ended. It has been saved to the Hub.");
+
+    // Remove the live modal
     document.querySelector('.live-studio-overlay')?.remove();
-    this.fetchPosts();
+
+    // Ask to publish as Gliim
+    if (confirm("Would you like to publish the content of this live session as a Gliim?")) {
+      this.publishLiveAsGliim(postId);
+    } else {
+      // Just mark as ended in DB
+      await supabase.from('posts').update({ is_live: false, live_ended_at: new Date().toISOString() }).eq('id', postId);
+      this.fetchPosts();
+    }
+  },
+
+  async publishLiveAsGliim(postId) {
+    // Fetch the live post data
+    const { data: post } = await supabase.from('posts').select('*').eq('id', postId).single();
+    if (!post) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content gliim-builder">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <h2 style="margin-bottom: 24px;">Publish Live as Gliim</h2>
+
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="publish-title" class="input" value="${post.title || ''}">
+        </div>
+        <div class="form-row" style="gap: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label>Category</label>
+            <select id="publish-category" class="input">
+              <option ${post.category === 'Media' ? 'selected' : ''}>Media</option>
+              <option ${post.category === 'Tech' ? 'selected' : ''}>Tech</option>
+              <option ${post.category === 'Business' ? 'selected' : ''}>Business</option>
+              <option ${post.category === 'Personal' ? 'selected' : ''}>Personal</option>
+              <option ${post.category === 'Education' ? 'selected' : ''}>Education</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 2;">
+            <label>Description</label>
+            <input type="text" id="publish-description" class="input" value="${post.description || ''}">
+          </div>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
+        <h3 style="margin-bottom: 16px;">Content Blocks (From Live)</h3>
+        <div id="publish-blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
+
+        <button id="final-publish-btn" class="btn-primary" style="width: 100%; margin-top: 32px;">Publish Gliim</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const blocksContainer = document.getElementById('publish-blocks-container');
+
+    // Render existing blocks for editing
+    if (post.blocks && post.blocks.length > 0) {
+      post.blocks.forEach(b => {
+        const blockDiv = document.createElement('div');
+        blockDiv.className = 'builder-block';
+        blockDiv.dataset.type = b.type;
+
+        let inputHtml = '';
+        if (b.type === 'text') {
+          inputHtml = `<textarea class="input block-content-input" rows="4">${b.content}</textarea>`;
+        } else if (b.type === 'image') {
+          inputHtml = `<input type="text" class="input block-content-input" value="${b.content}"><img src="${b.content}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+        }
+
+        blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${b.type.toUpperCase()}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">Remove</button></div>${inputHtml}`;
+        blocksContainer.appendChild(blockDiv);
+      });
+    }
+
+    document.getElementById('final-publish-btn').addEventListener('click', async () => {
+      const title = document.getElementById('publish-title').value.trim();
+      const category = document.getElementById('publish-category').value;
+      const description = document.getElementById('publish-description').value.trim();
+
+      if (!title) return alert("Title is required.");
+
+      const finalBlocks = [];
+      document.querySelectorAll('#publish-blocks-container .builder-block').forEach(b => {
+        const type = b.dataset.type;
+        const content = b.querySelector('.block-content-input').value.trim();
+        if (content) { finalBlocks.push({ type, content }); }
+      });
+
+      const btn = document.getElementById('final-publish-btn');
+      btn.innerText = "Publishing..."; btn.disabled = true;
+
+      // Update the existing post record
+      const { error } = await supabase.from('posts').update({
+        title, category, description,
+        content: description,
+        blocks: finalBlocks,
+        is_live: false,
+        live_ended_at: new Date().toISOString()
+      }).eq('id', postId);
+
+      if (error) {
+        alert("Failed: " + error.message);
+        btn.innerText = "Publish Gliim"; btn.disabled = false;
+      } else {
+        modal.remove();
+        this.fetchPosts();
+      }
+    });
   }
 };
