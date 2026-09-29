@@ -313,6 +313,8 @@ export default {
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
     const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="eligibility-star-img">' : '';
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
+    const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
+    const shares = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'share').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
 
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
@@ -373,9 +375,11 @@ export default {
             </button>
             <button class="action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
               <img src="/icons/comment.svg" class="action-icon-img" alt="Comment">
+              <span>${comments}</span>
             </button>
             <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
               <img src="/icons/share.svg" class="action-icon-img" alt="Share">
+              <span>${shares}</span>
             </button>
 
             <div class="lib-modal-menu" style="margin-left: auto;">
