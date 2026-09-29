@@ -321,3 +321,117 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
     margin-bottom: 16px;
   }
 }
+
+/* ============================================
+   MOBILE GRID OPTIMIZATION (No Horizontal Scroll)
+   ============================================ */
+@media (max-width: 768px) {
+  /* Reduce outer container padding to give columns more room */
+  .hub-layout {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Tighten the column gap */
+  .blog-feed.grid-view {
+    column-gap: 12px;
+  }
+
+  .blog-card {
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+
+  /* Shrink internal padding of the card */
+  .grid-view .blog-content {
+    padding: 12px;
+  }
+
+  /* Scale down text to fit the narrow columns */
+  .grid-view .blog-title {
+    font-size: 14px;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .grid-view .blog-desc {
+    font-size: 12px;
+    margin-bottom: 10px;
+    line-height: 1.4;
+    -webkit-line-clamp: 2; /* Limit to 2 lines on mobile grid */
+  }
+
+  /* Keep footer horizontal to save vertical space */
+  .grid-view .blog-footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 10px;
+  }
+
+  .grid-view .blog-author {
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .grid-view .blog-avatar {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .grid-view .blog-stats {
+    font-size: 10px;
+    gap: 8px;
+  }
+
+  .grid-view .blog-category {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+
+  .grid-view .blog-date {
+    font-size: 10px;
+  }
+}
+
+/* ============================================
+   BULLETPROOF MOBILE GRID FIX
+   ============================================ */
+@media (max-width: 768px) {
+  /* 1. Reduce outer dashboard padding to give columns maximum room */
+  .view-container {
+    padding: 16px 8px !important;
+  }
+
+  /* 2. Use column-width instead of count so browser auto-calculates fit */
+  .blog-feed.grid-view {
+    column-count: auto !important;
+    column-width: 150px;
+    column-gap: 10px;
+  }
+
+  /* 3. Force card to obey column width and prevent stretching */
+  .blog-card {
+    width: 100%;
+    margin-bottom: 10px;
+    break-inside: avoid;
+  }
+
+  /* 4. Prevent footer text from forcing the card wider */
+  .grid-view .blog-footer {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .grid-view .blog-stats {
+    white-space: normal;
+    flex-basis: 100%;
+    margin-top: 4px;
+  }
+
+  /* 5. Shrink fonts slightly to ensure they fit the 150px columns */
+  .grid-view .blog-title { font-size: 14px; }
+  .grid-view .blog-desc { font-size: 12px; -webkit-line-clamp: 2; }
+}
