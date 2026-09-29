@@ -312,6 +312,7 @@ export default {
     if (!post) return;
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
     const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="eligibility-star-img">' : '';
+
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
     const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
     const shares = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'share').length;
@@ -428,14 +429,9 @@ export default {
     const { error } = await supabase.from('hub_interactions').delete().eq('id', commentId);
     if (error) return alert("Error deleting comment.");
 
-    // Remove from local state
     this.allInteractions = this.allInteractions.filter(i => i.id !== commentId);
-
-    // Remove from UI
     const commentEl = document.getElementById(`comment-${commentId}`);
     if (commentEl) commentEl.remove();
-
-    // Update comment count in the background feed
     this.renderPosts(this.currentPosts);
   },
 
@@ -505,6 +501,14 @@ export default {
     this.logInteraction(postId, 'share');
     const post = this.currentPosts.find(p => p.id === postId);
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
+
+    // Update share count in UI immediately
+    const shareBtn = document.querySelector('.read-view-content .action-btn:nth-child(3) span');
+    if (shareBtn) {
+      const shares = this.allInteractions.filter(i => i.post_id === postId && i.interaction_type === 'share').length;
+      shareBtn.innerText = shares;
+    }
+
     if (navigator.share) { navigator.share({ title: title || 'Gliimu Post', url: window.location.href }).catch(() => {}); } else { alert("Share link copied. Author earned 5 GP!"); }
   },
 
