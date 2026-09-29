@@ -20,6 +20,7 @@ export default {
   init() {
     this.currentPosts = [];
     this.allInteractions = [];
+    this.savedPosts = new Set();
     this.searchQuery = '';
     this.currentFilter = 'all';
     this.viewStyle = localStorage.getItem('hub-view') || 'list';
@@ -28,11 +29,13 @@ export default {
       openReadView: (id) => this.openReadView(id),
       toggleLike: (id) => this.toggleLike(id),
       sharePost: (id, title) => this.sharePost(id, title),
-      toggleCommentBox: (id) => this.toggleCommentBox(id),
+      scrollToComments: (id) => this.scrollToComments(id),
       submitComment: (id) => this.submitComment(id),
       supportCreator: (id, authorId) => this.supportCreator(id, authorId),
       showCommentMenu: (e, cId, pId, name) => this.showCommentMenu(e, cId, pId, name),
       addReaction: (cId, emoji) => this.addReaction(cId, emoji),
+      toggleSavePost: (id) => this.toggleSavePost(id),
+      toggleReadMenu: (id) => this.toggleReadMenu(id),
       closeModal: () => this.closeModal()
     };
 
@@ -76,7 +79,8 @@ export default {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
           </button>
           <div class="lib-dropdown-menu" id="hub-dropdown">
-            <div class="lib-dropdown-item active" data-filter="all">All Categories</div>
+            <div class="lib-dropdown-item active" data-filter="all">All Gliims</div>
+            <div class="lib-dropdown-item" data-filter="saved">Saved Gliims</div>
             <div class="lib-dropdown-item" data-filter="Media">Media</div>
             <div class="lib-dropdown-item" data-filter="Tech">Tech</div>
             <div class="lib-dropdown-item" data-filter="Business">Business</div>
@@ -147,111 +151,107 @@ export default {
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
         <h3 style="margin-bottom: 16px;">Content Blocks</h3>
         <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
-        <div class="builder-toolbar">
-          <button class="btn-secondary" id="add-text-block">+ Text</button>
-          <button class="btn-secondary" id="add-image-block">+ Image</button>
-          <button class="btn-secondary" id="add-video-block">+ Video</button>
-          <button class="btn-secondary" id="add-audio-block">+ Audio</button>
+
+        <div class="builder-add-dropdown">
+          <button class="btn-secondary">+ Add Block</button>
+          <div class="dropdown-menu" id="add-block-menu">
+            <div onclick="hubInstance.addBlock('text')"><span style="font-weight:700;">Aa</span> Text</div>
+            <div onclick="hubInstance.addBlock('image')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Image</div>
+            <div onclick="hubInstance.addBlock('video')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg> Video</div>
+            <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
+          </div>
         </div>
+
         <button id="submit-post-btn" class="btn-primary" style="width: 100%; margin-top: 32px;">Publish Gliim</button>
       </div>
     `;
     document.body.appendChild(modal);
+
+    // Expose addBlock to window for the dropdown
+    window.hubInstance.addBlock = (type) => this.addBlock(type);
+
+    document.querySelector('.builder-add-dropdown button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('add-block-menu').classList.toggle('active');
+    });
+    document.addEventListener('click', () => {
+      document.getElementById('add-block-menu')?.classList.remove('active');
+    });
 
     document.getElementById('post-cover-file').addEventListener('change', (e) => {
       const fileName = e.target.files[0]?.name || 'Choose File';
       document.getElementById('cover-file-name').innerText = fileName;
     });
 
+    this.addBlock('text'); // Default block
+  },
+
+  addBlock(type) {
+    document.getElementById('add-block-menu')?.classList.remove('active');
     const blocksContainer = document.getElementById('blocks-container');
+    const blockDiv = document.createElement('div');
+    blockDiv.className = 'builder-block'; blockDiv.dataset.type = type;
 
-    const handleFileUpload = async (file, blockDiv, type) => {
-      const statusEl = blockDiv.querySelector('.upload-status');
-      const hiddenInput = blockDiv.querySelector('.block-content-input');
-      statusEl.innerText = "Uploading..."; statusEl.style.color = "var(--brand-primary)";
-      const fileName = `${store.user.id}/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage.from('media').upload(fileName, file);
-      if (error) { statusEl.innerText = "Upload failed."; statusEl.style.color = "var(--error)"; return false; }
-      const { data } = supabase.storage.from('media').getPublicUrl(fileName);
-      hiddenInput.value = data.publicUrl;
-      statusEl.innerText = "Upload complete!"; statusEl.style.color = "var(--success)";
-      const preview = blockDiv.querySelector('.block-preview');
-      preview.innerHTML = type === 'image' ? `<img src="${data.publicUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready: ${file.name}</div>`;
-      return true;
-    };
+    let iconHtml = '';
+    if (type === 'text') iconHtml = '<span style="font-weight:700;">Aa</span>';
+    if (type === 'image') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+    if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
+    if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
 
-    const addBlock = (type) => {
-      const blockDiv = document.createElement('div');
-      blockDiv.className = 'builder-block'; blockDiv.dataset.type = type;
-      let inputHtml = '';
-      if (type === 'text') {
-        inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
-      } else {
-        const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
-        inputHtml = `
-          <label class="custom-file-upload">
-            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-            <span class="block-file-name">Choose ${type}</span>
-            <input type="file" class="block-file-input" accept="${accept}" hidden>
-          </label>
-          <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
-          <div class="block-preview"></div>
-          <input type="hidden" class="block-content-input">
-        `;
-      }
-      blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${type.toUpperCase()}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">Remove</button></div>${inputHtml}`;
-      blocksContainer.appendChild(blockDiv);
-      if (type !== 'text') {
-        blockDiv.querySelector('.block-file-input').addEventListener('change', (e) => {
-          if (e.target.files[0]) {
-            blockDiv.querySelector('.block-file-name').innerText = e.target.files[0].name;
-            handleFileUpload(e.target.files[0], blockDiv, type);
-          }
-        });
-      }
-    };
+    let inputHtml = '';
+    if (type === 'text') {
+      inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
+    } else {
+      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
+      inputHtml = `
+        <label class="custom-file-upload">
+          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+          <span class="block-file-name">Choose ${type}</span>
+          <input type="file" class="block-file-input" accept="${accept}" hidden>
+        </label>
+        <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
+        <div class="block-preview"></div>
+        <input type="hidden" class="block-content-input">
+      `;
+    }
 
-    document.getElementById('add-text-block').addEventListener('click', () => addBlock('text'));
-    document.getElementById('add-image-block').addEventListener('click', () => addBlock('image'));
-    document.getElementById('add-video-block').addEventListener('click', () => addBlock('video'));
-    document.getElementById('add-audio-block').addEventListener('click', () => addBlock('audio'));
-    addBlock('text');
+    // Using a minus sign for remove
+    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${iconHtml}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">−</button></div>${inputHtml}`;
+    blocksContainer.appendChild(blockDiv);
 
-    document.getElementById('submit-post-btn').addEventListener('click', async () => {
-      const title = document.getElementById('post-title').value.trim();
-      const category = document.getElementById('post-category').value;
-      const description = document.getElementById('post-description').value.trim();
-      let coverUrl = null;
-      const coverFile = document.getElementById('post-cover-file').files[0];
-      if (coverFile) {
-        const coverFileName = `${store.user.id}/cover_${Date.now()}_${coverFile.name}`;
-        const { error: coverErr } = await supabase.storage.from('media').upload(coverFileName, coverFile);
-        if (!coverErr) coverUrl = supabase.storage.from('media').getPublicUrl(coverFileName).data.publicUrl;
-      }
-      if (!title) return alert("Title is required.");
-      const finalBlocks = [];
-      document.querySelectorAll('.builder-block').forEach(b => {
-        const type = b.dataset.type; const content = b.querySelector('.block-content-input').value.trim();
-        if (content) { const blockData = { type, content }; if (type === 'text') blockData.style = b.querySelector('.block-style-select').value; finalBlocks.push(blockData); }
+    if (type !== 'text') {
+      blockDiv.querySelector('.block-file-input').addEventListener('change', async (e) => {
+        if (e.target.files[0]) {
+          blockDiv.querySelector('.block-file-name').innerText = e.target.files[0].name;
+          const statusEl = blockDiv.querySelector('.upload-status');
+          const hiddenInput = blockDiv.querySelector('.block-content-input');
+          statusEl.innerText = "Uploading..."; statusEl.style.color = "var(--brand-primary)";
+          const fileName = `${store.user.id}/${Date.now()}_${e.target.files[0].name}`;
+          const { error } = await supabase.storage.from('media').upload(fileName, e.target.files[0]);
+          if (error) { statusEl.innerText = "Upload failed."; statusEl.style.color = "var(--error)"; return; }
+          const { data } = supabase.storage.from('media').getPublicUrl(fileName);
+          hiddenInput.value = data.publicUrl;
+          statusEl.innerText = "Upload complete!"; statusEl.style.color = "var(--success)";
+          const preview = blockDiv.querySelector('.block-preview');
+          preview.innerHTML = type === 'image' ? `<img src="${data.publicUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>`;
+        }
       });
-      if (finalBlocks.length === 0 && !coverUrl) return alert("Add some content blocks.");
-      const btn = document.getElementById('submit-post-btn'); btn.innerText = "Publishing..."; btn.disabled = true;
-      const { error } = await supabase.from('posts').insert({ title, category, description, cover_url: coverUrl, blocks: finalBlocks, content: description, user_id: store.user.id });
-      if (error) { alert("Failed: " + error.message); btn.innerText = "Publish Gliim"; btn.disabled = false; } else { modal.remove(); }
-    });
+    }
   },
 
   async fetchPosts() {
-    const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
+    const [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await Promise.all([
       supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, profiles:profiles!user_id(full_name, avatar_url)'),
-      supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single()
+      supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
+      supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
     ]);
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
     this.currentPosts = posts || [];
+    this.savedPosts = new Set(saved?.map(s => s.post_id) || []);
     this.renderPosts(this.currentPosts);
   },
 
@@ -259,38 +259,41 @@ export default {
     const container = document.getElementById('posts-container');
     if (!container) return;
     let filtered = posts;
-    if (this.currentFilter !== 'all') filtered = filtered.filter(p => p.category === this.currentFilter);
+    if (this.currentFilter === 'saved') {
+      filtered = filtered.filter(p => this.savedPosts.has(p.id));
+    } else if (this.currentFilter !== 'all') {
+      filtered = filtered.filter(p => p.category === this.currentFilter);
+    }
     if (this.searchQuery) filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
     if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
     container.innerHTML = filtered.map(post => {
       const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-      const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="inline-star">' : '';
+      const tick = post.profiles?.total_gp >= 1000 ? '<svg class="inline-tick" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : '';
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-      return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'} ${star}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
+      return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'} ${tick}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
     }).join('');
   },
 
   parseTags(text) {
     if (!text) return '';
-    return text.replace(/@([a-zA-Z0-9_ ]+)/g, (match, name) => {
-      return `<span class="comment-tag">${match}</span>`;
-    });
+    return text.replace(/@([a-zA-Z0-9_ ]+)/g, (match, name) => `<span class="comment-tag">${match}</span>`);
   },
 
   openReadView(postId) {
     const post = this.currentPosts.find(p => p.id === postId);
     if (!post) return;
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-    const star = post.profiles?.total_gp >= 1000 ? '<img src="/icons/star.svg" class="inline-star">' : '';
+    const tick = post.profiles?.total_gp >= 1000 ? '<svg class="inline-tick" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : '';
 
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
     const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
     const shares = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'share').length;
     const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
+    const isSaved = this.savedPosts.has(post.id);
 
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
@@ -305,7 +308,15 @@ export default {
     let blocksHtml = '';
     if (post.blocks && post.blocks.length > 0) {
       blocksHtml = post.blocks.map(b => {
-        if (b.type === 'text') { if (b.style === 'title') return `<h2 class="read-block-title">${b.content}</h2>`; if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${b.content}</h3>`; return `<p class="read-block-text">${b.content}</p>`; }
+        if (b.type === 'text') {
+          if (b.style === 'title') return `<h2 class="read-block-title">${b.content}</h2>`;
+          if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${b.content}</h3>`;
+          if (b.style === 'list') {
+            const items = b.content.split('\n').map(line => `<li>${line}</li>`).join('');
+            return `<ul class="read-block-list">${items}</ul>`;
+          }
+          return `<p class="read-block-text">${b.content}</p>`;
+        }
         if (b.type === 'image') return `<img src="${b.content}" class="read-block-media">`;
         if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
         if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><i class="fas fa-podcast"></i><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
@@ -319,26 +330,26 @@ export default {
     modal.innerHTML = `
       <div class="modal-content read-view-content">
 
-        <div class="read-floating-actions">
-          <button class="floating-action-btn close" onclick="hubInstance.closeModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-          <button class="floating-action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-            <img src="/icons/clap.svg" class="action-icon-img" alt="Clap" loading="eager" decoding="async">
-            <span class="floating-count">${likes}</span>
-          </button>
-          <button class="floating-action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
-            <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
-            <span class="floating-count">${comments}</span>
-          </button>
-          <button class="floating-action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
-            <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
-            <span class="floating-count">${shares}</span>
-          </button>
-          <button class="floating-action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span class="floating-count">${supports}</span>
-          </button>
+        <div class="read-top-bar">
+          <div class="lib-modal-menu">
+            <button class="lib-menu-btn" onclick="hubInstance.toggleReadMenu('${post.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+            </button>
+            <div class="lib-menu-dropdown" id="read-menu-${post.id}">
+              <div class="lib-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}
+              </div>
+              <div class="lib-menu-item" onclick="alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                Report Gliim
+              </div>
+              <div class="lib-menu-item danger" onclick="hubInstance.closeModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                Close
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="read-scroll-container">
@@ -349,13 +360,14 @@ export default {
             <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
               <div style="position:relative;">${avatar}</div>
               <div>
-                <span style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center;">${post.profiles?.full_name || 'Gliimait'} ${star}</span><br>
+                <span style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center;">${post.profiles?.full_name || 'Gliimait'} ${tick}</span><br>
                 <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
               </div>
             </div>
             ${blocksHtml}
 
-            <div class="comment-section" id="comment-box-${post.id}" style="display: none;">
+            <div class="comment-section" id="comment-section-${post.id}">
+              <h3>Comments</h3>
               <div class="comment-input-wrapper">
                 <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
                 <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
@@ -368,9 +380,55 @@ export default {
             </div>
           </div>
         </div>
+
+        <div class="read-bottom-bar">
+          <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+            <img src="/icons/clap.svg" class="action-icon-img" alt="Clap" loading="eager" decoding="async">
+            <span>${likes}</span>
+          </button>
+          <button class="action-btn" onclick="hubInstance.scrollToComments('${post.id}')">
+            <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
+            <span>${comments}</span>
+          </button>
+          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
+            <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
+            <span>${shares}</span>
+          </button>
+          <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>${supports}</span>
+          </button>
+        </div>
       </div>
     `;
     document.body.appendChild(modal);
+  },
+
+  toggleReadMenu(postId) {
+    const menu = document.getElementById(`read-menu-${postId}`);
+    if (menu) menu.classList.toggle('active');
+  },
+
+  async toggleSavePost(postId) {
+    if (this.savedPosts.has(postId)) {
+      await supabase.from('saved_posts').delete().eq('user_id', store.user.id).eq('post_id', postId);
+      this.savedPosts.delete(postId);
+      alert("Gliim unsaved.");
+    } else {
+      await supabase.from('saved_posts').insert({ user_id: store.user.id, post_id: postId });
+      this.savedPosts.add(postId);
+      alert("Gliim saved! Find it in the 'Saved Gliims' filter.");
+    }
+    this.toggleReadMenu(postId);
+    this.renderPosts(this.currentPosts);
+  },
+
+  scrollToComments(postId) {
+    const section = document.getElementById(`comment-section-${postId}`);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById(`comment-text-${postId}`).focus();
+    }
   },
 
   showCommentMenu(e, commentId, postId, authorName) {
@@ -415,7 +473,6 @@ export default {
   },
 
   replyToComment(commentId, postId, authorName) {
-    this.toggleCommentBox(postId);
     const input = document.getElementById(`comment-text-${postId}`);
     input.value = `@${authorName} `;
     input.focus();
@@ -458,11 +515,6 @@ export default {
     this.renderPosts(this.currentPosts);
     this.closeModal();
     this.openReadView(postId);
-  },
-
-  toggleCommentBox(postId) {
-    const box = document.getElementById(`comment-box-${postId}`);
-    if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
   },
 
   async submitComment(postId) {

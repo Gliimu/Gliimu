@@ -107,3 +107,24 @@
   position: static !important;
   filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(6deg) brightness(102%) contrast(101%);
 }
+/* Blue Tick Styles */
+.blue-tick-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: var(--brand-primary);
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  z-index: 5;
+}
+.inline-tick {
+  color: var(--brand-primary);
+  vertical-align: middle;
+  margin-left: 4px;
+}

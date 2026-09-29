@@ -13,7 +13,7 @@ async function initApp() {
   // 2. Update UI with user data
   document.getElementById('user-name').innerText = store.profile.username;
 
-  // Fix 1: Set the avatar image source (and fallback to a placeholder if none)
+  // Set the avatar image source (and fallback to a placeholder if none)
   const avatarEl = document.getElementById('user-avatar');
   if (avatarEl) {
     if (store.profile.avatar_url) {
@@ -25,10 +25,12 @@ async function initApp() {
     }
   }
 
-  // Fix 2: Show Elite Star if user has 1000 or more GP
-  const starEl = document.getElementById('user-star');
-  if (starEl && store.profile.total_gp >= 1000) {
-    starEl.style.display = 'flex';
+  // Show Blue Tick if user has 1000 or more GP
+  if (store.profile.total_gp >= 1000) {
+    const tickBadge = document.getElementById('user-tick');
+    const inlineTick = document.getElementById('user-tick-inline');
+    if (tickBadge) tickBadge.style.display = 'flex';
+    if (inlineTick) inlineTick.style.display = 'inline-block';
   }
 
   // 3. Initialize Router
