@@ -10,6 +10,8 @@ const routes = {
   '/settings': () => import('./views/settings.js').then(m => m.default),
 };
 
+let previousHash = window.location.hash;
+
 export async function router() {
   const hash = window.location.hash.slice(1) || '/hub';
   const routeHandler = routes[hash];
@@ -18,11 +20,25 @@ export async function router() {
   const topbarDynamic = document.getElementById('topbar-dynamic-content');
   const topbarRightActions = document.getElementById('topbar-right-actions');
 
-  // Clear topbar dynamic content (search, view toggles, filters) when changing routes
+  // 1. Intercept Navigation if Modal is Open
+  if (window.hubInstance && window.hubInstance.isModalOpen && window.hubInstance.isModalOpen()) {
+    if (!confirm("Would you like to close the modal?")) {
+      // User said "No". Revert URL to keep them on the current page.
+      history.replaceState(null, '', previousHash);
+      return; // Stop routing
+    }
+    // User said "Yes". Close the modal and proceed.
+    window.hubInstance.closeModal();
+  }
+
+  // Update previous hash for next time
+  previousHash = window.location.hash;
+
+  // Clear topbar dynamic content when changing routes
   if (topbarDynamic) topbarDynamic.innerHTML = '';
   if (topbarRightActions) topbarRightActions.innerHTML = '';
 
-  // Scroll to top on route change to fix empty space
+  // Scroll to top on route change
   window.scrollTo(0, 0);
 
   // Update active nav item

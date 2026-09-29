@@ -24,6 +24,7 @@ export default {
     this.searchQuery = '';
     this.currentFilter = 'all';
     this.viewStyle = localStorage.getItem('hub-view') || 'list';
+    this.isModalOpen = false;
 
     window.hubInstance = {
       openReadView: (id) => this.openReadView(id),
@@ -38,14 +39,47 @@ export default {
       toggleReadMenu: (id) => this.toggleReadMenu(id),
       closeModal: () => this.closeModal(),
       addBlock: (type) => this.addBlock(type),
-      promptDelete: (id) => this.promptDelete(id)
+      promptDelete: (id) => this.promptDelete(id),
+      isModalOpen: () => this.isModalOpen
     };
 
     this.setupTopbarSearch();
     this.setupTopbarActions();
-    this.fetchPosts();
     this.setupRealtime();
     this.setupFab();
+
+    // Initiate data fetch, then check for persisted modal
+    this.fetchPosts().then(() => {
+      this.checkPersistedModal();
+    });
+  },
+
+  async checkPersistedModal() {
+    const savedPostId = sessionStorage.getItem('openReadViewId');
+    if (!savedPostId) return;
+
+    // Remove immediately to prevent infinite loops if user refreshes again
+    sessionStorage.removeItem('openReadViewId');
+
+    // Check if the post is already in our fetched list
+    let post = this.currentPosts.find(p => p.id === savedPostId);
+
+    // If not found in the initial 20 posts, fetch it directly
+    if (!post) {
+      const { data, error } = await supabase.from('posts')
+        .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
+        .eq('id', savedPostId).single();
+
+      if (error || !data) {
+        alert("This particular post is no longer available.");
+        return;
+      }
+      post = data;
+      this.currentPosts.unshift(post); // Add to top of list
+      this.renderPosts(this.currentPosts);
+    }
+
+    this.openReadView(post.id);
   },
 
   setupTopbarSearch() {
@@ -130,6 +164,8 @@ export default {
 
   closeModal() {
     document.querySelector('.modal-overlay')?.remove();
+    this.isModalOpen = false;
+    sessionStorage.removeItem('openReadViewId');
   },
 
   closeUserMenu() {
@@ -396,6 +432,9 @@ export default {
     const post = this.currentPosts.find(p => p.id === postId);
     if (!post) return;
 
+    this.isModalOpen = true;
+    sessionStorage.setItem('openReadViewId', postId);
+
     const avatarClass = post.profiles?.total_gp >= 1000 ? 'blog-avatar glow-avatar' : 'blog-avatar';
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
@@ -438,12 +477,15 @@ export default {
       }).join('');
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
 
+    // Menu Icons
+    const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.682 19.758l3.535-3.536m0 0L20.753 12.7m-3.536 3.536L12.5 19.5m8.253-6.8a9 9 0 10-11.127 8.81M20.753 12.7L12.5 19.5m0 0v3.5h3.5"></path></svg>';
+    const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
+    const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
+    const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+
     // Delete Button (Only visible if user is the owner)
     const deleteBtnHtml = isOwner ? `
-      <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.promptDelete('${post.id}')">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-        Delete Gliim
-      </div>
+      <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.promptDelete('${post.id}')">${deleteIcon} Delete Gliim</div>
     ` : '';
 
     const modal = document.createElement('div');
@@ -457,19 +499,10 @@ export default {
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
           </button>
           <div class="hub-read-menu" id="read-menu-${post.id}">
-            <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-              ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}
-            </div>
-            <div class="hub-read-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
-              Report Gliim
-            </div>
+            <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.closeModal()">${closeIcon} Close Modal</div>
+            <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
+            <div class="hub-read-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">${reportIcon} Report Gliim</div>
             ${deleteBtnHtml}
-            <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.closeModal()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              Close
-            </div>
           </div>
         </div>
       </div>
