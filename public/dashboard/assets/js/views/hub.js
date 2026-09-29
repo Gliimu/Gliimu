@@ -75,18 +75,18 @@ export default {
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           </button>
         </div>
-        <div class="lib-filter-wrapper">
+        <div class="hub-filter-wrapper">
           <button class="lib-filter-btn" id="hub-filter-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
           </button>
-          <div class="lib-dropdown-menu" id="hub-dropdown">
-            <div class="lib-dropdown-item active" data-filter="all">All Gliims</div>
-            <div class="lib-dropdown-item" data-filter="saved">Saved Gliims</div>
-            <div class="lib-dropdown-item" data-filter="Media">Media</div>
-            <div class="lib-dropdown-item" data-filter="Tech">Tech</div>
-            <div class="lib-dropdown-item" data-filter="Business">Business</div>
-            <div class="lib-dropdown-item" data-filter="Personal">Personal</div>
-            <div class="lib-dropdown-item" data-filter="Education">Education</div>
+          <div class="hub-filter-menu" id="hub-dropdown">
+            <div class="hub-filter-item active" data-filter="all">All Gliims</div>
+            <div class="hub-filter-item" data-filter="saved">Saved Gliims</div>
+            <div class="hub-filter-item" data-filter="Media">Media</div>
+            <div class="hub-filter-item" data-filter="Tech">Tech</div>
+            <div class="hub-filter-item" data-filter="Business">Business</div>
+            <div class="hub-filter-item" data-filter="Personal">Personal</div>
+            <div class="hub-filter-item" data-filter="Education">Education</div>
           </div>
         </div>
       `;
@@ -98,10 +98,10 @@ export default {
         e.preventDefault(); e.stopPropagation();
         document.getElementById('hub-dropdown').classList.toggle('active');
       });
-      document.querySelectorAll('#hub-dropdown .lib-dropdown-item').forEach(item => {
+      document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(item => {
         item.addEventListener('click', (e) => {
           e.stopPropagation();
-          document.querySelectorAll('#hub-dropdown .lib-dropdown-item').forEach(i => i.classList.remove('active'));
+          document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(i => i.classList.remove('active'));
           item.classList.add('active');
           this.currentFilter = item.dataset.filter;
           document.getElementById('hub-dropdown').classList.remove('active');
@@ -403,20 +403,20 @@ export default {
       <div class="modal-content read-view-content">
 
       <div class="read-top-bar">
-        <div class="lib-modal-menu">
-          <button class="lib-menu-btn" onclick="event.stopPropagation(); hubInstance.toggleReadMenu('${post.id}')">
+        <div class="hub-menu-wrapper">
+          <button class="hub-menu-btn" onclick="event.stopPropagation(); hubInstance.toggleReadMenu('${post.id}')">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
           </button>
-          <div class="lib-menu-dropdown" id="read-menu-${post.id}">
-            <div class="lib-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">
+          <div class="hub-read-menu" id="read-menu-${post.id}">
+            <div class="hub-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
               ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}
             </div>
-            <div class="lib-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
+            <div class="hub-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
               Report Gliim
             </div>
-            <div class="lib-menu-item danger" onclick="event.stopPropagation(); hubInstance.closeModal()">
+            <div class="hub-menu-item danger" onclick="event.stopPropagation(); hubInstance.closeModal()">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               Close
             </div>
