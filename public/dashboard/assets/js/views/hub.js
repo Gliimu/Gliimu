@@ -65,7 +65,11 @@ export default {
       submitComment: (id) => this.submitComment(id),
       toggleHubMenu: (id) => this.toggleHubMenu(id),
       deletePost: (id) => this.deletePost(id),
-      deleteComment: (cId, pId) => this.deleteComment(cId, pId)
+      deleteComment: (cId, pId) => this.deleteComment(cId, pId),
+      openLiveSetup: () => this.openLiveSetup(), // ADD THIS
+      joinLive: (id) => this.joinLive(id),       // ADD THIS
+      addLiveBlock: (id) => this.addLiveBlock(id), // ADD THIS
+      endLive: (id) => this.endLive(id)          // ADD THIS
     };
 
     this.setupTopbarSearch();
@@ -139,7 +143,7 @@ export default {
     document.getElementById('fab-live-btn').addEventListener('click', (e) => {
       e.stopPropagation(); fabMenu.style.display = 'none';
       if (this.userGP >= 1000) {
-        alert('Live session starting soon!');
+        this.openLiveSetup();
       } else {
         alert('Only eligible gliimaits can do a live post. Earn 1000 GPS to become eligible.');
       }
@@ -296,7 +300,10 @@ export default {
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-      return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'} ${star}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
+      const liveBadge = post.is_live ? '<span class="live-badge">LIVE</span>' : '';
+      const onClickAction = post.is_live ? `hubInstance.joinLive('${post.id}')` : `hubInstance.openReadView('${post.id}')`;
+
+      return `<article class="blog-card" id="post-${post.id}" onclick="${onClickAction}">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>${liveBadge}</div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'} ${star}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
     }).join('');
   },
 
@@ -519,5 +526,209 @@ export default {
   setupRealtime() {
     supabase.removeChannel(supabase.channel('public:posts'));
     supabase.channel('public:posts').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => { this.fetchPosts(); }).subscribe();
+  }
+
+  // ============================================
+  // LIVE STUDIO LOGIC
+  // ============================================
+  openLiveSetup() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content gliim-builder">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <h2 style="margin-bottom: 24px; text-align: center; color: var(--error);">Go Live</h2>
+        <div class="form-group"><label>Title</label><input type="text" id="live-title" class="input" placeholder="Live Session Title..."></div>
+        <div class="form-group"><label>Category</label><select id="live-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
+        <div class="form-group"><label>Description</label><input type="text" id="live-description" class="input" placeholder="What is this live session about?"></div>
+        <button id="start-live-btn" class="btn-primary" style="width: 100%; background: var(--error); margin-top: 16px;">Start Live Gliim</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('start-live-btn').addEventListener('click', async () => {
+      const title = document.getElementById('live-title').value.trim();
+      const category = document.getElementById('live-category').value;
+      const description = document.getElementById('live-description').value.trim();
+      if (!title) return alert("Title is required.");
+
+      const { data, error } = await supabase.from('posts').insert({
+        title, category, description,
+        content: description,
+        user_id: store.user.id,
+        is_live: true,
+        blocks: []
+      }).select('*').single();
+
+      if (error) return alert("Failed to go live: " + error.message);
+      modal.remove();
+      this.joinLive(data.id, true); // true = isHost
+    });
+  },
+
+  async joinLive(postId, isHost = false) {
+    // Fetch the live post data
+    const { data: post } = await supabase.from('posts').select(`*, profiles:profiles!user_id(full_name, avatar_url)`).eq('id', postId).single();
+    if (!post) return alert("Live session not found.");
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay live-studio-overlay';
+    modal.innerHTML = `
+      <div class="live-studio-container">
+        <div class="live-studio-main">
+          <div class="live-video-wrapper">
+            <video id="live-video-feed" autoplay muted playsinline></video>
+            <div class="live-video-overlay">
+              <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
+              <h2>${post.title}</h2>
+              <div class="live-host-info">
+                <span>Hosted by ${post.profiles?.full_name || 'Gliimait'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="live-content-feed" id="live-content-feed">
+            <div class="live-block live-text-block"><p>${post.description || 'Live session starting...'}</p></div>
+          </div>
+
+          ${isHost ? `
+            <div class="live-host-controls">
+              <input type="text" id="live-add-text" class="input" placeholder="Add a text block to live feed...">
+              <button class="btn-primary" onclick="hubInstance.addLiveBlock('${postId}')">Post to Feed</button>
+              <button class="btn-secondary" onclick="navigator.clipboard.writeText(window.location.origin + '/dashboard/index.html#/hub'); alert('Live link copied! Share it in chat.');">Copy Invite Link</button>
+              <button class="btn-danger" onclick="hubInstance.endLive('${postId}')">End Live</button>
+            </div>
+          ` : `
+            <div class="live-viewer-controls">
+              <p style="font-size: 13px; color: var(--text-muted); text-align: center;">Viewers can see all real-time updates and chat.</p>
+            </div>
+          `}
+        </div>
+
+        <div class="live-chat-sidebar">
+          <h3>Live Chat</h3>
+          <div class="live-chat-messages" id="live-chat-messages"></div>
+          <div class="live-chat-input-wrapper">
+            <input type="text" id="live-chat-input" class="input" placeholder="Say something...">
+            <button class="comment-send-btn" onclick="hubInstance.sendLiveChat('${postId}', '${store.user.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // 1. Setup Camera (Host only, but viewers see placeholder)
+    if (isHost) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('live-video-feed').srcObject = stream;
+        this.liveStream = stream;
+      } catch (err) {
+        alert("Camera/Mic access denied. Please allow permissions to go live.");
+      }
+    } else {
+      document.getElementById('live-video-feed').style.background = 'var(--bg-tertiary)';
+      document.getElementById('live-video-feed').poster = 'https://via.placeholder.com/800x450/0F172A/FFFFFF?text=Waiting+for+Host+Video...';
+    }
+
+    // 2. Fetch existing chat
+    const { data: existingChats } = await supabase.from('hub_interactions')
+      .select('*, profiles:profiles!user_id(full_name, avatar_url)')
+      .eq('post_id', postId).eq('interaction_type', 'live_chat').order('created_at', { ascending: true });
+
+    const chatBox = document.getElementById('live-chat-messages');
+    if (existingChats && existingChats.length > 0) {
+      chatBox.innerHTML = existingChats.map(c => this.renderLiveChatHtml(c)).join('');
+    } else {
+      chatBox.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); text-align: center; margin-top: 20px;">No messages yet.</p>';
+    }
+
+    // 3. Setup Realtime for Chat
+    this.liveChatChannel = supabase.channel(`live-chat-${postId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hub_interactions', filter: `post_id=eq.${postId}` }, payload => {
+        if (payload.new.interaction_type === 'live_chat') {
+          // Fetch user data for the new chat
+          supabase.from('profiles').select('full_name, avatar_url').eq('id', payload.new.user_id).single().then(({ data }) => {
+            payload.new.profiles = data;
+            chatBox.innerHTML += this.renderLiveChatHtml(payload.new);
+            chatBox.scrollTop = chatBox.scrollHeight;
+          });
+        }
+      }).subscribe();
+
+    // 4. Setup Realtime for Content Blocks (Host adds blocks -> Viewers see it)
+    this.liveContentChannel = supabase.channel(`live-content-${postId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts', filter: `id=eq.${postId}` }, payload => {
+        const feed = document.getElementById('live-content-feed');
+        if (feed && payload.new.blocks) {
+          // Re-render blocks
+          feed.innerHTML = payload.new.blocks.map(b => {
+            if (b.type === 'text') return `<div class="live-block live-text-block"><p>${b.content}</p></div>`;
+            if (b.type === 'image') return `<div class="live-block live-image-block"><img src="${b.content}"></div>`;
+            return '';
+          }).join('');
+          feed.scrollTop = feed.scrollHeight;
+        }
+      }).subscribe();
+
+    // Handle Enter key in chat
+    document.getElementById('live-chat-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.sendLiveChat(postId, store.user.id);
+    });
+  },
+
+  renderLiveChatHtml(c) {
+    const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+    return `<div class="comment-item">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${c.comment_text}</p></div></div>`;
+  },
+
+  async sendLiveChat(postId, userId) {
+    const input = document.getElementById('live-chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    await supabase.from('hub_interactions').insert({
+      post_id: postId, user_id: userId, interaction_type: 'live_chat', comment_text: text
+    });
+    input.value = "";
+  },
+
+  async addLiveBlock(postId) {
+    const input = document.getElementById('live-add-text');
+    const text = input.value.trim();
+    if (!text) return;
+
+    // Fetch current post blocks
+    const { data: post } = await supabase.from('posts').select('blocks').eq('id', postId).single();
+    const currentBlocks = post.blocks || [];
+
+    // Add new block
+    currentBlocks.push({ type: 'text', content: text });
+
+    // Update database (Realtime will broadcast this to viewers)
+    await supabase.from('posts').update({ blocks: currentBlocks }).eq('id', postId);
+    input.value = "";
+  },
+
+  async endLive(postId) {
+    if (!confirm("Are you sure you want to end this live session?")) return;
+
+    // Stop camera
+    if (this.liveStream) {
+      this.liveStream.getTracks().forEach(track => track.stop());
+    }
+
+    // Update database
+    await supabase.from('posts').update({ is_live: false, live_ended_at: new Date().toISOString() }).eq('id', postId);
+
+    // Unsubscribe realtime
+    if (this.liveChatChannel) supabase.removeChannel(this.liveChatChannel);
+    if (this.liveContentChannel) supabase.removeChannel(this.liveContentChannel);
+
+    alert("Live session ended. It has been saved to the Hub.");
+    document.querySelector('.live-studio-overlay')?.remove();
+    this.fetchPosts();
   }
 };
