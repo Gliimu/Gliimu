@@ -3,9 +3,9 @@ import { store } from './store.js';
 const routes = {
   '/hub': () => import('./views/hub.js').then(m => m.default),
   '/library': () => import('./views/library.js').then(m => m.default),
-  '/portfolio': () => import('./views/portfolio.js').then(m => m.default),
+  '/profile': () => import('./views/portfolio.js').then(m => m.default),
   '/applications': () => import('./views/applications.js').then(m => m.default),
-  '/messages': () => import('./views/messages.js').then(m => m.default),
+  '/ping': () => import('./views/messages.js').then(m => m.default),
   '/wallet': () => import('./views/wallet.js').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
 };
@@ -15,11 +15,15 @@ export async function router() {
   const routeHandler = routes[hash];
 
   const app = document.getElementById('app');
-  const pageTitle = document.getElementById('page-title');
-  const topbarDynamic = document.getElementById('topbar-dynamic-content'); // Get dynamic div
+  const topbarDynamic = document.getElementById('topbar-dynamic-content');
+  const topbarRightActions = document.getElementById('topbar-right-actions');
 
-  // Clear dynamic topbar content (like Hub search) when changing routes
+  // Clear topbar dynamic content (search, view toggles, filters) when changing routes
   if (topbarDynamic) topbarDynamic.innerHTML = '';
+  if (topbarRightActions) topbarRightActions.innerHTML = '';
+
+  // Scroll to top on route change to fix empty space
+  window.scrollTo(0, 0);
 
   // Update active nav item
   document.querySelectorAll('.nav-item').forEach(item => {
@@ -32,7 +36,6 @@ export async function router() {
   if (routeHandler) {
     const view = await routeHandler();
     app.innerHTML = view.template;
-    pageTitle.innerText = view.title;
 
     if (view.init) {
       view.init();

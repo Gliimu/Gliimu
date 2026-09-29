@@ -2,7 +2,7 @@
    GLIIMU DASHBOARD CORE SHELL
    ============================================ */
 .dashboard-layout { display: flex; min-height: 100vh; background: var(--bg-secondary); }
-.sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform var(--transition-base); }
+.sidebar { width: 200px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform var(--transition-base); }
 .sidebar-header { padding: var(--space-6); border-bottom: 1px solid var(--border); }
 .brand-logo { font-family: var(--font-sans); font-size: var(--fs-2xl); font-weight: var(--fw-extrabold); letter-spacing: var(--ls-tight); background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-decoration: none; display: flex; align-items: center; }
 .brand-logo-img { height: 32px; width: auto; }
@@ -18,7 +18,7 @@
 .user-info { display: flex; flex-direction: column; }
 .user-name { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); }
 .user-role { font-size: var(--fs-xs); color: var(--text-muted); }
-.main-content { flex: 1; margin-left: 260px; display: flex; flex-direction: column; min-height: 100vh; }
+.main-content { flex: 1; margin-left: 200px; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-6); position: sticky; top: 0; z-index: 50; }
 .topbar-title { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--text-primary); }
 .menu-toggle { display: none; background: none; border: none; font-size: var(--fs-xl); cursor: pointer; color: var(--text-primary); }
@@ -128,8 +128,8 @@
   vertical-align: middle;
   margin-left: 4px;
 }
-/* Glowing Gold Avatar for Elite Users */
+/* Dotted Primary Border for Elite Users */
 .glow-avatar {
-  border: 2px solid var(--gold);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+  border: 2px dotted var(--brand-primary);
+  box-shadow: none;
 }

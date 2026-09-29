@@ -143,7 +143,7 @@ export default {
     menu.style.top = `${e.clientY}px`;
     menu.innerHTML = `
       <div class="ctx-item" onclick="hubInstance.replyToUser('${postId}', '${fullName}')">Reply</div>
-      <div class="ctx-item" onclick="window.location.hash='#/portfolio'; hubInstance.closeUserMenu()">View Profile</div>
+      <div class="ctx-item" onclick="window.location.hash='#/profile'; hubInstance.closeUserMenu()">View Profile</div>
       <div class="ctx-item" onclick="alert('User reported.'); hubInstance.closeUserMenu()">Report</div>
     `;
     document.body.appendChild(menu);
@@ -264,6 +264,9 @@ export default {
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
 
+    // Trash Icon for Remove
+    const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+
     let inputHtml = '';
     if (type === 'text') {
       inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
@@ -281,7 +284,7 @@ export default {
       `;
     }
 
-    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${iconHtml}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">−</button></div>${inputHtml}`;
+    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${iconHtml}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">${removeIcon}</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
 
     if (type !== 'text') {
@@ -381,8 +384,9 @@ export default {
           if (b.style === 'title') return `<h2 class="read-block-title">${b.content}</h2>`;
           if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${b.content}</h3>`;
           if (b.style === 'list') {
-            const items = b.content.split('\n').map(line => `<li>${line}</li>`).join('');
-            return `<ul class="read-block-list">${items}</ul>`;
+            // No bullets, just block elements
+            const items = b.content.split('\n').map(line => `<div class="read-block-list-item">${line}</div>`).join('');
+            return `<div class="read-block-list">${items}</div>`;
           }
           return `<p class="read-block-text">${b.content}</p>`;
         }
@@ -392,7 +396,6 @@ export default {
         return '';
       }).join('');
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
-    const coverHtml = post.cover_url ? `<div class="read-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay read-view-overlay';
@@ -400,6 +403,9 @@ export default {
       <div class="modal-content read-view-content">
 
         <div class="read-top-bar">
+          <button class="read-close-btn" onclick="hubInstance.closeModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
           <div class="lib-modal-menu">
             <button class="lib-menu-btn" onclick="hubInstance.toggleReadMenu('${post.id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
@@ -413,16 +419,11 @@ export default {
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
                 Report Gliim
               </div>
-              <div class="lib-menu-item danger" onclick="hubInstance.closeModal()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                Close
-              </div>
             </div>
           </div>
         </div>
 
         <div class="read-scroll-container">
-          ${coverHtml}
           <div class="read-body">
             <span class="blog-category">${post.category || 'General'}</span>
             <h1 class="read-title">${post.title || 'Untitled Gliim'}</h1>
