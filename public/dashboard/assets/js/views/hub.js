@@ -66,10 +66,11 @@ export default {
       toggleHubMenu: (id) => this.toggleHubMenu(id),
       deletePost: (id) => this.deletePost(id),
       deleteComment: (cId, pId) => this.deleteComment(cId, pId),
-      openLiveSetup: () => this.openLiveSetup(), // ADD THIS
-      joinLive: (id) => this.joinLive(id),       // ADD THIS
-      addLiveBlock: (id) => this.addLiveBlock(id), // ADD THIS
-      endLive: (id) => this.endLive(id)          // ADD THIS
+      openLiveSetup: () => this.openLiveSetup(),
+      joinLive: (id) => this.joinLive(id),
+      addLiveBlock: (id) => this.addLiveBlock(id),
+      endLive: (id) => this.endLive(id),
+      sendLiveChat: (postId, userId) => this.sendLiveChat(postId, userId)
     };
 
     this.setupTopbarSearch();
@@ -274,7 +275,7 @@ export default {
 
   async fetchPosts() {
     const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
-      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
+      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, is_live, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single()
     ]);
@@ -300,6 +301,7 @@ export default {
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
+
       const liveBadge = post.is_live ? '<span class="live-badge">LIVE</span>' : '';
       const onClickAction = post.is_live ? `hubInstance.joinLive('${post.id}')` : `hubInstance.openReadView('${post.id}')`;
 
@@ -526,7 +528,7 @@ export default {
   setupRealtime() {
     supabase.removeChannel(supabase.channel('public:posts'));
     supabase.channel('public:posts').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => { this.fetchPosts(); }).subscribe();
-  }
+  },
 
   // ============================================
   // LIVE STUDIO LOGIC
@@ -567,7 +569,6 @@ export default {
   },
 
   async joinLive(postId, isHost = false) {
-    // Fetch the live post data
     const { data: post } = await supabase.from('posts').select(`*, profiles:profiles!user_id(full_name, avatar_url)`).eq('id', postId).single();
     if (!post) return alert("Live session not found.");
 
@@ -619,7 +620,6 @@ export default {
     `;
     document.body.appendChild(modal);
 
-    // 1. Setup Camera (Host only, but viewers see placeholder)
     if (isHost) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -630,10 +630,8 @@ export default {
       }
     } else {
       document.getElementById('live-video-feed').style.background = 'var(--bg-tertiary)';
-      document.getElementById('live-video-feed').poster = 'https://via.placeholder.com/800x450/0F172A/FFFFFF?text=Waiting+for+Host+Video...';
     }
 
-    // 2. Fetch existing chat
     const { data: existingChats } = await supabase.from('hub_interactions')
       .select('*, profiles:profiles!user_id(full_name, avatar_url)')
       .eq('post_id', postId).eq('interaction_type', 'live_chat').order('created_at', { ascending: true });
@@ -645,11 +643,9 @@ export default {
       chatBox.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); text-align: center; margin-top: 20px;">No messages yet.</p>';
     }
 
-    // 3. Setup Realtime for Chat
     this.liveChatChannel = supabase.channel(`live-chat-${postId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hub_interactions', filter: `post_id=eq.${postId}` }, payload => {
         if (payload.new.interaction_type === 'live_chat') {
-          // Fetch user data for the new chat
           supabase.from('profiles').select('full_name, avatar_url').eq('id', payload.new.user_id).single().then(({ data }) => {
             payload.new.profiles = data;
             chatBox.innerHTML += this.renderLiveChatHtml(payload.new);
@@ -658,12 +654,10 @@ export default {
         }
       }).subscribe();
 
-    // 4. Setup Realtime for Content Blocks (Host adds blocks -> Viewers see it)
     this.liveContentChannel = supabase.channel(`live-content-${postId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts', filter: `id=eq.${postId}` }, payload => {
         const feed = document.getElementById('live-content-feed');
         if (feed && payload.new.blocks) {
-          // Re-render blocks
           feed.innerHTML = payload.new.blocks.map(b => {
             if (b.type === 'text') return `<div class="live-block live-text-block"><p>${b.content}</p></div>`;
             if (b.type === 'image') return `<div class="live-block live-image-block"><img src="${b.content}"></div>`;
@@ -673,7 +667,6 @@ export default {
         }
       }).subscribe();
 
-    // Handle Enter key in chat
     document.getElementById('live-chat-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.sendLiveChat(postId, store.user.id);
     });
@@ -700,33 +693,22 @@ export default {
     const text = input.value.trim();
     if (!text) return;
 
-    // Fetch current post blocks
     const { data: post } = await supabase.from('posts').select('blocks').eq('id', postId).single();
     const currentBlocks = post.blocks || [];
-
-    // Add new block
     currentBlocks.push({ type: 'text', content: text });
 
-    // Update database (Realtime will broadcast this to viewers)
     await supabase.from('posts').update({ blocks: currentBlocks }).eq('id', postId);
     input.value = "";
   },
 
   async endLive(postId) {
     if (!confirm("Are you sure you want to end this live session?")) return;
-
-    // Stop camera
     if (this.liveStream) {
       this.liveStream.getTracks().forEach(track => track.stop());
     }
-
-    // Update database
     await supabase.from('posts').update({ is_live: false, live_ended_at: new Date().toISOString() }).eq('id', postId);
-
-    // Unsubscribe realtime
     if (this.liveChatChannel) supabase.removeChannel(this.liveChatChannel);
     if (this.liveContentChannel) supabase.removeChannel(this.liveContentChannel);
-
     alert("Live session ended. It has been saved to the Hub.");
     document.querySelector('.live-studio-overlay')?.remove();
     this.fetchPosts();
