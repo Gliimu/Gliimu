@@ -94,3 +94,16 @@
   vertical-align: middle;
   filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(6deg) brightness(102%) contrast(101%) drop-shadow(0 0 4px rgba(249, 115, 22, 0.8));
 }
+/* Force Sidebar Above Modals */
+.sidebar { z-index: 1100 !important; box-shadow: 4px 0 24px rgba(0,0,0,0.1); }
+
+/* Strict Inline Star Size (Prevents Horizontal Scroll) */
+.inline-star {
+  width: 16px !important;
+  height: 16px !important;
+  vertical-align: middle;
+  margin-left: 4px;
+  display: inline-block !important;
+  position: static !important;
+  filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(6deg) brightness(102%) contrast(101%);
+}

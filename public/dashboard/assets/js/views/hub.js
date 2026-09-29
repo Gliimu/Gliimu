@@ -152,7 +152,6 @@ export default {
     modal.innerHTML = `
       <div class="modal-content gliim-builder">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <img src="/icons/logo.png" alt="Gliimu" class="modal-logo">
         <h2 style="margin-bottom: 24px; text-align: center;">Publish a Gliim</h2>
         <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
         <div class="form-row" style="gap: 16px;">
@@ -357,7 +356,6 @@ export default {
     modal.innerHTML = `
       <div class="modal-content read-view-content">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <img src="/icons/logo.png" alt="Gliimu" class="modal-logo">
         ${coverHtml}
         <div class="read-body">
           <span class="blog-category">${post.category || 'General'}</span>
@@ -373,18 +371,18 @@ export default {
         </div>
 
         <div class="post-actions-bar">
-          <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-            <img src="/icons/clap.svg" class="action-icon-img" alt="Clap">
-            <span>${likes}</span>
-          </button>
-          <button class="action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
-            <img src="/icons/comment.svg" class="action-icon-img" alt="Comment">
-            <span>${comments}</span>
-          </button>
-          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
-            <img src="/icons/share.svg" class="action-icon-img" alt="Share">
-            <span>${shares}</span>
-          </button>
+        <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+          <img src="/icons/clap.svg" class="action-icon-img" alt="Clap" loading="eager" decoding="async">
+          <span>${likes}</span>
+        </button>
+        <button class="action-btn" onclick="hubInstance.toggleCommentBox('${post.id}')">
+          <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
+          <span>${comments}</span>
+        </button>
+        <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
+          <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
+          <span>${shares}</span>
+        </button>
 
           <div class="lib-modal-menu" style="margin-left: auto;">
             <button class="lib-menu-btn" onclick="hubInstance.toggleHubMenu('${post.id}')">
