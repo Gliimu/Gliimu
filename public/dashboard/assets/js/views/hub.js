@@ -37,7 +37,8 @@ export default {
       toggleSavePost: (id) => this.toggleSavePost(id),
       toggleReadMenu: (id) => this.toggleReadMenu(id),
       closeModal: () => this.closeModal(),
-      addBlock: (type) => this.addBlock(type)
+      addBlock: (type) => this.addBlock(type),
+      promptDelete: (id) => this.promptDelete(id)
     };
 
     this.setupTopbarSearch();
@@ -81,6 +82,8 @@ export default {
           </button>
           <div class="hub-filter-menu" id="hub-dropdown">
             <div class="hub-filter-item active" data-filter="all">All Gliims</div>
+            <div class="hub-filter-item" data-filter="mine">My Gliims</div>
+            <div class="hub-filter-item" data-filter="tagged">Tagged Gliims</div>
             <div class="hub-filter-item" data-filter="saved">Saved Gliims</div>
             <div class="hub-filter-item" data-filter="Media">Media</div>
             <div class="hub-filter-item" data-filter="Tech">Tech</div>
@@ -160,6 +163,25 @@ export default {
       input.value = `@${fullName} `;
       input.focus();
     }
+  },
+
+  async promptDelete(postId) {
+    const password = prompt("To permanently delete this Gliim, please enter your password:");
+    if (!password) return; // User cancelled
+
+    const fakeEmail = `${store.profile.username}@gliimu.app`;
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+
+    if (signInError) {
+      return alert("Incorrect password. Deletion cancelled.");
+    }
+
+    const { error: deleteError } = await supabase.from('posts').delete().eq('id', postId);
+    if (deleteError) return alert("Error deleting post: " + deleteError.message);
+
+    alert("Gliim deleted successfully.");
+    this.closeModal();
+    this.fetchPosts();
   },
 
   openCreateModal() {
@@ -327,12 +349,30 @@ export default {
     const container = document.getElementById('posts-container');
     if (!container) return;
     let filtered = posts;
+
+    // 1. Filter by Tab
     if (this.currentFilter === 'saved') {
       filtered = filtered.filter(p => this.savedPosts.has(p.id));
+    } else if (this.currentFilter === 'mine') {
+      filtered = filtered.filter(p => p.user_id === store.user.id);
+    } else if (this.currentFilter === 'tagged') {
+      const myName = store.profile?.full_name || '';
+      const tag = `@${myName}`;
+      filtered = filtered.filter(p => {
+        const inDesc = p.description && p.description.includes(tag);
+        const inBlocks = p.blocks && p.blocks.some(b => b.type === 'text' && b.content.includes(tag));
+        const inComments = this.allInteractions.some(i => i.post_id === p.id && i.comment_text && i.comment_text.includes(tag));
+        return inDesc || inBlocks || inComments;
+      });
     } else if (this.currentFilter !== 'all') {
       filtered = filtered.filter(p => p.category === this.currentFilter);
     }
-    if (this.searchQuery) filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
+
+    // 2. Filter by Search
+    if (this.searchQuery) {
+      filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
+    }
+
     if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
 
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
@@ -365,6 +405,7 @@ export default {
     const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
     const isSaved = this.savedPosts.has(post.id);
+    const isOwner = post.user_id === store.user.id;
 
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
@@ -397,6 +438,14 @@ export default {
       }).join('');
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
 
+    // Delete Button (Only visible if user is the owner)
+    const deleteBtnHtml = isOwner ? `
+      <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.promptDelete('${post.id}')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        Delete Gliim
+      </div>
+    ` : '';
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay read-view-overlay';
     modal.innerHTML = `
@@ -416,6 +465,7 @@ export default {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
               Report Gliim
             </div>
+            ${deleteBtnHtml}
             <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.closeModal()">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               Close
