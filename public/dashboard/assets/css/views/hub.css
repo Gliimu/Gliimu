@@ -39,7 +39,7 @@
 [data-theme="light"] .modal-overlay { background: rgba(255, 255, 255, 0.98) !important; }
 [data-theme="dark"] .modal-overlay { background: rgba(0, 0, 0, 0.95) !important; }
 
-/* Read View Layout (Scrollable Cover) */
+/* Read View Layout (Flex Row for Action Bar) */
 .read-view-overlay { padding: 40px 16px; overflow: hidden !important; display: flex; justify-content: center; align-items: flex-start; }
 .read-view-content {
   max-width: 800px;
@@ -51,13 +51,14 @@
   border-radius: 16px;
   box-shadow: var(--shadow-2xl);
   display: flex;
+  flex-direction: row; /* Action bar on right, content on left */
   max-height: 90vh;
   position: relative;
 }
 .read-scroll-container {
   flex: 1;
   overflow-y: auto;
-  padding-right: 80px; /* Space for floating actions */
+  padding: 0;
 }
 .read-cover { width: 100%; height: 400px; background-size: cover; background-position: center; background-color: var(--bg-tertiary); }
 .read-body { padding: 40px; }
@@ -72,20 +73,18 @@
 .read-block-audio-wrapper i { font-size: 24px; color: var(--brand-primary); }
 .read-block-audio { flex: 1; height: 40px; }
 
-/* Floating Action Bar (Vertical Right) */
+/* Floating Action Bar (Flex Column Sidebar) */
 .read-floating-actions {
-  position: absolute;
-  top: 24px;
-  right: 24px;
+  flex-shrink: 0;
+  width: 60px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  background: var(--bg-tertiary);
-  padding: 12px 8px;
-  border-radius: 32px;
-  box-shadow: var(--shadow-lg);
-  z-index: 20;
   align-items: center;
+  gap: 20px;
+  background: var(--bg-tertiary);
+  padding: 24px 0;
+  border-left: 1px solid var(--border);
+  z-index: 20;
 }
 .floating-action-btn {
   background: none;
@@ -95,12 +94,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   font-size: 10px;
   font-weight: 600;
   transition: color 0.2s ease;
   padding: 4px;
-  position: relative;
 }
 .floating-action-btn:hover { color: var(--brand-primary); }
 .floating-action-btn.close { color: var(--text-secondary); }
@@ -178,3 +176,16 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 .hub-topbar-search { display: flex; align-items: center; gap: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; width: 100%; max-width: 400px; }
 .hub-topbar-search svg { color: var(--text-muted); flex-shrink: 0; }
 .hub-topbar-search input { background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); width: 100%; font-family: var(--font-sans); }
+
+/* Gliim Studio (Maker) Strict Icon Sizing */
+.gliim-builder { max-width: 700px; max-height: 90vh; overflow-y: auto; }
+.builder-toolbar { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.builder-block { background: var(--bg-tertiary); padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
+.block-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+.block-remove-btn { background: none; border: none; color: var(--error); font-size: 12px; font-weight: 600; cursor: pointer; }
+.block-style-select { margin-bottom: 8px; }
+
+.custom-file-upload { display: flex; align-items: center; gap: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); padding: 12px 16px; border-radius: 12px; cursor: pointer; font-size: 14px; color: var(--text-secondary); font-weight: 500; transition: all 0.2s ease; }
+.custom-file-upload:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.upload-icon-img { width: 18px !important; height: 18px !important; max-width: 18px !important; max-height: 18px !important; object-fit: contain; }
+.block-file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }

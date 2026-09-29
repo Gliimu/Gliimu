@@ -32,7 +32,8 @@ export default {
       submitComment: (id) => this.submitComment(id),
       supportCreator: (id, authorId) => this.supportCreator(id, authorId),
       showCommentMenu: (e, cId, pId, name) => this.showCommentMenu(e, cId, pId, name),
-      addReaction: (cId, emoji) => this.addReaction(cId, emoji)
+      addReaction: (cId, emoji) => this.addReaction(cId, emoji),
+      closeModal: () => this.closeModal()
     };
 
     this.setupTopbarSearch();
@@ -119,12 +120,16 @@ export default {
     document.getElementById('hub-fab-main').addEventListener('click', () => this.openCreateModal());
   },
 
+  closeModal() {
+    document.querySelector('.modal-overlay')?.remove();
+  },
+
   openCreateModal() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
       <div class="modal-content gliim-builder">
-        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <button class="modal-close" onclick="hubInstance.closeModal()">×</button>
         <h2 style="margin-bottom: 24px;">Publish a Gliim</h2>
         <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
         <div class="form-row" style="gap: 16px;">
@@ -315,7 +320,7 @@ export default {
       <div class="modal-content read-view-content">
 
         <div class="read-floating-actions">
-          <button class="floating-action-btn close" onclick="this.parentElement.parentElement.remove()">
+          <button class="floating-action-btn close" onclick="hubInstance.closeModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
           <button class="floating-action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
@@ -331,7 +336,7 @@ export default {
             <span class="floating-count">${shares}</span>
           </button>
           <button class="floating-action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             <span class="floating-count">${supports}</span>
           </button>
         </div>
@@ -370,7 +375,6 @@ export default {
 
   showCommentMenu(e, commentId, postId, authorName) {
     e.preventDefault();
-    // Remove existing menus
     document.querySelectorAll('.context-menu').forEach(m => m.remove());
 
     const menu = document.createElement('div');
@@ -388,7 +392,6 @@ export default {
     `;
     document.body.appendChild(menu);
 
-    // Close menu on click anywhere else
     setTimeout(() => {
       document.addEventListener('click', function closeMenu() {
         menu.remove();
@@ -437,8 +440,8 @@ export default {
     if (data) this.allInteractions.push(data);
 
     alert(`Supported successfully!`);
-    document.querySelector('.read-view-overlay')?.remove();
-    this.openReadView(postId); // Re-open to update counts
+    this.closeModal();
+    this.openReadView(postId);
   },
 
   async toggleLike(postId) {
@@ -453,8 +456,8 @@ export default {
       if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 3 });
     }
     this.renderPosts(this.currentPosts);
-    document.querySelector('.read-view-overlay')?.remove();
-    this.openReadView(postId); // Re-open to update counts
+    this.closeModal();
+    this.openReadView(postId);
   },
 
   toggleCommentBox(postId) {
@@ -488,7 +491,7 @@ export default {
     const post = this.currentPosts.find(p => p.id === postId);
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
 
-    document.querySelector('.read-view-overlay')?.remove();
+    this.closeModal();
     this.openReadView(postId);
     if (navigator.share) { navigator.share({ title: title || 'Gliimu Post', url: window.location.href }).catch(() => {}); } else { alert("Share link copied!"); }
   },
