@@ -125,3 +125,65 @@
   border-radius: 4px;
   cursor: pointer;
 }
+
+/* 80% Less Transparent (Darker Overlay) */
+.modal-overlay { background: rgba(0, 0, 0, 0.95) !important; }
+
+/* Custom Icons */
+.action-icon-img { width: 18px; height: 18px; opacity: 0.7; transition: all 0.2s ease; }
+.action-btn:hover .action-icon-img { opacity: 1; }
+.like-btn.liked .action-icon-img { opacity: 1; filter: drop-shadow(0 0 4px var(--error)); }
+
+/* Gold Star for Eligibility */
+.eligibility-star-img {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.8));
+  z-index: 5;
+}
+
+/* Custom File Upload Button */
+.custom-file-upload {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-tertiary); border: 1px solid var(--border);
+  padding: 12px 16px; border-radius: 12px; cursor: pointer;
+  font-size: 14px; color: var(--text-secondary); font-weight: 500;
+  transition: all 0.2s ease;
+}
+.custom-file-upload:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.upload-icon-img { width: 18px; height: 18px; }
+.block-file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+
+/* Hub Layout Alignment Fix */
+.hub-layout { max-width: 800px; margin: 0 auto; }
+
+/* Fix Icon Sizes (Force small) */
+img.action-icon-img { width: 18px !important; height: 18px !important; opacity: 0.7; transition: all 0.2s ease; }
+.action-btn:hover img.action-icon-img { opacity: 1; }
+.like-btn.liked img.action-icon-img { opacity: 1; filter: drop-shadow(0 0 4px var(--error)); }
+
+img.eligibility-star-img { width: 14px !important; height: 14px !important; filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.8)); z-index: 5; }
+
+img.upload-icon-img { width: 18px !important; height: 18px !important; }
+
+/* 100% Solid Modal Background (No Transparency) */
+.modal-overlay { background: rgba(10, 15, 30, 1) !important; }
+
+/* Filter & View Toggle Alignment (Move Right, Reduce Margin) */
+.hub-subheader { justify-content: flex-end; padding-right: 2px; }
+
+/* Center Empty Search State */
+.hub-empty-state { text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted); }
+
+/* Comment Deletion Button */
+.comment-item { position: relative; }
+.comment-content-wrap { flex: 1; padding-right: 24px; }
+.comment-delete-btn {
+  position: absolute; top: 0; right: 0;
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; padding: 4px; opacity: 0.5; transition: all 0.2s ease;
+}
+.comment-delete-btn:hover { color: var(--error); opacity: 1; }

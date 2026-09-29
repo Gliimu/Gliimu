@@ -30,7 +30,7 @@ export default {
       </div>
 
       <div class="blog-feed" id="posts-container">
-        <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading published Gliims...</p>
+        <p class="hub-empty-state">Loading published Gliims...</p>
       </div>
 
       <div class="hub-fab-wrapper">
@@ -64,7 +64,8 @@ export default {
       toggleCommentBox: (id) => this.toggleCommentBox(id),
       submitComment: (id) => this.submitComment(id),
       toggleHubMenu: (id) => this.toggleHubMenu(id),
-      deletePost: (id) => this.deletePost(id)
+      deletePost: (id) => this.deletePost(id),
+      deleteComment: (cId, pId) => this.deleteComment(cId, pId)
     };
 
     this.setupTopbarSearch();
@@ -158,7 +159,6 @@ export default {
           <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
         </div>
 
-        <!-- Custom File Upload for Cover -->
         <div class="form-group">
           <label>Cover Image</label>
           <label class="custom-file-upload">
@@ -182,7 +182,6 @@ export default {
     `;
     document.body.appendChild(modal);
 
-    // Update cover file label
     document.getElementById('post-cover-file').addEventListener('change', (e) => {
       const fileName = e.target.files[0]?.name || 'Choose File';
       document.getElementById('cover-file-name').innerText = fileName;
@@ -272,7 +271,7 @@ export default {
   async fetchPosts() {
     const [{ data: posts, error }, { data: interactions }, { data: profile }] = await Promise.all([
       supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
-      supabase.from('hub_interactions').select('post_id, user_id, interaction_type, amount, comment_text, profiles:profiles!user_id(full_name, avatar_url)'),
+      supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single()
     ]);
     if (error) { console.error(error); return; }
@@ -289,7 +288,7 @@ export default {
     let filtered = posts;
     if (this.currentFilter !== 'all') filtered = filtered.filter(p => p.category === this.currentFilter);
     if (this.searchQuery) filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
-    if (filtered.length === 0) { container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No Gliims found.</p>'; return; }
+    if (filtered.length === 0) { container.innerHTML = '<p class="hub-empty-state">No Gliims found.</p>'; return; }
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
     container.innerHTML = filtered.map(post => {
       const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="blog-avatar" style="object-fit:cover;">` : `<div class="blog-avatar">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
@@ -322,7 +321,9 @@ export default {
       commentsHtml = postComments.map(c => {
         const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
         const parsedText = this.parseTags(c.comment_text);
-        return `<div class="comment-item">${cAvatar}<div><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${parsedText}</p></div></div>`;
+        const isMyComment = c.user_id === store.user.id;
+        const deleteBtn = isMyComment ? `<button class="comment-delete-btn" onclick="event.stopPropagation(); hubInstance.deleteComment('${c.id}', '${post.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : '';
+        return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><p class="comment-text">${parsedText}</p></div>${deleteBtn}</div>`;
       }).join('');
     }
 
@@ -418,6 +419,22 @@ export default {
     this.fetchPosts();
   },
 
+  async deleteComment(commentId, postId) {
+    if (!confirm("Delete this comment?")) return;
+    const { error } = await supabase.from('hub_interactions').delete().eq('id', commentId);
+    if (error) return alert("Error deleting comment.");
+
+    // Remove from local state
+    this.allInteractions = this.allInteractions.filter(i => i.id !== commentId);
+
+    // Remove from UI
+    const commentEl = document.getElementById(`comment-${commentId}`);
+    if (commentEl) commentEl.remove();
+
+    // Update comment count in the background feed
+    this.renderPosts(this.currentPosts);
+  },
+
   toggleCommentBox(postId) {
     const box = document.getElementById(`comment-box-${postId}`);
     if (box) {
@@ -449,8 +466,9 @@ export default {
       const list = document.getElementById(`comment-list-${postId}`);
       const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="comment-avatar" style="object-fit:cover;">` : `<div class="comment-avatar">${data.profiles.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
       const parsedText = this.parseTags(text);
+      const deleteBtn = `<button class="comment-delete-btn" onclick="event.stopPropagation(); hubInstance.deleteComment('${data.id}', '${postId}')"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
 
-      list.innerHTML += `<div class="comment-item">${cAvatar}<div><span class="comment-author">${data.profiles.full_name}</span><p class="comment-text">${parsedText}</p></div></div>`;
+      list.innerHTML += `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><span class="comment-author">${data.profiles.full_name}</span><p class="comment-text">${parsedText}</p></div>${deleteBtn}</div>`;
       input.value = "";
     }
 

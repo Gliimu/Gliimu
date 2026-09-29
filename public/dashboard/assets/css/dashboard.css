@@ -55,3 +55,10 @@
   margin-right: 12px;
   flex-shrink: 0;
 }
+/* Remove redundant Topbar Title */
+.topbar-title { display: none !important; }
+
+/* Topbar alignment fix since title is gone */
+.topbar { justify-content: space-between; }
+.topbar .menu-toggle { margin-right: auto; }
+.topbar #topbar-dynamic-content { flex: 1; justify-content: flex-start; max-width: 600px; margin-left: 16px; }
