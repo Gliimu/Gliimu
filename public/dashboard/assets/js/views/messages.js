@@ -72,6 +72,7 @@ export default {
 
   renderChatList(users) {
     const list = document.getElementById('ping-chat-list');
+    if (!list) return;
 
     // Always keep Gliim-PA at the top
     const paHtml = `
@@ -105,6 +106,20 @@ export default {
     if (userId === 'ai') {
       this.activeChat = { id: 'ai', name: 'Gliim-PA', avatar: 'AI', is_ai: true };
       this.chatHistory = [];
+
+      // Fetch AI history
+      const { data: aiMsgs } = await supabase.from('messages')
+        .select('*')
+        .eq('sender_id', store.user.id)
+        .eq('is_ai', true)
+        .order('created_at', { ascending: true });
+
+      if (aiMsgs && aiMsgs.length > 0) {
+        this.chatHistory = aiMsgs.map(m => ({
+          role: m.is_ai ? 'assistant' : 'user',
+          content: m.content
+        }));
+      }
     } else {
       const user = this.allUsers.find(u => u.id === userId);
       if (!user) return;
@@ -131,7 +146,7 @@ export default {
 
   renderChatWindow() {
     const main = document.getElementById('ping-main');
-    if (!this.activeChat) return;
+    if (!main || !this.activeChat) return;
 
     const avatarClass = this.activeChat.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
     const avatarHtml = this.activeChat.is_ai
@@ -143,6 +158,17 @@ export default {
       messagesHtml = `<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">No messages yet. Say hello!</div>`;
     } else {
       messagesHtml = this.chatHistory.map(m => {
+        // For AI history
+        if (this.activeChat.is_ai) {
+          const isMe = m.role === 'user';
+          return `
+            <div class="ping-message ${isMe ? 'sent' : 'received'}">
+              <p>${m.content}</p>
+            </div>
+          `;
+        }
+
+        // For User-to-User history
         const isMe = m.sender_id === store.user.id;
         const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         return `
@@ -159,7 +185,6 @@ export default {
       messagesHtml = `
         <div class="ping-message received">
           <p>Hello! I am Gliim-PA. How can I assist your research today?</p>
-          <span class="ping-msg-time">Just now</span>
         </div>
       `;
     }
@@ -196,14 +221,13 @@ export default {
     if (!text || !this.activeChat) return;
 
     input.value = '';
+    const msgContainer = document.getElementById('ping-messages');
 
     if (this.activeChat.is_ai) {
       // 1. Add user message to UI immediately
-      const msgContainer = document.getElementById('ping-messages');
       msgContainer.innerHTML += `
         <div class="ping-message sent">
           <p>${text}</p>
-          <span class="ping-msg-time">Just now</span>
         </div>
       `;
       msgContainer.scrollTop = msgContainer.scrollHeight;
@@ -246,7 +270,6 @@ export default {
           msgContainer.innerHTML += `
             <div class="ping-message received">
               <p>${data.reply}</p>
-              <span class="ping-msg-time">Just now</span>
             </div>
           `;
           this.chatHistory.push({ role: 'assistant', content: data.reply });
@@ -259,10 +282,9 @@ export default {
 
     } else {
       // Standard User-to-User Message
-      const msgContainer = document.getElementById('ping-messages');
+      const tempId = 'temp-' + Date.now();
 
       // 1. Optimistic UI Update (Show message instantly)
-      const tempId = 'temp-' + Date.now();
       msgContainer.innerHTML += `
         <div class="ping-message sent" id="${tempId}">
           <p>${text}</p>
@@ -283,7 +305,7 @@ export default {
         document.getElementById(tempId)?.remove();
         alert("Failed to send message: " + error.message);
       } else {
-        // Update the temporary element with the real DB data (just in case)
+        // Update the temporary element with the real DB data
         this.chatHistory.push(data);
         const realEl = document.getElementById(tempId);
         if (realEl) {
@@ -291,7 +313,8 @@ export default {
           realEl.querySelector('.ping-msg-time').innerText = time;
         }
       }
-    },
+    }
+  },
 
   setupRealtime() {
     supabase.channel('public:messages')
