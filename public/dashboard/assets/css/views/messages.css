@@ -286,8 +286,14 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px; /* Brings username closer to avatar */
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
 }
+
+.ping-search-item:last-child { border-bottom: none; }
+.ping-search-item:hover { background: var(--bg-tertiary); }
 
 /* Topbar Go Live Icon */
 .ping-go-live-icon {
