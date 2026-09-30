@@ -478,7 +478,7 @@ export default {
 
     // Ask Me Button (Only visible if user is NOT the owner)
     const askMeBtnHtml = !isOwner ? `
-      <div class="hub-read-menu-item" onclick="event.stopPropagation(); window.location.hash='#/ping'; hubInstance.closeModal();">${askMeIcon} Ask Me</div>
+      <div class="hub-read-menu-item" onclick="event.stopPropagation(); sessionStorage.setItem('ping_target_user', '${post.user_id}'); window.location.hash='#/ping'; hubInstance.closeModal();">${askMeIcon} Ask Me</div>
     ` : '';
 
     // Delete Button (Only visible if user is the owner)
