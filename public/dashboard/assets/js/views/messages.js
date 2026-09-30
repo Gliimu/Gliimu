@@ -45,7 +45,7 @@ export default {
     this.activeTab = 'chats';
     this.liveChatChannel = null;
     this.liveSessionActive = false;
-    this.liveParticipants = {}; // Tracks blind spot / kick states
+    this.presenceChannel = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -77,14 +77,10 @@ export default {
       switchTab: (tab) => this.switchTab(tab),
       toggleScreenShare: () => this.toggleScreenShare(),
       joinLive: (hostId) => this.joinLive(hostId),
-      toggleViewerCam: () => this.toggleViewerCam(),
-      raiseHand: () => this.raiseHand(),
       supportLiveHost: (hostId) => this.supportLiveHost(hostId),
       openLiveChat: (hostId) => this.openLiveChat(hostId),
       sendLiveMessage: (roomId) => this.sendLiveMessage(roomId),
-      closeLiveChat: () => this.closeLiveChat(),
-      toggleBlindSpot: (userId) => this.toggleBlindSpot(userId),
-      kickParticipant: (userId) => this.kickParticipant(userId)
+      closeLiveChat: () => this.closeLiveChat()
     };
 
     this.setupTopbar();
@@ -156,7 +152,7 @@ export default {
   },
 
   async addContact(userId) {
-    // Remove from hidden_chats if they were previously hidden
+    // Unhide if previously hidden
     await supabase.from('hidden_chats').delete().eq('user_id', store.user.id).eq('contact_id', userId);
 
     const { error } = await supabase.from('contacts').insert({ user_id: store.user.id, contact_id: userId });
@@ -187,7 +183,7 @@ export default {
 
     let userIds = explicitContacts.map(c => c.contact_id).filter(id => !hiddenMap[id]);
 
-    // 2. Get users who messaged me (unless hidden after the message)
+    // 2. Get users who messaged me (unless hidden AFTER the message)
     const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at').eq('receiver_id', store.user.id);
     receivedMsgs.forEach(m => {
       const msgTime = new Date(m.created_at).getTime();
@@ -196,7 +192,7 @@ export default {
       }
     });
 
-    // 3. Get users I messaged (unless hidden after)
+    // 3. Get users I messaged (unless hidden AFTER)
     const { data: sentMsgs } = await supabase.from('messages').select('receiver_id, created_at').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
     sentMsgs.forEach(m => {
       const msgTime = new Date(m.created_at).getTime();
@@ -717,7 +713,7 @@ export default {
   },
 
   // ============================================
-  // LIVE STUDIO (HOST)
+  // SIMPLIFIED LIVE STUDIO (HOST)
   // ============================================
   openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
@@ -727,7 +723,6 @@ export default {
 
     this.liveSessionActive = true;
     this.liveSessionTitle = title;
-    this.liveParticipants = {};
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
@@ -739,21 +734,14 @@ export default {
             <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
             <h2>${this.liveSessionTitle}</h2>
           </div>
+          <div class="live-participants-strip" id="live-participants-strip"></div>
         </div>
-
-        <div class="my-video-wrapper">
-          <video id="my-video-feed" autoplay muted playsinline></video>
-        </div>
-
-        <div class="participants-strip" id="participants-strip"></div>
 
         <div class="live-host-toolbar">
           <button class="live-ctrl-btn mic-on" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
           <button class="live-ctrl-btn cam-on" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
           <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
-          <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${store.user.id}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
-          <button class="live-ctrl-btn" onclick="alert('Feature coming soon')" title="View Tips"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="End Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
@@ -762,44 +750,35 @@ export default {
     this.startMedia();
     document.getElementById('mute-mic-btn').addEventListener('click', () => this.toggleMute('audio'));
     document.getElementById('mute-cam-btn').addEventListener('click', () => this.toggleMute('video'));
+
+    // Setup Presence to track participants
+    this.setupLivePresence(`live_${store.user.id}`);
   },
 
-  // VIEWER UI
+  // VIEWER UI (Simplified)
   joinLive(hostId) {
     const host = this.allUsers.find(u => u.id === hostId);
     const hostName = host?.full_name || 'Host';
 
     this.liveSessionActive = true;
-    this.liveHostId = hostId;
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
     modal.innerHTML = `
       <div class="live-studio-container">
         <div class="live-video-main">
-          <video id="live-viewer-feed" autoplay playsinline></video>
+          <div class="viewer-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px; opacity: 0.5;"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            <h3>Waiting for ${hostName}</h3>
+            <p>The host's video will appear here.</p>
+          </div>
           <div class="live-video-overlay">
             <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
             <h2>${hostName}'s Session</h2>
           </div>
-          <div class="viewer-placeholder" id="viewer-placeholder">Waiting for host video...</div>
-          <div class="blind-spot-overlay" id="blind-spot-overlay" style="display:none;">
-            <h3>You have been placed on blind spot for now</h3>
-            <p>You can still chat, raise hand, and support.</p>
-          </div>
-          <div class="kick-out-overlay" id="kick-out-overlay" style="display:none;">
-            <h3>You have been kicked out</h3>
-          </div>
-        </div>
-
-        <div class="my-video-wrapper">
-          <video id="my-video-feed" autoplay muted playsinline></video>
         </div>
 
         <div class="live-host-toolbar">
-          <button class="live-ctrl-btn mic-on" id="viewer-mic-btn" title="Toggle Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
-          <button class="live-ctrl-btn cam-on" id="viewer-cam-btn" onclick="pingInstance.toggleViewerCam()" title="Toggle Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
-          <button class="live-ctrl-btn" id="raise-hand-btn" onclick="pingInstance.raiseHand()" title="Raise Hand"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.supportLiveHost('${hostId}')" title="Support Host"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${hostId}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="Leave Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
@@ -807,30 +786,40 @@ export default {
       </div>
     `;
     document.body.appendChild(modal);
+
+    this.setupLivePresence(`live_${hostId}`);
   },
 
-  toggleViewerCam() {
-    const videoEl = document.getElementById('my-video-feed');
-    const btn = document.getElementById('viewer-cam-btn');
+  setupLivePresence(roomId) {
+    if (this.presenceChannel) supabase.removeChannel(this.presenceChannel);
 
-    if (!this.localStream) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(stream => {
-        this.localStream = stream;
-        videoEl.srcObject = stream;
-        btn.classList.remove('cam-off'); btn.classList.add('cam-on');
-      }).catch(() => alert("Camera access denied."));
-    } else {
-      this.localStream.getTracks().forEach(t => t.stop());
-      this.localStream = null;
-      videoEl.srcObject = null;
-      btn.classList.remove('cam-on'); btn.classList.add('cam-off');
-    }
+    this.presenceChannel = supabase.channel(`live-presence-${roomId}`)
+      .on('presence', { event: 'sync' }, () => {
+        const state = this.presenceChannel.presenceState();
+        const users = Object.values(state).flat();
+        this.renderLiveParticipants(users);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await this.presenceChannel.track({
+            user_id: store.user.id,
+            full_name: store.profile.full_name,
+            avatar_url: store.profile.avatar_url
+          });
+        }
+      });
   },
 
-  raiseHand() {
-    const btn = document.getElementById('raise-hand-btn');
-    btn.classList.toggle('raise-hand-active');
-    if (btn.classList.contains('raise-hand-active')) alert("Hand raised! The host will be notified.");
+  renderLiveParticipants(users) {
+    const strip = document.getElementById('live-participants-strip');
+    if (!strip) return;
+
+    strip.innerHTML = users.map(u => {
+      const avatar = u.avatar_url
+        ? `<img src="${u.avatar_url}" class="live-participant-avatar" style="object-fit:cover;">`
+        : `<div class="live-participant-avatar">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+      return `${avatar}<span class="live-participant-name">${u.full_name}</span>`;
+    }).join('');
   },
 
   async supportLiveHost(hostId) {
@@ -911,23 +900,6 @@ export default {
     if (this.liveChatChannel) { supabase.removeChannel(this.liveChatChannel); this.liveChatChannel = null; }
   },
 
-  // HOST CONTROLS
-  toggleBlindSpot(userId) {
-    const card = document.getElementById(`participant-${userId}`);
-    if (card) {
-      card.classList.toggle('blind-spot');
-      this.liveParticipants[userId] = card.classList.contains('blind-spot') ? 'blind' : 'active';
-    }
-  },
-
-  kickParticipant(userId) {
-    const card = document.getElementById(`participant-${userId}`);
-    if (card) {
-      card.remove();
-      this.liveParticipants[userId] = 'kicked';
-    }
-  },
-
   openInviteModal() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -959,7 +931,6 @@ export default {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       document.getElementById('live-video-feed').srcObject = this.localStream;
-      document.getElementById('my-video-feed').srcObject = this.localStream;
     } catch (err) { alert("Camera/Mic access denied."); }
   },
 
@@ -1007,6 +978,7 @@ export default {
     if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
     if (this.displayStream) this.displayStream.getTracks().forEach(track => track.stop());
     this.closeLiveChat();
+    if (this.presenceChannel) { supabase.removeChannel(this.presenceChannel); this.presenceChannel = null; }
     document.querySelector('.live-studio-overlay')?.remove();
     this.liveSessionActive = false;
   }

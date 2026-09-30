@@ -17,7 +17,6 @@
 .ping-chat-item { display: flex; align-items: center; gap: 12px; padding: 16px; cursor: pointer; border-bottom: 1px solid var(--surface-divider); transition: background 0.2s; }
 .ping-chat-item:hover { background: var(--surface-hover); }
 .ping-chat-item.active { background: var(--brand-primary-light); }
-.ping-chat-item.selected { background: var(--brand-primary-light); }
 
 .ping-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--gradient-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; object-fit: cover; cursor: pointer; }
 .ping-avatar.glow-avatar { border: 2px solid var(--brand-primary); box-shadow: 0 0 4px rgba(99, 102, 241, 0.4); }
@@ -95,28 +94,138 @@
 .ctx-item:hover { background: var(--bg-tertiary); }
 .ctx-item.danger { color: var(--error); }
 
-/* Live Studio UI */
+/* ============================================
+   SIMPLIFIED LIVE STUDIO UI
+   ============================================ */
 .live-studio-overlay { padding: 0; background: rgba(0,0,0,0.95) !important; }
-.live-studio-container { width: 100%; max-width: 900px; height: 100vh; margin: auto; display: flex; flex-direction: column; gap: 16px; padding: 16px; }
-.live-video-wrapper { position: relative; flex: 1; background: #000; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.live-video-wrapper video { width: 100%; height: 100%; object-fit: cover; }
-.live-video-overlay { position: absolute; top: 0; left: 0; right: 0; padding: 24px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; }
+.live-studio-container { position: relative; width: 100%; max-width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; overflow: hidden; }
+
+.live-video-main { flex: 1; position: relative; background: #111; overflow: hidden; }
+.live-video-main video { width: 100%; height: 100%; object-fit: cover; }
+
+.live-video-overlay { position: absolute; top: 0; left: 0; right: 0; padding: 24px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; z-index: 5; }
 .live-indicator { display: inline-flex; align-items: center; gap: 6px; background: var(--error); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .live-pulse { width: 8px; height: 8px; background: white; border-radius: 50%; animation: pulse 1.5s infinite; }
 .live-video-overlay h2 { color: white; margin-top: 8px; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-.live-host-toolbar { display: flex; justify-content: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: 16px; }
+
+/* Participant Strip (Host view) */
+.live-participants-strip {
+  position: absolute;
+  bottom: 90px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  max-width: 60%;
+}
+
+.live-participant-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  border: 2px solid var(--surface);
+  object-fit: cover;
+}
+
+/* Host Toolbar */
+.live-host-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
 .live-ctrl-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: white; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
 .live-ctrl-btn:hover { background: rgba(255,255,255,0.2); }
 .live-ctrl-btn.danger { background: var(--error); }
 
-/* Mobile Responsive */
-@media (max-width: 768px) {
-  .ping-sidebar { position: absolute; top: 0; left: 0; bottom: 0; width: 100%; z-index: 10; transition: transform 0.3s ease; }
-  .ping-main { position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; z-index: 20; transform: translateX(100%); transition: transform 0.3s ease; }
-  .ping-layout.chat-open .ping-sidebar { transform: translateX(-100%); }
-  .ping-layout.chat-open .ping-main { transform: translateX(0); }
-  .ping-back-btn { display: flex; }
-  .ping-top-search-wrapper { max-width: 200px; }
+/* Mic/Cam Colors */
+.live-ctrl-btn.mic-on { background: var(--success); }
+.live-ctrl-btn.mic-off { background: var(--error); }
+.live-ctrl-btn.cam-on { background: var(--success); }
+.live-ctrl-btn.cam-off { background: var(--error); }
+
+/* Viewer Placeholder */
+.viewer-placeholder {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: white;
+  background: rgba(0,0,0,0.9);
+  z-index: 1;
+}
+
+/* ============================================
+   LIVE CHAT MODAL
+   ============================================ */
+.live-chat-modal {
+  align-items: flex-end !important;
+  background: rgba(0,0,0,0.3) !important;
+}
+
+.live-chat-panel {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.1);
+  width: 100%;
+  max-width: 400px;
+  height: 70vh;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-2xl);
+}
+
+.live-chat-panel-header {
+  background: rgba(0,0,0,0.2) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+}
+
+.live-chat-panel-messages {
+  background: transparent !important;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.live-chat-panel-input {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.2);
+}
+
+.live-chat-send-btn {
+  padding: 10px;
+  width: 40px;
+  height: 40px;
 }
 
 /* ============================================
@@ -263,6 +372,7 @@
   gap: 8px;
   justify-content: flex-end;
 }
+
 /* Search Avatar */
 .ping-search-avatar {
   width: 24px;
@@ -278,6 +388,21 @@
   flex-shrink: 0;
   object-fit: cover;
 }
+
+/* Clean Search Item Rule */
+.ping-search-item {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Exactly 8px gap */
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+  text-align: left;
+  width: 100%;
+}
+.ping-search-item:last-child { border-bottom: none; }
+.ping-search-item:hover { background: var(--bg-tertiary); }
 
 /* Topbar Go Live Icon */
 .ping-go-live-icon {
@@ -328,283 +453,15 @@
   border-bottom: 2px solid var(--brand-primary);
 }
 
-/* ============================================
-   MOBILE RESPONSIVE LIVE STUDIO
-   ============================================ */
+/* Mobile Responsive */
 @media (max-width: 768px) {
-  .live-studio-overlay {
-    padding: 0 !important;
-  }
+  .ping-sidebar { position: absolute; top: 0; left: 0; bottom: 0; width: 100%; z-index: 10; transition: transform 0.3s ease; }
+  .ping-main { position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; z-index: 20; transform: translateX(100%); transition: transform 0.3s ease; }
+  .ping-layout.chat-open .ping-sidebar { transform: translateX(-100%); }
+  .ping-layout.chat-open .ping-main { transform: translateX(0); }
+  .ping-back-btn { display: flex; }
+  .ping-top-search-wrapper { max-width: 200px; }
 
-  .live-studio-container {
-    width: 100%;
-    height: 100%;
-    max-width: 100vw;
-    max-height: 100vh;
-    padding: 8px;
-    gap: 8px;
-    border-radius: 0;
-  }
-
-  .live-video-wrapper {
-    flex: 1;
-    min-height: 0; /* Allows flex to shrink properly */
-    border-radius: 12px;
-  }
-
-  .live-host-toolbar {
-    flex-shrink: 0; /* Prevents controls from being cut off */
-    padding: 8px;
-    gap: 8px;
-    border-radius: 12px;
-  }
-
-  .live-ctrl-btn {
-    width: 40px;
-    height: 40px;
-  }
-}
-
-/* Viewer Placeholder */
-.viewer-placeholder {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: rgba(255,255,255,0.5);
-  font-size: 14px;
-  text-align: center;
-  pointer-events: none;
-}
-
-/* Clean Search Item Rule */
-.ping-search-item {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px; /* Exactly 8px gap */
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.2s;
-  text-align: left;
-  width: 100%;
-}
-.ping-search-item:last-child { border-bottom: none; }
-.ping-search-item:hover { background: var(--bg-tertiary); }
-
-/* ============================================
-   LIVE CHAT MODAL & VIEWER UI
-   ============================================ */
-.live-chat-modal {
-  align-items: flex-end !important;
-  background: rgba(0,0,0,0.7) !important;
-}
-
-.live-chat-panel {
-  background: var(--surface);
-  width: 100%;
-  max-width: 400px;
-  height: 70vh;
-  border-radius: 16px 16px 0 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: var(--shadow-2xl);
-}
-
-.live-chat-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
-}
-
-.live-chat-panel-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--bg-primary);
-}
-
-.live-chat-panel-input {
-  display: flex;
-  gap: 8px;
-  padding: 16px;
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
-
-/* Raise Hand Indicator */
-.raise-hand-active {
-  background: var(--gold) !important;
-  color: black !important;
-}
-
-/* ============================================
-   ZOOM-STYLE LIVE STUDIO LAYOUT
-   ============================================ */
-.live-studio-container {
-  position: relative;
-  width: 100%;
-  max-width: 100vw;
-  height: 100vh;
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.live-video-main {
-  flex: 1;
-  position: relative;
-  background: #111;
-  overflow: hidden;
-}
-
-.live-video-main video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.my-video-wrapper {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 150px;
-  height: 100px;
-  background: #000;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 2px solid var(--surface);
-  z-index: 10;
-}
-
-.my-video-wrapper video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.participants-strip {
-  position: absolute;
-  bottom: 80px;
-  right: 16px;
-  display: flex;
-  gap: 8px;
-  z-index: 10;
-  max-width: 60%;
-  overflow-x: auto;
-}
-
-.participant-card {
-  width: 100px;
-  height: 70px;
-  background: #222;
-  border-radius: 8px;
-  position: relative;
-  cursor: pointer;
-  border: 2px solid transparent;
-}
-
-.participant-card.blind-spot {
-  border-color: var(--error);
-}
-
-.participant-card video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 6px;
-}
-
-.participant-menu {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background: rgba(0,0,0,0.7);
-  border-radius: 4px;
-  padding: 2px;
-  display: none;
-}
-
-.participant-card:hover .participant-menu {
-  display: block;
-}
-
-.live-host-toolbar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(0,0,0,0.6);
-  border-radius: 16px;
-  backdrop-filter: blur(8px);
-  z-index: 20;
-}
-
-/* Mic/Cam Colors */
-.live-ctrl-btn.mic-on { background: var(--success); }
-.live-ctrl-btn.mic-off { background: var(--error); }
-.live-ctrl-btn.cam-on { background: var(--success); }
-.live-ctrl-btn.cam-off { background: var(--error); }
-
-/* Viewer Overlays */
-.viewer-placeholder, .blind-spot-overlay, .kick-out-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: white;
-  background: rgba(0,0,0,0.9);
-  z-index: 5;
-}
-
-.blind-spot-overlay h3, .kick-out-overlay h3 {
-  font-size: 20px;
-  margin-bottom: 8px;
-}
-
-/* Transparent Live Chat */
-.live-chat-modal {
-  align-items: flex-end !important;
-  background: rgba(0,0,0,0.3) !important;
-}
-
-.live-chat-panel {
-  background: rgba(15, 23, 42, 0.8) !important;
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-.live-chat-panel-header {
-  background: rgba(0,0,0,0.2) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-}
-
-.live-chat-panel-messages {
-  background: transparent !important;
-}
-
-.live-chat-send-btn {
-  padding: 10px;
-  width: 40px;
-  height: 40px;
-}
-
-/* Raise Hand Active */
-.raise-hand-active {
-  background: var(--gold) !important;
-  color: black !important;
+  .live-host-toolbar { gap: 8px; padding: 8px; }
+  .live-ctrl-btn { width: 40px; height: 40px; }
 }
