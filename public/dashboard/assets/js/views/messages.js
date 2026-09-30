@@ -32,6 +32,8 @@ export default {
     this.activeChat = null;
     this.chatHistory = [];
     this.localStream = null;
+    this.displayStream = null; // For screen sharing
+    this.isScreenSharing = false;
     this.mediaRecorder = null;
     this.audioChunks = [];
     this.isRecording = false;
@@ -68,7 +70,9 @@ export default {
       cancelEdit: () => this.renderChatWindow(),
       openInviteModal: () => this.openInviteModal(),
       sendLiveInvites: () => this.sendLiveInvites(),
-      switchTab: (tab) => this.switchTab(tab)
+      switchTab: (tab) => this.switchTab(tab),
+      toggleScreenShare: () => this.toggleScreenShare(),
+      joinLive: (hostId) => this.joinLive(hostId)
     };
 
     this.setupTopbar();
@@ -176,7 +180,6 @@ export default {
 
     const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', uniqueIds);
 
-    // Sort by most recent message
     const { data: recentMsgs } = await supabase.from('messages')
       .select('sender_id, receiver_id, created_at')
       .or(`sender_id.eq.${store.user.id},receiver_id.eq.${store.user.id}`)
@@ -195,7 +198,7 @@ export default {
     this.contacts = (contactProfiles || []).sort((a, b) => {
       const timeA = lastMsgMap[a.id] || 0;
       const timeB = lastMsgMap[b.id] || 0;
-      return timeB - timeA; // Descending (most recent first)
+      return timeB - timeA;
     });
 
     this.renderChatList();
@@ -318,6 +321,13 @@ export default {
           else attachmentHtml = `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file">📎 Download File</a>`;
         }
 
+        // Live Invite Button
+        let contentHtml = m.content ? `<p>${m.content}</p>` : '';
+        if (m.content && m.content.includes('Join my live session:')) {
+          const hostId = m.sender_id;
+          contentHtml = `<button class="btn-primary btn-sm" onclick="pingInstance.joinLive('${hostId}')">Join Live Session</button>`;
+        }
+
         const senderName = this.activeChat.is_room && !isMe ? `<span class="ping-msg-sender">${m.profiles?.full_name || 'User'}</span>` : '';
         const editIndicator = m.is_edited ? `<span class="ping-edited">edited</span>` : '';
         const menuBtn = isEditable ? `<button class="ping-msg-menu-btn" onclick="event.stopPropagation(); pingInstance.showMessageMenu(event, '${m.id}')">⋯</button>` : '';
@@ -326,7 +336,7 @@ export default {
           <div class="ping-message ${isMe ? 'sent' : 'received'}" id="msg-${m.id}">
             ${senderName}
             ${attachmentHtml}
-            ${m.content ? `<p>${m.content}</p>` : ''}
+            ${contentHtml}
             <div class="ping-msg-footer">
               ${editIndicator}
               <span class="ping-msg-time">${time}</span>
@@ -714,9 +724,7 @@ export default {
     supabase.channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
-
-        // Ignore our own messages to prevent duplication
-        if (m.sender_id === store.user.id) return;
+        if (m.sender_id === store.user.id) return; // Ignore own messages
 
         if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
           this.chatHistory.push(m);
@@ -747,7 +755,7 @@ export default {
   },
 
   // ============================================
-  // MINIMAL LIVE STUDIO
+  // LIVE STUDIO (HOST & VIEWER)
   // ============================================
   openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
@@ -765,6 +773,7 @@ export default {
         <div class="live-host-toolbar">
           <button class="live-ctrl-btn" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
           <button class="live-ctrl-btn" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+          <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="End Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
@@ -774,6 +783,32 @@ export default {
     this.startMedia();
     document.getElementById('mute-mic-btn').addEventListener('click', () => this.toggleMute('audio'));
     document.getElementById('mute-cam-btn').addEventListener('click', () => this.toggleMute('video'));
+  },
+
+  // VIEWER UI
+  joinLive(hostId) {
+    const host = this.allUsers.find(u => u.id === hostId);
+    const hostName = host?.full_name || 'Host';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay live-studio-overlay';
+    modal.innerHTML = `
+      <div class="live-studio-container">
+        <div class="live-video-wrapper">
+          <video id="live-viewer-feed" autoplay playsinline></video>
+          <div class="live-video-overlay">
+            <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
+            <h2>${hostName}'s Session</h2>
+          </div>
+          <div class="viewer-placeholder">Waiting for host video...</div>
+        </div>
+        <div class="live-host-toolbar">
+          <button class="live-ctrl-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+          <button class="live-ctrl-btn danger" onclick="this.closest('.modal-overlay').remove()" title="Leave Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
   },
 
   openInviteModal() {
@@ -799,12 +834,12 @@ export default {
   },
 
   async sendLiveInvites() {
-    const link = window.location.origin + '/dashboard/index.html#/ping';
+    const link = 'Join my live session: ' + window.location.origin + '/dashboard/index.html#/ping';
     const checkboxes = document.querySelectorAll('.live-invite-cb:checked');
     for (let cb of checkboxes) {
       const uid = cb.dataset.uid;
       await supabase.from('messages').insert({
-        sender_id: store.user.id, receiver_id: uid, content: `Join my live session: ${link}`, is_ai: false
+        sender_id: store.user.id, receiver_id: uid, content: link, is_ai: false
       });
     }
     document.querySelector('.modal-overlay:last-child')?.remove();
@@ -818,6 +853,30 @@ export default {
     } catch (err) { alert("Camera/Mic access denied."); }
   },
 
+  async toggleScreenShare() {
+    const videoEl = document.getElementById('live-video-feed');
+    const btn = document.getElementById('screen-share-btn');
+
+    if (!this.isScreenSharing) {
+      try {
+        this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        videoEl.srcObject = this.displayStream;
+        this.isScreenSharing = true;
+        btn.style.background = 'var(--brand-primary)';
+
+        // Listen for user stopping screen share via browser UI
+        this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
+      } catch (err) {
+        console.error("Screen share error:", err);
+      }
+    } else {
+      if (this.displayStream) this.displayStream.getTracks().forEach(t => t.stop());
+      videoEl.srcObject = this.localStream;
+      this.isScreenSharing = false;
+      btn.style.background = 'var(--bg-tertiary)';
+    }
+  },
+
   toggleMute(type) {
     if (!this.localStream) return;
     if (type === 'audio') { const t = this.localStream.getAudioTracks()[0]; if (t) t.enabled = !t.enabled; }
@@ -827,6 +886,7 @@ export default {
   endLive() {
     if (!confirm("End live session?")) return;
     if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
+    if (this.displayStream) this.displayStream.getTracks().forEach(track => track.stop());
     document.querySelector('.live-studio-overlay')?.remove();
   }
 };
