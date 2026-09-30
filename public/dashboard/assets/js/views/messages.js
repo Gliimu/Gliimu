@@ -32,7 +32,7 @@ export default {
     this.activeChat = null;
     this.chatHistory = [];
     this.localStream = null;
-    this.displayStream = null; // For screen sharing
+    this.displayStream = null;
     this.isScreenSharing = false;
     this.mediaRecorder = null;
     this.audioChunks = [];
@@ -43,6 +43,7 @@ export default {
     this.recordTimer = null;
     this.recordSeconds = 0;
     this.activeTab = 'chats';
+    this.liveChatChannel = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -72,7 +73,13 @@ export default {
       sendLiveInvites: () => this.sendLiveInvites(),
       switchTab: (tab) => this.switchTab(tab),
       toggleScreenShare: () => this.toggleScreenShare(),
-      joinLive: (hostId) => this.joinLive(hostId)
+      joinLive: (hostId) => this.joinLive(hostId),
+      toggleViewerCam: () => this.toggleViewerCam(),
+      raiseHand: () => this.raiseHand(),
+      supportLiveHost: (hostId) => this.supportLiveHost(hostId),
+      openLiveChat: (hostId) => this.openLiveChat(hostId),
+      sendLiveMessage: (roomId) => this.sendLiveMessage(roomId),
+      closeLiveChat: () => this.closeLiveChat()
     };
 
     this.setupTopbar();
@@ -321,11 +328,16 @@ export default {
           else attachmentHtml = `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file">📎 Download File</a>`;
         }
 
-        // Live Invite Button
-        let contentHtml = m.content ? `<p>${m.content}</p>` : '';
-        if (m.content && m.content.includes('Join my live session:')) {
-          const hostId = m.sender_id;
-          contentHtml = `<button class="btn-primary btn-sm" onclick="pingInstance.joinLive('${hostId}')">Join Live Session</button>`;
+        // Link Formatting (Prevents horizontal scroll)
+        let contentHtml = '';
+        if (m.content) {
+          if (m.content.includes('Join my live session:')) {
+            const hostId = m.sender_id;
+            contentHtml = `<button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.joinLive('${hostId}')">Join Live Session</button>`;
+          } else {
+            const formattedText = m.content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
+            contentHtml = `<p>${formattedText}</p>`;
+          }
         }
 
         const senderName = this.activeChat.is_room && !isMe ? `<span class="ping-msg-sender">${m.profiles?.full_name || 'User'}</span>` : '';
@@ -724,7 +736,7 @@ export default {
     supabase.channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
-        if (m.sender_id === store.user.id) return; // Ignore own messages
+        if (m.sender_id === store.user.id) return;
 
         if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
           this.chatHistory.push(m);
@@ -775,6 +787,7 @@ export default {
           <button class="live-ctrl-btn" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
           <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
+          <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${store.user.id}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="End Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
@@ -803,12 +816,142 @@ export default {
           <div class="viewer-placeholder">Waiting for host video...</div>
         </div>
         <div class="live-host-toolbar">
-          <button class="live-ctrl-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+          <button class="live-ctrl-btn" id="viewer-cam-btn" onclick="pingInstance.toggleViewerCam()" title="Toggle Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+          <button class="live-ctrl-btn" id="raise-hand-btn" onclick="pingInstance.raiseHand()" title="Raise Hand"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg></button>
+          <button class="live-ctrl-btn" onclick="pingInstance.supportLiveHost('${hostId}')" title="Support Host"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></button>
+          <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${hostId}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
           <button class="live-ctrl-btn danger" onclick="this.closest('.modal-overlay').remove()" title="Leave Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
+  },
+
+  toggleViewerCam() {
+    const videoEl = document.getElementById('live-viewer-feed');
+    const btn = document.getElementById('viewer-cam-btn');
+
+    if (!this.localStream) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(stream => {
+        this.localStream = stream;
+        videoEl.srcObject = stream;
+        videoEl.muted = true; // Mute local echo
+        btn.style.background = 'var(--brand-primary)';
+      }).catch(() => alert("Camera access denied."));
+    } else {
+      this.localStream.getTracks().forEach(t => t.stop());
+      this.localStream = null;
+      videoEl.srcObject = null;
+      btn.style.background = 'var(--bg-tertiary)';
+    }
+  },
+
+  raiseHand() {
+    const btn = document.getElementById('raise-hand-btn');
+    btn.classList.toggle('raise-hand-active');
+    if (btn.classList.contains('raise-hand-active')) {
+      alert("Hand raised! The host will be notified.");
+    }
+  },
+
+  async supportLiveHost(hostId) {
+    if (hostId === store.user.id) return alert("You cannot support yourself!");
+    const amountStr = prompt("Enter support amount (NGN):");
+    if (!amountStr) return;
+    const amount = parseInt(amountStr);
+    if (isNaN(amount) || amount <= 0) return alert("Invalid amount.");
+
+    const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
+    if (profile.wallet_balance < amount) return alert("Insufficient funds. Please top up your wallet.");
+
+    await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - amount }).eq('id', store.user.id);
+    await supabase.rpc('increment_wallet', { user_id: hostId, amount: amount });
+    await supabase.from('transactions').insert({ user_id: store.user.id, amount: -amount, type: 'support', status: 'success', description: `Live Support` });
+
+    alert(`Supported successfully!`);
+  },
+
+  // LIVE CHAT MODAL
+  async openLiveChat(hostId) {
+    if (document.getElementById('live-chat-modal')) return;
+    const roomId = `live_${hostId}`;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay live-chat-modal';
+    modal.id = 'live-chat-modal';
+    modal.innerHTML = `
+      <div class="live-chat-panel">
+        <div class="live-chat-panel-header">
+          <h3>Live Chat</h3>
+          <button class="modal-close" onclick="pingInstance.closeLiveChat()">×</button>
+        </div>
+        <div class="live-chat-panel-messages" id="live-chat-messages"></div>
+        <div class="live-chat-panel-input">
+          <input type="text" id="live-chat-input" class="input" placeholder="Message participants..." onkeypress="if(event.key==='Enter') pingInstance.sendLiveMessage('${roomId}')">
+          <button class="btn-primary" onclick="pingInstance.sendLiveMessage('${roomId}')">Send</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const { data: msgs } = await supabase.from('messages')
+      .select('*, profiles:sender_id(full_name, avatar_url)')
+      .eq('room', roomId)
+      .order('created_at', { ascending: true });
+
+    this.renderLiveChatMessages(msgs || []);
+
+    this.liveChatChannel = supabase.channel(`live-chat-${roomId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${roomId}` }, async payload => {
+        const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', payload.new.sender_id).single();
+        payload.new.profiles = profile;
+        this.renderLiveChatMessages([payload.new], true);
+      }).subscribe();
+  },
+
+  renderLiveChatMessages(msgs, append = false) {
+    const container = document.getElementById('live-chat-messages');
+    if (!container) return;
+
+    if (!append) container.innerHTML = '';
+
+    const html = msgs.map(m => {
+      const isMe = m.sender_id === store.user.id;
+      const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const sender = isMe ? '' : `<span class="ping-msg-sender">${m.profiles?.full_name || 'User'}</span>`;
+      return `<div class="ping-message ${isMe ? 'sent' : 'received'}">${sender}<p>${m.content}</p><span class="ping-msg-time">${time}</span></div>`;
+    }).join('');
+
+    if (append) {
+      container.innerHTML += html;
+    } else {
+      container.innerHTML = html;
+    }
+    container.scrollTop = container.scrollHeight;
+  },
+
+  async sendLiveMessage(roomId) {
+    const input = document.getElementById('live-chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+
+    const { data } = await supabase.from('messages').insert({
+      sender_id: store.user.id,
+      room: roomId,
+      content: text,
+      is_ai: false
+    }).select('*, profiles:sender_id(full_name, avatar_url)').single();
+
+    if (data) this.renderLiveChatMessages([data], true);
+  },
+
+  closeLiveChat() {
+    document.getElementById('live-chat-modal')?.remove();
+    if (this.liveChatChannel) {
+      supabase.removeChannel(this.liveChatChannel);
+      this.liveChatChannel = null;
+    }
   },
 
   openInviteModal() {
@@ -864,7 +1007,6 @@ export default {
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
 
-        // Listen for user stopping screen share via browser UI
         this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
       } catch (err) {
         console.error("Screen share error:", err);
@@ -887,6 +1029,7 @@ export default {
     if (!confirm("End live session?")) return;
     if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
     if (this.displayStream) this.displayStream.getTracks().forEach(track => track.stop());
+    this.closeLiveChat();
     document.querySelector('.live-studio-overlay')?.remove();
   }
 };
