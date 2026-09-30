@@ -6,6 +6,7 @@
   border-radius: 16px;
   border: 1px solid var(--border);
   overflow: hidden;
+  position: relative;
 }
 
 /* Sidebar */
@@ -15,10 +16,24 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.ping-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ping-sidebar-header h3 {
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .ping-search {
-  padding: 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -37,13 +52,8 @@
   transition: background 0.2s;
 }
 
-.ping-chat-item:hover {
-  background: var(--surface-hover);
-}
-
-.ping-chat-item.active {
-  background: var(--brand-primary-light);
-}
+.ping-chat-item:hover { background: var(--surface-hover); }
+.ping-chat-item.active { background: var(--brand-primary-light); }
 
 .ping-avatar {
   width: 40px;
@@ -65,10 +75,7 @@
   box-shadow: 0 0 4px rgba(99, 102, 241, 0.4);
 }
 
-.ai-avatar {
-  background: var(--gradient-primary);
-  color: white;
-}
+.ai-avatar { background: var(--gradient-primary); }
 
 .ping-chat-info {
   display: flex;
@@ -138,20 +145,28 @@
   color: var(--text-muted);
 }
 
+.ping-back-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 4px;
+}
+
 .ping-messages {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .ping-message {
   max-width: 70%;
   padding: 12px 16px;
   border-radius: 16px;
-  position: relative;
 }
 
 .ping-message.sent {
@@ -190,9 +205,130 @@
   background: var(--surface);
 }
 
-/* Responsive */
+/* ============================================
+   MINIMAL LIVE STUDIO UI
+   ============================================ */
+.live-studio-overlay { padding: 0; background: rgba(0,0,0,0.95) !important; }
+.live-studio-container {
+  width: 100%;
+  max-width: 900px;
+  height: 100vh;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.live-video-wrapper {
+  position: relative;
+  flex: 1;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.live-video-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 24px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  pointer-events: none;
+}
+
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--error);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.live-pulse {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.live-video-overlay h2 {
+  color: white;
+  margin-top: 8px;
+  font-size: 20px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.live-host-toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+}
+
+.live-ctrl-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: white;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.live-ctrl-btn:hover { background: rgba(255,255,255,0.2); }
+.live-ctrl-btn.danger { background: var(--error); }
+
+/* ============================================
+   MOBILE RESPONSIVE (SLIDE IN)
+   ============================================ */
 @media (max-width: 768px) {
   .ping-sidebar {
-    display: none; /* Simplify for mobile, just show active chat */
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 100%;
+    z-index: 10;
+    transition: transform 0.3s ease;
+  }
+
+  .ping-main {
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    width: 100%;
+    z-index: 20;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+
+  .ping-layout.chat-open .ping-sidebar {
+    transform: translateX(-100%);
+  }
+
+  .ping-layout.chat-open .ping-main {
+    transform: translateX(0);
+  }
+
+  .ping-back-btn {
+    display: flex;
   }
 }
