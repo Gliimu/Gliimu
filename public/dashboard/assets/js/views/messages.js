@@ -7,7 +7,10 @@ export default {
   template: `
     <div class="ping-layout" id="ping-container">
       <div class="ping-sidebar" id="ping-sidebar">
-        <div class="ping-sidebar-header"><h3>Chats</h3></div>
+        <div class="ping-sidebar-tabs">
+          <button class="ping-tab active" id="tab-chats" onclick="pingInstance.switchTab('chats')">Chats</button>
+          <button class="ping-tab" id="tab-groups" onclick="pingInstance.switchTab('groups')">Groups</button>
+        </div>
         <div class="ping-chat-list" id="ping-chat-list">
           <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
         </div>
@@ -37,6 +40,7 @@ export default {
     this.currentAudioId = null;
     this.recordTimer = null;
     this.recordSeconds = 0;
+    this.activeTab = 'chats';
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -63,7 +67,8 @@ export default {
       saveEdit: (msgId) => this.saveEdit(msgId),
       cancelEdit: () => this.renderChatWindow(),
       openInviteModal: () => this.openInviteModal(),
-      sendLiveInvites: () => this.sendLiveInvites()
+      sendLiveInvites: () => this.sendLiveInvites(),
+      switchTab: (tab) => this.switchTab(tab)
     };
 
     this.setupTopbar();
@@ -71,6 +76,14 @@ export default {
     this.fetchUsers();
     this.fetchContacts();
     this.setupRealtime();
+  },
+
+  switchTab(tab) {
+    this.activeTab = tab;
+    document.getElementById('tab-chats')?.classList.remove('active');
+    document.getElementById('tab-groups')?.classList.remove('active');
+    document.getElementById(`tab-${tab}`)?.classList.add('active');
+    this.renderChatList();
   },
 
   setupTopbar() {
@@ -137,19 +150,15 @@ export default {
   },
 
   async fetchContacts() {
-    // 1. Get explicit contacts
     const { data: explicitContacts } = await supabase.from('contacts').select('contact_id').eq('user_id', store.user.id);
     let userIds = explicitContacts.map(c => c.contact_id);
 
-    // 2. Get users who messaged me
     const { data: receivedMsgs } = await supabase.from('messages').select('sender_id').eq('receiver_id', store.user.id);
     userIds = userIds.concat(receivedMsgs.map(m => m.sender_id));
 
-    // 3. Get users I messaged
     const { data: sentMsgs } = await supabase.from('messages').select('receiver_id').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
     userIds = userIds.concat(sentMsgs.map(m => m.receiver_id));
 
-    // 4. Remove duplicates and self
     const uniqueIds = [...new Set(userIds)].filter(id => id !== store.user.id);
 
     if (uniqueIds.length === 0) {
@@ -159,7 +168,29 @@ export default {
     }
 
     const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', uniqueIds);
-    this.contacts = contactProfiles || [];
+
+    // Sort by most recent message
+    const { data: recentMsgs } = await supabase.from('messages')
+      .select('sender_id, receiver_id, created_at')
+      .or(`sender_id.eq.${store.user.id},receiver_id.eq.${store.user.id}`)
+      .order('created_at', { ascending: false });
+
+    const lastMsgMap = {};
+    if (recentMsgs) {
+      recentMsgs.forEach(m => {
+        const otherId = m.sender_id === store.user.id ? m.receiver_id : m.sender_id;
+        if (otherId && !lastMsgMap[otherId]) {
+          lastMsgMap[otherId] = new Date(m.created_at).getTime();
+        }
+      });
+    }
+
+    this.contacts = (contactProfiles || []).sort((a, b) => {
+      const timeA = lastMsgMap[a.id] || 0;
+      const timeB = lastMsgMap[b.id] || 0;
+      return timeB - timeA; // Descending (most recent first)
+    });
+
     this.renderChatList();
   },
 
@@ -167,26 +198,32 @@ export default {
     const list = document.getElementById('ping-chat-list');
     if (!list) return;
 
-    const staticItems = `
-      <div class="ping-chat-item ${this.activeChat?.id === 'ai' ? 'active' : ''}" onclick="pingInstance.openChat('ai', 'ai')">
-        <div class="ping-avatar ai-avatar">AI</div>
-        <div class="ping-chat-info"><span class="ping-chat-name">Gliim-PA</span><span class="ping-chat-preview">Your elite AI assistant</span></div>
-      </div>
-      <div class="ping-chat-item ${this.activeChat?.id === 'media' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'media')">
-        <div class="ping-avatar room-avatar">M</div>
-        <div class="ping-chat-info"><span class="ping-chat-name">Media</span><span class="ping-chat-preview">General Media Group</span></div>
-      </div>
-      <div class="ping-chat-item ${this.activeChat?.id === 'tech' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'tech')">
-        <div class="ping-avatar room-avatar">T</div>
-        <div class="ping-chat-info"><span class="ping-chat-name">Tech</span><span class="ping-chat-preview">General Tech Group</span></div>
-      </div>
-      <div class="ping-chat-item ${this.activeChat?.id === 'design' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'design')">
-        <div class="ping-avatar room-avatar">D</div>
-        <div class="ping-chat-info"><span class="ping-chat-name">Design</span><span class="ping-chat-preview">General Design Group</span></div>
-      </div>
-    `;
+    let staticItems = '';
+    if (this.activeTab === 'chats') {
+      staticItems = `
+        <div class="ping-chat-item ${this.activeChat?.id === 'ai' ? 'active' : ''}" onclick="pingInstance.openChat('ai', 'ai')">
+          <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">
+          <div class="ping-chat-info"><span class="ping-chat-name">Gliim-PA</span><span class="ping-chat-preview">Your elite AI assistant</span></div>
+        </div>
+      `;
+    } else if (this.activeTab === 'groups') {
+      staticItems = `
+        <div class="ping-chat-item ${this.activeChat?.id === 'media' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'media')">
+          <div class="ping-avatar room-avatar">M</div>
+          <div class="ping-chat-info"><span class="ping-chat-name">Media</span><span class="ping-chat-preview">General Media Group</span></div>
+        </div>
+        <div class="ping-chat-item ${this.activeChat?.id === 'tech' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'tech')">
+          <div class="ping-avatar room-avatar">T</div>
+          <div class="ping-chat-info"><span class="ping-chat-name">Tech</span><span class="ping-chat-preview">General Tech Group</span></div>
+        </div>
+        <div class="ping-chat-item ${this.activeChat?.id === 'design' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'design')">
+          <div class="ping-avatar room-avatar">D</div>
+          <div class="ping-chat-info"><span class="ping-chat-name">Design</span><span class="ping-chat-preview">General Design Group</span></div>
+        </div>
+      `;
+    }
 
-    const usersHtml = this.contacts.map(u => {
+    const usersHtml = this.activeTab === 'chats' ? this.contacts.map(u => {
       const avatarClass = u.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
       const avatar = u.avatar_url ? `<img src="${u.avatar_url}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
       return `
@@ -195,14 +232,14 @@ export default {
           <div class="ping-chat-info"><span class="ping-chat-name">${u.full_name}</span><span class="ping-chat-preview">Direct Message</span></div>
         </div>
       `;
-    }).join('');
+    }).join('') : '';
 
     list.innerHTML = staticItems + usersHtml;
   },
 
   async openChat(type, id) {
     if (type === 'ai') {
-      this.activeChat = { type: 'ai', id: 'ai', name: 'Gliim-PA', avatar: 'AI', is_ai: true };
+      this.activeChat = { type: 'ai', id: 'ai', name: 'Gliim-PA', avatar: '/icons/gliimpa.png', is_ai: true };
       this.chatHistory = [];
       const { data: aiMsgs } = await supabase.from('messages').select('*').eq('sender_id', store.user.id).eq('is_ai', true).order('created_at', { ascending: true });
       if (aiMsgs) this.chatHistory = aiMsgs.map(m => ({ role: m.is_ai ? 'assistant' : 'user', content: m.content, created_at: m.created_at }));
@@ -232,9 +269,14 @@ export default {
     if (!main || !this.activeChat) return;
 
     const avatarClass = this.activeChat.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
-    const avatarHtml = this.activeChat.is_ai ? `<div class="ping-avatar ai-avatar">AI</div>`
-      : this.activeChat.is_room ? `<div class="ping-avatar room-avatar">${this.activeChat.avatar}</div>`
-      : (this.activeChat.avatar ? `<img src="${this.activeChat.avatar}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${this.activeChat.name?.charAt(0).toUpperCase() || 'G'}</div>`);
+    let avatarHtml = '';
+    if (this.activeChat.is_ai) {
+      avatarHtml = `<img src="${this.activeChat.avatar}" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">`;
+    } else if (this.activeChat.is_room) {
+      avatarHtml = `<div class="ping-avatar room-avatar">${this.activeChat.avatar}</div>`;
+    } else {
+      avatarHtml = this.activeChat.avatar ? `<img src="${this.activeChat.avatar}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${this.activeChat.name?.charAt(0).toUpperCase() || 'G'}</div>`;
+    }
 
     let messagesHtml = '';
     if (this.chatHistory.length === 0 && !this.activeChat.is_ai) {
@@ -325,7 +367,7 @@ export default {
     const text = input.value.trim();
     if (!text || !this.activeChat) return;
 
-    input.value = ''; // Clear immediately to prevent double sends
+    input.value = '';
 
     const msgData = { sender_id: store.user.id, content: text, is_ai: false };
     if (this.activeChat.is_ai) msgData.receiver_id = null;
