@@ -259,26 +259,39 @@ export default {
 
     } else {
       // Standard User-to-User Message
-      const { data } = await supabase.from('messages').insert({
+      const msgContainer = document.getElementById('ping-messages');
+
+      // 1. Optimistic UI Update (Show message instantly)
+      const tempId = 'temp-' + Date.now();
+      msgContainer.innerHTML += `
+        <div class="ping-message sent" id="${tempId}">
+          <p>${text}</p>
+          <span class="ping-msg-time">Just now</span>
+        </div>
+      `;
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+
+      // 2. Save to Database
+      const { data, error } = await supabase.from('messages').insert({
         sender_id: store.user.id,
         receiver_id: this.activeChat.id,
         content: text
       }).select('*').single();
 
-      if (data) {
+      if (error) {
+        // If it fails, remove the optimistic message and alert
+        document.getElementById(tempId)?.remove();
+        alert("Failed to send message: " + error.message);
+      } else {
+        // Update the temporary element with the real DB data (just in case)
         this.chatHistory.push(data);
-        const msgContainer = document.getElementById('ping-messages');
-        const time = new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        msgContainer.innerHTML += `
-          <div class="ping-message sent">
-            <p>${data.content}</p>
-            <span class="ping-msg-time">${time}</span>
-          </div>
-        `;
-        msgContainer.scrollTop = msgContainer.scrollHeight;
+        const realEl = document.getElementById(tempId);
+        if (realEl) {
+          const time = new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          realEl.querySelector('.ping-msg-time').innerText = time;
+        }
       }
-    }
-  },
+    },
 
   setupRealtime() {
     supabase.channel('public:messages')
