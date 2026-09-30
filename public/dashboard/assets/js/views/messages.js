@@ -46,6 +46,11 @@ export default {
     this.liveChatChannel = null;
     this.liveSessionActive = false;
     this.presenceChannel = null;
+    this.webrtcChannel = null;
+    this.peerConnections = {}; // Host: tracks viewer connections
+    this.viewerPeerConnection = null; // Viewer: tracks host connection
+    this.webrtcIceQueue = []; // Queue ICE candidates if SDP not set yet
+    this.liveHostId = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -152,7 +157,6 @@ export default {
   },
 
   async addContact(userId) {
-    // Unhide if previously hidden
     await supabase.from('hidden_chats').delete().eq('user_id', store.user.id).eq('contact_id', userId);
 
     const { error } = await supabase.from('contacts').insert({ user_id: store.user.id, contact_id: userId });
@@ -172,7 +176,6 @@ export default {
   },
 
   async fetchContacts() {
-    // 1. Get explicit contacts & hidden chats
     const [{ data: explicitContacts }, { data: hiddenChats }] = await Promise.all([
       supabase.from('contacts').select('contact_id').eq('user_id', store.user.id),
       supabase.from('hidden_chats').select('contact_id, hidden_at').eq('user_id', store.user.id)
@@ -183,7 +186,6 @@ export default {
 
     let userIds = explicitContacts.map(c => c.contact_id).filter(id => !hiddenMap[id]);
 
-    // 2. Get users who messaged me (unless hidden AFTER the message)
     const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at').eq('receiver_id', store.user.id);
     receivedMsgs.forEach(m => {
       const msgTime = new Date(m.created_at).getTime();
@@ -192,7 +194,6 @@ export default {
       }
     });
 
-    // 3. Get users I messaged (unless hidden AFTER)
     const { data: sentMsgs } = await supabase.from('messages').select('receiver_id, created_at').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
     sentMsgs.forEach(m => {
       const msgTime = new Date(m.created_at).getTime();
@@ -211,7 +212,6 @@ export default {
 
     const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', uniqueIds);
 
-    // Sort by most recent message
     const allMsgs = [...receivedMsgs, ...sentMsgs.map(m => ({ sender_id: store.user.id, created_at: m.created_at, receiver_id: m.receiver_id }))];
     const lastMsgMap = {};
     allMsgs.forEach(m => {
@@ -689,13 +689,13 @@ export default {
           this.chatHistory.push(m); this.renderChatWindow();
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
           this.chatHistory.push(m); this.renderChatWindow();
-          this.fetchContacts(); // Re-sort chat list
+          this.fetchContacts();
         } else if (m.room && this.activeChat?.id === m.room) {
           supabase.from('profiles').select('full_name, avatar_url').eq('id', m.sender_id).single().then(({ data }) => {
             m.profiles = data; this.chatHistory.push(m); this.renderChatWindow();
           });
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id) {
-          this.fetchContacts(); // New message from someone else, update chat list
+          this.fetchContacts();
         }
       }).subscribe();
   },
@@ -713,7 +713,7 @@ export default {
   },
 
   // ============================================
-  // SIMPLIFIED LIVE STUDIO (HOST)
+  // NATIVE WEBRTC LIVE STUDIO (HOST)
   // ============================================
   openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
@@ -723,6 +723,7 @@ export default {
 
     this.liveSessionActive = true;
     this.liveSessionTitle = title;
+    this.peerConnections = {};
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
@@ -741,6 +742,7 @@ export default {
           <button class="live-ctrl-btn mic-on" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
           <button class="live-ctrl-btn cam-on" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
           <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
+          <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${store.user.id}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="End Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
@@ -751,26 +753,27 @@ export default {
     document.getElementById('mute-mic-btn').addEventListener('click', () => this.toggleMute('audio'));
     document.getElementById('mute-cam-btn').addEventListener('click', () => this.toggleMute('video'));
 
-    // Setup Presence to track participants
     this.setupLivePresence(`live_${store.user.id}`);
+    this.setupWebRTCAsHost(`live_${store.user.id}`);
   },
 
   // VIEWER UI (Simplified)
   joinLive(hostId) {
     const host = this.allUsers.find(u => u.id === hostId);
     const hostName = host?.full_name || 'Host';
-
+    this.liveHostId = hostId;
     this.liveSessionActive = true;
+    this.webrtcIceQueue = [];
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
     modal.innerHTML = `
       <div class="live-studio-container">
         <div class="live-video-main">
-          <div class="viewer-placeholder">
+          <video id="live-viewer-feed" autoplay playsinline></video>
+          <div class="viewer-placeholder" id="viewer-placeholder">
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px; opacity: 0.5;"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-            <h3>Waiting for ${hostName}</h3>
-            <p>The host's video will appear here.</p>
+            <h3>Connecting to ${hostName}...</h3>
           </div>
           <div class="live-video-overlay">
             <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
@@ -788,6 +791,104 @@ export default {
     document.body.appendChild(modal);
 
     this.setupLivePresence(`live_${hostId}`);
+    this.setupWebRTCAsViewer(`live_${hostId}`);
+  },
+
+  // ============================================
+  // WEBRTC SIGNALING (VIA SUPABASE BROADCAST)
+  // ============================================
+  setupWebRTCAsHost(roomId) {
+    if (this.webrtcChannel) supabase.removeChannel(this.webrtcChannel);
+    this.webrtcChannel = supabase.channel(`webrtc-${roomId}`)
+      .on('broadcast', { event: 'signal' }, ({ payload }) => {
+        if (payload.target !== store.user.id) return;
+
+        if (payload.type === 'viewer_join') {
+          this.createPeerConnection(payload.sender);
+        } else if (payload.type === 'answer') {
+          const pc = this.peerConnections[payload.sender];
+          if (pc) pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        } else if (payload.type === 'ice') {
+          const pc = this.peerConnections[payload.sender];
+          if (pc) pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        }
+      }).subscribe();
+  },
+
+  async createPeerConnection(viewerId) {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    this.peerConnections[viewerId] = pc;
+
+    // Add host tracks to connection
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
+    }
+    if (this.displayStream && this.isScreenSharing) {
+      this.displayStream.getTracks().forEach(track => pc.addTrack(track, this.displayStream));
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'ice', target: viewerId, sender: store.user.id, candidate: event.candidate } });
+      }
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'offer', target: viewerId, sender: store.user.id, sdp: offer } });
+  },
+
+  setupWebRTCAsViewer(roomId) {
+    if (this.webrtcChannel) supabase.removeChannel(this.webrtcChannel);
+    this.webrtcChannel = supabase.channel(`webrtc-${roomId}`)
+      .on('broadcast', { event: 'signal' }, ({ payload }) => {
+        if (payload.target !== store.user.id) return;
+
+        if (payload.type === 'offer') {
+          this.handleViewerOffer(payload.sdp, payload.sender);
+        } else if (payload.type === 'ice') {
+          if (this.viewerPeerConnection && this.viewerPeerConnection.remoteDescription) {
+            this.viewerPeerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          } else {
+            this.webrtcIceQueue.push(payload.candidate);
+          }
+        }
+      }).subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          // Tell host we are here
+          this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'viewer_join', target: this.liveHostId, sender: store.user.id } });
+        }
+      });
+  },
+
+  async handleViewerOffer(offer, hostId) {
+    this.viewerPeerConnection = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+    this.viewerPeerConnection.ontrack = (event) => {
+      const videoEl = document.getElementById('live-viewer-feed');
+      const placeholder = document.getElementById('viewer-placeholder');
+      if (videoEl) {
+        videoEl.srcObject = event.streams[0];
+        if (placeholder) placeholder.style.display = 'none';
+      }
+    };
+
+    this.viewerPeerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'ice', target: hostId, sender: store.user.id, candidate: event.candidate } });
+      }
+    };
+
+    await this.viewerPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+    // Process queued ICE candidates
+    while (this.webrtcIceQueue.length > 0) {
+      this.viewerPeerConnection.addIceCandidate(new RTCIceCandidate(this.webrtcIceQueue.shift()));
+    }
+
+    const answer = await this.viewerPeerConnection.createAnswer();
+    await this.viewerPeerConnection.setLocalDescription(answer);
+    this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'answer', target: hostId, sender: store.user.id, sdp: answer } });
   },
 
   setupLivePresence(roomId) {
@@ -801,11 +902,7 @@ export default {
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await this.presenceChannel.track({
-            user_id: store.user.id,
-            full_name: store.profile.full_name,
-            avatar_url: store.profile.avatar_url
-          });
+          await this.presenceChannel.track({ user_id: store.user.id, full_name: store.profile.full_name, avatar_url: store.profile.avatar_url });
         }
       });
   },
@@ -939,10 +1036,19 @@ export default {
     const btn = document.getElementById('screen-share-btn');
     if (!this.isScreenSharing) {
       try {
+        // Request screen with audio
         this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
+
+        // Notify all connected viewers to switch to screen stream
+        Object.keys(this.peerConnections).forEach(viewerId => {
+          const pc = this.peerConnections[viewerId];
+          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) sender.replaceTrack(this.displayStream.getVideoTracks()[0]);
+        });
+
         this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
       } catch (err) { console.error(err); }
     } else {
@@ -950,6 +1056,13 @@ export default {
       videoEl.srcObject = this.localStream;
       this.isScreenSharing = false;
       btn.style.background = 'var(--bg-tertiary)';
+
+      // Revert back to cam stream for viewers
+      Object.keys(this.peerConnections).forEach(viewerId => {
+        const pc = this.peerConnections[viewerId];
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) sender.replaceTrack(this.localStream.getVideoTracks()[0]);
+      });
     }
   },
 
@@ -979,6 +1092,9 @@ export default {
     if (this.displayStream) this.displayStream.getTracks().forEach(track => track.stop());
     this.closeLiveChat();
     if (this.presenceChannel) { supabase.removeChannel(this.presenceChannel); this.presenceChannel = null; }
+    if (this.webrtcChannel) { supabase.removeChannel(this.webrtcChannel); this.webrtcChannel = null; }
+    if (this.peerConnections) { Object.values(this.peerConnections).forEach(pc => pc.close()); this.peerConnections = {}; }
+    if (this.viewerPeerConnection) { this.viewerPeerConnection.close(); this.viewerPeerConnection = null; }
     document.querySelector('.live-studio-overlay')?.remove();
     this.liveSessionActive = false;
   }
