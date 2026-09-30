@@ -120,3 +120,148 @@
   .ping-back-btn { display: flex; }
   .ping-top-search-wrapper { max-width: 200px; }
 }
+
+/* ============================================
+   PREMIUM VOICE NOTE UI
+   ============================================ */
+.voice-note-bubble {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 200px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 12px;
+}
+
+.vn-play-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.vn-play-btn:hover { background: rgba(255,255,255,0.3); }
+
+.ping-message.received .vn-play-btn {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+}
+.ping-message.received .vn-play-btn:hover {
+  background: var(--brand-primary-soft);
+}
+
+.vn-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ping-message.received .vn-progress-bar {
+  background: var(--border);
+}
+
+.vn-progress-fill {
+  height: 100%;
+  background: white;
+  width: 0%;
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+.ping-message.received .vn-progress-fill {
+  background: var(--brand-primary);
+}
+
+.vn-duration {
+  font-size: 11px;
+  color: rgba(255,255,255,0.8);
+  min-width: 30px;
+  text-align: right;
+}
+
+.ping-message.received .vn-duration {
+  color: var(--text-muted);
+}
+
+/* Recording & Preview UI */
+.ping-voice-recording {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+  color: var(--error);
+  font-weight: 600;
+}
+
+.voice-rec-dot {
+  width: 12px;
+  height: 12px;
+  background: var(--error);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.ping-voice-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  border-radius: 12px;
+}
+
+.ping-voice-preview .vn-play-btn {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.ping-voice-preview .vn-progress-bar {
+  background: var(--border);
+}
+
+.ping-voice-preview .vn-progress-fill {
+  background: var(--brand-primary);
+}
+
+.ping-voice-preview .vn-duration {
+  color: var(--text-muted);
+}
+
+/* Edit Textarea */
+.ping-edit-textarea {
+  width: 100%;
+  margin-bottom: 8px;
+  resize: none;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  border-radius: 8px;
+  padding: 8px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.ping-message.received .ping-edit-textarea {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.ping-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

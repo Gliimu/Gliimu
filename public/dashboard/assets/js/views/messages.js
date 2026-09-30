@@ -7,9 +7,7 @@ export default {
   template: `
     <div class="ping-layout" id="ping-container">
       <div class="ping-sidebar" id="ping-sidebar">
-        <div class="ping-sidebar-header">
-          <h3>Chats</h3>
-        </div>
+        <div class="ping-sidebar-header"><h3>Chats</h3></div>
         <div class="ping-chat-list" id="ping-chat-list">
           <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
         </div>
@@ -35,6 +33,10 @@ export default {
     this.audioChunks = [];
     this.isRecording = false;
     this.currentRecordingUrl = null;
+    this.currentAudio = null;
+    this.currentAudioId = null;
+    this.recordTimer = null;
+    this.recordSeconds = 0;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -44,7 +46,6 @@ export default {
       closeChat: () => this.closeChat(),
       openLiveSetup: () => this.openLiveSetup(),
       toggleMute: (type) => this.toggleMute(type),
-      copyLiveLink: () => this.copyLiveLink(),
       endLive: () => this.endLive(),
       showChatMenu: (e, userId) => this.showChatMenu(e, userId),
       removeContact: (userId) => this.removeContact(userId),
@@ -54,10 +55,15 @@ export default {
       stopRecording: () => this.stopRecording(),
       cancelRecording: () => this.cancelRecording(),
       sendAudioNote: () => this.sendAudioNote(),
+      togglePreviewAudio: () => this.togglePreviewAudio(),
+      toggleAudio: (msgId, url) => this.toggleAudio(msgId, url),
       showMessageMenu: (e, msgId) => this.showMessageMenu(e, msgId),
       editMessage: (msgId) => this.editMessage(msgId),
       deleteMessage: (msgId) => this.deleteMessage(msgId),
-      openInviteModal: () => this.openInviteModal()
+      saveEdit: (msgId) => this.saveEdit(msgId),
+      cancelEdit: () => this.renderChatWindow(),
+      openInviteModal: () => this.openInviteModal(),
+      sendLiveInvites: () => this.sendLiveInvites()
     };
 
     this.setupTopbar();
@@ -85,16 +91,22 @@ export default {
 
   searchUsers(query) {
     const dropdown = document.getElementById('ping-search-dropdown');
-    if (!query || query.length < 2) { dropdown.innerHTML = ''; return; }
+    if (!query || query.length < 2) {
+      dropdown.style.display = 'none';
+      dropdown.innerHTML = '';
+      return;
+    }
 
     const q = query.toLowerCase();
     const filtered = this.allUsers.filter(u => u.full_name?.toLowerCase().includes(q) && !this.contacts.find(c => c.id === u.id));
 
     if (filtered.length === 0) {
+      dropdown.style.display = 'block';
       dropdown.innerHTML = '<div class="ping-search-item">No users found.</div>';
       return;
     }
 
+    dropdown.style.display = 'block';
     dropdown.innerHTML = filtered.map(u => `
       <div class="ping-search-item">
         <span>${u.full_name}</span>
@@ -107,8 +119,8 @@ export default {
     const { error } = await supabase.from('contacts').insert({ user_id: store.user.id, contact_id: userId });
     if (error) return alert("Error adding contact.");
 
-    // Clear search
     document.getElementById('ping-top-search').value = '';
+    document.getElementById('ping-search-dropdown').style.display = 'none';
     document.getElementById('ping-search-dropdown').innerHTML = '';
 
     await this.fetchContacts();
@@ -125,8 +137,13 @@ export default {
     if (error) { console.error(error); return; }
 
     const contactIds = data.map(c => c.contact_id);
-    const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', contactIds);
+    if (contactIds.length === 0) {
+      this.contacts = [];
+      this.renderChatList();
+      return;
+    }
 
+    const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', contactIds);
     this.contacts = contactProfiles || [];
     this.renderChatList();
   },
@@ -221,7 +238,18 @@ export default {
         let attachmentHtml = '';
         if (m.attachment_url) {
           if (m.attachment_type === 'image') attachmentHtml = `<img src="${m.attachment_url}" class="ping-attachment img">`;
-          else if (m.attachment_type === 'audio_note') attachmentHtml = `<audio controls src="${m.attachment_url}" class="ping-attachment audio"></audio>`;
+          else if (m.attachment_type === 'audio_note') {
+            attachmentHtml = `
+              <div class="voice-note-bubble" id="vn-${m.id}">
+                <button class="vn-play-btn" onclick="pingInstance.toggleAudio('${m.id}', '${m.attachment_url}')">
+                  <svg class="vn-icon-play" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <svg class="vn-icon-pause" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                </button>
+                <div class="vn-progress-bar"><div class="vn-progress-fill" id="vn-fill-${m.id}"></div></div>
+                <span class="vn-duration" id="vn-dur-${m.id}">0:00</span>
+              </div>
+            `;
+          }
           else if (m.attachment_type === 'video') attachmentHtml = `<video controls src="${m.attachment_url}" class="ping-attachment video"></video>`;
           else attachmentHtml = `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file">📎 Download File</a>`;
         }
@@ -277,40 +305,24 @@ export default {
     msgContainer.scrollTop = msgContainer.scrollHeight;
   },
 
-  // ============================================
-  // MESSAGING & ATTACHMENTS
-  // ============================================
   async sendMessage() {
     const input = document.getElementById('ping-input');
     const text = input.value.trim();
     if (!text || !this.activeChat) return;
     input.value = '';
 
-    const msgData = {
-      sender_id: store.user.id,
-      content: text,
-      is_ai: false
-    };
-
-    if (this.activeChat.is_ai) {
-      msgData.receiver_id = null;
-      msgData.is_ai = false; // User's message to AI
-    } else if (this.activeChat.is_room) {
-      msgData.room = this.activeChat.id;
-    } else {
-      msgData.receiver_id = this.activeChat.id;
-    }
+    const msgData = { sender_id: store.user.id, content: text, is_ai: false };
+    if (this.activeChat.is_ai) msgData.receiver_id = null;
+    else if (this.activeChat.is_room) msgData.room = this.activeChat.id;
+    else msgData.receiver_id = this.activeChat.id;
 
     const { data, error } = await supabase.from('messages').insert(msgData).select('*').single();
     if (error) return alert("Failed to send: " + error.message);
 
-    // Optimistic UI
     this.chatHistory.push(data);
     this.renderChatWindow();
 
-    if (this.activeChat.is_ai) {
-      this.callAI(text);
-    }
+    if (this.activeChat.is_ai) this.callAI(text);
   },
 
   async callAI(text) {
@@ -336,7 +348,6 @@ export default {
         const { data: aiMsg } = await supabase.from('messages').insert({
           sender_id: store.user.id, receiver_id: null, content: data.reply, is_ai: true
         }).select('*').single();
-
         this.chatHistory.push(aiMsg);
         this.renderChatWindow();
       }
@@ -346,14 +357,11 @@ export default {
     }
   },
 
-  triggerFileUpload() {
-    document.getElementById('ping-file-input').click();
-  },
+  triggerFileUpload() { document.getElementById('ping-file-input').click(); },
 
   async handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-
     const fileName = `${store.user.id}/${Date.now()}_${file.name}`;
     const { error } = await supabase.storage.from('chat_attachments').upload(fileName, file);
     if (error) return alert("Upload failed.");
@@ -363,7 +371,6 @@ export default {
     let type = 'file';
     if (file.type.startsWith('image/')) type = 'image';
     else if (file.type.startsWith('video/')) type = 'video';
-    else if (file.type.startsWith('audio/')) type = 'audio_file';
     else if (file.type === 'application/pdf') type = 'pdf';
 
     const msgData = { sender_id: store.user.id, attachment_url: url, attachment_type: type, content: '', is_ai: false };
@@ -372,15 +379,12 @@ export default {
     else msgData.receiver_id = null;
 
     const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
-    if (newMsg) {
-      this.chatHistory.push(newMsg);
-      this.renderChatWindow();
-    }
-    event.target.value = ''; // Reset input
+    if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
+    event.target.value = '';
   },
 
   // ============================================
-  // VOICE NOTES
+  // CUSTOM VOICE NOTES UI
   // ============================================
   async startRecording() {
     try {
@@ -393,19 +397,27 @@ export default {
 
       this.mediaRecorder.start();
       this.isRecording = true;
+      this.recordSeconds = 0;
 
       const inputArea = document.getElementById('ping-input-area');
       inputArea.innerHTML = `
-        <div class="ping-recording-ui">
-          <div class="ping-rec-dot"></div>
-          <span>Recording...</span>
+        <div class="ping-voice-recording">
+          <div class="voice-rec-dot"></div>
+          <span class="voice-rec-timer" id="rec-timer">0:00</span>
           <button class="btn-secondary btn-sm" onclick="pingInstance.cancelRecording()">Cancel</button>
-          <button class="btn-primary btn-sm" onclick="pingInstance.stopRecording()">Stop & Send</button>
+          <button class="btn-primary btn-sm" onclick="pingInstance.stopRecording()">Stop</button>
         </div>
       `;
-    } catch (err) {
-      alert("Microphone access denied.");
-    }
+
+      this.recordTimer = setInterval(() => {
+        this.recordSeconds++;
+        const m = Math.floor(this.recordSeconds / 60);
+        const s = this.recordSeconds % 60;
+        const timerEl = document.getElementById('rec-timer');
+        if (timerEl) timerEl.innerText = `${m}:${s.toString().padStart(2, '0')}`;
+      }, 1000);
+
+    } catch (err) { alert("Microphone access denied."); }
   },
 
   processRecording() {
@@ -414,17 +426,58 @@ export default {
 
     const inputArea = document.getElementById('ping-input-area');
     inputArea.innerHTML = `
-      <div class="ping-preview-ui">
-        <audio controls src="${this.currentRecordingUrl}"></audio>
-        <button class="btn-primary" onclick="pingInstance.sendAudioNote()">Send Audio</button>
+      <div class="ping-voice-preview">
+        <button class="vn-play-btn" id="preview-play-btn" onclick="pingInstance.togglePreviewAudio()">
+          <svg class="vn-icon-play" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <svg class="vn-icon-pause" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+        </button>
+        <div class="vn-progress-bar"><div class="vn-progress-fill" id="preview-fill"></div></div>
+        <span class="vn-duration" id="preview-dur">0:00</span>
+        <button class="btn-primary" onclick="pingInstance.sendAudioNote()">Send</button>
         <button class="btn-secondary" onclick="pingInstance.cancelRecording()">Discard</button>
       </div>
     `;
+
+    // Setup preview audio element
+    this.previewAudio = new Audio(this.currentRecordingUrl);
+    this.previewAudio.addEventListener('timeupdate', () => {
+      const progress = (this.previewAudio.currentTime / this.previewAudio.duration) * 100;
+      const fill = document.getElementById('preview-fill');
+      const dur = document.getElementById('preview-dur');
+      if (fill) fill.style.width = `${progress}%`;
+      if (dur) {
+        const m = Math.floor(this.previewAudio.currentTime / 60);
+        const s = Math.floor(this.previewAudio.currentTime % 60);
+        dur.innerText = `${m}:${s.toString().padStart(2, '0')}`;
+      }
+    });
+    this.previewAudio.addEventListener('ended', () => {
+      const btn = document.getElementById('preview-play-btn');
+      if (btn) {
+        btn.querySelector('.vn-icon-play').style.display = 'block';
+        btn.querySelector('.vn-icon-pause').style.display = 'none';
+      }
+      const fill = document.getElementById('preview-fill');
+      if (fill) fill.style.width = `0%`;
+    });
+  },
+
+  togglePreviewAudio() {
+    if (!this.previewAudio) return;
+    const btn = document.getElementById('preview-play-btn');
+    if (this.previewAudio.paused) {
+      this.previewAudio.play();
+      btn.querySelector('.vn-icon-play').style.display = 'none';
+      btn.querySelector('.vn-icon-pause').style.display = 'block';
+    } else {
+      this.previewAudio.pause();
+      btn.querySelector('.vn-icon-play').style.display = 'block';
+      btn.querySelector('.vn-icon-pause').style.display = 'none';
+    }
   },
 
   async sendAudioNote() {
     if (!this.currentRecordingUrl) return;
-
     const blob = await fetch(this.currentRecordingUrl).then(r => r.blob());
     const fileName = `${store.user.id}/${Date.now()}_audio.webm`;
     const { error } = await supabase.storage.from('chat_attachments').upload(fileName, blob);
@@ -439,16 +492,14 @@ export default {
     else msgData.receiver_id = null;
 
     const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
-    if (newMsg) {
-      this.chatHistory.push(newMsg);
-      this.renderChatWindow();
-    }
+    if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
 
-    this.currentRecordingUrl = null;
-    this.audioChunks = [];
+    this.cancelRecording();
   },
 
   cancelRecording() {
+    if (this.recordTimer) clearInterval(this.recordTimer);
+    if (this.previewAudio) { this.previewAudio.pause(); this.previewAudio = null; }
     this.isRecording = false;
     this.currentRecordingUrl = null;
     this.audioChunks = [];
@@ -457,11 +508,62 @@ export default {
   },
 
   stopRecording() {
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
-    }
+    if (this.recordTimer) clearInterval(this.recordTimer);
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') this.mediaRecorder.stop();
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
     this.isRecording = false;
+  },
+
+  toggleAudio(msgId, url) {
+    // Stop currently playing audio if any
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      const oldBtn = document.querySelector(`#vn-${this.currentAudioId} .vn-play-btn`);
+      if (oldBtn) {
+        oldBtn.querySelector('.vn-icon-play').style.display = 'block';
+        oldBtn.querySelector('.vn-icon-pause').style.display = 'none';
+      }
+      if (this.currentAudioId === msgId) {
+        this.currentAudio = null;
+        this.currentAudioId = null;
+        return;
+      }
+    }
+
+    this.currentAudio = new Audio(url);
+    this.currentAudioId = msgId;
+    this.currentAudio.play();
+
+    const btn = document.querySelector(`#vn-${msgId} .vn-play-btn`);
+    if (btn) {
+      btn.querySelector('.vn-icon-play').style.display = 'none';
+      btn.querySelector('.vn-icon-pause').style.display = 'block';
+    }
+
+    this.currentAudio.addEventListener('timeupdate', () => {
+      const progress = (this.currentAudio.currentTime / this.currentAudio.duration) * 100;
+      const fill = document.getElementById(`vn-fill-${msgId}`);
+      const dur = document.getElementById(`vn-dur-${msgId}`);
+      if (fill) fill.style.width = `${progress}%`;
+      if (dur) {
+        const m = Math.floor(this.currentAudio.currentTime / 60);
+        const s = Math.floor(this.currentAudio.currentTime % 60);
+        dur.innerText = `${m}:${s.toString().padStart(2, '0')}`;
+      }
+    });
+
+    this.currentAudio.addEventListener('ended', () => {
+      if (btn) {
+        btn.querySelector('.vn-icon-play').style.display = 'block';
+        btn.querySelector('.vn-icon-pause').style.display = 'none';
+      }
+      const fill = document.getElementById(`vn-fill-${msgId}`);
+      if (fill) fill.style.width = `0%`;
+      const dur = document.getElementById(`vn-dur-${msgId}`);
+      if (dur) dur.innerText = `0:00`;
+      this.currentAudio = null;
+      this.currentAudioId = null;
+    });
   },
 
   // ============================================
@@ -480,23 +582,19 @@ export default {
       <div class="ctx-item danger" onclick="pingInstance.deleteMessage('${msgId}')">Delete</div>
     `;
     document.body.appendChild(menu);
-
-    setTimeout(() => {
-      document.addEventListener('click', () => menu.remove(), { once: true });
-    }, 0);
+    setTimeout(() => { document.addEventListener('click', () => menu.remove(), { once: true }); }, 0);
   },
 
   editMessage(msgId) {
     const msg = this.chatHistory.find(m => m.id === msgId);
     if (!msg) return;
-
     const msgEl = document.getElementById(`msg-${msgId}`);
     if (!msgEl) return;
 
     msgEl.innerHTML = `
       <textarea class="input ping-edit-textarea" id="edit-${msgId}">${msg.content}</textarea>
       <div class="ping-edit-actions">
-        <button class="btn-secondary btn-sm" onclick="pingInstance.renderChatWindow()">Cancel</button>
+        <button class="btn-secondary btn-sm" onclick="pingInstance.cancelEdit()">Cancel</button>
         <button class="btn-primary btn-sm" onclick="pingInstance.saveEdit('${msgId}')">Save</button>
       </div>
     `;
@@ -505,13 +603,9 @@ export default {
   async saveEdit(msgId) {
     const newText = document.getElementById(`edit-${msgId}`).value.trim();
     if (!newText) return;
-
     await supabase.from('messages').update({ content: newText, is_edited: true }).eq('id', msgId);
     const msg = this.chatHistory.find(m => m.id === msgId);
-    if (msg) {
-      msg.content = newText;
-      msg.is_edited = true;
-    }
+    if (msg) { msg.content = newText; msg.is_edited = true; }
     this.renderChatWindow();
   },
 
@@ -523,12 +617,11 @@ export default {
   },
 
   // ============================================
-  // CHAT LIST MENU (View Profile, Report, Remove)
+  // CHAT LIST MENU & REALTIME
   // ============================================
   showChatMenu(e, userId) {
     e.stopPropagation();
     document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
-
     const menu = document.createElement('div');
     menu.className = 'ctx-menu';
     menu.style.left = `${e.clientX}px`;
@@ -539,10 +632,7 @@ export default {
       <div class="ctx-item danger" onclick="pingInstance.removeContact('${userId}')">Remove Chat</div>
     `;
     document.body.appendChild(menu);
-
-    setTimeout(() => {
-      document.addEventListener('click', () => menu.remove(), { once: true });
-    }, 0);
+    setTimeout(() => { document.addEventListener('click', () => menu.remove(), { once: true }); }, 0);
   },
 
   async removeContact(userId) {
@@ -552,37 +642,22 @@ export default {
     if (this.activeChat?.id === userId) {
       this.activeChat = null;
       this.closeChat();
-      document.getElementById('ping-main').innerHTML = `
-        <div class="ping-empty-state">
-          <h3>Select a chat to start pinging</h3>
-          <p>Your direct messages, groups, and Gliim-PA live here.</p>
-        </div>
-      `;
+      document.getElementById('ping-main').innerHTML = `<div class="ping-empty-state"><h3>Select a chat to start pinging</h3></div>`;
     }
     this.renderChatList();
   },
 
-  // ============================================
-  // REALTIME & LIVE STUDIO
-  // ============================================
   setupRealtime() {
     supabase.channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
-
-        // AI Realtime
         if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
           this.chatHistory.push(m);
           this.renderChatWindow();
-        }
-        // DM Realtime
-        else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
+        } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
           this.chatHistory.push(m);
           this.renderChatWindow();
-        }
-        // Room Realtime
-        else if (m.room && this.activeChat?.id === m.room) {
-          // Need to fetch sender profile for room messages
+        } else if (m.room && this.activeChat?.id === m.room) {
           supabase.from('profiles').select('full_name, avatar_url').eq('id', m.sender_id).single().then(({ data }) => {
             m.profiles = data;
             this.chatHistory.push(m);
@@ -597,7 +672,6 @@ export default {
     if (targetId) {
       sessionStorage.removeItem('ping_target_user');
       setTimeout(async () => {
-        // Auto-add contact if not exists
         const exists = this.contacts.find(c => c.id === targetId);
         if (!exists) await this.addContact(targetId);
         this.openChat('dm', targetId);
@@ -605,9 +679,11 @@ export default {
     }
   },
 
+  // ============================================
+  // MINIMAL LIVE STUDIO
+  // ============================================
   openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
-
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
     modal.innerHTML = `
@@ -628,7 +704,6 @@ export default {
       </div>
     `;
     document.body.appendChild(modal);
-
     this.startMedia();
     document.getElementById('mute-mic-btn').addEventListener('click', () => this.toggleMute('audio'));
     document.getElementById('mute-cam-btn').addEventListener('click', () => this.toggleMute('video'));
@@ -644,7 +719,7 @@ export default {
         <h3 style="margin-bottom: 16px;">Invite to Live</h3>
         <div style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
           ${this.contacts.map(c => `
-            <div class="ping-chat-item" style="cursor: pointer;" onclick="this.classList.toggle('selected')">
+            <div class="ping-chat-item" style="cursor: pointer;">
               <input type="checkbox" class="live-invite-cb" data-uid="${c.id}" style="margin-right: 12px;">
               <span>${c.full_name}</span>
             </div>
@@ -659,17 +734,12 @@ export default {
   async sendLiveInvites() {
     const link = window.location.origin + '/dashboard/index.html#/ping';
     const checkboxes = document.querySelectorAll('.live-invite-cb:checked');
-
     for (let cb of checkboxes) {
       const uid = cb.dataset.uid;
       await supabase.from('messages').insert({
-        sender_id: store.user.id,
-        receiver_id: uid,
-        content: `Join my live session: ${link}`,
-        is_ai: false
+        sender_id: store.user.id, receiver_id: uid, content: `Join my live session: ${link}`, is_ai: false
       });
     }
-
     document.querySelector('.modal-overlay:last-child')?.remove();
     alert("Live invites sent!");
   },
