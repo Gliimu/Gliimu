@@ -444,3 +444,167 @@
   background: var(--gold) !important;
   color: black !important;
 }
+
+/* ============================================
+   ZOOM-STYLE LIVE STUDIO LAYOUT
+   ============================================ */
+.live-studio-container {
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+  height: 100vh;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.live-video-main {
+  flex: 1;
+  position: relative;
+  background: #111;
+  overflow: hidden;
+}
+
+.live-video-main video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.my-video-wrapper {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 150px;
+  height: 100px;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--surface);
+  z-index: 10;
+}
+
+.my-video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.participants-strip {
+  position: absolute;
+  bottom: 80px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  max-width: 60%;
+  overflow-x: auto;
+}
+
+.participant-card {
+  width: 100px;
+  height: 70px;
+  background: #222;
+  border-radius: 8px;
+  position: relative;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.participant-card.blind-spot {
+  border-color: var(--error);
+}
+
+.participant-card video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.participant-menu {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 4px;
+  padding: 2px;
+  display: none;
+}
+
+.participant-card:hover .participant-menu {
+  display: block;
+}
+
+.live-host-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+/* Mic/Cam Colors */
+.live-ctrl-btn.mic-on { background: var(--success); }
+.live-ctrl-btn.mic-off { background: var(--error); }
+.live-ctrl-btn.cam-on { background: var(--success); }
+.live-ctrl-btn.cam-off { background: var(--error); }
+
+/* Viewer Overlays */
+.viewer-placeholder, .blind-spot-overlay, .kick-out-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: white;
+  background: rgba(0,0,0,0.9);
+  z-index: 5;
+}
+
+.blind-spot-overlay h3, .kick-out-overlay h3 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+/* Transparent Live Chat */
+.live-chat-modal {
+  align-items: flex-end !important;
+  background: rgba(0,0,0,0.3) !important;
+}
+
+.live-chat-panel {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.live-chat-panel-header {
+  background: rgba(0,0,0,0.2) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.live-chat-panel-messages {
+  background: transparent !important;
+}
+
+.live-chat-send-btn {
+  padding: 10px;
+  width: 40px;
+  height: 40px;
+}
+
+/* Raise Hand Active */
+.raise-hand-active {
+  background: var(--gold) !important;
+  color: black !important;
+}

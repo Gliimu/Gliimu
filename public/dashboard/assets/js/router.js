@@ -20,28 +20,30 @@ export async function router() {
   const topbarDynamic = document.getElementById('topbar-dynamic-content');
   const topbarRightActions = document.getElementById('topbar-right-actions');
 
-  // 1. Intercept Navigation if Modal is Open
+  // 1. Intercept Navigation if Live Session is Active
+  if (window.pingInstance && window.pingInstance.isLiveActive && window.pingInstance.isLiveActive()) {
+    if (!confirm("Do you want to leave the live session?")) {
+      history.replaceState(null, '', previousHash);
+      return;
+    }
+    window.pingInstance.endLive(); // Force end live session
+  }
+
+  // 2. Intercept Navigation if Modal is Open (from Hub)
   if (window.hubInstance && window.hubInstance.isModalOpen && window.hubInstance.isModalOpen()) {
     if (!confirm("Would you like to close the modal?")) {
-      // User said "No". Revert URL to keep them on the current page.
       history.replaceState(null, '', previousHash);
-      return; // Stop routing
+      return;
     }
-    // User said "Yes". Close the modal and proceed.
     window.hubInstance.closeModal();
   }
 
-  // Update previous hash for next time
   previousHash = window.location.hash;
 
-  // Clear topbar dynamic content when changing routes
   if (topbarDynamic) topbarDynamic.innerHTML = '';
   if (topbarRightActions) topbarRightActions.innerHTML = '';
-
-  // Scroll to top on route change
   window.scrollTo(0, 0);
 
-  // Update active nav item
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.remove('active');
     if (item.getAttribute('href') === `#${hash}`) {
@@ -52,7 +54,6 @@ export async function router() {
   if (routeHandler) {
     const view = await routeHandler();
     app.innerHTML = view.template;
-
     if (view.init) {
       view.init();
     }

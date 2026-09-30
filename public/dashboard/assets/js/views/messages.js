@@ -44,6 +44,8 @@ export default {
     this.recordSeconds = 0;
     this.activeTab = 'chats';
     this.liveChatChannel = null;
+    this.liveSessionActive = false;
+    this.liveParticipants = {}; // Tracks blind spot / kick states
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -54,6 +56,7 @@ export default {
       openLiveSetup: () => this.openLiveSetup(),
       toggleMute: (type) => this.toggleMute(type),
       endLive: () => this.endLive(),
+      isLiveActive: () => this.liveSessionActive,
       showChatMenu: (e, userId) => this.showChatMenu(e, userId),
       removeContact: (userId) => this.removeContact(userId),
       triggerFileUpload: () => this.triggerFileUpload(),
@@ -79,7 +82,9 @@ export default {
       supportLiveHost: (hostId) => this.supportLiveHost(hostId),
       openLiveChat: (hostId) => this.openLiveChat(hostId),
       sendLiveMessage: (roomId) => this.sendLiveMessage(roomId),
-      closeLiveChat: () => this.closeLiveChat()
+      closeLiveChat: () => this.closeLiveChat(),
+      toggleBlindSpot: (userId) => this.toggleBlindSpot(userId),
+      kickParticipant: (userId) => this.kickParticipant(userId)
     };
 
     this.setupTopbar();
@@ -151,6 +156,9 @@ export default {
   },
 
   async addContact(userId) {
+    // Remove from hidden_chats if they were previously hidden
+    await supabase.from('hidden_chats').delete().eq('user_id', store.user.id).eq('contact_id', userId);
+
     const { error } = await supabase.from('contacts').insert({ user_id: store.user.id, contact_id: userId });
     if (error && !error.message.includes('duplicate')) return alert("Error adding contact.");
 
@@ -168,14 +176,34 @@ export default {
   },
 
   async fetchContacts() {
-    const { data: explicitContacts } = await supabase.from('contacts').select('contact_id').eq('user_id', store.user.id);
-    let userIds = explicitContacts.map(c => c.contact_id);
+    // 1. Get explicit contacts & hidden chats
+    const [{ data: explicitContacts }, { data: hiddenChats }] = await Promise.all([
+      supabase.from('contacts').select('contact_id').eq('user_id', store.user.id),
+      supabase.from('hidden_chats').select('contact_id, hidden_at').eq('user_id', store.user.id)
+    ]);
 
-    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id').eq('receiver_id', store.user.id);
-    userIds = userIds.concat(receivedMsgs.map(m => m.sender_id));
+    const hiddenMap = {};
+    hiddenChats.forEach(h => hiddenMap[h.contact_id] = new Date(h.hidden_at).getTime());
 
-    const { data: sentMsgs } = await supabase.from('messages').select('receiver_id').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
-    userIds = userIds.concat(sentMsgs.map(m => m.receiver_id));
+    let userIds = explicitContacts.map(c => c.contact_id).filter(id => !hiddenMap[id]);
+
+    // 2. Get users who messaged me (unless hidden after the message)
+    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at').eq('receiver_id', store.user.id);
+    receivedMsgs.forEach(m => {
+      const msgTime = new Date(m.created_at).getTime();
+      if (!hiddenMap[m.sender_id] || msgTime > hiddenMap[m.sender_id]) {
+        if (!userIds.includes(m.sender_id)) userIds.push(m.sender_id);
+      }
+    });
+
+    // 3. Get users I messaged (unless hidden after)
+    const { data: sentMsgs } = await supabase.from('messages').select('receiver_id, created_at').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
+    sentMsgs.forEach(m => {
+      const msgTime = new Date(m.created_at).getTime();
+      if (!hiddenMap[m.receiver_id] || msgTime > hiddenMap[m.receiver_id]) {
+        if (!userIds.includes(m.receiver_id)) userIds.push(m.receiver_id);
+      }
+    });
 
     const uniqueIds = [...new Set(userIds)].filter(id => id !== store.user.id);
 
@@ -187,20 +215,18 @@ export default {
 
     const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', uniqueIds);
 
-    const { data: recentMsgs } = await supabase.from('messages')
-      .select('sender_id, receiver_id, created_at')
-      .or(`sender_id.eq.${store.user.id},receiver_id.eq.${store.user.id}`)
-      .order('created_at', { ascending: false });
-
+    // Sort by most recent message
+    const allMsgs = [...receivedMsgs, ...sentMsgs.map(m => ({ sender_id: store.user.id, created_at: m.created_at, receiver_id: m.receiver_id }))];
     const lastMsgMap = {};
-    if (recentMsgs) {
-      recentMsgs.forEach(m => {
-        const otherId = m.sender_id === store.user.id ? m.receiver_id : m.sender_id;
-        if (otherId && !lastMsgMap[otherId]) {
-          lastMsgMap[otherId] = new Date(m.created_at).getTime();
+    allMsgs.forEach(m => {
+      const otherId = m.sender_id === store.user.id ? m.receiver_id : m.sender_id;
+      if (otherId) {
+        const time = new Date(m.created_at).getTime();
+        if (!lastMsgMap[otherId] || time > lastMsgMap[otherId]) {
+          lastMsgMap[otherId] = time;
         }
-      });
-    }
+      }
+    });
 
     this.contacts = (contactProfiles || []).sort((a, b) => {
       const timeA = lastMsgMap[a.id] || 0;
@@ -220,7 +246,7 @@ export default {
       staticItems = `
         <div class="ping-chat-item ${this.activeChat?.id === 'ai' ? 'active' : ''}" onclick="pingInstance.openChat('ai', 'ai')">
           <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">
-          <div class="ping-chat-info"><span class="ping-chat-name">Gliim-PA</span><span class="ping-chat-preview">Your elite AI assistant</span></div>
+          <div class="ping-chat-info"><span class="ping-chat-name">Gliim-PA</span><span class="ping-chat-preview">Elite AI Assistant</span></div>
         </div>
       `;
     } else if (this.activeTab === 'groups') {
@@ -246,7 +272,10 @@ export default {
       return `
         <div class="ping-chat-item ${this.activeChat?.id === u.id ? 'active' : ''}" onclick="pingInstance.openChat('dm', '${u.id}')">
           ${avatar}
-          <div class="ping-chat-info"><span class="ping-chat-name">${u.full_name}</span><span class="ping-chat-preview">Direct Message</span></div>
+          <div class="ping-chat-info">
+            <span class="ping-chat-name">${u.full_name}</span>
+            <span class="ping-chat-preview">${u.total_gp || 0} GP</span>
+          </div>
         </div>
       `;
     }).join('') : '';
@@ -328,7 +357,6 @@ export default {
           else attachmentHtml = `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file">📎 Download File</a>`;
         }
 
-        // Link Formatting (Prevents horizontal scroll)
         let contentHtml = '';
         if (m.content) {
           if (m.content.includes('Join my live session:')) {
@@ -470,24 +498,19 @@ export default {
     event.target.value = '';
   },
 
-  // ============================================
-  // CUSTOM VOICE NOTES UI
-  // ============================================
+  // VOICE NOTES
   async startRecording() {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.mediaRecorder = new MediaRecorder(this.localStream);
       this.audioChunks = [];
-
       this.mediaRecorder.ondataavailable = (e) => this.audioChunks.push(e.data);
       this.mediaRecorder.onstop = () => this.processRecording();
-
       this.mediaRecorder.start();
       this.isRecording = true;
       this.recordSeconds = 0;
 
-      const inputArea = document.getElementById('ping-input-area');
-      inputArea.innerHTML = `
+      document.getElementById('ping-input-area').innerHTML = `
         <div class="ping-voice-recording">
           <div class="voice-rec-dot"></div>
           <span class="voice-rec-timer" id="rec-timer">0:00</span>
@@ -495,24 +518,17 @@ export default {
           <button class="btn-primary btn-sm" onclick="pingInstance.stopRecording()">Stop</button>
         </div>
       `;
-
       this.recordTimer = setInterval(() => {
         this.recordSeconds++;
-        const m = Math.floor(this.recordSeconds / 60);
-        const s = this.recordSeconds % 60;
-        const timerEl = document.getElementById('rec-timer');
-        if (timerEl) timerEl.innerText = `${m}:${s.toString().padStart(2, '0')}`;
+        document.getElementById('rec-timer').innerText = `${Math.floor(this.recordSeconds / 60)}:${(this.recordSeconds % 60).toString().padStart(2, '0')}`;
       }, 1000);
-
     } catch (err) { alert("Microphone access denied."); }
   },
 
   processRecording() {
     const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
     this.currentRecordingUrl = URL.createObjectURL(blob);
-
-    const inputArea = document.getElementById('ping-input-area');
-    inputArea.innerHTML = `
+    document.getElementById('ping-input-area').innerHTML = `
       <div class="ping-voice-preview">
         <button class="vn-play-btn" id="preview-play-btn" onclick="pingInstance.togglePreviewAudio()">
           <svg class="vn-icon-play" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -524,32 +540,20 @@ export default {
         <button class="btn-secondary" onclick="pingInstance.cancelRecording()">Discard</button>
       </div>
     `;
-
     this.previewAudio = new Audio(this.currentRecordingUrl);
     this.previewAudio.addEventListener('timeupdate', () => {
       const progress = (this.previewAudio.currentTime / this.previewAudio.duration) * 100;
-      const fill = document.getElementById('preview-fill');
-      const dur = document.getElementById('preview-dur');
-      if (fill) fill.style.width = `${progress}%`;
-      if (dur) {
-        const m = Math.floor(this.previewAudio.currentTime / 60);
-        const s = Math.floor(this.previewAudio.currentTime % 60);
-        dur.innerText = `${m}:${s.toString().padStart(2, '0')}`;
-      }
+      document.getElementById('preview-fill').style.width = `${progress}%`;
+      document.getElementById('preview-dur').innerText = `${Math.floor(this.previewAudio.currentTime / 60)}:${Math.floor(this.previewAudio.currentTime % 60).toString().padStart(2, '0')}`;
     });
     this.previewAudio.addEventListener('ended', () => {
-      const btn = document.getElementById('preview-play-btn');
-      if (btn) {
-        btn.querySelector('.vn-icon-play').style.display = 'block';
-        btn.querySelector('.vn-icon-pause').style.display = 'none';
-      }
-      const fill = document.getElementById('preview-fill');
-      if (fill) fill.style.width = `0%`;
+      document.getElementById('preview-play-btn').querySelector('.vn-icon-play').style.display = 'block';
+      document.getElementById('preview-play-btn').querySelector('.vn-icon-pause').style.display = 'none';
+      document.getElementById('preview-fill').style.width = `0%`;
     });
   },
 
   togglePreviewAudio() {
-    if (!this.previewAudio) return;
     const btn = document.getElementById('preview-play-btn');
     if (this.previewAudio.paused) {
       this.previewAudio.play();
@@ -568,33 +572,26 @@ export default {
     const fileName = `${store.user.id}/${Date.now()}_audio.webm`;
     const { error } = await supabase.storage.from('chat_attachments').upload(fileName, blob);
     if (error) return alert("Failed to upload audio.");
-
     const { data } = supabase.storage.from('chat_attachments').getPublicUrl(fileName);
-    const url = data.publicUrl;
-
-    const msgData = { sender_id: store.user.id, attachment_url: url, attachment_type: 'audio_note', content: '', is_ai: false };
+    const msgData = { sender_id: store.user.id, attachment_url: data.publicUrl, attachment_type: 'audio_note', content: '', is_ai: false };
     if (this.activeChat.is_room) msgData.room = this.activeChat.id;
     else if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
-    else msgData.receiver_id = null;
-
     const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
     if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
-
     this.cancelRecording();
   },
 
   cancelRecording() {
-    if (this.recordTimer) clearInterval(this.recordTimer);
+    clearInterval(this.recordTimer);
     if (this.previewAudio) { this.previewAudio.pause(); this.previewAudio = null; }
     this.isRecording = false;
     this.currentRecordingUrl = null;
-    this.audioChunks = [];
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
     this.renderChatWindow();
   },
 
   stopRecording() {
-    if (this.recordTimer) clearInterval(this.recordTimer);
+    clearInterval(this.recordTimer);
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') this.mediaRecorder.stop();
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
     this.isRecording = false;
@@ -604,68 +601,35 @@ export default {
     if (this.currentAudio) {
       this.currentAudio.pause();
       const oldBtn = document.querySelector(`#vn-${this.currentAudioId} .vn-play-btn`);
-      if (oldBtn) {
-        oldBtn.querySelector('.vn-icon-play').style.display = 'block';
-        oldBtn.querySelector('.vn-icon-pause').style.display = 'none';
-      }
-      if (this.currentAudioId === msgId) {
-        this.currentAudio = null;
-        this.currentAudioId = null;
-        return;
-      }
+      if (oldBtn) { oldBtn.querySelector('.vn-icon-play').style.display = 'block'; oldBtn.querySelector('.vn-icon-pause').style.display = 'none'; }
+      if (this.currentAudioId === msgId) { this.currentAudio = null; this.currentAudioId = null; return; }
     }
-
     this.currentAudio = new Audio(url);
     this.currentAudioId = msgId;
     this.currentAudio.play();
-
     const btn = document.querySelector(`#vn-${msgId} .vn-play-btn`);
-    if (btn) {
-      btn.querySelector('.vn-icon-play').style.display = 'none';
-      btn.querySelector('.vn-icon-pause').style.display = 'block';
-    }
-
+    btn.querySelector('.vn-icon-play').style.display = 'none';
+    btn.querySelector('.vn-icon-pause').style.display = 'block';
     this.currentAudio.addEventListener('timeupdate', () => {
-      const progress = (this.currentAudio.currentTime / this.currentAudio.duration) * 100;
-      const fill = document.getElementById(`vn-fill-${msgId}`);
-      const dur = document.getElementById(`vn-dur-${msgId}`);
-      if (fill) fill.style.width = `${progress}%`;
-      if (dur) {
-        const m = Math.floor(this.currentAudio.currentTime / 60);
-        const s = Math.floor(this.currentAudio.currentTime % 60);
-        dur.innerText = `${m}:${s.toString().padStart(2, '0')}`;
-      }
+      document.getElementById(`vn-fill-${msgId}`).style.width = `${(this.currentAudio.currentTime / this.currentAudio.duration) * 100}%`;
+      document.getElementById(`vn-dur-${msgId}`).innerText = `${Math.floor(this.currentAudio.currentTime / 60)}:${Math.floor(this.currentAudio.currentTime % 60).toString().padStart(2, '0')}`;
     });
-
     this.currentAudio.addEventListener('ended', () => {
-      if (btn) {
-        btn.querySelector('.vn-icon-play').style.display = 'block';
-        btn.querySelector('.vn-icon-pause').style.display = 'none';
-      }
-      const fill = document.getElementById(`vn-fill-${msgId}`);
-      if (fill) fill.style.width = `0%`;
-      const dur = document.getElementById(`vn-dur-${msgId}`);
-      if (dur) dur.innerText = `0:00`;
-      this.currentAudio = null;
-      this.currentAudioId = null;
+      btn.querySelector('.vn-icon-play').style.display = 'block';
+      btn.querySelector('.vn-icon-pause').style.display = 'none';
+      document.getElementById(`vn-fill-${msgId}`).style.width = `0%`;
+      this.currentAudio = null; this.currentAudioId = null;
     });
   },
 
-  // ============================================
-  // EDIT / DELETE MESSAGES
-  // ============================================
+  // EDIT / DELETE
   showMessageMenu(e, msgId) {
     e.stopPropagation();
     document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
-
     const menu = document.createElement('div');
     menu.className = 'ctx-menu';
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-    menu.innerHTML = `
-      <div class="ctx-item" onclick="pingInstance.editMessage('${msgId}')">Edit</div>
-      <div class="ctx-item danger" onclick="pingInstance.deleteMessage('${msgId}')">Delete</div>
-    `;
+    menu.style.left = `${e.clientX}px`; menu.style.top = `${e.clientY}px`;
+    menu.innerHTML = `<div class="ctx-item" onclick="pingInstance.editMessage('${msgId}')">Edit</div><div class="ctx-item danger" onclick="pingInstance.deleteMessage('${msgId}')">Delete</div>`;
     document.body.appendChild(menu);
     setTimeout(() => { document.addEventListener('click', () => menu.remove(), { once: true }); }, 0);
   },
@@ -673,15 +637,9 @@ export default {
   editMessage(msgId) {
     const msg = this.chatHistory.find(m => m.id === msgId);
     if (!msg) return;
-    const msgEl = document.getElementById(`msg-${msgId}`);
-    if (!msgEl) return;
-
-    msgEl.innerHTML = `
+    document.getElementById(`msg-${msgId}`).innerHTML = `
       <textarea class="input ping-edit-textarea" id="edit-${msgId}">${msg.content}</textarea>
-      <div class="ping-edit-actions">
-        <button class="btn-secondary btn-sm" onclick="pingInstance.cancelEdit()">Cancel</button>
-        <button class="btn-primary btn-sm" onclick="pingInstance.saveEdit('${msgId}')">Save</button>
-      </div>
+      <div class="ping-edit-actions"><button class="btn-secondary btn-sm" onclick="pingInstance.cancelEdit()">Cancel</button><button class="btn-primary btn-sm" onclick="pingInstance.saveEdit('${msgId}')">Save</button></div>
     `;
   },
 
@@ -701,33 +659,26 @@ export default {
     this.renderChatWindow();
   },
 
-  // ============================================
-  // CHAT LIST MENU & REALTIME
-  // ============================================
+  // CHAT LIST MENU
   showChatMenu(e, userId) {
     e.stopPropagation();
     document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
     const menu = document.createElement('div');
     menu.className = 'ctx-menu';
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-    menu.innerHTML = `
-      <div class="ctx-item" onclick="window.location.hash='#/profile';">View Profile</div>
-      <div class="ctx-item" onclick="alert('User reported.');">Report</div>
-      <div class="ctx-item danger" onclick="pingInstance.removeContact('${userId}')">Remove Chat</div>
-    `;
+    menu.style.left = `${e.clientX}px`; menu.style.top = `${e.clientY}px`;
+    menu.innerHTML = `<div class="ctx-item" onclick="window.location.hash='#/profile';">View Profile</div><div class="ctx-item danger" onclick="pingInstance.removeContact('${userId}')">Remove Chat</div>`;
     document.body.appendChild(menu);
     setTimeout(() => { document.addEventListener('click', () => menu.remove(), { once: true }); }, 0);
   },
 
   async removeContact(userId) {
     if (!confirm("Remove this chat? The user will not be notified.")) return;
+    await supabase.from('hidden_chats').insert({ user_id: store.user.id, contact_id: userId });
     await supabase.from('contacts').delete().eq('user_id', store.user.id).eq('contact_id', userId);
     this.contacts = this.contacts.filter(c => c.id !== userId);
     if (this.activeChat?.id === userId) {
-      this.activeChat = null;
-      this.closeChat();
-      document.getElementById('ping-main').innerHTML = `<div class="ping-empty-state"><h3>Select a chat to start pinging</h3></div>`;
+      this.activeChat = null; this.closeChat();
+      document.getElementById('ping-main').innerHTML = `<div class="ping-empty-state"><h3>Select a chat</h3></div>`;
     }
     this.renderChatList();
   },
@@ -739,17 +690,16 @@ export default {
         if (m.sender_id === store.user.id) return;
 
         if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
-          this.chatHistory.push(m);
-          this.renderChatWindow();
+          this.chatHistory.push(m); this.renderChatWindow();
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
-          this.chatHistory.push(m);
-          this.renderChatWindow();
+          this.chatHistory.push(m); this.renderChatWindow();
+          this.fetchContacts(); // Re-sort chat list
         } else if (m.room && this.activeChat?.id === m.room) {
           supabase.from('profiles').select('full_name, avatar_url').eq('id', m.sender_id).single().then(({ data }) => {
-            m.profiles = data;
-            this.chatHistory.push(m);
-            this.renderChatWindow();
+            m.profiles = data; this.chatHistory.push(m); this.renderChatWindow();
           });
+        } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id) {
+          this.fetchContacts(); // New message from someone else, update chat list
         }
       }).subscribe();
   },
@@ -767,27 +717,43 @@ export default {
   },
 
   // ============================================
-  // LIVE STUDIO (HOST & VIEWER)
+  // LIVE STUDIO (HOST)
   // ============================================
   openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
+
+    const title = prompt("Enter a title for your Live Session:");
+    if (!title) return;
+
+    this.liveSessionActive = true;
+    this.liveSessionTitle = title;
+    this.liveParticipants = {};
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
     modal.innerHTML = `
       <div class="live-studio-container">
-        <div class="live-video-wrapper">
+        <div class="live-video-main">
           <video id="live-video-feed" autoplay muted playsinline></video>
           <div class="live-video-overlay">
             <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
-            <h2>Gliimu Live Session</h2>
+            <h2>${this.liveSessionTitle}</h2>
           </div>
         </div>
+
+        <div class="my-video-wrapper">
+          <video id="my-video-feed" autoplay muted playsinline></video>
+        </div>
+
+        <div class="participants-strip" id="participants-strip"></div>
+
         <div class="live-host-toolbar">
-          <button class="live-ctrl-btn" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
-          <button class="live-ctrl-btn" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+          <button class="live-ctrl-btn mic-on" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+          <button class="live-ctrl-btn cam-on" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
           <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${store.user.id}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
+          <button class="live-ctrl-btn" onclick="alert('Feature coming soon')" title="View Tips"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="End Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
@@ -803,24 +769,40 @@ export default {
     const host = this.allUsers.find(u => u.id === hostId);
     const hostName = host?.full_name || 'Host';
 
+    this.liveSessionActive = true;
+    this.liveHostId = hostId;
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
     modal.innerHTML = `
       <div class="live-studio-container">
-        <div class="live-video-wrapper">
+        <div class="live-video-main">
           <video id="live-viewer-feed" autoplay playsinline></video>
           <div class="live-video-overlay">
             <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
             <h2>${hostName}'s Session</h2>
           </div>
-          <div class="viewer-placeholder">Waiting for host video...</div>
+          <div class="viewer-placeholder" id="viewer-placeholder">Waiting for host video...</div>
+          <div class="blind-spot-overlay" id="blind-spot-overlay" style="display:none;">
+            <h3>You have been placed on blind spot for now</h3>
+            <p>You can still chat, raise hand, and support.</p>
+          </div>
+          <div class="kick-out-overlay" id="kick-out-overlay" style="display:none;">
+            <h3>You have been kicked out</h3>
+          </div>
         </div>
+
+        <div class="my-video-wrapper">
+          <video id="my-video-feed" autoplay muted playsinline></video>
+        </div>
+
         <div class="live-host-toolbar">
-          <button class="live-ctrl-btn" id="viewer-cam-btn" onclick="pingInstance.toggleViewerCam()" title="Toggle Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+          <button class="live-ctrl-btn mic-on" id="viewer-mic-btn" title="Toggle Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+          <button class="live-ctrl-btn cam-on" id="viewer-cam-btn" onclick="pingInstance.toggleViewerCam()" title="Toggle Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
           <button class="live-ctrl-btn" id="raise-hand-btn" onclick="pingInstance.raiseHand()" title="Raise Hand"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.supportLiveHost('${hostId}')" title="Support Host"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${hostId}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
-          <button class="live-ctrl-btn danger" onclick="this.closest('.modal-overlay').remove()" title="Leave Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+          <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="Leave Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
     `;
@@ -828,30 +810,27 @@ export default {
   },
 
   toggleViewerCam() {
-    const videoEl = document.getElementById('live-viewer-feed');
+    const videoEl = document.getElementById('my-video-feed');
     const btn = document.getElementById('viewer-cam-btn');
 
     if (!this.localStream) {
       navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(stream => {
         this.localStream = stream;
         videoEl.srcObject = stream;
-        videoEl.muted = true; // Mute local echo
-        btn.style.background = 'var(--brand-primary)';
+        btn.classList.remove('cam-off'); btn.classList.add('cam-on');
       }).catch(() => alert("Camera access denied."));
     } else {
       this.localStream.getTracks().forEach(t => t.stop());
       this.localStream = null;
       videoEl.srcObject = null;
-      btn.style.background = 'var(--bg-tertiary)';
+      btn.classList.remove('cam-on'); btn.classList.add('cam-off');
     }
   },
 
   raiseHand() {
     const btn = document.getElementById('raise-hand-btn');
     btn.classList.toggle('raise-hand-active');
-    if (btn.classList.contains('raise-hand-active')) {
-      alert("Hand raised! The host will be notified.");
-    }
+    if (btn.classList.contains('raise-hand-active')) alert("Hand raised! The host will be notified.");
   },
 
   async supportLiveHost(hostId) {
@@ -867,7 +846,6 @@ export default {
     await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - amount }).eq('id', store.user.id);
     await supabase.rpc('increment_wallet', { user_id: hostId, amount: amount });
     await supabase.from('transactions').insert({ user_id: store.user.id, amount: -amount, type: 'support', status: 'success', description: `Live Support` });
-
     alert(`Supported successfully!`);
   },
 
@@ -888,17 +866,13 @@ export default {
         <div class="live-chat-panel-messages" id="live-chat-messages"></div>
         <div class="live-chat-panel-input">
           <input type="text" id="live-chat-input" class="input" placeholder="Message participants..." onkeypress="if(event.key==='Enter') pingInstance.sendLiveMessage('${roomId}')">
-          <button class="btn-primary" onclick="pingInstance.sendLiveMessage('${roomId}')">Send</button>
+          <button class="btn-primary live-chat-send-btn" onclick="pingInstance.sendLiveMessage('${roomId}')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
 
-    const { data: msgs } = await supabase.from('messages')
-      .select('*, profiles:sender_id(full_name, avatar_url)')
-      .eq('room', roomId)
-      .order('created_at', { ascending: true });
-
+    const { data: msgs } = await supabase.from('messages').select('*, profiles:sender_id(full_name, avatar_url)').eq('room', roomId).order('created_at', { ascending: true });
     this.renderLiveChatMessages(msgs || []);
 
     this.liveChatChannel = supabase.channel(`live-chat-${roomId}`)
@@ -912,21 +886,14 @@ export default {
   renderLiveChatMessages(msgs, append = false) {
     const container = document.getElementById('live-chat-messages');
     if (!container) return;
-
     if (!append) container.innerHTML = '';
-
     const html = msgs.map(m => {
       const isMe = m.sender_id === store.user.id;
       const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const sender = isMe ? '' : `<span class="ping-msg-sender">${m.profiles?.full_name || 'User'}</span>`;
       return `<div class="ping-message ${isMe ? 'sent' : 'received'}">${sender}<p>${m.content}</p><span class="ping-msg-time">${time}</span></div>`;
     }).join('');
-
-    if (append) {
-      container.innerHTML += html;
-    } else {
-      container.innerHTML = html;
-    }
+    if (append) container.innerHTML += html; else container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
   },
 
@@ -935,22 +902,29 @@ export default {
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
-
-    const { data } = await supabase.from('messages').insert({
-      sender_id: store.user.id,
-      room: roomId,
-      content: text,
-      is_ai: false
-    }).select('*, profiles:sender_id(full_name, avatar_url)').single();
-
+    const { data } = await supabase.from('messages').insert({ sender_id: store.user.id, room: roomId, content: text, is_ai: false }).select('*, profiles:sender_id(full_name, avatar_url)').single();
     if (data) this.renderLiveChatMessages([data], true);
   },
 
   closeLiveChat() {
     document.getElementById('live-chat-modal')?.remove();
-    if (this.liveChatChannel) {
-      supabase.removeChannel(this.liveChatChannel);
-      this.liveChatChannel = null;
+    if (this.liveChatChannel) { supabase.removeChannel(this.liveChatChannel); this.liveChatChannel = null; }
+  },
+
+  // HOST CONTROLS
+  toggleBlindSpot(userId) {
+    const card = document.getElementById(`participant-${userId}`);
+    if (card) {
+      card.classList.toggle('blind-spot');
+      this.liveParticipants[userId] = card.classList.contains('blind-spot') ? 'blind' : 'active';
+    }
+  },
+
+  kickParticipant(userId) {
+    const card = document.getElementById(`participant-${userId}`);
+    if (card) {
+      card.remove();
+      this.liveParticipants[userId] = 'kicked';
     }
   },
 
@@ -963,12 +937,7 @@ export default {
         <button class="modal-close" onclick="this.parentElement.remove()">×</button>
         <h3 style="margin-bottom: 16px;">Invite to Live</h3>
         <div style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
-          ${this.contacts.map(c => `
-            <div class="ping-chat-item" style="cursor: pointer;">
-              <input type="checkbox" class="live-invite-cb" data-uid="${c.id}" style="margin-right: 12px;">
-              <span>${c.full_name}</span>
-            </div>
-          `).join('')}
+          ${this.contacts.map(c => `<div class="ping-chat-item"><input type="checkbox" class="live-invite-cb" data-uid="${c.id}" style="margin-right: 12px;"><span>${c.full_name}</span></div>`).join('')}
         </div>
         <button class="btn-primary" style="width: 100%;" onclick="pingInstance.sendLiveInvites()">Send Invites</button>
       </div>
@@ -980,10 +949,7 @@ export default {
     const link = 'Join my live session: ' + window.location.origin + '/dashboard/index.html#/ping';
     const checkboxes = document.querySelectorAll('.live-invite-cb:checked');
     for (let cb of checkboxes) {
-      const uid = cb.dataset.uid;
-      await supabase.from('messages').insert({
-        sender_id: store.user.id, receiver_id: uid, content: link, is_ai: false
-      });
+      await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: cb.dataset.uid, content: link, is_ai: false });
     }
     document.querySelector('.modal-overlay:last-child')?.remove();
     alert("Live invites sent!");
@@ -993,24 +959,21 @@ export default {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       document.getElementById('live-video-feed').srcObject = this.localStream;
+      document.getElementById('my-video-feed').srcObject = this.localStream;
     } catch (err) { alert("Camera/Mic access denied."); }
   },
 
   async toggleScreenShare() {
     const videoEl = document.getElementById('live-video-feed');
     const btn = document.getElementById('screen-share-btn');
-
     if (!this.isScreenSharing) {
       try {
         this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
-
         this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
-      } catch (err) {
-        console.error("Screen share error:", err);
-      }
+      } catch (err) { console.error(err); }
     } else {
       if (this.displayStream) this.displayStream.getTracks().forEach(t => t.stop());
       videoEl.srcObject = this.localStream;
@@ -1021,15 +984,30 @@ export default {
 
   toggleMute(type) {
     if (!this.localStream) return;
-    if (type === 'audio') { const t = this.localStream.getAudioTracks()[0]; if (t) t.enabled = !t.enabled; }
-    else if (type === 'video') { const t = this.localStream.getVideoTracks()[0]; if (t) t.enabled = !t.enabled; }
+    if (type === 'audio') {
+      const t = this.localStream.getAudioTracks()[0];
+      if (t) {
+        t.enabled = !t.enabled;
+        const btn = document.getElementById('mute-mic-btn');
+        btn.classList.toggle('mic-on', t.enabled);
+        btn.classList.toggle('mic-off', !t.enabled);
+      }
+    } else if (type === 'video') {
+      const t = this.localStream.getVideoTracks()[0];
+      if (t) {
+        t.enabled = !t.enabled;
+        const btn = document.getElementById('mute-cam-btn');
+        btn.classList.toggle('cam-on', t.enabled);
+        btn.classList.toggle('cam-off', !t.enabled);
+      }
+    }
   },
 
   endLive() {
-    if (!confirm("End live session?")) return;
     if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
     if (this.displayStream) this.displayStream.getTracks().forEach(track => track.stop());
     this.closeLiveChat();
     document.querySelector('.live-studio-overlay')?.remove();
+    this.liveSessionActive = false;
   }
 };
