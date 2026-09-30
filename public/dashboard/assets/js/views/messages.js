@@ -81,9 +81,8 @@ export default {
           <input type="text" id="ping-top-search" class="input" placeholder="Search users to add..." oninput="pingInstance.searchUsers(this.value)">
           <div class="ping-search-dropdown" id="ping-search-dropdown"></div>
         </div>
-        <button class="btn-primary btn-sm ping-go-live-btn" onclick="pingInstance.openLiveSetup()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-          Go Live
+        <button class="ping-go-live-icon" onclick="pingInstance.openLiveSetup()" title="Go Live">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
         </button>
       `;
     }
@@ -107,17 +106,22 @@ export default {
     }
 
     dropdown.style.display = 'block';
-    dropdown.innerHTML = filtered.map(u => `
-      <div class="ping-search-item">
-        <span>${u.full_name}</span>
-        <button class="btn-primary btn-sm" onclick="pingInstance.addContact('${u.id}')">+</button>
-      </div>
-    `).join('');
+    dropdown.innerHTML = filtered.map(u => {
+      const avatar = u.avatar_url
+        ? `<img src="${u.avatar_url}" class="ping-search-avatar" style="object-fit:cover;">`
+        : `<div class="ping-search-avatar">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+      return `
+        <div class="ping-search-item" onclick="pingInstance.addContact('${u.id}')">
+          ${avatar}
+          <span>${u.full_name}</span>
+        </div>
+      `;
+    }).join('');
   },
 
   async addContact(userId) {
     const { error } = await supabase.from('contacts').insert({ user_id: store.user.id, contact_id: userId });
-    if (error) return alert("Error adding contact.");
+    if (error && !error.message.includes('duplicate')) return alert("Error adding contact.");
 
     document.getElementById('ping-top-search').value = '';
     document.getElementById('ping-search-dropdown').style.display = 'none';
@@ -133,17 +137,28 @@ export default {
   },
 
   async fetchContacts() {
-    const { data, error } = await supabase.from('contacts').select('contact_id').eq('user_id', store.user.id);
-    if (error) { console.error(error); return; }
+    // 1. Get explicit contacts
+    const { data: explicitContacts } = await supabase.from('contacts').select('contact_id').eq('user_id', store.user.id);
+    let userIds = explicitContacts.map(c => c.contact_id);
 
-    const contactIds = data.map(c => c.contact_id);
-    if (contactIds.length === 0) {
+    // 2. Get users who messaged me
+    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id').eq('receiver_id', store.user.id);
+    userIds = userIds.concat(receivedMsgs.map(m => m.sender_id));
+
+    // 3. Get users I messaged
+    const { data: sentMsgs } = await supabase.from('messages').select('receiver_id').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
+    userIds = userIds.concat(sentMsgs.map(m => m.receiver_id));
+
+    // 4. Remove duplicates and self
+    const uniqueIds = [...new Set(userIds)].filter(id => id !== store.user.id);
+
+    if (uniqueIds.length === 0) {
       this.contacts = [];
       this.renderChatList();
       return;
     }
 
-    const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', contactIds);
+    const { data: contactProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').in('id', uniqueIds);
     this.contacts = contactProfiles || [];
     this.renderChatList();
   },
@@ -309,7 +324,8 @@ export default {
     const input = document.getElementById('ping-input');
     const text = input.value.trim();
     if (!text || !this.activeChat) return;
-    input.value = '';
+
+    input.value = ''; // Clear immediately to prevent double sends
 
     const msgData = { sender_id: store.user.id, content: text, is_ai: false };
     if (this.activeChat.is_ai) msgData.receiver_id = null;
@@ -438,7 +454,6 @@ export default {
       </div>
     `;
 
-    // Setup preview audio element
     this.previewAudio = new Audio(this.currentRecordingUrl);
     this.previewAudio.addEventListener('timeupdate', () => {
       const progress = (this.previewAudio.currentTime / this.previewAudio.duration) * 100;
@@ -504,7 +519,7 @@ export default {
     this.currentRecordingUrl = null;
     this.audioChunks = [];
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
-    this.renderChatWindow(); // Reset input area
+    this.renderChatWindow();
   },
 
   stopRecording() {
@@ -515,7 +530,6 @@ export default {
   },
 
   toggleAudio(msgId, url) {
-    // Stop currently playing audio if any
     if (this.currentAudio) {
       this.currentAudio.pause();
       const oldBtn = document.querySelector(`#vn-${this.currentAudioId} .vn-play-btn`);
@@ -651,6 +665,10 @@ export default {
     supabase.channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
+
+        // Ignore our own messages to prevent duplication
+        if (m.sender_id === store.user.id) return;
+
         if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
           this.chatHistory.push(m);
           this.renderChatWindow();
