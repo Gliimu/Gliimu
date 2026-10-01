@@ -38,6 +38,7 @@ export default {
     this.audioChunks = [];
     this.isRecording = false;
     this.currentRecordingUrl = null;
+    this.previewAudio = null;
     this.currentAudio = null;
     this.currentAudioId = null;
     this.recordTimer = null;
@@ -55,6 +56,7 @@ export default {
     this.globalLiveChannel = null;
     this.supportTapCount = 0;
     this.supportTapTimer = null;
+    this.activeLiveRoom = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -89,7 +91,8 @@ export default {
       supportLiveHost: (hostId) => this.supportLiveHost(hostId),
       openLiveChat: (hostId) => this.openLiveChat(hostId),
       sendLiveMessage: (roomId) => this.sendLiveMessage(roomId),
-      closeLiveChat: () => this.closeLiveChat()
+      closeLiveChat: () => this.closeLiveChat(),
+      toggleAspectRatio: () => this.toggleAspectRatio()
     };
 
     this.setupTopbar();
@@ -173,7 +176,6 @@ export default {
 
   async addContact(userId) {
     await supabase.from('hidden_chats').delete().eq('user_id', store.user.id).eq('contact_id', userId);
-
     const { error } = await supabase.from('contacts').insert({ user_id: store.user.id, contact_id: userId });
     if (error && !error.message.includes('duplicate')) return alert("Error adding contact.");
 
@@ -266,7 +268,7 @@ export default {
             ${avatar}
             <div class="ping-chat-info">
               <span class="ping-chat-name">${live.title || 'Live Session'}</span>
-              <span class="ping-chat-preview" style="color: var(--error); font-weight: 600;">🔴 ${live.host_name}</span>
+              <span class="ping-chat-preview" style="color: var(--error); font-weight: 600;">🔴 ${live.host_name} · ₦${live.entry_fee || 0}</span>
             </div>
           </div>
         `;
@@ -274,7 +276,6 @@ export default {
       return;
     }
 
-    // Chats Tab
     const aiItem = `
       <div class="ping-chat-item ${this.activeChat?.id === 'ai' ? 'active' : ''}" onclick="pingInstance.openChat('ai', 'ai')">
         <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">
@@ -300,6 +301,7 @@ export default {
   },
 
   async openChat(type, id) {
+    this.activeLiveRoom = null; // Clear live room if opening DM
     if (type === 'ai') {
       this.activeChat = { type: 'ai', id: 'ai', name: 'Gliim-PA', avatar: '/icons/gliimpa.png', is_ai: true };
       this.chatHistory = [];
@@ -496,15 +498,20 @@ export default {
     else if (file.type === 'application/pdf') type = 'pdf';
 
     const msgData = { sender_id: store.user.id, attachment_url: url, attachment_type: type, content: '', is_ai: false };
-    if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
-    else msgData.receiver_id = null;
 
-    const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
-    if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
+    if (this.activeLiveRoom) {
+      msgData.room = this.activeLiveRoom;
+      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*, profiles:sender_id(full_name, avatar_url)').single();
+      if (newMsg) this.renderLiveChatMessages([newMsg], true);
+    } else {
+      if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
+      else msgData.receiver_id = null;
+      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
+      if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
+    }
     event.target.value = '';
   },
 
-  // VOICE NOTES
   async startRecording() {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -516,7 +523,10 @@ export default {
       this.isRecording = true;
       this.recordSeconds = 0;
 
-      document.getElementById('ping-input-area').innerHTML = `
+      const inputArea = document.getElementById('ping-input-area') || document.getElementById('live-chat-input-area');
+      if (!inputArea) return;
+
+      inputArea.innerHTML = `
         <div class="ping-voice-recording">
           <div class="voice-rec-dot"></div>
           <span class="voice-rec-timer" id="rec-timer">0:00</span>
@@ -534,7 +544,10 @@ export default {
   processRecording() {
     const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
     this.currentRecordingUrl = URL.createObjectURL(blob);
-    document.getElementById('ping-input-area').innerHTML = `
+    const inputArea = document.getElementById('ping-input-area') || document.getElementById('live-chat-input-area');
+    if (!inputArea) return;
+
+    inputArea.innerHTML = `
       <div class="ping-voice-preview">
         <button class="vn-play-btn" id="preview-play-btn" onclick="pingInstance.togglePreviewAudio()">
           <svg class="vn-icon-play" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -579,10 +592,18 @@ export default {
     const { error } = await supabase.storage.from('chat_attachments').upload(fileName, blob);
     if (error) return alert("Failed to upload audio.");
     const { data } = supabase.storage.from('chat_attachments').getPublicUrl(fileName);
+
     const msgData = { sender_id: store.user.id, attachment_url: data.publicUrl, attachment_type: 'audio_note', content: '', is_ai: false };
-    if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
-    const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
-    if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
+
+    if (this.activeLiveRoom) {
+      msgData.room = this.activeLiveRoom;
+      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*, profiles:sender_id(full_name, avatar_url)').single();
+      if (newMsg) this.renderLiveChatMessages([newMsg], true);
+    } else {
+      if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
+      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
+      if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
+    }
     this.cancelRecording();
   },
 
@@ -592,7 +613,9 @@ export default {
     this.isRecording = false;
     this.currentRecordingUrl = null;
     if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
-    this.renderChatWindow();
+
+    if (this.activeLiveRoom) this.renderLiveChatInput();
+    else this.renderChatWindow();
   },
 
   stopRecording() {
@@ -627,7 +650,6 @@ export default {
     });
   },
 
-  // EDIT / DELETE
   showMessageMenu(e, msgId) {
     e.stopPropagation();
     document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
@@ -664,7 +686,6 @@ export default {
     this.renderChatWindow();
   },
 
-  // CHAT LIST MENU
   showChatMenu(e, userId) {
     e.stopPropagation();
     document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
@@ -726,8 +747,22 @@ export default {
     const title = prompt("Enter a title for your Live Session:");
     if (!title) return;
 
+    const feeStr = prompt("Entry fee (500, 1500, 2500):", "500");
+    const fee = parseInt(feeStr);
+    if (![500, 1500, 2500].includes(fee)) return alert("Invalid entry fee. Must be 500, 1500, or 2500.");
+
+    let maxParticipants = 3;
+    const adminCode = prompt("Admin code (optional, required for >3 participants):");
+    if (adminCode) {
+      const { data } = await supabase.from('admin_codes').select('code').eq('code', adminCode).maybeSingle();
+      if (!data) return alert("The code you entered is not correct, remove code if you don't have any.");
+      maxParticipants = 100; // Unlimited
+    }
+
     this.liveSessionActive = true;
     this.liveSessionTitle = title;
+    this.liveEntryFee = fee;
+    this.liveMaxParticipants = maxParticipants;
     this.peerConnections = {};
 
     const modal = document.createElement('div');
@@ -762,12 +797,13 @@ export default {
     this.setupLivePresence(`live_${store.user.id}`);
     this.setupWebRTCAsHost(`live_${store.user.id}`);
 
-    // Broadcast to global live tracker
     await this.globalLiveChannel.track({
       host_id: store.user.id,
       host_name: store.profile.full_name,
       host_avatar: store.profile.avatar_url,
-      title: this.liveSessionTitle
+      title: this.liveSessionTitle,
+      entry_fee: this.liveEntryFee,
+      max_participants: this.liveMaxParticipants
     });
   },
 
@@ -776,19 +812,22 @@ export default {
     const liveInfo = this.activeLives.find(l => l.host_id === hostId);
     const hostName = liveInfo?.host_name || 'Host';
     const title = liveInfo?.title || `${hostName}'s Session`;
+    const entryFee = liveInfo?.entry_fee || 0;
+    const maxP = liveInfo?.max_participants || 3;
     this.liveHostId = hostId;
 
-    // 1. Check Subscription & Deduct Entry Fee (₦320)
+    // 1. Check Subscription & Deduct Entry Fee
     const { data: profile } = await supabase.from('profiles').select('wallet_balance, subscription_expires_at').eq('id', store.user.id).single();
     const isActiveSub = profile.subscription_expires_at && new Date(profile.subscription_expires_at) > new Date();
 
     if (!isActiveSub) {
-      if (profile.wallet_balance < 320) {
-        return alert("Insufficient funds. Please top up your wallet to join live broadcasts (₦320 entry fee).");
+      if (profile.wallet_balance < entryFee) {
+        return alert(`Insufficient funds. Entry fee is ₦${entryFee}.`);
       }
-      await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - 320 }).eq('id', store.user.id);
-      await supabase.rpc('increment_wallet', { user_id: hostId, amount: 320 });
-      await supabase.from('transactions').insert({ sender_id: store.user.id, receiver_id: hostId, amount: 320, type: 'live_entry', status: 'success' });
+      await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - entryFee }).eq('id', store.user.id);
+      const hostCut = Math.floor(entryFee * 0.9);
+      await supabase.rpc('increment_wallet', { user_id: hostId, amount: hostCut });
+      await supabase.from('transactions').insert({ sender_id: store.user.id, receiver_id: hostId, amount: entryFee, type: 'live_entry', status: 'success' });
     }
 
     this.liveSessionActive = true;
@@ -808,9 +847,12 @@ export default {
             <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
             <h2>${title}</h2>
           </div>
+          <div class="live-participants-strip" id="live-participants-strip"></div>
+          <div id="floating-icons-container" style="position: absolute; bottom: 100px; left: 0; right: 0; pointer-events: none; z-index: 15; overflow: hidden; height: 100%;"></div>
         </div>
 
         <div class="live-host-toolbar">
+          <button class="live-ctrl-btn" id="aspect-ratio-btn" onclick="pingInstance.toggleAspectRatio()" title="Best Experience"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
           <button class="live-ctrl-btn support-btn" id="viewer-support-btn" onclick="pingInstance.supportLiveHost('${hostId}')" title="Support (₦100)"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${hostId}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="Leave Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
@@ -819,8 +861,18 @@ export default {
     `;
     document.body.appendChild(modal);
 
-    this.setupLivePresence(`live_${hostId}`);
+    this.setupLivePresence(`live_${hostId}`, maxP);
     this.setupWebRTCAsViewer(`live_${hostId}`);
+  },
+
+  toggleAspectRatio() {
+    const video = document.getElementById('live-viewer-feed');
+    if (!video) return;
+    if (video.style.objectFit === 'contain') {
+      video.style.objectFit = 'cover';
+    } else {
+      video.style.objectFit = 'contain';
+    }
   },
 
   // ============================================
@@ -830,28 +882,21 @@ export default {
     const btn = document.getElementById('viewer-support-btn');
     if (!btn) return;
 
-    // Glow effect on viewer's button
     btn.classList.add('glow-support');
     setTimeout(() => btn.classList.remove('glow-support'), 1000);
 
-    // Handle tap streak
     this.supportTapCount++;
     clearTimeout(this.supportTapTimer);
-    this.supportTapTimer = setTimeout(() => {
-      this.supportTapCount = 0;
-    }, 1500); // Reset if no tap for 1.5s
+    this.supportTapTimer = setTimeout(() => { this.supportTapCount = 0; }, 1500);
 
-    // Deduct ₦100
     const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
-    if (profile.wallet_balance < 100) {
-      return alert("Insufficient funds. Top up your wallet to keep supporting!");
-    }
+    if (profile.wallet_balance < 100) return alert("Insufficient funds.");
 
     await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - 100 }).eq('id', store.user.id);
-    await supabase.rpc('increment_wallet', { user_id: hostId, amount: 100 });
+    const hostCut = Math.floor(100 * 0.7);
+    await supabase.rpc('increment_wallet', { user_id: hostId, amount: hostCut });
     await supabase.from('transactions').insert({ sender_id: store.user.id, receiver_id: hostId, amount: 100, type: 'live_support', status: 'success' });
 
-    // Determine icon and send to host
     let iconType = '100';
     if (this.supportTapCount >= 10) iconType = 'thunder';
     else if (this.supportTapCount >= 5) iconType = 'clap';
@@ -859,11 +904,7 @@ export default {
     this.presenceChannel.send({
       type: 'broadcast',
       event: 'support',
-      payload: {
-        viewerId: store.user.id,
-        avatarUrl: store.profile.avatar_url,
-        iconType: iconType
-      }
+      payload: { viewerId: store.user.id, avatarUrl: store.profile.avatar_url, iconType }
     });
   },
 
@@ -875,10 +916,8 @@ export default {
     this.webrtcChannel = supabase.channel(`webrtc-${roomId}`)
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
         if (payload.target !== store.user.id) return;
-
-        if (payload.type === 'viewer_join') {
-          this.createPeerConnection(payload.sender);
-        } else if (payload.type === 'answer') {
+        if (payload.type === 'viewer_join') this.createPeerConnection(payload.sender);
+        else if (payload.type === 'answer') {
           const pc = this.peerConnections[payload.sender];
           if (pc) pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
         } else if (payload.type === 'ice') {
@@ -892,12 +931,8 @@ export default {
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     this.peerConnections[viewerId] = pc;
 
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
-    }
-    if (this.displayStream && this.isScreenSharing) {
-      this.displayStream.getTracks().forEach(track => pc.addTrack(track, this.displayStream));
-    }
+    if (this.localStream) this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
+    if (this.displayStream && this.isScreenSharing) this.displayStream.getTracks().forEach(track => pc.addTrack(track, this.displayStream));
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -915,15 +950,11 @@ export default {
     this.webrtcChannel = supabase.channel(`webrtc-${roomId}`)
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
         if (payload.target !== store.user.id) return;
-
-        if (payload.type === 'offer') {
-          this.handleViewerOffer(payload.sdp, payload.sender);
-        } else if (payload.type === 'ice') {
+        if (payload.type === 'offer') this.handleViewerOffer(payload.sdp, payload.sender);
+        else if (payload.type === 'ice') {
           if (this.viewerPeerConnection && this.viewerPeerConnection.remoteDescription) {
             this.viewerPeerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
-          } else {
-            this.webrtcIceQueue.push(payload.candidate);
-          }
+          } else { this.webrtcIceQueue.push(payload.candidate); }
         }
       }).subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -934,44 +965,42 @@ export default {
 
   async handleViewerOffer(offer, hostId) {
     this.viewerPeerConnection = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-
     this.viewerPeerConnection.ontrack = (event) => {
       const videoEl = document.getElementById('live-viewer-feed');
       const placeholder = document.getElementById('viewer-placeholder');
-      if (videoEl) {
-        videoEl.srcObject = event.streams[0];
-        if (placeholder) placeholder.style.display = 'none';
-      }
+      if (videoEl) { videoEl.srcObject = event.streams[0]; if (placeholder) placeholder.style.display = 'none'; }
     };
-
     this.viewerPeerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'ice', target: hostId, sender: store.user.id, candidate: event.candidate } });
       }
     };
-
     await this.viewerPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-
     while (this.webrtcIceQueue.length > 0) {
       this.viewerPeerConnection.addIceCandidate(new RTCIceCandidate(this.webrtcIceQueue.shift()));
     }
-
     const answer = await this.viewerPeerConnection.createAnswer();
     await this.viewerPeerConnection.setLocalDescription(answer);
     this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'answer', target: hostId, sender: store.user.id, sdp: answer } });
   },
 
-  setupLivePresence(roomId) {
+  async setupLivePresence(roomId, maxP = 3) {
     if (this.presenceChannel) supabase.removeChannel(this.presenceChannel);
-
     this.presenceChannel = supabase.channel(`live-presence-${roomId}`)
-      .on('presence', { event: 'sync' }, () => {
+      .on('presence', { event: 'sync' }, async () => {
         const state = this.presenceChannel.presenceState();
         const users = Object.values(state).flat();
+
+        // Viewer check for room limit
+        if (!this.liveSessionActive && users.length > maxP) {
+          alert("Room is full.");
+          this.endLive();
+          return;
+        }
+
         this.renderLiveParticipants(users);
       })
       .on('broadcast', { event: 'support' }, ({ payload }) => {
-        // Only host receives this
         this.renderFloatingSupportIcon(payload.avatarUrl, payload.iconType);
       })
       .subscribe(async (status) => {
@@ -984,7 +1013,6 @@ export default {
   renderLiveParticipants(users) {
     const strip = document.getElementById('live-participants-strip');
     if (!strip) return;
-
     strip.innerHTML = users.map(u => {
       const avatar = u.avatar_url
         ? `<img src="${u.avatar_url}" class="live-participant-avatar" style="object-fit:cover;">`
@@ -996,25 +1024,15 @@ export default {
   renderFloatingSupportIcon(avatarUrl, iconType) {
     const container = document.getElementById('floating-icons-container');
     if (!container) return;
-
     const iconEl = document.createElement('div');
     iconEl.className = 'floating-support-icon';
-
     let iconHtml = '';
     if (iconType === 'thunder') iconHtml = '⚡';
     else if (iconType === 'clap') iconHtml = '👏';
     else iconHtml = '💯';
-
-    iconEl.innerHTML = `
-      <img src="${avatarUrl}" class="fs-avatar">
-      <span class="fs-icon">${iconHtml}</span>
-    `;
-
-    // Random horizontal position
+    iconEl.innerHTML = `<img src="${avatarUrl}" class="fs-avatar"><span class="fs-icon">${iconHtml}</span>`;
     iconEl.style.left = `${Math.random() * 80 + 10}%`;
     container.appendChild(iconEl);
-
-    // Remove after animation
     setTimeout(() => iconEl.remove(), 3000);
   },
 
@@ -1022,6 +1040,7 @@ export default {
   async openLiveChat(hostId) {
     if (document.getElementById('live-chat-modal')) return;
     const roomId = `live_${hostId}`;
+    this.activeLiveRoom = roomId;
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-chat-modal';
@@ -1033,7 +1052,10 @@ export default {
           <button class="modal-close" onclick="pingInstance.closeLiveChat()">×</button>
         </div>
         <div class="live-chat-panel-messages" id="live-chat-messages"></div>
-        <div class="live-chat-panel-input">
+        <div class="live-chat-panel-input" id="live-chat-input-area">
+          <button class="ping-input-icon" onclick="pingInstance.triggerFileUpload()" title="Upload File"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
+          <input type="file" id="ping-file-input" style="display:none" onchange="pingInstance.handleFileUpload(event)">
+          <button class="ping-input-icon ping-mic-btn" id="ping-mic-btn" onclick="pingInstance.startRecording()" title="Record Voice Note"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
           <input type="text" id="live-chat-input" class="input" placeholder="Message participants..." onkeypress="if(event.key==='Enter') pingInstance.sendLiveMessage('${roomId}')">
           <button class="btn-primary live-chat-send-btn" onclick="pingInstance.sendLiveMessage('${roomId}')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
         </div>
@@ -1052,6 +1074,18 @@ export default {
       }).subscribe();
   },
 
+  renderLiveChatInput() {
+    const area = document.getElementById('live-chat-input-area');
+    if (!area || !this.activeLiveRoom) return;
+    area.innerHTML = `
+      <button class="ping-input-icon" onclick="pingInstance.triggerFileUpload()" title="Upload File"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
+      <input type="file" id="ping-file-input" style="display:none" onchange="pingInstance.handleFileUpload(event)">
+      <button class="ping-input-icon ping-mic-btn" id="ping-mic-btn" onclick="pingInstance.startRecording()" title="Record Voice Note"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+      <input type="text" id="live-chat-input" class="input" placeholder="Message participants..." onkeypress="if(event.key==='Enter') pingInstance.sendLiveMessage('${this.activeLiveRoom}')">
+      <button class="btn-primary live-chat-send-btn" onclick="pingInstance.sendLiveMessage('${this.activeLiveRoom}')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+    `;
+  },
+
   renderLiveChatMessages(msgs, append = false) {
     const container = document.getElementById('live-chat-messages');
     if (!container) return;
@@ -1060,7 +1094,29 @@ export default {
       const isMe = m.sender_id === store.user.id;
       const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const sender = isMe ? '' : `<span class="ping-msg-sender">${m.profiles?.full_name || 'User'}</span>`;
-      return `<div class="ping-message ${isMe ? 'sent' : 'received'}">${sender}<p>${m.content}</p><span class="ping-msg-time">${time}</span></div>`;
+
+      let attachmentHtml = '';
+      if (m.attachment_url) {
+        if (m.attachment_type === 'image') attachmentHtml = `<img src="${m.attachment_url}" class="ping-attachment img">`;
+        else if (m.attachment_type === 'audio_note') {
+          attachmentHtml = `
+            <div class="voice-note-bubble" id="vn-${m.id}">
+              <button class="vn-play-btn" onclick="pingInstance.toggleAudio('${m.id}', '${m.attachment_url}')">
+                <svg class="vn-icon-play" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <svg class="vn-icon-pause" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              </button>
+              <div class="vn-progress-bar"><div class="vn-progress-fill" id="vn-fill-${m.id}"></div></div>
+              <span class="vn-duration" id="vn-dur-${m.id}">0:00</span>
+            </div>
+          `;
+        }
+        else if (m.attachment_type === 'video') attachmentHtml = `<video controls src="${m.attachment_url}" class="ping-attachment video"></video>`;
+        else attachmentHtml = `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file">📎 Download File</a>`;
+      }
+
+      let contentHtml = m.content ? `<p>${m.content}</p>` : '';
+
+      return `<div class="ping-message ${isMe ? 'sent' : 'received'}">${sender}${attachmentHtml}${contentHtml}<span class="ping-msg-time">${time}</span></div>`;
     }).join('');
     if (append) container.innerHTML += html; else container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
@@ -1078,14 +1134,15 @@ export default {
   closeLiveChat() {
     document.getElementById('live-chat-modal')?.remove();
     if (this.liveChatChannel) { supabase.removeChannel(this.liveChatChannel); this.liveChatChannel = null; }
+    this.activeLiveRoom = null;
   },
 
   openInviteModal() {
     const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
+    modal.className = 'modal-overlay live-invite-modal';
     modal.style.background = 'rgba(0,0,0,0.8)';
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-content" style="max-width: 400px; background: var(--surface);">
         <button class="modal-close" onclick="this.parentElement.remove()">×</button>
         <h3 style="margin-bottom: 16px;">Invite to Live</h3>
         <div style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
@@ -1103,7 +1160,7 @@ export default {
     for (let cb of checkboxes) {
       await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: cb.dataset.uid, content: link, is_ai: false });
     }
-    document.querySelector('.modal-overlay:last-child')?.remove();
+    document.querySelector('.live-invite-modal')?.remove();
     alert("Live invites sent!");
   },
 
@@ -1122,13 +1179,10 @@ export default {
     if (!this.isScreenSharing) {
       try {
         if (isMobile) {
-          // Mobile fallback: Switch to back camera
           this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
         } else {
-          // Desktop: True screen share
           this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         }
-
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
@@ -1184,8 +1238,6 @@ export default {
     if (this.webrtcChannel) { supabase.removeChannel(this.webrtcChannel); this.webrtcChannel = null; }
     if (this.peerConnections) { Object.values(this.peerConnections).forEach(pc => pc.close()); this.peerConnections = {}; }
     if (this.viewerPeerConnection) { this.viewerPeerConnection.close(); this.viewerPeerConnection = null; }
-
-    // Untrack from global live presence
     if (this.globalLiveChannel) await this.globalLiveChannel.untrack();
 
     document.querySelector('.live-studio-overlay')?.remove();
