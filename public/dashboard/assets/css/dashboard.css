@@ -3,7 +3,32 @@
    ============================================ */
 .dashboard-layout { display: flex; min-height: 100vh; background: var(--bg-secondary); }
 .sidebar { width: 200px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform var(--transition-base); }
-.sidebar-header { padding: var(--space-6); border-bottom: 1px solid var(--border); }
+.sidebar-header {
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-collapse-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
 .brand-logo { font-family: var(--font-sans); font-size: var(--fs-2xl); font-weight: var(--fw-extrabold); letter-spacing: var(--ls-tight); background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-decoration: none; display: flex; align-items: center; }
 .brand-logo-img { height: 32px; width: auto; }
 .sidebar-nav { flex: 1; padding: var(--space-4); overflow-y: auto; }
@@ -132,4 +157,26 @@
 .glow-avatar {
   border: 2px dotted var(--brand-primary);
   box-shadow: none;
+}
+
+/* ============================================
+   DESKTOP SIDEBAR COLLAPSE LOGIC
+   ============================================ */
+@media (min-width: 769px) {
+  /* Hide the mobile hamburger by default on desktop */
+  .menu-toggle { display: none; }
+
+  /* When body has 'sidebar-collapsed' class */
+  body.sidebar-collapsed .sidebar {
+    transform: translateX(-100%);
+  }
+
+  body.sidebar-collapsed .main-content {
+    margin-left: 0;
+  }
+
+  /* Show the hamburger in the topbar ONLY when sidebar is collapsed */
+  body.sidebar-collapsed .menu-toggle {
+    display: flex;
+  }
 }
