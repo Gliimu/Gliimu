@@ -9,6 +9,12 @@ export default {
     </div>
   `,
   async init() {
+    // Expose instance to window for onclick handlers
+    window.walletInstance = {
+      switchTab: (tab) => this.switchTab(tab),
+      openTopUpModal: () => this.openTopUpModal()
+    };
+
     this.currentTab = 'activity'; // Default tab
     await this.fetchData();
     this.render();
