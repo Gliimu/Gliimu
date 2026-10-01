@@ -57,7 +57,7 @@ export default {
     this.supportTapCount = 0;
     this.supportTapTimer = null;
     this.activeLiveRoom = null;
-    this.liveTimer = null; // 1 hour countdown
+    this.liveTimer = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -88,6 +88,7 @@ export default {
       sendLiveInvites: () => this.sendLiveInvites(),
       switchTab: (tab) => this.switchTab(tab),
       toggleScreenShare: () => this.toggleScreenShare(),
+      flipCamera: () => this.flipCamera(),
       joinLive: (hostId) => this.joinLive(hostId),
       supportLiveHost: (hostId) => this.supportLiveHost(hostId),
       openLiveChat: (hostId) => this.openLiveChat(hostId),
@@ -104,14 +105,13 @@ export default {
     this.fetchContacts();
     this.setupRealtime();
     this.setupGlobalLiveTracker();
-    this.checkActiveLiveSession(); // Check for host refresh
+    this.checkActiveLiveSession();
   },
 
   checkActiveLiveSession() {
     const activeSession = localStorage.getItem('active_live_session');
     if (activeSession) {
       const session = JSON.parse(activeSession);
-      // Show resume button in topbar or empty state
       const main = document.getElementById('ping-main');
       if (main) {
         main.innerHTML = `
@@ -136,6 +136,8 @@ export default {
     this.liveMaxParticipants = session.maxP;
     this.peerConnections = {};
 
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
     modal.innerHTML = `
@@ -153,6 +155,7 @@ export default {
         <div class="live-host-toolbar">
           <button class="live-ctrl-btn mic-on" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
           <button class="live-ctrl-btn cam-on" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+          ${isMobile ? `<button class="live-ctrl-btn" onclick="pingInstance.flipCamera()" title="Flip Camera"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></button>` : ''}
           <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${store.user.id}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
@@ -369,7 +372,7 @@ export default {
   },
 
   async openChat(type, id) {
-    this.activeLiveRoom = null; // Clear live room if opening DM
+    this.activeLiveRoom = null;
     if (type === 'ai') {
       this.activeChat = { type: 'ai', id: 'ai', name: 'Gliim-PA', avatar: '/icons/gliimpa.png', is_ai: true };
       this.chatHistory = [];
@@ -569,8 +572,11 @@ export default {
 
     if (this.activeLiveRoom) {
       msgData.room = this.activeLiveRoom;
-      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*, profiles:sender_id(full_name, avatar_url)').single();
-      if (newMsg) this.renderLiveChatMessages([newMsg], true);
+      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
+      if (newMsg) {
+        newMsg.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
+        this.renderLiveChatMessages([newMsg], true);
+      }
     } else {
       if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
       else msgData.receiver_id = null;
@@ -665,8 +671,11 @@ export default {
 
     if (this.activeLiveRoom) {
       msgData.room = this.activeLiveRoom;
-      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*, profiles:sender_id(full_name, avatar_url)').single();
-      if (newMsg) this.renderLiveChatMessages([newMsg], true);
+      const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
+      if (newMsg) {
+        newMsg.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
+        this.renderLiveChatMessages([newMsg], true);
+      }
     } else {
       if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
       const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
@@ -867,12 +876,13 @@ export default {
     this.liveMaxParticipants = maxParticipants;
     this.peerConnections = {};
 
-    // Save to local storage for refresh persistence
     localStorage.setItem('active_live_session', JSON.stringify({
       title: this.liveSessionTitle,
       entryFee: this.liveEntryFee,
       maxP: this.liveMaxParticipants
     }));
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
@@ -891,6 +901,7 @@ export default {
         <div class="live-host-toolbar">
           <button class="live-ctrl-btn mic-on" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
           <button class="live-ctrl-btn cam-on" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+          ${isMobile ? `<button class="live-ctrl-btn" onclick="pingInstance.flipCamera()" title="Flip Camera"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></button>` : ''}
           <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${store.user.id}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
@@ -920,7 +931,6 @@ export default {
 
   startLiveTimer() {
     if (this.liveTimer) clearTimeout(this.liveTimer);
-    // 1 hour = 60 * 60 * 1000
     this.liveTimer = setTimeout(() => {
       alert("Your 1-hour live session has ended.");
       this.endLive();
@@ -938,7 +948,6 @@ export default {
     const maxP = liveInfo?.max_participants || 3;
     this.liveHostId = hostId;
 
-    // 1. Check Subscription & Deduct Entry Fee
     const { data: profile } = await supabase.from('profiles').select('wallet_balance, subscription_expires_at').eq('id', store.user.id).single();
     const isActiveSub = profile.subscription_expires_at && new Date(profile.subscription_expires_at) > new Date();
 
@@ -1113,7 +1122,6 @@ export default {
         const state = this.presenceChannel.presenceState();
         const users = Object.values(state).flat();
 
-        // Viewer check for room limit
         if (!this.liveSessionActive && users.length > maxP) {
           alert("This session has reached maximum capacity.");
           this.endLive();
@@ -1126,7 +1134,6 @@ export default {
         this.renderFloatingSupportIcon(payload.avatarUrl, payload.iconType);
       })
       .on('broadcast', { event: 'session_ended' }, () => {
-        // Only viewers receive this
         this.handleSessionEnded();
       })
       .subscribe(async (status) => {
@@ -1140,7 +1147,6 @@ export default {
     const strip = document.getElementById('live-participants-strip');
     if (!strip) return;
 
-    // Limit to 5 avatars shown to prevent clutter
     const shownUsers = users.slice(0, 5);
     const extraCount = users.length > 5 ? users.length - 5 : 0;
 
@@ -1204,13 +1210,23 @@ export default {
     `;
     document.body.appendChild(modal);
 
-    const { data: msgs } = await supabase.from('messages').select('*, profiles:sender_id(full_name, avatar_url)').eq('room', roomId).order('created_at', { ascending: true });
-    this.renderLiveChatMessages(msgs || []);
+    // FIX: Fetch without embedding to avoid 400 errors
+    const { data: msgs } = await supabase.from('messages').select('*').eq('room', roomId).order('created_at', { ascending: true });
+
+    // Manually attach profiles locally
+    const mappedMsgs = (msgs || []).map(m => {
+      const user = this.allUsers.find(u => u.id === m.sender_id) || { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
+      m.profiles = user;
+      return m;
+    });
+
+    this.renderLiveChatMessages(mappedMsgs);
 
     this.liveChatChannel = supabase.channel(`live-chat-${roomId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${roomId}` }, async payload => {
-        const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', payload.new.sender_id).single();
-        payload.new.profiles = profile;
+        // FIX: Manually attach profile on realtime
+        const user = this.allUsers.find(u => u.id === payload.new.sender_id) || { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
+        payload.new.profiles = user;
         this.renderLiveChatMessages([payload.new], true);
       }).subscribe();
   },
@@ -1268,8 +1284,13 @@ export default {
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
-    const { data } = await supabase.from('messages').insert({ sender_id: store.user.id, room: roomId, content: text, is_ai: false }).select('*, profiles:sender_id(full_name, avatar_url)').single();
-    if (data) this.renderLiveChatMessages([data], true);
+
+    // FIX: Insert without embedding
+    const { data } = await supabase.from('messages').insert({ sender_id: store.user.id, room: roomId, content: text, is_ai: false }).select('*').single();
+    if (data) {
+      data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
+      this.renderLiveChatMessages([data], true);
+    }
   },
 
   closeLiveChat() {
@@ -1312,6 +1333,29 @@ export default {
     } catch (err) { alert("Camera/Mic access denied."); }
   },
 
+  async flipCamera() {
+    if (!this.localStream) return;
+    const videoTrack = this.localStream.getVideoTracks()[0];
+    const currentFacingMode = videoTrack.getSettings().facingMode;
+    const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+    videoTrack.stop();
+
+    const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacingMode }, audio: false });
+    const newVideoTrack = newStream.getVideoTracks()[0];
+
+    this.localStream.removeTrack(videoTrack);
+    this.localStream.addTrack(newVideoTrack);
+
+    document.getElementById('live-video-feed').srcObject = this.localStream;
+
+    Object.keys(this.peerConnections).forEach(viewerId => {
+      const pc = this.peerConnections[viewerId];
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) sender.replaceTrack(newVideoTrack);
+    });
+  },
+
   async toggleScreenShare() {
     const videoEl = document.getElementById('live-video-feed');
     const btn = document.getElementById('screen-share-btn');
@@ -1320,12 +1364,15 @@ export default {
     if (!this.isScreenSharing) {
       try {
         if (isMobile) {
-          // Mobile fallback: Switch to back camera
-          this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+          this.displayStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+            audio: false
+          });
+          alert("Switched to back camera. Tap the button again to return to selfie view.");
         } else {
-          // Desktop: True screen share
           this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         }
+
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
@@ -1337,23 +1384,13 @@ export default {
         });
 
         this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
-      } catch (err) {
-        console.error("Screen share failed:", err);
-        alert("Screen sharing is not supported on this mobile browser. Using back camera instead.");
-        // If getDisplayMedia fails on mobile, try back camera
-        try {
-          this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
-          videoEl.srcObject = this.displayStream;
-          this.isScreenSharing = true;
-          btn.style.background = 'var(--brand-primary)';
 
-          Object.keys(this.peerConnections).forEach(viewerId => {
-            const pc = this.peerConnections[viewerId];
-            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) sender.replaceTrack(this.displayStream.getVideoTracks()[0]);
-          });
-        } catch (err2) {
-          console.error("Back camera failed:", err2);
+      } catch (err) {
+        console.error("Screen share/Camera switch failed:", err);
+        if (isMobile) {
+          alert("Could not switch to the back camera. Please ensure camera permissions are granted in your browser settings.");
+        } else {
+          alert("Screen sharing was cancelled or failed.");
         }
       }
     } else {
@@ -1392,7 +1429,6 @@ export default {
   },
 
   handleSessionEnded() {
-    // This is called by viewers when host ends or times out
     const videoEl = document.getElementById('live-viewer-feed');
     const placeholder = document.getElementById('viewer-placeholder');
     if (videoEl) videoEl.srcObject = null;
@@ -1406,7 +1442,6 @@ export default {
   async endLive() {
     if (this.liveTimer) clearTimeout(this.liveTimer);
 
-    // If host, broadcast session_ended to viewers
     if (this.liveSessionActive && this.liveHostId === store.user.id) {
       this.presenceChannel.send({ type: 'broadcast', event: 'session_ended', payload: {} });
       localStorage.removeItem('active_live_session');
@@ -1425,7 +1460,6 @@ export default {
     this.liveSessionActive = false;
     this.liveHostId = null;
 
-    // Reset empty state if user was viewer
     if (!localStorage.getItem('active_live_session')) {
       const main = document.getElementById('ping-main');
       if (main) {
