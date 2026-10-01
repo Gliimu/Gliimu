@@ -33,14 +33,14 @@
   <div class="dashboard-layout">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-          <a href="/dashboard/index.html" class="brand-logo">
-            <img src="/icons/icon.png" alt="Gliimu Logo" class="brand-logo-img">
-          </a>
-          <button class="sidebar-collapse-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          </button>
-        </div>
+      <div class="sidebar-header">
+        <a href="/dashboard/index.html" class="brand-logo">
+          <img src="/icons/icon.png" alt="Gliimu Logo" class="brand-logo-img">
+        </a>
+        <button class="sidebar-collapse-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+      </div>
 
       <nav class="sidebar-nav">
         <div class="nav-section">
@@ -58,7 +58,7 @@
             Profile
           </a>
           <a href="#/ping" class="nav-item" data-route="ping">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
             Ping
           </a>
         </div>
@@ -96,8 +96,7 @@
     <!-- Main Content -->
     <main class="main-content">
       <header class="topbar">
-        <button class="menu-toggle" onclick="document.body.classList.toggle('sidebar-open')">☰</button>
-        <!-- Removed topbar-title to fix empty space -->
+        <button class="menu-toggle" onclick="document.body.classList.remove('sidebar-collapsed'); document.body.classList.toggle('sidebar-open')">☰</button>
         <div id="topbar-dynamic-content" style="flex: 1; display: flex; justify-content: center; padding: 0 16px;"></div>
         <div id="topbar-right-actions" style="display: flex; align-items: center; gap: 8px; margin-left: auto;"></div>
       </header>
