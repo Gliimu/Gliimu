@@ -308,23 +308,40 @@
 
 /* Desktop (769px and up) */
 @media (min-width: 769px) {
+  .desktop-only { display: flex !important; }
+
+  /* Hide mobile elements */
+  .mobile-only { display: none !important; }
+  .menu-toggle { display: none !important; }
+
   /* When body has 'sidebar-collapsed' class */
   body.sidebar-collapsed .sidebar {
     transform: translateX(-100%);
   }
-
   body.sidebar-collapsed .main-content {
     margin-left: 0;
   }
 
-  /* Show the hamburger in the topbar ONLY when sidebar is collapsed */
+  /* Reveal logo and hamburger when sidebar is collapsed */
+  body.sidebar-collapsed .topbar-logo-img {
+    display: block;
+  }
   body.sidebar-collapsed .menu-toggle {
-    display: flex;
+    display: flex !important;
   }
 }
 
 /* Mobile (768px and down) */
 @media (max-width: 768px) {
+  .mobile-only { display: flex !important; }
+
+  /* Hide desktop elements */
+  .desktop-only { display: none !important; }
+  .topbar-logo-img { display: none !important; }
+
+  /* Always show hamburger on mobile */
+  .menu-toggle { display: flex !important; }
+
   .sidebar {
     transform: translateX(-100%);
     z-index: 1000;
@@ -332,10 +349,30 @@
   .main-content {
     margin-left: 0;
   }
-  /* Always show hamburger on mobile */
-  .menu-toggle {
-    display: flex;
+
+  /* Move Topbar to Bottom on Mobile */
+  .topbar {
+    position: fixed;
+    bottom: 0;
+    top: auto;
+    left: 0;
+    right: 0;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    z-index: 50;
   }
+
+  /* Add padding to bottom of content so it isn't hidden behind bottom bar */
+  .view-container {
+    padding-bottom: 100px;
+  }
+
+  /* Push Hub FAB up so it doesn't overlap bottom bar */
+  body .hub-fab-wrapper {
+    bottom: 80px !important;
+  }
+
   /* When body has 'sidebar-open' class on mobile */
   body.sidebar-open .sidebar {
     transform: translateX(0);
