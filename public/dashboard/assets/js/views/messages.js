@@ -990,7 +990,23 @@ export default {
       await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - entryFee }).eq('id', store.user.id);
       const hostCut = Math.floor(entryFee * 0.9);
       await supabase.rpc('increment_wallet', { user_id: hostId, amount: hostCut });
-      await supabase.from('transactions').insert({ sender_id: store.user.id, receiver_id: hostId, amount: entryFee, type: 'live_entry', status: 'success' });
+      // Insert transaction for the VIEWER (deduction)
+      await supabase.from('transactions').insert({
+        user_id: store.user.id,
+        amount: -entryFee,
+        type: 'live_entry',
+        status: 'success',
+        description: 'Live Session Entry Fee'
+      });
+
+      // FIX: Insert transaction for the HOST (income)
+      await supabase.from('transactions').insert({
+        user_id: hostId,
+        amount: entryFee,
+        type: 'live_entry',
+        status: 'success',
+        description: 'Live Session Entry Fee'
+      });
     }
 
     this.liveSessionActive = true;
@@ -1067,7 +1083,23 @@ export default {
     await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - 100 }).eq('id', store.user.id);
     const hostCut = Math.floor(100 * 0.7);
     await supabase.rpc('increment_wallet', { user_id: hostId, amount: hostCut });
-    await supabase.from('transactions').insert({ sender_id: store.user.id, receiver_id: hostId, amount: 100, type: 'live_support', status: 'success' });
+    // Insert transaction for the VIEWER (deduction)
+    await supabase.from('transactions').insert({
+      user_id: store.user.id,
+      amount: -100,
+      type: 'live_support',
+      status: 'success',
+      description: 'Live Support sent'
+    });
+
+    // FIX: Insert transaction for the HOST (income)
+    await supabase.from('transactions').insert({
+      user_id: hostId,
+      amount: 100,
+      type: 'live_support',
+      status: 'success',
+      description: 'Live Support received'
+    });
 
     let iconType = '100';
     if (this.supportTapCount >= 10) iconType = 'thunder';
@@ -1200,6 +1232,9 @@ export default {
 
     const shownUsers = users.slice(0, 5);
     const extraCount = users.length > 5 ? users.length - 5 : 0;
+
+    // Local SVG placeholder so we never rely on external sites
+    const placeholderAvatar = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23F1F5F9"/%3E%3C/svg%3E';
 
     strip.innerHTML = shownUsers.map(u => {
       const avatar = u.avatar_url

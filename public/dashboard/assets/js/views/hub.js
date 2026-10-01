@@ -609,7 +609,24 @@ export default {
 
     await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - amount }).eq('id', store.user.id);
     await supabase.rpc('increment_wallet', { user_id: authorId, amount: amount });
-    await supabase.from('transactions').insert({ user_id: store.user.id, amount: -amount, type: 'support', status: 'success', description: `Hub Support` });
+
+    // Insert transaction for the SENDER (deduction)
+    await supabase.from('transactions').insert({
+      user_id: store.user.id,
+      amount: -amount,
+      type: 'support',
+      status: 'success',
+      description: `Hub Support sent`
+    });
+
+    // FIX: Insert transaction for the RECEIVER (income)
+    await supabase.from('transactions').insert({
+      user_id: authorId,
+      amount: amount,
+      type: 'support',
+      status: 'success',
+      description: `Hub Support received`
+    });
 
     const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: amount }).select('*').single();
     if (data) this.allInteractions.push(data);
