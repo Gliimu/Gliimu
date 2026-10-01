@@ -307,3 +307,100 @@
     justify-content: space-between;
   }
 }
+
+/* Leaderboard Styles */
+.leaderboard-card {
+  padding: 32px;
+}
+
+.leaderboard-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.leaderboard-header h2 {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.leaderboard-header p {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.leaderboard-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.leaderboard-item.is-me {
+  background: var(--brand-primary-light);
+  border-left: 3px solid var(--brand-primary);
+}
+
+.lb-rank {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-muted);
+  width: 40px;
+  text-align: center;
+}
+
+.lb-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  object-fit: cover;
+}
+
+.lb-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.lb-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lb-username {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.lb-score {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-primary);
+}
+
+/* Search Dropdown Fix */
+#profile-search-dropdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  min-width: 100%;
+  z-index: 1000;
+  overflow: hidden;
+}

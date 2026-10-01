@@ -178,7 +178,7 @@ export default {
     menu.style.top = `${e.clientY}px`;
     menu.innerHTML = `
       <div class="ctx-item" onclick="hubInstance.replyToUser('${postId}', '${fullName}')">Reply</div>
-      <div class="ctx-item" onclick="window.location.hash='#/profile'; hubInstance.closeUserMenu()">View Profile</div>
+      <div class="ctx-item" onclick="sessionStorage.setItem('view_profile_id', '${userId}'); window.location.hash='#/profile'; hubInstance.closeUserMenu()">View Profile</div>
       <div class="ctx-item" onclick="alert('User reported.'); hubInstance.closeUserMenu()">Report</div>
     `;
     document.body.appendChild(menu);
