@@ -57,7 +57,8 @@ export default {
     this.supportTapCount = 0;
     this.supportTapTimer = null;
     this.activeLiveRoom = null;
-    this.liveTimer = null;
+    this.liveTimerInterval = null;
+    this.liveEndTime = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -85,6 +86,7 @@ export default {
       saveEdit: (msgId) => this.saveEdit(msgId),
       cancelEdit: () => this.renderChatWindow(),
       openInviteModal: () => this.openInviteModal(),
+      closeInviteModal: () => this.closeInviteModal(),
       sendLiveInvites: () => this.sendLiveInvites(),
       switchTab: (tab) => this.switchTab(tab),
       toggleScreenShare: () => this.toggleScreenShare(),
@@ -95,6 +97,7 @@ export default {
       sendLiveMessage: (roomId) => this.sendLiveMessage(roomId),
       closeLiveChat: () => this.closeLiveChat(),
       toggleAspectRatio: () => this.toggleAspectRatio(),
+      toggleViewerMute: () => this.toggleViewerMute(),
       resumeLiveSession: () => this.resumeLiveSession(),
       submitLiveSetup: () => this.submitLiveSetup()
     };
@@ -145,7 +148,10 @@ export default {
         <div class="live-video-main">
           <video id="live-video-feed" autoplay muted playsinline></video>
           <div class="live-video-overlay">
-            <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
+            <div class="live-overlay-top">
+              <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
+              <span id="live-timer" class="live-timer">1:00:00</span>
+            </div>
             <h2>${this.liveSessionTitle}</h2>
           </div>
           <div class="live-participants-strip" id="live-participants-strip"></div>
@@ -891,7 +897,10 @@ export default {
         <div class="live-video-main">
           <video id="live-video-feed" autoplay muted playsinline></video>
           <div class="live-video-overlay">
-            <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
+            <div class="live-overlay-top">
+              <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
+              <span id="live-timer" class="live-timer">1:00:00</span>
+            </div>
             <h2>${this.liveSessionTitle}</h2>
           </div>
           <div class="live-participants-strip" id="live-participants-strip"></div>
@@ -930,11 +939,25 @@ export default {
   },
 
   startLiveTimer() {
-    if (this.liveTimer) clearTimeout(this.liveTimer);
-    this.liveTimer = setTimeout(() => {
-      alert("Your 1-hour live session has ended.");
-      this.endLive();
-    }, 3600000);
+    if (this.liveTimerInterval) clearInterval(this.liveTimerInterval);
+    this.liveEndTime = Date.now() + 3600000; // 1 hour
+
+    this.liveTimerInterval = setInterval(() => {
+      const remaining = this.liveEndTime - Date.now();
+      if (remaining <= 0) {
+        clearInterval(this.liveTimerInterval);
+        alert("Your 1-hour live session has ended.");
+        this.endLive();
+        return;
+      }
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      const timerEl = document.getElementById('live-timer');
+      if (timerEl) {
+        timerEl.innerText = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+    }, 1000);
   },
 
   // VIEWER UI
@@ -983,6 +1006,7 @@ export default {
         </div>
 
         <div class="live-host-toolbar">
+          <button class="live-ctrl-btn" id="viewer-mute-btn" onclick="pingInstance.toggleViewerMute()" title="Mute/Unmute Host"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg></button>
           <button class="live-ctrl-btn" id="aspect-ratio-btn" onclick="pingInstance.toggleAspectRatio()" title="Best Experience"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
           <button class="live-ctrl-btn support-btn" id="viewer-support-btn" onclick="pingInstance.supportLiveHost('${hostId}')" title="Support (₦100)"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${hostId}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
@@ -994,6 +1018,14 @@ export default {
 
     this.setupLivePresence(`live_${hostId}`, maxP);
     this.setupWebRTCAsViewer(`live_${hostId}`);
+  },
+
+  toggleViewerMute() {
+    const videoEl = document.getElementById('live-viewer-feed');
+    const btn = document.getElementById('viewer-mute-btn');
+    if (!videoEl || !btn) return;
+    videoEl.muted = !videoEl.muted;
+    btn.style.background = videoEl.muted ? 'var(--error)' : 'var(--bg-tertiary)';
   },
 
   toggleAspectRatio() {
@@ -1210,10 +1242,8 @@ export default {
     `;
     document.body.appendChild(modal);
 
-    // FIX: Fetch without embedding to avoid 400 errors
     const { data: msgs } = await supabase.from('messages').select('*').eq('room', roomId).order('created_at', { ascending: true });
 
-    // Manually attach profiles locally
     const mappedMsgs = (msgs || []).map(m => {
       const user = this.allUsers.find(u => u.id === m.sender_id) || { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
       m.profiles = user;
@@ -1224,7 +1254,6 @@ export default {
 
     this.liveChatChannel = supabase.channel(`live-chat-${roomId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${roomId}` }, async payload => {
-        // FIX: Manually attach profile on realtime
         const user = this.allUsers.find(u => u.id === payload.new.sender_id) || { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
         payload.new.profiles = user;
         this.renderLiveChatMessages([payload.new], true);
@@ -1285,7 +1314,6 @@ export default {
     if (!text) return;
     input.value = '';
 
-    // FIX: Insert without embedding
     const { data } = await supabase.from('messages').insert({ sender_id: store.user.id, room: roomId, content: text, is_ai: false }).select('*').single();
     if (data) {
       data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
@@ -1302,10 +1330,11 @@ export default {
   openInviteModal() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-invite-modal';
+    modal.id = 'live-invite-modal';
     modal.style.background = 'rgba(0,0,0,0.8)';
     modal.innerHTML = `
       <div class="modal-content" style="max-width: 400px; background: var(--surface);">
-        <button class="modal-close" onclick="this.parentElement.remove()">×</button>
+        <button class="modal-close" onclick="pingInstance.closeInviteModal()">×</button>
         <h3 style="margin-bottom: 16px;">Invite to Live</h3>
         <div style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
           ${this.contacts.map(c => `<div class="ping-chat-item"><input type="checkbox" class="live-invite-cb" data-uid="${c.id}" style="margin-right: 12px;"><span>${c.full_name}</span></div>`).join('')}
@@ -1316,13 +1345,17 @@ export default {
     document.body.appendChild(modal);
   },
 
+  closeInviteModal() {
+    document.getElementById('live-invite-modal')?.remove();
+  },
+
   async sendLiveInvites() {
     const link = 'Join my live session: ' + window.location.origin + '/dashboard/index.html#/ping';
     const checkboxes = document.querySelectorAll('.live-invite-cb:checked');
     for (let cb of checkboxes) {
       await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: cb.dataset.uid, content: link, is_ai: false });
     }
-    document.querySelector('.live-invite-modal')?.remove();
+    this.closeInviteModal();
     alert("Live invites sent!");
   },
 
@@ -1357,21 +1390,20 @@ export default {
   },
 
   async toggleScreenShare() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    // On mobile, true screen share is not supported in browsers. We use the flip camera feature instead.
+    if (isMobile) {
+      alert("True screen sharing is not supported on mobile browsers. Use the 'Flip Camera' button to switch to your back camera.");
+      return;
+    }
+
     const videoEl = document.getElementById('live-video-feed');
     const btn = document.getElementById('screen-share-btn');
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     if (!this.isScreenSharing) {
       try {
-        if (isMobile) {
-          this.displayStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' },
-            audio: false
-          });
-          alert("Switched to back camera. Tap the button again to return to selfie view.");
-        } else {
-          this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        }
+        this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
 
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
@@ -1386,12 +1418,8 @@ export default {
         this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
 
       } catch (err) {
-        console.error("Screen share/Camera switch failed:", err);
-        if (isMobile) {
-          alert("Could not switch to the back camera. Please ensure camera permissions are granted in your browser settings.");
-        } else {
-          alert("Screen sharing was cancelled or failed.");
-        }
+        console.error("Screen share failed:", err);
+        alert("Screen sharing was cancelled or failed.");
       }
     } else {
       if (this.displayStream) this.displayStream.getTracks().forEach(t => t.stop());
@@ -1440,7 +1468,7 @@ export default {
   },
 
   async endLive() {
-    if (this.liveTimer) clearTimeout(this.liveTimer);
+    if (this.liveTimerInterval) clearInterval(this.liveTimerInterval);
 
     if (this.liveSessionActive && this.liveHostId === store.user.id) {
       this.presenceChannel.send({ type: 'broadcast', event: 'session_ended', payload: {} });
