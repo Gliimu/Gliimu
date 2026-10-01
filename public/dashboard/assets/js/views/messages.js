@@ -59,6 +59,8 @@ export default {
     this.activeLiveRoom = null;
     this.liveTimerInterval = null;
     this.liveEndTime = null;
+    this.viewerSupportTxId = null;
+    this.hostSupportTxId = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -837,6 +839,7 @@ export default {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
 
     const modal = document.createElement('div');
+    this.hostSupportTxId = null;
     modal.className = 'modal-overlay live-setup-modal';
     modal.innerHTML = `
       <div class="modal-content" style="max-width: 500px; background: var(--surface);">
@@ -1077,38 +1080,53 @@ export default {
     clearTimeout(this.supportTapTimer);
     this.supportTapTimer = setTimeout(() => { this.supportTapCount = 0; }, 1500);
 
+    // Deduct ₦100 immediately
     const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
     if (profile.wallet_balance < 100) return alert("Insufficient funds.");
 
-    await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - 100 }).eq('id', store.user.id);
-    const hostCut = Math.floor(100 * 0.7);
-    await supabase.rpc('increment_wallet', { user_id: hostId, amount: hostCut });
-    // Insert transaction for the VIEWER (deduction)
-    await supabase.from('transactions').insert({
-      user_id: store.user.id,
-      amount: -100,
-      type: 'live_support',
-      status: 'success',
-      description: 'Live Support sent'
-    });
+    const newBalance = profile.wallet_balance - 100;
+    await supabase.from('profiles').update({ wallet_balance: newBalance }).eq('id', store.user.id);
 
-    // FIX: Insert transaction for the HOST (income)
-    await supabase.from('transactions').insert({
-      user_id: hostId,
-      amount: 100,
-      type: 'live_support',
-      status: 'success',
-      description: 'Live Support received'
-    });
-
+    // Determine icon and host cut
     let iconType = '100';
     if (this.supportTapCount >= 10) iconType = 'thunder';
     else if (this.supportTapCount >= 5) iconType = 'clap';
 
+    const hostCut = Math.floor(100 * 0.7); // 70% to host
+    const titleEl = document.querySelector('.live-video-overlay h2');
+    const sessionTitle = titleEl ? titleEl.innerText : 'Live Session';
+
+    // 1. Handle Viewer's Transaction (Aggregate)
+    if (this.viewerSupportTxId) {
+        // Transaction exists, fetch current amount and update
+        const { data: tx } = await supabase.from('transactions').select('amount').eq('id', this.viewerSupportTxId).single();
+        if (tx) {
+            await supabase.from('transactions').update({ amount: tx.amount - 100 }).eq('id', this.viewerSupportTxId);
+        }
+    } else {
+        // First tap of the session: Insert new transaction
+        const { data: newTx } = await supabase.from('transactions').insert({
+            user_id: store.user.id,
+            amount: -100,
+            type: 'live_support',
+            status: 'success',
+            description: `Live Support sent: ${sessionTitle}`
+        }).select('*').single();
+
+        if (newTx) this.viewerSupportTxId = newTx.id;
+    }
+
+    // 2. Broadcast to Host (Host will handle their own transaction aggregation)
     this.presenceChannel.send({
       type: 'broadcast',
       event: 'support',
-      payload: { viewerId: store.user.id, avatarUrl: store.profile.avatar_url, iconType }
+      payload: {
+        viewerId: store.user.id,
+        avatarUrl: store.profile.avatar_url,
+        iconType: iconType,
+        amount: hostCut,
+        title: sessionTitle
+      }
     });
   },
 
@@ -1213,12 +1231,36 @@ export default {
 
         this.renderLiveParticipants(users);
       })
-      .on('broadcast', { event: 'support' }, ({ payload }) => {
+      .on('broadcast', { event: 'support' }, async ({ payload }) => {
         this.renderFloatingSupportIcon(payload.avatarUrl, payload.iconType);
+
+        // Add 70% to host balance immediately
+        const { data: hostProfile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
+        if (hostProfile) {
+            await supabase.from('profiles').update({ wallet_balance: hostProfile.wallet_balance + payload.amount }).eq('id', store.user.id);
+        }
+
+        // Handle Host's Income Transaction (Aggregate)
+        if (this.hostSupportTxId) {
+            // Transaction exists, fetch current amount and update
+            const { data: tx } = await supabase.from('transactions').select('amount').eq('id', this.hostSupportTxId).single();
+            if (tx) {
+                await supabase.from('transactions').update({ amount: tx.amount + payload.amount }).eq('id', this.hostSupportTxId);
+            }
+        } else {
+            // First tip received this session: Insert new transaction
+            const { data: newTx } = await supabase.from('transactions').insert({
+                user_id: store.user.id,
+                amount: payload.amount,
+                type: 'live_support',
+                status: 'success',
+                description: `Live Support received: ${payload.title}`
+            }).select('*').single();
+
+            if (newTx) this.hostSupportTxId = newTx.id;
+        }
       })
-      .on('broadcast', { event: 'session_ended' }, () => {
-        this.handleSessionEnded();
-      })
+
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await this.presenceChannel.track({ user_id: store.user.id, full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp });

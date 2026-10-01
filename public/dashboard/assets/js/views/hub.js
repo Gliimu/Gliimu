@@ -619,7 +619,7 @@ export default {
       description: `Hub Support sent`
     });
 
-    // FIX: Insert transaction for the RECEIVER (income)
+    // Insert transaction for the RECEIVER (income)
     await supabase.from('transactions').insert({
       user_id: authorId,
       amount: amount,
