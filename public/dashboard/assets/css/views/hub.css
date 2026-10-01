@@ -333,6 +333,12 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   }
 }
 
+/* Mobile Dropup for Hub Filter */
+.hub-filter-menu {
+  top: auto;
+  bottom: 120%; /* Opens upwards away from the bottom bar */
+}
+
 /* ============================================
    MOBILE GRID OPTIMIZATION (No Horizontal Scroll)
    ============================================ */
