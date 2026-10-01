@@ -1,4 +1,123 @@
-/* Settings & Portfolio Styles */
-.settings-layout, .portfolio-layout { max-width: 800px; margin: 0 auto; }
-.avatar-upload-section { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-6); }
-.settings-avatar { width: 80px; height: 80px; border-radius: var(--radius-full); background: var(--bg-tertiary); object-fit: cover; border: 2px solid var(--border); }
+/* Settings Layout */
+.settings-layout {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-card {
+  padding: 32px;
+}
+
+.settings-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* General Settings Row */
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.setting-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.setting-desc {
+  display: block;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Sun/Moon Theme Toggle */
+.theme-toggle-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+/* Avatar Upload */
+.avatar-upload-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.settings-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+/* Forms */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.separator {
+  text-align: center;
+  margin: 16px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: relative;
+}
+
+.separator::before, .separator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background: var(--border);
+}
+
+.separator::before { left: 0; }
+.separator::after { right: 0; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .settings-card {
+    padding: 24px;
+  }
+  .avatar-upload-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .form-row {
+    flex-direction: column;
+  }
+  .form-row .form-group {
+    margin-right: 0 !important;
+  }
+}

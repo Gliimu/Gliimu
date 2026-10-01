@@ -4,79 +4,54 @@ import { store } from '../store.js';
 export default {
   title: 'Settings',
   template: `
-    <div class="settings-layout" id="settings-container">
-      <p style="color: var(--text-muted); text-align: center;">Loading settings...</p>
-    </div>
-  `,
+    <div class="settings-layout">
 
-  async init() {
-    this.fetchAndRender();
-  },
-
-  async fetchAndRender() {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', store.user.id)
-      .single();
-
-    if (error) {
-      console.error("Error fetching profile:", error);
-      return;
-    }
-
-    const container = document.getElementById('settings-container');
-    if (!container) return;
-
-    const avatarSrc = profile.avatar_url || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E`;
-
-    container.innerHTML = `
       <!-- General Settings -->
-      <div class="card settings-section">
+      <div class="card settings-card">
         <h2>General</h2>
-        <div class="settings-row">
+        <div class="setting-row">
           <div>
-            <span style="font-weight: 600; font-size: 16px; color: var(--text-primary);">Appearance</span><br>
-            <span style="font-size: 13px; color: var(--text-muted);">Toggle between light and dark mode.</span>
+            <span class="setting-title">Appearance</span>
+            <span class="setting-desc">Switch between light and dark themes.</span>
           </div>
-          <button class="btn-secondary" onclick="toggleTheme()">Toggle Theme</button>
+          <button class="theme-toggle-btn" onclick="toggleTheme()">
+            <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg id="moon-icon" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
         </div>
       </div>
 
       <!-- Profile Settings -->
-      <div class="card settings-section">
-        <h2>Profile Settings</h2>
-
+      <div class="card settings-card">
+        <h2>Profile</h2>
         <div class="avatar-upload-section">
-          <img id="settings-avatar" src="${avatarSrc}" class="settings-avatar" alt="Avatar">
+          <img id="avatar-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E" class="settings-avatar" alt="Avatar">
           <div>
             <input type="file" id="avatar-input" accept="image/*" style="display: none;">
-            <button class="btn-secondary" id="upload-avatar-btn">Change Picture</button>
-            <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">JPG or PNG. Max 2MB.</p>
+            <button type="button" class="btn-secondary" id="upload-avatar-btn">Change Picture</button>
           </div>
         </div>
-
         <form id="profile-form" style="margin-top: 24px;">
           <div class="form-group">
             <label>Full Name</label>
-            <input type="text" id="settings-name" class="input" value="${profile.full_name || ''}">
+            <input type="text" id="settings-name" class="input">
           </div>
           <div class="form-group">
             <label>Username</label>
-            <input type="text" class="input" value="${profile.username || ''}" disabled style="opacity: 0.6; cursor: not-allowed;">
+            <input type="text" id="settings-username" class="input" disabled style="opacity: 0.6; cursor: not-allowed;">
           </div>
           <div class="form-group">
             <label>Bio</label>
-            <textarea id="settings-bio" class="input" rows="3">${profile.bio || ''}</textarea>
+            <textarea id="settings-bio" class="input" rows="3"></textarea>
           </div>
-          <div class="form-row" style="gap: 16px;">
-            <div class="form-group" style="flex: 1;">
+          <div class="form-row">
+            <div class="form-group" style="flex: 1; margin-right: 12px;">
               <label>Skills (Comma separated)</label>
-              <input type="text" id="settings-skills" class="input" value="${profile.skills || ''}">
+              <input type="text" id="settings-skills" class="input">
             </div>
             <div class="form-group" style="flex: 1;">
               <label>Interests (Comma separated)</label>
-              <input type="text" id="settings-interests" class="input" value="${profile.interests || ''}">
+              <input type="text" id="settings-interests" class="input">
             </div>
           </div>
           <button type="submit" class="btn-primary">Save Changes</button>
@@ -84,137 +59,119 @@ export default {
       </div>
 
       <!-- Security Settings -->
-      <div class="card settings-section">
+      <div class="card settings-card">
         <h2>Security & Password</h2>
-        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 24px;">Change your password. You must verify your identity using your current password.</p>
-
         <form id="password-form">
           <div class="form-group">
             <label>New Password</label>
-            <input type="password" id="new-password" class="input" placeholder="Min. 8 characters" required>
+            <input type="password" id="new-pass" class="input" placeholder="Min. 8 characters">
           </div>
           <div class="form-group">
             <label>Verify Identity: Current Password</label>
-            <input type="password" id="current-password" class="input" placeholder="Enter current password">
+            <input type="password" id="current-pass" class="input" placeholder="Enter current password">
+          </div>
+          <div class="separator">OR</div>
+          <div class="form-group">
+            <label>Verify Identity: Recovery Passphrase</label>
+            <input type="text" id="recovery-phrase-input" class="input" placeholder="Enter your recovery phrase">
           </div>
           <button type="submit" class="btn-primary">Update Password</button>
         </form>
       </div>
 
-      <!-- Session Settings -->
-      <div class="card settings-section">
+      <!-- Session -->
+      <div class="card settings-card">
         <h2>Session</h2>
-        <button id="logout-btn" class="btn-secondary" style="color: var(--error); border-color: var(--error);">Log Out</button>
+        <button type="button" id="logout-btn" class="btn-secondary">Log Out</button>
       </div>
-    `;
 
-    this.attachEventListeners();
-  },
+    </div>
+  `,
+  async init() {
+    // Sync theme icons when the view loads
+    if (typeof updateThemeIcon === 'function') updateThemeIcon();
 
-  attachEventListeners() {
-    // Avatar Upload
+    // Fetch Profile Data
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', store.user.id).single();
+    if (profile) {
+      document.getElementById('settings-name').value = profile.full_name || '';
+      document.getElementById('settings-username').value = profile.username || '';
+      document.getElementById('settings-bio').value = profile.bio || '';
+      document.getElementById('settings-skills').value = profile.skills || '';
+      document.getElementById('settings-interests').value = profile.interests || '';
+      if (profile.avatar_url) {
+        document.getElementById('avatar-preview').src = profile.avatar_url + `?t=${Date.now()}`;
+      }
+    }
+
+    // Handle Avatar Upload
     const fileInput = document.getElementById('avatar-input');
     document.getElementById('upload-avatar-btn').addEventListener('click', () => fileInput.click());
-
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
       const fileExt = file.name.split('.').pop();
       const fileName = `${store.user.id}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file, { cacheControl: '3600', upsert: true });
-
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, { cacheControl: '3600', upsert: true });
       if (uploadError) return alert("Error uploading image: " + uploadError.message);
-
       const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
-      const publicUrl = publicUrlData.publicUrl;
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', store.user.id);
-
-      if (updateError) {
-        alert("Error saving profile picture.");
-      } else {
-        document.getElementById('settings-avatar').src = publicUrl + `?t=${Date.now()}`;
-        store.profile.avatar_url = publicUrl; // Update local store
-        alert("Profile picture updated!");
-      }
+      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrlData.publicUrl }).eq('id', store.user.id);
+      if (updateError) return alert("Error saving profile picture.");
+      document.getElementById('avatar-preview').src = publicUrlData.publicUrl + `?t=${Date.now()}`;
+      alert("Profile picture updated!");
     });
 
-    // Profile Update
+    // Handle Profile Update
     document.getElementById('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = e.target.querySelector('button[type="submit"]');
-      btn.innerText = "Saving...";
-      btn.disabled = true;
-
       const updates = {
         full_name: document.getElementById('settings-name').value,
         bio: document.getElementById('settings-bio').value,
         skills: document.getElementById('settings-skills').value,
         interests: document.getElementById('settings-interests').value
       };
-
       const { error } = await supabase.from('profiles').update(updates).eq('id', store.user.id);
-
-      if (error) {
-        alert("Error updating profile.");
-      } else {
-        alert("Profile saved successfully!");
-      }
-
-      btn.innerText = "Save Changes";
-      btn.disabled = false;
+      if (error) alert("Error updating profile.");
+      else alert("Profile saved successfully!");
     });
 
-    // Password Update
+    // Handle Password Update
     document.getElementById('password-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const newPass = document.getElementById('new-password').value;
-      const currentPass = document.getElementById('current-password').value;
+      const newPass = document.getElementById('new-pass').value;
+      const currentPass = document.getElementById('current-pass').value;
+      const passPhrase = document.getElementById('recovery-phrase-input').value.trim();
 
-      if (newPass.length < 8) return alert("New password must be at least 8 characters.");
-      if (!currentPass) return alert("Please enter your current password.");
+      if (newPass.length < 8) return alert("Password must be at least 8 characters.");
+      if (!currentPass && !passPhrase) return alert("Please verify your identity.");
 
-      const btn = e.target.querySelector('button[type="submit"]');
-      btn.innerText = "Updating...";
-      btn.disabled = true;
+      let isVerified = false;
 
-      const fakeEmail = `${store.profile.username}@gliimu.app`;
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: fakeEmail,
-        password: currentPass
-      });
-
-      if (signInError) {
-        alert("Current password is incorrect.");
-        btn.innerText = "Update Password";
-        btn.disabled = false;
-        return;
+      if (currentPass) {
+        const fakeEmail = `${store.profile.username}@gliimu.app`;
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password: currentPass });
+        if (signInError) return alert("Current password is incorrect.");
+        isVerified = true;
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({ password: newPass });
-
-      if (updateError) {
-        alert("Error updating password: " + updateError.message);
-      } else {
-        alert("Password updated successfully!");
-        document.getElementById('password-form').reset();
+      if (!isVerified && passPhrase) {
+        const { data: profileData } = await supabase.from('profiles').select('recovery_phrase').eq('id', store.user.id).single();
+        if (profileData.recovery_phrase !== passPhrase) return alert("Recovery passphrase is incorrect.");
+        await supabase.auth.refreshSession();
+        isVerified = true;
       }
 
-      btn.innerText = "Update Password";
-      btn.disabled = false;
+      if (isVerified) {
+        const { error: updateError } = await supabase.auth.updateUser({ password: newPass });
+        if (updateError) alert("Error updating password: " + updateError.message);
+        else {
+          alert("Password updated successfully! Please log in with your new password.");
+          store.signOut();
+        }
+      }
     });
 
-    // Logout
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      window.location.href = '/auth.html';
-    });
+    // Handle Logout
+    document.getElementById('logout-btn').addEventListener('click', () => store.signOut());
   }
 };
