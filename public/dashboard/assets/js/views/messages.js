@@ -1320,48 +1320,49 @@ export default {
     if (!this.isScreenSharing) {
       try {
         if (isMobile) {
-          // Mobile fallback: Switch to back camera
-          this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+          // On mobile, "screen share" means switching to the back camera.
+          // We only request video to avoid echo; viewers will still hear your mic from the original stream.
+          this.displayStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+            audio: false
+          });
+          alert("Switched to back camera. Tap the button again to return to selfie view.");
         } else {
-          // Desktop: True screen share
+          // On desktop, try true screen share
           this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         }
+
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
 
+        // Replace ONLY the video track for all viewers so they see the back camera/screen
+        // but still hear your microphone from the original stream
         Object.keys(this.peerConnections).forEach(viewerId => {
           const pc = this.peerConnections[viewerId];
           const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
           if (sender) sender.replaceTrack(this.displayStream.getVideoTracks()[0]);
         });
 
+        // When the user stops sharing via browser UI (desktop) or track ends
         this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
-      } catch (err) {
-        console.error("Screen share failed:", err);
-        alert("Screen sharing is not supported on this mobile browser. Using back camera instead.");
-        // If getDisplayMedia fails on mobile, try back camera
-        try {
-          this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
-          videoEl.srcObject = this.displayStream;
-          this.isScreenSharing = true;
-          btn.style.background = 'var(--brand-primary)';
 
-          Object.keys(this.peerConnections).forEach(viewerId => {
-            const pc = this.peerConnections[viewerId];
-            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) sender.replaceTrack(this.displayStream.getVideoTracks()[0]);
-          });
-        } catch (err2) {
-          console.error("Back camera failed:", err2);
+      } catch (err) {
+        console.error("Screen share/Camera switch failed:", err);
+        if (isMobile) {
+          alert("Could not switch to the back camera. Please ensure camera permissions are granted in your browser settings.");
+        } else {
+          alert("Screen sharing was cancelled or failed.");
         }
       }
     } else {
+      // Stop sharing / revert to selfie cam
       if (this.displayStream) this.displayStream.getTracks().forEach(t => t.stop());
       videoEl.srcObject = this.localStream;
       this.isScreenSharing = false;
       btn.style.background = 'var(--bg-tertiary)';
 
+      // Revert the video track for viewers back to the front camera
       Object.keys(this.peerConnections).forEach(viewerId => {
         const pc = this.peerConnections[viewerId];
         const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
