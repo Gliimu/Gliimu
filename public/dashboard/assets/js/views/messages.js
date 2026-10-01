@@ -9,7 +9,7 @@ export default {
       <div class="ping-sidebar" id="ping-sidebar">
         <div class="ping-sidebar-tabs">
           <button class="ping-tab active" id="tab-chats" onclick="pingInstance.switchTab('chats')">Chats</button>
-          <button class="ping-tab" id="tab-groups" onclick="pingInstance.switchTab('groups')">Groups</button>
+          <button class="ping-tab" id="tab-live" onclick="pingInstance.switchTab('live')">Live</button>
         </div>
         <div class="ping-chat-list" id="ping-chat-list">
           <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
@@ -20,7 +20,7 @@ export default {
         <div class="ping-empty-state">
           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
           <h3>Select a chat to start pinging</h3>
-          <p>Your direct messages, groups, and Gliim-PA live here.</p>
+          <p>Your direct messages, Gliim-PA, and Live sessions live here.</p>
         </div>
       </div>
     </div>
@@ -47,10 +47,12 @@ export default {
     this.liveSessionActive = false;
     this.presenceChannel = null;
     this.webrtcChannel = null;
-    this.peerConnections = {}; // Host: tracks viewer connections
-    this.viewerPeerConnection = null; // Viewer: tracks host connection
-    this.webrtcIceQueue = []; // Queue ICE candidates if SDP not set yet
+    this.peerConnections = {};
+    this.viewerPeerConnection = null;
+    this.webrtcIceQueue = [];
     this.liveHostId = null;
+    this.activeLives = []; // Tracks who is currently live
+    this.globalLiveChannel = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -93,14 +95,25 @@ export default {
     this.fetchUsers();
     this.fetchContacts();
     this.setupRealtime();
+    this.setupGlobalLiveTracker();
   },
 
   switchTab(tab) {
     this.activeTab = tab;
     document.getElementById('tab-chats')?.classList.remove('active');
-    document.getElementById('tab-groups')?.classList.remove('active');
+    document.getElementById('tab-live')?.classList.remove('active');
     document.getElementById(`tab-${tab}`)?.classList.add('active');
     this.renderChatList();
+  },
+
+  setupGlobalLiveTracker() {
+    this.globalLiveChannel = supabase.channel('global-live-status')
+      .on('presence', { event: 'sync' }, () => {
+        const state = this.globalLiveChannel.presenceState();
+        this.activeLives = Object.values(state).flat();
+        if (this.activeTab === 'live') this.renderChatList();
+      })
+      .subscribe();
   },
 
   setupTopbar() {
@@ -237,32 +250,37 @@ export default {
     const list = document.getElementById('ping-chat-list');
     if (!list) return;
 
-    let staticItems = '';
-    if (this.activeTab === 'chats') {
-      staticItems = `
-        <div class="ping-chat-item ${this.activeChat?.id === 'ai' ? 'active' : ''}" onclick="pingInstance.openChat('ai', 'ai')">
-          <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">
-          <div class="ping-chat-info"><span class="ping-chat-name">Gliim-PA</span><span class="ping-chat-preview">Elite AI Assistant</span></div>
-        </div>
-      `;
-    } else if (this.activeTab === 'groups') {
-      staticItems = `
-        <div class="ping-chat-item ${this.activeChat?.id === 'media' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'media')">
-          <div class="ping-avatar room-avatar">M</div>
-          <div class="ping-chat-info"><span class="ping-chat-name">Media</span><span class="ping-chat-preview">General Media Group</span></div>
-        </div>
-        <div class="ping-chat-item ${this.activeChat?.id === 'tech' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'tech')">
-          <div class="ping-avatar room-avatar">T</div>
-          <div class="ping-chat-info"><span class="ping-chat-name">Tech</span><span class="ping-chat-preview">General Tech Group</span></div>
-        </div>
-        <div class="ping-chat-item ${this.activeChat?.id === 'design' ? 'active' : ''}" onclick="pingInstance.openChat('room', 'design')">
-          <div class="ping-avatar room-avatar">D</div>
-          <div class="ping-chat-info"><span class="ping-chat-name">Design</span><span class="ping-chat-preview">General Design Group</span></div>
-        </div>
-      `;
+    if (this.activeTab === 'live') {
+      if (this.activeLives.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">No active live sessions.</p>';
+        return;
+      }
+      list.innerHTML = this.activeLives.map(live => {
+        const avatar = live.host_avatar
+          ? `<img src="${live.host_avatar}" class="ping-avatar" style="object-fit:cover;">`
+          : `<div class="ping-avatar">${live.host_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+        return `
+          <div class="ping-chat-item" onclick="pingInstance.joinLive('${live.host_id}')">
+            ${avatar}
+            <div class="ping-chat-info">
+              <span class="ping-chat-name">${live.title || 'Live Session'}</span>
+              <span class="ping-chat-preview" style="color: var(--error); font-weight: 600;">🔴 ${live.host_name}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      return;
     }
 
-    const usersHtml = this.activeTab === 'chats' ? this.contacts.map(u => {
+    // Chats Tab
+    const aiItem = `
+      <div class="ping-chat-item ${this.activeChat?.id === 'ai' ? 'active' : ''}" onclick="pingInstance.openChat('ai', 'ai')">
+        <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">
+        <div class="ping-chat-info"><span class="ping-chat-name">Gliim-PA</span><span class="ping-chat-preview">Elite AI Assistant</span></div>
+      </div>
+    `;
+
+    const usersHtml = this.contacts.map(u => {
       const avatarClass = u.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
       const avatar = u.avatar_url ? `<img src="${u.avatar_url}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
       return `
@@ -274,9 +292,9 @@ export default {
           </div>
         </div>
       `;
-    }).join('') : '';
+    }).join('');
 
-    list.innerHTML = staticItems + usersHtml;
+    list.innerHTML = aiItem + usersHtml;
   },
 
   async openChat(type, id) {
@@ -285,10 +303,6 @@ export default {
       this.chatHistory = [];
       const { data: aiMsgs } = await supabase.from('messages').select('*').eq('sender_id', store.user.id).eq('is_ai', true).order('created_at', { ascending: true });
       if (aiMsgs) this.chatHistory = aiMsgs.map(m => ({ role: m.is_ai ? 'assistant' : 'user', content: m.content, created_at: m.created_at }));
-    } else if (type === 'room') {
-      this.activeChat = { type: 'room', id: id, name: id.charAt(0).toUpperCase() + id.slice(1), avatar: id.charAt(0).toUpperCase(), is_ai: false, is_room: true };
-      const { data: roomMsgs } = await supabase.from('messages').select('*, profiles:sender_id(full_name, avatar_url)').eq('room', id).order('created_at', { ascending: true });
-      this.chatHistory = roomMsgs || [];
     } else if (type === 'dm') {
       const user = this.contacts.find(u => u.id === id);
       if (!user) return;
@@ -314,8 +328,6 @@ export default {
     let avatarHtml = '';
     if (this.activeChat.is_ai) {
       avatarHtml = `<img src="${this.activeChat.avatar}" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">`;
-    } else if (this.activeChat.is_room) {
-      avatarHtml = `<div class="ping-avatar room-avatar">${this.activeChat.avatar}</div>`;
     } else {
       avatarHtml = this.activeChat.avatar ? `<img src="${this.activeChat.avatar}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${this.activeChat.name?.charAt(0).toUpperCase() || 'G'}</div>`;
     }
@@ -364,13 +376,11 @@ export default {
           }
         }
 
-        const senderName = this.activeChat.is_room && !isMe ? `<span class="ping-msg-sender">${m.profiles?.full_name || 'User'}</span>` : '';
         const editIndicator = m.is_edited ? `<span class="ping-edited">edited</span>` : '';
         const menuBtn = isEditable ? `<button class="ping-msg-menu-btn" onclick="event.stopPropagation(); pingInstance.showMessageMenu(event, '${m.id}')">⋯</button>` : '';
 
         return `
           <div class="ping-message ${isMe ? 'sent' : 'received'}" id="msg-${m.id}">
-            ${senderName}
             ${attachmentHtml}
             ${contentHtml}
             <div class="ping-msg-footer">
@@ -391,7 +401,7 @@ export default {
       <div class="ping-chat-header">
         <button class="ping-back-btn" onclick="pingInstance.closeChat()"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button>
         ${avatarHtml}
-        <div><h3>${this.activeChat.name}</h3><span>${this.activeChat.is_ai ? 'Online · AI Assistant' : this.activeChat.is_room ? 'General Group' : 'Direct Message'}</span></div>
+        <div><h3>${this.activeChat.name}</h3><span>${this.activeChat.is_ai ? 'Online · AI Assistant' : 'Direct Message'}</span></div>
       </div>
 
       <div class="ping-messages" id="ping-messages">${messagesHtml}</div>
@@ -424,7 +434,6 @@ export default {
 
     const msgData = { sender_id: store.user.id, content: text, is_ai: false };
     if (this.activeChat.is_ai) msgData.receiver_id = null;
-    else if (this.activeChat.is_room) msgData.room = this.activeChat.id;
     else msgData.receiver_id = this.activeChat.id;
 
     const { data, error } = await supabase.from('messages').insert(msgData).select('*').single();
@@ -485,8 +494,7 @@ export default {
     else if (file.type === 'application/pdf') type = 'pdf';
 
     const msgData = { sender_id: store.user.id, attachment_url: url, attachment_type: type, content: '', is_ai: false };
-    if (this.activeChat.is_room) msgData.room = this.activeChat.id;
-    else if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
+    if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
     else msgData.receiver_id = null;
 
     const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
@@ -570,8 +578,7 @@ export default {
     if (error) return alert("Failed to upload audio.");
     const { data } = supabase.storage.from('chat_attachments').getPublicUrl(fileName);
     const msgData = { sender_id: store.user.id, attachment_url: data.publicUrl, attachment_type: 'audio_note', content: '', is_ai: false };
-    if (this.activeChat.is_room) msgData.room = this.activeChat.id;
-    else if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
+    if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
     const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
     if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
     this.cancelRecording();
@@ -690,10 +697,6 @@ export default {
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
           this.chatHistory.push(m); this.renderChatWindow();
           this.fetchContacts();
-        } else if (m.room && this.activeChat?.id === m.room) {
-          supabase.from('profiles').select('full_name, avatar_url').eq('id', m.sender_id).single().then(({ data }) => {
-            m.profiles = data; this.chatHistory.push(m); this.renderChatWindow();
-          });
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id) {
           this.fetchContacts();
         }
@@ -715,7 +718,7 @@ export default {
   // ============================================
   // NATIVE WEBRTC LIVE STUDIO (HOST)
   // ============================================
-  openLiveSetup() {
+  async openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
 
     const title = prompt("Enter a title for your Live Session:");
@@ -755,12 +758,21 @@ export default {
 
     this.setupLivePresence(`live_${store.user.id}`);
     this.setupWebRTCAsHost(`live_${store.user.id}`);
+
+    // Broadcast to global live tracker
+    await this.globalLiveChannel.track({
+      host_id: store.user.id,
+      host_name: store.profile.full_name,
+      host_avatar: store.profile.avatar_url,
+      title: this.liveSessionTitle
+    });
   },
 
-  // VIEWER UI (Simplified)
+  // VIEWER UI
   joinLive(hostId) {
-    const host = this.allUsers.find(u => u.id === hostId);
-    const hostName = host?.full_name || 'Host';
+    const host = this.activeLives.find(l => l.host_id === hostId) || this.allUsers.find(u => u.id === hostId);
+    const hostName = host?.host_name || host?.full_name || 'Host';
+    const title = host?.title || `${hostName}'s Session`;
     this.liveHostId = hostId;
     this.liveSessionActive = true;
     this.webrtcIceQueue = [];
@@ -777,7 +789,7 @@ export default {
           </div>
           <div class="live-video-overlay">
             <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
-            <h2>${hostName}'s Session</h2>
+            <h2>${title}</h2>
           </div>
         </div>
 
@@ -795,7 +807,7 @@ export default {
   },
 
   // ============================================
-  // WEBRTC SIGNALING (VIA SUPABASE BROADCAST)
+  // WEBRTC SIGNALING
   // ============================================
   setupWebRTCAsHost(roomId) {
     if (this.webrtcChannel) supabase.removeChannel(this.webrtcChannel);
@@ -819,7 +831,6 @@ export default {
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     this.peerConnections[viewerId] = pc;
 
-    // Add host tracks to connection
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
     }
@@ -855,7 +866,6 @@ export default {
         }
       }).subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Tell host we are here
           this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'viewer_join', target: this.liveHostId, sender: store.user.id } });
         }
       });
@@ -881,7 +891,6 @@ export default {
 
     await this.viewerPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
-    // Process queued ICE candidates
     while (this.webrtcIceQueue.length > 0) {
       this.viewerPeerConnection.addIceCandidate(new RTCIceCandidate(this.webrtcIceQueue.shift()));
     }
@@ -1036,13 +1045,11 @@ export default {
     const btn = document.getElementById('screen-share-btn');
     if (!this.isScreenSharing) {
       try {
-        // Request screen with audio
         this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
 
-        // Notify all connected viewers to switch to screen stream
         Object.keys(this.peerConnections).forEach(viewerId => {
           const pc = this.peerConnections[viewerId];
           const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -1057,7 +1064,6 @@ export default {
       this.isScreenSharing = false;
       btn.style.background = 'var(--bg-tertiary)';
 
-      // Revert back to cam stream for viewers
       Object.keys(this.peerConnections).forEach(viewerId => {
         const pc = this.peerConnections[viewerId];
         const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -1087,7 +1093,7 @@ export default {
     }
   },
 
-  endLive() {
+  async endLive() {
     if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
     if (this.displayStream) this.displayStream.getTracks().forEach(track => track.stop());
     this.closeLiveChat();
@@ -1095,6 +1101,10 @@ export default {
     if (this.webrtcChannel) { supabase.removeChannel(this.webrtcChannel); this.webrtcChannel = null; }
     if (this.peerConnections) { Object.values(this.peerConnections).forEach(pc => pc.close()); this.peerConnections = {}; }
     if (this.viewerPeerConnection) { this.viewerPeerConnection.close(); this.viewerPeerConnection = null; }
+
+    // Untrack from global live presence
+    if (this.globalLiveChannel) await this.globalLiveChannel.untrack();
+
     document.querySelector('.live-studio-overlay')?.remove();
     this.liveSessionActive = false;
   }
