@@ -470,3 +470,55 @@
 .live-studio-overlay {
   z-index: 2000 !important;
 }
+/* ============================================
+   LIVE SUPPORT & FLOATING ANIMATIONS
+   ============================================ */
+.floating-support-icon {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: floatUp 3s ease-out forwards;
+  pointer-events: none;
+}
+
+.fs-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--brand-primary);
+  object-fit: cover;
+  margin-bottom: 4px;
+}
+
+.fs-icon {
+  font-size: 20px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  15% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(-400px) scale(1); opacity: 0; }
+}
+
+/* Viewer Support Button Glow */
+.live-ctrl-btn.support-btn {
+  background: var(--brand-primary);
+}
+.live-ctrl-btn.support-btn.glow-support {
+  animation: supportPulse 1s ease-out;
+}
+
+@keyframes supportPulse {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+  70% { box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+/* Fix Z-Index for Live Studio over Sidebar */
+.live-studio-overlay {
+  z-index: 2000 !important;
+}

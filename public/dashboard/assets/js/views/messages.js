@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase from '/shared/js/config.js';
 import { API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
 
@@ -51,8 +51,10 @@ export default {
     this.viewerPeerConnection = null;
     this.webrtcIceQueue = [];
     this.liveHostId = null;
-    this.activeLives = []; // Tracks who is currently live
+    this.activeLives = [];
     this.globalLiveChannel = null;
+    this.supportTapCount = 0;
+    this.supportTapTimer = null;
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -739,6 +741,7 @@ export default {
             <h2>${this.liveSessionTitle}</h2>
           </div>
           <div class="live-participants-strip" id="live-participants-strip"></div>
+          <div id="floating-icons-container" style="position: absolute; bottom: 100px; left: 0; right: 0; pointer-events: none; z-index: 15; overflow: hidden; height: 100%;"></div>
         </div>
 
         <div class="live-host-toolbar">
@@ -769,11 +772,25 @@ export default {
   },
 
   // VIEWER UI
-  joinLive(hostId) {
-    const host = this.activeLives.find(l => l.host_id === hostId) || this.allUsers.find(u => u.id === hostId);
-    const hostName = host?.host_name || host?.full_name || 'Host';
-    const title = host?.title || `${hostName}'s Session`;
+  async joinLive(hostId) {
+    const liveInfo = this.activeLives.find(l => l.host_id === hostId);
+    const hostName = liveInfo?.host_name || 'Host';
+    const title = liveInfo?.title || `${hostName}'s Session`;
     this.liveHostId = hostId;
+
+    // 1. Check Subscription & Deduct Entry Fee (₦320)
+    const { data: profile } = await supabase.from('profiles').select('wallet_balance, subscription_expires_at').eq('id', store.user.id).single();
+    const isActiveSub = profile.subscription_expires_at && new Date(profile.subscription_expires_at) > new Date();
+
+    if (!isActiveSub) {
+      if (profile.wallet_balance < 320) {
+        return alert("Insufficient funds. Please top up your wallet to join live broadcasts (₦320 entry fee).");
+      }
+      await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - 320 }).eq('id', store.user.id);
+      await supabase.rpc('increment_wallet', { user_id: hostId, amount: 320 });
+      await supabase.from('transactions').insert({ sender_id: store.user.id, receiver_id: hostId, amount: 320, type: 'live_entry', status: 'success' });
+    }
+
     this.liveSessionActive = true;
     this.webrtcIceQueue = [];
 
@@ -794,7 +811,7 @@ export default {
         </div>
 
         <div class="live-host-toolbar">
-          <button class="live-ctrl-btn" onclick="pingInstance.supportLiveHost('${hostId}')" title="Support Host"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></button>
+          <button class="live-ctrl-btn support-btn" id="viewer-support-btn" onclick="pingInstance.supportLiveHost('${hostId}')" title="Support (₦100)"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></button>
           <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${hostId}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
           <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="Leave Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
@@ -804,6 +821,50 @@ export default {
 
     this.setupLivePresence(`live_${hostId}`);
     this.setupWebRTCAsViewer(`live_${hostId}`);
+  },
+
+  // ============================================
+  // SUPPORT LOGIC (TIPPING)
+  // ============================================
+  async supportLiveHost(hostId) {
+    const btn = document.getElementById('viewer-support-btn');
+    if (!btn) return;
+
+    // Glow effect on viewer's button
+    btn.classList.add('glow-support');
+    setTimeout(() => btn.classList.remove('glow-support'), 1000);
+
+    // Handle tap streak
+    this.supportTapCount++;
+    clearTimeout(this.supportTapTimer);
+    this.supportTapTimer = setTimeout(() => {
+      this.supportTapCount = 0;
+    }, 1500); // Reset if no tap for 1.5s
+
+    // Deduct ₦100
+    const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
+    if (profile.wallet_balance < 100) {
+      return alert("Insufficient funds. Top up your wallet to keep supporting!");
+    }
+
+    await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - 100 }).eq('id', store.user.id);
+    await supabase.rpc('increment_wallet', { user_id: hostId, amount: 100 });
+    await supabase.from('transactions').insert({ sender_id: store.user.id, receiver_id: hostId, amount: 100, type: 'live_support', status: 'success' });
+
+    // Determine icon and send to host
+    let iconType = '100';
+    if (this.supportTapCount >= 10) iconType = 'thunder';
+    else if (this.supportTapCount >= 5) iconType = 'clap';
+
+    this.presenceChannel.send({
+      type: 'broadcast',
+      event: 'support',
+      payload: {
+        viewerId: store.user.id,
+        avatarUrl: store.profile.avatar_url,
+        iconType: iconType
+      }
+    });
   },
 
   // ============================================
@@ -909,6 +970,10 @@ export default {
         const users = Object.values(state).flat();
         this.renderLiveParticipants(users);
       })
+      .on('broadcast', { event: 'support' }, ({ payload }) => {
+        // Only host receives this
+        this.renderFloatingSupportIcon(payload.avatarUrl, payload.iconType);
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await this.presenceChannel.track({ user_id: store.user.id, full_name: store.profile.full_name, avatar_url: store.profile.avatar_url });
@@ -928,20 +993,29 @@ export default {
     }).join('');
   },
 
-  async supportLiveHost(hostId) {
-    if (hostId === store.user.id) return alert("You cannot support yourself!");
-    const amountStr = prompt("Enter support amount (NGN):");
-    if (!amountStr) return;
-    const amount = parseInt(amountStr);
-    if (isNaN(amount) || amount <= 0) return alert("Invalid amount.");
+  renderFloatingSupportIcon(avatarUrl, iconType) {
+    const container = document.getElementById('floating-icons-container');
+    if (!container) return;
 
-    const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
-    if (profile.wallet_balance < amount) return alert("Insufficient funds. Please top up your wallet.");
+    const iconEl = document.createElement('div');
+    iconEl.className = 'floating-support-icon';
 
-    await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - amount }).eq('id', store.user.id);
-    await supabase.rpc('increment_wallet', { user_id: hostId, amount: amount });
-    await supabase.from('transactions').insert({ user_id: store.user.id, amount: -amount, type: 'support', status: 'success', description: `Live Support` });
-    alert(`Supported successfully!`);
+    let iconHtml = '';
+    if (iconType === 'thunder') iconHtml = '⚡';
+    else if (iconType === 'clap') iconHtml = '👏';
+    else iconHtml = '💯';
+
+    iconEl.innerHTML = `
+      <img src="${avatarUrl}" class="fs-avatar">
+      <span class="fs-icon">${iconHtml}</span>
+    `;
+
+    // Random horizontal position
+    iconEl.style.left = `${Math.random() * 80 + 10}%`;
+    container.appendChild(iconEl);
+
+    // Remove after animation
+    setTimeout(() => iconEl.remove(), 3000);
   },
 
   // LIVE CHAT MODAL
@@ -1043,9 +1117,18 @@ export default {
   async toggleScreenShare() {
     const videoEl = document.getElementById('live-video-feed');
     const btn = document.getElementById('screen-share-btn');
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
     if (!this.isScreenSharing) {
       try {
-        this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        if (isMobile) {
+          // Mobile fallback: Switch to back camera
+          this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+        } else {
+          // Desktop: True screen share
+          this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        }
+
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
         btn.style.background = 'var(--brand-primary)';
