@@ -1083,15 +1083,25 @@ export default {
   setupWebRTCAsHost(roomId) {
     if (this.webrtcChannel) supabase.removeChannel(this.webrtcChannel);
     this.webrtcChannel = supabase.channel(`webrtc-${roomId}`)
-      .on('broadcast', { event: 'signal' }, ({ payload }) => {
+      .on('broadcast', { event: 'signal' }, async ({ payload }) => {
         if (payload.target !== store.user.id) return;
-        if (payload.type === 'viewer_join') this.createPeerConnection(payload.sender);
-        else if (payload.type === 'answer') {
+
+        if (payload.type === 'viewer_join') {
+          this.createPeerConnection(payload.sender);
+        } else if (payload.type === 'answer') {
           const pc = this.peerConnections[payload.sender];
-          if (pc) pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          if (pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            // Now that remote description is set, we are ready for ICE candidates
+          }
         } else if (payload.type === 'ice') {
           const pc = this.peerConnections[payload.sender];
-          if (pc) pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          if (pc && pc.remoteDescription) {
+            // Safe to add candidate
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            } catch (e) { console.warn("Host ICE Error:", e); }
+          }
         }
       }).subscribe();
   },
