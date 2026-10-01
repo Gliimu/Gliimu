@@ -117,7 +117,6 @@ export default {
     const activeSession = localStorage.getItem('active_live_session');
     if (activeSession) {
       const session = JSON.parse(activeSession);
-      // Check if session is less than 1 hour old
       if (session.expiry && Date.now() < session.expiry) {
         const main = document.getElementById('ping-main');
         if (main) {
@@ -130,7 +129,6 @@ export default {
           `;
         }
       } else {
-        // Expired, remove it
         localStorage.removeItem('active_live_session');
       }
     }
@@ -185,7 +183,6 @@ export default {
 
     this.setupLivePresence(`live_${store.user.id}`);
     this.setupWebRTCAsHost(`live_${store.user.id}`);
-
     this.startLiveTimer();
   },
 
@@ -805,14 +802,11 @@ export default {
   },
 
   setupRealtime() {
-    // FIX: Remove existing channel to prevent "already subscribed" crash
     if (this.messageChannel) supabase.removeChannel(this.messageChannel);
-
     this.messageChannel = supabase.channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
         if (m.sender_id === store.user.id) return;
-
         if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
           this.chatHistory.push(m); this.renderChatWindow();
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
@@ -841,7 +835,6 @@ export default {
   // ============================================
   openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
-
     const modal = document.createElement('div');
     this.hostSupportTxId = null;
     modal.className = 'modal-overlay live-setup-modal';
@@ -849,12 +842,10 @@ export default {
       <div class="modal-content" style="max-width: 500px; background: var(--surface);">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
         <h2 style="margin-bottom: 24px;">Go Live</h2>
-
         <div class="form-group">
           <label>Title (Max 50 chars)</label>
           <input type="text" id="live-title-input" class="input" maxlength="50" placeholder="An elite headline...">
         </div>
-
         <div class="form-group">
           <label>Entry Fee</label>
           <select id="live-fee-input" class="input">
@@ -864,12 +855,10 @@ export default {
             <option value="2500">₦2500</option>
           </select>
         </div>
-
         <div class="form-group">
           <label>Admin Code (Optional, for >3 participants)</label>
           <input type="text" id="live-code-input" class="input" placeholder="Enter code...">
         </div>
-
         <button class="btn-primary" style="width: 100%; margin-top: 16px;" onclick="pingInstance.submitLiveSetup()">Start Live</button>
       </div>
     `;
@@ -902,7 +891,7 @@ export default {
       title: this.liveSessionTitle,
       entryFee: this.liveEntryFee,
       maxP: this.liveMaxParticipants,
-      expiry: Date.now() + 3600000 // 1 hour expiry
+      expiry: Date.now() + 3600000
     }));
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -956,8 +945,7 @@ export default {
 
   startLiveTimer() {
     if (this.liveTimerInterval) clearInterval(this.liveTimerInterval);
-    this.liveEndTime = Date.now() + 3600000; // 1 hour
-
+    this.liveEndTime = Date.now() + 3600000;
     this.liveTimerInterval = setInterval(() => {
       const remaining = this.liveEndTime - Date.now();
       if (remaining <= 0) {
@@ -976,7 +964,6 @@ export default {
     }, 1000);
   },
 
-  // VIEWER UI
   async joinLive(hostId) {
     const liveInfo = this.activeLives.find(l => l.host_id === hostId);
     if (!liveInfo) return alert("This session is no longer available.");
@@ -997,27 +984,18 @@ export default {
       await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - entryFee }).eq('id', store.user.id);
       const hostCut = Math.floor(entryFee * 0.9);
       await supabase.rpc('increment_wallet', { user_id: hostId, amount: hostCut });
-      // Insert transaction for the VIEWER (deduction)
-      await supabase.from('transactions').insert({
-        user_id: store.user.id,
-        amount: -entryFee,
-        type: 'live_entry',
-        status: 'success',
-        description: 'Live Session Entry Fee'
-      });
 
-      // FIX: Insert transaction for the HOST (income)
       await supabase.from('transactions').insert({
-        user_id: hostId,
-        amount: entryFee,
-        type: 'live_entry',
-        status: 'success',
-        description: 'Live Session Entry Fee'
+        user_id: store.user.id, amount: -entryFee, type: 'live_entry', status: 'success', description: 'Live Session Entry Fee'
+      });
+      await supabase.from('transactions').insert({
+        user_id: hostId, amount: entryFee, type: 'live_entry', status: 'success', description: 'Live Session Entry Fee'
       });
     }
 
     this.liveSessionActive = true;
     this.webrtcIceQueue = [];
+    this.viewerSupportTxId = null;
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
@@ -1063,11 +1041,8 @@ export default {
   toggleAspectRatio() {
     const video = document.getElementById('live-viewer-feed');
     if (!video) return;
-    if (video.style.objectFit === 'contain') {
-      video.style.objectFit = 'cover';
-    } else {
-      video.style.objectFit = 'contain';
-    }
+    if (video.style.objectFit === 'contain') video.style.objectFit = 'cover';
+    else video.style.objectFit = 'contain';
   },
 
   // ============================================
@@ -1084,53 +1059,37 @@ export default {
     clearTimeout(this.supportTapTimer);
     this.supportTapTimer = setTimeout(() => { this.supportTapCount = 0; }, 1500);
 
-    // Deduct ₦100 immediately
     const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
     if (profile.wallet_balance < 100) return alert("Insufficient funds.");
 
     const newBalance = profile.wallet_balance - 100;
     await supabase.from('profiles').update({ wallet_balance: newBalance }).eq('id', store.user.id);
 
-    // Determine icon and host cut
     let iconType = '100';
     if (this.supportTapCount >= 10) iconType = 'thunder';
     else if (this.supportTapCount >= 5) iconType = 'clap';
 
-    const hostCut = Math.floor(100 * 0.7); // 70% to host
+    const hostCut = Math.floor(100 * 0.7);
     const titleEl = document.querySelector('.live-video-overlay h2');
     const sessionTitle = titleEl ? titleEl.innerText : 'Live Session';
 
-    // 1. Handle Viewer's Transaction (Aggregate)
+    // 1. Viewer Transaction (Aggregate)
     if (this.viewerSupportTxId) {
-        // Transaction exists, fetch current amount and update
         const { data: tx } = await supabase.from('transactions').select('amount').eq('id', this.viewerSupportTxId).single();
         if (tx) {
             await supabase.from('transactions').update({ amount: tx.amount - 100 }).eq('id', this.viewerSupportTxId);
         }
     } else {
-        // First tap of the session: Insert new transaction
         const { data: newTx } = await supabase.from('transactions').insert({
-            user_id: store.user.id,
-            amount: -100,
-            type: 'live_support',
-            status: 'success',
-            description: `Live Support sent: ${sessionTitle}`
+            user_id: store.user.id, amount: -100, type: 'live_support', status: 'success', description: `Live Support sent: ${sessionTitle}`
         }).select('*').single();
-
         if (newTx) this.viewerSupportTxId = newTx.id;
     }
 
-    // 2. Broadcast to Host (Host will handle their own transaction aggregation)
+    // 2. Broadcast to Host
     this.presenceChannel.send({
-      type: 'broadcast',
-      event: 'support',
-      payload: {
-        viewerId: store.user.id,
-        avatarUrl: store.profile.avatar_url,
-        iconType: iconType,
-        amount: hostCut,
-        title: sessionTitle
-      }
+      type: 'broadcast', event: 'support',
+      payload: { viewerId: store.user.id, avatarUrl: store.profile.avatar_url, iconType, amount: hostCut, title: sessionTitle }
     });
   },
 
@@ -1142,22 +1101,15 @@ export default {
     this.webrtcChannel = supabase.channel(`webrtc-${roomId}`)
       .on('broadcast', { event: 'signal' }, async ({ payload }) => {
         if (payload.target !== store.user.id) return;
-
         if (payload.type === 'viewer_join') {
           this.createPeerConnection(payload.sender);
         } else if (payload.type === 'answer') {
           const pc = this.peerConnections[payload.sender];
-          if (pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            // Now that remote description is set, we are ready for ICE candidates
-          }
+          if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
         } else if (payload.type === 'ice') {
           const pc = this.peerConnections[payload.sender];
           if (pc && pc.remoteDescription) {
-            // Safe to add candidate
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-            } catch (e) { console.warn("Host ICE Error:", e); }
+            try { await pc.addIceCandidate(new RTCIceCandidate(payload.candidate)); } catch (e) { console.warn("Host ICE Error:", e); }
           }
         }
       }).subscribe();
@@ -1167,8 +1119,9 @@ export default {
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     this.peerConnections[viewerId] = pc;
 
-    if (this.localStream) this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
-    if (this.displayStream && this.isScreenSharing) this.displayStream.getTracks().forEach(track => pc.addTrack(track, this.displayStream));
+    // FIX: Combine local stream and display stream if screen sharing, so viewers get video + mic audio
+    const activeStream = this.isScreenSharing && this.displayStream ? this.displayStream : this.localStream;
+    if (activeStream) activeStream.getTracks().forEach(track => pc.addTrack(track, activeStream));
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -1226,13 +1179,11 @@ export default {
       .on('presence', { event: 'sync' }, async () => {
         const state = this.presenceChannel.presenceState();
         const users = Object.values(state).flat();
-
         if (!this.liveSessionActive && users.length > maxP) {
           alert("This session has reached maximum capacity.");
           this.endLive();
           return;
         }
-
         this.renderLiveParticipants(users);
       })
       .on('broadcast', { event: 'support' }, async ({ payload }) => {
@@ -1246,25 +1197,20 @@ export default {
 
         // Handle Host's Income Transaction (Aggregate)
         if (this.hostSupportTxId) {
-            // Transaction exists, fetch current amount and update
             const { data: tx } = await supabase.from('transactions').select('amount').eq('id', this.hostSupportTxId).single();
             if (tx) {
                 await supabase.from('transactions').update({ amount: tx.amount + payload.amount }).eq('id', this.hostSupportTxId);
             }
         } else {
-            // First tip received this session: Insert new transaction
             const { data: newTx } = await supabase.from('transactions').insert({
-                user_id: store.user.id,
-                amount: payload.amount,
-                type: 'live_support',
-                status: 'success',
-                description: `Live Support received: ${payload.title}`
+                user_id: store.user.id, amount: payload.amount, type: 'live_support', status: 'success', description: `Live Support received: ${payload.title}`
             }).select('*').single();
-
             if (newTx) this.hostSupportTxId = newTx.id;
         }
       })
-
+      .on('broadcast', { event: 'session_ended' }, () => {
+        this.handleSessionEnded();
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await this.presenceChannel.track({ user_id: store.user.id, full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp });
@@ -1492,7 +1438,6 @@ export default {
   async toggleScreenShare() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    // On mobile, true screen share is not supported in browsers. We use the flip camera feature instead.
     if (isMobile) {
       alert("True screen sharing is not supported on mobile browsers. Use the 'Flip Camera' button to switch to your back camera.");
       return;
@@ -1503,7 +1448,14 @@ export default {
 
     if (!this.isScreenSharing) {
       try {
-        this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        // FIX: Get screen stream, then combine with local mic audio so viewers can still hear you
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+
+        this.displayStream = new MediaStream();
+        this.displayStream.addTrack(screenStream.getVideoTracks()[0]);
+        if (this.localStream.getAudioTracks().length > 0) {
+          this.displayStream.addTrack(this.localStream.getAudioTracks()[0]);
+        }
 
         videoEl.srcObject = this.displayStream;
         this.isScreenSharing = true;
@@ -1570,8 +1522,11 @@ export default {
   async endLive() {
     if (this.liveTimerInterval) clearInterval(this.liveTimerInterval);
 
-    if (this.liveSessionActive && this.liveHostId === store.user.id) {
-      this.presenceChannel.send({ type: 'broadcast', event: 'session_ended', payload: {} });
+    // FIX: Check if user is the host. Host doesn't have liveHostId set.
+    if (this.liveSessionActive && !this.liveHostId) {
+      if (this.presenceChannel) {
+        this.presenceChannel.send({ type: 'broadcast', event: 'session_ended', payload: {} });
+      }
       localStorage.removeItem('active_live_session');
     }
 
