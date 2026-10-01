@@ -33,14 +33,14 @@
   <div class="dashboard-layout">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <a href="/dashboard/index.html" class="brand-logo">
-          <img src="/icons/icon.png" alt="Gliimu Logo" class="brand-logo-img">
-        </a>
-        <button class="sidebar-collapse-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </button>
-      </div>
+        <div class="sidebar-header">
+          <a href="/dashboard/index.html" class="brand-logo">
+            <img src="/icons/icon.png" alt="Gliimu Logo" class="brand-logo-img">
+          </a>
+          <button class="sidebar-collapse-btn" onclick="toggleSidebar()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+        </div>
 
       <nav class="sidebar-nav">
         <div class="nav-section">
@@ -95,11 +95,11 @@
 
     <!-- Main Content -->
     <main class="main-content">
-      <header class="topbar">
-        <button class="menu-toggle" onclick="document.body.classList.remove('sidebar-collapsed'); document.body.classList.toggle('sidebar-open')">☰</button>
-        <div id="topbar-dynamic-content" style="flex: 1; display: flex; justify-content: center; padding: 0 16px;"></div>
-        <div id="topbar-right-actions" style="display: flex; align-items: center; gap: 8px; margin-left: auto;"></div>
-      </header>
+        <header class="topbar">
+          <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+          <div id="topbar-dynamic-content" style="flex: 1; display: flex; justify-content: center; padding: 0 16px;"></div>
+          <div id="topbar-right-actions" style="display: flex; align-items: center; gap: 8px; margin-left: auto;"></div>
+        </header>
 
       <div class="view-container" id="app">
         <!-- Views will be injected here -->
@@ -110,5 +110,18 @@
   <!-- Use absolute paths for JS as well -->
   <script src="/shared/js/theme.js"></script>
   <script type="module" src="/dashboard/assets/js/app.js"></script>
+
+  <script>
+    function toggleSidebar() {
+      const body = document.body;
+      if (window.innerWidth <= 768) {
+        // Mobile logic: slide in/out over the content
+        body.classList.toggle('sidebar-open');
+      } else {
+        // Desktop logic: collapse/expand the layout
+        body.classList.toggle('sidebar-collapsed');
+      }
+    }
+  </script>
 </body>
 </html>
