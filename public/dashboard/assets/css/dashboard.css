@@ -1,7 +1,12 @@
 /* ============================================
    GLIIMU DASHBOARD CORE SHELL
    ============================================ */
-.dashboard-layout { display: flex; min-height: 100vh; background: var(--bg-secondary); }
+   /* Main Content Area Background */
+   .dashboard-layout {
+     display: flex;
+     min-height: 100vh;
+     background: var(--bg-secondary); /* Soft off-white in light, medium slate in dark */
+   }
 
 /* Helper classes for responsive buttons */
 .desktop-only { display: none; }
@@ -20,13 +25,13 @@
 /* Sidebar */
 .sidebar {
   width: 200px;
-  background: var(--surface);
+  background: var(--bg-tertiary); /* Slightly darker/lighter than content to create a panel effect */
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   position: fixed;
-  height: 100vh; /* Fallback */
-  height: 100dvh; /* Fixes mobile browser UI hiding the footer */
+  height: 100vh;
+  height: 100dvh;
   z-index: 100;
   transition: transform var(--transition-base);
 }
@@ -406,9 +411,9 @@
     right: 0;
     border-bottom: none;
     border-top: 1px solid var(--border);
-    background: var(--surface);
+    background: var(--surface); /* Matches desktop topbar */
     z-index: 50;
-    padding-bottom: env(safe-area-inset-bottom, 0); /* Prevents overlap with iPhone home bar */
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   /* Add padding to bottom of content so it isn't hidden behind bottom bar */
