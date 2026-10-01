@@ -21,17 +21,23 @@ export default {
   },
 
   async fetchData() {
-    const { data: profile } = await supabase
+    if (!store.user || !store.user.id) return;
+
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('wallet_balance, subscription_expires_at')
       .eq('id', store.user.id)
       .single();
 
-    const { data: transactions } = await supabase
+    if (profileError) console.error("Profile fetch error:", profileError);
+
+    const { data: transactions, error: txError } = await supabase
       .from('transactions')
-      .select('*')
+      .select('id, user_id, amount, type, status, reference, description, created_at')
       .eq('user_id', store.user.id)
       .order('created_at', { ascending: false });
+
+    if (txError) console.error("Transactions fetch error:", txError);
 
     this.balance = profile?.wallet_balance || 0;
     this.subscriptionExpiresAt = profile?.subscription_expires_at || null;
