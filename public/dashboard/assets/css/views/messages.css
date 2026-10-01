@@ -103,25 +103,38 @@
 .live-video-main { flex: 1; position: relative; background: #111; overflow: hidden; }
 .live-video-main video { width: 100%; height: 100%; object-fit: cover; }
 
-.live-video-overlay { position: absolute; top: 0; left: 0; right: 0; padding: 24px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; z-index: 5; }
-.live-indicator { display: inline-flex; align-items: center; gap: 6px; background: var(--error); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-.live-pulse { width: 8px; height: 8px; background: white; border-radius: 50%; animation: pulse 1.5s infinite; }
-.live-video-overlay h2 { color: white; margin-top: 8px; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+/* Mirror View for Host */
+#live-video-feed { transform: scaleX(-1); }
+#live-viewer-feed { transform: none; }
 
-/* Participant Strip */
+.live-video-overlay { position: absolute; top: 0; left: 0; right: 0; padding: 24px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; z-index: 5; display: flex; flex-direction: column; align-items: flex-end; margin-top: 10px; }
+.live-indicator { display: inline-flex; align-items: center; gap: 6px; background: var(--error); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+.live-pulse { width: 8px; height: 8px; background: white; border-radius: 50%; animation: pulse 1.5s infinite; }
+.live-video-overlay h2 { color: white; margin-top: 0; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); text-align: right; }
+
+/* Participant Strip (Centered) */
 .live-participants-strip {
   position: absolute;
-  bottom: 90px;
-  left: 16px;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  gap: 8px;
+  gap: 16px;
   z-index: 10;
-  max-width: 60%;
+  max-width: 80%;
+}
+
+.live-participant-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 64px; /* Double size */
 }
 
 .live-participant-avatar {
-  width: 32px;
-  height: 32px;
+  width: 64px;
+  height: 64px;
   border-radius: 50% !important;
   background: var(--gradient-primary);
   color: white;
@@ -129,13 +142,26 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 20px;
   border: 2px solid var(--surface);
   object-fit: cover;
 }
 
 .live-participant-name {
-  display: none; /* Hidden on host strip, shown in modal if needed */
+  font-size: 12px;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.live-participant-gp {
+  font-size: 10px;
+  color: var(--brand-primary);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
 
 /* Host Toolbar */
@@ -473,8 +499,14 @@
   .ping-back-btn { display: flex; }
   .ping-top-search-wrapper { max-width: 200px; }
 
-  .live-host-toolbar { gap: 8px; padding: 8px; }
+  /* Raise action buttons on mobile */
+  .live-host-toolbar { bottom: 40px; gap: 8px; padding: 8px; }
   .live-ctrl-btn { width: 40px; height: 40px; }
+
+  /* Adjust participant strip on mobile */
+  .live-participants-strip { bottom: 120px; }
+  .live-participant-card { width: 48px; }
+  .live-participant-avatar { width: 48px; height: 48px; font-size: 16px; }
 }
 
 /* Fix Z-Index for Live Studio over Sidebar */

@@ -57,6 +57,7 @@ export default {
     this.supportTapCount = 0;
     this.supportTapTimer = null;
     this.activeLiveRoom = null;
+    this.liveTimer = null; // 1 hour countdown
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
@@ -92,7 +93,9 @@ export default {
       openLiveChat: (hostId) => this.openLiveChat(hostId),
       sendLiveMessage: (roomId) => this.sendLiveMessage(roomId),
       closeLiveChat: () => this.closeLiveChat(),
-      toggleAspectRatio: () => this.toggleAspectRatio()
+      toggleAspectRatio: () => this.toggleAspectRatio(),
+      resumeLiveSession: () => this.resumeLiveSession(),
+      submitLiveSetup: () => this.submitLiveSetup()
     };
 
     this.setupTopbar();
@@ -101,6 +104,71 @@ export default {
     this.fetchContacts();
     this.setupRealtime();
     this.setupGlobalLiveTracker();
+    this.checkActiveLiveSession(); // Check for host refresh
+  },
+
+  checkActiveLiveSession() {
+    const activeSession = localStorage.getItem('active_live_session');
+    if (activeSession) {
+      const session = JSON.parse(activeSession);
+      // Show resume button in topbar or empty state
+      const main = document.getElementById('ping-main');
+      if (main) {
+        main.innerHTML = `
+          <div class="ping-empty-state">
+            <h3>You have an active Live Session</h3>
+            <p> "${session.title}" is still running.</p>
+            <button class="btn-primary" style="margin-top: 24px;" onclick="pingInstance.resumeLiveSession()">Resume Session</button>
+          </div>
+        `;
+      }
+    }
+  },
+
+  resumeLiveSession() {
+    const activeSession = localStorage.getItem('active_live_session');
+    if (!activeSession) return;
+    const session = JSON.parse(activeSession);
+
+    this.liveSessionActive = true;
+    this.liveSessionTitle = session.title;
+    this.liveEntryFee = session.entryFee;
+    this.liveMaxParticipants = session.maxP;
+    this.peerConnections = {};
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay live-studio-overlay';
+    modal.innerHTML = `
+      <div class="live-studio-container">
+        <div class="live-video-main">
+          <video id="live-video-feed" autoplay muted playsinline></video>
+          <div class="live-video-overlay">
+            <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
+            <h2>${this.liveSessionTitle}</h2>
+          </div>
+          <div class="live-participants-strip" id="live-participants-strip"></div>
+          <div id="floating-icons-container" style="position: absolute; bottom: 100px; left: 0; right: 0; pointer-events: none; z-index: 15; overflow: hidden; height: 100%;"></div>
+        </div>
+
+        <div class="live-host-toolbar">
+          <button class="live-ctrl-btn mic-on" id="mute-mic-btn" title="Mute/Unmute Mic"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+          <button class="live-ctrl-btn cam-on" id="mute-cam-btn" title="Mute/Unmute Cam"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+          <button class="live-ctrl-btn" id="screen-share-btn" onclick="pingInstance.toggleScreenShare()" title="Share Screen"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></button>
+          <button class="live-ctrl-btn" onclick="pingInstance.openInviteModal()" title="Invite Chats"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
+          <button class="live-ctrl-btn" onclick="pingInstance.openLiveChat('${store.user.id}')" title="Live Chat"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
+          <button class="live-ctrl-btn danger" onclick="pingInstance.endLive()" title="End Live"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    this.startMedia();
+    document.getElementById('mute-mic-btn').addEventListener('click', () => this.toggleMute('audio'));
+    document.getElementById('mute-cam-btn').addEventListener('click', () => this.toggleMute('video'));
+
+    this.setupLivePresence(`live_${store.user.id}`);
+    this.setupWebRTCAsHost(`live_${store.user.id}`);
+
+    this.startLiveTimer();
   },
 
   switchTab(tab) {
@@ -268,7 +336,7 @@ export default {
             ${avatar}
             <div class="ping-chat-info">
               <span class="ping-chat-name">${live.title || 'Live Session'}</span>
-              <span class="ping-chat-preview" style="color: var(--error); font-weight: 600;">🔴 ${live.host_name} · ₦${live.entry_fee || 0}</span>
+              <span class="ping-chat-preview" style="color: var(--text-secondary); font-weight: 600;">${live.host_name} · ₦${live.entry_fee || 0}</span>
             </div>
           </div>
         `;
@@ -741,29 +809,70 @@ export default {
   // ============================================
   // NATIVE WEBRTC LIVE STUDIO (HOST)
   // ============================================
-  async openLiveSetup() {
+  openLiveSetup() {
     if (store.profile.total_gp < 1000) return alert("Only eligible gliimaits (1000+ GP) can go live.");
 
-    const title = prompt("Enter a title for your Live Session:");
-    if (!title) return;
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay live-setup-modal';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px; background: var(--surface);">
+        <button class="modal-close" onclick="this.parentElement.remove()">×</button>
+        <h2 style="margin-bottom: 24px;">Go Live</h2>
 
-    const feeStr = prompt("Entry fee (500, 1500, 2500):", "500");
-    const fee = parseInt(feeStr);
-    if (![500, 1500, 2500].includes(fee)) return alert("Invalid entry fee. Must be 500, 1500, or 2500.");
+        <div class="form-group">
+          <label>Title (Max 50 chars)</label>
+          <input type="text" id="live-title-input" class="input" maxlength="50" placeholder="An elite headline...">
+        </div>
+
+        <div class="form-group">
+          <label>Entry Fee</label>
+          <select id="live-fee-input" class="input">
+            <option value="0">Free</option>
+            <option value="500">₦500</option>
+            <option value="1500">₦1500</option>
+            <option value="2500">₦2500</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Admin Code (Optional, for >3 participants)</label>
+          <input type="text" id="live-code-input" class="input" placeholder="Enter code...">
+        </div>
+
+        <button class="btn-primary" style="width: 100%; margin-top: 16px;" onclick="pingInstance.submitLiveSetup()">Start Live</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  async submitLiveSetup() {
+    const title = document.getElementById('live-title-input').value.trim();
+    const fee = parseInt(document.getElementById('live-fee-input').value);
+    const adminCode = document.getElementById('live-code-input').value.trim();
+
+    if (!title) return alert("Title is required.");
 
     let maxParticipants = 3;
-    const adminCode = prompt("Admin code (optional, required for >3 participants):");
     if (adminCode) {
       const { data } = await supabase.from('admin_codes').select('code').eq('code', adminCode).maybeSingle();
       if (!data) return alert("The code you entered is not correct, remove code if you don't have any.");
-      maxParticipants = 100; // Unlimited
+      maxParticipants = 100;
     }
+
+    document.querySelector('.live-setup-modal')?.remove();
 
     this.liveSessionActive = true;
     this.liveSessionTitle = title;
     this.liveEntryFee = fee;
     this.liveMaxParticipants = maxParticipants;
     this.peerConnections = {};
+
+    // Save to local storage for refresh persistence
+    localStorage.setItem('active_live_session', JSON.stringify({
+      title: this.liveSessionTitle,
+      entryFee: this.liveEntryFee,
+      maxP: this.liveMaxParticipants
+    }));
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay live-studio-overlay';
@@ -805,11 +914,24 @@ export default {
       entry_fee: this.liveEntryFee,
       max_participants: this.liveMaxParticipants
     });
+
+    this.startLiveTimer();
+  },
+
+  startLiveTimer() {
+    if (this.liveTimer) clearTimeout(this.liveTimer);
+    // 1 hour = 60 * 60 * 1000
+    this.liveTimer = setTimeout(() => {
+      alert("Your 1-hour live session has ended.");
+      this.endLive();
+    }, 3600000);
   },
 
   // VIEWER UI
   async joinLive(hostId) {
     const liveInfo = this.activeLives.find(l => l.host_id === hostId);
+    if (!liveInfo) return alert("This session is no longer available.");
+
     const hostName = liveInfo?.host_name || 'Host';
     const title = liveInfo?.title || `${hostName}'s Session`;
     const entryFee = liveInfo?.entry_fee || 0;
@@ -993,7 +1115,7 @@ export default {
 
         // Viewer check for room limit
         if (!this.liveSessionActive && users.length > maxP) {
-          alert("Room is full.");
+          alert("This session has reached maximum capacity.");
           this.endLive();
           return;
         }
@@ -1003,9 +1125,13 @@ export default {
       .on('broadcast', { event: 'support' }, ({ payload }) => {
         this.renderFloatingSupportIcon(payload.avatarUrl, payload.iconType);
       })
+      .on('broadcast', { event: 'session_ended' }, () => {
+        // Only viewers receive this
+        this.handleSessionEnded();
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await this.presenceChannel.track({ user_id: store.user.id, full_name: store.profile.full_name, avatar_url: store.profile.avatar_url });
+          await this.presenceChannel.track({ user_id: store.user.id, full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp });
         }
       });
   },
@@ -1013,12 +1139,27 @@ export default {
   renderLiveParticipants(users) {
     const strip = document.getElementById('live-participants-strip');
     if (!strip) return;
-    strip.innerHTML = users.map(u => {
+
+    // Limit to 5 avatars shown to prevent clutter
+    const shownUsers = users.slice(0, 5);
+    const extraCount = users.length > 5 ? users.length - 5 : 0;
+
+    strip.innerHTML = shownUsers.map(u => {
       const avatar = u.avatar_url
         ? `<img src="${u.avatar_url}" class="live-participant-avatar" style="object-fit:cover;">`
         : `<div class="live-participant-avatar">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-      return `${avatar}<span class="live-participant-name">${u.full_name}</span>`;
+      return `
+        <div class="live-participant-card">
+          ${avatar}
+          <span class="live-participant-name">${u.full_name}</span>
+          <span class="live-participant-gp">${u.total_gp || 0} GP</span>
+        </div>
+      `;
     }).join('');
+
+    if (extraCount > 0) {
+      strip.innerHTML += `<div class="live-participant-card"><div class="live-participant-avatar" style="background:var(--bg-tertiary); color:white;">+${extraCount}</div></div>`;
+    }
   },
 
   renderFloatingSupportIcon(avatarUrl, iconType) {
@@ -1179,8 +1320,10 @@ export default {
     if (!this.isScreenSharing) {
       try {
         if (isMobile) {
+          // Mobile fallback: Switch to back camera
           this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
         } else {
+          // Desktop: True screen share
           this.displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         }
         videoEl.srcObject = this.displayStream;
@@ -1194,7 +1337,25 @@ export default {
         });
 
         this.displayStream.getVideoTracks()[0].onended = () => this.toggleScreenShare();
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error("Screen share failed:", err);
+        alert("Screen sharing is not supported on this mobile browser. Using back camera instead.");
+        // If getDisplayMedia fails on mobile, try back camera
+        try {
+          this.displayStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+          videoEl.srcObject = this.displayStream;
+          this.isScreenSharing = true;
+          btn.style.background = 'var(--brand-primary)';
+
+          Object.keys(this.peerConnections).forEach(viewerId => {
+            const pc = this.peerConnections[viewerId];
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) sender.replaceTrack(this.displayStream.getVideoTracks()[0]);
+          });
+        } catch (err2) {
+          console.error("Back camera failed:", err2);
+        }
+      }
     } else {
       if (this.displayStream) this.displayStream.getTracks().forEach(t => t.stop());
       videoEl.srcObject = this.localStream;
@@ -1230,7 +1391,27 @@ export default {
     }
   },
 
+  handleSessionEnded() {
+    // This is called by viewers when host ends or times out
+    const videoEl = document.getElementById('live-viewer-feed');
+    const placeholder = document.getElementById('viewer-placeholder');
+    if (videoEl) videoEl.srcObject = null;
+    if (placeholder) {
+      placeholder.style.display = 'flex';
+      placeholder.innerHTML = `<h3>This live screen has ended</h3>`;
+    }
+    setTimeout(() => this.endLive(), 3000);
+  },
+
   async endLive() {
+    if (this.liveTimer) clearTimeout(this.liveTimer);
+
+    // If host, broadcast session_ended to viewers
+    if (this.liveSessionActive && this.liveHostId === store.user.id) {
+      this.presenceChannel.send({ type: 'broadcast', event: 'session_ended', payload: {} });
+      localStorage.removeItem('active_live_session');
+    }
+
     if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
     if (this.displayStream) this.displayStream.getTracks().forEach(track => track.stop());
     this.closeLiveChat();
@@ -1242,5 +1423,20 @@ export default {
 
     document.querySelector('.live-studio-overlay')?.remove();
     this.liveSessionActive = false;
+    this.liveHostId = null;
+
+    // Reset empty state if user was viewer
+    if (!localStorage.getItem('active_live_session')) {
+      const main = document.getElementById('ping-main');
+      if (main) {
+        main.innerHTML = `
+          <div class="ping-empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <h3>Select a chat to start pinging</h3>
+            <p>Your direct messages, Gliim-PA, and Live sessions live here.</p>
+          </div>
+        `;
+      }
+    }
   }
 };
