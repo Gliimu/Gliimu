@@ -1098,28 +1098,54 @@ export default {
   // ============================================
   setupWebRTCAsHost(roomId) {
     if (this.webrtcChannel) supabase.removeChannel(this.webrtcChannel);
+
+    // FIX: Add an ICE queue for each viewer to prevent dropping candidates
+    this.hostIceQueues = {};
+
     this.webrtcChannel = supabase.channel(`webrtc-${roomId}`)
       .on('broadcast', { event: 'signal' }, async ({ payload }) => {
         if (payload.target !== store.user.id) return;
+
         if (payload.type === 'viewer_join') {
           this.createPeerConnection(payload.sender);
         } else if (payload.type === 'answer') {
           const pc = this.peerConnections[payload.sender];
-          if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          if (pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+            // Now that remote description is set, process any queued ICE candidates
+            if (this.hostIceQueues[payload.sender]) {
+              for (const candidate of this.hostIceQueues[payload.sender]) {
+                try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) { console.warn("Host Queued ICE Error:", e); }
+              }
+              this.hostIceQueues[payload.sender] = [];
+            }
+          }
         } else if (payload.type === 'ice') {
           const pc = this.peerConnections[payload.sender];
           if (pc && pc.remoteDescription) {
             try { await pc.addIceCandidate(new RTCIceCandidate(payload.candidate)); } catch (e) { console.warn("Host ICE Error:", e); }
+          } else {
+            // Queue the candidate if remote description isn't set yet
+            if (!this.hostIceQueues[payload.sender]) this.hostIceQueues[payload.sender] = [];
+            this.hostIceQueues[payload.sender].push(payload.candidate);
           }
         }
       }).subscribe();
   },
 
   async createPeerConnection(viewerId) {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    // FIX: Added TURN servers to bypass mobile carrier NATs
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ]
+    });
     this.peerConnections[viewerId] = pc;
 
-    // FIX: Combine local stream and display stream if screen sharing, so viewers get video + mic audio
     const activeStream = this.isScreenSharing && this.displayStream ? this.displayStream : this.localStream;
     if (activeStream) activeStream.getTracks().forEach(track => pc.addTrack(track, activeStream));
 
@@ -1153,21 +1179,34 @@ export default {
   },
 
   async handleViewerOffer(offer, hostId) {
-    this.viewerPeerConnection = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    // FIX: Added TURN servers
+    this.viewerPeerConnection = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ]
+    });
+
     this.viewerPeerConnection.ontrack = (event) => {
       const videoEl = document.getElementById('live-viewer-feed');
       const placeholder = document.getElementById('viewer-placeholder');
       if (videoEl) { videoEl.srcObject = event.streams[0]; if (placeholder) placeholder.style.display = 'none'; }
     };
+
     this.viewerPeerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'ice', target: hostId, sender: store.user.id, candidate: event.candidate } });
       }
     };
+
     await this.viewerPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
     while (this.webrtcIceQueue.length > 0) {
       this.viewerPeerConnection.addIceCandidate(new RTCIceCandidate(this.webrtcIceQueue.shift()));
     }
+
     const answer = await this.viewerPeerConnection.createAnswer();
     await this.viewerPeerConnection.setLocalDescription(answer);
     this.webrtcChannel.send({ type: 'broadcast', event: 'signal', payload: { type: 'answer', target: hostId, sender: store.user.id, sdp: answer } });
