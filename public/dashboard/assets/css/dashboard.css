@@ -3,6 +3,20 @@
    ============================================ */
 .dashboard-layout { display: flex; min-height: 100vh; background: var(--bg-secondary); }
 
+/* Helper classes for responsive buttons */
+.desktop-only { display: none; }
+.mobile-only { display: none; }
+
+/* Topbar Logo (Hidden by default, revealed when sidebar collapses on desktop) */
+.topbar-logo-img {
+  height: 32px;
+  width: auto;
+  max-width: 150px;
+  object-fit: contain;
+  margin-right: 16px;
+  display: none;
+}
+
 /* Sidebar */
 .sidebar {
   width: 200px;
@@ -11,7 +25,8 @@
   display: flex;
   flex-direction: column;
   position: fixed;
-  height: 100vh;
+  height: 100vh; /* Fallback */
+  height: 100dvh; /* Fixes mobile browser UI hiding the footer */
   z-index: 100;
   transition: transform var(--transition-base);
 }
@@ -22,6 +37,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .sidebar-collapse-btn {
@@ -36,6 +52,7 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .sidebar-collapse-btn:hover {
@@ -94,9 +111,21 @@
   flex-shrink: 0;
 }
 
-.sidebar-footer { padding: var(--space-4); border-top: 1px solid var(--border); }
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0; /* Prevents shrinking when scrolling */
+  background: var(--surface);
+}
 
-.user-card { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2); }
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  width: 100%;
+}
 .user-avatar {
   width: 40px;
   height: 40px;
@@ -109,10 +138,27 @@
   font-weight: var(--fw-bold);
   font-size: var(--fs-sm);
   object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.user-avatar:hover {
+  transform: scale(1.05);
 }
 
-.user-info { display: flex; flex-direction: column; }
-.user-name { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); }
+.user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.user-name {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .user-role { font-size: var(--fs-xs); color: var(--text-muted); }
 
 /* Main Content */
@@ -136,6 +182,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
+  flex-shrink: 0;
 }
 
 /* Topbar alignment fix since title is gone */
@@ -361,6 +408,7 @@
     border-top: 1px solid var(--border);
     background: var(--surface);
     z-index: 50;
+    padding-bottom: env(safe-area-inset-bottom, 0); /* Prevents overlap with iPhone home bar */
   }
 
   /* Add padding to bottom of content so it isn't hidden behind bottom bar */
@@ -376,5 +424,23 @@
   /* When body has 'sidebar-open' class on mobile */
   body.sidebar-open .sidebar {
     transform: translateX(0);
+  }
+
+  /* Mobile Profile Avatar Sizing */
+  .user-card {
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-1);
+  }
+  .user-avatar {
+    width: 80px;
+    height: 80px;
+    font-size: 24px;
+  }
+  .user-info {
+    display: none; /* Hide text on mobile to make room for the '<' button */
+  }
+  .sidebar-collapse-btn.mobile-only {
+    width: 40px;
+    height: 40px;
   }
 }
