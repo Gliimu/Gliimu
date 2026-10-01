@@ -115,15 +115,21 @@ export default {
     const activeSession = localStorage.getItem('active_live_session');
     if (activeSession) {
       const session = JSON.parse(activeSession);
-      const main = document.getElementById('ping-main');
-      if (main) {
-        main.innerHTML = `
-          <div class="ping-empty-state">
-            <h3>You have an active Live Session</h3>
-            <p> "${session.title}" is still running.</p>
-            <button class="btn-primary" style="margin-top: 24px;" onclick="pingInstance.resumeLiveSession()">Resume Session</button>
-          </div>
-        `;
+      // Check if session is less than 1 hour old
+      if (session.expiry && Date.now() < session.expiry) {
+        const main = document.getElementById('ping-main');
+        if (main) {
+          main.innerHTML = `
+            <div class="ping-empty-state">
+              <h3>You have an active Live Session</h3>
+              <p> "${session.title}" is still running.</p>
+              <button class="btn-primary" style="margin-top: 24px;" onclick="pingInstance.resumeLiveSession()">Resume Session</button>
+            </div>
+          `;
+        }
+      } else {
+        // Expired, remove it
+        localStorage.removeItem('active_live_session');
       }
     }
   },
@@ -831,7 +837,7 @@ export default {
     modal.className = 'modal-overlay live-setup-modal';
     modal.innerHTML = `
       <div class="modal-content" style="max-width: 500px; background: var(--surface);">
-        <button class="modal-close" onclick="this.parentElement.remove()">×</button>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
         <h2 style="margin-bottom: 24px;">Go Live</h2>
 
         <div class="form-group">
@@ -885,7 +891,8 @@ export default {
     localStorage.setItem('active_live_session', JSON.stringify({
       title: this.liveSessionTitle,
       entryFee: this.liveEntryFee,
-      maxP: this.liveMaxParticipants
+      maxP: this.liveMaxParticipants,
+      expiry: Date.now() + 3600000 // 1 hour expiry
     }));
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -898,7 +905,6 @@ export default {
           <video id="live-video-feed" autoplay muted playsinline></video>
           <div class="live-video-overlay">
             <div class="live-overlay-top">
-              <span class="live-indicator"><span class="live-pulse"></span> LIVE</span>
               <span id="live-timer" class="live-timer">1:00:00</span>
             </div>
             <h2>${this.liveSessionTitle}</h2>
