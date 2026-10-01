@@ -146,6 +146,7 @@ export default {
     this.liveEntryFee = session.entryFee;
     this.liveMaxParticipants = session.maxP;
     this.peerConnections = {};
+    this.hostSupportTxId = null;
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -783,7 +784,10 @@ export default {
     const menu = document.createElement('div');
     menu.className = 'ctx-menu';
     menu.style.left = `${e.clientX}px`; menu.style.top = `${e.clientY}px`;
-    menu.innerHTML = `<div class="ctx-item" onclick="sessionStorage.setItem('view_profile_id', '${userId}'); window.location.hash='#/profile'; messages.closeUserMenu()">View Profile</div>`;
+    menu.innerHTML = `
+      <div class="ctx-item" onclick="document.querySelectorAll('.ctx-menu').forEach(m => m.remove()); sessionStorage.setItem('view_profile_id', '${userId}'); window.location.hash='#/profile';">View Profile</div>
+      <div class="ctx-item danger" onclick="pingInstance.removeContact('${userId}')">Remove Chat</div>
+    `;
     document.body.appendChild(menu);
     setTimeout(() => { document.addEventListener('click', () => menu.remove(), { once: true }); }, 0);
   },
