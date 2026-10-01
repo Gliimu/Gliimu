@@ -781,7 +781,7 @@ export default {
     const menu = document.createElement('div');
     menu.className = 'ctx-menu';
     menu.style.left = `${e.clientX}px`; menu.style.top = `${e.clientY}px`;
-    menu.innerHTML = `<div class="ctx-item" onclick="window.location.hash='#/profile';">View Profile</div><div class="ctx-item danger" onclick="pingInstance.removeContact('${userId}')">Remove Chat</div>`;
+    menu.innerHTML = `<div class="ctx-item" onclick="sessionStorage.setItem('view_profile_id', '${userId}'); window.location.hash='#/profile'; messages.closeUserMenu()">View Profile</div>`;
     document.body.appendChild(menu);
     setTimeout(() => { document.addEventListener('click', () => menu.remove(), { once: true }); }, 0);
   },

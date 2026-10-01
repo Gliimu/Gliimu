@@ -9,20 +9,26 @@ export default {
     </div>
   `,
   async init() {
-    this.currentFilter = 'week';
+    this.currentTab = 'activity'; // Default tab
     await this.fetchData();
     this.render();
   },
 
   async fetchData() {
-    const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
-    const { data: transactions } = await supabase.from('transactions').select('*').eq('user_id', store.user.id).order('created_at', { ascending: false });
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('wallet_balance, subscription_expires_at')
+      .eq('id', store.user.id)
+      .single();
 
-    // Fetch Leaderboard to calculate Rank
-    const { data: leaderboard } = await supabase.from('leaderboard').select('*');
-    this.myRank = leaderboard ? leaderboard.findIndex(l => l.user_id === store.user.id) + 1 : 'N/A';
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', store.user.id)
+      .order('created_at', { ascending: false });
 
     this.balance = profile?.wallet_balance || 0;
+    this.subscriptionExpiresAt = profile?.subscription_expires_at || null;
     this.allTransactions = transactions || [];
   },
 
@@ -30,126 +36,161 @@ export default {
     const container = document.getElementById('wallet-container');
     if (!container) return;
 
-    const summary = this.calculateSummary();
+    const isActiveSub = this.subscriptionExpiresAt && new Date(this.subscriptionExpiresAt) > new Date();
 
     container.innerHTML = `
-      <div class="wallet-grid">
-        <!-- Balance Card -->
-        <div class="card balance-card">
-          <span class="balance-label">Current Balance</span>
-          <h1 class="balance-amount">₦${this.balance.toLocaleString()}</h1>
-          <button id="topup-btn" class="btn-primary" style="margin-top: var(--space-4); width: 100%; background: rgba(255,255,255,0.2); color: white;">Add Funds</button>
-        </div>
-
-        <!-- Activity Summary Card -->
-        <div class="card activity-summary-card">
-          <div class="activity-header">
-            <h3>Activity Summary</h3>
-            <select id="activity-filter" class="activity-filter-dropdown">
-              <option value="day" ${this.currentFilter === 'day' ? 'selected' : ''}>Today</option>
-              <option value="week" ${this.currentFilter === 'week' ? 'selected' : ''}>This Week</option>
-              <option value="month" ${this.currentFilter === 'month' ? 'selected' : ''}>This Month</option>
-            </select>
-          </div>
-
-          <div class="activity-stats">
-            <div class="stat-item">
-              <div class="stat-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              </div>
-              <div class="stat-info">
-                <span class="stat-value">${summary.expenses.toLocaleString()}</span>
-                <span class="stat-label">Total Expenses</span>
-              </div>
-            </div>
-
-            <div class="stat-row">
-              <div class="stat-item-small">
-                <span class="stat-label">Library Unlocks</span>
-                <span class="stat-value-small">${summary.unlocks}</span>
-              </div>
-              <div class="stat-item-small">
-                <span class="stat-label">Hub Supports</span>
-                <span class="stat-value-small">${summary.supports}</span>
-              </div>
-              <div class="stat-item-small">
-                <span class="stat-label">Rank</span>
-                <span class="stat-value-small">#${this.myRank}</span>
-              </div>
-            </div>
-
-            <div class="points-badge">
-              <span class="points-value">${summary.points} GP</span>
-              <span class="points-label">Total Points Earned</span>
-            </div>
-          </div>
-
-          <div class="prize-info">
-            <strong>Only Top 3 GP Earners Win Monthly:</strong>
-            <span>1st: ₦100k + Sub | 2nd: ₦20k + Sub | 3rd: ₦10k</span>
-          </div>
+      <div class="wallet-header-card">
+        <span class="balance-label">Current Balance</span>
+        <h1 class="balance-amount">₦${this.balance.toLocaleString()}</h1>
+        <div class="wallet-actions">
+          <button class="btn-primary" onclick="walletInstance.openTopUpModal()">Add Funds</button>
+          <button class="btn-secondary" onclick="alert('Withdrawal feature coming soon!')">Withdraw</button>
+          <button class="btn-secondary" onclick="alert('Transfer feature coming soon!')">Transfer</button>
         </div>
       </div>
 
-      <!-- Transaction History -->
-      <div class="card" style="margin-top: var(--space-6);">
-        <h3>Recent Transactions</h3>
-        <div class="transaction-list">
-          ${this.allTransactions.length === 0
-            ? '<p style="color: var(--text-muted); text-align: center; padding: var(--space-4);">No transactions yet.</p>'
-            : this.allTransactions.map(tx => `
-              <div class="transaction-item">
-                <div class="tx-icon ${tx.type === 'topup' ? 'tx-topup' : 'tx-spend'} ${tx.status === 'pending' ? 'tx-pending' : ''}">
-                  ${tx.type === 'topup' ? '↓' : '↑'}
-                </div>
-                <div class="tx-details">
-                  <span class="tx-title">${tx.description || (tx.type.charAt(0).toUpperCase() + tx.type.slice(1))} <span style="font-size: var(--fs-xs); color: ${tx.status === 'pending' ? 'var(--warning)' : 'var(--success)'};">(${tx.status})</span></span>
-                  <span class="tx-date">${new Date(tx.created_at).toLocaleDateString()} ${new Date(tx.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                </div>
-                <div class="tx-right">
-                  ${tx.points > 0 ? `<span class="tx-points">+${tx.points} GP</span>` : ''}
-                  <span class="tx-amount ${tx.type === 'topup' ? 'amount-positive' : 'amount-negative'}">
-                    ${tx.type === 'topup' ? '+' : '-'}${Math.abs(tx.amount).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            `).join('')}
-        </div>
+      <div class="wallet-tabs">
+        <button class="wallet-tab ${this.currentTab === 'activity' ? 'active' : ''}" onclick="walletInstance.switchTab('activity')">Activity Summary</button>
+        <button class="wallet-tab ${this.currentTab === 'transactions' ? 'active' : ''}" onclick="walletInstance.switchTab('transactions')">Transactions</button>
+        <button class="wallet-tab ${this.currentTab === 'subscription' ? 'active' : ''}" onclick="walletInstance.switchTab('subscription')">Subscription</button>
+      </div>
+
+      <div id="wallet-tab-content" class="wallet-tab-content">
+        ${this.renderTabContent()}
       </div>
     `;
-
-    document.getElementById('topup-btn').addEventListener('click', () => this.openTopUpModal());
-    document.getElementById('activity-filter').addEventListener('change', (e) => {
-      this.currentFilter = e.target.value;
-      this.render();
-    });
   },
 
-  calculateSummary() {
-    const now = new Date();
-    let startDate = new Date();
+  renderTabContent() {
+    if (this.currentTab === 'activity') {
+      const unlocks = this.allTransactions.filter(t => t.type === 'purchase').length;
+      const supports = this.allTransactions.filter(t => t.type === 'support' || t.type === 'live_support').length;
+      const liveEntries = this.allTransactions.filter(t => t.type === 'live_entry').length;
 
-    if (this.currentFilter === 'day') startDate.setDate(now.getDate() - 1);
-    if (this.currentFilter === 'week') startDate.setDate(now.getDate() - 7);
-    if (this.currentFilter === 'month') startDate.setMonth(now.getMonth() - 1);
+      return `
+        <div class="card stat-card">
+          <div class="stat-row">
+            <div class="stat-icon-wrap bg-brand"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></div>
+            <div class="stat-info">
+              <span class="stat-value">${unlocks}</span>
+              <span class="stat-label">Library Unlocks</span>
+            </div>
+          </div>
+        </div>
+        <div class="card stat-card" style="margin-top: 16px;">
+          <div class="stat-row">
+            <div class="stat-icon-wrap bg-gold"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>
+            <div class="stat-info">
+              <span class="stat-value">${supports}</span>
+              <span class="stat-label">Creator Supports</span>
+            </div>
+          </div>
+        </div>
+        <div class="card stat-card" style="margin-top: 16px;">
+          <div class="stat-row">
+            <div class="stat-icon-wrap bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
+            <div class="stat-info">
+              <span class="stat-value">${liveEntries}</span>
+              <span class="stat-label">Live Session Entries</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
-    const filteredTx = this.allTransactions.filter(tx => new Date(tx.created_at) >= startDate && tx.status === 'success');
-
-    let expenses = 0, unlocks = 0, supports = 0, points = 0;
-
-    filteredTx.forEach(tx => {
-      if (tx.type === 'purchase') {
-        expenses += Math.abs(tx.amount);
-        unlocks++;
-        points += tx.points || 0;
-      } else if (tx.type === 'support') {
-        expenses += Math.abs(tx.amount);
-        supports++;
-        points += tx.points || 0;
+    if (this.currentTab === 'transactions') {
+      if (this.allTransactions.length === 0) {
+        return '<div class="card"><p style="color: var(--text-muted); text-align: center; padding: 40px;">No transactions yet.</p></div>';
       }
-    });
 
-    return { expenses, unlocks, supports, points };
+      return `
+        <div class="card">
+          <div class="txn-list">
+            ${this.allTransactions.map(tx => this.renderTxItem(tx)).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.currentTab === 'subscription') {
+      const isActive = this.subscriptionExpiresAt && new Date(this.subscriptionExpiresAt) > new Date();
+      const expiryDate = isActive ? new Date(this.subscriptionExpiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
+
+      return `
+        <div class="card sub-card">
+          <div class="sub-header">
+            <h3>Elite Subscription</h3>
+            <span class="sub-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
+          </div>
+          <div class="sub-details">
+            <div class="sub-row">
+              <span>Plan</span>
+              <strong>Monthly Elite</strong>
+            </div>
+            <div class="sub-row">
+              <span>Cost</span>
+              <strong>₦5,000 / month</strong>
+            </div>
+            ${isActive ? `
+              <div class="sub-row">
+                <span>Expires On</span>
+                <strong>${expiryDate}</strong>
+              </div>
+            ` : `
+              <div class="sub-row">
+                <span>Status</span>
+                <strong>No active plan</strong>
+              </div>
+            `}
+          </div>
+          <button class="btn-primary" style="width: 100%; margin-top: 24px;" onclick="alert('Subscription management coming soon!')">
+            ${isActive ? 'Change Plan' : 'Subscribe Now'}
+          </button>
+        </div>
+      `;
+    }
+  },
+
+  renderTxItem(tx) {
+    let icon = '';
+    let label = tx.description || 'Transaction';
+    let amountClass = 'amount-negative';
+    let amountPrefix = '-';
+
+    if (tx.type === 'topup') {
+      icon = `<div class="txn-icon bg-success"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>`;
+      amountClass = 'amount-positive';
+      amountPrefix = '+';
+    } else if (tx.type === 'purchase') {
+      icon = `<div class="txn-icon bg-brand"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></div>`;
+    } else if (tx.type === 'support' || tx.type === 'live_support') {
+      icon = `<div class="txn-icon bg-gold"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>`;
+    } else if (tx.type === 'live_entry') {
+      icon = `<div class="txn-icon bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>`;
+    } else {
+      icon = `<div class="txn-icon bg-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div>`;
+    }
+
+    const date = new Date(tx.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const statusBadge = tx.status === 'pending' ? '<span class="txn-status pending">Pending</span>' : '';
+
+    return `
+      <div class="txn-item">
+        ${icon}
+        <div class="txn-info">
+          <span class="txn-title">${label} ${statusBadge}</span>
+          <span class="txn-date">${date}</span>
+        </div>
+        <span class="txn-amount ${amountClass}">${amountPrefix}₦${Math.abs(tx.amount).toLocaleString()}</span>
+      </div>
+    `;
+  },
+
+  switchTab(tab) {
+    this.currentTab = tab;
+    document.querySelectorAll('.wallet-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.wallet-tab[onclick="walletInstance.switchTab('${tab}')"]`)?.classList.add('active');
+    document.getElementById('wallet-tab-content').innerHTML = this.renderTabContent();
   },
 
   openTopUpModal() {
@@ -161,7 +202,7 @@ export default {
         <h2 style="margin-bottom: var(--space-4);">Fund Wallet</h2>
 
         <div class="form-group">
-          <label>Enter Amount</label>
+          <label>Enter Amount (₦)</label>
           <input type="number" id="topup-amount" class="input" placeholder="e.g. 5000" min="100">
         </div>
 
@@ -190,7 +231,7 @@ export default {
 
     document.getElementById('generate-details-btn').addEventListener('click', () => {
       const amount = parseInt(document.getElementById('topup-amount').value);
-      if (!amount || amount < 100) return alert("Please enter a valid amount (min 100).");
+      if (!amount || amount < 100) return alert("Please enter a valid amount (min ₦100).");
 
       const banks = [
         { name: 'Opay', acct: '7058929080' },
@@ -221,7 +262,8 @@ export default {
         amount: amount,
         type: 'topup',
         status: 'pending',
-        reference: ref
+        reference: ref,
+        description: 'Wallet Top-up'
       });
 
       if (error) {
