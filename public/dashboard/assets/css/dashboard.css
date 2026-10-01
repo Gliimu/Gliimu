@@ -1,16 +1,17 @@
 /* ============================================
    GLIIMU DASHBOARD CORE SHELL
    ============================================ */
-   /* Main Content Area Background */
-   .dashboard-layout {
-     display: flex;
-     min-height: 100vh;
-     background: var(--bg-secondary); /* Soft off-white in light, medium slate in dark */
-   }
 
 /* Helper classes for responsive buttons */
 .desktop-only { display: none; }
 .mobile-only { display: none; }
+
+/* Main Layout - Uses bg-tertiary (swapped) */
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-tertiary);
+}
 
 /* Topbar Logo (Hidden by default, revealed when sidebar collapses on desktop) */
 .topbar-logo-img {
@@ -18,14 +19,15 @@
   width: auto;
   max-width: 150px;
   object-fit: contain;
-  margin-right: 16px;
+  margin-right: 24px; /* Gap between logo and search/dynamic content */
   display: none;
+  flex-shrink: 0;
 }
 
-/* Sidebar */
+/* Sidebar - Uses bg-secondary (swapped) */
 .sidebar {
   width: 200px;
-  background: var(--bg-tertiary); /* Slightly darker/lighter than content to create a panel effect */
+  background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -120,8 +122,8 @@
 .sidebar-footer {
   padding: var(--space-4);
   border-top: 1px solid var(--border);
-  flex-shrink: 0; /* Prevents shrinking when scrolling */
-  background: var(--surface);
+  flex-shrink: 0;
+  background: var(--bg-secondary);
 }
 
 .user-card {
@@ -176,9 +178,11 @@
   transition: margin-left var(--transition-base);
 }
 
+/* Topbar / Bottom Bar */
 .topbar {
   height: 64px;
   background: var(--surface);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -190,8 +194,11 @@
   flex-shrink: 0;
 }
 
-/* Topbar alignment fix since title is gone */
-.topbar .menu-toggle { margin-right: auto; }
+/* Topbar alignment fix */
+.topbar .menu-toggle {
+  margin-right: 12px;
+  flex-shrink: 0;
+}
 .topbar #topbar-dynamic-content {
   flex: 1;
   justify-content: center;
@@ -200,7 +207,13 @@
   display: flex;
   padding: 0 16px;
 }
-.topbar #topbar-right-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.topbar #topbar-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 .menu-toggle {
   display: none;
@@ -411,7 +424,7 @@
     right: 0;
     border-bottom: none;
     border-top: 1px solid var(--border);
-    background: var(--surface); /* Matches desktop topbar */
+    background: var(--surface);
     z-index: 50;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
@@ -442,7 +455,7 @@
     font-size: 24px;
   }
   .user-info {
-    display: none; /* Hide text on mobile to make room for the '<' button */
+    display: none;
   }
   .sidebar-collapse-btn.mobile-only {
     width: 40px;
