@@ -799,7 +799,10 @@ export default {
   },
 
   setupRealtime() {
-    supabase.channel('public:messages')
+    // FIX: Remove existing channel to prevent "already subscribed" crash
+    if (this.messageChannel) supabase.removeChannel(this.messageChannel);
+
+    this.messageChannel = supabase.channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
         if (m.sender_id === store.user.id) return;
