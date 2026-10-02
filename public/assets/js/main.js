@@ -150,14 +150,14 @@ async function loadHubHighlights() {
     .from('public_hub_posts')
     .select('content, media_url, media_type, created_at, username, full_name, avatar_url')
     .order('created_at', { ascending: false })
-    .limit(2);
+    .limit(1);
 
   // Fetch 1 Library Item
   const { data: libItems } = await supabase
     .from('library_items')
     .select('title, created_at, cover_color, cover_url')
     .order('created_at', { ascending: false })
-    .limit(1);
+    .limit(2);
 
   let combined = [];
 
@@ -218,6 +218,27 @@ async function loadHubHighlights() {
   }).join('');
 
   initScrollReveal();
+}
+
+// ============================================
+// FETCH PARTNERS
+// ============================================
+async function loadPartners() {
+  const marqueeContent = document.querySelector('.marquee-content');
+  if (!marqueeContent) return;
+
+  const { data: partners, error } = await supabase.from('partners').select('name, logo_url');
+
+  if (error || !partners || partners.length === 0) return;
+
+  // Duplicate the array to create a seamless loop
+  const loopPartners = [...partners, ...partners];
+
+  marqueeContent.innerHTML = loopPartners.map(p => `
+    <span class="partner-logo">
+      <img src="${p.logo_url}" alt="${p.name}" style="height: 40px; width: auto; max-width: 120px; object-fit: contain; opacity: 0.6; transition: opacity 0.3s ease;">
+    </span>
+  `).join('');
 }
 
 // ============================================

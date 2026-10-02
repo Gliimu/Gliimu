@@ -462,3 +462,33 @@
     height: 40px;
   }
 }
+
+/* ============================================
+   NAV BADGES
+   ============================================ */
+.nav-item {
+  position: relative;
+}
+
+.nav-badge {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: var(--brand-primary);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 5px;
+  min-width: 18px;
+  text-align: center;
+  line-height: 16px;
+  border: 2px solid var(--bg-secondary);
+  z-index: 2;
+}
+.nav-badge.wallet-badge {
+  background: var(--warning);
+}
+.nav-badge.settings-badge {
+  background: var(--success);
+}
