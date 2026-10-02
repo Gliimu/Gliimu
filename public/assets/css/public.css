@@ -323,3 +323,120 @@ section { padding: 100px 0; }
 .form-check a:hover {
   text-decoration: underline;
 }
+
+/* ============================================
+   PARTNERS SECTION
+   ============================================ */
+.partners-section {
+  padding: 80px 0;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.partners-slider-container {
+  overflow: hidden;
+  margin: 40px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+
+.partners-track {
+  display: flex;
+  gap: 60px;
+  width: max-content;
+  animation: scrollPartners 30s linear infinite;
+}
+
+.partner-logo {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-muted);
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+}
+
+.partner-logo:hover {
+  opacity: 1;
+  color: var(--brand-primary);
+}
+
+@keyframes scrollPartners {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.partners-note {
+  text-align: center;
+  margin-top: 20px;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.partners-note a {
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.partners-note i {
+  margin-right: 8px;
+}
+
+/* ============================================
+   DOWNLOAD APP SECTION
+   ============================================ */
+.download-section {
+  padding: 100px 0;
+  background: var(--bg-secondary);
+}
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.download-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+}
+
+.download-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--brand-primary);
+}
+
+.download-card i {
+  font-size: 48px;
+  color: var(--brand-primary);
+  margin-bottom: 24px;
+}
+
+.download-card h3 {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.download-card p {
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .download-grid {
+    grid-template-columns: 1fr;
+  }
+}
