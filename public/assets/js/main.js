@@ -116,43 +116,6 @@ async function loadContactInfo() {
 }
 
 // ============================================
-// FETCH HERO STATS (With Count-Up Animation)
-// ============================================
-async function loadHeroStats() {
-  const updatesEl = document.getElementById('stat-updates');
-  const usersEl = document.getElementById('stat-users');
-  if (!updatesEl) return;
-
-  const { data, error } = await supabase.from('public_stats').select('*').single();
-
-  if (data) {
-    const targetUsers = data.users || 0;
-    const targetUpdates = data.updates || 0;
-
-    // Animate the numbers counting up
-    animateValue(usersEl, 0, targetUsers, 1500);
-    animateValue(updatesEl, 0, targetUpdates, 1500);
-  }
-}
-
-// Helper function for the count-up animation
-function animateValue(element, start, end, duration) {
-  const range = end - start;
-  let current = start;
-  const increment = end > 0 ? Math.ceil(range / (duration / 16)) : 0; // 16ms is roughly 60fps
-  const stepTime = 16;
-
-  const timer = setInterval(() => {
-    current += increment;
-    if (current >= end) {
-      current = end;
-      clearInterval(timer);
-    }
-    element.innerText = current.toLocaleString();
-  }, stepTime);
-}
-
-// ============================================
 // FORCE VIDEO AUTOPLAY ON iOS (With Fallback)
 // ============================================
 function forceVideoAutoplay() {
@@ -176,43 +139,82 @@ function forceVideoAutoplay() {
 }
 
 // ============================================
-// FETCH HUB HIGHLIGHTS
+// FETCH LATEST ON GLIIMU (2 Hub + 1 Library)
 // ============================================
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
 
-  const { data: posts, error } = await supabase
+  // Fetch 2 Hub Posts
+  const { data: hubPosts } = await supabase
     .from('public_hub_posts')
     .select('content, media_url, media_type, created_at, username, full_name, avatar_url')
     .order('created_at', { ascending: false })
-    .limit(3);
+    .limit(2);
 
-  if (error || !posts || posts.length === 0) {
+  // Fetch 1 Library Item
+  const { data: libItems } = await supabase
+    .from('library_items')
+    .select('title, created_at, cover_color, cover_url')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  let combined = [];
+
+  if (hubPosts && hubPosts.length > 0) {
+    hubPosts.forEach(p => combined.push({ type: 'hub', data: p }));
+  }
+  if (libItems && libItems.length > 0) {
+    libItems.forEach(l => combined.push({ type: 'library', data: l }));
+  }
+
+  if (combined.length === 0) {
     grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Be the first to post in the Hub!</p>';
     return;
   }
 
-  grid.innerHTML = posts.map(post => {
-    const mediaHtml = post.media_url ? (
-      post.media_type === 'image'
-        ? `<img src="${post.media_url}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;">`
-        : `<video src="${post.media_url}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;" controls></video>`
-    ) : '';
+  // Sort by created_at descending
+  combined.sort((a, b) => new Date(b.data.created_at) - new Date(a.data.created_at));
 
-    return `
-      <div class="hub-card reveal" style="transition-delay: 0.1s;">
-        <div class="hub-card-meta">
-          ${post.avatar_url
-            ? `<img src="${post.avatar_url}" class="hub-card-avatar" style="object-fit:cover;">`
-            : `<div class="hub-card-avatar"></div>`
-          }
-          <span class="hub-card-author">${post.full_name || 'Gliimait'}</span>
+  // Slice to 3 just in case
+  combined = combined.slice(0, 3);
+
+  grid.innerHTML = combined.map(item => {
+    if (item.type === 'hub') {
+      const post = item.data;
+      const mediaHtml = post.media_url ? (
+        post.media_type === 'image'
+          ? `<img src="${post.media_url}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;">`
+          : `<video src="${post.media_url}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;" controls></video>`
+      ) : '';
+
+      return `
+        <div class="hub-card reveal" style="transition-delay: 0.1s;">
+          <div class="hub-card-meta">
+            ${post.avatar_url
+              ? `<img src="${post.avatar_url}" class="hub-card-avatar" style="object-fit:cover;">`
+              : `<div class="hub-card-avatar"></div>`
+            }
+            <span class="hub-card-author">${post.full_name || 'Gliimait'}</span>
+          </div>
+          <p class="hub-card-text">${post.content}</p>
+          ${mediaHtml}
         </div>
-        <p class="hub-card-text">${post.content}</p>
-        ${mediaHtml}
-      </div>
-    `;
+      `;
+    } else if (item.type === 'library') {
+      const lib = item.data;
+      const bg = lib.cover_url ? `background-image: url('${lib.cover_url}'); background-size: cover;` : `background: ${lib.cover_color || '#4f46e5'};`;
+      return `
+        <div class="hub-card reveal" style="transition-delay: 0.2s;">
+          <div class="hub-card-meta">
+            <div class="hub-card-avatar" style="background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">L</div>
+            <span class="hub-card-author">New in Library</span>
+          </div>
+          <div class="lib-highlight-thumb" style="height: 120px; border-radius: 8px; margin-bottom: 12px; ${bg}"></div>
+          <p class="hub-card-text" style="font-weight: 600;">${lib.title}</p>
+        </div>
+      `;
+    }
   }).join('');
 
   initScrollReveal();
@@ -254,7 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSiteSettings();
   loadCurriculum();
   loadContactInfo();
-  loadHeroStats();
   loadHubHighlights();
   loadFAQs();
   forceVideoAutoplay();
