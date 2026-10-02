@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="/shared/css/design-system.css">
-  <link rel="stylesheet" href="/assets/css/auth.css?v=10">
+  <link rel="stylesheet" href="/assets/css/auth.css?v=11">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="auth-body">
@@ -28,12 +28,15 @@
   </video>
   <div class="auth-bg-overlay" id="auth-bg-overlay"></div>
 
+  <!-- Top Left Nav (Same as Landing Page) -->
+  <nav class="auth-nav">
+    <a href="/" class="auth-nav-logo">
+      <img src="/icons/logo.png" alt="Gliimu">
+    </a>
+  </nav>
+
   <!-- Centered Auth Wrapper -->
   <div class="auth-wrapper">
-    <div class="auth-logo-container">
-      <img src="/icons/logo.png" alt="Gliimu" class="auth-logo-img">
-    </div>
-
     <div class="auth-card">
       <div class="auth-tabs">
         <button class="auth-tab active" data-tab="login">Log In</button>
@@ -75,11 +78,11 @@
           <label>Confirm Password</label>
           <input type="password" id="join-confirm" class="input" placeholder="Re-enter password" required>
         </div>
-        <button type="submit" class="btn-primary w-full">Create Gliimait Account</button>
         <div class="form-check">
           <input type="checkbox" id="agree-terms" required>
-          <center><label for="agree-terms">I agree to the <a href="#" id="terms-link">terms and policy</a></label></center>
+          <label for="agree-terms">I agree to the <a href="#" id="terms-link">Terms and Policy</a></label>
         </div>
+        <button type="submit" class="btn-primary w-full" style="margin-top: 16px;">Create Gliimait Account</button>
       </form>
     </div>
 
@@ -149,6 +152,7 @@
   </div>
 
   <script type="module" src="/assets/js/auth.js?v=11"></script>
+
   <!-- TERMS AND POLICY MODAL -->
   <div class="modal-overlay" id="terms-modal" style="display: none;">
     <div class="modal-content modal-lg">
