@@ -7,6 +7,27 @@ body { background: var(--bg-primary); }
 /* Buttons */
 .btn-sm { padding: var(--space-2) var(--space-4); font-size: var(--fs-sm); }
 .btn-lg { padding: var(--space-4) var(--space-8); font-size: var(--fs-md); }
+.btn-primary, .btn-secondary {
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-sans);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-decoration: none;
+}
+.btn-primary { background: var(--brand-primary); color: var(--text-inverse); }
+.btn-primary:hover { background: var(--brand-primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface-hover); }
+.w-full { width: 100%; margin-top: var(--space-2); }
 
 /* Hero Section */
 .hero-video-section { position: relative; height: 100vh; min-height: 700px; display: flex; align-items: flex-end; padding-bottom: 80px; overflow: hidden; }
@@ -26,9 +47,6 @@ body { background: var(--bg-primary); }
 .hero-title { font-size: var(--fs-base); font-weight: var(--fw-bold); line-height: 1.5; color: white; margin-bottom: var(--space-2); letter-spacing: var(--ls-normal); }
 .highlight { background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .hero-desc { font-size: var(--fs-base); color: rgba(255,255,255,0.8); line-height: 1.5; margin-bottom: var(--space-8); max-width: 600px; }
-.hero-stats { display: flex; gap: var(--space-10); margin-bottom: var(--space-8); }
-.hero-stat-number { display: block; font-size: var(--fs-2xl); font-weight: var(--fw-extrabold); color: white; }
-.hero-stat-label { font-size: var(--fs-xs); color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: var(--ls-widest); }
 .hero-actions { display: flex; gap: var(--space-4); }
 
 /* Sections */
@@ -155,30 +173,6 @@ section { padding: 100px 0; }
 .reveal-right { transform: translateX(40px); }
 .visible { opacity: 1 !important; transform: translateY(0) translateX(0) !important; }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .hero-nav-inner { padding: 0 16px; }
-  .hero-title { font-size: var(--fs-base); }
-  .hero-stats { flex-wrap: wrap; gap: var(--space-6); }
-  .hero-actions { flex-direction: column; }
-  .hero-actions .btn-lg { width: 100%; }
-  .earn-grid { grid-template-columns: 1fr; gap: var(--space-12); }
-  .cf-grid { grid-template-columns: 1fr; }
-}
-
-/* Hide native iOS video controls overlay */
-.hero-background-video::-webkit-media-controls-panel,
-.hero-background-video::-webkit-media-controls-play-button,
-.hero-background-video::-webkit-media-controls-start-playback-button {
-  display: none !important;
-  -webkit-appearance: none !important;
-}
-
-/* Ensure video ignores pointer events so iOS doesn't make it clickable */
-.hero-background-video {
-  pointer-events: none !important;
-}
-
 /* ============================================
    PARTNERS SECTION & MARQUEE
    ============================================ */
@@ -284,4 +278,27 @@ section { padding: 100px 0; }
   .download-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero-nav-inner { padding: 0 16px; }
+  .hero-title { font-size: var(--fs-base); }
+  .hero-stats { flex-wrap: wrap; gap: var(--space-6); }
+  .hero-actions { flex-direction: column; }
+  .hero-actions .btn-lg { width: 100%; }
+  .earn-grid, .cf-grid { grid-template-columns: 1fr; gap: var(--space-12); }
+}
+
+/* Hide native iOS video controls overlay */
+.hero-background-video::-webkit-media-controls-panel,
+.hero-background-video::-webkit-media-controls-play-button,
+.hero-background-video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+
+/* Ensure video ignores pointer events so iOS doesn't make it clickable */
+.hero-background-video {
+  pointer-events: none !important;
 }
