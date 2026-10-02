@@ -805,7 +805,7 @@ export default {
   },
 
   setupRealtime() {
-    // FIX: Clean up existing channel
+    // FIX: Remove existing channel to prevent "already subscribed" crash
     if (this.messageChannel) supabase.removeChannel(this.messageChannel);
 
     this.messageChannel = supabase.channel('public:messages')

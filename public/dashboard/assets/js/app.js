@@ -50,8 +50,8 @@ const NotificationManager = {
   },
 
   initRealtimeListeners() {
-    // Listen for new DMs
-    supabase.channel('public:messages')
+    // FIX: Use a unique channel name to prevent clashing with messages.js
+    supabase.channel('app-global-notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         if (payload.new.receiver_id === store.user.id && !payload.new.read_at) {
           this.counts.ping++;
