@@ -41,17 +41,13 @@ const NotificationManager = {
     // Wallet (Subscription Expiry <= 3 days)
     const { data: profile } = await supabase.from('profiles').select('subscription_expires_at').eq('id', store.user.id).single();
     if (profile?.subscription_expires_at) {
-      const daysLeft = Math.ceil((new Date(profile.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24);
+      const daysLeft = Math.ceil((new Date(profile.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24));
       if (daysLeft <= 3 && daysLeft >= 0) {
         this.counts.wallet = 1;
         this.updateBadge('wallet', this.counts.wallet);
+      }
     }
-
-    // Settings (App Version)
-    // We can set this to 1 if a new version is deployed
-    // this.counts.settings = 1;
-    // this.updateBadge('settings', this.counts.settings);
-  }
+  },
 
   initRealtimeListeners() {
     // Listen for new DMs
@@ -82,12 +78,14 @@ async function initApp() {
   if (avatarEl) {
     if (store.profile.avatar_url) {
       avatarEl.src = store.profile.avatar_url;
+    } else {
+      avatarEl.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E`;
     }
-  }
 
-  if (store.profile.total_gp >= 1000) {
-    document.getElementById('user-tick').style.display = 'flex';
-    document.getElementById('user-tick-inline').style.display = 'inline-block';
+    // Add Glowing Gold Border if >= 1000 GP
+    if (store.profile.total_gp >= 1000) {
+      avatarEl.classList.add('glow-avatar');
+    }
   }
 
   // Initialize Notifications
@@ -95,7 +93,7 @@ async function initApp() {
   NotificationManager.initRealtimeListeners();
 
   window.addEventListener('hashchange', router);
-  router(); // Trigger initial route
+  router();
 }
 
 initApp();

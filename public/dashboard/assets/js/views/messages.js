@@ -195,13 +195,16 @@ export default {
   },
 
   setupGlobalLiveTracker() {
+    // FIX: Clean up existing channel to prevent "already subscribed" crash
+    if (this.globalLiveChannel) supabase.removeChannel(this.globalLiveChannel);
+
     this.globalLiveChannel = supabase.channel('global-live-status')
       .on('presence', { event: 'sync' }, () => {
         const state = this.globalLiveChannel.presenceState();
         this.activeLives = Object.values(state).flat();
         if (this.activeTab === 'live') this.renderChatList();
-      })
-      .subscribe();
+    })
+    .subscribe();
   },
 
   setupTopbar() {
@@ -802,7 +805,9 @@ export default {
   },
 
   setupRealtime() {
+    // FIX: Clean up existing channel
     if (this.messageChannel) supabase.removeChannel(this.messageChannel);
+
     this.messageChannel = supabase.channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;

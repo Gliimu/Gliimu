@@ -278,6 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCurriculum();
   loadContactInfo();
   loadHubHighlights();
+  loadPartners();
   loadFAQs();
   forceVideoAutoplay();
 });
