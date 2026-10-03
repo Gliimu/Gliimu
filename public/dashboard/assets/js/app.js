@@ -1,6 +1,7 @@
 import { store } from './store.js';
 import { router } from './router.js';
 import { supabase } from '/shared/js/config.js';
+import { computeUnread } from './readState.js';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -30,10 +31,11 @@ const NotificationManager = {
   },
 
   async fetchInitialCounts() {
-    // Ping (Unread DMs)
-    const { count: pingCount } = await supabase.from('messages').select('*', { count: 'exact', head: true }).eq('receiver_id', store.user.id).is('read_at', null);
-    this.counts.ping = pingCount || 0;
-    this.updateBadge('ping', this.counts.ping);
+    // Ping (Unread DMs) — computed locally; receivers can't write read_at under RLS
+    const { data: received } = await supabase.from('messages').select('sender_id, created_at, read_at').eq('receiver_id', store.user.id);
+    const { total } = computeUnread(store.user.id, received || []);
+    this.counts.ping = total;
+    this.updateBadge('ping', total);
 
     // Settings (App Version - Placeholder logic)
     // For now, we'll just set it to 0. You can change this to 1 when you deploy a new version.

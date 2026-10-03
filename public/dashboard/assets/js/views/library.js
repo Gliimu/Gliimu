@@ -15,6 +15,12 @@ export default {
       <div id="library-content">
         <p style="color: var(--text-muted); text-align: center;">Loading library...</p>
       </div>
+
+      <div class="library-fab-wrapper">
+        <button class="library-fab-main" id="library-fab-main" title="Submit an item for publication">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+      </div>
     </div>
   `,
   async init() {
@@ -53,6 +59,8 @@ export default {
       rateItem: (id) => this.promptRate(id),
       logInteraction: (id, type) => this.logInteraction(id, type)
     };
+
+    document.getElementById('library-fab-main')?.addEventListener('click', () => this.openSubmitModal());
 
     this.setupTopbar();
   },
@@ -251,7 +259,9 @@ export default {
                 ${menuActionHtml}
                 <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
                 <div class="lib-menu-item ask-me-item" id="ask-me-btn">
-                  <img src="${item.author_avatar || 'https://via.placeholder.com/20'}" alt="Author" class="lib-menu-avatar"> Ask Me
+                  ${item.author_avatar
+                    ? `<img src="${item.author_avatar}" alt="Author" class="lib-menu-avatar">`
+                    : `<div class="lib-menu-avatar lib-menu-avatar-fallback">${(item.author || 'G').charAt(0).toUpperCase()}</div>`} Ask Me
                 </div>
               </div>
             </div>
@@ -375,5 +385,114 @@ export default {
     alert(`Purchase successful! You earned ${earnedPoints} GP.`);
     document.querySelector('.modal-overlay')?.remove();
     this.init();
+  },
+
+  openSubmitModal() {
+    document.querySelector('.modal-overlay')?.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content lib-modal-content">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <div class="lib-modal-body">
+          <span class="lib-modal-type">Publish</span>
+          <h2>Submit to Library</h2>
+          <p class="lib-modal-author">Reviewed by the Gliimu team before it goes live on the shelf.</p>
+
+          <div class="form-group" style="margin-top: 24px;">
+            <label>Title</label>
+            <input type="text" id="lib-sub-title" class="input" placeholder="e.g. UI/UX Fundamentals">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex: 1; margin-right: 12px;">
+              <label>Format</label>
+              <select id="lib-sub-type" class="input">
+                <option value="publication">Publication</option>
+                <option value="audiolite">Audiolite</option>
+                <option value="bundle">Bundle</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label>Price (₦)</label>
+              <input type="number" id="lib-sub-price" class="input" min="0" placeholder="e.g. 5000">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="lib-sub-desc" class="input" rows="4" placeholder="What will readers get from this?"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Cover Image (optional)</label>
+            <input type="file" id="lib-sub-cover" class="input" accept="image/*">
+          </div>
+
+          <div class="form-group">
+            <label>Content File (optional)</label>
+            <input type="file" id="lib-sub-file" class="input">
+          </div>
+
+          <button class="btn-primary" style="width: 100%; margin-top: 16px;" id="lib-submit-publication-btn">Submit for Review</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('lib-submit-publication-btn').addEventListener('click', () => this.submitForPublication(modal));
+  },
+
+  async submitForPublication(modal) {
+    const title = document.getElementById('lib-sub-title').value.trim();
+    const type = document.getElementById('lib-sub-type').value;
+    const price = parseInt(document.getElementById('lib-sub-price').value, 10) || 0;
+    const description = document.getElementById('lib-sub-desc').value.trim();
+
+    if (!title) return alert("Title is required.");
+    if (!description) return alert("Please add a short description.");
+
+    const btn = document.getElementById('lib-submit-publication-btn');
+    btn.disabled = true;
+    btn.innerText = 'Submitting...';
+
+    const uploadTo = async (file) => {
+      if (!file) return null;
+      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const fileName = `${store.user.id}/submissions/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file, { cacheControl: '3600', upsert: false });
+      if (uploadError) return null;
+      return supabase.storage.from('media').getPublicUrl(fileName).data.publicUrl;
+    };
+
+    const coverUrl = await uploadTo(document.getElementById('lib-sub-cover').files[0]);
+    const fileUrl = await uploadTo(document.getElementById('lib-sub-file').files[0]);
+
+    const { error } = await supabase.from('library_submissions').insert({
+      user_id: store.user.id,
+      title,
+      type,
+      description,
+      price,
+      cover_url: coverUrl,
+      file_url: fileUrl,
+      status: 'pending'
+    });
+
+    if (error) {
+      // Table not provisioned yet (SQL pending): fail softly
+      if (error.code === '42P01' || error.code === 'PGRST205') {
+        alert("Library submissions are not enabled yet. Please try again later.");
+      } else {
+        alert("Submission failed: " + error.message);
+      }
+      btn.disabled = false;
+      btn.innerText = 'Submit for Review';
+      return;
+    }
+
+    modal.remove();
+    alert("Submission received! The Gliimu team will review it shortly.");
   }
 };

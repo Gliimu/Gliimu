@@ -38,10 +38,6 @@
           <a href="/dashboard/index.html" class="brand-logo">
             <img src="/icons/icon.png" alt="Gliimu Logo" class="brand-logo-img">
           </a>
-          <!-- Desktop Collapse Button (Hidden on mobile) -->
-          <button class="sidebar-collapse-btn desktop-only" onclick="toggleSidebar()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          </button>
         </div>
 
         <nav class="sidebar-nav">
@@ -119,14 +115,8 @@
 
   <script>
     function toggleSidebar() {
-      const body = document.body;
-      if (window.innerWidth <= 768) {
-        // Mobile logic: slide in/out over the content
-        body.classList.toggle('sidebar-open');
-      } else {
-        // Desktop logic: collapse/expand the layout
-        body.classList.toggle('sidebar-collapsed');
-      }
+      // Mobile only: the hamburger is hidden on desktop
+      document.body.classList.toggle('sidebar-open');
     }
 
     // Close the mobile sidebar right away when something inside it is used

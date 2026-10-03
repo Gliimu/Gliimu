@@ -101,12 +101,16 @@ export default {
     }
 
     dropdown.style.display = 'block';
-    dropdown.innerHTML = filtered.map(u => `
-      <div class="lib-dropdown-item" onclick="profileInstance.viewUser('${u.id}')">
-        <img src="${u.avatar_url || 'https://via.placeholder.com/24'}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; margin-right:8px;">
-        ${u.full_name} <span style="color:var(--text-muted); font-size:12px;">(${u.total_gp || 0} GP)</span>
+    dropdown.innerHTML = filtered.map(u => {
+      const avatar = u.avatar_url
+        ? `<img src="${u.avatar_url}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; margin-right:8px;">`
+        : `<div style="width:24px; height:24px; border-radius:50%; background:var(--gradient-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-right:8px;">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+      return `
+      <div class="lib-dropdown-item" onclick="profileInstance.viewUser('${u.id}')" style="display:flex; align-items:center;">
+        ${avatar}
+        ${u.full_name} <span style="color:var(--text-muted); font-size:12px; margin-left:4px;">(${u.total_gp || 0} GP)</span>
       </div>
-    `).join('');
+    `}).join('');
   },
 
   switchTab(tab) {
@@ -128,7 +132,6 @@ export default {
 
   renderLeaderboard() {
     const container = document.getElementById('profile-container');
-    const myRank = this.allUsers.findIndex(u => u.id === store.user.id) + 1;
 
     container.innerHTML = `
       <div class="leaderboard-card card">
@@ -137,17 +140,20 @@ export default {
           <p>Top Gliimaits ranked by total GP earned.</p>
         </div>
         <div class="leaderboard-list">
-          ${this.allUsers.map((u, index) => `
-            <div class="leaderboard-item ${u.id === store.user.id ? 'is-me' : ''}" onclick="profileInstance.viewUser('${u.id}')">
+          ${this.allUsers.map((u, index) => {
+            const avatar = u.avatar_url
+              ? `<img src="${u.avatar_url}" class="lb-avatar" style="object-fit:cover;" alt="">`
+              : `<div class="lb-avatar lb-avatar-fallback">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+            return `
+            <div class="leaderboard-item" onclick="profileInstance.viewUser('${u.id}')">
               <span class="lb-rank">#${index + 1}</span>
-              <img src="${u.avatar_url || 'https://via.placeholder.com/40'}" class="lb-avatar" style="object-fit:cover;">
+              ${avatar}
               <div class="lb-info">
-                <span class="lb-name">${u.full_name}</span>
-                <span class="lb-username">@${u.username}</span>
+                <span class="lb-name">${u.full_name || 'Gliimait'}${u.id === store.user.id ? ' <span class="lb-you">You</span>' : ''}</span>
               </div>
               <span class="lb-score">${u.total_gp || 0} GP</span>
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
       </div>
     `;

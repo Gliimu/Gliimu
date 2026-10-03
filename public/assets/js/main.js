@@ -139,13 +139,13 @@ function forceVideoAutoplay() {
 }
 
 // ============================================
-// FETCH LATEST ON GLIIMU (2 Hub + 1 Library)
+// FETCH LATEST ON GLIIMU (1 Hub + 1 Library + 1 Live)
 // ============================================
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
 
-  // Fetch 2 Hub Posts
+  // Fetch 1 Hub Post
   const { data: hubPosts } = await supabase
     .from('public_hub_posts')
     .select('content, media_url, media_type, created_at, username, full_name, avatar_url')
@@ -157,7 +157,15 @@ async function loadHubHighlights() {
     .from('library_items')
     .select('title, created_at, cover_color, cover_url')
     .order('created_at', { ascending: false })
-    .limit(2);
+    .limit(1);
+
+  // Fetch 1 Live Request (table arrives with the Live rework SQL)
+  const { data: liveRequests } = await supabase
+    .from('live_requests')
+    .select('title, description, created_at, status, profiles:profiles!user_id(full_name, avatar_url)')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .limit(1);
 
   let combined = [];
 
@@ -166,6 +174,9 @@ async function loadHubHighlights() {
   }
   if (libItems && libItems.length > 0) {
     libItems.forEach(l => combined.push({ type: 'library', data: l }));
+  }
+  if (liveRequests && liveRequests.length > 0) {
+    liveRequests.forEach(l => combined.push({ type: 'live', data: l }));
   }
 
   if (combined.length === 0) {
@@ -212,6 +223,21 @@ async function loadHubHighlights() {
           </div>
           <div class="lib-highlight-thumb" style="height: 120px; border-radius: 8px; margin-bottom: 12px; ${bg}"></div>
           <p class="hub-card-text" style="font-weight: 600;">${lib.title}</p>
+        </div>
+      `;
+    } else if (item.type === 'live') {
+      const live = item.data;
+      return `
+        <div class="hub-card reveal" style="transition-delay: 0.3s;">
+          <div class="hub-card-meta">
+            ${live.profiles?.avatar_url
+              ? `<img src="${live.profiles.avatar_url}" class="hub-card-avatar" style="object-fit:cover;">`
+              : `<div class="hub-card-avatar" style="background: linear-gradient(135deg, #ef4444, #f97316); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">L</div>`
+            }
+            <span class="hub-card-author">Live Request</span>
+          </div>
+          <p class="hub-card-text" style="font-weight: 600;">${live.title}</p>
+          <p class="hub-card-text" style="color: var(--text-muted); font-size: 13px; margin-top: 6px;">${live.profiles?.full_name || 'A Gliimait'} is looking for guidance.</p>
         </div>
       `;
     }

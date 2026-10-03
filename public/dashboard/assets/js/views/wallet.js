@@ -77,7 +77,7 @@ export default {
     if (this.currentTab === 'activity') {
       const unlocks = this.allTransactions.filter(t => t.type === 'purchase').length;
       const supports = this.allTransactions.filter(t => t.type === 'support' || t.type === 'live_support').length;
-      const liveEntries = this.allTransactions.filter(t => t.type === 'live_entry').length;
+      const liveEntries = this.allTransactions.filter(t => t.type === 'live_entry' || t.type === 'live_session').length;
 
       return `
         <div class="card stat-card">
@@ -103,7 +103,7 @@ export default {
             <div class="stat-icon-wrap bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
             <div class="stat-info">
               <span class="stat-value">${liveEntries}</span>
-              <span class="stat-label">Live Session Entries</span>
+              <span class="stat-label">Live Sessions</span>
             </div>
           </div>
         </div>
@@ -187,7 +187,7 @@ export default {
       icon = `<div class="txn-icon bg-brand"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></div>`;
     } else if (tx.type === 'support' || tx.type === 'live_support') {
       icon = `<div class="txn-icon bg-gold"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>`;
-    } else if (tx.type === 'live_entry') {
+    } else if (tx.type === 'live_entry' || tx.type === 'live_session') {
       icon = `<div class="txn-icon bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>`;
     } else {
       icon = `<div class="txn-icon bg-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div>`;
@@ -196,8 +196,12 @@ export default {
     const date = new Date(tx.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const statusBadge = tx.status === 'pending' ? '<span class="txn-status pending">Pending</span>' : '';
 
-    // FIX: Display Points (GPs) if they exist
-    const pointsHtml = tx.points && tx.points > 0 ? `<span class="txn-points">+${tx.points} GP</span>` : '';
+    // Pure GP rewards (no cash movement) show the GP value as the primary amount
+    const isPurePoints = (!tx.amount || tx.amount === 0) && tx.points > 0;
+    const pointsHtml = !isPurePoints && tx.points && tx.points > 0 ? `<span class="txn-points">+${tx.points} GP</span>` : '';
+    const amountHtml = isPurePoints
+      ? `<span class="txn-amount amount-positive">+${tx.points} GP</span>`
+      : `<span class="txn-amount ${amountClass}">${amountPrefix}₦${Math.abs(tx.amount).toLocaleString()}</span>`;
 
     return `
       <div class="txn-item">
@@ -208,7 +212,7 @@ export default {
         </div>
         <div class="txn-right">
           ${pointsHtml}
-          <span class="txn-amount ${amountClass}">${amountPrefix}₦${Math.abs(tx.amount).toLocaleString()}</span>
+          ${amountHtml}
         </div>
       </div>
     `;

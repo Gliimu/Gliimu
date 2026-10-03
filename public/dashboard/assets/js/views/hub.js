@@ -362,7 +362,7 @@ export default {
   async fetchPosts() {
     const [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await Promise.all([
       supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
-      supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, profiles:profiles!user_id(full_name, avatar_url)'),
+      supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
       supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
     ]);
@@ -610,22 +610,14 @@ export default {
     await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - amount }).eq('id', store.user.id);
     await supabase.rpc('increment_wallet', { user_id: authorId, amount: amount });
 
-    // Insert transaction for the SENDER (deduction)
+    // Insert transaction for the SENDER only; RLS blocks cross-user inserts, so the
+    // receiver's copy is written by a future server-side process if needed.
     await supabase.from('transactions').insert({
       user_id: store.user.id,
       amount: -amount,
       type: 'support',
       status: 'success',
       description: `Hub Support sent to ${post.profiles?.full_name || 'Author'}`
-    });
-
-    // FIX: Insert transaction for the RECEIVER (income) with sender's name
-    await supabase.from('transactions').insert({
-      user_id: authorId,
-      amount: amount,
-      type: 'support',
-      status: 'success',
-      description: `Hub Support received from ${store.profile.full_name}`
     });
 
     const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: amount }).select('*').single();
@@ -686,7 +678,7 @@ export default {
   },
 
   setupRealtime() {
-    supabase.removeChannel(supabase.channel('public:posts'));
-    supabase.channel('public:posts').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => { this.fetchPosts(); }).subscribe();
+    const channelName = `hub-posts-${Date.now()}`;
+    supabase.channel(channelName).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => { this.fetchPosts(); }).subscribe();
   }
 };

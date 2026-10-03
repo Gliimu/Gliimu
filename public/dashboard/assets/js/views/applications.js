@@ -113,7 +113,7 @@ export default {
             </div>
           </div>
           <div class="info-banner">
-            <p>💡 <strong>How to rank up:</strong> Post in the Hub and purchase Library items to earn GPs. The top 9 are selected for the next Hub.</p>
+            <p><strong>Rank Hint;</strong> post and engage in the hub &amp; library.</p>
           </div>
         </div>
 
@@ -121,16 +121,20 @@ export default {
           <h3>The Top 9 (Triad Projections)</h3>
           <div class="triad-grid">
             ${triads.map(t => `
-              <div class="triad-box" style="border-top: 4px solid ${t.color};">
+              <div class="triad-box">
                 <span class="triad-name" style="color: ${t.color};">${t.name}</span>
                 <div class="triad-members">
-                  ${t.members.map(m => `
+                  ${t.members.map(m => {
+                    const avatar = m.avatar
+                      ? `<img src="${m.avatar}" class="triad-avatar" alt="">`
+                      : `<div class="triad-avatar triad-avatar-fallback">${m.name?.charAt(0).toUpperCase() || 'G'}</div>`;
+                    return `
                     <div class="triad-member">
-                      <img src="${m.avatar || 'https://via.placeholder.com/24'}" class="triad-avatar">
+                      ${avatar}
                       <span>${m.name}</span>
                       <span class="triad-gp">${m.gp} GP</span>
                     </div>
-                  `).join('') || '<span class="text-muted">Pending...</span>'}
+                  `}).join('') || '<span class="text-muted">Pending...</span>'}
                 </div>
               </div>
             `).join('')}

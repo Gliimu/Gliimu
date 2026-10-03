@@ -130,6 +130,7 @@
 .lib-menu-item:last-child { border-bottom: none; }
 .lib-menu-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .lib-menu-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+.lib-menu-avatar-fallback { display: flex; align-items: center; justify-content: center; background: var(--gradient-primary); color: #fff; font-size: 10px; font-weight: 700; }
 
 /* Ensure Modal Close Button is perfect */
 .modal-content .modal-close {
@@ -152,6 +153,35 @@
 }
 .modal-content .modal-close:hover { background: rgba(0,0,0,0.8); }
 
+/* Submit-to-Library FAB */
+.library-fab-wrapper {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.library-fab-main {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.library-fab-main:hover { transform: scale(1.05); background: var(--brand-primary-hover); }
+
 /* Responsive Grid (Mobile - 2 Columns) */
 @media (max-width: 768px) {
   .lib-masonry-grid {
@@ -168,6 +198,9 @@
     top: auto;
     bottom: 120%; /* Opens upwards */
   }
+
+  /* Keep the FAB clear of the fixed bottom bar */
+  body .library-fab-wrapper { bottom: 80px !important; }
 }
 
 /* Fix Filter SVG stealing clicks */

@@ -30,6 +30,22 @@
 /* Topbar Search */
 .ping-top-search-wrapper { position: relative; width: 100%; max-width: 500px; margin: 0 16px; }
 
+/* Gliim-PA topbar shortcut (top-right on desktop, bottom-bar right on mobile) */
+.gliim-pa-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px 6px 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.gliim-pa-btn:hover { border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
+.gliim-pa-btn img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--gradient-primary); }
+.gliim-pa-label { font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+
 .ping-search-dropdown {
   position: absolute;
   top: 110%;
@@ -269,27 +285,6 @@
 .ping-search-item:last-child { border-bottom: none; }
 .ping-search-item:hover { background: var(--bg-tertiary); }
 
-/* Topbar Go Live Icon */
-.ping-go-live-icon {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-secondary);
-  margin-left: auto; /* Pushes it to the far right */
-  transition: all 0.2s ease;
-}
-
-.ping-go-live-icon:hover {
-  border-color: var(--brand-primary);
-  color: var(--brand-primary);
-}
-
 /* Sidebar Tabs */
 .ping-sidebar-tabs {
   display: flex;
@@ -327,66 +322,12 @@
   .ping-back-btn { display: flex; }
   .ping-top-search-wrapper { max-width: 200px; }
 
-  /* Raise action buttons on mobile */
-  .live-host-toolbar { bottom: 40px; gap: 8px; padding: 8px; }
-  .live-ctrl-btn { width: 40px; height: 40px; }
+  /* Topbar is the bottom bar on mobile: search results drop up */
+  .ping-search-dropdown { top: auto; bottom: 110%; }
 
-  /* Adjust participant strip on mobile */
-  .live-participants-strip { bottom: 120px; }
-  .live-participant-card { width: 48px; }
-  .live-participant-avatar { width: 48px; height: 48px; font-size: 16px; }
-}
-
-/* Fix Z-Index for Live Studio over Sidebar */
-.live-studio-overlay {
-  z-index: 2000 !important;
-}
-/* ============================================
-   LIVE SUPPORT & FLOATING ANIMATIONS
-   ============================================ */
-.floating-support-icon {
-  position: absolute;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: floatUp 3s ease-out forwards;
-  pointer-events: none;
-}
-
-.fs-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50% !important;
-  border: 2px solid var(--brand-primary);
-  object-fit: cover;
-  margin-bottom: 4px;
-}
-
-.fs-icon {
-  font-size: 20px;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-}
-
-@keyframes floatUp {
-  0% { transform: translateY(0) scale(0.5); opacity: 0; }
-  15% { transform: translateY(-20px) scale(1.2); opacity: 1; }
-  80% { opacity: 1; }
-  100% { transform: translateY(-400px) scale(1); opacity: 0; }
-}
-
-/* Viewer Support Button Glow */
-.live-ctrl-btn.support-btn {
-  background: var(--brand-primary);
-}
-.live-ctrl-btn.support-btn.glow-support {
-  animation: supportPulse 1s ease-out;
-}
-
-@keyframes supportPulse {
-  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
-  70% { box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+  /* Compact Gliim-PA button in the bottom bar */
+  .gliim-pa-btn { padding: 4px; border-radius: 50%; }
+  .gliim-pa-label { display: none; }
 }
 
 /* Unread Chat Highlight */

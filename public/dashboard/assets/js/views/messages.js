@@ -2,6 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
+import { computeUnread, markChatRead } from '../readState.js';
 
 export default {
   title: 'Ping',
@@ -63,8 +64,7 @@ export default {
       editMessage: (msgId) => this.editMessage(msgId),
       deleteMessage: (msgId) => this.deleteMessage(msgId),
       saveEdit: (msgId) => this.saveEdit(msgId),
-      cancelEdit: () => this.renderChatWindow(),
-      joinLiveFromInvite: (hostId) => this.joinLiveFromInvite(hostId)
+      cancelEdit: () => this.renderChatWindow()
     };
 
     this.setupTopbar();
@@ -76,6 +76,7 @@ export default {
 
   setupTopbar() {
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
+    const topbarRight = document.getElementById('topbar-right-actions');
 
     if (topbarDynamic) {
       topbarDynamic.innerHTML = `
@@ -83,6 +84,16 @@ export default {
           <input type="text" id="ping-top-search" class="input" placeholder="Search users to add..." oninput="pingInstance.searchUsers(this.value)">
           <div class="ping-search-dropdown" id="ping-search-dropdown"></div>
         </div>
+      `;
+    }
+
+    // Gliim-PA shortcut: top-right on desktop, bottom-bar right on mobile
+    if (topbarRight) {
+      topbarRight.innerHTML = `
+        <button class="gliim-pa-btn" title="Chat with Gliim-PA" onclick="pingInstance.openChat('ai', 'ai')">
+          <img src="/icons/gliimpa.png" alt="Gliim-PA">
+          <span class="gliim-pa-label">Gliim-PA</span>
+        </button>
       `;
     }
   },
@@ -147,15 +158,10 @@ export default {
 
     let userIds = explicitContacts.map(c => c.contact_id).filter(id => !hiddenMap[id]);
 
-    // Fetch unread counts per sender
+    // Fetch unread counts per sender (computed locally; receivers can't write read_at)
     const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at, read_at').eq('receiver_id', store.user.id);
 
-    const unreadMap = {};
-    receivedMsgs.forEach(m => {
-      if (!m.read_at) {
-        unreadMap[m.sender_id] = (unreadMap[m.sender_id] || 0) + 1;
-      }
-    });
+    const { unreadMap } = computeUnread(store.user.id, receivedMsgs);
     this.unreadMap = unreadMap;
 
     receivedMsgs.forEach(m => {
@@ -252,16 +258,13 @@ export default {
       const { data: msgs } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${store.user.id},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${store.user.id})`).order('created_at', { ascending: true });
       this.chatHistory = msgs || [];
 
-      // FIX: Mark messages as read
-      const { error: updateError } = await supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('receiver_id', store.user.id).eq('sender_id', id).is('read_at', null);
+      // Mark as read locally (RLS blocks receiver-side read_at updates)
+      const clearedCount = this.unreadMap[id] || 0;
+      markChatRead(store.user.id, id);
+      delete this.unreadMap[id];
 
-      // Decrement global notification count
-      if (!updateError && window.NotificationManager) {
-        const unreadInThisChat = this.chatHistory.filter(m => m.sender_id === id && m.receiver_id === store.user.id && !m.read_at).length;
-        // The history might not have the updated read_at yet, so we rely on the count we just marked
-        // We will fetch the unread count again to be sure
-        const { count: newUnreadCount } = await supabase.from('messages').select('*', { count: 'exact', head: true }).eq('receiver_id', store.user.id).is('read_at', null);
-        window.NotificationManager.counts.ping = newUnreadCount || 0;
+      if (window.NotificationManager && clearedCount > 0) {
+        window.NotificationManager.counts.ping = Math.max(0, (window.NotificationManager.counts.ping || 0) - clearedCount);
         window.NotificationManager.updateBadge('ping', window.NotificationManager.counts.ping);
       }
     }
@@ -305,9 +308,9 @@ export default {
 
         let contentHtml = '';
         if (m.content) {
-          if (m.content.includes('Join my live session:')) {
-            const hostId = m.sender_id;
-            contentHtml = `<button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.joinLiveFromInvite('${hostId}')">Join Live Session</button>`;
+          if (m.content.startsWith('🎥 Session accepted:')) {
+            const formattedText = m.content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
+            contentHtml = `<p>${formattedText}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="window.location.hash='#/live'">Open Live Page</button>`;
           } else {
             const formattedText = m.content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
             contentHtml = `<p>${formattedText}</p>`;
@@ -433,12 +436,6 @@ export default {
     event.target.value = '';
   },
 
-  // Hand off to the Live page, which owns the session join flow
-  joinLiveFromInvite(hostId) {
-    sessionStorage.setItem('live_join_host', hostId);
-    window.location.hash = '#/live';
-  },
-
   showMessageMenu(e, msgId) {
     e.stopPropagation();
     document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
@@ -502,16 +499,17 @@ export default {
   },
 
   setupRealtime() {
-    // FIX: Remove existing channel to prevent "already subscribed" crash
     if (this.messageChannel) supabase.removeChannel(this.messageChannel);
 
-    this.messageChannel = supabase.channel('public:messages')
+    // Unique channel name: reusing a cached, already-subscribed channel throws
+    this.messageChannel = supabase.channel(`ping-messages-${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
         if (m.sender_id === store.user.id) return;
         if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
           this.chatHistory.push(m); this.renderChatWindow();
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
+          markChatRead(store.user.id, m.sender_id);
           this.chatHistory.push(m); this.renderChatWindow();
           this.fetchContacts();
         } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id) {
