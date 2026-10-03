@@ -289,7 +289,16 @@ export default {
 
     let userIds = explicitContacts.map(c => c.contact_id).filter(id => !hiddenMap[id]);
 
-    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at').eq('receiver_id', store.user.id);
+    // Fetch unread counts per sender
+    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at, read_at').eq('receiver_id', store.user.id);
+
+    const unreadMap = {};
+    receivedMsgs.forEach(m => {
+      if (!m.read_at) {
+        unreadMap[m.sender_id] = (unreadMap[m.sender_id] || 0) + 1;
+      }
+    });
+
     receivedMsgs.forEach(m => {
       const msgTime = new Date(m.created_at).getTime();
       if (!hiddenMap[m.sender_id] || msgTime > hiddenMap[m.sender_id]) {
@@ -373,17 +382,18 @@ export default {
       const avatarClass = u.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
       const avatar = u.avatar_url ? `<img src="${u.avatar_url}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
-      // FIX: Add unread class if there are unread messages from this user
-      const hasUnread = this.chatHistory.some(m => m.sender_id === u.id && m.receiver_id === store.user.id && !m.read_at) || (this.activeChat?.id !== u.id && u.has_unread); // Simplified logic for UI highlighting
-      const unreadClass = hasUnread ? 'unread' : '';
+      // Unread Badge
+      const unreadCount = unreadMap[u.id] || 0;
+      const unreadBadge = unreadCount > 0 ? `<span class="chat-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : '';
 
       return `
-        <div class="ping-chat-item ${this.activeChat?.id === u.id ? 'active' : ''} ${unreadClass}" onclick="pingInstance.openChat('dm', '${u.id}')">
+        <div class="ping-chat-item ${this.activeChat?.id === u.id ? 'active' : ''} ${unreadCount > 0 ? 'unread' : ''}" onclick="pingInstance.openChat('dm', '${u.id}')">
           ${avatar}
           <div class="ping-chat-info">
             <span class="ping-chat-name">${u.full_name}</span>
             <span class="ping-chat-preview">${u.total_gp || 0} GP</span>
           </div>
+          ${unreadBadge}
         </div>
       `;
     }).join('');
@@ -407,13 +417,15 @@ export default {
       this.chatHistory = msgs || [];
 
       // FIX: Mark messages as read
-      await supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('receiver_id', store.user.id).eq('sender_id', id).is('read_at', null);
+      const { error: updateError } = await supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('receiver_id', store.user.id).eq('sender_id', id).is('read_at', null);
 
       // Decrement global notification count
-      const unreadInThisChat = this.chatHistory.filter(m => m.receiver_id === store.user.id && !m.read_at).length;
-      if (window.NotificationManager && unreadInThisChat > 0) {
-        window.NotificationManager.counts.ping -= unreadInThisChat;
-        if (window.NotificationManager.counts.ping < 0) window.NotificationManager.counts.ping = 0;
+      if (!updateError && window.NotificationManager) {
+        const unreadInThisChat = this.chatHistory.filter(m => m.sender_id === id && m.receiver_id === store.user.id && !m.read_at).length;
+        // The history might not have the updated read_at yet, so we rely on the count we just marked
+        // We will fetch the unread count again to be sure
+        const { count: newUnreadCount } = await supabase.from('messages').select('*', { count: 'exact', head: true }).eq('receiver_id', store.user.id).is('read_at', null);
+        window.NotificationManager.counts.ping = newUnreadCount || 0;
         window.NotificationManager.updateBadge('ping', window.NotificationManager.counts.ping);
       }
     }
