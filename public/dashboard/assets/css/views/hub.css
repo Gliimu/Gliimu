@@ -333,10 +333,12 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   }
 }
 
-/* Mobile Dropup for Hub Filter */
-.hub-filter-menu {
-  top: auto;
-  bottom: 120%; /* Opens upwards away from the bottom bar */
+/* Mobile Dropup for Hub Filter (desktop keeps the standard dropdown) */
+@media (max-width: 768px) {
+  .hub-filter-menu {
+    top: auto;
+    bottom: 120%; /* Opens upwards away from the bottom bar */
+  }
 }
 
 /* ============================================
@@ -417,9 +419,11 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
    BULLETPROOF MOBILE GRID FIX
    ============================================ */
 @media (max-width: 768px) {
-  /* 1. Reduce outer dashboard padding to give columns maximum room */
+  /* 1. Reduce outer dashboard padding to give columns maximum room,
+        but keep room for the fixed bottom bar on mobile */
   .view-container {
     padding: 16px 8px !important;
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* 2. Use column-width instead of count so browser auto-calculates fit */

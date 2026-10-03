@@ -431,7 +431,7 @@
 
   /* Add padding to bottom of content so it isn't hidden behind bottom bar */
   .view-container {
-    padding-bottom: 100px;
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* Push Hub FAB up so it doesn't overlap bottom bar */
@@ -456,10 +456,6 @@
   }
   .user-info {
     display: none;
-  }
-  .sidebar-collapse-btn.mobile-only {
-    width: 40px;
-    height: 40px;
   }
 }
 

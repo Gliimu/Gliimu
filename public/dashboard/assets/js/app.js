@@ -57,20 +57,14 @@ const NotificationManager = {
 // MOBILE SIDEBAR AUTO-CLOSE
 // ============================================
 function initSidebarAutoClose() {
-  document.addEventListener('click', (e) => {
-    const body = document.body;
-    // Only on mobile
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+
+  // Navigating from the sidebar (nav link or avatar) slides it away immediately
+  sidebar.addEventListener('click', (e) => {
     if (window.innerWidth > 768) return;
-
-    // If sidebar is open
-    if (!body.classList.contains('sidebar-open')) return;
-
-    const sidebar = document.getElementById('sidebar');
-    const toggleBtn = document.querySelector('.menu-toggle');
-
-    // If the click is outside the sidebar and not on the toggle button
-    if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
-      body.classList.remove('sidebar-open');
+    if (e.target.closest('.nav-item') || e.target.closest('.user-card')) {
+      document.body.classList.remove('sidebar-open');
     }
   });
 }
@@ -105,6 +99,7 @@ async function initApp() {
   // Initialize Notifications
   await NotificationManager.fetchInitialCounts();
   NotificationManager.initRealtimeListeners();
+  window.NotificationManager = NotificationManager;
   initSidebarAutoClose();
 
   window.addEventListener('hashchange', router);
