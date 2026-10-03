@@ -616,16 +616,16 @@ export default {
       amount: -amount,
       type: 'support',
       status: 'success',
-      description: `Hub Support sent`
+      description: `Hub Support sent to ${post.profiles?.full_name || 'Author'}`
     });
 
-    // Insert transaction for the RECEIVER (income)
+    // FIX: Insert transaction for the RECEIVER (income) with sender's name
     await supabase.from('transactions').insert({
       user_id: authorId,
       amount: amount,
       type: 'support',
       status: 'success',
-      description: `Hub Support received`
+      description: `Hub Support received from ${store.profile.full_name}`
     });
 
     const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: amount }).select('*').single();

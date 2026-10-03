@@ -609,3 +609,27 @@
   70% { box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
   100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
 }
+
+/* Unread Chat Highlight */
+.ping-chat-item.unread .ping-chat-name {
+  font-weight: 800; /* Bold name */
+  color: var(--text-primary);
+}
+
+.ping-chat-item.unread .ping-chat-preview {
+  color: var(--brand-primary); /* Highlight preview text */
+  font-weight: 600;
+}
+
+.ping-chat-item.unread::after {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  background: var(--brand-primary);
+  border-radius: 50%;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+}

@@ -8,9 +8,6 @@ import { supabase } from '/shared/js/config.js';
 const NotificationManager = {
   counts: {
     ping: 0,
-    hub: 0,
-    library: 0,
-    wallet: 0,
     settings: 0
   },
 
@@ -38,19 +35,14 @@ const NotificationManager = {
     this.counts.ping = pingCount || 0;
     this.updateBadge('ping', this.counts.ping);
 
-    // Wallet (Subscription Expiry <= 3 days)
-    const { data: profile } = await supabase.from('profiles').select('subscription_expires_at').eq('id', store.user.id).single();
-    if (profile?.subscription_expires_at) {
-      const daysLeft = Math.ceil((new Date(profile.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24));
-      if (daysLeft <= 3 && daysLeft >= 0) {
-        this.counts.wallet = 1;
-        this.updateBadge('wallet', this.counts.wallet);
-      }
-    }
+    // Settings (App Version - Placeholder logic)
+    // For now, we'll just set it to 0. You can change this to 1 when you deploy a new version.
+    this.counts.settings = 0;
+    this.updateBadge('settings', this.counts.settings);
   },
 
   initRealtimeListeners() {
-    // FIX: Use a unique channel name to prevent clashing with messages.js
+    // Listen for new DMs
     supabase.channel('app-global-notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         if (payload.new.receiver_id === store.user.id && !payload.new.read_at) {
@@ -60,6 +52,28 @@ const NotificationManager = {
       }).subscribe();
   }
 };
+
+// ============================================
+// MOBILE SIDEBAR AUTO-CLOSE
+// ============================================
+function initSidebarAutoClose() {
+  document.addEventListener('click', (e) => {
+    const body = document.body;
+    // Only on mobile
+    if (window.innerWidth > 768) return;
+
+    // If sidebar is open
+    if (!body.classList.contains('sidebar-open')) return;
+
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.querySelector('.menu-toggle');
+
+    // If the click is outside the sidebar and not on the toggle button
+    if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+      body.classList.remove('sidebar-open');
+    }
+  });
+}
 
 // ============================================
 // APP INITIALIZATION
@@ -91,6 +105,7 @@ async function initApp() {
   // Initialize Notifications
   await NotificationManager.fetchInitialCounts();
   NotificationManager.initRealtimeListeners();
+  initSidebarAutoClose();
 
   window.addEventListener('hashchange', router);
   router();

@@ -169,8 +169,14 @@ export default {
     let amountClass = 'amount-negative';
     let amountPrefix = '-';
 
-    // If the amount is positive, it's income (green). If negative, it's an expense (red).
+    // FIX: If amount > 0, it's income (green). If negative, it's an expense (red).
     if (tx.amount > 0) {
+      amountClass = 'amount-positive';
+      amountPrefix = '+';
+    }
+
+    // FIX: GP Rewards should always be green
+    if (tx.type === 'reward' && tx.points > 0) {
       amountClass = 'amount-positive';
       amountPrefix = '+';
     }
@@ -190,6 +196,9 @@ export default {
     const date = new Date(tx.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const statusBadge = tx.status === 'pending' ? '<span class="txn-status pending">Pending</span>' : '';
 
+    // FIX: Display Points (GPs) if they exist
+    const pointsHtml = tx.points && tx.points > 0 ? `<span class="txn-points">+${tx.points} GP</span>` : '';
+
     return `
       <div class="txn-item">
         ${icon}
@@ -197,7 +206,10 @@ export default {
           <span class="txn-title">${label} ${statusBadge}</span>
           <span class="txn-date">${date}</span>
         </div>
-        <span class="txn-amount ${amountClass}">${amountPrefix}₦${Math.abs(tx.amount).toLocaleString()}</span>
+        <div class="txn-right">
+          ${pointsHtml}
+          <span class="txn-amount ${amountClass}">${amountPrefix}₦${Math.abs(tx.amount).toLocaleString()}</span>
+        </div>
       </div>
     `;
   },
