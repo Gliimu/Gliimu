@@ -387,18 +387,6 @@
   color: var(--text-primary);
 }
 
-.lb-you {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--brand-primary);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  vertical-align: middle;
-}
-
 .lb-score {
   font-size: 15px;
   font-weight: 700;
@@ -414,4 +402,17 @@
   min-width: 100%;
   z-index: 1000;
   overflow: hidden;
+}
+
+/* Topbar is the bottom bar on mobile: search results drop up */
+@media (max-width: 768px) {
+  #profile-search-dropdown {
+    top: auto !important; /* overrides the inline top: 110% */
+    bottom: 110%;
+  }
+}
+
+/* Own profile card gets a contrasting border */
+.profile-card.my-profile-card {
+  border: 2px solid var(--brand-primary);
 }

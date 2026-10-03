@@ -9,8 +9,9 @@ const ICE_SERVERS = [
   { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
 ];
 
-const SESSION_FEE = 100;
-const SESSION_GP = 50;
+const SESSION_GP = 25;
+const MIN_GP_FOR_LIVE = 100;
+const MAX_OPEN_REQUESTS = 5;
 
 const ICONS = {
   search: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
@@ -19,6 +20,7 @@ const ICONS = {
   cam: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
   flip: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>',
   screen: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
+  aspect: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>',
   end: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>'
 };
 
@@ -49,7 +51,6 @@ const liveView = {
   sessionModalOpen: false,
   sessionConnected: false,
   sessionSettled: false,
-  sessionCharge: 0,
 
   localStream: null,
   displayStream: null,
@@ -200,6 +201,10 @@ const liveView = {
     const q = this.searchQuery.trim().toLowerCase();
     const matches = (r) => !q || (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
 
+    const busyUserIds = new Set(
+      this.requests.filter(r => r.status === 'active').flatMap(r => [r.user_id, r.partner_id].filter(Boolean))
+    );
+
     const mine = this.requests.filter(r => r.user_id === store.user.id && r.status === 'open' && matches(r));
     const open = this.requests.filter(r => r.user_id !== store.user.id && r.status === 'open' && matches(r));
 
@@ -215,7 +220,7 @@ const liveView = {
 
     html += `<div class="live-board-section"><h3 class="live-board-title">Open Requests</h3>`;
     if (open.length) {
-      html += open.map(r => this.renderRequestCard(r, 'teach')).join('');
+      html += open.map(r => this.renderRequestCard(r, 'teach', busyUserIds.has(r.user_id))).join('');
     } else {
       html += `<p class="live-board-empty">${q ? `No requests match "${esc(this.searchQuery.trim())}".` : 'No open requests right now. Tap Post Request to ask for guidance.'}</p>`;
     }
@@ -224,7 +229,7 @@ const liveView = {
     boardEl.innerHTML = html;
   },
 
-  renderRequestCard(r, mode) {
+  renderRequestCard(r, mode, locked = false) {
     const name = r.profiles?.full_name || 'A Gliimait';
     const avatar = r.profiles?.avatar_url
       ? `<img src="${esc(r.profiles.avatar_url)}" class="live-req-avatar" alt="">`
@@ -232,15 +237,17 @@ const liveView = {
     const desc = r.description ? `<p class="live-req-desc">${esc(r.description)}</p>` : '';
     const action = mode === 'mine'
       ? `<button class="btn-secondary btn-sm" onclick="liveInstance.deleteRequest('${r.id}')">Cancel</button>`
-      : `<button class="btn-primary btn-sm" onclick="liveInstance.claimRequest('${r.id}')">Teach This</button>`;
+      : locked
+        ? `<button class="btn-secondary btn-sm" disabled title="This Gliimait is in a live session right now">In Session</button>`
+        : `<button class="btn-primary btn-sm" onclick="liveInstance.claimRequest('${r.id}')">Teach This</button>`;
 
     return `
-      <div class="live-request-card">
+      <div class="live-request-card${locked && mode === 'teach' ? ' locked' : ''}">
         ${avatar}
         <div class="live-req-info">
           <p class="live-req-title">${esc(r.title)}</p>
           ${desc}
-          <p class="live-req-meta">${esc(name)} · ${timeAgo(r.created_at)}</p>
+          <p class="live-req-meta">${esc(name)} · ${timeAgo(r.created_at)}${locked && mode === 'teach' ? ' · in a live session' : ''}</p>
         </div>
         <div class="live-req-action">${action}</div>
       </div>
@@ -324,9 +331,11 @@ const liveView = {
      POSTING / CLAIMING / CANCELLING
      ============================================ */
   openRequestModal() {
+    const myGp = store.profile?.total_gp || 0;
+    if (myGp < MIN_GP_FOR_LIVE) return alert(`You need at least ${MIN_GP_FOR_LIVE} GP to start live sessions. You have ${myGp} GP.`);
     if (this.getMyActiveRow()) return alert('You already have an active session.');
     const myOpen = this.requests.filter(r => r.user_id === store.user.id && r.status === 'open');
-    if (myOpen.length >= 3) return alert('You can have up to 3 open requests at a time.');
+    if (myOpen.length >= MAX_OPEN_REQUESTS) return alert(`You can have up to ${MAX_OPEN_REQUESTS} open requests at a time.`);
 
     const modal = document.getElementById('live-request-modal');
     if (modal) {
@@ -373,6 +382,8 @@ const liveView = {
   async claimRequest(id) {
     const row = this.requests.find(r => r.id === id);
     if (!row || row.status !== 'open' || row.user_id === store.user.id) return;
+    const myGp = store.profile?.total_gp || 0;
+    if (myGp < MIN_GP_FOR_LIVE) return alert(`You need at least ${MIN_GP_FOR_LIVE} GP to start live sessions. You have ${myGp} GP.`);
     if (this.getMyActiveRow()) return alert('You already have an active session.');
 
     const learnerName = row.profiles?.full_name || 'this Gliimait';
@@ -462,7 +473,6 @@ const liveView = {
     this.sessionModalOpen = true;
     this.sessionConnected = false;
     this.sessionSettled = false;
-    this.sessionCharge = 0;
     this.iceQueue = [];
     this.offerReceived = false;
     this.creatingOffer = false;
@@ -497,6 +507,7 @@ const liveView = {
             <button class="live-ctrl-btn cam-on" id="live-mute-cam-btn" title="Toggle camera">${ICONS.cam}</button>
             <button class="live-ctrl-btn" id="live-flip-btn" title="Flip camera">${ICONS.flip}</button>
             <button class="live-ctrl-btn" id="live-share-btn" title="Share screen">${ICONS.screen}</button>
+            <button class="live-ctrl-btn" id="live-aspect-btn" title="Adjust display (fit / fill)">${ICONS.aspect}</button>
             <button class="live-ctrl-btn danger" id="live-end-btn" title="End session">${ICONS.end}</button>
           </div>
         </div>
@@ -508,6 +519,7 @@ const liveView = {
     document.getElementById('live-mute-cam-btn')?.addEventListener('click', () => this.toggleMute('cam'));
     document.getElementById('live-flip-btn')?.addEventListener('click', () => this.flipCamera());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.toggleScreenShare());
+    document.getElementById('live-aspect-btn')?.addEventListener('click', () => this.toggleAspectRatio());
     document.getElementById('live-end-btn')?.addEventListener('click', () => this.endSession());
 
     this.showSessionStatus(isPoster ? `Connecting to ${partnerName}…` : `Waiting for ${partnerName} to join…`);
@@ -778,7 +790,6 @@ const liveView = {
   },
 
   async toggleScreenShare() {
-    if (window.innerWidth <= 768) return;
     if (!this.sessionPc || !this.localStream) return;
 
     const sender = this.sessionPc.getSenders().find(sn => sn.track && sn.track.kind === 'video');
@@ -818,6 +829,13 @@ const liveView = {
     }
   },
 
+  toggleAspectRatio() {
+    const remoteEl = document.getElementById('live-remote-feed');
+    if (!remoteEl) return;
+    const contained = remoteEl.classList.toggle('fit-contain');
+    document.getElementById('live-aspect-btn')?.classList.toggle('sharing', contained);
+  },
+
   /* ============================================
      SETTLEMENT & TEARDOWN
      ============================================ */
@@ -829,7 +847,7 @@ const liveView = {
     let msg;
     if (this.sessionConnected) {
       msg = isPoster
-        ? `End this session?\n₦${SESSION_FEE} session fee applies unless you have an active subscription. You'll both earn +${SESSION_GP} GP.`
+        ? `End this session?\nYou'll both earn +${SESSION_GP} GP.`
         : `End this session?\nYou'll earn +${SESSION_GP} GP.`;
     } else {
       msg = isPoster
@@ -873,17 +891,13 @@ const liveView = {
       .select('id')
       .maybeSingle();
 
-    const charge = await this.deriveCharge(s);
-    this.sessionCharge = charge;
-
     if (flipped) {
-      if (charge > 0) await supabase.rpc('increment_wallet', { user_id: s.user_id, amount: -charge });
       await supabase.rpc('add_gp', { target_user_id: s.user_id, points_to_add: SESSION_GP });
       if (s.partner_id) await supabase.rpc('add_gp', { target_user_id: s.partner_id, points_to_add: SESSION_GP });
     }
 
-    await this.recordOwnSessionTx(s, charge);
-    this.finishSessionUI(s, charge);
+    await this.recordOwnSessionTx(s);
+    this.finishSessionUI(s);
   },
 
   async finalizeAfterCompletion() {
@@ -891,20 +905,11 @@ const liveView = {
     this.sessionSettled = true;
 
     const s = this.activeSession;
-    const charge = await this.deriveCharge(s);
-    this.sessionCharge = charge;
-    await this.recordOwnSessionTx(s, charge);
-    this.finishSessionUI(s, charge);
+    await this.recordOwnSessionTx(s);
+    this.finishSessionUI(s);
   },
 
-  async deriveCharge(s) {
-    if (!s) return 0;
-    const { data } = await supabase.from('profiles').select('subscription_expires_at').eq('id', s.user_id).maybeSingle();
-    const exp = data?.subscription_expires_at;
-    return exp && new Date(exp) > new Date() ? 0 : SESSION_FEE;
-  },
-
-  async recordOwnSessionTx(s, charge) {
+  async recordOwnSessionTx(s) {
     const key = 'gliimu_live_tx_' + s.id;
     try {
       if (localStorage.getItem(key)) return;
@@ -914,20 +919,16 @@ const liveView = {
     const isPoster = s.user_id === store.user.id;
     await supabase.from('transactions').insert({
       user_id: store.user.id,
-      amount: isPoster ? -charge : 0,
+      amount: 0,
       points: SESSION_GP,
       type: 'live_session',
       status: 'success',
-      description: isPoster ? `Live session: ${s.title}` : `Live session taught: ${s.title}`
+      description: isPoster ? `Live session: ${s.title} (+${SESSION_GP} GP earned)` : `Live session taught: ${s.title} (+${SESSION_GP} GP earned)`
     });
   },
 
-  finishSessionUI(s, charge) {
-    const isPoster = s.user_id === store.user.id;
+  finishSessionUI(s) {
     const lines = ['Session complete! 🎉', `+${SESSION_GP} GP earned.`];
-    if (isPoster) {
-      lines.push(charge > 0 ? `₦${charge} session fee applied.` : 'Free session — active subscription.');
-    }
     this.cleanupSession();
     alert(lines.join('\n'));
   },
@@ -971,7 +972,6 @@ const liveView = {
     this.sessionModalOpen = false;
     this.sessionConnected = false;
     this.sessionSettled = false;
-    this.sessionCharge = 0;
     this.activeSession = null;
     this.sessionRole = null;
     this.iceQueue = [];

@@ -151,6 +151,11 @@ export default {
           this.renderPosts(this.currentPosts);
         });
       });
+
+      // Close the filter menu when tapping anywhere else in the app
+      document.addEventListener('click', () => {
+        document.getElementById('hub-dropdown')?.classList.remove('active');
+      });
     }
   },
 

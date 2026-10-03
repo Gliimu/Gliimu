@@ -16,8 +16,16 @@ export default {
     };
 
     this.currentTab = 'activity'; // Default tab
+    this.setupTopbar();
     await this.fetchData();
     this.render();
+  },
+
+  setupTopbar() {
+    const topbarDynamic = document.getElementById('topbar-dynamic-content');
+    if (topbarDynamic) {
+      topbarDynamic.innerHTML = `<span class="mobile-bar-hint">Fund your wallet to make purchases</span>`;
+    }
   },
 
   async fetchData() {
@@ -33,7 +41,7 @@ export default {
 
     const { data: transactions, error: txError } = await supabase
       .from('transactions')
-      .select('id, user_id, amount, type, status, reference, description, created_at')
+      .select('id, user_id, amount, points, type, status, reference, description, created_at')
       .eq('user_id', store.user.id)
       .order('created_at', { ascending: false });
 
@@ -198,6 +206,11 @@ export default {
 
     // Pure GP rewards (no cash movement) show the GP value as the primary amount
     const isPurePoints = (!tx.amount || tx.amount === 0) && tx.points > 0;
+
+    if (isPurePoints) {
+      icon = `<img src="/icons/icon.png" class="txn-gp-icon" alt="GP">`;
+    }
+
     const pointsHtml = !isPurePoints && tx.points && tx.points > 0 ? `<span class="txn-points">+${tx.points} GP</span>` : '';
     const amountHtml = isPurePoints
       ? `<span class="txn-amount amount-positive">+${tx.points} GP</span>`
@@ -208,7 +221,7 @@ export default {
         ${icon}
         <div class="txn-info">
           <span class="txn-title">${label} ${statusBadge}</span>
-          <span class="txn-date">${date}</span>
+          <span class="txn-date">${date}${isPurePoints ? ` · +${tx.points} GP earned` : ''}</span>
         </div>
         <div class="txn-right">
           ${pointsHtml}

@@ -316,11 +316,13 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .ping-sidebar { position: absolute; top: 0; left: 0; bottom: 0; width: 100%; z-index: 10; transition: transform 0.3s ease; }
-  .ping-main { position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; z-index: 20; transform: translateX(100%); transition: transform 0.3s ease; }
+  /* Open chat covers the full screen, including the bottom bar */
+  .ping-main { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; z-index: 2000; transform: translateX(100%); transition: transform 0.3s ease; }
   .ping-layout.chat-open .ping-sidebar { transform: translateX(-100%); }
   .ping-layout.chat-open .ping-main { transform: translateX(0); }
   .ping-back-btn { display: flex; }
   .ping-top-search-wrapper { max-width: 200px; }
+  .ping-input-area { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 
   /* Topbar is the bottom bar on mobile: search results drop up */
   .ping-search-dropdown { top: auto; bottom: 110%; }

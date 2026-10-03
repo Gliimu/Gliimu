@@ -118,6 +118,10 @@ export default {
   async init() {
     window.settingsInstance = this;
 
+    // Mobile bottom bar hint
+    const topbarDynamic = document.getElementById('topbar-dynamic-content');
+    if (topbarDynamic) topbarDynamic.innerHTML = `<span class="mobile-bar-hint">Set up your account and details</span>`;
+
     // Sync theme icons when the view loads
     if (typeof updateThemeIcon === 'function') updateThemeIcon();
 

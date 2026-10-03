@@ -214,13 +214,6 @@ export default {
     const list = document.getElementById('ping-chat-list');
     if (!list) return;
 
-    const aiItem = `
-      <div class="ping-chat-item ${this.activeChat?.id === 'ai' ? 'active' : ''}" onclick="pingInstance.openChat('ai', 'ai')">
-        <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">
-        <div class="ping-chat-info"><span class="ping-chat-name">Gliim-PA</span><span class="ping-chat-preview">Elite AI Assistant</span></div>
-      </div>
-    `;
-
     const usersHtml = this.contacts.map(u => {
       const avatarClass = u.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
       const avatar = u.avatar_url ? `<img src="${u.avatar_url}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
@@ -242,7 +235,7 @@ export default {
     }).join('');
 
 
-    list.innerHTML = aiItem + usersHtml;
+    list.innerHTML = usersHtml;
   },
 
   async openChat(type, id) {

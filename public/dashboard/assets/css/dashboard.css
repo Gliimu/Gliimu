@@ -14,6 +14,12 @@
 }
 
 /* Topbar Logo (Hidden by default, revealed when sidebar collapses on desktop) */
+.topbar-logo-link {
+  display: none;
+  flex-shrink: 0;
+  text-decoration: none;
+  line-height: 0;
+}
 .topbar-logo-img {
   height: 32px;
   width: auto;
@@ -206,6 +212,9 @@
 
 .view-container { padding: var(--space-8); flex: 1; }
 
+/* Mobile-only hint shown in the bottom bar on pages with no search/actions */
+.mobile-bar-hint { display: none; }
+
 /* Core UI Components */
 .card {
   background: var(--surface);
@@ -368,6 +377,19 @@
   /* Always show hamburger on mobile */
   .menu-toggle { display: flex !important; }
 
+  /* Bottom-bar hint text on pages without search/actions */
+  .mobile-bar-hint {
+    display: block !important;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .sidebar {
     transform: translateX(-100%);
     z-index: 1000;
@@ -405,18 +427,39 @@
     transform: translateX(0);
   }
 
-  /* Mobile Profile Avatar Sizing */
+  /* Mobile drawer order: user card on top, nav in middle, logo at the bottom */
+  .sidebar-footer {
+    order: -1;
+    border-top: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-header {
+    order: 1;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Account tabs above Main tabs */
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-nav .nav-section:first-child {
+    order: 2;
+  }
+
+  /* Half-size avatar with username visible beside it */
   .user-card {
-    justify-content: space-between;
-    padding: var(--space-2) var(--space-1);
+    justify-content: flex-start;
+    padding: var(--space-2) var(--space-4);
   }
   .user-avatar {
-    width: 80px;
-    height: 80px;
-    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
   }
   .user-info {
-    display: none;
+    display: flex;
   }
 }
 

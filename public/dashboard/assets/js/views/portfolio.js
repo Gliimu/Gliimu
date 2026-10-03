@@ -108,7 +108,10 @@ export default {
       return `
       <div class="lib-dropdown-item" onclick="profileInstance.viewUser('${u.id}')" style="display:flex; align-items:center;">
         ${avatar}
-        ${u.full_name} <span style="color:var(--text-muted); font-size:12px; margin-left:4px;">(${u.total_gp || 0} GP)</span>
+        <div style="display:flex; flex-direction:column; line-height:1.3;">
+          <span>${u.full_name}</span>
+          <span style="color:var(--text-muted); font-size:11px;">${u.total_gp || 0} GP</span>
+        </div>
       </div>
     `}).join('');
   },
@@ -136,7 +139,7 @@ export default {
     container.innerHTML = `
       <div class="leaderboard-card card">
         <div class="leaderboard-header">
-          <h2>🏆 Elite Leaderboard</h2>
+          <h2>Elite Leaderboard</h2>
           <p>Top Gliimaits ranked by total GP earned.</p>
         </div>
         <div class="leaderboard-list">
@@ -149,7 +152,7 @@ export default {
               <span class="lb-rank">#${index + 1}</span>
               ${avatar}
               <div class="lb-info">
-                <span class="lb-name">${u.full_name || 'Gliimait'}${u.id === store.user.id ? ' <span class="lb-you">You</span>' : ''}</span>
+                <span class="lb-name">${u.full_name || 'Gliimait'}</span>
               </div>
               <span class="lb-score">${u.total_gp || 0} GP</span>
             </div>
@@ -188,7 +191,7 @@ export default {
     const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
 
     container.innerHTML = `
-      <div class="profile-card card printable-area">
+      <div class="profile-card card printable-area${isMe ? ' my-profile-card' : ''}">
         <div class="profile-header">
           <div class="profile-header-left">
             ${avatar}

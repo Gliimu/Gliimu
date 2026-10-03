@@ -17,6 +17,10 @@ export default {
   init() {
     this.currentTab = 'apprentice';
 
+    // Mobile bottom bar hint
+    const topbarDynamic = document.getElementById('topbar-dynamic-content');
+    if (topbarDynamic) topbarDynamic.innerHTML = `<span class="mobile-bar-hint">Become a(n); Apprentice, Author, Partner</span>`;
+
     window.reqInstance = {
       switchTab: (tab) => this.switchTab(tab),
       submitApprentice: () => this.submitApprentice(),

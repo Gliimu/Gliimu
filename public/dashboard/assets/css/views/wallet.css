@@ -153,6 +153,17 @@
   flex-shrink: 0;
 }
 
+/* GP earnings: the Gliimu logo, greyed out */
+.txn-gp-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  filter: grayscale(100%);
+  opacity: 0.45;
+}
+
 .txn-info {
   flex: 1;
   display: flex;

@@ -244,13 +244,12 @@
 .live-ctrl-btn.cam-off { background: var(--error); }
 .live-ctrl-btn.sharing { background: var(--brand-primary); }
 
-/* Flip camera is mobile-only, screen share is desktop-only */
-@media (min-width: 769px) {
-  #live-flip-btn { display: none; }
-}
-@media (max-width: 768px) {
-  #live-share-btn { display: none; }
-}
+/* Aspect-ratio toggle: show the whole broadcast instead of cropping */
+#live-remote-feed.fit-contain { object-fit: contain; }
+
+/* Locked request card (poster is in a live session) */
+.live-request-card.locked { opacity: 0.6; }
+.live-request-card.locked:hover { border-color: var(--border); }
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
