@@ -6,6 +6,7 @@ const routes = {
   '/profile': () => import('./views/portfolio.js').then(m => m.default),
   '/applications': () => import('./views/applications.js').then(m => m.default),
   '/ping': () => import('./views/messages.js').then(m => m.default),
+  '/live': () => import('./views/live.js').then(m => m.default),
   '/wallet': () => import('./views/wallet.js').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
 };
@@ -21,12 +22,12 @@ export async function router() {
   const topbarRightActions = document.getElementById('topbar-right-actions');
 
   // 1. Intercept Navigation if Live Session is Active
-  if (window.pingInstance && window.pingInstance.isLiveActive && window.pingInstance.isLiveActive()) {
+  if (window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()) {
     if (!confirm("Do you want to leave the live session?")) {
       history.replaceState(null, '', previousHash);
       return;
     }
-    window.pingInstance.endLive(); // Force end live session
+    window.liveInstance.endLive(); // Force end live session
   }
 
   // 2. Intercept Navigation if Modal is Open (from Hub)
