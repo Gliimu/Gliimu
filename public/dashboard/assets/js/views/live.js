@@ -387,7 +387,7 @@ const liveView = {
     if (this.getMyActiveRow()) return alert('You already have an active session.');
 
     const learnerName = row.profiles?.full_name || 'this Gliimait';
-    if (!confirm(`Teach "${row.title}" to ${learnerName}?\nYou'll earn +${SESSION_GP} GP when the session completes.`)) return;
+    if (!await appConfirm(`Teach "${row.title}" to ${learnerName}?\nYou'll earn +${SESSION_GP} GP when the session completes.`, { okText: 'Accept' })) return;
 
     const { data: claimed, error } = await supabase
       .from('live_requests')
@@ -417,7 +417,7 @@ const liveView = {
   },
 
   async deleteRequest(id) {
-    if (!confirm('Cancel this request?')) return;
+    if (!await appConfirm('Cancel this request?', { okText: 'Cancel request', danger: true })) return;
     const { error } = await supabase.from('live_requests').delete().eq('id', id).eq('user_id', store.user.id);
     if (error && isMissingTable(error)) return alert("Live Learning isn't available yet.");
     this.loadBoard();
@@ -431,7 +431,7 @@ const liveView = {
     const msg = isTeacher
       ? 'Cancel this session? The learner will be notified.'
       : 'Cancel this session? The teacher will be told it was cancelled.';
-    if (!confirm(msg)) return;
+    if (!await appConfirm(msg, { okText: 'Cancel session', danger: true })) return;
 
     this.sessionSettled = true;
     await supabase.from('live_requests').update({ status: 'cancelled' }).eq('id', s.id).in('status', ['open', 'active']);
@@ -839,7 +839,7 @@ const liveView = {
   /* ============================================
      SETTLEMENT & TEARDOWN
      ============================================ */
-  endSession() {
+  async endSession() {
     const s = this.activeSession;
     if (!s) return;
 
@@ -854,7 +854,7 @@ const liveView = {
         ? 'Close the waiting screen? You can rejoin from the Live page.'
         : 'Cancel this request? The learner will be notified.';
     }
-    if (!confirm(msg)) return;
+    if (!await appConfirm(msg, { okText: 'End session', danger: true })) return;
     this.endLive();
   },
 

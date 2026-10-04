@@ -23,7 +23,7 @@ export async function router() {
 
   // 1. Intercept Navigation if Live Session is Active
   if (window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()) {
-    if (!confirm("Do you want to leave the live session?")) {
+    if (!await appConfirm("Do you want to leave the live session?", { okText: 'Leave', danger: true })) {
       history.replaceState(null, '', previousHash);
       return;
     }
@@ -32,7 +32,7 @@ export async function router() {
 
   // 2. Intercept Navigation if Modal is Open (from Hub)
   if (window.hubInstance && window.hubInstance.isModalOpen && window.hubInstance.isModalOpen()) {
-    if (!confirm("Would you like to close the modal?")) {
+    if (!await appConfirm("Would you like to close the modal?", { okText: 'Close' })) {
       history.replaceState(null, '', previousHash);
       return;
     }

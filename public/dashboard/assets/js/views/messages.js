@@ -459,7 +459,7 @@ export default {
   },
 
   async deleteMessage(msgId) {
-    if (!confirm("Delete this message?")) return;
+    if (!await appConfirm("Delete this message?", { okText: 'Delete', danger: true })) return;
     await supabase.from('messages').delete().eq('id', msgId);
     this.chatHistory = this.chatHistory.filter(m => m.id !== msgId);
     this.renderChatWindow();
@@ -480,7 +480,7 @@ export default {
   },
 
   async removeContact(userId) {
-    if (!confirm("Remove this chat? The user will not be notified.")) return;
+    if (!await appConfirm("Remove this chat? The user will not be notified.", { okText: 'Remove', danger: true })) return;
     await supabase.from('hidden_chats').insert({ user_id: store.user.id, contact_id: userId });
     await supabase.from('contacts').delete().eq('user_id', store.user.id).eq('contact_id', userId);
     this.contacts = this.contacts.filter(c => c.id !== userId);

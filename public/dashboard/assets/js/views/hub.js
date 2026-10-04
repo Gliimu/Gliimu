@@ -203,7 +203,7 @@ export default {
   },
 
   async promptDelete(postId) {
-    const password = prompt("To permanently delete this Gliim, please enter your password:");
+    const password = await appPrompt("To permanently delete this Gliim, please enter your password:", { inputType: 'password', okText: 'Delete', danger: true });
     if (!password) return;
 
     const fakeEmail = `${store.profile.username}@gliimu.app`;
@@ -604,7 +604,7 @@ export default {
 
   async supportCreator(postId, authorId) {
     if (authorId === store.user.id) return alert("You cannot support yourself!");
-    const amountStr = prompt("Enter support amount (NGN):");
+    const amountStr = await appPrompt("Enter support amount (NGN):", { inputType: 'number', okText: 'Send' });
     if (!amountStr) return;
     const amount = parseInt(amountStr);
     if (isNaN(amount) || amount <= 0) return alert("Invalid amount.");
