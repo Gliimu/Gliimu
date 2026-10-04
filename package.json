@@ -4,6 +4,7 @@
   "description": "Full-Stack Media Technology & Business Services Platform.",
   "main": "index.js",
   "scripts": {
+    "tauri": "tauri",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -22,5 +23,8 @@
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
     "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1"
   }
 }
