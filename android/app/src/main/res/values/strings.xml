@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gliimu</string>
+    <string name="title_activity_main">Gliimu</string>
+    <string name="package_name">com.gliimu.app</string>
+    <string name="custom_url_scheme">com.gliimu.app</string>
+</resources>

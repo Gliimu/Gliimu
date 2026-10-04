@@ -1,0 +1,26 @@
+{
+  "name": "gliimu",
+  "version": "1.0.0",
+  "description": "Full-Stack Media Technology & Business Services Platform.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gliimu/Gliimu.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Gliimu/Gliimu/issues"
+  },
+  "homepage": "https://github.com/Gliimu/Gliimu#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}
