@@ -491,3 +491,93 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 .comment-text {
   display: block; /* Make text block so it sits below the name/time */
 }
+
+/* ============================================
+   CARD STATS: eye + comment icons
+   ============================================ */
+.blog-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.blog-stat svg { width: 14px; height: 14px; }
+
+/* Clickable author (avatar + name link to portfolio) */
+.hub-author-hit { cursor: pointer; }
+.hub-author-hit:hover > span { color: var(--brand-primary); }
+.hub-author-hit:hover > div > span:first-child { color: var(--brand-primary); }
+
+/* Support button: already-supported state (gold, locked) */
+.support-btn.supported {
+  color: var(--gold);
+  pointer-events: none;
+}
+.support-btn.supported svg {
+  stroke: var(--gold);
+  fill: var(--gold);
+}
+
+/* ============================================
+   TAG PEOPLE PICKER (Gliim composer)
+   ============================================ */
+.hub-tag-picker { display: flex; flex-direction: column; gap: 8px; }
+.hub-tag-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.hub-tag-chips:empty { display: none; }
+.hub-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+  padding: 4px 6px 4px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.hub-tag-chip-x {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.hub-tag-chip-x:hover { color: var(--error); }
+
+.hub-tag-results {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.hub-tag-results:not(:empty) { display: block; }
+.hub-tag-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.hub-tag-result:last-child { border-bottom: none; }
+.hub-tag-result:hover { background: var(--bg-tertiary); color: var(--brand-primary); }
+.hub-tag-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+.hub-tag-empty { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }

@@ -11,7 +11,7 @@
   padding: 40px;
   border-radius: 20px;
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
   box-shadow: var(--shadow-xl);
 }
 
@@ -32,53 +32,154 @@
 .wallet-actions {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 14px;
 }
 
-.wallet-actions .btn-primary {
+/* Circular light buttons on the gradient card */
+.icon-btn-light {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
-  color: white;
-  backdrop-filter: blur(4px);
-}
-
-.wallet-actions .btn-secondary {
-  background: transparent;
-  color: white;
   border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-/* Wallet Tabs */
-.wallet-tabs {
+  color: white;
   display: flex;
-  background: var(--surface);
-  padding: 4px;
-  border-radius: 12px;
-  margin-bottom: 24px;
-  border: 1px solid var(--border);
-}
-
-.wallet-tab {
-  flex: 1;
-  padding: 12px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 600;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.wallet-tab:hover {
+.icon-btn-light:hover {
+  background: rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+.icon-btn-light img {
+  width: 22px;
+  height: 22px;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+/* Transfer dropdown */
+.wallet-transfer-wrap {
+  position: relative;
+}
+
+.wallet-transfer-menu {
+  display: none;
+  position: absolute;
+  top: 115%;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  min-width: 215px;
+  z-index: 1000;
+  overflow: hidden;
+  text-align: left;
+}
+
+.wallet-transfer-menu.active {
+  display: block;
+}
+
+.wallet-transfer-item {
+  padding: 13px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.wallet-transfer-item:last-child {
+  border-bottom: none;
+}
+
+.wallet-transfer-item:hover {
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.wallet-tab.active {
-  background: var(--bg-tertiary);
+/* In-page view filter (Summary / Trxn / Subscription) */
+.billing-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.billing-filter-wrap {
+  position: relative;
+}
+
+.billing-filter-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.billing-filter-btn:hover {
+  border-color: var(--brand-primary);
   color: var(--brand-primary);
-  box-shadow: var(--shadow-sm);
+}
+
+.billing-filter-menu {
+  display: none;
+  position: absolute;
+  top: 120%;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  min-width: 180px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.billing-filter-menu.active {
+  display: block;
+}
+
+.billing-filter-item {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.billing-filter-item:last-child {
+  border-bottom: none;
+}
+
+.billing-filter-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.billing-filter-item.active {
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  font-weight: 600;
 }
 
 /* Activity Summary Cards */
@@ -185,9 +286,22 @@
   margin-top: 2px;
 }
 
+.txn-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
 .txn-amount {
   font-size: 16px;
   font-weight: 700;
+}
+
+.txn-points {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold, #F59E0B);
 }
 
 .amount-positive { color: var(--success); }
@@ -264,6 +378,193 @@
   font-weight: 600;
 }
 
+/* Subscription Plans */
+.plan-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.plan-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm);
+}
+
+.plan-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--brand-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-price {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -1px;
+  margin-top: 8px;
+}
+
+.plan-price-note {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.plan-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.plan-feature svg {
+  color: var(--success);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.plan-buy {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.plan-buy.active-plan {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: default;
+  box-shadow: none;
+}
+
+/* Transfer Modal */
+.transfer-results {
+  display: none;
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.transfer-results.active {
+  display: block;
+}
+
+.transfer-empty {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.transfer-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s ease;
+}
+
+.transfer-result:last-child {
+  border-bottom: none;
+}
+
+.transfer-result:hover {
+  background: var(--bg-tertiary);
+}
+
+.transfer-result-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.transfer-result-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.transfer-result-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.transfer-result-gp {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.transfer-selected {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--brand-primary-light);
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.transfer-selected.active {
+  display: flex;
+}
+
+.transfer-selected-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-primary);
+}
+
+.transfer-selected-x {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transfer-selected-x:hover {
+  background: var(--error-light);
+  color: var(--error);
+}
+
 /* Top Up Modal */
 .bank-details-box {
   background: var(--bg-tertiary);
@@ -296,14 +597,10 @@
   .balance-amount {
     font-size: 36px;
   }
-  .wallet-actions {
-    flex-direction: column;
+  .plan-list {
+    grid-template-columns: 1fr;
   }
-  .wallet-actions button {
-    width: 100%;
-  }
-  .wallet-tabs {
-    flex-direction: column;
-    gap: 4px;
+  .wallet-transfer-menu {
+    min-width: 190px;
   }
 }

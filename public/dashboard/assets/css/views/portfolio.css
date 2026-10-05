@@ -378,6 +378,8 @@
 
 /* ============================================
    PRINT / SAVE AS PDF — the A4 card only
+   Always the desktop layout: picture covers the
+   left half of the A4 sheet, stats on the right.
    ============================================ */
 @media print {
   @page {
@@ -397,12 +399,36 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
-    height: 100vh;
+    width: 210mm;
+    height: 297mm;
     box-shadow: none;
     border: none;
     border-radius: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
+
+  /* Force the two-column cover even when printing from a narrow window */
+  .printable-area.portfolio-a4 {
+    grid-template-columns: 1fr 1fr !important;
+    aspect-ratio: auto !important;
+  }
+
+  .printable-area .portfolio-left {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .printable-area .portfolio-left img,
+  .printable-area .portfolio-img-fallback {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .printable-area .portfolio-right { padding: 32px !important; }
+  .printable-area .portfolio-identity h1 { font-size: 30px !important; }
+  .printable-area .portfolio-verify { margin-top: auto !important; }
 
   .portfolio-img-edit {
     display: none !important;

@@ -10,12 +10,6 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function ordinal(n) {
-  const suffixes = ['th', 'st', 'nd', 'rd'];
-  const rest = n % 100;
-  return n + (suffixes[(rest - 20) % 10] || suffixes[rest] || suffixes[0]);
-}
-
 function fileExtension(file) {
   const raw = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   return raw || 'png';
@@ -39,6 +33,8 @@ export default {
     const params = new URLSearchParams((window.location.hash.split('?')[1] || ''));
     this.currentTab = params.get('tab') === 'deals' ? 'deals' : 'apprentice';
     this.queue = [];
+    this.applicants = [];
+    this.appFilter = 'general';
 
     document.querySelectorAll('.sub-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === this.currentTab);
@@ -115,64 +111,130 @@ export default {
       return;
     }
 
-    // Fetch all applicants with their profiles to build the leaderboard
     const { data: apps } = await supabase.from('applications').select('user_id, created_at, profiles:user_id(full_name, avatar_url, total_gp)').eq('type', 'apprentice').eq('status', 'pending');
 
-    const ranked = (apps || []).map(a => ({
+    this.applicants = (apps || []).map(a => ({
       ...a,
       gp: (a.profiles && a.profiles.total_gp) || 0,
       name: (a.profiles && a.profiles.full_name) || 'Gliimait',
       avatar: (a.profiles && a.profiles.avatar_url) || ''
     })).sort((a, b) => b.gp - a.gp || new Date(a.created_at) - new Date(b.created_at));
 
-    const myIndex = ranked.findIndex(a => a.user_id === store.user.id);
-    const rankText = myIndex >= 0 ? `${ordinal(myIndex + 1)} out of ${ranked.length}` : 'Awaiting review';
-    const top9 = ranked.slice(0, 9);
+    const filterIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>';
 
-    // Triad logic
+    container.innerHTML = `
+      <div class="apprentice-head">
+        <h2>Apprenticeship Requests</h2>
+        <div class="apprentice-filter-wrap">
+          <button type="button" class="apprentice-filter-btn" id="apprentice-filter-btn">${filterIcon}</button>
+          <div class="apprentice-filter-menu" id="apprentice-filter-menu">
+            <div class="apprentice-filter-item${this.appFilter === 'general' ? ' active' : ''}" data-filter="general">General</div>
+            <div class="apprentice-filter-item${this.appFilter === 'triad' ? ' active' : ''}" data-filter="triad">Triad</div>
+          </div>
+        </div>
+      </div>
+      <div id="apprentice-view"></div>
+    `;
+
+    const filterBtn = document.getElementById('apprentice-filter-btn');
+    const filterMenu = document.getElementById('apprentice-filter-menu');
+
+    filterBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      filterMenu.classList.toggle('active');
+    });
+    document.addEventListener('click', () => filterMenu.classList.remove('active'));
+    filterMenu.querySelectorAll('.apprentice-filter-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filterMenu.querySelectorAll('.apprentice-filter-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        this.appFilter = item.dataset.filter;
+        filterMenu.classList.remove('active');
+        this.renderApprenticeView();
+      });
+    });
+
+    this.renderApprenticeView();
+  },
+
+  renderApprenticeView() {
+    const view = document.getElementById('apprentice-view');
+    if (!view) return;
+
+    if (this.appFilter === 'triad') {
+      this.renderTriads(view);
+    } else {
+      this.renderGeneral(view);
+    }
+  },
+
+  renderGeneral(view) {
+    view.innerHTML = `
+      <div class="card applicant-list">
+        ${this.applicants.map((a, i) => {
+          const avatar = a.avatar
+            ? `<img src="${escapeHtml(a.avatar)}" class="applicant-avatar" alt="">`
+            : `<div class="applicant-avatar applicant-avatar-fallback">${escapeHtml(a.name.charAt(0).toUpperCase() || 'G')}</div>`;
+          return `
+            <div class="applicant-row" title="View profile" onclick="reqInstance.viewProfile('${a.user_id}')">
+              <span class="applicant-rank">${i + 1}</span>
+              ${avatar}
+              <div class="applicant-info">
+                <span class="applicant-name">${escapeHtml(a.name)}</span>
+                <span class="applicant-gp">${a.gp} GP</span>
+              </div>
+            </div>
+          `;
+        }).join('') || '<p class="text-muted">No applications yet.</p>'}
+      </div>
+    `;
+  },
+
+  renderTriads(view) {
     const triads = [
       { name: 'Team Dynamo', color: 'var(--brand-primary)', members: [] },
       { name: 'Team Sentinel', color: 'var(--success)', members: [] },
-      { name: 'Team Introspect', color: 'var(--warning)', members: [] }
+      { name: 'Team Ruminate', color: 'var(--warning)', members: [] }
     ];
 
-    top9.forEach((user, index) => {
-      if (index % 3 === 0) triads[0].members.push(user); // 1, 4, 7
-      else if (index % 3 === 1) triads[1].members.push(user); // 2, 5, 8
-      else triads[2].members.push(user); // 3, 6, 9
+    this.applicants.slice(0, 9).forEach((user, index) => {
+      triads[index % 3].members.push(user);
     });
 
-    container.innerHTML = `
-      <div class="card status-card">
-        <h2>You are on the Waitlist!</h2>
-        <div class="rank-single">
-          <span class="rank-label">Your Position</span>
-          <span class="rank-value">${rankText}</span>
-        </div>
-      </div>
+    triads.forEach(t => {
+      t.members.sort((a, b) => b.gp - a.gp);
+      t.total = t.members.reduce((sum, m) => sum + m.gp, 0);
+    });
+    triads.sort((a, b) => b.total - a.total);
 
-      <div class="card" style="margin-top: 24px;">
-        <h3>The Top 9 (Triad Projections)</h3>
-        <div class="triad-grid">
-          ${triads.map(t => `
-            <div class="triad-box">
+    view.innerHTML = `
+      <div class="triad-grid">
+        ${triads.map(t => `
+          <div class="triad-box">
+            <div class="triad-head">
               <span class="triad-name" style="color: ${t.color};">${t.name}</span>
-              <div class="triad-members">
-                ${t.members.map(m => {
-                  const avatar = m.avatar
-                    ? `<img src="${escapeHtml(m.avatar)}" class="triad-avatar" alt="">`
-                    : `<div class="triad-avatar triad-avatar-fallback">${escapeHtml(m.name.charAt(0).toUpperCase() || 'G')}</div>`;
-                  return `
-                  <div class="triad-member" title="View profile" onclick="reqInstance.viewProfile('${m.user_id}')">
-                    ${avatar}
+              <span class="triad-total">${t.total} GP</span>
+            </div>
+            <div class="triad-members">
+              ${t.members.map((m, mi) => {
+                const avatar = m.avatar
+                  ? `<img src="${escapeHtml(m.avatar)}" class="triad-avatar" alt="">`
+                  : `<div class="triad-avatar triad-avatar-fallback">${escapeHtml(m.name.charAt(0).toUpperCase() || 'G')}</div>`;
+                return `
+                <div class="triad-member" title="View profile" onclick="reqInstance.viewProfile('${m.user_id}')">
+                  <span class="triad-rank">${mi + 1}</span>
+                  ${avatar}
+                  <div class="triad-member-info">
                     <span class="triad-member-name">${escapeHtml(m.name)}</span>
                     <span class="triad-gp">${m.gp} GP</span>
                   </div>
-                `}).join('') || '<span class="text-muted">Pending...</span>'}
-              </div>
+                </div>
+              `}).join('') || '<span class="text-muted">Pending...</span>'}
             </div>
-          `).join('')}
-        </div>
+          </div>
+        `).join('')}
       </div>
     `;
   },

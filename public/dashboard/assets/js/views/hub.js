@@ -1,6 +1,15 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default {
   title: 'Hub',
   template: `
@@ -40,6 +49,10 @@ export default {
       closeModal: () => this.closeModal(),
       addBlock: (type) => this.addBlock(type),
       promptDelete: (id) => this.promptDelete(id),
+      replyToUser: (postId, fullName) => this.replyToUser(postId, fullName),
+      viewAuthor: (userId) => this.viewAuthor(userId),
+      promptReport: (targetType, targetId) => this.promptReport(targetType, targetId),
+      removeTag: (index) => this.removeTag(index),
       isModalOpen: () => this.isModalOpen
     };
 
@@ -196,8 +209,8 @@ export default {
     menu.style.top = `${e.clientY}px`;
     menu.innerHTML = `
       <div class="ctx-item" onclick="hubInstance.replyToUser('${postId}', '${fullName}')">Reply</div>
-      <div class="ctx-item" onclick="sessionStorage.setItem('view_profile_id', '${userId}'); window.location.hash='#/profile'; hubInstance.closeUserMenu()">View Profile</div>
-      <div class="ctx-item" onclick="alert('User reported.'); hubInstance.closeUserMenu()">Report</div>
+      <div class="ctx-item" onclick="hubInstance.viewAuthor('${userId}')">View Profile</div>
+      <div class="ctx-item" onclick="hubInstance.promptReport('user', '${userId}')">Report</div>
     `;
     document.body.appendChild(menu);
 
@@ -213,6 +226,119 @@ export default {
       input.value = `@${fullName} `;
       input.focus();
     }
+  },
+
+  viewAuthor(userId) {
+    this.closeUserMenu();
+    this.closeModal();
+    if (userId === store.user.id) {
+      sessionStorage.removeItem('view_profile_id');
+    } else {
+      sessionStorage.setItem('view_profile_id', userId);
+    }
+    window.location.hash = '#/profile';
+  },
+
+  promptReport(targetType, targetId) {
+    this.closeUserMenu();
+    const isUser = targetType === 'user';
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 440px;">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+        <h2 style="margin-bottom: 8px;">Report ${isUser ? 'User' : 'Gliim'}</h2>
+        <p class="text-muted" style="margin-bottom: 16px;">State your reason for reporting this ${isUser ? 'user' : 'post'}. It will be reviewed by the team.</p>
+        <textarea id="report-reason" class="input" rows="4" placeholder="Reason for reporting..."></textarea>
+        <button class="btn-primary" id="report-submit" style="width: 100%; margin-top: 16px;">Submit Report</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('report-submit').addEventListener('click', async () => {
+      const reason = document.getElementById('report-reason').value.trim();
+      if (reason.length < 5) return appAlert("Please state a reason (at least 5 characters).");
+
+      const btn = document.getElementById('report-submit');
+      btn.disabled = true;
+      btn.innerText = "Submitting...";
+
+      const { error } = await supabase.from('reports').insert({
+        reporter_id: store.user.id,
+        target_type: targetType,
+        target_id: targetId,
+        reason
+      });
+
+      if (error) {
+        btn.disabled = false;
+        btn.innerText = "Submit Report";
+        return appAlert("Report failed: " + error.message);
+      }
+
+      overlay.remove();
+      appAlert("Thank you. Your report has been submitted for review.");
+    });
+  },
+
+  setupTagPicker() {
+    const input = document.getElementById('tag-search');
+    const results = document.getElementById('tag-results');
+    if (!input || !results) return;
+    let timer = null;
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim();
+      clearTimeout(timer);
+
+      if (q.length < 2) { results.innerHTML = ''; return; }
+
+      timer = setTimeout(async () => {
+        const { data } = await supabase.from('profiles')
+          .select('id, full_name, avatar_url, total_gp')
+          .ilike('full_name', `%${q}%`)
+          .neq('id', store.user.id)
+          .limit(6);
+
+        const taken = new Set(this.taggedUsers.map(u => u.id));
+        const list = (data || []).filter(u => !taken.has(u.id));
+
+        if (list.length === 0) {
+          results.innerHTML = '<div class="hub-tag-empty">No users found.</div>';
+        } else {
+          results.innerHTML = list.map(u => {
+            const cls = tierClass(u.total_gp, 'hub-tag-avatar');
+            const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}">${(u.full_name || 'G').charAt(0).toUpperCase()}</div>`;
+            return `<div class="hub-tag-result" data-id="${u.id}">${av}<span>${escapeHtml(u.full_name)}</span></div>`;
+          }).join('');
+
+          results.querySelectorAll('.hub-tag-result').forEach(row => {
+            row.addEventListener('click', () => {
+              const u = list.find(x => x.id === row.dataset.id);
+              if (!u) return;
+              this.taggedUsers.push(u);
+              input.value = '';
+              results.innerHTML = '';
+              this.renderTagChips();
+              input.focus();
+            });
+          });
+        }
+      }, 250);
+    });
+  },
+
+  renderTagChips() {
+    const chips = document.getElementById('tag-chips');
+    if (!chips) return;
+    chips.innerHTML = this.taggedUsers.map((u, i) => `
+      <span class="hub-tag-chip"><span>@${escapeHtml(u.full_name)}</span><button type="button" class="hub-tag-chip-x" onclick="hubInstance.removeTag(${i})">&times;</button></span>
+    `).join('');
+  },
+
+  removeTag(index) {
+    this.taggedUsers.splice(index, 1);
+    this.renderTagChips();
   },
 
   async promptDelete(postId) {
@@ -246,6 +372,14 @@ export default {
           <div class="form-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
           <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
         </div>
+        <div class="form-group">
+          <label>Tag People (optional)</label>
+          <div class="hub-tag-picker">
+            <div class="hub-tag-chips" id="tag-chips"></div>
+            <input type="text" id="tag-search" class="input" placeholder="Type a full name to tag someone..." autocomplete="off">
+            <div class="hub-tag-results" id="tag-results"></div>
+          </div>
+        </div>
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
         <h3 style="margin-bottom: 16px;">Content Blocks</h3>
         <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
@@ -265,6 +399,9 @@ export default {
     `;
     document.body.appendChild(modal);
 
+    this.taggedUsers = [];
+    this.setupTagPicker();
+
     document.getElementById('add-block-trigger').addEventListener('click', (e) => {
       e.stopPropagation();
       document.getElementById('add-block-menu').classList.toggle('active');
@@ -278,9 +415,12 @@ export default {
     document.getElementById('submit-post-btn').addEventListener('click', async () => {
       const title = document.getElementById('post-title').value.trim();
       const category = document.getElementById('post-category').value;
-      const description = document.getElementById('post-description').value.trim();
+      const rawDescription = document.getElementById('post-description').value.trim();
 
       if (!title) return alert("Title is required.");
+
+      const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -305,20 +445,25 @@ export default {
       btn.innerText = "Publishing...";
       btn.disabled = true;
 
-      const { error } = await supabase.from('posts').insert({
+      const { data: created, error } = await supabase.from('posts').insert({
         title, category, description,
         cover_url: coverUrl,
         blocks: finalBlocks,
         content: description,
         user_id: store.user.id
-      });
+      }).select('id').single();
 
       if (error) {
         alert("Failed: " + error.message);
         btn.innerText = "Publish Gliim";
         btn.disabled = false;
       } else {
+        for (const u of this.taggedUsers) {
+          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${created.id}]]`;
+          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+        }
         modal.remove();
+        this.fetchPosts();
       }
     });
   },
@@ -430,7 +575,9 @@ export default {
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-      return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'}</span></div><div class="blog-stats"><span>${post.views || 0} Views</span><span>${comments} Comments</span></div></div></div></article>`;
+      const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+      const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+      return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
     }).join('');
   },
 
@@ -537,6 +684,7 @@ export default {
     const shares = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'share').length;
     const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
+    const hasSupported = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'support');
     const isSaved = this.savedPosts.has(post.id);
     const isOwner = post.user_id === store.user.id;
 
@@ -576,12 +724,6 @@ export default {
     const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
-    const askMeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-
-    // Ask Me Button (Only visible if user is NOT the owner)
-    const askMeBtnHtml = !isOwner ? `
-      <div class="hub-read-menu-item" onclick="event.stopPropagation(); sessionStorage.setItem('ping_target_user', '${post.user_id}'); window.location.hash='#/ping'; hubInstance.closeModal();">${askMeIcon} Ask Me</div>
-    ` : '';
 
     // Delete Button (Only visible if user is the owner)
     const deleteBtnHtml = isOwner ? `
@@ -601,8 +743,7 @@ export default {
           <div class="hub-read-menu" id="read-menu-${post.id}">
             <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.closeModal()">${closeIcon} Close Modal</div>
             <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
-            ${askMeBtnHtml}
-            <div class="hub-read-menu-item" onclick="event.stopPropagation(); alert('Content reported.'); hubInstance.toggleReadMenu('${post.id}')">${reportIcon} Report Gliim</div>
+            <div class="hub-read-menu-item" onclick="event.stopPropagation(); hubInstance.promptReport('post', '${post.id}')">${reportIcon} Report Gliim</div>
             ${deleteBtnHtml}
           </div>
         </div>
@@ -613,10 +754,10 @@ export default {
             <span class="blog-category">${post.category || 'General'}</span>
             <h1 class="read-title">${post.title || 'Untitled Gliim'}</h1>
 
-            <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center;">
+            <div class="blog-author hub-author-hit" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center;" onclick="hubInstance.viewAuthor('${post.user_id}')">
               <div style="position: relative; flex-shrink: 0; margin-right: 12px;">${avatar}</div>
               <div style="display: flex; flex-direction: column;">
-                <span style="font-weight: 700; color: var(--text-primary);">${post.profiles?.full_name || 'Gliimait'}</span>
+                <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span>
                 <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
               </div>
             </div>
@@ -651,7 +792,7 @@ export default {
             <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
             <span>${shares}</span>
           </button>
-          <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+          <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             <span>${supports}</span>
           </button>
@@ -700,34 +841,25 @@ export default {
   },
 
   async supportCreator(postId, authorId) {
-    if (authorId === store.user.id) return alert("You cannot support yourself!");
+    if (authorId === store.user.id) return;
+
+    const already = this.allInteractions.some(i => i.post_id === postId && i.user_id === store.user.id && i.interaction_type === 'support');
+    if (already) return;
 
     const post = this.currentPosts.find(p => p.id === postId);
-    const authorName = post?.profiles?.full_name || 'this creator';
-    const gp = this.userGP || 0;
 
-    if (gp <= 0) return alert("You don't have any GP to give yet.");
-
-    const ok = await appConfirm(
-      `Support ${authorName} with ${gp >= 1000 ? '1,000' : 'all ' + gp} GP?`,
-      { okText: 'Support', cancelText: 'Cancel' }
-    );
-    if (!ok) return;
-
-    const { data: amount, error } = await supabase.rpc('send_support', { p_post: postId });
+    const { data: credited, error } = await supabase.rpc('send_support', { p_post: postId });
     if (error) {
       const msg = error.message || '';
-      if (msg.includes('AUTHOR_NOT_ELIGIBLE')) return alert("This creator isn't eligible for supports yet — they need 1,000 GP.");
-      if (msg.includes('ALREADY_SUPPORTED')) return alert("You've already supported this gliim.");
-      if (msg.includes('INSUFFICIENT_GP')) return alert("You don't have enough GP to support.");
-      return alert("Support failed: " + msg);
+      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your bill to support. ₦1,000 is required.");
+      if (msg.includes('ALREADY_SUPPORTED') || msg.includes('CANNOT_SUPPORT_SELF')) return;
+      return appAlert("Support failed: " + msg);
     }
 
-    this.allInteractions.push({ id: `local-${Date.now()}`, post_id: postId, user_id: store.user.id, interaction_type: 'support', amount });
-    this.userGP = (this.userGP || 0) - amount;
-    if (store.profile) store.profile.total_gp = this.userGP;
+    this.allInteractions.push({ id: `local-${Date.now()}`, post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: credited });
+    this.userBalance = (this.userBalance || 0) - 1000;
+    if (store.profile) store.profile.wallet_balance = this.userBalance;
 
-    alert(`Supported ${authorName} with ${amount} GP!`);
     this.interestSignal(4, post?.category);
     this.closeModal();
     this.openReadView(postId);
@@ -779,10 +911,9 @@ export default {
   },
 
   // Ping every @FullName-mentioned user via the message system.
-  // A reply (comment starting with @TheirName) words it as a reply;
-  // a typed mention words it as a tag. The trailing [[hub:...]]
-  // marker is stripped by the chat renderer, which shows a
-  // "Check it out" button that deep-links to the exact comment.
+  // The trailing [[hub:...]] marker is stripped by the chat
+  // renderer, which shows a "Check it out" button that deep-links
+  // to the exact post — and to the exact comment on a reply.
   async notifyMentions(postId, post, text, commentId) {
     if (!this.profileCache) {
       const { data } = await supabase.from('profiles').select('id, full_name').neq('id', store.user.id);
@@ -800,9 +931,7 @@ export default {
       if (!lower.includes(`@${name.toLowerCase()}`)) continue;
       seen.add(p.id);
 
-      const isReply = lower.startsWith(`@${name.toLowerCase()}`);
-      const verb = isReply ? 'replied to you in the hub' : 'tagged you in a gliim (hub post)';
-      const content = `${store.profile.full_name} ${verb}: "${post.title || 'a gliim'}" — click to check it out.${marker}`;
+      const content = `${store.profile.full_name} tagged you in the hub page: "${post.title || 'a gliim'}" — click to check it out.${marker}`;
 
       await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: p.id, content, is_ai: false });
     }

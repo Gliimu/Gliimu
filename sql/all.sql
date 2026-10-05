@@ -1,5 +1,6 @@
 -- ============================================================
--- Gliimu: ONE-SHOT SETUP — admin role, deal queue, landing page
+-- Gliimu: ONE-SHOT SETUP — admin role, deal queue, landing
+-- page, hub supports, bill transfers, subscriptions, reports.
 --
 -- This one script sets up everything the new landing page and
 -- the Requests page need. It only ADDS missing pieces — it never
@@ -475,13 +476,13 @@ $$;
 grant execute on function public.bump_live_views(uuid) to authenticated;
 
 -- ------------------------------------------------------------
--- 13. Hub views, GP-based supports, portfolio image.
+-- 13. Hub views, bill supports, portfolio image.
 --     - posts.views: card + reader view counter (bumped once per
 --       browser session from the read view).
---     - send_support: replaces the old NGN wallet flow. Supporting
---       a creator moves GP, not money: the supporter gives
---       min(1000, their own GP), the author must have 1000+ GP
---       to be eligible, and both sides get a ledger row.
+--     - send_support: supporting a creator moves money from the
+--       supporter's bill: ₦1,000 is deducted from the sender and
+--       ₦700 lands in the creator's bill (the platform keeps
+--       ₦300). No GP changes, no confirmation dialogs.
 --     - profiles.portfolio_image_url: an image used only on the
 --       printable portfolio page, separate from the app avatar.
 -- ------------------------------------------------------------
@@ -512,9 +513,11 @@ as $$
 declare
   v_sender uuid := auth.uid();
   v_author uuid;
-  v_author_gp int;
-  v_sender_gp int;
-  v_amount int;
+  v_cost int := 1000;
+  v_credit int := 700;
+  v_balance int;
+  v_sender_name text;
+  v_author_name text;
 begin
   if v_sender is null then
     raise exception 'NOT_AUTHENTICATED';
@@ -528,12 +531,6 @@ begin
     raise exception 'CANNOT_SUPPORT_SELF';
   end if;
 
-  -- Supports only flow to eligible creators (1000+ GP)
-  select total_gp into v_author_gp from public.profiles where id = v_author;
-  if coalesce(v_author_gp, 0) < 1000 then
-    raise exception 'AUTHOR_NOT_ELIGIBLE';
-  end if;
-
   -- One support per user per gliim
   if exists (
     select 1 from public.hub_interactions
@@ -542,36 +539,206 @@ begin
     raise exception 'ALREADY_SUPPORTED';
   end if;
 
-  select total_gp into v_sender_gp from public.profiles where id = v_sender;
-  v_amount := least(1000, coalesce(v_sender_gp, 0));
-  if v_amount <= 0 then
-    raise exception 'INSUFFICIENT_GP';
+  select wallet_balance into v_balance from public.profiles where id = v_sender;
+  if coalesce(v_balance, 0) < v_cost then
+    raise exception 'INSUFFICIENT_FUNDS';
   end if;
 
-  update public.profiles set total_gp = total_gp - v_amount where id = v_sender;
-  update public.profiles set total_gp = total_gp + v_amount where id = v_author;
+  update public.profiles set wallet_balance = wallet_balance - v_cost where id = v_sender;
+  update public.profiles set wallet_balance = wallet_balance + v_credit where id = v_author;
+
+  select full_name into v_sender_name from public.profiles where id = v_sender;
+  select full_name into v_author_name from public.profiles where id = v_author;
 
   insert into public.transactions (user_id, amount, points, type, status, description)
-  values (v_sender, 0, -v_amount, 'support', 'success',
-          format('Supported %s with %s GP',
-                 (select full_name from public.profiles where id = v_author), v_amount));
+  values (v_sender, -v_cost, 0, 'support', 'success',
+          format('Supported %s', coalesce(v_author_name, 'a creator')));
 
   insert into public.transactions (user_id, amount, points, type, status, description)
-  values (v_author, 0, v_amount, 'support', 'success',
-          format('Received %s GP support from %s',
-                 v_amount, (select full_name from public.profiles where id = v_sender)));
+  values (v_author, v_credit, 0, 'support', 'success',
+          format('Support from %s', coalesce(v_sender_name, 'a Gliimait')));
 
   insert into public.hub_interactions (post_id, user_id, interaction_type, amount)
-  values (p_post, v_sender, 'support', v_amount);
+  values (p_post, v_sender, 'support', v_credit);
 
-  return v_amount;
+  return v_credit;
 end;
 $$;
 
 grant execute on function public.send_support(uuid) to authenticated;
 
 -- ------------------------------------------------------------
--- 14. SELF CHECK — the Messages pane after running must show
+-- 14. Bill transfers between users.
+--     transfer_to_user: moves money from the sender's bill to
+--     the receiver's bill. RLS blocks cross-user wallet updates,
+--     so this SECURITY DEFINER RPC is the only path. Both sides
+--     get a ledger row (transfer_out / transfer_in).
+-- ------------------------------------------------------------
+create or replace function public.transfer_to_user(p_receiver uuid, p_amount integer)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sender uuid := auth.uid();
+  v_balance int;
+  v_sender_name text;
+  v_receiver_name text;
+begin
+  if v_sender is null then
+    raise exception 'NOT_AUTHENTICATED';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'INVALID_AMOUNT';
+  end if;
+  if p_receiver = v_sender then
+    raise exception 'CANNOT_TRANSFER_SELF';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_receiver) then
+    raise exception 'RECEIVER_NOT_FOUND';
+  end if;
+
+  select wallet_balance into v_balance from public.profiles where id = v_sender;
+  if coalesce(v_balance, 0) < p_amount then
+    raise exception 'INSUFFICIENT_FUNDS';
+  end if;
+
+  update public.profiles set wallet_balance = wallet_balance - p_amount where id = v_sender;
+  update public.profiles set wallet_balance = wallet_balance + p_amount where id = p_receiver;
+
+  select full_name into v_sender_name from public.profiles where id = v_sender;
+  select full_name into v_receiver_name from public.profiles where id = p_receiver;
+
+  insert into public.transactions (user_id, amount, points, type, status, description)
+  values (v_sender, -p_amount, 0, 'transfer_out', 'success',
+          format('Transfer to %s', coalesce(v_receiver_name, 'a Gliimait')));
+
+  insert into public.transactions (user_id, amount, points, type, status, description)
+  values (p_receiver, p_amount, 0, 'transfer_in', 'success',
+          format('Transfer from %s', coalesce(v_sender_name, 'a Gliimait')));
+
+  return p_amount;
+end;
+$$;
+
+grant execute on function public.transfer_to_user(uuid, integer) to authenticated;
+
+-- ------------------------------------------------------------
+-- 15. Reports — the in-app report flow (reason modal).
+--     Anyone signed in can file a report against a user or a
+--     post; only admins can read the queue.
+-- ------------------------------------------------------------
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid,
+  target_type text not null default 'user',
+  target_id uuid not null,
+  reason text not null,
+  status text not null default 'open',
+  created_at timestamptz not null default now()
+);
+
+alter table public.reports add column if not exists reporter_id uuid;
+alter table public.reports add column if not exists target_type text not null default 'user';
+alter table public.reports add column if not exists target_id uuid;
+alter table public.reports add column if not exists reason text;
+alter table public.reports add column if not exists status text not null default 'open';
+alter table public.reports add column if not exists created_at timestamptz not null default now();
+
+alter table public.reports drop constraint if exists reports_reporter_id_fkey;
+alter table public.reports
+  add constraint reports_reporter_id_fkey foreign key (reporter_id)
+  references public.profiles(id) on delete cascade;
+
+create index if not exists reports_status_idx on public.reports (status, created_at desc);
+
+alter table public.reports enable row level security;
+grant select, insert on public.reports to authenticated;
+
+drop policy if exists "Users insert own reports" on public.reports;
+create policy "Users insert own reports" on public.reports
+  for insert to authenticated with check (auth.uid() = reporter_id);
+
+drop policy if exists "Admins read reports" on public.reports;
+create policy "Admins read reports" on public.reports
+  for select to authenticated using (public.is_admin());
+
+-- ------------------------------------------------------------
+-- 16. Subscriptions.
+--     Plans are paid straight from the bill balance:
+--       starter: ₦70,000  — 1 month
+--       pro:     ₦250,000 — 4 months + 1 free month
+--       elite:   ₦780,000 — 12 months + 2 free months
+--     Buying while a subscription is still active extends it
+--     from the current expiry instead of resetting it.
+-- ------------------------------------------------------------
+alter table public.profiles add column if not exists subscription_plan text;
+alter table public.profiles add column if not exists subscription_started_at timestamptz;
+alter table public.profiles add column if not exists subscription_expires_at timestamptz;
+
+create or replace function public.purchase_subscription(p_plan text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_price int;
+  v_months int;
+  v_balance int;
+  v_current_expiry timestamptz;
+  v_base timestamptz;
+begin
+  if v_user is null then
+    raise exception 'NOT_AUTHENTICATED';
+  end if;
+
+  if p_plan = 'starter' then
+    v_price := 70000; v_months := 1;
+  elsif p_plan = 'pro' then
+    v_price := 250000; v_months := 5;
+  elsif p_plan = 'elite' then
+    v_price := 780000; v_months := 14;
+  else
+    raise exception 'INVALID_PLAN';
+  end if;
+
+  select wallet_balance into v_balance from public.profiles where id = v_user;
+  if coalesce(v_balance, 0) < v_price then
+    raise exception 'INSUFFICIENT_FUNDS';
+  end if;
+
+  select subscription_expires_at into v_current_expiry
+  from public.profiles where id = v_user;
+
+  -- Extend an active subscription; start fresh otherwise.
+  v_base := case
+    when v_current_expiry is not null and v_current_expiry > now() then v_current_expiry
+    else now()
+  end;
+  v_base := v_base + make_interval(months => v_months);
+
+  update public.profiles
+  set wallet_balance = wallet_balance - v_price,
+      subscription_plan = p_plan,
+      subscription_started_at = coalesce(subscription_started_at, now()),
+      subscription_expires_at = v_base
+  where id = v_user;
+
+  insert into public.transactions (user_id, amount, points, type, status, description)
+  values (v_user, -v_price, 0, 'subscription', 'success',
+          format('%s plan subscription', initcap(p_plan)));
+
+  return jsonb_build_object('plan', p_plan, 'expires_at', v_base);
+end;
+$$;
+
+grant execute on function public.purchase_subscription(text) to authenticated;
+
+-- ------------------------------------------------------------
+-- 17. SELF CHECK — the Messages pane after running must show
 --     every line as present. Any MISSING line: read the notices
 --     printed above it.
 -- ------------------------------------------------------------
@@ -613,7 +780,18 @@ begin
     where table_schema = 'public' and table_name = 'site_settings' and column_name = 'app_windows_url'
   ) then 'present' else 'MISSING' end;
   raise notice 'storage buckets:       % of 2', (select count(*) from storage.buckets where id in ('deal_logos', 'site_assets'));
+  raise notice 'transfer_to_user fn:   %', coalesce(to_regprocedure('public.transfer_to_user(uuid,integer)')::text, 'MISSING');
+  raise notice 'purchase_sub fn:       %', coalesce(to_regprocedure('public.purchase_subscription(text)')::text, 'MISSING');
+  raise notice 'reports table:         %', coalesce(to_regclass('public.reports')::text, 'MISSING');
+  raise notice 'subscription cols:     %', case when (
+    select count(*) from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles'
+      and column_name in ('subscription_plan', 'subscription_started_at', 'subscription_expires_at')
+  ) = 3 then 'present' else 'MISSING' end;
 end $$;
+
+-- Make the new functions visible to the API immediately.
+notify pgrst, 'reload schema';
 
 -- END OF GLIIMU SETUP SCRIPT — if this line is not the last line
 -- in the editor, the paste was incomplete: clear it and paste again.
