@@ -15,7 +15,9 @@ let previousHash = window.location.hash;
 
 export async function router() {
   const hash = window.location.hash.slice(1) || '/hub';
-  const routeHandler = routes[hash];
+  // Deep links may carry a query string (e.g. #/applications?tab=deals)
+  const path = hash.split('?')[0];
+  const routeHandler = routes[path];
 
   const app = document.getElementById('app');
   const topbarDynamic = document.getElementById('topbar-dynamic-content');
@@ -47,7 +49,7 @@ export async function router() {
 
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.remove('active');
-    if (item.getAttribute('href') === `#${hash}`) {
+    if (item.getAttribute('href') === `#${path}`) {
       item.classList.add('active');
     }
   });

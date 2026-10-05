@@ -12,7 +12,7 @@ export const store = {
       // Fetch live data from the profiles table instead of just signup metadata
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('username, full_name, avatar_url, total_gp, wallet_balance')
+        .select('username, full_name, avatar_url, total_gp, wallet_balance, is_admin')
         .eq('id', user.id)
         .single();
 
@@ -25,7 +25,8 @@ export const store = {
           full_name: user.user_metadata?.full_name || 'User',
           total_gp: 0,
           avatar_url: null,
-          wallet_balance: 0
+          wallet_balance: 0,
+          is_admin: false
         };
       }
     }

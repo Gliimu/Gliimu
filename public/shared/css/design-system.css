@@ -75,6 +75,8 @@
 
 /* Base */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { max-width: 100%; overflow-x: clip; }
+img, video, canvas, iframe { max-width: 100%; }
 body {
   font-family: var(--font-sans);
   font-size: var(--fs-base);
@@ -83,4 +85,5 @@ body {
   transition: background-color var(--transition-base), color var(--transition-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-wrap: break-word;
 }/* GLIIMU DESIGN SYSTEM - Paste your provided CSS variables here */

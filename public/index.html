@@ -20,34 +20,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
-  <link rel="stylesheet" href="/shared/css/design-system.css?v=7">
-  <link rel="stylesheet" href="/assets/css/public.css?v=7">
+  <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
+  <link rel="stylesheet" href="/assets/css/public.css?v=9">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
 </head>
 <body>
 
-    <!-- HERO SECTION -->
-    <section class="hero-video-section" id="hero-section">
+  <nav class="site-nav" id="site-nav">
+    <div class="site-nav-inner">
+      <a href="https://gliimu.com" class="site-nav-logo">
+        <img src="/icons/logo.png" alt="Gliimu">
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <section class="hero-video-section" id="hero-section">
     <div class="hero-video-overlay"></div>
     <video id="hero-video" class="hero-background-video" autoplay muted loop playsinline webkit-playsinline disablePictureInPicture>
       <source id="hero-video-src" src="/videos/pnp.mp4" type="video/mp4">
     </video>
-
-    <nav class="hero-nav">
-      <div class="hero-nav-inner">
-        <a href="https://gliimu.com" class="hero-nav-logo">
-          <img src="/icons/logo.png" alt="Gliimu">
-        </a>
-        <div class="hero-nav-actions">
-          <button class="theme-toggle-hero" onclick="toggleTheme()">
-            <i class="fas fa-moon" id="moon-icon"></i>
-            <i class="fas fa-sun" id="sun-icon" style="display:none;"></i>
-          </button>
-        </div>
-      </div>
-    </nav>
 
     <div class="container hero-container">
       <div class="hero-content">
@@ -132,13 +126,11 @@
     <div class="container">
       <div class="squad-grid">
         <div class="squad-content reveal">
-          <h2 class="section-title" style="text-align: left;">Learn in Pods. Build Together.</h2>
-          <p style="margin-top: 16px;">Each instructor (Captain) mentors only <strong>3 students (a Triad)</strong>. You're not a number — you're a builder in a tight-knit squad that grows together.</p>
+          <h2 class="section-title" style="text-align: left;">Learn in Triad &amp; Grow</h2>
+          <p style="margin-top: 16px;">You are not a number, you are a builder in a tight knit that grows together.</p>
           <ul class="squad-features">
             <li><i class="fas fa-users"></i> Deep mentorship, not crowded lectures</li>
             <li><i class="fas fa-project-diagram"></i> Real projects from real clients</li>
-            <li><i class="fas fa-trophy"></i> Apprenticeship Request leaderboard drives ranking</li>
-            <li><i class="fas fa-layer-group"></i> Top 9 form Triads: Team Dynamo, Sentinel, Introspect</li>
             <li><i class="fas fa-handshake"></i> Elite network for life</li>
           </ul>
         </div>
@@ -167,32 +159,12 @@
         <h2 class="section-title">Trusted By</h2>
         <p class="section-subtitle">We envision a world where you learn Full Stack Media Technology to become a Full Stack Media Architect. We made it happen.</p>
       </div>
-      <div class="marquee">
-        <div class="marquee-content">
-          <span class="partner-logo">Tech Corp</span>
-          <span class="partner-logo">Media Plus</span>
-          <span class="partner-logo">Creative Hub</span>
-          <span class="partner-logo">Digital Solutions</span>
-          <span class="partner-logo">Innovation Lab</span>
-          <span class="partner-logo">Studio One</span>
-          <span class="partner-logo">Design Co</span>
-          <span class="partner-logo">Code Masters</span>
-          <span class="partner-logo">Film Factory</span>
-          <span class="partner-logo">Animation Studio</span>
-          <span class="partner-logo">Web Experts</span>
-          <span class="partner-logo">Brand Builders</span>
-          <span class="partner-logo">Content Creators</span>
-          <span class="partner-logo">Social Impact</span>
-          <span class="partner-logo">Future Tech</span>
-          <span class="partner-logo">Art Department</span>
-          <span class="partner-logo">Sound Lab</span>
-          <span class="partner-logo">Edit House</span>
-          <span class="partner-logo">Render Farm</span>
-          <span class="partner-logo">Pixel Perfect</span>
-        </div>
+      <div class="marquee" id="partners-marquee" style="display: none;">
+        <div class="marquee-content" id="partners-marquee-content"></div>
       </div>
+      <p class="partners-empty" id="partners-empty" style="display: none;">Our partner wall is being curated. Check back soon.</p>
       <div class="partners-cta reveal">
-        <a href="/dashboard/index.html#/applications" class="btn-secondary btn-lg">Become a Partner</a>
+        <a href="/dashboard/index.html#/applications?tab=deals" class="btn-secondary btn-lg">Bring Us a Deal</a>
       </div>
     </div>
   </section>
@@ -232,30 +204,53 @@
   </section>
 
   <!-- DOWNLOAD APP SECTION -->
-  <section class="download-section">
+  <section class="download-section" id="download-section">
     <div class="container">
       <div class="pillars-header reveal">
         <h2 class="section-title">Take Gliimu Everywhere</h2>
         <p class="section-subtitle">A cross-platform powerhouse. Install the app for a native, high-performance experience.</p>
       </div>
-      <div class="download-grid">
-        <div class="download-card reveal-left">
-          <i class="fas fa-mobile-alt"></i>
-          <h3>Mobile App</h3>
-          <p>Available on iOS and Android.</p>
-          <div class="download-actions">
-            <button class="btn-secondary">App Store</button>
-            <button class="btn-secondary">Google Play</button>
+
+      <div class="download-panel reveal" id="download-panel">
+        <div class="download-panel-overlay"></div>
+        <div class="download-panel-body">
+
+          <div class="download-version">
+            <span class="download-version-badge">v<span id="dl-version">1.0.0</span></span>
+            <span class="download-version-notes" id="dl-notes"></span>
           </div>
-        </div>
-        <div class="download-card reveal-right">
-          <i class="fas fa-desktop"></i>
-          <h3>Desktop App</h3>
-          <p>Available on Windows and Mac.</p>
-          <div class="download-actions">
-            <button class="btn-secondary">Windows</button>
-            <button class="btn-secondary">Mac OS</button>
+
+          <div class="download-block download-desktop">
+            <span class="download-block-label">Desktop</span>
+            <div class="download-buttons">
+              <a class="dl-btn" id="dl-windows" href="#" target="_blank" rel="noopener">
+                <i class="fab fa-windows"></i><span>Windows</span>
+              </a>
+              <a class="dl-btn" id="dl-mac" href="#" target="_blank" rel="noopener">
+                <i class="fab fa-apple"></i><span>macOS</span>
+              </a>
+              <a class="dl-btn" id="dl-linux" href="#" target="_blank" rel="noopener">
+                <i class="fab fa-linux"></i><span>Linux</span>
+              </a>
+            </div>
+            <div class="download-qr" id="dl-qr-wrap" style="display: none;">
+              <div class="download-qr-code" id="dl-qr"></div>
+              <p class="download-qr-hint">Scan with your phone to install on Android or iOS</p>
+            </div>
           </div>
+
+          <div class="download-block download-mobile">
+            <span class="download-block-label">Mobile</span>
+            <div class="download-buttons">
+              <a class="dl-btn" id="dl-android" href="#" target="_blank" rel="noopener">
+                <i class="fab fa-android"></i><span>Android</span>
+              </a>
+              <a class="dl-btn" id="dl-ios" href="#" target="_blank" rel="noopener">
+                <i class="fab fa-apple"></i><span>iOS</span>
+              </a>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -263,7 +258,6 @@
 
   <footer class="copyright-footer">
     <div class="container">
-      <a href="https://gliimu.com"><img src="/icons/logo.png?v=2" alt="Gliimu" class="footer-logo-img"></a>
       <p>&copy; 2024 Gliimu Ltd. All rights reserved.</p>
     </div>
   </footer>
@@ -321,7 +315,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=7"></script>
+  <script type="module" src="/assets/js/main.js?v=9"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
