@@ -9,6 +9,16 @@
   column-gap: 24px;
 }
 
+/* More columns on wider screens */
+@media (min-width: 1400px) {
+  .blog-feed.grid-view { column-count: 3; }
+  .hub-layout:has(.grid-view) { max-width: 1100px; }
+}
+@media (min-width: 1900px) {
+  .blog-feed.grid-view { column-count: 4; }
+  .hub-layout:has(.grid-view) { max-width: 1500px; }
+}
+
 .blog-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -35,15 +45,24 @@
 .blog-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gradient-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; object-fit: cover; }
 .blog-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
 
-/* Elite Avatar Border */
+/* Elite Avatar Borders (GP tiers) — 1000+ purple in both themes,
+   5000+ ambassadors: black in light mode, white in dark mode */
 .glow-avatar {
   border: 2px solid var(--brand-primary);
   box-shadow: 0 0 4px rgba(99, 102, 241, 0.4);
 }
-[data-theme="light"] .glow-avatar {
-  border-color: var(--text-primary);
+.tier-5000-avatar {
+  border: 2px solid var(--text-primary);
 }
-[data-theme="dark"] .glow-avatar {
+[data-theme="dark"] .tier-5000-avatar {
+  border-color: var(--text-inverse);
+}
+
+/* Ambassador cards: hub gliims authored by 5000+ GP users */
+.blog-card.ambassador-card {
+  border: 1.5px solid var(--text-primary);
+}
+[data-theme="dark"] .blog-card.ambassador-card {
   border-color: var(--text-inverse);
 }
 
@@ -189,6 +208,7 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 .comment-list { display: flex; flex-direction: column; gap: 16px; }
 .comment-item { display: flex; gap: 12px; position: relative; padding: 8px; border-radius: 8px; transition: background 0.2s; }
 .comment-item:hover { background: var(--bg-tertiary); }
+.comment-item.comment-highlight { background: var(--brand-primary-light); transition: background 0.3s ease; }
 .comment-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; object-fit: cover; cursor: pointer; }
 .comment-content-wrap { flex: 1; padding-right: 24px; }
 .comment-author { font-weight: 600; color: var(--text-primary); margin-right: 8px; font-size: 14px; }

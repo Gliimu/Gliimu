@@ -364,6 +364,20 @@
   overflow: hidden;
 }
 
+/* Clickable profiles (triad members, personal deal submitters) */
+.triad-member { cursor: pointer; border-radius: 8px; }
+.triad-member:hover .triad-member-name { color: var(--brand-primary); }
+
+.queue-user-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 0;
+  border-radius: 8px;
+}
+.queue-user-link:hover .queue-name { color: var(--brand-primary); }
+
 /* Responsive */
 @media (max-width: 768px) {
   .form-card, .queue-card { padding: 24px; }

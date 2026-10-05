@@ -1,5 +1,12 @@
 import { supabase } from '/shared/js/config.js';
 
+// GP tier border for avatars: 1000+ purple, 5000+ black (light) / white (dark)
+export function tierClass(gp, base) {
+  if (gp >= 5000) return `${base} tier-5000-avatar`;
+  if (gp >= 1000) return `${base} glow-avatar`;
+  return base;
+}
+
 export const store = {
   user: null,
   profile: null,

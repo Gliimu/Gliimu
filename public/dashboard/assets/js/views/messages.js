@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { API_BASE_URL } from '/shared/js/config.js';
-import { store } from '../store.js';
+import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
 import { computeUnread, markChatRead } from '../readState.js';
 
@@ -46,6 +46,7 @@ export default {
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
+      openHubMention: (postId, commentId) => this.openHubMention(postId, commentId),
       sendMessage: () => this.sendMessage(),
       searchUsers: (query) => this.searchUsers(query),
       addContact: (userId) => this.addContact(userId),
@@ -81,7 +82,8 @@ export default {
     if (topbarDynamic) {
       topbarDynamic.innerHTML = `
         <div class="ping-top-search-wrapper">
-          <input type="text" id="ping-top-search" class="input" placeholder="Search users to add..." oninput="pingInstance.searchUsers(this.value)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="ping-top-search" class="ping-top-search-input" placeholder="Search users to add..." oninput="pingInstance.searchUsers(this.value)">
           <div class="ping-search-dropdown" id="ping-search-dropdown"></div>
         </div>
       `;
@@ -159,7 +161,7 @@ export default {
     let userIds = explicitContacts.map(c => c.contact_id).filter(id => !hiddenMap[id]);
 
     // Fetch unread counts per sender (computed locally; receivers can't write read_at)
-    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at, read_at').eq('receiver_id', store.user.id);
+    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at, read_at, room, is_ai').eq('receiver_id', store.user.id);
 
     const { unreadMap } = computeUnread(store.user.id, receivedMsgs);
     this.unreadMap = unreadMap;
@@ -171,8 +173,9 @@ export default {
       }
     });
 
-    const { data: sentMsgs } = await supabase.from('messages').select('receiver_id, created_at').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
+    const { data: sentMsgs } = await supabase.from('messages').select('receiver_id, created_at, room').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
     sentMsgs.forEach(m => {
+      if (m.room) return;
       const msgTime = new Date(m.created_at).getTime();
       if (!hiddenMap[m.receiver_id] || msgTime > hiddenMap[m.receiver_id]) {
         if (!userIds.includes(m.receiver_id)) userIds.push(m.receiver_id);
@@ -215,7 +218,7 @@ export default {
     if (!list) return;
 
     const usersHtml = this.contacts.map(u => {
-      const avatarClass = u.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
+      const avatarClass = tierClass(u.total_gp, 'ping-avatar');
       const avatar = u.avatar_url ? `<img src="${u.avatar_url}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
       // Unread Badge
@@ -227,7 +230,7 @@ export default {
           ${avatar}
           <div class="ping-chat-info">
             <span class="ping-chat-name">${u.full_name}</span>
-            <span class="ping-chat-preview">${u.total_gp || 0} GP</span>
+            <span class="ping-chat-preview">${u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP'}</span>
           </div>
           ${unreadBadge}
         </div>
@@ -255,6 +258,10 @@ export default {
       const clearedCount = this.unreadMap[id] || 0;
       markChatRead(store.user.id, id);
       delete this.unreadMap[id];
+      // Server-side receipt clears the unread dot on the user's other devices too
+      supabase.rpc('mark_dm_read', { p_other: id }).then(({ error }) => {
+        if (error) console.warn('Server read receipt unavailable (run sql/all.sql):', error.message);
+      });
 
       if (window.NotificationManager && clearedCount > 0) {
         window.NotificationManager.counts.ping = Math.max(0, (window.NotificationManager.counts.ping || 0) - clearedCount);
@@ -271,11 +278,17 @@ export default {
     document.getElementById('ping-container').classList.remove('chat-open');
   },
 
+  openHubMention(postId, commentId) {
+    sessionStorage.setItem('openReadViewId', postId);
+    if (commentId) sessionStorage.setItem('openCommentId', commentId);
+    window.location.hash = '#/hub';
+  },
+
   renderChatWindow() {
     const main = document.getElementById('ping-main');
     if (!main || !this.activeChat) return;
 
-    const avatarClass = this.activeChat.total_gp >= 1000 ? 'ping-avatar glow-avatar' : 'ping-avatar';
+    const avatarClass = tierClass(this.activeChat.total_gp, 'ping-avatar');
     let avatarHtml = '';
     if (this.activeChat.is_ai) {
       avatarHtml = `<img src="${this.activeChat.avatar}" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">`;
@@ -301,7 +314,15 @@ export default {
 
         let contentHtml = '';
         if (m.content) {
-          if (m.content.startsWith('🎥 Session accepted:')) {
+          if (m.content.includes('[[hub:')) {
+            // Hub mention ping: readable text + deep link to the post/comment
+            const readable = m.content.replace(/\s*\[\[hub:[^\]]+\]\]/g, '').trim()
+              .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
+            const parts = m.content.match(/\[\[hub:([0-9a-fA-F-]+)(?::([0-9a-fA-F-]+))?\]\]/);
+            const hubPost = parts ? parts[1] : '';
+            const hubComment = parts && parts[2] ? parts[2] : '';
+            contentHtml = `<p>${readable}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.openHubMention('${hubPost}', '${hubComment}')">Check it out</button>`;
+          } else if (m.content.startsWith('🎥 Session accepted:')) {
             const formattedText = m.content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
             contentHtml = `<p>${formattedText}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="window.location.hash='#/live'">Open Live Page</button>`;
           } else {

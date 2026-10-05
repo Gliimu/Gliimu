@@ -5,13 +5,6 @@ export default {
   title: 'Library',
   template: `
     <div class="library-layout" id="library-container">
-      <div class="library-header">
-        <div>
-          <h2>Gliimu Elite Library</h2>
-          <p>Premium publications, audiolites, and bundles.</p>
-        </div>
-      </div>
-
       <div id="library-content">
         <p style="color: var(--text-muted); text-align: center;">Loading library...</p>
       </div>
@@ -30,13 +23,14 @@ export default {
     const container = document.getElementById('library-container');
     if (!container) return;
 
-    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }] = await Promise.all([
+    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: authorProfiles }] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
       supabase.from('profiles').select('wallet_balance, interests').eq('id', store.user.id).single(),
       supabase.from('content_info').select('item_id, rating, review'),
-      supabase.from('library_interactions').select('item_id, interaction_type, created_at')
+      supabase.from('library_interactions').select('item_id, interaction_type, created_at'),
+      supabase.from('profiles').select('id, full_name, avatar_url').neq('id', store.user.id)
     ]);
 
     this.allItems = items || [];
@@ -46,6 +40,7 @@ export default {
     this.userInterests = profile?.interests ? profile.interests.toLowerCase().split(',') : [];
     this.ratings = ratings || [];
     this.interactions = interactions || [];
+    this.authorProfiles = authorProfiles || [];
 
     this.applyFilters();
 
@@ -204,12 +199,24 @@ export default {
   renderCard(item) {
     const isOwned = this.ownedItems.has(item.id);
     const isSaved = this.savedItems.has(item.id);
-    const bg = item.cover_url ? `background-image: url('${item.cover_url}'); background-size: cover;` : `background: ${item.cover_color || item.color};`;
+    let thumb;
+    if (item.cover_url) {
+      thumb = `<img class="lib-thumb" src="${item.cover_url}" alt="" loading="lazy">`;
+    } else {
+      const icons = {
+        publication: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+        audiolite: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>',
+        bundle: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>'
+      };
+      const hue = [...(item.title || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+      thumb = `<div class="lib-thumb lib-thumb-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
+    }
     const ownedBadge = isOwned ? '<span class="lib-tick-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : '';
     const savedBadge = (isSaved && !isOwned) ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>' : '';
     return `
       <div class="lib-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
-        <div class="lib-thumb" style="${bg}">${ownedBadge}${savedBadge}</div>
+        ${thumb}
+        ${ownedBadge}${savedBadge}
         <div class="lib-overlay"><h4>${item.title}</h4></div>
       </div>
     `;
@@ -259,9 +266,9 @@ export default {
                 ${menuActionHtml}
                 <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
                 <div class="lib-menu-item ask-me-item" id="ask-me-btn">
-                  ${item.author_avatar
-                    ? `<img src="${item.author_avatar}" alt="Author" class="lib-menu-avatar">`
-                    : `<div class="lib-menu-avatar lib-menu-avatar-fallback">${(item.author || 'G').charAt(0).toUpperCase()}</div>`} Ask Me
+                  ${(this.authorProfiles?.find(p => p.full_name === item.author)?.avatar_url) || item.author_avatar
+                    ? `<img src="${(this.authorProfiles?.find(p => p.full_name === item.author)?.avatar_url) || item.author_avatar}" alt="Author" class="lib-menu-avatar">`
+                    : `<div class="lib-menu-avatar lib-menu-avatar-fallback">${(item.author || 'G').charAt(0).toUpperCase()}</div>`} ${item.author || 'Gliimu Originals'}
                 </div>
               </div>
             </div>
@@ -279,7 +286,7 @@ export default {
     if (isOwned) {
       document.getElementById('access-content-btn').addEventListener('click', () => {
         this.logInteraction(item.id, 'read_end');
-        alert('Opening file...');
+        this.openContent(item);
       });
       document.getElementById('rate-item-btn').addEventListener('click', (e) => {
         e.stopPropagation(); libraryInstance.rateItem(item.id);
@@ -296,9 +303,176 @@ export default {
     document.getElementById('ask-me-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       this.logInteraction(item.id, 'ask_me');
-      alert('Redirecting to author\'s inbox...');
-      window.location.hash = '#/ping';
+      const author = this.authorProfiles?.find(p => p.full_name === item.author);
+      if (!author) return alert("Author profile not found.");
+      sessionStorage.setItem('view_profile_id', author.id);
+      document.querySelector('.modal-overlay')?.remove();
+      window.location.hash = '#/profile';
     });
+  },
+
+  openContent(item) {
+    document.querySelector('.modal-overlay')?.remove();
+    if (item.type === 'audiolite') return this.openAudiolite(item);
+    if (item.type === 'bundle') return this.openBundle(item);
+    return this.openReader(item);
+  },
+
+  fileKind(url) {
+    if (!url) return null;
+    const ext = url.split('?')[0].split('.').pop().toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'].includes(ext)) return 'image';
+    if (ext === 'pdf') return 'pdf';
+    if (['mp3', 'wav', 'm4a', 'ogg', 'aac'].includes(ext)) return 'audio';
+    if (['mp4', 'webm', 'mov'].includes(ext)) return 'video';
+    return 'file';
+  },
+
+  fileIcon(kind) {
+    const svgs = {
+      image: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
+      pdf: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+      audio: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>',
+      video: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
+      file: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>'
+    };
+    return svgs[kind] || svgs.file;
+  },
+
+  openReader(item) {
+    const kind = this.fileKind(item.file_url);
+    let contentHtml;
+    if (!item.file_url) {
+      contentHtml = '<p class="lib-reader-empty">The author hasn\'t attached a file to this publication yet.</p>';
+    } else if (kind === 'image') {
+      contentHtml = `<img class="lib-reader-image" src="${item.file_url}" alt="${item.title}">`;
+    } else if (kind === 'pdf') {
+      contentHtml = `<iframe class="lib-reader-frame" src="${item.file_url}" title="${item.title}"></iframe>`;
+    } else if (kind === 'video') {
+      contentHtml = `<video class="lib-reader-video" src="${item.file_url}" controls></video>`;
+    } else {
+      contentHtml = `<a class="btn-primary lib-reader-download" href="${item.file_url}" target="_blank" rel="noopener">Open file</a>`;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content lib-modal-content lib-reader-modal">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        ${item.cover_url ? `<img class="lib-reader-cover" src="${item.cover_url}" alt="">` : ''}
+        <div class="lib-modal-body">
+          <span class="lib-modal-type">${item.type}</span>
+          <h2>${item.title}</h2>
+          <p class="lib-modal-author">by ${item.author || 'Gliimu Originals'}</p>
+          <p class="lib-modal-desc">${item.description}</p>
+          <hr class="lib-reader-divider">
+          ${contentHtml}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  openAudiolite(item) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content lib-modal-content lib-audio-modal">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <div class="lib-audio-art ${item.cover_url ? '' : 'lib-audio-art-fallback'}" style="${item.cover_url ? `background-image:url('${item.cover_url}')` : ''}">
+          ${item.cover_url ? '' : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>'}
+        </div>
+        <h2 class="lib-audio-title">${item.title}</h2>
+        <p class="lib-audio-author">${item.author || 'Gliimu Originals'}</p>
+
+        <div class="lib-eq" id="lib-eq"><span></span><span></span><span></span><span></span><span></span></div>
+
+        <div class="lib-audio-player">
+          <button class="lib-audio-play" id="lib-audio-play" ${item.file_url ? '' : 'disabled'}>
+            <svg id="lib-audio-play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+          </button>
+          <div class="lib-audio-timeline">
+            <span id="lib-audio-cur">0:00</span>
+            <input type="range" id="lib-audio-seek" min="0" max="1000" value="0" ${item.file_url ? '' : 'disabled'}>
+            <span id="lib-audio-dur">0:00</span>
+          </div>
+          <button class="lib-audio-speed" id="lib-audio-speed">1x</button>
+        </div>
+        ${item.file_url ? '' : '<p class="lib-reader-empty" style="margin-top: 16px;">No audio file attached yet.</p>'}
+        <audio id="lib-audio" src="${item.file_url || ''}" preload="metadata"></audio>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    if (!item.file_url) return;
+
+    const audio = document.getElementById('lib-audio');
+    const playBtn = document.getElementById('lib-audio-play');
+    const playIcon = document.getElementById('lib-audio-play-icon');
+    const seek = document.getElementById('lib-audio-seek');
+    const cur = document.getElementById('lib-audio-cur');
+    const dur = document.getElementById('lib-audio-dur');
+    const eq = document.getElementById('lib-eq');
+    const speedBtn = document.getElementById('lib-audio-speed');
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const PLAY = '<polygon points="6 4 20 12 6 20 6 4"></polygon>';
+    const PAUSE = '<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>';
+
+    playBtn.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
+    audio.addEventListener('play', () => { playIcon.innerHTML = PAUSE; eq.classList.add('playing'); });
+    audio.addEventListener('pause', () => { playIcon.innerHTML = PLAY; eq.classList.remove('playing'); });
+    audio.addEventListener('ended', () => { playIcon.innerHTML = PLAY; eq.classList.remove('playing'); seek.value = 0; cur.textContent = '0:00'; });
+    audio.addEventListener('loadedmetadata', () => { dur.textContent = fmt(audio.duration); });
+    audio.addEventListener('timeupdate', () => {
+      cur.textContent = fmt(audio.currentTime);
+      if (audio.duration) seek.value = (audio.currentTime / audio.duration) * 1000;
+    });
+    seek.addEventListener('input', () => {
+      if (audio.duration) audio.currentTime = (seek.value / 1000) * audio.duration;
+    });
+    speedBtn.addEventListener('click', () => {
+      const speeds = [1, 1.25, 1.5, 2];
+      const next = speeds[(speeds.indexOf(audio.playbackRate) + 1) % speeds.length];
+      audio.playbackRate = next;
+      speedBtn.textContent = `${next}x`;
+    });
+  },
+
+  openBundle(item) {
+    let files = [];
+    if (Array.isArray(item.bundle_items) && item.bundle_items.length) {
+      files = item.bundle_items;
+    } else if (item.file_url) {
+      files = [{ title: decodeURIComponent(item.file_url.split('/').pop().split('?')[0]) || 'Bundle file', url: item.file_url }];
+    }
+
+    const rows = files.map(f => `
+      <div class="lib-file-row">
+        <span class="lib-file-icon">${this.fileIcon(this.fileKind(f.url))}</span>
+        <span class="lib-file-name">${f.title || 'File'}</span>
+        <a class="lib-file-download" href="${f.url}" download target="_blank" rel="noopener" title="Download">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </a>
+      </div>
+    `).join('');
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content lib-modal-content lib-bundle-modal">
+        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <div class="lib-folder">
+          <div class="lib-folder-tab"></div>
+          <div class="lib-folder-body">
+            <span class="lib-modal-type">${item.type}</span>
+            <h2>${item.title}</h2>
+            <p class="lib-modal-author">${files.length} file${files.length === 1 ? '' : 's'} · by ${item.author || 'Gliimu Originals'}</p>
+            <p class="lib-modal-desc">${item.description}</p>
+            <div class="lib-folder-files">${rows || '<p class="lib-reader-empty">No files attached to this bundle yet.</p>'}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
   },
 
   shareItem(item) {

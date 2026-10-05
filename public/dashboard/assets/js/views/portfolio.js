@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 
 export default {
-  title: 'Leaderboard',
+  title: 'Profile',
   template: `
     <div class="profile-layout" id="profile-container">
       <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading...</p>
@@ -11,32 +11,31 @@ export default {
 
   async init() {
     this.allUsers = [];
-    this.activeTab = 'leaderboard'; // Default view
 
-    // Check if we are viewing a specific user from another page
-    const targetId = sessionStorage.getItem('view_profile_id');
+    // Deep links: sessionStorage (hub/library) or ?u=<id> in the hash (QR scans)
+    let targetId = sessionStorage.getItem('view_profile_id');
     if (targetId) {
       sessionStorage.removeItem('view_profile_id');
-      this.targetUserId = targetId;
-      this.activeTab = 'profile';
+    } else {
+      const m = location.hash.match(/[?&]u=([a-zA-Z0-9-]+)/);
+      if (m) targetId = m[1];
     }
+    this.targetUserId = targetId || store.user.id;
 
     window.profileInstance = {
-      editProfile: () => window.location.hash = '#/settings',
       printProfile: () => window.print(),
-      switchTab: (tab) => this.switchTab(tab),
       viewUser: (userId) => this.viewUser(userId),
-      searchUsers: (query) => this.searchUsers(query)
+      searchUsers: (query) => this.searchUsers(query),
+      changePortfolioImage: () => document.getElementById('portfolio-image-input')?.click(),
+      handlePortfolioImage: (input) => this.uploadPortfolioImage(input),
+      openQr: () => this.openQrModal(),
+      closeQr: (e, el) => { if (e.target === el) el.remove(); },
+      messageUser: () => this.messageUser()
     };
 
     await this.fetchAllUsers();
     this.setupTopbar();
-
-    if (this.activeTab === 'leaderboard') {
-      this.renderLeaderboard();
-    } else if (this.activeTab === 'profile') {
-      await this.renderProfile(this.targetUserId || store.user.id);
-    }
+    await this.renderProfile(this.targetUserId);
   },
 
   setupTopbar() {
@@ -55,32 +54,20 @@ export default {
 
     if (topbarRight) {
       topbarRight.innerHTML = `
-        <div class="lib-filter-wrapper">
-          <button class="lib-filter-btn" id="profile-filter-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-          </button>
-          <div class="lib-dropdown-menu" id="profile-dropdown">
-            <div class="lib-dropdown-item ${this.activeTab === 'leaderboard' ? 'active' : ''}" onclick="profileInstance.switchTab('leaderboard')">Leaderboard</div>
-            <div class="lib-dropdown-item ${this.activeTab === 'profile' ? 'active' : ''}" onclick="profileInstance.switchTab('profile')">My Profile</div>
-          </div>
-        </div>
+        <button class="lib-filter-btn" id="profile-print-btn" title="Print / Save as PDF" onclick="profileInstance.printProfile()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        </button>
       `;
-
-      document.getElementById('profile-filter-btn').addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        document.getElementById('profile-dropdown').classList.toggle('active');
-      });
     }
 
     document.addEventListener('click', () => {
-      document.getElementById('profile-dropdown')?.classList.remove('active');
       const dd = document.getElementById('profile-search-dropdown');
       if (dd) dd.style.display = 'none';
     });
   },
 
   async fetchAllUsers() {
-    const { data } = await supabase.from('profiles').select('id, full_name, username, avatar_url, total_gp, bio, skills, interests').order('total_gp', { ascending: false });
+    const { data } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').order('total_gp', { ascending: false });
     this.allUsers = data || [];
   },
 
@@ -92,7 +79,7 @@ export default {
     }
 
     const q = query.toLowerCase();
-    const filtered = this.allUsers.filter(u => u.full_name?.toLowerCase().includes(q) || u.username?.toLowerCase().includes(q));
+    const filtered = this.allUsers.filter(u => u.full_name?.toLowerCase().includes(q));
 
     if (filtered.length === 0) {
       dropdown.style.display = 'block';
@@ -116,50 +103,15 @@ export default {
     `}).join('');
   },
 
-  switchTab(tab) {
-    this.activeTab = tab;
-    document.querySelectorAll('#profile-dropdown .lib-dropdown-item').forEach(i => i.classList.remove('active'));
-
-    if (tab === 'leaderboard') {
-      this.renderLeaderboard();
-    } else {
-      this.renderProfile(store.user.id);
-    }
-  },
-
   viewUser(userId) {
     document.getElementById('profile-search-dropdown').style.display = 'none';
     document.getElementById('profile-search').value = '';
     this.renderProfile(userId);
   },
 
-  renderLeaderboard() {
-    const container = document.getElementById('profile-container');
-
-    container.innerHTML = `
-      <div class="leaderboard-card card">
-        <div class="leaderboard-header">
-          <h2>Elite Leaderboard</h2>
-          <p>Top Gliimaits ranked by total GP earned.</p>
-        </div>
-        <div class="leaderboard-list">
-          ${this.allUsers.map((u, index) => {
-            const avatar = u.avatar_url
-              ? `<img src="${u.avatar_url}" class="lb-avatar" style="object-fit:cover;" alt="">`
-              : `<div class="lb-avatar lb-avatar-fallback">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
-            return `
-            <div class="leaderboard-item" onclick="profileInstance.viewUser('${u.id}')">
-              <span class="lb-rank">#${index + 1}</span>
-              ${avatar}
-              <div class="lb-info">
-                <span class="lb-name">${u.full_name || 'Gliimait'}</span>
-              </div>
-              <span class="lb-score">${u.total_gp || 0} GP</span>
-            </div>
-          `}).join('')}
-        </div>
-      </div>
-    `;
+  messageUser() {
+    sessionStorage.setItem('ping_target_user', this.targetUserId);
+    window.location.hash = '#/ping';
   },
 
   async renderProfile(userId) {
@@ -179,85 +131,77 @@ export default {
     if (!user) return;
 
     const p = user;
-    const isElite = (p.total_gp || 0) >= 1000;
-    const avatarClass = isElite ? 'profile-avatar glow-avatar' : 'profile-avatar';
-    const avatar = p.avatar_url
-      ? `<img src="${p.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
-      : `<div class="${avatarClass}">${p.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+    const gp = p.total_gp || 0;
+    const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
 
-    const tick = isElite ? '<svg class="inline-tick" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : '';
+    // Portfolio-only image: falls back to the app avatar
+    const portfolioImg = p.portfolio_image_url || p.avatar_url;
+    const tierClass = gp >= 5000 ? 'tier-5000' : (gp >= 1000 ? 'tier-1000' : '');
 
     const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
     const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
 
-    container.innerHTML = `
-      <div class="profile-card card printable-area${isMe ? ' my-profile-card' : ''}">
-        <div class="profile-header">
-          <div class="profile-header-left">
-            ${avatar}
-            <div class="profile-header-info">
-              <h1>${p.full_name || 'Gliimait'} ${tick}</h1>
-              <p class="profile-username">@${p.username}</p>
-              <div class="profile-badges">
-                <span class="profile-badge">Gliimait</span>
-                ${p.subscription_expires_at && new Date(p.subscription_expires_at) > new Date() ? '<span class="profile-badge elite">Elite Subscriber</span>' : ''}
-              </div>
-            </div>
-          </div>
-          ${isMe ? `
-            <div class="profile-actions">
-              <button class="btn-secondary" onclick="profileInstance.editProfile()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                Edit Profile
-              </button>
-              <button class="btn-primary" onclick="profileInstance.printProfile()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                Print / Save PDF
-              </button>
-            </div>
-          ` : `
-            <div class="profile-actions">
-              <button class="btn-primary" onclick="alert('Redirecting to Ping...'); window.location.hash='/ping';">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                Message
-              </button>
-            </div>
-          `}
-        </div>
+    const profileUrl = `${location.origin}/dashboard/#/profile?u=${userId}`;
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(profileUrl)}`;
 
-        <div class="profile-stats">
-          <div class="stat-item">
-            <span class="stat-value">${p.total_gp || 0}</span>
-            <span class="stat-label">GP Points</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">${posts?.length || 0}</span>
-            <span class="stat-label">Gliims Published</span>
-          </div>
+    container.innerHTML = `
+      <div class="portfolio-a4 card printable-area" id="portfolio-a4">
+        <div class="portfolio-left ${tierClass}">
+          ${portfolioImg
+            ? `<img src="${portfolioImg}" alt="${p.full_name || 'Gliimait'}" style="object-fit:cover;">`
+            : `<div class="portfolio-img-fallback">${p.full_name?.charAt(0).toUpperCase() || 'G'}</div>`}
           ${isMe ? `
-            <div class="stat-item">
-              <span class="stat-value">₦${p.wallet_balance?.toLocaleString() || 0}</span>
-              <span class="stat-label">Wallet Balance</span>
-            </div>
+            <button class="portfolio-img-edit" title="Change portfolio image" onclick="profileInstance.changePortfolioImage()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            </button>
+            <input type="file" id="portfolio-image-input" accept="image/*" style="display:none" onchange="profileInstance.handlePortfolioImage(this)">
           ` : ''}
         </div>
 
-        <div class="profile-section">
-          <h3>About Me</h3>
-          <p>${p.bio || 'No bio added yet.'}</p>
-        </div>
-
-        <div class="profile-section">
-          <h3>Skills & Proficiency</h3>
-          <div class="tag-group">
-            ${skills.length > 0 ? skills.map(s => `<span class="tag tag-primary">${s}</span>`).join('') : '<span class="text-muted">No skills added.</span>'}
+        <div class="portfolio-right">
+          <div class="portfolio-identity">
+            <h1>${p.full_name || 'Gliimait'}</h1>
+            ${p.bio ? `<p class="portfolio-bio">${p.bio}</p>` : ''}
           </div>
-        </div>
 
-        <div class="profile-section">
-          <h3>Interests</h3>
-          <div class="tag-group">
-            ${interests.length > 0 ? interests.map(i => `<span class="tag tag-secondary">${i}</span>`).join('') : '<span class="text-muted">No interests added.</span>'}
+          <div class="portfolio-stats">
+            <div class="portfolio-stat">
+              <span class="stat-value">${gpDisplay}</span>
+              <span class="stat-label">${gp >= 10000 ? 'Growth Points' : 'GP Points'}</span>
+            </div>
+            <div class="portfolio-stat">
+              <span class="stat-value">${posts?.length || 0}</span>
+              <span class="stat-label">Gliims Published</span>
+            </div>
+          </div>
+
+          ${skills.length > 0 ? `
+            <div class="portfolio-section">
+              <h3>Skills & Proficiency</h3>
+              <div class="tag-group">
+                ${skills.map(s => `<span class="tag tag-primary">${s}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${interests.length > 0 ? `
+            <div class="portfolio-section">
+              <h3>Interests</h3>
+              <div class="tag-group">
+                ${interests.map(i => `<span class="tag tag-secondary">${i}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="portfolio-verify" onclick="profileInstance.openQr()" title="View verification code">
+            <div class="portfolio-qr-img">
+              <img class="qr" src="${qrSrc}" alt="Profile verification QR code">
+              <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
+            </div>
+            <div class="portfolio-verify-info">
+              <span class="verify-title">Verified Gliimait</span>
+              <span class="verify-hint">Scan or tap to view this profile</span>
+            </div>
           </div>
         </div>
       </div>
@@ -281,6 +225,63 @@ export default {
           `).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No published Gliims yet.</p>'}
         </div>
       </div>
+
+      ${!isMe ? `
+        <div class="portfolio-other-actions">
+          <button class="btn-secondary" onclick="profileInstance.messageUser()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            Message
+          </button>
+        </div>
+      ` : ''}
     `;
+  },
+
+  openQrModal() {
+    document.getElementById('qr-large-overlay')?.remove();
+
+    const userId = this.targetUserId;
+    const profileUrl = `${location.origin}/dashboard/#/profile?u=${userId}`;
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=560x560&ecc=H&margin=10&qzone=1&data=${encodeURIComponent(profileUrl)}`;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'qr-large-overlay';
+    overlay.onclick = (e) => profileInstance.closeQr(e, overlay);
+    overlay.innerHTML = `
+      <div class="qr-large-box">
+        <h3>Profile Verification</h3>
+        <div class="qr-large-wrap">
+          <img class="qr" src="${qrSrc}" alt="Profile QR code">
+          <img class="qr-logo-large" src="/icons/icon.png" alt="Gliimu">
+        </div>
+        <p class="qr-large-url">${profileUrl}</p>
+        <div class="qr-large-actions">
+          <a class="btn-secondary" href="${profileUrl}" target="_blank" rel="noopener">Open profile link</a>
+          <button class="btn-primary" onclick="document.getElementById('qr-large-overlay')?.remove()">Done</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  },
+
+  async uploadPortfolioImage(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      input.disabled = true;
+      const path = `${store.user.id}/portfolio/portfolio_${Date.now()}`;
+      const { error: upErr } = await supabase.storage.from('media').upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from('media').getPublicUrl(path);
+      const { error: dbErr } = await supabase.from('profiles').update({ portfolio_image_url: data.publicUrl }).eq('id', store.user.id);
+      if (dbErr) throw dbErr;
+      alert('Portfolio image updated.');
+      await this.renderProfile(this.targetUserId);
+    } catch (e) {
+      alert('Could not update portfolio image: ' + (e.message || 'upload failed.'));
+    } finally {
+      input.disabled = false;
+      input.value = '';
+    }
   }
 };

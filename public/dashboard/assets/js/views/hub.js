@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import { store } from '../store.js';
+import { store, tierClass } from '../store.js';
 
 export default {
   title: 'Hub',
@@ -58,6 +58,8 @@ export default {
     if (!savedPostId) return;
 
     sessionStorage.removeItem('openReadViewId');
+    const commentId = sessionStorage.getItem('openCommentId');
+    sessionStorage.removeItem('openCommentId');
 
     let post = this.currentPosts.find(p => p.id === savedPostId);
 
@@ -76,6 +78,16 @@ export default {
     }
 
     this.openReadView(post.id);
+
+    if (commentId) {
+      setTimeout(() => {
+        const el = document.getElementById(`comment-${commentId}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('comment-highlight');
+        setTimeout(() => el.classList.remove('comment-highlight'), 3000);
+      }, 200);
+    }
   },
 
   setupTopbarSearch() {
@@ -89,6 +101,7 @@ export default {
       `;
       document.getElementById('hub-search').addEventListener('input', (e) => {
         this.searchQuery = e.target.value.toLowerCase();
+        if (this.searchQuery.length >= 3) this.interestSignal(0, null, this.searchQuery);
         this.renderPosts(this.currentPosts);
       });
     }
@@ -366,7 +379,7 @@ export default {
 
   async fetchPosts() {
     const [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await Promise.all([
-      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
+      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
       supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
@@ -375,7 +388,7 @@ export default {
     this.userBalance = profile?.wallet_balance || 0;
     this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
-    this.currentPosts = posts || [];
+    this.currentPosts = this.orderFeed(posts || []);
     this.savedPosts = new Set(saved?.map(s => s.post_id) || []);
     this.renderPosts(this.currentPosts);
   },
@@ -410,19 +423,90 @@ export default {
 
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
     container.innerHTML = filtered.map(post => {
-      const avatarClass = post.profiles?.total_gp >= 1000 ? 'blog-avatar glow-avatar' : 'blog-avatar';
+      const isAmbassador = (post.profiles?.total_gp || 0) >= 5000;
+      const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
       const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-      return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'}</span></div><div class="blog-stats"><span>${likes} Claps</span><span>${comments} Comments</span></div></div></div></article>`;
+      return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author"><div style="position:relative;">${avatar}</div><span>${post.profiles?.full_name || 'Gliimait'}</span></div><div class="blog-stats"><span>${post.views || 0} Views</span><span>${comments} Comments</span></div></div></div></article>`;
     }).join('');
   },
 
   parseTags(text) {
     if (!text) return '';
     return text.replace(/@([a-zA-Z0-9_ ]+)/g, (match, name) => `<span class="comment-tag">${match}</span>`);
+  },
+
+  // ============================================
+  // INTEREST ENGINE — the feed starts random (stable per
+  // session), then settles into an interest-ordered feed once
+  // enough engagement signals are collected (>= 5).
+  // ============================================
+  loadInterest() {
+    try {
+      return JSON.parse(localStorage.getItem('gliimu_interest_v1')) || { cats: {}, terms: [], signals: 0 };
+    } catch {
+      return { cats: {}, terms: [], signals: 0 };
+    }
+  },
+
+  interestSignal(weight, category, term) {
+    try {
+      const it = this.loadInterest();
+      it.signals = (it.signals || 0) + weight;
+      if (category) it.cats[category] = (it.cats[category] || 0) + weight;
+      if (term) {
+        const t = term.toLowerCase().trim();
+        if (t.length >= 3 && !it.terms.includes(t)) {
+          it.terms.push(t);
+          if (it.terms.length > 30) it.terms = it.terms.slice(-30);
+        }
+      }
+      localStorage.setItem('gliimu_interest_v1', JSON.stringify(it));
+    } catch { /* storage unavailable — feed stays chronological */ }
+  },
+
+  feedScore(post, interest) {
+    const ageDays = (Date.now() - new Date(post.created_at).getTime()) / 86400000;
+    let score = (interest.cats[post.category] || 0) - ageDays * 0.5;
+    const text = `${post.title || ''} ${post.description || ''}`.toLowerCase();
+    (interest.terms || []).forEach(t => { if (text.includes(t)) score += 2; });
+    const myName = store.profile?.full_name;
+    if (myName && `${post.description || ''}`.includes(`@${myName}`)) score += 3;
+    return score;
+  },
+
+  seededShuffle(posts) {
+    let seed = parseInt(sessionStorage.getItem('gliimu_feed_seed') || '', 10);
+    if (isNaN(seed)) {
+      seed = Math.floor(Math.random() * 1e9);
+      sessionStorage.setItem('gliimu_feed_seed', String(seed));
+    }
+    const rand = () => {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+    const arr = [...posts];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  },
+
+  orderFeed(posts) {
+    const interest = this.loadInterest();
+    if ((interest.signals || 0) >= 5) {
+      return [...posts].sort((a, b) =>
+        this.feedScore(b, interest) - this.feedScore(a, interest) ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    return this.seededShuffle(posts);
   },
 
   openReadView(postId) {
@@ -432,7 +516,20 @@ export default {
     this.isModalOpen = true;
     sessionStorage.setItem('openReadViewId', postId);
 
-    const avatarClass = post.profiles?.total_gp >= 1000 ? 'blog-avatar glow-avatar' : 'blog-avatar';
+    // Count one view per post per browser session
+    const viewedKey = `gliimu_viewed_${postId}`;
+    if (!sessionStorage.getItem(viewedKey)) {
+      sessionStorage.setItem(viewedKey, '1');
+      supabase.rpc('bump_post_views', { p_post: postId }).then(({ data }) => {
+        if (typeof data === 'number') post.views = data;
+      });
+      // Interest: opening a post counts; one where I'm tagged counts extra
+      const myName = store.profile?.full_name;
+      const tagged = myName && (post.description || '').includes(`@${myName}`);
+      this.interestSignal(tagged ? 3 : 1, post.category);
+    }
+
+    const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
@@ -447,7 +544,7 @@ export default {
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
     if (postComments.length > 0) {
       commentsHtml = postComments.map(c => {
-        const cAvatarClass = c.profiles?.total_gp >= 1000 ? 'comment-avatar glow-avatar' : 'comment-avatar';
+        const cAvatarClass = tierClass(c.profiles?.total_gp, 'comment-avatar');
         const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
         const parsedText = this.parseTags(c.comment_text);
         const commentTime = new Date(c.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -543,7 +640,7 @@ export default {
 
         <div class="read-bottom-bar">
           <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-            <img src="/icons/clap.svg" class="action-icon-img" alt="Clap" loading="eager" decoding="async">
+            <img src="/icons/clap.svg" class="action-icon-img" alt="Punch-it" loading="eager" decoding="async">
             <span>${likes}</span>
           </button>
           <button class="action-btn" onclick="hubInstance.scrollToComments('${post.id}')">
@@ -604,31 +701,34 @@ export default {
 
   async supportCreator(postId, authorId) {
     if (authorId === store.user.id) return alert("You cannot support yourself!");
-    const amountStr = await appPrompt("Enter support amount (NGN):", { inputType: 'number', okText: 'Send' });
-    if (!amountStr) return;
-    const amount = parseInt(amountStr);
-    if (isNaN(amount) || amount <= 0) return alert("Invalid amount.");
 
-    const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single();
-    if (profile.wallet_balance < amount) return alert("Insufficient funds. Please top up your wallet.");
+    const post = this.currentPosts.find(p => p.id === postId);
+    const authorName = post?.profiles?.full_name || 'this creator';
+    const gp = this.userGP || 0;
 
-    await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - amount }).eq('id', store.user.id);
-    await supabase.rpc('increment_wallet', { user_id: authorId, amount: amount });
+    if (gp <= 0) return alert("You don't have any GP to give yet.");
 
-    // Insert transaction for the SENDER only; RLS blocks cross-user inserts, so the
-    // receiver's copy is written by a future server-side process if needed.
-    await supabase.from('transactions').insert({
-      user_id: store.user.id,
-      amount: -amount,
-      type: 'support',
-      status: 'success',
-      description: `Hub Support sent to ${post.profiles?.full_name || 'Author'}`
-    });
+    const ok = await appConfirm(
+      `Support ${authorName} with ${gp >= 1000 ? '1,000' : 'all ' + gp} GP?`,
+      { okText: 'Support', cancelText: 'Cancel' }
+    );
+    if (!ok) return;
 
-    const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: amount }).select('*').single();
-    if (data) this.allInteractions.push(data);
+    const { data: amount, error } = await supabase.rpc('send_support', { p_post: postId });
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('AUTHOR_NOT_ELIGIBLE')) return alert("This creator isn't eligible for supports yet — they need 1,000 GP.");
+      if (msg.includes('ALREADY_SUPPORTED')) return alert("You've already supported this gliim.");
+      if (msg.includes('INSUFFICIENT_GP')) return alert("You don't have enough GP to support.");
+      return alert("Support failed: " + msg);
+    }
 
-    alert(`Supported successfully!`);
+    this.allInteractions.push({ id: `local-${Date.now()}`, post_id: postId, user_id: store.user.id, interaction_type: 'support', amount });
+    this.userGP = (this.userGP || 0) - amount;
+    if (store.profile) store.profile.total_gp = this.userGP;
+
+    alert(`Supported ${authorName} with ${amount} GP!`);
+    this.interestSignal(4, post?.category);
     this.closeModal();
     this.openReadView(postId);
   },
@@ -642,7 +742,10 @@ export default {
     } else {
       const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
       if (data) this.allInteractions.push(data);
-      if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 3 });
+      if (post && post.user_id !== store.user.id) {
+        await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 3 });
+        this.interestSignal(2, post.category);
+      }
     }
     this.renderPosts(this.currentPosts);
     this.closeModal();
@@ -661,14 +764,48 @@ export default {
       data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp };
       this.allInteractions.push(data);
       const list = document.getElementById(`comment-list-${postId}`);
-      const cAvatarClass = data.profiles.total_gp >= 1000 ? 'comment-avatar glow-avatar' : 'comment-avatar';
+      const cAvatarClass = tierClass(data.profiles.total_gp, 'comment-avatar');
       const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">${data.profiles.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
       const parsedText = this.parseTags(text);
       const commentTime = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       list.innerHTML += `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${data.profiles.full_name}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
       input.value = "";
     }
-    if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
+    if (post && post.user_id !== store.user.id) {
+      await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
+      this.interestSignal(3, post.category);
+    }
+    if (post) this.notifyMentions(postId, post, text, data?.id);
+  },
+
+  // Ping every @FullName-mentioned user via the message system.
+  // A reply (comment starting with @TheirName) words it as a reply;
+  // a typed mention words it as a tag. The trailing [[hub:...]]
+  // marker is stripped by the chat renderer, which shows a
+  // "Check it out" button that deep-links to the exact comment.
+  async notifyMentions(postId, post, text, commentId) {
+    if (!this.profileCache) {
+      const { data } = await supabase.from('profiles').select('id, full_name').neq('id', store.user.id);
+      this.profileCache = data || [];
+    }
+
+    const lower = text.toLowerCase();
+    const myName = (store.profile?.full_name || '').toLowerCase();
+    const seen = new Set();
+    const marker = commentId ? ` [[hub:${postId}:${commentId}]]` : ` [[hub:${postId}]]`;
+
+    for (const p of this.profileCache) {
+      const name = (p.full_name || '').trim();
+      if (!name || name.toLowerCase() === myName || seen.has(p.id)) continue;
+      if (!lower.includes(`@${name.toLowerCase()}`)) continue;
+      seen.add(p.id);
+
+      const isReply = lower.startsWith(`@${name.toLowerCase()}`);
+      const verb = isReply ? 'replied to you in the hub' : 'tagged you in a gliim (hub post)';
+      const content = `${store.profile.full_name} ${verb}: "${post.title || 'a gliim'}" — click to check it out.${marker}`;
+
+      await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: p.id, content, is_ai: false });
+    }
   },
 
   async sharePost(postId, title) {

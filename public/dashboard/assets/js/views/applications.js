@@ -56,7 +56,8 @@ export default {
       toggleDealForm: () => this.toggleDealForm(),
       markDealDone: (id) => this.markDealDone(id),
       removeDeal: (id) => this.removeDeal(id),
-      cancelMyDeal: (id) => this.cancelMyDeal(id)
+      cancelMyDeal: (id) => this.cancelMyDeal(id),
+      viewProfile: (userId) => this.viewProfile(userId)
     };
 
     this.setupTabs();
@@ -162,7 +163,7 @@ export default {
                     ? `<img src="${escapeHtml(m.avatar)}" class="triad-avatar" alt="">`
                     : `<div class="triad-avatar triad-avatar-fallback">${escapeHtml(m.name.charAt(0).toUpperCase() || 'G')}</div>`;
                   return `
-                  <div class="triad-member">
+                  <div class="triad-member" title="View profile" onclick="reqInstance.viewProfile('${m.user_id}')">
                     ${avatar}
                     <span class="triad-member-name">${escapeHtml(m.name)}</span>
                     <span class="triad-gp">${m.gp} GP</span>
@@ -253,11 +254,16 @@ export default {
                   <div class="queue-pos">${index + 1}</div>
                   <div class="queue-body">
                     <div class="queue-head">
-                      ${logo
-                        ? `<img src="${escapeHtml(logo)}" class="queue-logo" alt="">`
-                        : `<div class="queue-logo queue-logo-fallback">${escapeHtml(name.charAt(0).toUpperCase())}</div>`
+                      ${isCorporate
+                        ? `${logo
+                            ? `<img src="${escapeHtml(logo)}" class="queue-logo" alt="">`
+                            : `<div class="queue-logo queue-logo-fallback">${escapeHtml(name.charAt(0).toUpperCase())}</div>`
+                          }<span class="queue-name">${escapeHtml(name)}</span>`
+                        : `<span class="queue-user-link" title="View profile" onclick="reqInstance.viewProfile('${deal.user_id}')">${logo
+                            ? `<img src="${escapeHtml(logo)}" class="queue-logo" alt="">`
+                            : `<div class="queue-logo queue-logo-fallback">${escapeHtml(name.charAt(0).toUpperCase())}</div>`
+                          }<span class="queue-name">${escapeHtml(name)}</span></span>`
                       }
-                      <span class="queue-name">${escapeHtml(name)}</span>
                       <span class="queue-tag">${isCorporate ? 'Corporate' : 'Personal'}</span>
                       ${index === 0 ? '<span class="queue-tag queue-tag-next">Next Up</span>' : ''}
                       ${isMine ? '<span class="queue-tag queue-tag-mine">Yours</span>' : ''}
@@ -466,5 +472,11 @@ export default {
     const { error } = await supabase.from('deals').update({ status: 'cancelled' }).eq('id', id);
     if (error) return alert("Error: " + error.message);
     this.loadTab();
+  },
+
+  viewProfile(userId) {
+    if (!userId) return;
+    sessionStorage.setItem('view_profile_id', userId);
+    window.location.hash = '#/profile';
   }
 };

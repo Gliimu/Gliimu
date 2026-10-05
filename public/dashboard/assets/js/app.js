@@ -31,9 +31,10 @@ const NotificationManager = {
   },
 
   async fetchInitialCounts() {
-    // Ping (Unread DMs) — computed locally; receivers can't write read_at under RLS
-    const { data: received } = await supabase.from('messages').select('sender_id, created_at, read_at').eq('receiver_id', store.user.id);
-    const { total } = computeUnread(store.user.id, received || []);
+    // Ping (Unread DMs) — DMs only; live-room and AI messages are not pings
+    const { data: received } = await supabase.from('messages').select('sender_id, created_at, read_at, room, is_ai').eq('receiver_id', store.user.id);
+    const dms = (received || []).filter(m => !m.room && !m.is_ai);
+    const { total } = computeUnread(store.user.id, dms);
     this.counts.ping = total;
     this.updateBadge('ping', total);
 
@@ -47,13 +48,74 @@ const NotificationManager = {
     // Listen for new DMs
     supabase.channel('app-global-notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        if (payload.new.receiver_id === store.user.id && !payload.new.read_at) {
+        const m = payload.new;
+        if (m.receiver_id === store.user.id && !m.read_at && !m.room && !m.is_ai) {
           this.counts.ping++;
           this.updateBadge('ping', this.counts.ping);
         }
       }).subscribe();
   }
 };
+
+// ============================================
+// PRESENCE — which Gliimaits are online right now.
+// Live sessions are only visible while their owner is online.
+// ============================================
+const Presence = {
+  onlineIds: new Set(),
+  channel: null,
+
+  init() {
+    if (!store.user?.id || this.channel) return;
+    const ch = supabase.channel('online-gliimaits', { config: { presence: { key: store.user.id } } });
+    ch
+      .on('presence', { event: 'sync' }, () => {
+        this.onlineIds = new Set(Object.keys(ch.presenceState()));
+        window.dispatchEvent(new CustomEvent('presence-changed'));
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') ch.track({ online_at: new Date().toISOString() });
+      });
+    this.channel = ch;
+  },
+
+  isOnline(id) {
+    return this.onlineIds.has(id);
+  }
+};
+
+// ============================================
+// GP TIERS — sidebar avatar border + 100 GP eligibility alert.
+// 1000+ purple border, 5000+ black/white (ambassador). A light
+// poll keeps the border and the one-time 100 GP alert current
+// without a full page reload.
+// ============================================
+const TIER_100_KEY = 'gliimu_tier_100_alerted';
+
+function applyAvatarTier() {
+  const avatarEl = document.getElementById('user-avatar');
+  if (!avatarEl) return;
+  avatarEl.classList.remove('glow-avatar', 'tier-5000-avatar');
+  const gp = store.profile.total_gp || 0;
+  if (gp >= 5000) avatarEl.classList.add('tier-5000-avatar');
+  else if (gp >= 1000) avatarEl.classList.add('glow-avatar');
+}
+
+async function checkGpTiers() {
+  const { data: profile } = await supabase.from('profiles').select('total_gp').eq('id', store.user.id).single();
+  if (!profile) return;
+  const prev = store.profile.total_gp || 0;
+  const next = profile.total_gp || 0;
+  store.profile.total_gp = next;
+
+  if (next >= 100 && !localStorage.getItem(TIER_100_KEY)) {
+    localStorage.setItem(TIER_100_KEY, '1');
+    if (prev < 100) {
+      alert('You now have 100 GP! You are now eligible to post contents and request live sessions in Gliimu.');
+    }
+  }
+  applyAvatarTier();
+}
 
 // ============================================
 // MOBILE SIDEBAR AUTO-CLOSE
@@ -100,17 +162,20 @@ async function initApp() {
       avatarEl.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E`;
     }
 
-    // Add Glowing Gold Border if >= 1000 GP
-    if (store.profile.total_gp >= 1000) {
-      avatarEl.classList.add('glow-avatar');
-    }
+    // GP tier border on the sidebar avatar
+    applyAvatarTier();
   }
 
   // Initialize Notifications
   await NotificationManager.fetchInitialCounts();
   NotificationManager.initRealtimeListeners();
   window.NotificationManager = NotificationManager;
+
+  Presence.init();
+  window.GliimuPresence = Presence;
   initSidebarAutoClose();
+
+  setInterval(checkGpTiers, 45000);
 
   window.addEventListener('hashchange', router);
   router();

@@ -1,0 +1,619 @@
+-- ============================================================
+-- Gliimu: ONE-SHOT SETUP — admin role, deal queue, landing page
+--
+-- This one script sets up everything the new landing page and
+-- the Requests page need. It only ADDS missing pieces — it never
+-- drops or rewrites your existing tables (curriculum,
+-- contact_info, hub posts, etc. are not touched at all).
+--
+-- HOW TO RUN (the previous failures happened because only part
+-- of a script was executed — the Supabase editor runs just the
+-- selected text when something is highlighted):
+--   1. Open this file, press Ctrl+A, Ctrl+C (copy ALL of it).
+--   2. In Supabase: SQL Editor -> "+ New query" (a fresh, empty one).
+--   3. Paste. Do NOT edit anything — "if not exists" already
+--      handles tables that exist.
+--   4. Press Ctrl+A once inside the Supabase editor.
+--   5. Click "Run" — once.
+--   6. Check the Messages pane: the SELF CHECK at the bottom
+--      must show every line as present.
+--
+-- AFTER IT RUNS — make yourself an admin (once), then sign out
+-- and back in so the dashboard picks the flag up:
+--   update public.profiles set is_admin = true where username = 'yourusername';
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 1. The admin flag and its helper functions.
+-- ------------------------------------------------------------
+alter table public.profiles add column if not exists is_admin boolean not null default false;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select p.is_admin from public.profiles p where p.id = auth.uid()), false);
+$$;
+
+grant execute on function public.is_admin() to anon, authenticated;
+
+-- Close the self-promotion hole: a user's normal "update own
+-- profile" policy would otherwise let them flip their own
+-- is_admin to true.
+create or replace function public.guard_is_admin()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.is_admin is distinct from old.is_admin
+     and auth.uid() is not null
+     and coalesce(auth.role(), '') <> 'service_role'
+     and not public.is_admin() then
+    raise exception 'Only an admin can change admin rights';
+  end if;
+  return new;
+end
+$$;
+
+drop trigger if exists profiles_guard_is_admin on public.profiles;
+create trigger profiles_guard_is_admin
+  before update on public.profiles
+  for each row execute function public.guard_is_admin();
+
+-- ------------------------------------------------------------
+-- 2. FAQ table (the public page reads "faqs", ordered by created_at).
+--    Created only if missing; existing tables are left alone.
+-- ------------------------------------------------------------
+create table if not exists public.faqs (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  answer text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.faqs add column if not exists question text;
+alter table public.faqs add column if not exists answer text;
+alter table public.faqs add column if not exists created_at timestamptz;
+
+alter table public.faqs enable row level security;
+grant select on public.faqs to anon, authenticated;
+
+drop policy if exists "Public read faqs" on public.faqs;
+create policy "Public read faqs" on public.faqs
+  for select to anon, authenticated using (true);
+
+-- ------------------------------------------------------------
+-- 3. Legal documents table (signup page reads type = 'terms').
+-- ------------------------------------------------------------
+create table if not exists public.legal_documents (
+  id uuid primary key default gen_random_uuid(),
+  type text not null,
+  content text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.legal_documents add column if not exists type text;
+alter table public.legal_documents add column if not exists content text;
+alter table public.legal_documents add column if not exists created_at timestamptz;
+
+alter table public.legal_documents enable row level security;
+grant select on public.legal_documents to anon, authenticated;
+
+drop policy if exists "Public read legal documents" on public.legal_documents;
+create policy "Public read legal documents" on public.legal_documents
+  for select to anon, authenticated using (true);
+
+-- ------------------------------------------------------------
+-- 4. Partners — the "Trusted By" wall on the landing page.
+-- ------------------------------------------------------------
+create table if not exists public.partners (
+  id uuid primary key default gen_random_uuid(),
+  name text,
+  logo_url text,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.partners add column if not exists name text;
+alter table public.partners add column if not exists logo_url text;
+alter table public.partners add column if not exists display_order integer not null default 0;
+
+alter table public.partners enable row level security;
+grant select on public.partners to anon, authenticated;
+grant insert, update, delete on public.partners to authenticated;
+
+drop policy if exists "Public read partners" on public.partners;
+create policy "Public read partners" on public.partners
+  for select to anon, authenticated using (true);
+
+drop policy if exists "Admins manage partners" on public.partners;
+create policy "Admins manage partners" on public.partners
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ------------------------------------------------------------
+-- 5. Site settings — app release config for the "Take Gliimu
+--    Everywhere" panel, editable from Dashboard > Settings.
+-- ------------------------------------------------------------
+alter table public.site_settings add column if not exists app_version text;
+alter table public.site_settings add column if not exists app_version_notes text;
+alter table public.site_settings add column if not exists app_download_bg_url text;
+alter table public.site_settings add column if not exists app_windows_url text;
+alter table public.site_settings add column if not exists app_mac_url text;
+alter table public.site_settings add column if not exists app_linux_url text;
+alter table public.site_settings add column if not exists app_android_url text;
+alter table public.site_settings add column if not exists app_ios_url text;
+-- The link the desktop QR code encodes. Falls back to the
+-- Android / iOS link when left empty.
+alter table public.site_settings add column if not exists app_mobile_qr_url text;
+
+alter table public.site_settings enable row level security;
+grant select on public.site_settings to anon, authenticated;
+grant update on public.site_settings to authenticated;
+
+drop policy if exists "Public read site settings" on public.site_settings;
+create policy "Public read site settings" on public.site_settings
+  for select to anon, authenticated using (true);
+
+drop policy if exists "Admins update site settings" on public.site_settings;
+create policy "Admins update site settings" on public.site_settings
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ------------------------------------------------------------
+-- 6. Deals — the Requests page FIFO queue board.
+--    A "deal" is work brought to Gliimu by an individual
+--    (personal) or an organisation (corporate). Deals queue up
+--    in order; an admin marks one done and the next moves up.
+-- ------------------------------------------------------------
+create table if not exists public.deals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  deal_type text not null default 'personal',
+  relationship text,
+  company_name text,
+  company_logo_url text,
+  job_description text,
+  budget text,
+  timeline text,
+  status text not null default 'queued',
+  queue_position bigint,
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  completed_at timestamptz,
+  completed_by uuid
+);
+
+alter table public.deals add column if not exists user_id uuid;
+alter table public.deals add column if not exists deal_type text not null default 'personal';
+alter table public.deals add column if not exists relationship text;
+alter table public.deals add column if not exists company_name text;
+alter table public.deals add column if not exists company_logo_url text;
+alter table public.deals add column if not exists job_description text;
+alter table public.deals add column if not exists budget text;
+alter table public.deals add column if not exists timeline text;
+alter table public.deals add column if not exists status text not null default 'queued';
+alter table public.deals add column if not exists queue_position bigint;
+alter table public.deals add column if not exists created_at timestamptz not null default now();
+alter table public.deals add column if not exists started_at timestamptz;
+alter table public.deals add column if not exists completed_at timestamptz;
+alter table public.deals add column if not exists completed_by uuid;
+
+-- Constraints: drop (if a previous run added them) then re-add.
+alter table public.deals drop constraint if exists deals_status_check;
+alter table public.deals
+  add constraint deals_status_check
+  check (status in ('queued', 'in_progress', 'completed', 'cancelled')) not valid;
+
+alter table public.deals drop constraint if exists deals_type_check;
+alter table public.deals
+  add constraint deals_type_check
+  check (deal_type in ('personal', 'corporate')) not valid;
+
+alter table public.deals drop constraint if exists deals_user_id_fkey;
+alter table public.deals
+  add constraint deals_user_id_fkey foreign key (user_id)
+  references public.profiles(id) on delete cascade;
+
+alter table public.deals drop constraint if exists deals_completed_by_fkey;
+alter table public.deals
+  add constraint deals_completed_by_fkey foreign key (completed_by)
+  references public.profiles(id) on delete set null;
+
+-- FIFO queue. A sequence guarantees the "next up" order without
+-- a read-then-write race between two people posting at once.
+create sequence if not exists public.deals_queue_seq;
+
+alter table public.deals
+  alter column queue_position set default nextval('public.deals_queue_seq');
+
+update public.deals set queue_position = nextval('public.deals_queue_seq')
+where queue_position is null;
+
+create index if not exists deals_status_idx on public.deals (status, queue_position);
+create index if not exists deals_user_idx on public.deals (user_id, created_at desc);
+
+alter table public.deals enable row level security;
+
+drop policy if exists "Authenticated read deals" on public.deals;
+drop policy if exists "Public read active deals" on public.deals;
+drop policy if exists "Users insert own deals" on public.deals;
+drop policy if exists "Owners update own deals" on public.deals;
+drop policy if exists "Owners delete own deals" on public.deals;
+drop policy if exists "Admins update any deal" on public.deals;
+drop policy if exists "Admins delete any deal" on public.deals;
+
+grant select on public.deals to anon;
+grant select, insert, update, delete on public.deals to authenticated;
+grant all on public.deals to service_role;
+grant usage, select on sequence public.deals_queue_seq to authenticated;
+
+-- Everyone signed in can see the whole queue.
+create policy "Authenticated read deals"
+  on public.deals for select
+  to authenticated using (true);
+
+-- The public landing page shows the newest active deal.
+create policy "Public read active deals"
+  on public.deals for select
+  to anon using (status in ('queued', 'in_progress'));
+
+-- Post a deal.
+create policy "Users insert own deals"
+  on public.deals for insert
+  to authenticated with check (auth.uid() = user_id);
+
+-- Owners edit or cancel their own deal.
+create policy "Owners update own deals"
+  on public.deals for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Owners delete own deals"
+  on public.deals for delete
+  to authenticated using (auth.uid() = user_id);
+
+-- Admins work the queue: mark done, cancel, clean up.
+create policy "Admins update any deal"
+  on public.deals for update
+  to authenticated using (public.is_admin()) with check (public.is_admin());
+
+create policy "Admins delete any deal"
+  on public.deals for delete
+  to authenticated using (public.is_admin());
+
+-- Realtime board updates.
+do $$
+begin
+  alter publication supabase_realtime add table public.deals;
+exception when duplicate_object then null;
+end $$;
+
+-- ------------------------------------------------------------
+-- 7. Storage buckets: company logos (deal posters) and landing-
+--    page assets (partner logos, app download background).
+-- ------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('deal_logos', 'deal_logos', true)
+on conflict (id) do update set public = true;
+
+insert into storage.buckets (id, name, public)
+values ('site_assets', 'site_assets', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "Public read deal logos" on storage.objects;
+create policy "Public read deal logos" on storage.objects
+  for select to anon, authenticated using (bucket_id = 'deal_logos');
+
+drop policy if exists "Users upload deal logos" on storage.objects;
+create policy "Users upload deal logos" on storage.objects
+  for insert to authenticated with check (bucket_id = 'deal_logos');
+
+drop policy if exists "Public read site assets" on storage.objects;
+create policy "Public read site assets" on storage.objects
+  for select to anon, authenticated using (bucket_id = 'site_assets');
+
+drop policy if exists "Admins manage site assets" on storage.objects;
+create policy "Admins manage site assets" on storage.objects
+  for all to authenticated
+  using (bucket_id = 'site_assets' and public.is_admin())
+  with check (bucket_id = 'site_assets' and public.is_admin());
+
+-- ------------------------------------------------------------
+-- 8. The 7 landing-page FAQs.
+--    (Guarded: if your existing faqs table has an unexpected
+--    shape this prints a notice instead of failing the run.)
+-- ------------------------------------------------------------
+do $$
+begin
+  delete from public.faqs;
+
+  -- Staggered created_at so the page's "order by created_at"
+  -- shows the questions in this exact order.
+  insert into public.faqs (question, answer, created_at) values
+    ($q1$How much is the tuition?$q1$,
+     $a1$Tuition is subscription-based, ranging from 70k to 780k depending on your preferred plan. For more details, please visit the "Billing" section in your dashboard.$a1$,
+     now() - interval '7 seconds'),
+
+    ($q2$Why is the tuition priced at this level?$q2$,
+     $a2$To use an analogy, a bottle of water costs less from a street vendor than it does in a first-class cabin. The price of our program is not meant to deter you, but rather to reflect a shift in mindset. If you are truly committed, you have what it takes to invest in premium, transformative value.$a2$,
+     now() - interval '6 seconds'),
+
+    ($q3$How can I pay for my tuition?$q3$,
+     $a3$You can pay your tuition through real projects with real clients. Additionally, we offer sponsored programs from time to time that can help you clear your balance faster than you might expect.$a3$,
+     now() - interval '5 seconds'),
+
+    ($q4$Can I earn money through Gliimu?$q4$,
+     $a4$Yes. You can earn through Gliimu, and withdrawal requests are processed within 24 hours. Please note, however, that you must have fully cleared your outstanding tuition before withdrawing your earnings.$a4$,
+     now() - interval '4 seconds'),
+
+    ($q5$What exactly is a Full Stack Media Architect?$q5$,
+     $a5$A Full Stack Media Architect is a creator who has mastered content creation, brand design, and programming. You don't just edit videos or write code; you build entire media empires from scratch.$a5$,
+     now() - interval '3 seconds'),
+
+    ($q6$Do I need any prior experience?$q6$,
+     $a6$No. We train elite minds from the ground up. Our Triad system ensures you learn at your own pace without holding others back.$a6$,
+     now() - interval '2 seconds'),
+
+    ($q7$How long does it take to graduate?$q7$,
+     $a7$The program is untimed. You graduate once you demonstrate competence through practical work, which can take as little as two months or up to a year.$a7$,
+     now() - interval '1 second');
+exception when others then
+  raise notice 'FAQ list not replaced: %', sqlerrm;
+end $$;
+
+-- ------------------------------------------------------------
+-- 9. Terms & Policy document (shown at signup).
+-- ------------------------------------------------------------
+do $$
+declare
+  doc text := $doc$
+<p style="margin-bottom: 12px;"><strong>Last Updated:</strong> October 2024</p>
+<p style="margin-bottom: 16px;">Welcome to Gliimu. By creating an account, you explicitly agree to the following binding terms:</p>
+
+<p style="margin-bottom: 6px;"><strong>1. Eligibility &amp; The Elite Standard</strong></p>
+<p style="margin-bottom: 16px;">You must be at least 16 years old to use Gliimu. By registering, you legally attest to this age requirement. Gliimu trains "Full Stack Media Architects"&mdash;individuals transitioning from traditional employment to self-sustaining independence. We provide elite skill acquisition and networking infrastructure. We explicitly do not guarantee employment, specific financial outcomes, or client acquisition. Your success is entirely dependent on your own effort, application of skills, and market conditions.</p>
+
+<p style="margin-bottom: 6px;"><strong>2. Code of Conduct &amp; Termination</strong></p>
+<p style="margin-bottom: 16px;">You agree to maintain professional, respectful, and ethical conduct at all times. Gliimu reserves the unilateral right to suspend or permanently terminate your account, access to Triads, and platform features immediately, without prior notice or refund, if you engage in: plagiarism, intellectual property theft, harassment, hate speech, scamming, or any behavior that fundamentally contradicts the elite, self-sustaining culture of the platform. Gliimu reserves the right to define disruptive behavior at its sole discretion.</p>
+
+<p style="margin-bottom: 6px;"><strong>3. Tuition, Fees &amp; Refund Policy</strong></p>
+<p style="margin-bottom: 16px;">Tuition is priced at a premium tier ranging from &#8358;70,000 to &#8358;780,000 based on your selected subscription plan to reflect the absolute value of the program. All payments are final and strictly non-refundable once access to the curriculum and platform features is granted. Gliimu retains the sole and absolute discretion to issue a refund in exceptional, documented cases of verifiable platform failure, but is under no legal obligation to do so.</p>
+
+<p style="margin-bottom: 6px;"><strong>4. Earnings, Revenue Share, &amp; Withdrawals</strong></p>
+<p style="margin-bottom: 16px;">You may generate revenue by completing real client gigs and receiving digital appreciation (donations/tips) during live sessions. Gliimu automatically deducts a 10% platform fee from all gross earnings before they are credited to your internal wallet. Earnings generated prior to graduation are held in your internal Gliimu wallet. You are strictly prohibited from withdrawing these internal funds to external bank accounts until your entire tuition balance is paid in full. Once tuition is cleared, standard withdrawal requests are processed within 24 hours. You are responsible for any third-party payment gateway fees or tax liabilities applicable to your earnings.</p>
+
+<p style="margin-bottom: 6px;"><strong>5. Intellectual Property &amp; Ownership</strong></p>
+<p style="margin-bottom: 16px;">You retain all rights to your personal name, likeness, and pre-existing portfolio. For internal apprenticeship curriculum projects created solely for skill demonstration, Gliimu retains a perpetual, royalty-free license to use, reproduce, and display said content for educational and promotional purposes. However, for "real client gigs" facilitated or completed through the platform, the intellectual property rights are strictly governed by the agreement between you and the paying client, provided Gliimu's 10% platform fee is honored. Gliimu will never use your personal identity for external marketing without your explicit, written consent.</p>
+
+<p style="margin-bottom: 6px;"><strong>6. Account Security &amp; Authentication</strong></p>
+<p style="margin-bottom: 16px;">Gliimu utilizes a privacy-first, cryptographic authentication system. We do not collect or store email addresses or traditional Personally Identifiable Information (PII) for password recovery. Upon account creation, you are issued a unique 16-word recovery phrase. You are solely and exclusively responsible for safeguarding this phrase and your password. If you lose both your password and your 16-word recovery phrase, your account, digital assets, and internal wallet funds become permanently inaccessible. Gliimu has no administrative override, backend access, or capability to recover your account, reset your password, or restore lost funds under any circumstances.</p>
+
+<p style="margin-bottom: 6px;"><strong>7. Limitation of Liability &amp; Third-Party Services</strong></p>
+<p style="margin-bottom: 16px;">The Gliimu platform operates on third-party infrastructure (including but not limited to Supabase, Render, Cloudflare, and Paystack). Gliimu is not liable for any service interruptions, data loss, security breaches, or technical failures originating from these external providers. Furthermore, Gliimu is provided on an "AS IS" basis without warranties of any kind. Under no circumstances shall Gliimu, its directors, or affiliates be liable for indirect, incidental, or consequential damages, including loss of profits or client revenue, resulting from your use of or inability to use the platform.</p>
+$doc$;
+begin
+  begin
+    update public.legal_documents set content = doc where type = 'terms';
+    if not found then
+      insert into public.legal_documents (type, content) values ('terms', doc);
+    end if;
+  exception when others then
+    raise notice 'terms document not replaced: %', sqlerrm;
+  end;
+
+  begin
+    update public.legal_documents set content = doc where type = 'privacy';
+    if not found then
+      insert into public.legal_documents (type, content) values ('privacy', doc);
+    end if;
+  exception when others then
+    raise notice 'privacy document not replaced: %', sqlerrm;
+  end;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ------------------------------------------------------------
+-- 11. DM read receipts.
+--     RLS blocks a receiver from updating message rows, so "read"
+--     state lived only in each browser's local storage — a chat
+--     read on one device kept showing the unread dot on another
+--     device forever. This SECURITY DEFINER helper lets a user
+--     mark their own incoming DMs as read on the server, which
+--     every device (and the unread dot) can then trust.
+-- ------------------------------------------------------------
+create or replace function public.mark_dm_read(p_other uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.messages
+  set read_at = now()
+  where receiver_id = auth.uid()
+    and sender_id = p_other
+    and room is null
+    and read_at is null;
+$$;
+
+grant execute on function public.mark_dm_read(uuid) to authenticated;
+
+-- ------------------------------------------------------------
+-- 12. Live session view counts.
+--     The requester can open their own live session at most 3
+--     times; after that they only get a close option. The count
+--     lives on the row so every device agrees; a SECURITY DEFINER
+--     RPC is the only way to bump it, and it only ever counts the
+--     requester's own opens.
+-- ------------------------------------------------------------
+do $$
+begin
+  alter table public.live_requests add column if not exists poster_views int not null default 0;
+exception
+  when undefined_table then
+    raise notice 'live_requests table not found — run sql/live_requests.sql first';
+end $$;
+
+create or replace function public.bump_live_views(p_request uuid)
+returns int
+language sql
+security definer
+set search_path = public
+as $$
+  update public.live_requests
+  set poster_views = poster_views + 1
+  where id = p_request
+    and user_id = auth.uid()
+  returning poster_views;
+$$;
+
+grant execute on function public.bump_live_views(uuid) to authenticated;
+
+-- ------------------------------------------------------------
+-- 13. Hub views, GP-based supports, portfolio image.
+--     - posts.views: card + reader view counter (bumped once per
+--       browser session from the read view).
+--     - send_support: replaces the old NGN wallet flow. Supporting
+--       a creator moves GP, not money: the supporter gives
+--       min(1000, their own GP), the author must have 1000+ GP
+--       to be eligible, and both sides get a ledger row.
+--     - profiles.portfolio_image_url: an image used only on the
+--       printable portfolio page, separate from the app avatar.
+-- ------------------------------------------------------------
+alter table public.posts add column if not exists views int not null default 0;
+
+create or replace function public.bump_post_views(p_post uuid)
+returns int
+language sql
+security definer
+set search_path = public
+as $$
+  update public.posts
+  set views = views + 1
+  where id = p_post
+  returning views;
+$$;
+
+grant execute on function public.bump_post_views(uuid) to authenticated;
+
+alter table public.profiles add column if not exists portfolio_image_url text;
+
+create or replace function public.send_support(p_post uuid)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sender uuid := auth.uid();
+  v_author uuid;
+  v_author_gp int;
+  v_sender_gp int;
+  v_amount int;
+begin
+  if v_sender is null then
+    raise exception 'NOT_AUTHENTICATED';
+  end if;
+
+  select user_id into v_author from public.posts where id = p_post;
+  if v_author is null then
+    raise exception 'POST_NOT_FOUND';
+  end if;
+  if v_author = v_sender then
+    raise exception 'CANNOT_SUPPORT_SELF';
+  end if;
+
+  -- Supports only flow to eligible creators (1000+ GP)
+  select total_gp into v_author_gp from public.profiles where id = v_author;
+  if coalesce(v_author_gp, 0) < 1000 then
+    raise exception 'AUTHOR_NOT_ELIGIBLE';
+  end if;
+
+  -- One support per user per gliim
+  if exists (
+    select 1 from public.hub_interactions
+    where post_id = p_post and user_id = v_sender and interaction_type = 'support'
+  ) then
+    raise exception 'ALREADY_SUPPORTED';
+  end if;
+
+  select total_gp into v_sender_gp from public.profiles where id = v_sender;
+  v_amount := least(1000, coalesce(v_sender_gp, 0));
+  if v_amount <= 0 then
+    raise exception 'INSUFFICIENT_GP';
+  end if;
+
+  update public.profiles set total_gp = total_gp - v_amount where id = v_sender;
+  update public.profiles set total_gp = total_gp + v_amount where id = v_author;
+
+  insert into public.transactions (user_id, amount, points, type, status, description)
+  values (v_sender, 0, -v_amount, 'support', 'success',
+          format('Supported %s with %s GP',
+                 (select full_name from public.profiles where id = v_author), v_amount));
+
+  insert into public.transactions (user_id, amount, points, type, status, description)
+  values (v_author, 0, v_amount, 'support', 'success',
+          format('Received %s GP support from %s',
+                 v_amount, (select full_name from public.profiles where id = v_sender)));
+
+  insert into public.hub_interactions (post_id, user_id, interaction_type, amount)
+  values (p_post, v_sender, 'support', v_amount);
+
+  return v_amount;
+end;
+$$;
+
+grant execute on function public.send_support(uuid) to authenticated;
+
+-- ------------------------------------------------------------
+-- 14. SELF CHECK — the Messages pane after running must show
+--     every line as present. Any MISSING line: read the notices
+--     printed above it.
+-- ------------------------------------------------------------
+do $$
+begin
+  raise notice '=== SELF CHECK ===';
+  raise notice 'deals table:           %', coalesce(to_regclass('public.deals')::text, 'MISSING');
+  raise notice 'deals queue sequence:  %', coalesce(to_regclass('public.deals_queue_seq')::text, 'MISSING');
+  raise notice 'is_admin() function:   %', coalesce(to_regprocedure('public.is_admin()')::text, 'MISSING');
+  raise notice 'mark_dm_read function: %', coalesce(to_regprocedure('public.mark_dm_read(uuid)')::text, 'MISSING');
+  raise notice 'bump_live_views fn:    %', coalesce(to_regprocedure('public.bump_live_views(uuid)')::text, 'MISSING');
+  raise notice 'bump_post_views fn:    %', coalesce(to_regprocedure('public.bump_post_views(uuid)')::text, 'MISSING');
+  raise notice 'send_support fn:       %', coalesce(to_regprocedure('public.send_support(uuid)')::text, 'MISSING');
+  raise notice 'posts.views column:    %', case when exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'posts' and column_name = 'views'
+  ) then 'present' else 'MISSING' end;
+  raise notice 'portfolio_image col:   %', case when exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'portfolio_image_url'
+  ) then 'present' else 'MISSING' end;
+  raise notice 'poster_views column:   %', case when exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'live_requests' and column_name = 'poster_views'
+  ) then 'present' else 'MISSING' end;
+  raise notice 'partners table:        %', coalesce(to_regclass('public.partners')::text, 'MISSING');
+  raise notice 'faqs table:            %', coalesce(to_regclass('public.faqs')::text, 'MISSING');
+  raise notice 'legal_documents table: %', coalesce(to_regclass('public.legal_documents')::text, 'MISSING');
+  raise notice 'faqs rows:             %', (select count(*) from public.faqs);
+  raise notice 'terms document:        %', case when exists (
+    select 1 from public.legal_documents where type = 'terms'
+  ) then 'present' else 'MISSING' end;
+  raise notice 'profiles.is_admin:     %', case when exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'is_admin'
+  ) then 'present' else 'MISSING' end;
+  raise notice 'app release columns:   %', case when exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'site_settings' and column_name = 'app_windows_url'
+  ) then 'present' else 'MISSING' end;
+  raise notice 'storage buckets:       % of 2', (select count(*) from storage.buckets where id in ('deal_logos', 'site_assets'));
+end $$;
+
+-- END OF GLIIMU SETUP SCRIPT — if this line is not the last line
+-- in the editor, the paste was incomplete: clear it and paste again.

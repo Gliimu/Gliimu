@@ -55,16 +55,9 @@
 .live-post-btn:hover { opacity: 0.9; }
 
 /* ============================================
-   ACTIVE SESSION SLOT
+   MY SESSIONS (active rows)
    ============================================ */
-.live-active-card {
-  border: 1px solid var(--brand-primary) !important;
-  margin-bottom: 24px;
-}
-.live-active-head { display: flex; align-items: center; margin-bottom: 10px; }
-.live-active-card h3 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; overflow-wrap: anywhere; }
-.live-active-desc { font-size: 14px; color: var(--text-secondary); margin-bottom: 16px; }
-.live-active-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.live-request-card.mine-active { border-color: var(--brand-primary); }
 
 /* ============================================
    REQUEST BOARD
@@ -117,7 +110,7 @@
 .live-req-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; overflow-wrap: anywhere; }
 .live-req-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; overflow-wrap: anywhere; }
 .live-req-meta { font-size: 12px; color: var(--text-muted); }
-.live-req-action { flex-shrink: 0; }
+.live-req-action { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
 
 /* ============================================
    1-ON-1 LIVE STUDIO
@@ -204,6 +197,23 @@
   max-width: 80%;
   z-index: 7;
   display: none;
+}
+
+/* Tap-for-sound pill shown when the browser blocked autoplay with audio */
+.live-unmute-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 21;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 /* Control toolbar */

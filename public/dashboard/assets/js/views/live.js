@@ -4,14 +4,18 @@ import { store } from '../store.js';
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  // The openrelay entries are a free best-effort relay that has been
+  // unreliable; if cross-network calls keep failing, swap in fresh TURN
+  // credentials here (e.g. from metered.ca).
   { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
   { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
   { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
 ];
 
-const SESSION_GP = 25;
+const SESSION_GP = 10;
 const MIN_GP_FOR_LIVE = 100;
-const MAX_OPEN_REQUESTS = 5;
+const MAX_SESSIONS = 3;
+const MAX_SESSION_VIEWS = 3;
 
 const ICONS = {
   search: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
@@ -61,6 +65,10 @@ const liveView = {
   creatingOffer: false,
   answeringOffer: false,
   offerReceived: false,
+  answerReceived: false,
+  iceRestarted: false,
+  readyWatchdog: null,
+  offerWatchdog: null,
 
   rtcChannel: null,
   boardChannel: null,
@@ -70,11 +78,6 @@ const liveView = {
 
   template: `
     <div class="view-container live-layout" id="live-container">
-      <div class="live-page-header">
-        <h2>Live Learning</h2>
-        <p>Request a 1-on-1 session or teach a topic you know well.</p>
-      </div>
-      <div id="live-active-slot"></div>
       <div id="live-board-content"></div>
     </div>
     <div class="modal-overlay" id="live-request-modal" style="display: none;">
@@ -105,7 +108,8 @@ const liveView = {
       claimRequest: (id) => this.claimRequest(id),
       deleteRequest: (id) => this.deleteRequest(id),
       openSession: (id) => this.openSession(id),
-      cancelActiveSession: () => this.cancelActiveSession(),
+      closeSession: (id) => this.closeSession(id),
+      releaseFromBoard: (id) => this.releaseFromBoard(id),
       endSession: () => this.endSession(),
       toggleMute: (type) => this.toggleMute(type),
       flipCamera: () => this.flipCamera(),
@@ -117,10 +121,13 @@ const liveView = {
     this.boardUnavailable = false;
     this.statusById = {};
 
+    if (this.onPresenceChanged) window.removeEventListener('presence-changed', this.onPresenceChanged);
+    this.onPresenceChanged = () => this.renderBoard();
+    window.addEventListener('presence-changed', this.onPresenceChanged);
+
     this.setupTopbar();
     this.setupBoardRealtime();
     await this.loadBoard();
-    this.renderActiveSlot();
   },
 
   /* ============================================
@@ -147,8 +154,8 @@ const liveView = {
 
     if (topbarRight) {
       topbarRight.innerHTML = `
-        <button class="live-post-btn" id="live-post-btn" title="Post Request">
-          ${ICONS.plus}<span class="live-post-label">Post Request</span>
+        <button class="live-post-btn" id="live-post-btn" title="New live session">
+          ${ICONS.plus}<span class="live-post-label">Live session</span>
         </button>
       `;
       document.getElementById('live-post-btn')?.addEventListener('click', () => this.openRequestModal());
@@ -170,7 +177,6 @@ const liveView = {
         this.boardUnavailable = true;
         this.requests = [];
         this.statusById = {};
-        this.renderActiveSlot();
         this.renderBoard();
         return;
       }
@@ -181,12 +187,7 @@ const liveView = {
     this.boardUnavailable = false;
     this.requests = data || [];
     this.requests.forEach(r => { this.statusById[r.id] = r.status; });
-    this.renderActiveSlot();
     this.renderBoard();
-  },
-
-  getMyActiveRow() {
-    return this.requests.find(r => r.status === 'active' && (r.user_id === store.user.id || r.partner_id === store.user.id)) || null;
   },
 
   renderBoard() {
@@ -201,30 +202,37 @@ const liveView = {
     const q = this.searchQuery.trim().toLowerCase();
     const matches = (r) => !q || (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
 
+    const presence = window.GliimuPresence;
+    const isOnline = (id) => !presence || presence.isOnline(id);
+
     const busyUserIds = new Set(
       this.requests.filter(r => r.status === 'active').flatMap(r => [r.user_id, r.partner_id].filter(Boolean))
     );
 
-    const mine = this.requests.filter(r => r.user_id === store.user.id && r.status === 'open' && matches(r));
-    const open = this.requests.filter(r => r.user_id !== store.user.id && r.status === 'open' && matches(r));
+    const rank = (r) => (r.status === 'active' ? 0 : 1);
+    const mine = this.requests
+      .filter(r => (r.user_id === store.user.id || r.partner_id === store.user.id) && (r.status === 'open' || r.status === 'active') && matches(r))
+      .sort((a, b) => rank(a) - rank(b) || new Date(b.created_at) - new Date(a.created_at));
+    // Other people's sessions only show while they are online
+    const open = this.requests.filter(r => r.user_id !== store.user.id && r.status === 'open' && matches(r) && isOnline(r.user_id));
 
     let html = '';
     if (mine.length) {
       html += `
         <div class="live-board-section">
-          <h3 class="live-board-title">My Requests</h3>
-          ${mine.map(r => this.renderRequestCard(r, 'mine')).join('')}
+          <h3 class="live-board-title">My Sessions</h3>
+          ${mine.map(r => this.renderRequestCard(r, r.status === 'active' ? 'mine-active' : 'mine')).join('')}
         </div>
       `;
     }
 
-    html += `<div class="live-board-section"><h3 class="live-board-title">Open Requests</h3>`;
     if (open.length) {
-      html += open.map(r => this.renderRequestCard(r, 'teach', busyUserIds.has(r.user_id))).join('');
-    } else {
-      html += `<p class="live-board-empty">${q ? `No requests match "${esc(this.searchQuery.trim())}".` : 'No open requests right now. Tap Post Request to ask for guidance.'}</p>`;
+      html += `<div class="live-board-section"><h3 class="live-board-title">Open Requests</h3>${open.map(r => this.renderRequestCard(r, 'teach', busyUserIds.has(r.user_id))).join('')}</div>`;
     }
-    html += '</div>';
+
+    if (!html && q) {
+      html = `<p class="live-board-empty">No requests match "${esc(this.searchQuery.trim())}".</p>`;
+    }
 
     boardEl.innerHTML = html;
   },
@@ -235,47 +243,44 @@ const liveView = {
       ? `<img src="${esc(r.profiles.avatar_url)}" class="live-req-avatar" alt="">`
       : `<div class="live-req-avatar">${esc(name.charAt(0).toUpperCase())}</div>`;
     const desc = r.description ? `<p class="live-req-desc">${esc(r.description)}</p>` : '';
-    const action = mode === 'mine'
-      ? `<button class="btn-secondary btn-sm" onclick="liveInstance.deleteRequest('${r.id}')">Cancel</button>`
-      : locked
+
+    let action = '';
+    let metaExtra = '';
+    let cardClass = 'live-request-card';
+
+    if (mode === 'mine') {
+      action = `<button class="btn-secondary btn-sm" onclick="liveInstance.deleteRequest('${r.id}')">Cancel</button>`;
+    } else if (mode === 'mine-active') {
+      cardClass += ' mine-active';
+      const isPoster = r.user_id === store.user.id;
+      if (isPoster) {
+        metaExtra = ` · ${r.poster_views || 0}/${MAX_SESSION_VIEWS} views`;
+        if ((r.poster_views || 0) >= MAX_SESSION_VIEWS) {
+          action = `<button class="btn-primary btn-sm" onclick="liveInstance.closeSession('${r.id}')">Close</button>`;
+        } else {
+          action = `<button class="btn-primary btn-sm" onclick="liveInstance.openSession('${r.id}')">Join</button>
+                    <button class="btn-secondary btn-sm" onclick="liveInstance.closeSession('${r.id}')">End</button>`;
+        }
+      } else {
+        action = `<button class="btn-primary btn-sm" onclick="liveInstance.openSession('${r.id}')">Join</button>
+                  <button class="btn-secondary btn-sm" onclick="liveInstance.releaseFromBoard('${r.id}')">Leave</button>`;
+      }
+    } else {
+      action = locked
         ? `<button class="btn-secondary btn-sm" disabled title="This Gliimait is in a live session right now">In Session</button>`
         : `<button class="btn-primary btn-sm" onclick="liveInstance.claimRequest('${r.id}')">Teach This</button>`;
+      if (locked) cardClass += ' locked';
+    }
 
     return `
-      <div class="live-request-card${locked && mode === 'teach' ? ' locked' : ''}">
+      <div class="${cardClass}">
         ${avatar}
         <div class="live-req-info">
           <p class="live-req-title">${esc(r.title)}</p>
           ${desc}
-          <p class="live-req-meta">${esc(name)} · ${timeAgo(r.created_at)}${locked && mode === 'teach' ? ' · in a live session' : ''}</p>
+          <p class="live-req-meta">${esc(name)} · ${timeAgo(r.created_at)}${mode === 'mine-active' ? ' · live now' : ''}${metaExtra}${locked && mode === 'teach' ? ' · in a live session' : ''}</p>
         </div>
         <div class="live-req-action">${action}</div>
-      </div>
-    `;
-  },
-
-  renderActiveSlot() {
-    const slot = document.getElementById('live-active-slot');
-    if (!slot) return;
-
-    const s = this.getMyActiveRow();
-    if (!s) {
-      slot.innerHTML = '';
-      return;
-    }
-
-    const isPoster = s.user_id === store.user.id;
-    slot.innerHTML = `
-      <div class="card live-active-card">
-        <div class="live-active-head">
-          <span class="live-indicator">${isPoster ? 'TEACHER FOUND' : 'ACTIVE SESSION'}</span>
-        </div>
-        <h3>${esc(s.title)}</h3>
-        <p class="live-active-desc">${isPoster ? 'A teacher accepted your request — jump in now.' : 'You accepted this request. The learner has been notified.'}</p>
-        <div class="live-active-actions">
-          <button class="btn-primary" onclick="liveInstance.openSession('${s.id}')">${isPoster ? 'Join Session' : 'Enter Waiting Room'}</button>
-          <button class="btn-secondary" onclick="liveInstance.cancelActiveSession()">Cancel</button>
-        </div>
       </div>
     `;
   },
@@ -324,7 +329,7 @@ const liveView = {
     let name = 'A Gliimait';
     const { data } = await supabase.from('profiles').select('full_name').eq('id', row.partner_id).maybeSingle();
     if (data?.full_name) name = data.full_name;
-    alert(`${name} accepted your request — get ready to learn "${row.title}"!\nTap Join Session on the Live page.`);
+    alert(`${name} has decided to join your live session.`);
   },
 
   /* ============================================
@@ -333,15 +338,20 @@ const liveView = {
   openRequestModal() {
     const myGp = store.profile?.total_gp || 0;
     if (myGp < MIN_GP_FOR_LIVE) return alert(`You need at least ${MIN_GP_FOR_LIVE} GP to start live sessions. You have ${myGp} GP.`);
-    if (this.getMyActiveRow()) return alert('You already have an active session.');
-    const myOpen = this.requests.filter(r => r.user_id === store.user.id && r.status === 'open');
-    if (myOpen.length >= MAX_OPEN_REQUESTS) return alert(`You can have up to ${MAX_OPEN_REQUESTS} open requests at a time.`);
+    if (this.countMySessions() >= MAX_SESSIONS) return alert(`You can be in up to ${MAX_SESSIONS} live sessions at a time.`);
 
     const modal = document.getElementById('live-request-modal');
     if (modal) {
       modal.style.display = 'flex';
       document.getElementById('live-req-title')?.focus();
     }
+  },
+
+  countMySessions() {
+    return this.requests.filter(r =>
+      (r.user_id === store.user.id || r.partner_id === store.user.id) &&
+      (r.status === 'open' || r.status === 'active')
+    ).length;
   },
 
   closeRequestModal() {
@@ -384,10 +394,10 @@ const liveView = {
     if (!row || row.status !== 'open' || row.user_id === store.user.id) return;
     const myGp = store.profile?.total_gp || 0;
     if (myGp < MIN_GP_FOR_LIVE) return alert(`You need at least ${MIN_GP_FOR_LIVE} GP to start live sessions. You have ${myGp} GP.`);
-    if (this.getMyActiveRow()) return alert('You already have an active session.');
+    if (this.countMySessions() >= MAX_SESSIONS) return alert(`You can be in up to ${MAX_SESSIONS} live sessions at a time.`);
 
     const learnerName = row.profiles?.full_name || 'this Gliimait';
-    if (!await appConfirm(`Teach "${row.title}" to ${learnerName}?\nYou'll earn +${SESSION_GP} GP when the session completes.`, { okText: 'Accept' })) return;
+    if (!await appConfirm(`Teach "${row.title}" to ${learnerName}?\nYou'll earn +${SESSION_GP} GP when you leave the session.`, { okText: 'Accept' })) return;
 
     const { data: claimed, error } = await supabase
       .from('live_requests')
@@ -404,11 +414,10 @@ const liveView = {
       return;
     }
 
-    const safeTitle = (claimed.title || '').replace(/[<>]/g, '');
     await supabase.from('messages').insert({
       sender_id: store.user.id,
       receiver_id: claimed.user_id,
-      content: `🎥 Session accepted: I'll explain "${safeTitle}" to you — open your Live page to start the 1-on-1 session.`,
+      content: `${store.profile?.full_name || 'A Gliimait'} has decided to join your live session.`,
       is_ai: false
     });
 
@@ -423,23 +432,41 @@ const liveView = {
     this.loadBoard();
   },
 
-  async cancelActiveSession() {
-    const s = this.getMyActiveRow();
-    if (!s) return;
+  /* Poster ends an active session from the board: the request closes
+     and they earn their GP. */
+  async closeSession(id) {
+    const row = this.requests.find(r => r.id === id);
+    if (!row || row.user_id !== store.user.id || row.status !== 'active') return;
 
-    const isTeacher = s.user_id !== store.user.id;
-    const msg = isTeacher
-      ? 'Cancel this session? The learner will be notified.'
-      : 'Cancel this session? The teacher will be told it was cancelled.';
-    if (!await appConfirm(msg, { okText: 'Cancel session', danger: true })) return;
-
-    this.sessionSettled = true;
-    await supabase.from('live_requests').update({ status: 'cancelled' }).eq('id', s.id).in('status', ['open', 'active']);
-    if (this.sessionModalOpen) {
-      this.cleanupSession();
-    } else {
-      this.loadBoard();
+    const inStudio = this.sessionModalOpen && this.activeSession?.id === id;
+    if (!inStudio) {
+      const ok = await appConfirm(`End "${row.title}"?\nThe request closes and you earn +${SESSION_GP} GP.`, { okText: 'End session', danger: true });
+      if (!ok) return;
     }
+
+    await this.completeAsPoster(row);
+    if (this.sessionModalOpen) this.cleanupSession();
+    else this.loadBoard();
+  },
+
+  /* Teacher steps back from an active session they claimed but never
+     entered: it returns to the board, no GP yet. */
+  async releaseFromBoard(id) {
+    const row = this.requests.find(r => r.id === id);
+    if (!row || row.partner_id !== store.user.id || row.status !== 'active') return;
+    if (!await appConfirm('Leave this session? It goes back to the board for another Gliimait.', { okText: 'Leave session', danger: true })) return;
+
+    const { data: released } = await supabase
+      .from('live_requests')
+      .update({ status: 'open', partner_id: null, activated_at: null })
+      .eq('id', id)
+      .eq('status', 'active')
+      .eq('partner_id', store.user.id)
+      .select('id')
+      .maybeSingle();
+
+    if (!released) alert('This session is no longer active.');
+    this.loadBoard();
   },
 
   /* ============================================
@@ -458,7 +485,25 @@ const liveView = {
       row = data;
     }
     if (!row || row.status !== 'active') return this.loadBoard();
-    if (row.user_id !== store.user.id && row.partner_id !== store.user.id) return;
+    const isPoster = row.user_id === store.user.id;
+    if (!isPoster && row.partner_id !== store.user.id) return;
+
+    if (isPoster) {
+      if ((row.poster_views || 0) >= MAX_SESSION_VIEWS) {
+        const close = await appConfirm(
+          'You have already opened this session 3 times. You can only close it now — it will end and you will earn your GP.',
+          { okText: 'Close session', danger: true }
+        );
+        if (close) await this.completeAsPoster(row);
+        this.loadBoard();
+        return;
+      }
+      // Count this open against the 3-view cap
+      const { data: bumped, error } = await supabase.rpc('bump_live_views', { p_request: row.id });
+      if (error) console.warn('Live view count unavailable (run sql/all.sql):', error.message);
+      row.poster_views = typeof bumped === 'number' ? bumped : (row.poster_views || 0) + 1;
+    }
+
     this.startSession(row);
   },
 
@@ -477,6 +522,9 @@ const liveView = {
     this.offerReceived = false;
     this.creatingOffer = false;
     this.answeringOffer = false;
+    this.answerReceived = false;
+    this.iceRestarted = false;
+    this.clearWatchdogs();
 
     let partnerName = 'your partner';
     if (isPoster) {
@@ -526,13 +574,15 @@ const liveView = {
 
     const ok = await this.startMedia();
     if (!ok) {
-      alert('Camera and microphone access are required for live sessions.');
-      await supabase.from('live_requests').update({ status: 'cancelled' }).eq('id', row.id).eq('status', 'active');
-      overlay.remove();
-      this.sessionModalOpen = false;
-      this.activeSession = null;
-      this.sessionRole = null;
-      this.loadBoard();
+      // Only the requester's failure closes the request; a teacher without
+      // camera access just steps out and leaves the session open.
+      if (this.sessionRole === 'poster') {
+        await supabase.from('live_requests').update({ status: 'cancelled' }).eq('id', row.id).eq('status', 'active');
+        alert('Camera and microphone access are required for live sessions. Your request was closed.');
+      } else {
+        alert('Camera and microphone access are required. Grant access and rejoin — the session is still open.');
+      }
+      this.cleanupSession();
       return;
     }
 
@@ -578,6 +628,9 @@ const liveView = {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           this.sendSignal({ type: this.sessionRole === 'teacher' ? 'teacher_ready' : 'learner_ready' });
+          this.startReadyWatchdog();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          this.showSessionStatus('Lost contact with the server. Check your internet, then leave and rejoin.');
         }
       });
 
@@ -591,6 +644,48 @@ const liveView = {
       event: 'signal',
       payload: { ...data, sender: store.user.id, target: this.otherUserId() }
     });
+  },
+
+  /* Re-announce readiness until an offer shows up — a lost broadcast
+     signal must not leave both sides waiting forever. */
+  startReadyWatchdog() {
+    clearInterval(this.readyWatchdog);
+    let tries = 0;
+    this.readyWatchdog = setInterval(() => {
+      if (!this.sessionModalOpen || this.offerReceived || this.sessionPc) {
+        clearInterval(this.readyWatchdog);
+        return;
+      }
+      tries += 1;
+      if (tries > 6) { clearInterval(this.readyWatchdog); return; }
+      this.sendSignal({ type: 'learner_ready' });
+    }, 4000);
+  },
+
+  /* Re-send the offer until an answer arrives. */
+  startOfferWatchdog() {
+    clearInterval(this.offerWatchdog);
+    let tries = 0;
+    this.offerWatchdog = setInterval(() => {
+      if (!this.sessionModalOpen || this.answerReceived || !this.sessionPc || !this.sessionPc.localDescription) {
+        clearInterval(this.offerWatchdog);
+        return;
+      }
+      tries += 1;
+      if (tries > 4) {
+        clearInterval(this.offerWatchdog);
+        this.showSessionStatus('The connection is not completing. Check that both devices are online, then end the session and try again.');
+        return;
+      }
+      this.sendSignal({ type: 'offer', sdp: this.sessionPc.localDescription });
+    }, 5000);
+  },
+
+  clearWatchdogs() {
+    clearInterval(this.readyWatchdog);
+    clearInterval(this.offerWatchdog);
+    this.readyWatchdog = null;
+    this.offerWatchdog = null;
   },
 
   async handleSignal(payload) {
@@ -621,7 +716,12 @@ const liveView = {
       const remoteEl = document.getElementById('live-remote-feed');
       if (remoteEl && e.streams && e.streams[0]) {
         remoteEl.srcObject = e.streams[0];
-        remoteEl.play?.().catch(() => {});
+        remoteEl.play?.().then(() => this.removeUnmuteHint()).catch(() => {
+          // Autoplay with sound was blocked — start muted and offer a tap
+          remoteEl.muted = true;
+          remoteEl.play?.().catch(() => {});
+          this.showUnmuteHint();
+        });
       }
     };
     pc.onconnectionstatechange = () => this.handlePcState(pc.connectionState);
@@ -630,9 +730,9 @@ const liveView = {
     return pc;
   },
 
-  async createTeacherOffer() {
+  async createTeacherOffer(force = false) {
     if (this.creatingOffer || !this.sessionModalOpen || !this.localStream) return;
-    if (this.sessionPc && this.sessionPc.localDescription) return;
+    if (!force && this.sessionPc && this.sessionPc.localDescription) return;
 
     this.creatingOffer = true;
     try {
@@ -642,6 +742,7 @@ const liveView = {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       this.sendSignal({ type: 'offer', sdp: pc.localDescription });
+      this.startOfferWatchdog();
     } catch (e) {
       console.error('Failed to create offer', e);
     } finally {
@@ -653,6 +754,7 @@ const liveView = {
     if (this.answeringOffer || !this.sessionModalOpen) return;
     this.answeringOffer = true;
     this.offerReceived = true;
+    clearInterval(this.readyWatchdog);
 
     try {
       this.closePeerConnection();
@@ -672,11 +774,16 @@ const liveView = {
 
   async handleAnswer(sdp) {
     if (!this.sessionPc) return;
+    this.answerReceived = true;
+    clearInterval(this.offerWatchdog);
     try {
       await this.sessionPc.setRemoteDescription(new RTCSessionDescription(sdp));
       await this.flushIceQueue();
     } catch (e) {
       console.error('Failed to handle answer', e);
+      // The answer belongs to a renegotiated peer connection — start over
+      // so the next answer can be applied.
+      await this.createTeacherOffer(true);
     }
   },
 
@@ -705,9 +812,28 @@ const liveView = {
       }
       this.hideSessionStatus();
     } else if (state === 'failed') {
-      this.showSessionStatus('Connection failed. End the session and try again.');
+      this.showSessionStatus('Connection failed. Trying to recover…');
+      this.tryIceRestart();
     } else if (state === 'disconnected' && this.sessionConnected) {
       this.showSessionStatus('Reconnecting…');
+    }
+  },
+
+  async tryIceRestart() {
+    if (!this.sessionPc || this.iceRestarted || !this.sessionModalOpen) return;
+    this.iceRestarted = true;
+    try {
+      if (this.sessionRole === 'teacher') {
+        const offer = await this.sessionPc.createOffer({ iceRestart: true });
+        await this.sessionPc.setLocalDescription(offer);
+        this.sendSignal({ type: 'offer', sdp: this.sessionPc.localDescription });
+        this.startOfferWatchdog();
+      } else {
+        this.sessionPc.restartIce?.();
+      }
+    } catch (e) {
+      console.error('ICE restart failed', e);
+      this.showSessionStatus('Connection failed. You may be on a restrictive network — end the session and retry, ideally from the same Wi-Fi.');
     }
   },
 
@@ -736,6 +862,24 @@ const liveView = {
   hideSessionStatus() {
     const el = document.getElementById('live-session-status');
     if (el) el.style.display = 'none';
+  },
+
+  showUnmuteHint() {
+    if (document.getElementById('live-unmute-hint')) return;
+    const btn = document.createElement('button');
+    btn.id = 'live-unmute-hint';
+    btn.className = 'live-unmute-hint';
+    btn.textContent = 'Tap for sound';
+    btn.onclick = () => {
+      const el = document.getElementById('live-remote-feed');
+      if (el) { el.muted = false; el.play?.().catch(() => {}); }
+      this.removeUnmuteHint();
+    };
+    document.querySelector('.live-video-main')?.appendChild(btn);
+  },
+
+  removeUnmuteHint() {
+    document.getElementById('live-unmute-hint')?.remove();
   },
 
   startSessionTimer() {
@@ -843,19 +987,23 @@ const liveView = {
     const s = this.activeSession;
     if (!s) return;
 
-    const isPoster = this.sessionRole === 'poster';
-    let msg;
-    if (this.sessionConnected) {
-      msg = isPoster
-        ? `End this session?\nYou'll both earn +${SESSION_GP} GP.`
-        : `End this session?\nYou'll earn +${SESSION_GP} GP.`;
-    } else {
-      msg = isPoster
-        ? 'Close the waiting screen? You can rejoin from the Live page.'
-        : 'Cancel this request? The learner will be notified.';
+    if (this.sessionRole === 'poster') {
+      let msg = `End this session or leave it open?\n\nEnd: the request closes and you earn +${SESSION_GP} GP.`;
+      if (this.sessionConnected) msg += '\nYour teacher also keeps their GP.';
+      msg += '\n\nLeave it open: other Gliimaits can still accept it — you earn nothing yet.';
+      const end = await appConfirm(msg, { okText: 'End session', cancelText: 'Leave it open' });
+      if (end) this.endLive();
+      else this.releaseSession(false);
+      return;
     }
-    if (!await appConfirm(msg, { okText: 'End session', danger: true })) return;
-    this.endLive();
+
+    const leave = await appConfirm(
+      this.sessionConnected
+        ? `Leave this session?\nYou'll earn +${SESSION_GP} GP and the request goes back to the board.`
+        : 'Leave this session? It goes back to the board for another Gliimait.',
+      { okText: 'Leave session', danger: true }
+    );
+    if (leave) this.releaseSession(true);
   },
 
   endLive() {
@@ -864,39 +1012,82 @@ const liveView = {
       this.cleanupSession();
       return;
     }
-    if (this.sessionConnected) {
+    if (this.sessionRole === 'poster') {
       this.settleSession();
     } else {
-      this.abandonSession();
-      this.cleanupSession();
+      this.releaseSession(true);
     }
   },
 
-  async abandonSession() {
+  /* Step out without ending it for everyone: the request returns to
+     the board. `award` pays the teacher their GP — but only when a
+     real connection happened, so claim-and-quit earns nothing. */
+  async releaseSession(award) {
     const s = this.activeSession;
-    if (!s || this.sessionRole !== 'teacher') return;
-    await supabase.from('live_requests').update({ status: 'cancelled' }).eq('id', s.id).eq('status', 'active');
-  },
-
-  async settleSession() {
-    if (this.sessionSettled || !this.activeSession || !this.sessionConnected) return;
+    if (!s) return;
+    const wasConnected = this.sessionConnected;
     this.sessionSettled = true;
 
-    const s = this.activeSession;
-    const { data: flipped } = await supabase
+    const { data: released } = await supabase
       .from('live_requests')
-      .update({ status: 'completed', completed_by: store.user.id, completed_at: new Date().toISOString() })
+      .update({ status: 'open', partner_id: null, activated_at: null })
       .eq('id', s.id)
       .eq('status', 'active')
       .select('id')
       .maybeSingle();
 
-    if (flipped) {
-      await supabase.rpc('add_gp', { target_user_id: s.user_id, points_to_add: SESSION_GP });
-      if (s.partner_id) await supabase.rpc('add_gp', { target_user_id: s.partner_id, points_to_add: SESSION_GP });
+    if (released && award && wasConnected) {
+      await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: SESSION_GP });
+      await this.recordOwnSessionTx(s);
     }
 
-    await this.recordOwnSessionTx(s);
+    this.cleanupSession();
+  },
+
+  /* Poster closes the request: they always earn their GP; the teacher
+     only earns when a real connection happened. */
+  async completeAsPoster(row) {
+    if (this.activeSession?.id === row.id) this.sessionSettled = true;
+
+    const key = 'gliimu_live_tx_' + row.id;
+    let firstTime = true;
+    try {
+      if (localStorage.getItem(key)) firstTime = false;
+      else localStorage.setItem(key, '1');
+    } catch (e) { /* storage unavailable */ }
+
+    const connected = this.activeSession?.id === row.id ? !!this.sessionConnected : false;
+    const { data: flipped } = await supabase
+      .from('live_requests')
+      .update({ status: 'completed', completed_by: store.user.id, completed_at: new Date().toISOString() })
+      .eq('id', row.id)
+      .eq('status', 'active')
+      .select('id')
+      .maybeSingle();
+
+    if (flipped) {
+      await supabase.rpc('add_gp', { target_user_id: row.user_id, points_to_add: SESSION_GP });
+      if (connected && row.partner_id) await supabase.rpc('add_gp', { target_user_id: row.partner_id, points_to_add: SESSION_GP });
+    }
+
+    if (firstTime) {
+      await supabase.from('transactions').insert({
+        user_id: store.user.id,
+        amount: 0,
+        points: SESSION_GP,
+        type: 'live_session',
+        status: 'success',
+        description: `Live session: ${row.title} (+${SESSION_GP} GP earned)`
+      });
+    }
+  },
+
+  async settleSession() {
+    if (this.sessionSettled || !this.activeSession) return;
+    this.sessionSettled = true;
+
+    const s = this.activeSession;
+    await this.completeAsPoster(s);
     this.finishSessionUI(s);
   },
 
@@ -944,6 +1135,12 @@ const liveView = {
       this.sessionSettled = true;
       this.cleanupSession();
       alert('This session was cancelled.');
+    } else if (row.status === 'open') {
+      // Our partner stepped out — the request is back on the board
+      this.sessionSettled = true;
+      const who = this.sessionRole === 'poster' ? 'Your teacher left the session.' : 'The learner left the session.';
+      this.cleanupSession();
+      alert(`${who} It is open again.`);
     }
   },
 
@@ -952,6 +1149,8 @@ const liveView = {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
     }
+    this.clearWatchdogs();
+    this.removeUnmuteHint();
     if (this.localStream) {
       this.localStream.getTracks().forEach(t => t.stop());
       this.localStream = null;
@@ -976,6 +1175,8 @@ const liveView = {
     this.sessionRole = null;
     this.iceQueue = [];
     this.offerReceived = false;
+    this.answerReceived = false;
+    this.iceRestarted = false;
     this.creatingOffer = false;
     this.answeringOffer = false;
 

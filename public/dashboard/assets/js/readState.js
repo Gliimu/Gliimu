@@ -18,6 +18,7 @@ export function computeUnread(userId, receivedMsgs) {
   let total = 0;
   (receivedMsgs || []).forEach(m => {
     if (m.read_at) return;
+    if (m.room || m.is_ai) return;
     const lastRead = map[m.sender_id] || 0;
     if (new Date(m.created_at).getTime() > lastRead) {
       unreadMap[m.sender_id] = (unreadMap[m.sender_id] || 0) + 1;
