@@ -283,6 +283,21 @@
 /* Aspect-ratio toggle: show the whole broadcast instead of cropping */
 #live-remote-feed.fit-contain { object-fit: contain; }
 
+/* Snapshot shutter flash */
+.live-snap-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  z-index: 40;
+  pointer-events: none;
+  animation: live-snap-fade 0.4s ease-out forwards;
+}
+
+@keyframes live-snap-fade {
+  from { opacity: 0.85; }
+  to { opacity: 0; }
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .live-layout { padding: 16px; }

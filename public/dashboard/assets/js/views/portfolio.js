@@ -1,5 +1,7 @@
 import { supabase } from '/shared/js/config.js';
-import { store } from '../store.js';
+import { store, tierClass } from '../store.js';
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export default {
   title: 'Profile',
@@ -30,6 +32,7 @@ export default {
       handlePortfolioImage: (input) => this.uploadPortfolioImage(input),
       resetPortfolioImage: () => this.resetPortfolioImage(),
       openProject: (postId) => this.openProject(postId),
+      closeProject: () => this.closeProject(),
       openQr: () => this.openQrModal(),
       closeQr: (e, el) => { if (e.target === el) el.remove(); },
       copyName: () => this.copyName()
@@ -298,10 +301,73 @@ export default {
     }
   },
 
-  openProject(postId) {
-    // Same viewer as the hub: hand the id over and let the hub open its read modal.
-    sessionStorage.setItem('openReadViewId', postId);
-    window.location.hash = '#/hub';
+  async openProject(postId) {
+    // Projects open right here in the portfolio, read-only — no detour to the hub.
+    const { data: post, error } = await supabase.from('posts')
+      .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
+      .eq('id', postId)
+      .maybeSingle();
+
+    if (error || !post) return appAlert('This project is no longer available.');
+
+    document.getElementById('portfolio-project-overlay')?.remove();
+
+    let blocksHtml = '';
+    if (post.blocks && post.blocks.length > 0) {
+      blocksHtml = post.blocks.map(b => {
+        if (b.type === 'text') {
+          if (b.style === 'title') return `<h2 class="read-block-title">${esc(b.content)}</h2>`;
+          if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${esc(b.content)}</h3>`;
+          if (b.style === 'list') {
+            const items = String(b.content || '').split('\n').map(line => `<div class="read-block-list-item">${esc(line)}</div>`).join('');
+            return `<div class="read-block-list">${items}</div>`;
+          }
+          return `<p class="read-block-text">${esc(b.content)}</p>`;
+        }
+        if (b.type === 'image') return `<img src="${b.content}" class="read-block-media">`;
+        if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
+        if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
+        return '';
+      }).join('');
+    } else {
+      blocksHtml = `<p class="read-block-text">${esc(post.content || '')}</p>`;
+    }
+
+    const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
+    const avatar = post.profiles?.avatar_url
+      ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
+      : `<div class="${avatarClass}">${esc(post.profiles?.full_name?.charAt(0).toUpperCase() || 'G')}</div>`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay read-view-overlay';
+    overlay.id = 'portfolio-project-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content read-view-content" style="position: relative;">
+        <button class="modal-close" onclick="profileInstance.closeProject()">×</button>
+        <div class="read-scroll-container">
+          <div class="read-body">
+            <span class="blog-category">${esc(post.category || 'General')}</span>
+            <h1 class="read-title">${esc(post.title || 'Untitled Gliim')}</h1>
+
+            <div class="blog-author" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center;">
+              <div style="position: relative; flex-shrink: 0; margin-right: 12px;">${avatar}</div>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 700; color: var(--text-primary);">${esc(post.profiles?.full_name || 'Gliimait')}</span>
+                <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            ${blocksHtml}
+          </div>
+        </div>
+      </div>
+    `;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  },
+
+  closeProject() {
+    document.getElementById('portfolio-project-overlay')?.remove();
   },
 
   async resetPortfolioImage() {

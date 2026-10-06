@@ -129,6 +129,7 @@ function initSidebarAutoClose() {
     if (window.innerWidth > 768) return;
     if (e.target.closest('.nav-item') || e.target.closest('.user-card')) {
       document.body.classList.remove('sidebar-open');
+      updateSidebarToggleIcon();
     }
   });
 
@@ -138,6 +139,7 @@ function initSidebarAutoClose() {
     if (!document.body.classList.contains('sidebar-open')) return;
     if (sidebar.contains(e.target) || e.target.closest('.menu-toggle')) return;
     document.body.classList.remove('sidebar-open');
+    updateSidebarToggleIcon();
   });
 }
 

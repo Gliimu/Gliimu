@@ -25,11 +25,15 @@ const ICONS = {
   cam: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
   flip: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>',
   screen: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
+  shot: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>',
   aspect: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>',
   end: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 
 const timeAgo = (iso) => {
   const t = new Date(iso).getTime();
@@ -61,6 +65,7 @@ const liveView = {
   displayStream: null,
   preShareTrack: null,
   isScreenSharing: false,
+  currentFacing: 'user',
   sessionPc: null,
   iceQueue: [],
   creatingOffer: false,
@@ -336,7 +341,7 @@ const liveView = {
     let name = 'A Gliimait';
     const { data } = await supabase.from('profiles').select('full_name').eq('id', row.partner_id).maybeSingle();
     if (data?.full_name) name = data.full_name;
-    alert(`${name} has decided to join your live session.`);
+    alert(`${name} joined your live session.`);
   },
 
   /* ============================================
@@ -431,7 +436,7 @@ const liveView = {
     await supabase.from('messages').insert({
       sender_id: store.user.id,
       receiver_id: claimed.user_id,
-      content: `${store.profile?.full_name || 'A Gliimait'} has decided to join your live session.`,
+      content: 'I joined your live session.',
       is_ai: false
     });
 
@@ -572,8 +577,9 @@ const liveView = {
           <div class="live-host-toolbar">
             <button class="live-ctrl-btn mic-on" id="live-mute-mic-btn" title="Toggle microphone">${ICONS.mic}</button>
             <button class="live-ctrl-btn cam-on" id="live-mute-cam-btn" title="Toggle camera">${ICONS.cam}</button>
-            <button class="live-ctrl-btn" id="live-flip-btn" title="Flip camera">${ICONS.flip}</button>
-            <button class="live-ctrl-btn" id="live-share-btn" title="Share screen">${ICONS.screen}</button>
+            ${isMobileDevice ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Flip camera">${ICONS.flip}</button>` : ''}
+            <button class="live-ctrl-btn" id="live-snap-btn" title="Snap the live area">${ICONS.shot}</button>
+            ${isMobileDevice ? '' : `<button class="live-ctrl-btn" id="live-share-btn" title="Share screen">${ICONS.screen}</button>`}
             <button class="live-ctrl-btn" id="live-aspect-btn" title="Adjust display (fit / fill)">${ICONS.aspect}</button>
             <button class="live-ctrl-btn danger" id="live-end-btn" title="End session">${ICONS.end}</button>
           </div>
@@ -585,11 +591,12 @@ const liveView = {
     document.getElementById('live-mute-mic-btn')?.addEventListener('click', () => this.toggleMute('mic'));
     document.getElementById('live-mute-cam-btn')?.addEventListener('click', () => this.toggleMute('cam'));
     document.getElementById('live-flip-btn')?.addEventListener('click', () => this.flipCamera());
+    document.getElementById('live-snap-btn')?.addEventListener('click', () => this.snapLive());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.toggleScreenShare());
     document.getElementById('live-aspect-btn')?.addEventListener('click', () => this.toggleAspectRatio());
     document.getElementById('live-end-btn')?.addEventListener('click', () => this.endSession());
 
-    // Screen sharing is not available in every mobile browser — disable
+    // Screen sharing is not available in every browser — disable
     // the button up front instead of failing when tapped.
     if (!navigator.mediaDevices?.getDisplayMedia) {
       const shareBtn = document.getElementById('live-share-btn');
@@ -627,6 +634,7 @@ const liveView = {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
       this.localStream = stream;
+      this.currentFacing = 'user';
       const localEl = document.getElementById('live-local-feed');
       if (localEl) {
         localEl.srcObject = stream;
@@ -1036,21 +1044,80 @@ const liveView = {
     const current = this.localStream.getVideoTracks()[0];
     if (!current) return;
 
-    const nextFacing = current.getSettings?.().facingMode === 'environment' ? 'user' : 'environment';
-    try {
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: nextFacing }, audio: false });
-      const newTrack = newStream.getVideoTracks()[0];
-      if (this.sessionPc) {
-        const sender = this.sessionPc.getSenders().find(sn => sn.track && sn.track.kind === 'video');
-        if (sender) await sender.replaceTrack(newTrack);
+    const previousFacing = this.currentFacing || 'user';
+    const nextFacing = previousFacing === 'environment' ? 'user' : 'environment';
+    const wasEnabled = current.enabled;
+
+    // Many mobile browsers refuse to open a second camera while the first
+    // one is still active, so release it before asking for the other side.
+    // getSettings().facingMode is unreliable on mobile, hence currentFacing.
+    current.stop();
+    this.localStream.removeTrack(current);
+
+    const grab = async (facing) => {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: facing } }, audio: false });
+      } catch {
+        return navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false });
       }
-      current.stop();
-      this.localStream.removeTrack(current);
-      this.localStream.addTrack(newTrack);
-      const localEl = document.getElementById('live-local-feed');
-      if (localEl) localEl.srcObject = this.localStream;
+    };
+
+    let newStream;
+    try {
+      newStream = await grab(nextFacing);
+      this.currentFacing = nextFacing;
     } catch (e) {
-      console.error('Failed to flip camera', e);
+      // Couldn't switch — bring the previous camera back instead of a dead feed.
+      try {
+        newStream = await grab(previousFacing);
+        this.currentFacing = previousFacing;
+      } catch (e2) {
+        console.error('Failed to restart camera after flip', e2);
+        alert('Could not switch camera on this device.');
+        return;
+      }
+    }
+
+    const newTrack = newStream.getVideoTracks()[0];
+    newTrack.enabled = wasEnabled;
+    this.localStream.addTrack(newTrack);
+
+    if (this.sessionPc) {
+      const sender = this.sessionPc.getSenders().find(sn => sn.track && sn.track.kind === 'video');
+      if (sender) await sender.replaceTrack(newTrack);
+    }
+
+    const localEl = document.getElementById('live-local-feed');
+    if (localEl) {
+      localEl.srcObject = this.localStream;
+      localEl.play?.().catch(() => {});
+    }
+  },
+
+  snapLive() {
+    const remoteEl = document.getElementById('live-remote-feed');
+    const localEl = document.getElementById('live-local-feed');
+    const source = remoteEl?.videoWidth > 0 ? remoteEl : (localEl?.videoWidth > 0 ? localEl : null);
+    if (!source) return alert('Nothing to snap yet. Give the video a moment to start.');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = source.videoWidth;
+    canvas.height = source.videoHeight;
+    canvas.getContext('2d').drawImage(source, 0, 0);
+
+    const link = document.createElement('a');
+    link.download = `gliimu-live-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    const studio = document.querySelector('.live-studio-container');
+    if (studio) {
+      const flash = document.createElement('div');
+      flash.className = 'live-snap-flash';
+      studio.appendChild(flash);
+      setTimeout(() => flash.remove(), 450);
     }
   },
 
@@ -1291,6 +1358,7 @@ const liveView = {
     }
     this.preShareTrack = null;
     this.isScreenSharing = false;
+    this.currentFacing = 'user';
     this.closePeerConnection();
     if (this.rtcChannel) {
       supabase.removeChannel(this.rtcChannel);

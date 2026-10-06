@@ -131,15 +131,16 @@
       updateSidebarToggleIcon();
     }
 
-    // Mobile always shows out.svg — it reveals the drawer.
+    // Mobile: closed drawer shows in.svg (invites opening), open drawer shows out.svg.
     // Desktop: in.svg invites expanding the rail; out.svg invites collapsing it.
     function updateSidebarToggleIcon() {
       const inIcon = document.getElementById('sidebar-icon-in');
       const outIcon = document.getElementById('sidebar-icon-out');
       if (!inIcon || !outIcon) return;
       if (window.innerWidth <= 768) {
-        inIcon.style.display = 'none';
-        outIcon.style.display = '';
+        const open = document.body.classList.contains('sidebar-open');
+        inIcon.style.display = open ? 'none' : '';
+        outIcon.style.display = open ? '' : 'none';
         return;
       }
       const collapsed = document.body.classList.contains('sidebar-collapsed');
