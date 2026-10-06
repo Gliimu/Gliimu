@@ -34,24 +34,6 @@
   z-index: -1;
 }
 
-/* Top Left Nav */
-.auth-nav {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 24px 5%;
-  z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.auth-nav-logo img {
-  height: 40px;
-  filter: brightness(0) invert(1); /* Makes logo white */
-}
-
 /* Centered Wrapper */
 .auth-wrapper {
   display: flex;
@@ -59,7 +41,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 100px 20px 40px 20px; /* Top padding to clear the nav */
+  padding: 40px 20px;
 }
 
 /* Glass-morphism Auth Card */
@@ -434,6 +416,13 @@
     padding: 24px;
   }
   .auth-wrapper {
-    padding: 80px 20px 20px 20px;
+    padding: 20px;
   }
 }
+
+/* Embedded mode (landing page modal): the parent already has a dark
+   panel, so drop the video backdrop and fill the iframe. */
+html[data-embed='1'] .auth-bg-video,
+html[data-embed='1'] .auth-bg-overlay { display: none; }
+html[data-embed='1'] .auth-body { background: #0f172a; }
+html[data-embed='1'] .auth-wrapper { min-height: 100vh; justify-content: center; }

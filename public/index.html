@@ -5,6 +5,7 @@
   <title>Gliimu – Become a Full Stack Media Architect</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Master video production, design, AND code. Become a Full Stack Media Architect. Real projects, real portfolio, real independence." />
+  <link rel="icon" type="image/png" href="/icons/icon.png">
 
   <script>
     (function() {
@@ -21,20 +22,12 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=9">
+  <link rel="stylesheet" href="/assets/css/public.css?v=10">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
 </head>
 <body>
-
-  <nav class="site-nav" id="site-nav">
-    <div class="site-nav-inner">
-      <a href="https://gliimu.com" class="site-nav-logo">
-        <img src="/icons/logo.png" alt="Gliimu">
-      </a>
-    </div>
-  </nav>
 
   <!-- HERO SECTION -->
   <section class="hero-video-section" id="hero-section">
@@ -49,10 +42,10 @@
           We are <span class="highlight">Full Stack Media Architects</span>
         </h1>
         <p class="hero-desc">
-          Gliimu is the only ecosystem that builds elite minds in media, design, & tech. You get real portfolios, not just certificates.
+          Become a Full Stack Media Architect. Get real-life experiences and earn from real client deals.
         </p>
         <div class="hero-actions">
-          <a href="/auth.html" class="btn-primary btn-lg">
+          <a href="/auth.html" class="btn-primary btn-lg js-join-link">
             Join Us <i class="fas fa-arrow-right"></i>
           </a>
         </div>
@@ -85,37 +78,6 @@
           <div class="pillar-icon"><img src="/icons/gliimpa.png" alt="Gliim-PA" style="width: 32px; height: 32px; object-fit: contain; filter: none;"></div>
           <h3>Gliim-PA</h3>
           <p>Your personal AI assistant for deep research, brainstorming, and platform navigation.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- EARN WHILE YOU LEARN -->
-  <section class="earn-section">
-    <div class="container">
-      <div class="earn-grid">
-        <div class="earn-content reveal-left">
-          <h2 class="section-title" style="text-align: left;">Earn While You Build</h2>
-          <p class="section-subtitle" style="margin: 0 0 32px 0; text-align: left;">From day one, you're working on real client projects. Our students earn before graduation — building portfolios that speak for themselves.</p>
-          <div class="earn-stats">
-            <div class="earn-stat">
-              <span class="earn-number">Months 1-3</span>
-              <span class="earn-label">Assisting & Learning</span>
-            </div>
-            <div class="earn-stat">
-              <span class="earn-number">Months 4-8</span>
-              <span class="earn-label">Leading Projects</span>
-            </div>
-            <div class="earn-stat">
-              <span class="earn-number">Months 9-12</span>
-              <span class="earn-label">Independent & Earning</span>
-            </div>
-          </div>
-        </div>
-        <div class="earn-image reveal-right">
-          <div class="earn-graphic" id="earn-graphic-container">
-            <!-- Image injected by JS -->
-          </div>
         </div>
       </div>
     </div>
@@ -157,7 +119,7 @@
     <div class="container">
       <div class="pillars-header reveal">
         <h2 class="section-title">Trusted By</h2>
-        <p class="section-subtitle">We envision a world where you learn Full Stack Media Technology to become a Full Stack Media Architect. We made it happen.</p>
+        <p class="section-subtitle">We envision a world built by Full Stack Media Architects. We made it happen.</p>
       </div>
       <div class="marquee" id="partners-marquee" style="display: none;">
         <div class="marquee-content" id="partners-marquee-content"></div>
@@ -198,7 +160,7 @@
         </div>
       </div>
       <div class="cta-content reveal" style="margin-top: 40px; text-align: center;">
-        <a href="/auth.html" class="btn-primary btn-lg">Join Us <i class="fas fa-arrow-right"></i></a>
+        <a href="/auth.html" class="btn-primary btn-lg js-join-link">Join Us <i class="fas fa-arrow-right"></i></a>
       </div>
     </div>
   </section>
@@ -258,7 +220,7 @@
 
   <footer class="copyright-footer">
     <div class="container">
-      <p>&copy; 2024 Gliimu Ltd. All rights reserved.</p>
+      <p>&copy; 2026 Gliimu Ltd.</p>
     </div>
   </footer>
 
@@ -306,7 +268,7 @@
     <div class="modal-content modal-lg">
       <button class="modal-close" onclick="closeModal('faq-modal')">×</button>
       <h2 class="modal-title">Frequently Asked Questions</h2>
-      <p class="modal-subtitle">Find answers to common questions about admissions, tuition, and more.</p>
+      <p class="modal-subtitle">Find answers to common questions about what we do and why we do it.</p>
 
       <div id="faq-accordion-container" class="faq-accordion-container">
         <p style="text-align: center; color: var(--text-muted);">Loading FAQs...</p>
@@ -314,11 +276,24 @@
     </div>
   </div>
 
+  <!-- AUTH MODAL (full auth page embedded) -->
+  <div class="modal-overlay" id="auth-modal" style="display: none;">
+    <div class="modal-content auth-modal-content">
+      <button class="modal-close" onclick="closeAuthModal()">×</button>
+      <iframe id="auth-frame" title="Join Gliimu" style="display: none;"></iframe>
+    </div>
+  </div>
+
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=9"></script>
+  <script type="module" src="/assets/js/main.js?v=10"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function closeAuthModal() {
+      const frame = document.getElementById('auth-frame');
+      if (frame) frame.src = 'about:blank';
+      document.getElementById('auth-modal').style.display = 'none';
+    }
     window.toggleFAQ = (header) => {
       const item = header.parentElement;
       item.classList.toggle('active');

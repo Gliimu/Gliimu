@@ -22,19 +22,43 @@ function safeUrl(value) {
 }
 
 // ============================================
-// AUTH GUARD — signed-in visitors go to the dashboard
+// JOIN BUTTONS — open the auth page in a modal.
+// Signed-in visitors see a "Dashboard" button instead.
 // ============================================
-async function redirectIfAuthenticated() {
+function openAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  const frame = document.getElementById('auth-frame');
+  if (!modal || !frame) return window.location.href = '/auth.html';
+  modal.style.display = 'flex';
+  if (!frame.src || frame.src === 'about:blank') {
+    frame.src = '/auth.html?embed=1';
+    frame.style.display = 'block';
+  }
+}
+
+async function initJoinButtons() {
+  const buttons = document.querySelectorAll('.js-join-link');
+  if (!buttons.length) return;
+
+  let authed = false;
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      window.location.replace('/dashboard/index.html');
-      return true;
-    }
+    authed = !!session;
   } catch (e) {
-    // Auth unreachable (offline, blocked) — fall through and show the page.
+    // Auth unreachable (offline, blocked) — treat as a visitor.
   }
-  return false;
+
+  buttons.forEach(btn => {
+    if (authed) {
+      btn.textContent = 'Dashboard';
+      btn.href = '/dashboard/index.html';
+    } else {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openAuthModal();
+      });
+    }
+  });
 }
 
 // ============================================
@@ -51,17 +75,6 @@ function initScrollReveal() {
     });
   }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
   reveals.forEach(el => observer.observe(el));
-}
-
-// ============================================
-// STICKY NAV — solid background once scrolled
-// ============================================
-function initStickyNav() {
-  const nav = document.getElementById('site-nav');
-  if (!nav) return;
-  const sync = () => nav.classList.toggle('scrolled', window.scrollY > 24);
-  sync();
-  window.addEventListener('scroll', sync, { passive: true });
 }
 
 // ============================================
@@ -111,47 +124,12 @@ async function loadSiteSettings() {
     squadSection.style.backgroundPosition = 'center';
   }
 
-  // Earn Graphic Image
-  const earnGraphic = document.getElementById('earn-graphic-container');
-  const earnImage = safeUrl(data.earnings_image_url);
-  if (earnGraphic && earnImage) {
-    earnGraphic.innerHTML = `<img src="${earnImage}" alt="Earnings" class="earn-icon-img"><div class="earn-pulse"></div>`;
-  }
-
   applyDownloadSection(data);
 }
 
 // ============================================
 // DOWNLOAD SECTION (version, links, background, QR)
 // ============================================
-let qrLibPromise = null;
-
-function loadQrLib() {
-  if (window.qrcode) return Promise.resolve();
-  if (qrLibPromise) return qrLibPromise;
-  qrLibPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('qr library failed to load'));
-    document.head.appendChild(script);
-  });
-  return qrLibPromise;
-}
-
-function renderQr(container, text) {
-  return loadQrLib().then(() => {
-    const qr = window.qrcode(0, 'M');
-    qr.addData(text);
-    qr.make();
-    const img = document.createElement('img');
-    img.src = qr.createDataURL(4, 8);
-    img.alt = 'Download the Gliimu app';
-    container.replaceChildren(img);
-    container.parentElement.style.display = 'flex';
-  });
-}
-
 function applyDownloadSection(settings) {
   const panel = document.getElementById('download-panel');
   if (!panel) return;
@@ -198,9 +176,14 @@ function applyDownloadSection(settings) {
   if (!qrWrap || !qrTarget) return;
   if (!window.matchMedia('(min-width: 769px)').matches) return;
 
-  renderQr(document.getElementById('dl-qr'), qrTarget).catch(() => {
-    qrWrap.style.display = 'none';
-  });
+  qrWrap.style.display = 'flex';
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(qrTarget)}`;
+  qrWrap.querySelector('.download-qr-code').innerHTML = `
+    <div class="landing-qr-img">
+      <img class="qr" src="${qrSrc}" alt="Scan to download the Gliimu app">
+      <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
+    </div>
+  `;
 }
 
 // ============================================
@@ -295,44 +278,50 @@ function forceVideoAutoplay() {
 }
 
 // ============================================
-// FETCH LATEST ON GLIIMU (1 Hub + 1 Library + 1 Deal)
+// FETCH LATEST ON GLIIMU (1 Hub + 1 Library + Top Uploader)
 // ============================================
+function hubMediaHtml(mediaUrl, mediaType) {
+  const media = safeUrl(mediaUrl);
+  if (!media) return '';
+  if (mediaType === 'image') {
+    return `<img src="${media}" alt="" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;">`;
+  }
+  if (mediaType === 'audio') {
+    return `<audio src="${media}" controls preload="none" style="width:100%; margin-top: 12px;"></audio>`;
+  }
+  return `<video src="${media}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;" controls preload="metadata"></video>`;
+}
+
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
 
-  // Fetch 1 Hub Post
-  const { data: hubPosts } = await supabase
-    .from('public_hub_posts')
-    .select('content, media_url, media_type, created_at, username, full_name, avatar_url')
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  // Fetch 1 Library Item
-  const { data: libItems } = await supabase
-    .from('library_items')
-    .select('title, created_at, cover_color, cover_url')
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  // Fetch 1 open deal from the Requests page queue
-  const { data: deals } = await supabase
-    .from('deals')
-    .select('job_description, deal_type, company_name, company_logo_url, created_at, profiles:profiles!deals_user_id_fkey(full_name, avatar_url)')
-    .in('status', ['queued', 'in_progress'])
-    .order('created_at', { ascending: false })
-    .limit(1);
+  // Newest Hub Post, newest Library item, and the profile with the
+  // most uploads (posts + library submissions) — fetched in parallel.
+  const [{ data: hubPosts }, { data: libItems }, { data: top }] = await Promise.all([
+    supabase
+      .from('public_hub_posts')
+      .select('content, media_url, media_type, created_at, username, full_name, avatar_url')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('library_items')
+      .select('title, type, created_at, cover_color, cover_url')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    supabase.rpc('top_uploader')
+  ]);
 
   let combined = [];
 
   if (hubPosts && hubPosts.length > 0) {
-    hubPosts.forEach(p => combined.push({ type: 'hub', data: p }));
+    combined.push({ type: 'hub', data: hubPosts[0] });
   }
   if (libItems && libItems.length > 0) {
-    libItems.forEach(l => combined.push({ type: 'library', data: l }));
+    combined.push({ type: 'library', data: libItems[0] });
   }
-  if (deals && deals.length > 0) {
-    deals.forEach(d => combined.push({ type: 'deal', data: d }));
+  if (top && top.full_name) {
+    combined.push({ type: 'uploader', data: top });
   }
 
   if (combined.length === 0) {
@@ -340,25 +329,14 @@ async function loadHubHighlights() {
     return;
   }
 
-  // Sort by created_at descending
-  combined.sort((a, b) => new Date(b.data.created_at) - new Date(a.data.created_at));
-
-  // Slice to 3 just in case
-  combined = combined.slice(0, 3);
-
-  grid.innerHTML = combined.map(item => {
+  grid.innerHTML = combined.map((item, i) => {
+    const delay = 0.1 + i * 0.1;
     if (item.type === 'hub') {
       const post = item.data;
-      const media = safeUrl(post.media_url);
-      const mediaHtml = media ? (
-        post.media_type === 'image'
-          ? `<img src="${media}" alt="" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;">`
-          : `<video src="${media}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;" controls></video>`
-      ) : '';
       const avatar = safeUrl(post.avatar_url);
 
       return `
-        <div class="hub-card reveal" style="transition-delay: 0.1s;">
+        <div class="hub-card reveal" style="transition-delay: ${delay}s;">
           <div class="hub-card-meta">
             ${avatar
               ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
@@ -367,7 +345,7 @@ async function loadHubHighlights() {
             <span class="hub-card-author">${escapeHtml(post.full_name || 'Gliimait')}</span>
           </div>
           <p class="hub-card-text clamp-4">${escapeHtml(post.content)}</p>
-          ${mediaHtml}
+          ${hubMediaHtml(post.media_url, post.media_type)}
         </div>
       `;
     } else if (item.type === 'library') {
@@ -375,7 +353,7 @@ async function loadHubHighlights() {
       const cover = safeUrl(lib.cover_url);
       const bg = cover ? `background-image: url('${cover}'); background-size: cover;` : `background: ${escapeHtml(lib.cover_color || '#4f46e5')};`;
       return `
-        <div class="hub-card reveal" style="transition-delay: 0.2s;">
+        <div class="hub-card reveal" style="transition-delay: ${delay}s;">
           <div class="hub-card-meta">
             <div class="hub-card-avatar" style="background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">L</div>
             <span class="hub-card-author">New in Library</span>
@@ -384,32 +362,32 @@ async function loadHubHighlights() {
           <p class="hub-card-text" style="font-weight: 600;">${escapeHtml(lib.title)}</p>
         </div>
       `;
-    } else if (item.type === 'deal') {
-      const deal = item.data;
-      const isCorporate = deal.deal_type === 'corporate';
-      const logo = isCorporate
-        ? safeUrl(deal.company_logo_url)
-        : safeUrl(deal.profiles && deal.profiles.avatar_url);
-      const name = isCorporate
-        ? (deal.company_name || 'A Partner')
-        : ((deal.profiles && deal.profiles.full_name) || 'A Gliimait');
-
-      return `
-        <div class="hub-card reveal" style="transition-delay: 0.3s;">
-          <div class="hub-card-meta">
-            ${logo
-              ? `<img src="${logo}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
-              : `<div class="hub-card-avatar" style="background: linear-gradient(135deg, #10b981, #0ea5e9); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">D</div>`
-            }
-            <span class="hub-card-author">${escapeHtml(name)}</span>
-          </div>
-          <p class="hub-card-text clamp-4">${escapeHtml(deal.job_description)}</p>
-          <p class="hub-card-text" style="color: var(--text-muted); font-size: 13px; margin-top: 6px;">
-            ${isCorporate ? 'Corporate' : 'Personal'} deal &middot; up for grabs
-          </p>
-        </div>
-      `;
     }
+
+    // Top uploader profile card
+    const up = item.data;
+    const avatar = safeUrl(up.avatar_url);
+    return `
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
+        <div class="hub-card-meta">
+          ${avatar
+            ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
+            : `<div class="hub-card-avatar"></div>`
+          }
+          <span class="hub-card-author">Top Uploader</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; margin-top: 12px;">
+          ${avatar
+            ? `<img src="${avatar}" alt="" style="width:56px; height:56px; border-radius:50%; object-fit:cover;">`
+            : `<div style="width:56px; height:56px; border-radius:50%; background: var(--gradient-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:20px;">${escapeHtml((up.full_name || 'G').charAt(0).toUpperCase())}</div>`
+          }
+          <div style="display:flex; flex-direction:column;">
+            <span style="font-weight:700; font-size: var(--fs-md);">${escapeHtml(up.full_name)}</span>
+            <span style="color: var(--text-muted); font-size: var(--fs-sm);">${Number(up.uploads) || 0} upload${Number(up.uploads) === 1 ? '' : 's'}</span>
+          </div>
+        </div>
+      </div>
+    `;
   }).join('');
 
   initScrollReveal();
@@ -457,11 +435,11 @@ async function loadPartners() {
 const FALLBACK_FAQS = [
   {
     question: 'How much is the tuition?',
-    answer: 'Tuition is subscription-based, ranging from 70k to 780k depending on your preferred plan. For more details, please visit the "Billing" section in your dashboard.'
+    answer: 'Tuition is subscription-based. The amount you pay depends on your usage and preferred plan, meaning some users may pay significantly less or more than others. For more details, please visit the "Billing" page in your dashboard.'
   },
   {
-    question: 'Why is the tuition priced at this level?',
-    answer: 'To use an analogy, a bottle of water costs less from a street vendor than it does in a first-class cabin. The price of our program is not meant to deter you, but rather to reflect a shift in mindset. If you are truly committed, you have what it takes to invest in premium, transformative value.'
+    question: 'Why is the tuition priced like this?',
+    answer: "To use an analogy, a bottle of water costs less from a street vendor than it does in a first-class cabin, even though the contents are exactly the same. The price of our program is not meant to deter you, but rather to reflect a shift in mindset. Since everyone utilizes our resources differently, we designed a fair payment structure rather than forcing everyone to pay a flat rate for features they may not need or use."
   },
   {
     question: 'How can I pay for my tuition?',
@@ -473,7 +451,7 @@ const FALLBACK_FAQS = [
   },
   {
     question: 'What exactly is a Full Stack Media Architect?',
-    answer: "A Full Stack Media Architect is a creator who has mastered content creation, brand design, and programming. You don't just edit videos or write code; you build entire media empires from scratch."
+    answer: "A Full Stack Media Architect is a creator who can generate value from scratch. They have mastered content creation, brand design, and idea visualization, alongside technical skills like programming and AI-prompt engineering. You don't just edit videos or write code; you learn to build concepts from zero."
   },
   {
     question: 'Do I need any prior experience?',
@@ -481,7 +459,7 @@ const FALLBACK_FAQS = [
   },
   {
     question: 'How long does it take to graduate?',
-    answer: 'The program is untimed. You graduate once you demonstrate competence through practical work, which can take as little as two months or up to a year.'
+    answer: 'The program is untimed. You get certified once you demonstrate competence through practical work. The timeline depends entirely on your zeal and effort—it can take as little as two months or up to a year.'
   }
 ];
 
@@ -510,8 +488,7 @@ async function loadFAQs() {
 // INITIALIZE
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
-  if (await redirectIfAuthenticated()) return;
-  initStickyNav();
+  initJoinButtons();
   initScrollReveal();
   initAccordion();
   loadSiteSettings();

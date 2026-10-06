@@ -337,11 +337,11 @@ begin
   -- shows the questions in this exact order.
   insert into public.faqs (question, answer, created_at) values
     ($q1$How much is the tuition?$q1$,
-     $a1$Tuition is subscription-based, ranging from 70k to 780k depending on your preferred plan. For more details, please visit the "Billing" section in your dashboard.$a1$,
+     $a1$Tuition is subscription-based. The amount you pay depends on your usage and preferred plan, meaning some users may pay significantly less or more than others. For more details, please visit the "Billing" page in your dashboard.$a1$,
      now() - interval '7 seconds'),
 
-    ($q2$Why is the tuition priced at this level?$q2$,
-     $a2$To use an analogy, a bottle of water costs less from a street vendor than it does in a first-class cabin. The price of our program is not meant to deter you, but rather to reflect a shift in mindset. If you are truly committed, you have what it takes to invest in premium, transformative value.$a2$,
+    ($q2$Why is the tuition priced like this?$q2$,
+     $a2$To use an analogy, a bottle of water costs less from a street vendor than it does in a first-class cabin, even though the contents are exactly the same. The price of our program is not meant to deter you, but rather to reflect a shift in mindset. Since everyone utilizes our resources differently, we designed a fair payment structure rather than forcing everyone to pay a flat rate for features they may not need or use.$a2$,
      now() - interval '6 seconds'),
 
     ($q3$How can I pay for my tuition?$q3$,
@@ -353,7 +353,7 @@ begin
      now() - interval '4 seconds'),
 
     ($q5$What exactly is a Full Stack Media Architect?$q5$,
-     $a5$A Full Stack Media Architect is a creator who has mastered content creation, brand design, and programming. You don't just edit videos or write code; you build entire media empires from scratch.$a5$,
+     $a5$A Full Stack Media Architect is a creator who can generate value from scratch. They have mastered content creation, brand design, and idea visualization, alongside technical skills like programming and AI-prompt engineering. You don't just edit videos or write code; you learn to build concepts from zero.$a5$,
      now() - interval '3 seconds'),
 
     ($q6$Do I need any prior experience?$q6$,
@@ -361,7 +361,7 @@ begin
      now() - interval '2 seconds'),
 
     ($q7$How long does it take to graduate?$q7$,
-     $a7$The program is untimed. You graduate once you demonstrate competence through practical work, which can take as little as two months or up to a year.$a7$,
+     $a7$The program is untimed. You get certified once you demonstrate competence through practical work. The timeline depends entirely on your zeal and effort—it can take as little as two months or up to a year.$a7$,
      now() - interval '1 second');
 exception when others then
   raise notice 'FAQ list not replaced: %', sqlerrm;
@@ -738,7 +738,67 @@ $$;
 grant execute on function public.purchase_subscription(text) to authenticated;
 
 -- ------------------------------------------------------------
--- 17. SELF CHECK — the Messages pane after running must show
+-- 17. Top uploader for the landing page "Latest on Gliimu".
+--     Counts posts + accepted-submission library uploads per user
+--     and returns the single busiest profile (full_name, avatar,
+--     upload count only — no usernames, matching the privacy rule).
+--     Falls back to posts-only if library_submissions is absent.
+-- ------------------------------------------------------------
+create or replace function public.top_uploader()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_result jsonb;
+begin
+  begin
+    select jsonb_build_object(
+             'full_name', p.full_name,
+             'avatar_url', p.avatar_url,
+             'uploads', counts.cnt
+           )
+      into v_result
+      from (
+        select user_id, count(*) as cnt
+        from (
+          select user_id from public.posts
+          union all
+          select user_id from public.library_submissions
+        ) all_uploads
+        group by user_id
+        order by cnt desc
+        limit 1
+      ) counts
+      join public.profiles p on p.id = counts.user_id;
+  exception
+    when undefined_table then
+      select jsonb_build_object(
+               'full_name', p.full_name,
+               'avatar_url', p.avatar_url,
+               'uploads', counts.cnt
+             )
+        into v_result
+        from (
+          select user_id, count(*) as cnt
+          from public.posts
+          group by user_id
+          order by cnt desc
+          limit 1
+        ) counts
+        join public.profiles p on p.id = counts.user_id;
+  end;
+
+  return v_result;
+end;
+$$;
+
+grant execute on function public.top_uploader() to anon, authenticated;
+
+-- ------------------------------------------------------------
+-- 18. SELF CHECK — the Messages pane after running must show
 --     every line as present. Any MISSING line: read the notices
 --     printed above it.
 -- ------------------------------------------------------------
@@ -782,6 +842,7 @@ begin
   raise notice 'storage buckets:       % of 2', (select count(*) from storage.buckets where id in ('deal_logos', 'site_assets'));
   raise notice 'transfer_to_user fn:   %', coalesce(to_regprocedure('public.transfer_to_user(uuid,integer)')::text, 'MISSING');
   raise notice 'purchase_sub fn:       %', coalesce(to_regprocedure('public.purchase_subscription(text)')::text, 'MISSING');
+  raise notice 'top_uploader fn:       %', coalesce(to_regprocedure('public.top_uploader()')::text, 'MISSING');
   raise notice 'reports table:         %', coalesce(to_regclass('public.reports')::text, 'MISSING');
   raise notice 'subscription cols:     %', case when (
     select count(*) from information_schema.columns

@@ -4,12 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Authentication - Gliimu</title>
+  <link rel="icon" type="image/png" href="/icons/icon.png">
   <script>
     (function() {
       const saved = localStorage.getItem('gliimu-theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = saved || (prefersDark ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', theme);
+      // Embedded in the landing page's modal: strip the video backdrop and chrome.
+      if (new URLSearchParams(location.search).get('embed') === '1') {
+        document.documentElement.setAttribute('data-embed', '1');
+      }
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="/shared/css/design-system.css">
-  <link rel="stylesheet" href="/assets/css/auth.css?v=11">
+  <link rel="stylesheet" href="/assets/css/auth.css?v=12">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
@@ -30,13 +35,6 @@
     <source id="auth-video-src" src="/videos/pnp.mp4" type="video/mp4">
   </video>
   <div class="auth-bg-overlay" id="auth-bg-overlay"></div>
-
-  <!-- Top Left Nav (Same as Landing Page) -->
-  <nav class="auth-nav">
-    <a href="https://gliimu.com" class="auth-nav-logo">
-      <img src="/icons/logo.png" alt="Gliimu">
-    </a>
-  </nav>
 
   <!-- Centered Auth Wrapper -->
   <div class="auth-wrapper">
@@ -154,7 +152,7 @@
     </div>
   </div>
 
-  <script type="module" src="/dashboard/auth.js?v=13"></script>
+  <script type="module" src="/dashboard/auth.js?v=14"></script>
 
   <!-- TERMS AND POLICY MODAL -->
   <div class="modal-overlay" id="terms-modal" style="display: none;">

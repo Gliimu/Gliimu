@@ -4,9 +4,6 @@
 .container { max-width: 1200px; margin: 0 auto; padding: 0 var(--space-6); }
 body { background: var(--bg-primary); }
 
-:root { --site-nav-h: 72px; }
-@media (max-width: 768px) { :root { --site-nav-h: 60px; } }
-
 /* Buttons */
 .btn-sm { padding: var(--space-2) var(--space-4); font-size: var(--fs-sm); }
 .btn-lg { padding: var(--space-4) var(--space-8); font-size: var(--fs-md); }
@@ -33,18 +30,9 @@ body { background: var(--bg-primary); }
 .w-full { width: 100%; margin-top: var(--space-2); }
 
 /* Hero Section */
-.hero-video-section { position: relative; height: calc(100vh - var(--site-nav-h)); min-height: 620px; display: flex; align-items: flex-end; padding-bottom: 80px; overflow: hidden; }
+.hero-video-section { position: relative; height: 100vh; min-height: 620px; display: flex; align-items: flex-end; padding-bottom: 80px; overflow: hidden; }
 .hero-background-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
 .hero-video-overlay { position: absolute; inset: 0; background: rgba(10, 15, 30, 0.85); z-index: -1; }
-
-/* Sticky Site Nav */
-.site-nav { position: sticky; top: 0; z-index: 100; width: 100%; height: var(--site-nav-h); display: flex; align-items: center; background: transparent; transition: background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; border-bottom: 1px solid transparent; }
-.site-nav-inner { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 5%; }
-.site-nav-logo { display: flex; align-items: center; }
-.site-nav-logo img { height: 40px; filter: brightness(0) invert(1); transition: filter 0.3s ease; }
-.site-nav.scrolled { background: var(--surface); border-bottom-color: var(--border); box-shadow: var(--shadow-sm); }
-.site-nav.scrolled .site-nav-logo img { filter: brightness(0) invert(0); }
-[data-theme="dark"] .site-nav.scrolled .site-nav-logo img { filter: brightness(0) invert(1); }
 
 .hero-container { width: 100%; }
 .hero-content { max-width: 700px; }
@@ -66,18 +54,6 @@ section { padding: 100px 0; }
 .pillar-icon { width: 60px; height: 60px; background: var(--brand-primary-light); color: var(--brand-primary); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; font-size: var(--fs-2xl); margin: 0 auto var(--space-6); }
 .pillar-card h3 { font-size: var(--fs-xl); font-weight: var(--fw-bold); margin-bottom: var(--space-3); }
 .pillar-card p { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.6; }
-
-/* Earn Section */
-.earn-section { background: var(--bg-secondary); }
-.earn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); align-items: center; }
-.earn-stats { display: flex; flex-direction: column; gap: var(--space-6); margin-top: var(--space-8); }
-.earn-stat { border-left: 3px solid var(--brand-primary); padding-left: var(--space-4); }
-.earn-number { display: block; font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--text-primary); }
-.earn-label { font-size: var(--fs-sm); color: var(--text-muted); }
-.earn-image { display: flex; justify-content: center; }
-.earn-graphic { width: 250px; height: 250px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; border: 4px solid var(--brand-primary); }
-.earn-icon-img { width: 100%; height: 100%; object-fit: cover; }
-.earn-pulse { position: absolute; inset: 0; border-radius: 50%; background: var(--brand-primary-soft); animation: pulse 2s infinite; opacity: 0.5; z-index: -1; }
 
 /* Squad Section (Background Image) */
 .squad-section {
@@ -126,6 +102,11 @@ section { padding: 100px 0; }
 .modal-close { position: absolute; top: var(--space-4); right: var(--space-4); background: none; border: none; font-size: var(--fs-2xl); cursor: pointer; color: var(--text-muted); }
 .modal-title { font-size: var(--fs-2xl); font-weight: var(--fw-bold); text-align: center; margin-bottom: var(--space-2); }
 .modal-subtitle { color: var(--text-secondary); text-align: center; margin-bottom: var(--space-8); }
+
+/* Auth page embedded in a modal (iframe) */
+.auth-modal-content { max-width: 480px; padding: 0; overflow: hidden; }
+.auth-modal-content .modal-close { z-index: 2; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+.auth-modal-content iframe { width: 100%; height: min(680px, 85vh); border: 0; display: block; background: #0f172a; }
 
 .contact-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-6); margin-bottom: var(--space-8); }
 .contact-info-item { text-align: center; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); }
@@ -322,6 +303,11 @@ section { padding: 100px 0; }
 .download-qr-code img { width: 100%; height: 100%; display: block; }
 .download-qr-hint { font-size: var(--fs-xs); color: rgba(255, 255, 255, 0.6); text-align: center; }
 
+/* Landing QR with the Gliimu icon in the center (same look as profile page) */
+.landing-qr-img { position: relative; width: 100%; height: 100%; }
+.landing-qr-img img.qr { width: 100%; height: 100%; border-radius: 6px; background: #fff; object-fit: contain; }
+.landing-qr-img .qr-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; background: #fff; border-radius: 50%; padding: 3px; object-fit: contain; }
+
 /* The mobile-only block stays hidden until the phone breakpoint */
 .download-mobile { display: none; }
 
@@ -338,12 +324,11 @@ section { padding: 100px 0; }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .site-nav-inner { padding: 0 16px; }
   .hero-title { font-size: var(--fs-base); }
   .hero-stats { flex-wrap: wrap; gap: var(--space-6); }
   .hero-actions { flex-direction: column; }
   .hero-actions .btn-lg { width: 100%; }
-  .earn-grid, .cf-grid { grid-template-columns: 1fr; gap: var(--space-12); }
+  .cf-grid { grid-template-columns: 1fr; gap: var(--space-12); }
   .partner-logo { margin: 0 20px; font-size: 18px; }
 }
 

@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ============================================
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
-    window.location.href = '/dashboard/index.html';
+    window.top.location.href = '/dashboard/index.html';
     return;
   }
 
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
     if (error) alert('Error logging in: ' + error.message);
-    else window.location.href = '/dashboard/index.html';
+    else window.top.location.href = '/dashboard/index.html';
   });
 
   // Handle Join Us
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadRecoveryPDF(phrase, false);
   });
 
-  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.location.href = '/dashboard/index.html');
+  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.top.location.href = '/dashboard/index.html');
 
   // ============================================
   // TERMS MODAL LOGIC
