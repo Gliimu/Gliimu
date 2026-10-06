@@ -123,10 +123,10 @@
 
 #live-remote-feed { transform: none; }
 
-/* Local camera as picture-in-picture */
+/* Local camera as picture-in-picture, pinned to the mid-right */
 #live-local-feed {
   position: absolute;
-  top: 16px;
+  top: 50%;
   right: 16px;
   width: 110px;
   height: 150px;
@@ -135,9 +135,9 @@
   object-fit: cover;
   background: #000;
   z-index: 6;
-  transform: scaleX(-1);
+  transform: translateY(-50%) scaleX(-1);
 }
-#live-local-feed.sharing { transform: none; }
+#live-local-feed.sharing { transform: translateY(-50%); }
 
 .live-video-overlay {
   position: absolute;
@@ -181,6 +181,25 @@
   font-family: var(--font-mono);
 }
 
+.live-gp {
+  background: rgba(0,0,0,0.6);
+  color: var(--success);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.live-open-flag {
+  background: rgba(0,0,0,0.6);
+  color: rgba(255,255,255,0.85);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* Centered status pill (waiting / connecting / failed) */
 .live-session-status {
   position: absolute;
@@ -214,6 +233,12 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  animation: liveHintPulse 1.6s infinite;
+}
+
+@keyframes liveHintPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.06); }
 }
 
 /* Control toolbar */
@@ -253,13 +278,10 @@
 .live-ctrl-btn.cam-on { background: var(--success); }
 .live-ctrl-btn.cam-off { background: var(--error); }
 .live-ctrl-btn.sharing { background: var(--brand-primary); }
+.live-ctrl-btn.unsupported { opacity: 0.4; cursor: not-allowed; }
 
 /* Aspect-ratio toggle: show the whole broadcast instead of cropping */
 #live-remote-feed.fit-contain { object-fit: contain; }
-
-/* Locked request card (poster is in a live session) */
-.live-request-card.locked { opacity: 0.6; }
-.live-request-card.locked:hover { border-color: var(--border); }
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
@@ -276,5 +298,5 @@
   .live-host-toolbar { bottom: 40px; gap: 8px; padding: 8px; }
   .live-ctrl-btn { width: 44px; height: 44px; }
 
-  #live-local-feed { width: 84px; height: 112px; top: 12px; right: 12px; }
+  #live-local-feed { width: 84px; height: 112px; right: 12px; }
 }

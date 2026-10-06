@@ -28,6 +28,8 @@ export default {
       searchUsers: (query) => this.searchUsers(query),
       changePortfolioImage: () => document.getElementById('portfolio-image-input')?.click(),
       handlePortfolioImage: (input) => this.uploadPortfolioImage(input),
+      resetPortfolioImage: () => this.resetPortfolioImage(),
+      openProject: (postId) => this.openProject(postId),
       openQr: () => this.openQrModal(),
       closeQr: (e, el) => { if (e.target === el) el.remove(); },
       copyName: () => this.copyName()
@@ -144,7 +146,7 @@ export default {
 
     // Portfolio-only image: falls back to the app avatar
     const portfolioImg = p.portfolio_image_url || p.avatar_url;
-    const tierClass = gp >= 5000 ? 'tier-5000' : (gp >= 1000 ? 'tier-1000' : '');
+    const tierClass = gp >= 5000 ? 'tier-5000' : '';
 
     const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
     const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
@@ -159,6 +161,11 @@ export default {
             ? `<img src="${portfolioImg}" alt="${p.full_name || 'Gliimait'}" style="object-fit:cover;">`
             : `<div class="portfolio-img-fallback">${p.full_name?.charAt(0).toUpperCase() || 'G'}</div>`}
           ${isMe ? `
+            ${p.portfolio_image_url ? `
+              <button class="portfolio-img-reset" title="Use your profile picture instead" onclick="profileInstance.resetPortfolioImage()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+              </button>
+            ` : ''}
             <button class="portfolio-img-edit" title="Change portfolio image" onclick="profileInstance.changePortfolioImage()">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
             </button>
@@ -185,7 +192,7 @@ export default {
             </div>
             <div class="portfolio-stat">
               <span class="stat-value">${posts?.length || 0}</span>
-              <span class="stat-label">Gliims Published</span>
+              <span class="stat-label">Projects</span>
             </div>
           </div>
 
@@ -213,7 +220,7 @@ export default {
               <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
             </div>
             <div class="portfolio-verify-info">
-              <span class="verify-title">Verified Gliimait</span>
+              <span class="verify-title">Verified Profile</span>
               <span class="verify-hint">Scan or tap to view this profile</span>
             </div>
           </div>
@@ -223,11 +230,11 @@ export default {
       <!-- Works Published -->
       <div class="profile-tabs-card card">
         <div class="profile-tabs">
-          <button class="profile-tab active">Published Gliims</button>
+          <button class="profile-tab active">Projects</button>
         </div>
         <div class="profile-tab-content">
           ${(posts && posts.length > 0) ? posts.map(item => `
-            <div class="profile-item-row" onclick="window.location.hash='#/hub'">
+            <div class="profile-item-row" onclick="profileInstance.openProject('${item.id}')">
               <div class="profile-item-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
               </div>
@@ -236,7 +243,7 @@ export default {
                 <span>${item.category || 'General'} • ${new Date(item.created_at).toLocaleDateString()}</span>
               </div>
             </div>
-          `).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No published Gliims yet.</p>'}
+          `).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No projects yet.</p>'}
         </div>
       </div>
 
@@ -288,6 +295,23 @@ export default {
     } finally {
       input.disabled = false;
       input.value = '';
+    }
+  },
+
+  openProject(postId) {
+    // Same viewer as the hub: hand the id over and let the hub open its read modal.
+    sessionStorage.setItem('openReadViewId', postId);
+    window.location.hash = '#/hub';
+  },
+
+  async resetPortfolioImage() {
+    try {
+      const { error } = await supabase.from('profiles').update({ portfolio_image_url: null }).eq('id', store.user.id);
+      if (error) throw error;
+      alert('Portfolio image reverted to your profile picture.');
+      await this.renderProfile(this.targetUserId);
+    } catch (e) {
+      alert('Could not revert the image: ' + (e.message || 'update failed.'));
     }
   }
 };

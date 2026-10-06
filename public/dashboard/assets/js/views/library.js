@@ -23,14 +23,15 @@ export default {
     const container = document.getElementById('library-container');
     if (!container) return;
 
-    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: authorProfiles }] = await Promise.all([
+    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: authorProfiles }, { data: adamProfile }] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
       supabase.from('profiles').select('wallet_balance, interests').eq('id', store.user.id).single(),
       supabase.from('content_info').select('item_id, rating, review'),
       supabase.from('library_interactions').select('item_id, interaction_type, created_at'),
-      supabase.from('profiles').select('id, full_name, avatar_url').neq('id', store.user.id)
+      supabase.from('profiles').select('id, full_name, avatar_url').neq('id', store.user.id),
+      supabase.from('profiles').select('id, full_name, avatar_url').eq('username', 'adam').maybeSingle()
     ]);
 
     this.allItems = items || [];
@@ -41,6 +42,7 @@ export default {
     this.ratings = ratings || [];
     this.interactions = interactions || [];
     this.authorProfiles = authorProfiles || [];
+    this.adamProfile = adamProfile || null;
 
     this.applyFilters();
 
@@ -118,6 +120,80 @@ export default {
 
   async logInteraction(itemId, type) {
     await supabase.from('library_interactions').insert({ user_id: store.user.id, item_id: itemId, interaction_type: type });
+  },
+
+  // Shelf items belong to the account with username 'adam'; name and
+  // avatar resolve live so the attribution survives profile edits.
+  displayAuthorName(item) {
+    return item.author || (this.adamProfile && this.adamProfile.full_name) || 'adam';
+  },
+
+  resolveAuthor(item) {
+    const name = this.displayAuthorName(item);
+    const known = (this.authorProfiles || []).find(p => p.full_name === name) ||
+      (this.adamProfile && this.adamProfile.full_name === name ? this.adamProfile : null);
+    if (known) return known;
+    if (name && store.profile?.full_name === name) {
+      return { id: store.user.id, full_name: store.profile.full_name, avatar_url: store.profile.avatar_url };
+    }
+    return this.adamProfile || null;
+  },
+
+  toggleLibMenu() {
+    const menu = document.getElementById('lib-menu-dropdown');
+    if (!menu) return;
+    menu.classList.toggle('active');
+    if (menu.classList.contains('active')) {
+      setTimeout(() => {
+        document.addEventListener('click', function closeMenu(e) {
+          if (!menu.contains(e.target)) {
+            menu.classList.remove('active');
+            document.removeEventListener('click', closeMenu);
+          }
+        });
+      }, 0);
+    }
+  },
+
+  // Same flow as reporting in the hub: reason (min 5 chars) → reports row.
+  promptReport(itemId) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 440px;">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+        <h2 style="margin-bottom: 8px;">Report Content</h2>
+        <p class="text-muted" style="margin-bottom: 16px;">State your reason for reporting this item. It will be reviewed by the team.</p>
+        <textarea id="report-reason" class="input" rows="4" placeholder="Reason for reporting..."></textarea>
+        <button class="btn-primary" id="report-submit" style="width: 100%; margin-top: 16px;">Submit Report</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('report-submit').addEventListener('click', async () => {
+      const reason = document.getElementById('report-reason').value.trim();
+      if (reason.length < 5) return appAlert("Please state a reason (at least 5 characters).");
+
+      const btn = document.getElementById('report-submit');
+      btn.disabled = true;
+      btn.innerText = "Submitting...";
+
+      const { error } = await supabase.from('reports').insert({
+        reporter_id: store.user.id,
+        target_type: 'library',
+        target_id: itemId,
+        reason
+      });
+
+      if (error) {
+        btn.disabled = false;
+        btn.innerText = "Submit Report";
+        return appAlert("Report failed: " + error.message);
+      }
+
+      overlay.remove();
+      appAlert("Thank you. Your report has been submitted for review.");
+    });
   },
 
   calculateTrendScore(item) {
@@ -225,25 +301,25 @@ export default {
   openDetails(item, isOwned, balance, isSaved) {
     document.querySelector('.modal-overlay')?.remove();
 
-    let menuActionHtml = '';
-    if (isOwned) {
-      menuActionHtml = `
+    const author = this.resolveAuthor(item);
+    const authorName = this.displayAuthorName(item);
+    const authorAvatar = (author && author.avatar_url) || item.author_avatar;
+
+    const menuActionHtml = isOwned
+      ? `
         <div class="lib-menu-item" id="rate-item-btn">Rate Item</div>
         <div class="lib-menu-item" id="share-item-btn">Share Item</div>
-      `;
-    } else {
-      menuActionHtml = `<div class="lib-menu-item" id="save-item-btn">${isSaved ? 'Unsave Item' : 'Save Item'}</div>`;
-    }
+      `
+      : `<div class="lib-menu-item" id="save-item-btn">${isSaved ? 'Unsave Item' : 'Save Item'}</div>`;
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
       <div class="modal-content lib-modal-content">
-        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
         <div class="lib-modal-body">
           <span class="lib-modal-type">${item.type}</span>
           <h2>${item.title}</h2>
-          <p class="lib-modal-author">by ${item.author || 'Gliimu Originals'}</p>
+          <p class="lib-modal-author">by ${authorName}</p>
           <p class="lib-modal-desc">${item.description}</p>
           ${!isOwned ? `<div class="lib-modal-price">Price: <strong>₦${item.price?.toLocaleString() || 0}</strong></div>` : ''}
 
@@ -263,12 +339,13 @@ export default {
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
               </button>
               <div class="lib-menu-dropdown" id="lib-menu-dropdown">
+                <div class="lib-menu-item" id="close-item-btn">Close</div>
                 ${menuActionHtml}
-                <div class="lib-menu-item" onclick="alert('Content reported.'); document.getElementById('lib-menu-dropdown').classList.remove('active');">Report Content</div>
+                <div class="lib-menu-item" id="report-item-btn">Report Content</div>
                 <div class="lib-menu-item ask-me-item" id="ask-me-btn">
-                  ${(this.authorProfiles?.find(p => p.full_name === item.author)?.avatar_url) || item.author_avatar
-                    ? `<img src="${(this.authorProfiles?.find(p => p.full_name === item.author)?.avatar_url) || item.author_avatar}" alt="Author" class="lib-menu-avatar">`
-                    : `<div class="lib-menu-avatar lib-menu-avatar-fallback">${(item.author || 'G').charAt(0).toUpperCase()}</div>`} ${item.author || 'Gliimu Originals'}
+                  ${authorAvatar
+                    ? `<img src="${authorAvatar}" alt="Author" class="lib-menu-avatar">`
+                    : `<div class="lib-menu-avatar lib-menu-avatar-fallback">${authorName.charAt(0).toUpperCase()}</div>`} ${authorName}
                 </div>
               </div>
             </div>
@@ -278,9 +355,23 @@ export default {
     `;
     document.body.appendChild(modal);
 
+    const hideMenu = () => document.getElementById('lib-menu-dropdown')?.classList.remove('active');
+
     document.getElementById('lib-menu-toggle').addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
-      document.getElementById('lib-menu-dropdown').classList.toggle('active');
+      this.toggleLibMenu();
+    });
+
+    document.getElementById('close-item-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideMenu();
+      modal.remove();
+    });
+
+    document.getElementById('report-item-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideMenu();
+      this.promptReport(item.id);
     });
 
     if (isOwned) {
@@ -289,23 +380,24 @@ export default {
         this.openContent(item);
       });
       document.getElementById('rate-item-btn').addEventListener('click', (e) => {
-        e.stopPropagation(); libraryInstance.rateItem(item.id);
+        e.stopPropagation(); hideMenu(); libraryInstance.rateItem(item.id);
       });
       document.getElementById('share-item-btn').addEventListener('click', (e) => {
-        e.stopPropagation(); this.logInteraction(item.id, 'share'); this.shareItem(item);
+        e.stopPropagation(); hideMenu(); this.logInteraction(item.id, 'share'); this.shareItem(item);
       });
     } else {
       document.getElementById('save-item-btn').addEventListener('click', (e) => {
-        e.stopPropagation(); libraryInstance.toggleSave(item.id, isSaved);
+        e.stopPropagation(); hideMenu(); libraryInstance.toggleSave(item.id, isSaved);
       });
     }
 
     document.getElementById('ask-me-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       this.logInteraction(item.id, 'ask_me');
-      const author = this.authorProfiles?.find(p => p.full_name === item.author);
-      if (!author) return alert("Author profile not found.");
-      sessionStorage.setItem('view_profile_id', author.id);
+      const target = this.resolveAuthor(item);
+      if (!target) return alert("Author profile not found.");
+      if (target.id === store.user.id) sessionStorage.removeItem('view_profile_id');
+      else sessionStorage.setItem('view_profile_id', target.id);
       document.querySelector('.modal-overlay')?.remove();
       window.location.hash = '#/profile';
     });
@@ -363,7 +455,7 @@ export default {
         <div class="lib-modal-body">
           <span class="lib-modal-type">${item.type}</span>
           <h2>${item.title}</h2>
-          <p class="lib-modal-author">by ${item.author || 'Gliimu Originals'}</p>
+          <p class="lib-modal-author">by ${this.displayAuthorName(item)}</p>
           <p class="lib-modal-desc">${item.description}</p>
           <hr class="lib-reader-divider">
           ${contentHtml}
@@ -383,7 +475,7 @@ export default {
           ${item.cover_url ? '' : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>'}
         </div>
         <h2 class="lib-audio-title">${item.title}</h2>
-        <p class="lib-audio-author">${item.author || 'Gliimu Originals'}</p>
+        <p class="lib-audio-author">${this.displayAuthorName(item)}</p>
 
         <div class="lib-eq" id="lib-eq"><span></span><span></span><span></span><span></span><span></span></div>
 
@@ -465,7 +557,7 @@ export default {
           <div class="lib-folder-body">
             <span class="lib-modal-type">${item.type}</span>
             <h2>${item.title}</h2>
-            <p class="lib-modal-author">${files.length} file${files.length === 1 ? '' : 's'} · by ${item.author || 'Gliimu Originals'}</p>
+            <p class="lib-modal-author">${files.length} file${files.length === 1 ? '' : 's'} · by ${this.displayAuthorName(item)}</p>
             <p class="lib-modal-desc">${item.description}</p>
             <div class="lib-folder-files">${rows || '<p class="lib-reader-empty">No files attached to this bundle yet.</p>'}</div>
           </div>

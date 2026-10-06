@@ -208,7 +208,7 @@ export default {
     menu.style.left = `${e.clientX}px`;
     menu.style.top = `${e.clientY}px`;
     menu.innerHTML = `
-      <div class="ctx-item" onclick="hubInstance.replyToUser('${postId}', '${fullName}')">Reply</div>
+      <div class="ctx-item" onclick="hubInstance.replyToUser('${postId}', '${fullName}', '${userId}')">Reply</div>
       <div class="ctx-item" onclick="hubInstance.viewAuthor('${userId}')">View Profile</div>
       <div class="ctx-item" onclick="hubInstance.promptReport('user', '${userId}')">Report</div>
     `;
@@ -219,13 +219,128 @@ export default {
     }, 0);
   },
 
-  replyToUser(postId, fullName) {
+  replyToUser(postId, fullName, userId) {
     this.closeUserMenu();
+    if (userId) this.recordMentionPick(postId, { id: userId, name: fullName });
     const input = document.getElementById(`comment-text-${postId}`);
     if (input) {
       input.value = `@${fullName} `;
       input.focus();
     }
+  },
+
+  recordMentionPick(postId, user) {
+    this.pickedMentions = this.pickedMentions || {};
+    const picks = this.pickedMentions[postId] || [];
+    if (!picks.some(p => p.id === user.id)) picks.push(user);
+    this.pickedMentions[postId] = picks;
+  },
+
+  async loadMentionPeople() {
+    if (this.mentionPeople) return this.mentionPeople;
+    const { data } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp').neq('id', store.user.id);
+    this.mentionPeople = data || [];
+    return this.mentionPeople;
+  },
+
+  // Suggests exact users while typing after an @ so people who share
+  // a full name (two "John Doe") can be told apart — the picked row's
+  // id, not the typed name, decides who gets pinged.
+  setupMentionPicker(postId) {
+    const input = document.getElementById(`comment-text-${postId}`);
+    const wrapper = input?.closest('.comment-input-wrapper');
+    if (!input || !wrapper) return;
+
+    const picker = document.createElement('div');
+    picker.className = 'mention-picker';
+    wrapper.appendChild(picker);
+
+    let matches = [];
+    let activeIndex = -1;
+
+    const close = () => {
+      picker.classList.remove('active');
+      picker.innerHTML = '';
+      matches = [];
+      activeIndex = -1;
+    };
+
+    const render = () => {
+      if (matches.length === 0) return close();
+      picker.innerHTML = matches.map((u, i) => {
+        const cls = tierClass(u.total_gp, 'mention-avatar');
+        const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}">${escapeHtml((u.full_name || 'G').charAt(0).toUpperCase())}</div>`;
+        return `<div class="mention-option${i === activeIndex ? ' active' : ''}" data-index="${i}">${av}<span class="mention-option-name">${escapeHtml(u.full_name || 'Gliimait')}</span><span class="mention-option-gp">${u.total_gp || 0} GP</span></div>`;
+      }).join('');
+      picker.classList.add('active');
+    };
+
+    const mentionQuery = () => {
+      const upTo = input.value.slice(0, input.selectionStart);
+      const m = upTo.match(/(?:^|[\s(])@([a-zA-Z0-9_ ]*)$/);
+      if (!m) return null;
+      const partial = m[1];
+      return { partial, atIndex: upTo.length - partial.length - 1 };
+    };
+
+    const choose = (u) => {
+      const q = mentionQuery();
+      if (!q) return;
+      const caret = input.selectionStart;
+      input.value = input.value.slice(0, q.atIndex) + `@${u.full_name} ` + input.value.slice(caret);
+      const pos = q.atIndex + (u.full_name || '').length + 2;
+      input.setSelectionRange(pos, pos);
+      this.recordMentionPick(postId, { id: u.id, name: u.full_name });
+      close();
+      input.focus();
+    };
+
+    input.addEventListener('input', async () => {
+      const q = mentionQuery();
+      if (!q) return close();
+      const needle = q.partial.toLowerCase();
+      const people = await this.loadMentionPeople();
+      // The text may have changed while profiles were loading
+      const again = mentionQuery();
+      if (!again || again.partial.toLowerCase() !== needle) return close();
+      matches = people
+        .filter(u => (u.full_name || '').toLowerCase().includes(needle))
+        .sort((a, b) => {
+          const an = (a.full_name || '').toLowerCase();
+          const bn = (b.full_name || '').toLowerCase();
+          return (an.startsWith(needle) ? 0 : 1) - (bn.startsWith(needle) ? 0 : 1) || an.localeCompare(bn);
+        })
+        .slice(0, 8);
+      activeIndex = matches.length ? 0 : -1;
+      render();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (!picker.classList.contains('active')) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = (activeIndex + 1) % matches.length;
+        render();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = (activeIndex - 1 + matches.length) % matches.length;
+        render();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (matches[activeIndex]) choose(matches[activeIndex]);
+      } else if (e.key === 'Escape') {
+        close();
+      }
+    });
+
+    // mousedown (not click) so the choice lands before the input blurs
+    picker.addEventListener('mousedown', (e) => {
+      const row = e.target.closest('.mention-option');
+      if (!row) return;
+      e.preventDefault();
+      const u = matches[parseInt(row.dataset.index, 10)];
+      if (u) choose(u);
+    });
   },
 
   viewAuthor(userId) {
@@ -800,6 +915,7 @@ export default {
       </div>
     `;
     document.body.appendChild(modal);
+    this.setupMentionPicker(post.id);
   },
 
   toggleReadMenu(postId) {
@@ -908,13 +1024,19 @@ export default {
       this.interestSignal(3, post.category);
     }
     if (post) this.notifyMentions(postId, post, text, data?.id);
+    if (this.pickedMentions) delete this.pickedMentions[postId];
   },
 
   // Ping every @FullName-mentioned user via the message system.
+  // When the sender picked from the @ dropdown, the picked id wins —
+  // namesakes who were not picked are skipped. Manually typed names
+  // still fall back to matching every profile with that name.
   // The trailing [[hub:...]] marker is stripped by the chat
   // renderer, which shows a "Check it out" button that deep-links
   // to the exact post — and to the exact comment on a reply.
   async notifyMentions(postId, post, text, commentId) {
+    const picks = (this.pickedMentions && this.pickedMentions[postId]) || [];
+
     if (!this.profileCache) {
       const { data } = await supabase.from('profiles').select('id, full_name').neq('id', store.user.id);
       this.profileCache = data || [];
@@ -925,15 +1047,27 @@ export default {
     const seen = new Set();
     const marker = commentId ? ` [[hub:${postId}:${commentId}]]` : ` [[hub:${postId}]]`;
 
+    const ping = async (receiverId) => {
+      const content = `${store.profile.full_name} tagged you in the hub page: "${post.title || 'a gliim'}" — click to check it out.${marker}`;
+      await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: receiverId, content, is_ai: false });
+    };
+
+    const pickedNames = new Set();
+    for (const p of picks) {
+      pickedNames.add((p.name || '').toLowerCase());
+      if (seen.has(p.id)) continue;
+      if (!lower.includes(`@${(p.name || '').toLowerCase()}`)) continue;
+      seen.add(p.id);
+      await ping(p.id);
+    }
+
     for (const p of this.profileCache) {
       const name = (p.full_name || '').trim();
       if (!name || name.toLowerCase() === myName || seen.has(p.id)) continue;
+      if (pickedNames.has(name.toLowerCase())) continue;
       if (!lower.includes(`@${name.toLowerCase()}`)) continue;
       seen.add(p.id);
-
-      const content = `${store.profile.full_name} tagged you in the hub page: "${post.title || 'a gliim'}" — click to check it out.${marker}`;
-
-      await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: p.id, content, is_ai: false });
+      await ping(p.id);
     }
   },
 

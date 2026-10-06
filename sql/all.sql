@@ -798,7 +798,46 @@ $$;
 grant execute on function public.top_uploader() to anon, authenticated;
 
 -- ------------------------------------------------------------
--- 18. SELF CHECK — the Messages pane after running must show
+-- 18. LIBRARY SHELF ATTRIBUTION — every item on the library
+--     shelf belongs to the account with username 'adam'.
+--     Idempotent: re-running updates zero rows once converged.
+-- ------------------------------------------------------------
+do $$
+declare
+  v_name text;
+  v_avatar text;
+  v_fixed int;
+begin
+  if to_regclass('public.library_items') is null then
+    raise notice 'library attribution: SKIPPED — library_items table missing';
+    return;
+  end if;
+
+  -- The live table predates this column; the app reads it as the avatar fallback.
+  alter table public.library_items add column if not exists author_avatar text;
+
+  select p.full_name, p.avatar_url into v_name, v_avatar
+  from public.profiles p
+  where p.username = 'adam'
+  limit 1;
+
+  if v_name is null then
+    raise notice 'library attribution: SKIPPED — no profile with username ''adam''';
+    return;
+  end if;
+
+  update public.library_items li
+  set author = v_name,
+      author_avatar = v_avatar
+  where li.author is distinct from v_name
+     or li.author_avatar is distinct from v_avatar;
+
+  get diagnostics v_fixed = row_count;
+  raise notice 'library attribution: % item(s) set to adam', v_fixed;
+end $$;
+
+-- ------------------------------------------------------------
+-- 19. SELF CHECK — the Messages pane after running must show
 --     every line as present. Any MISSING line: read the notices
 --     printed above it.
 -- ------------------------------------------------------------
@@ -849,6 +888,14 @@ begin
     where table_schema = 'public' and table_name = 'profiles'
       and column_name in ('subscription_plan', 'subscription_started_at', 'subscription_expires_at')
   ) = 3 then 'present' else 'MISSING' end;
+  raise notice 'library→adam:          %', case
+    when to_regclass('public.library_items') is null then 'table MISSING'
+    when not exists (select 1 from public.profiles where username = 'adam') then 'no adam profile'
+    else (select count(*)::text || ' item(s) off adam' from public.library_items li
+          join public.profiles p on p.username = 'adam'
+          where li.author is distinct from p.full_name
+             or li.author_avatar is distinct from p.avatar_url)
+  end;
 end $$;
 
 -- Make the new functions visible to the API immediately.

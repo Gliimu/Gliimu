@@ -44,11 +44,7 @@
   background: var(--gradient-primary);
 }
 
-/* Tier identity: rounded visible border instead of a tick */
-.portfolio-left.tier-1000 {
-  box-shadow: inset 0 0 0 4px var(--brand-primary);
-}
-
+/* Ambassador tier keeps its border; lower tiers stay clean */
 .portfolio-left.tier-5000 {
   box-shadow: inset 0 0 0 4px var(--text-primary);
 }
@@ -71,6 +67,28 @@
 }
 
 .portfolio-img-edit:hover {
+  background: var(--brand-primary);
+  transform: scale(1.06);
+}
+
+.portfolio-img-reset {
+  position: absolute;
+  right: 60px;
+  bottom: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.portfolio-img-reset:hover {
   background: var(--brand-primary);
   transform: scale(1.06);
 }
@@ -461,7 +479,8 @@
   .printable-area .portfolio-identity h1 { font-size: 30px !important; }
   .printable-area .portfolio-verify { margin-top: auto !important; }
 
-  .portfolio-img-edit {
+  .portfolio-img-edit,
+  .portfolio-img-reset {
     display: none !important;
   }
 

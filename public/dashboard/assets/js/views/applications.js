@@ -18,7 +18,7 @@ function fileExtension(file) {
 const DEAL_LOGO_BUCKET = 'deal_logos';
 
 export default {
-  title: 'Requests',
+  title: 'Queue',
   template: `
     <div class="requests-layout" id="requests-container">
       <div class="sub-tabs">
