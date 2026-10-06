@@ -10,7 +10,7 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-export default {
+const hubView = {
   title: 'Hub',
   template: `
     <div class="hub-layout">
@@ -34,27 +34,7 @@ export default {
     this.currentFilter = 'all';
     this.viewStyle = localStorage.getItem('hub-view') || 'list';
     this.isModalOpen = false;
-
-    window.hubInstance = {
-      openReadView: (id) => this.openReadView(id),
-      toggleLike: (id) => this.toggleLike(id),
-      sharePost: (id, title) => this.sharePost(id, title),
-      scrollToComments: (id) => this.scrollToComments(id),
-      submitComment: (id) => this.submitComment(id),
-      supportCreator: (id, authorId) => this.supportCreator(id, authorId),
-      showUserMenu: (e, userId, postId, fullName) => this.showUserMenu(e, userId, postId, fullName),
-      closeUserMenu: () => this.closeUserMenu(),
-      toggleSavePost: (id) => this.toggleSavePost(id),
-      toggleReadMenu: (id) => this.toggleReadMenu(id),
-      closeModal: () => this.closeModal(),
-      addBlock: (type) => this.addBlock(type),
-      promptDelete: (id) => this.promptDelete(id),
-      replyToUser: (postId, fullName) => this.replyToUser(postId, fullName),
-      viewAuthor: (userId) => this.viewAuthor(userId),
-      promptReport: (targetType, targetId) => this.promptReport(targetType, targetId),
-      removeTag: (index) => this.removeTag(index),
-      isModalOpen: () => this.isModalOpen
-    };
+    this.feedLoaded = false;
 
     this.setupTopbarSearch();
     this.setupTopbarActions();
@@ -351,7 +331,12 @@ export default {
     } else {
       sessionStorage.setItem('view_profile_id', userId);
     }
-    window.location.hash = '#/profile';
+    // Setting the hash to its current value fires no hashchange; re-render manually
+    if (window.location.hash.startsWith('#/profile')) {
+      window.dispatchEvent(new Event('hashchange'));
+    } else {
+      window.location.hash = '#/profile';
+    }
   },
 
   promptReport(targetType, targetId) {
@@ -473,6 +458,7 @@ export default {
     alert("Gliim deleted successfully.");
     this.closeModal();
     this.fetchPosts();
+    window.profileInstance?.refreshProjects?.();
   },
 
   openCreateModal() {
@@ -650,6 +636,7 @@ export default {
     this.allInteractions = interactions || [];
     this.currentPosts = this.orderFeed(posts || []);
     this.savedPosts = new Set(saved?.map(s => s.post_id) || []);
+    this.feedLoaded = true;
     this.renderPosts(this.currentPosts);
   },
 
@@ -771,11 +758,28 @@ export default {
     return this.seededShuffle(posts);
   },
 
-  openReadView(postId) {
-    const post = this.currentPosts.find(p => p.id === postId);
-    if (!post) return;
-
+  async openReadView(postId) {
+    if (this.isModalOpen) return;
     this.isModalOpen = true;
+
+    if (!this.feedLoaded) await this.fetchPosts();
+
+    let post = (this.currentPosts || []).find(p => p.id === postId);
+    if (!post) {
+      const { data, error } = await supabase.from('posts')
+        .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
+        .eq('id', postId).single();
+
+      if (error || !data) {
+        this.isModalOpen = false;
+        return alert("This particular post is no longer available.");
+      }
+      post = data;
+      this.currentPosts = this.currentPosts || [];
+      this.currentPosts.unshift(post);
+    }
+
+    if (!this.isModalOpen) return;
     sessionStorage.setItem('openReadViewId', postId);
 
     // Count one view per post per browser session
@@ -1087,3 +1091,28 @@ export default {
     supabase.channel(channelName).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => { this.fetchPosts(); }).subscribe();
   }
 };
+
+// Module scope, not init(): the reader and the router's modal guard must work
+// even when the hub view was never visited (reader opened from a profile).
+window.hubInstance = {
+  openReadView: (id) => hubView.openReadView(id),
+  toggleLike: (id) => hubView.toggleLike(id),
+  sharePost: (id, title) => hubView.sharePost(id, title),
+  scrollToComments: (id) => hubView.scrollToComments(id),
+  submitComment: (id) => hubView.submitComment(id),
+  supportCreator: (id, authorId) => hubView.supportCreator(id, authorId),
+  showUserMenu: (e, userId, postId, fullName) => hubView.showUserMenu(e, userId, postId, fullName),
+  closeUserMenu: () => hubView.closeUserMenu(),
+  toggleSavePost: (id) => hubView.toggleSavePost(id),
+  toggleReadMenu: (id) => hubView.toggleReadMenu(id),
+  closeModal: () => hubView.closeModal(),
+  addBlock: (type) => hubView.addBlock(type),
+  promptDelete: (id) => hubView.promptDelete(id),
+  replyToUser: (postId, fullName, userId) => hubView.replyToUser(postId, fullName, userId),
+  viewAuthor: (userId) => hubView.viewAuthor(userId),
+  promptReport: (targetType, targetId) => hubView.promptReport(targetType, targetId),
+  removeTag: (index) => hubView.removeTag(index),
+  isModalOpen: () => hubView.isModalOpen
+};
+
+export default hubView;

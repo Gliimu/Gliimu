@@ -448,8 +448,13 @@ export default {
     if (!amount || amount <= 0) return appAlert("Enter a valid amount.");
 
     const name = this.transferTarget.full_name || 'this user';
-    const ok = await appConfirm(`Send ₦${amount.toLocaleString()} to ${name}?`);
-    if (!ok) return;
+    const password = await appPrompt(`To send ₦${amount.toLocaleString()} to ${name}, please enter your password:`, { inputType: 'password', okText: 'Send' });
+    if (password === null) return;
+    if (!password) return appAlert('Please enter your password.');
+
+    const fakeEmail = `${store.profile.username}@gliimu.app`;
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+    if (signInError) return appAlert('Incorrect password. Transfer cancelled.');
 
     const btn = document.getElementById('transfer-send-btn');
     btn.disabled = true;
