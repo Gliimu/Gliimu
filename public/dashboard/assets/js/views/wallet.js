@@ -1,5 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
+import { fetchBillingSummary } from '../billing.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -10,13 +11,18 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Billing plans — paid from the wallet balance (tuition-through-earnings).
-// Duration months include the free months: Pro = 4 + 1, Elite = 12 + 2.
-const PLANS = [
-  { id: 'starter', name: 'Starter Plan', short: 'Starter', price: 70000, priceNote: 'billed monthly', features: ['Full platform access', 'Conditional updates'], months: 1 },
-  { id: 'pro', name: 'Pro Plan', short: 'Pro', price: 250000, priceNote: 'billed in 4 months', features: ['Everything in starter', 'Full update participation', '+ 1 month free subscription (saved 30,000 + 70,000 = 100,000)'], months: 5 },
-  { id: 'elite', name: 'Elite Plan', short: 'Elite', price: 780000, priceNote: 'billed annually', features: ['Everything in pro plan', 'Extra security', '+ 2 months free subscription (saved 60,000 + 140,000 = 200,000)'], months: 14 }
-];
+// Labels for the server-recorded usage events in the running cycle.
+// The amounts themselves always come from billing_summary().prices.
+const USAGE_LABELS = {
+  publication: 'Publication unlock',
+  bundle: 'Bundle unlock',
+  audiolite: 'Audiolite unlock',
+  gliim_av: 'Gliim · video/audio',
+  gliim_image: 'Gliim · text/image',
+  live: 'Live session',
+  profile_print: 'Profile print',
+  premium_unlock: 'Premium Gliim unlock'
+};
 
 export default {
   title: 'Billing',
@@ -36,10 +42,12 @@ export default {
       toggleFilterMenu: () => this.toggleFilterMenu(),
       selectTransferUser: (id) => this.selectTransferUser(id),
       clearTransferUser: () => this.clearTransferUser(),
-      buyPlan: (id) => this.buyPlan(id)
+      activatePlan: (id) => this.activatePlan(id),
+      payBill: (id) => this.payBill(id)
     };
 
     this.currentTab = 'summary'; // Default view
+    this.summary = null;
     this.transferTarget = null;
     this.transferSearchList = [];
     this.transferSearchTimer = null;
@@ -66,14 +74,15 @@ export default {
   async fetchData() {
     if (!store.user || !store.user.id) return;
 
-    let { data: profile } = await supabase
-      .from('profiles')
-      .select('wallet_balance, subscription_expires_at, subscription_plan')
-      .eq('id', store.user.id)
-      .single();
+    // Tier, trial window, running cycle usage and due bills come from the
+    // server-side billing gate (sql/billing.sql).
+    const summary = await fetchBillingSummary();
+    const hasSummary = !!(summary && !summary.code);
+    this.summary = hasSummary ? summary : null;
 
-    // Fallback for the billing columns until the SQL migration is applied
-    if (!profile) {
+    let profile = null;
+    if (!hasSummary) {
+      // Pre-migration fallback until billing_summary() exists.
       ({ data: profile } = await supabase
         .from('profiles')
         .select('wallet_balance, subscription_expires_at')
@@ -89,15 +98,11 @@ export default {
 
     if (txError) console.error("Transactions fetch error:", txError);
 
-    this.balance = profile?.wallet_balance || 0;
-    this.subscriptionExpiresAt = profile?.subscription_expires_at || null;
-    this.subscriptionPlan = profile?.subscription_plan || null;
+    this.balance = Number((hasSummary ? summary.wallet_balance : profile?.wallet_balance) || 0);
+    this.subscriptionExpiresAt = (hasSummary ? summary.subscription_expires_at : profile?.subscription_expires_at) || null;
     this.allTransactions = transactions || [];
-  },
 
-  getActivePlan() {
-    if (!this.subscriptionExpiresAt || new Date(this.subscriptionExpiresAt) <= new Date()) return null;
-    return this.subscriptionPlan || null;
+    if (store.profile) store.profile.wallet_balance = this.balance;
   },
 
   render() {
@@ -201,59 +206,157 @@ export default {
     }
 
     if (this.currentTab === 'subscription') {
-      const activePlanId = this.getActivePlan();
-      const activePlan = PLANS.find(p => p.id === activePlanId) || null;
-      const isActive = !!this.getActivePlan() || (this.subscriptionExpiresAt && new Date(this.subscriptionExpiresAt) > new Date());
-      const expiryDate = isActive ? new Date(this.subscriptionExpiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
-
-      return `
-        <div class="card sub-card">
-          <div class="sub-header">
-            <h3>Your Subscription</h3>
-            <span class="sub-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
-          </div>
-          <div class="sub-details">
-            <div class="sub-row">
-              <span>Plan</span>
-              <strong>${activePlan ? activePlan.name : 'No active plan'}</strong>
-            </div>
-            ${isActive ? `
-              <div class="sub-row">
-                <span>Expires On</span>
-                <strong>${expiryDate}</strong>
-              </div>
-              ${activePlan ? `
-              <div class="sub-row">
-                <span>Billing</span>
-                <strong>${activePlan.priceNote}</strong>
-              </div>
-              ` : ''}
-            ` : ''}
-          </div>
-        </div>
-
-        <div class="plan-list">
-          ${PLANS.map(p => `
-            <div class="plan-card">
-              <span class="plan-name">${p.name}</span>
-              <div class="plan-price">₦${p.price.toLocaleString()}</div>
-              <span class="plan-price-note">${p.priceNote}</span>
-              <ul class="plan-features">
-                ${p.features.map(f => `
-                  <li class="plan-feature">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>${f}</span>
-                  </li>
-                `).join('')}
-              </ul>
-              ${activePlanId === p.id
-                ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
-                : `<button class="plan-buy btn-primary" data-plan="${p.id}" onclick="walletInstance.buyPlan('${p.id}')">Buy ${p.short}</button>`}
-            </div>
-          `).join('')}
-        </div>
-      `;
+      return this.renderSubscription();
     }
+  },
+
+  // ============================================
+  // SUBSCRIPTION — tier dashboard (trial / wallet / payngo / pro)
+  // ============================================
+  renderSubscription() {
+    const s = this.summary;
+    const expiresAt = s ? s.subscription_expires_at : this.subscriptionExpiresAt;
+    const tier = s
+      ? s.tier
+      : (expiresAt && new Date(expiresAt) > new Date() ? 'payngo' : 'wallet');
+    const prices = (s && s.prices) || {};
+    const due = (s && s.due_cycles) || [];
+    const dueTotal = due.reduce((n, c) => n + (Number(c.total) || 0), 0);
+    const openCycle = s && s.open_cycle;
+    const proPrice = Number(prices.plan_pro || 99900);
+
+    const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+    const daysLeft = (d) => d ? Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) : 0;
+    const check = (text) => `
+      <li class="plan-feature">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>${text}</span>
+      </li>`;
+
+    const tierName = { trial: 'Free Trial', wallet: 'Wallet', payngo: "Pay n' Go", pro: 'Pro' }[tier] || 'Wallet';
+
+    const statusRows = [];
+    if (tier === 'trial') {
+      statusRows.push(`<div class="sub-row"><span>Trial ends</span><strong>${fmt(s?.trial_ends_at)} · ${daysLeft(s?.trial_ends_at)} days left</strong></div>`);
+      statusRows.push(`<div class="sub-row"><span>Bill preview</span><strong>≈ ₦${Number(s?.trial_preview || 0).toLocaleString()} / month</strong></div>`);
+    } else if (tier === 'payngo') {
+      statusRows.push(`<div class="sub-row"><span>Renews on</span><strong>${fmt(expiresAt)} · ${daysLeft(expiresAt)} days left</strong></div>`);
+      statusRows.push(`<div class="sub-row"><span>Renewal perk</span><strong>+3 free days</strong></div>`);
+    } else if (tier === 'pro') {
+      statusRows.push(`<div class="sub-row"><span>Active until</span><strong>${fmt(expiresAt)} · ${daysLeft(expiresAt)} days left</strong></div>`);
+      statusRows.push(`<div class="sub-row"><span>Year-end perk</span><strong>+30 free days</strong></div>`);
+    } else {
+      statusRows.push(`<div class="sub-row"><span>Billing style</span><strong>Pay per open · from wallet</strong></div>`);
+      statusRows.push(`<div class="sub-row"><span>Live sessions</span><strong>Subscription only</strong></div>`);
+    }
+
+    const dueCard = due.length ? `
+      <div class="card sub-card" style="margin-top: 16px;">
+        <div class="sub-header">
+          <h3>Bill Due</h3>
+          <span class="sub-badge inactive">Payment needed</span>
+        </div>
+        <div class="sub-details">
+          <div class="sub-row"><span>Amount</span><strong>₦${dueTotal.toLocaleString()}</strong></div>
+          ${due[0].due_at ? `<div class="sub-row"><span>Grace window ends</span><strong>${fmt(due[0].due_at)}</strong></div>` : ''}
+        </div>
+        <button class="plan-buy btn-primary" style="width: 100%; margin-top: 14px;" onclick="walletInstance.payBill(${Number(due[0].id)})">Pay Bill</button>
+      </div>
+    ` : '';
+
+    const breakdown = (openCycle && openCycle.breakdown) || [];
+    const cycleCard = (tier === 'payngo' && openCycle) ? `
+      <div class="card sub-card" style="margin-top: 16px;">
+        <div class="sub-header">
+          <h3>This Month's Usage</h3>
+          <span class="sub-badge active">Running</span>
+        </div>
+        <div class="sub-details">
+          ${breakdown.length
+            ? breakdown.map(b => `<div class="sub-row"><span>${USAGE_LABELS[b.event] || b.event} × ${b.count}</span><strong>₦${Number(b.total).toLocaleString()}</strong></div>`).join('')
+            : '<div class="sub-row"><span>Nothing yet this cycle</span><strong>₦0</strong></div>'}
+          <div class="sub-row"><span>Due at month's end</span><strong>₦${Number(openCycle.total || 0).toLocaleString()}</strong></div>
+        </div>
+      </div>
+    ` : '';
+
+    const priceRows = [
+      ['publication', 'Publication'], ['bundle', 'Bundle'], ['audiolite', 'Audiolite'],
+      ['gliim_av', 'Gliim · video/audio'], ['gliim_image', 'Gliim · text/image'],
+      ['live', 'Live session'], ['premium_unlock', 'Premium Gliim'], ['profile_print', 'Profile print']
+    ].map(([key, label]) => {
+      const v = prices[key];
+      if (v == null) return '';
+      const value = tier === 'pro' ? 'Included' : `₦${Number(v).toLocaleString()}`;
+      return `<div class="sub-row"><span>${label}</span><strong>${value}</strong></div>`;
+    }).join('');
+
+    const pricesNote = {
+      trial: 'Preview only — nothing is charged during the trial.',
+      wallet: 'Charged from your wallet when you open.',
+      payngo: 'Added to your monthly bill as you use.',
+      pro: 'Included with Pro — no per-open charges.'
+    }[tier] || '';
+
+    const payngoBtn = tier === 'payngo'
+      ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
+      : tier === 'pro'
+        ? ''
+        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('payngo')">${tier === 'trial' ? "Continue on Pay n' Go" : "Switch to Pay n' Go"}</button>`;
+
+    const proBtn = tier === 'pro'
+      ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
+      : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('pro')">Go Pro</button>`;
+
+    return `
+      <div class="card sub-card">
+        <div class="sub-header">
+          <h3>${tierName}</h3>
+          <span class="sub-badge ${tier === 'wallet' ? 'inactive' : 'active'}">${tier === 'wallet' ? 'No plan' : 'Active'}</span>
+        </div>
+        <div class="sub-details">${statusRows.join('')}</div>
+      </div>
+
+      ${dueCard}
+      ${cycleCard}
+
+      <div class="plan-list">
+        <div class="plan-card">
+          <span class="plan-name">Pay n' Go</span>
+          <div class="plan-price">₦0 upfront</div>
+          <span class="plan-price-note">billed monthly after use</span>
+          <ul class="plan-features">
+            ${check('Full platform access')}
+            ${check('Live sessions')}
+            ${check('Deals & Projects (up to 3)')}
+            ${check('+3 free days on renewal')}
+          </ul>
+          ${payngoBtn}
+        </div>
+        <div class="plan-card">
+          <span class="plan-name">Pro</span>
+          <div class="plan-price">₦${proPrice.toLocaleString()}</div>
+          <span class="plan-price-note">per year · paid from wallet</span>
+          <ul class="plan-features">
+            ${check('Unlimited everything')}
+            ${check('Full Deals & Projects')}
+            ${check('No per-open charges')}
+            ${check('365 days + 30 free days')}
+          </ul>
+          ${proBtn}
+        </div>
+      </div>
+
+      <div class="card sub-card" style="margin-top: 16px;">
+        <div class="sub-header">
+          <h3>Usage Prices</h3>
+        </div>
+        <div class="sub-details">
+          ${priceRows}
+          <div class="sub-row"><span style="color: var(--text-muted); font-size: 13px;">${pricesNote}</span></div>
+        </div>
+      </div>
+    `;
   },
 
   renderTxItem(tx) {
@@ -485,33 +588,76 @@ export default {
   // ============================================
   // SUBSCRIPTION
   // ============================================
-  async buyPlan(planId) {
-    const plan = PLANS.find(p => p.id === planId);
-    if (!plan) return;
-    if (this.getActivePlan() === planId) return;
+  async activatePlan(planId) {
+    if (planId === 'payngo') {
+      const ok = await appConfirm("Switch to Pay n' Go?\n\nFull platform access from today. At the end of each month you're billed for what you actually used — and every renewal adds 3 free days.", { okText: 'Switch' });
+      if (!ok) return;
 
-    const ok = await appConfirm(`Subscribe to the ${plan.name} for ₦${plan.price.toLocaleString()}? It will be paid from your wallet balance.`);
-    if (!ok) return;
+      const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'payngo' });
+      if (error) return appAlert("Could not switch plans: " + error.message);
+      if (data && data.ok === false) {
+        if (data.code === 'OUTSTANDING_BILL') {
+          await appAlert("You have an unpaid bill from your last Pay n' Go month. Settle it first — tap Pay Bill above.");
+          return;
+        }
+        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not switch plans right now.");
+      }
 
-    const btn = document.querySelector(`.plan-buy[data-plan="${planId}"]`);
-    if (btn) { btn.disabled = true; btn.innerText = 'Processing...'; }
-
-    const { data, error } = await supabase.rpc('purchase_subscription', { p_plan: plan.id });
-
-    if (error) {
-      if (btn) { btn.disabled = false; btn.innerText = `Buy ${plan.short}`; }
-      const msg = error.message || '';
-      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your wallet to buy this plan.");
-      if (msg.includes('INVALID_PLAN')) return appAlert("That plan is not available.");
-      return appAlert("Subscription failed: " + msg);
+      await appAlert("You're on Pay n' Go — full access is live. Your usage shows up in this tab as you go.");
+      await this.fetchData();
+      this.render();
+      return;
     }
 
-    const expires = data?.expires_at
-      ? new Date(data.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-      : null;
-    await appAlert(`${plan.name} activated!${expires ? ` Valid until ${expires}.` : ''}`);
-    await this.fetchData();
-    this.render();
+    if (planId === 'pro') {
+      const price = Number((this.summary && this.summary.prices && this.summary.prices.plan_pro) || 99900);
+      const ok = await appConfirm(`Go Pro for ₦${price.toLocaleString()}?\n\nIt's paid from your wallet balance and covers a full year — 365 days plus 30 free days at the end.`, { okText: 'Go Pro' });
+      if (!ok) return;
+
+      const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'pro' });
+      if (error) return appAlert("Could not activate Pro: " + error.message);
+      if (data && data.ok === false) {
+        if (data.code === 'INSUFFICIENT_FUNDS') {
+          const short = Math.max(0, price - Number(data.balance || 0));
+          await appAlert(`Your wallet needs ₦${short.toLocaleString()} more for Pro. Top up, then come back.`);
+          this.openTopUpModal();
+          return;
+        }
+        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not activate Pro right now.");
+      }
+
+      await appAlert('Pro is active — unlimited everything for a year. Enjoy!');
+      await this.fetchData();
+      this.render();
+    }
+  },
+
+  async payBill(cycleId) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return appAlert('Please sign in again.');
+
+      const res = await fetch(`${API_BASE_URL}/api/billing/pay-bill`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ cycleId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start the bill checkout.');
+      if (data.ok === false && data.code === 'NOTHING_DUE') {
+        await appAlert('Nothing is due right now.');
+        await this.fetchData();
+        this.render();
+        return;
+      }
+      if (!data.authorization_url) throw new Error('Paystack did not return a checkout link.');
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      await appAlert('Bill payment failed: ' + err.message);
+    }
   },
 
   // ============================================
@@ -702,6 +848,14 @@ export default {
 
       if (data.credited) {
         await appAlert(`Wallet funded! ₦${Number(data.amount || 0).toLocaleString()} has been added to your balance.`);
+        await this.fetchData();
+        this.render();
+        return;
+      }
+      if (data.settled) {
+        if (!data.dedupe) {
+          await appAlert(`Bill paid! ₦${Number(data.total || 0).toLocaleString()} settled and your month is renewed with 3 free days.`);
+        }
         await this.fetchData();
         this.render();
         return;

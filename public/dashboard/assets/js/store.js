@@ -17,11 +17,21 @@ export const store = {
 
     if (user) {
       // Fetch live data from the profiles table instead of just signup metadata
-      const { data: profile, error } = await supabase
+      const baseCols = 'username, full_name, avatar_url, total_gp, wallet_balance, is_admin';
+      let { data: profile } = await supabase
         .from('profiles')
-        .select('username, full_name, avatar_url, total_gp, wallet_balance, is_admin')
+        .select(`${baseCols}, tier, trial_ends_at, subscription_expires_at`)
         .eq('id', user.id)
         .single();
+
+      if (!profile) {
+        // Pre-migration fallback: billing columns may not exist yet.
+        ({ data: profile } = await supabase
+          .from('profiles')
+          .select(baseCols)
+          .eq('id', user.id)
+          .single());
+      }
 
       if (profile) {
         this.profile = profile;
@@ -33,7 +43,10 @@ export const store = {
           total_gp: 0,
           avatar_url: null,
           wallet_balance: 0,
-          is_admin: false
+          is_admin: false,
+          tier: 'trial',
+          trial_ends_at: null,
+          subscription_expires_at: null
         };
       }
     }

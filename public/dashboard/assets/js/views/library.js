@@ -1,5 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
+import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 
 export default {
   title: 'Library',
@@ -23,7 +24,7 @@ export default {
     const container = document.getElementById('library-container');
     if (!container) return;
 
-    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: authorProfiles }, { data: adamProfile }] = await Promise.all([
+    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: authorProfiles }, { data: adamProfile }, summary] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
@@ -31,7 +32,8 @@ export default {
       supabase.from('content_info').select('item_id, rating, review'),
       supabase.from('library_interactions').select('item_id, interaction_type, created_at'),
       supabase.from('profiles').select('id, full_name, avatar_url').neq('id', store.user.id),
-      supabase.from('profiles').select('id, full_name, avatar_url').eq('username', 'adam').maybeSingle()
+      supabase.from('profiles').select('id, full_name, avatar_url').eq('username', 'adam').maybeSingle(),
+      fetchBillingSummary()
     ]);
 
     this.allItems = items || [];
@@ -43,6 +45,8 @@ export default {
     this.interactions = interactions || [];
     this.authorProfiles = authorProfiles || [];
     this.adamProfile = adamProfile || null;
+    this.effTier = (summary && !summary.code) ? summary.tier : null;
+    this.subscriber = this.effTier === 'trial' || this.effTier === 'payngo' || this.effTier === 'pro';
 
     this.applyFilters();
 
@@ -305,6 +309,10 @@ export default {
     const authorName = this.displayAuthorName(item);
     const authorAvatar = (author && author.avatar_url) || item.author_avatar;
 
+    // Owned opens skip the billing gate (wallet tier owns these forever);
+    // subscriber opens still gate so the server records/mini-prices the usage.
+    const canOpen = isOwned || this.subscriber;
+
     const menuActionHtml = isOwned
       ? `
         <div class="lib-menu-item" id="rate-item-btn">Rate Item</div>
@@ -321,10 +329,11 @@ export default {
           <h2>${item.title}</h2>
           <p class="lib-modal-author">by ${authorName}</p>
           <p class="lib-modal-desc">${item.description}</p>
-          ${!isOwned ? `<div class="lib-modal-price">Price: <strong>₦${item.price?.toLocaleString() || 0}</strong></div>` : ''}
+          ${!isOwned && !this.subscriber ? `<div class="lib-modal-price">Price: <strong>₦${item.price?.toLocaleString() || 0}</strong></div>` : ''}
+          ${!isOwned && this.subscriber ? `<div class="lib-modal-price">Included with your subscription</div>` : ''}
 
           <div class="lib-action-row">
-            ${isOwned
+            ${canOpen
               ? `<button class="btn-primary lib-action-btn" id="access-content-btn">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   Access Content
@@ -374,11 +383,19 @@ export default {
       this.promptReport(item.id);
     });
 
-    if (isOwned) {
-      document.getElementById('access-content-btn').addEventListener('click', () => {
+    if (canOpen) {
+      document.getElementById('access-content-btn').addEventListener('click', async () => {
+        if (this.subscriber) {
+          // Server decides price/recording for this open. Owned wallet opens
+          // never reach here, so PURCHASE_REQUIRED can't fire for them.
+          const gate = await ensureAccess(item.type, { itemId: item.id });
+          if (!gate.allowed) { await showBillingDenied(gate); return; }
+        }
         this.logInteraction(item.id, 'read_end');
         this.openContent(item);
       });
+    }
+    if (isOwned) {
       document.getElementById('rate-item-btn').addEventListener('click', (e) => {
         e.stopPropagation(); hideMenu(); libraryInstance.rateItem(item.id);
       });
@@ -636,19 +653,24 @@ export default {
   async purchaseItem(itemId) {
     const item = this.allItems.find(i => i.id == itemId);
     if (!item) return alert("Item not found.");
-    if (this.walletBalance < item.price) return alert("Insufficient funds. Please top up your wallet.");
 
-    const earnedPoints = Math.round(item.price / 1000);
-    const newBalance = this.walletBalance - item.price;
-    const { error: walletError } = await supabase.from('profiles').update({ wallet_balance: newBalance }).eq('id', store.user.id);
-    if (walletError) return alert("Error processing payment.");
+    // Price, wallet debit and purchase row all happen inside the RPC; the
+    // client never touches wallet_balance (a DB guard blocks it anyway).
+    const { data, error } = await supabase.rpc('purchase_library_item', { p_item: itemId });
+    if (error) return alert("Error processing payment: " + error.message);
 
-    await supabase.from('purchases').insert({ user_id: store.user.id, item_id: item.id });
-    await supabase.from('transactions').insert({ user_id: store.user.id, amount: -item.price, type: 'purchase', status: 'success', description: `Library Unlock: ${item.title}`, points: earnedPoints });
+    if (data && data.ok === false) {
+      if (data.code === 'INSUFFICIENT_FUNDS') {
+        return alert(`Insufficient funds. This costs ₦${Number(data.price || item.price || 0).toLocaleString()} and your wallet has ₦${Number(data.balance || 0).toLocaleString()}. Top up to continue.`);
+      }
+      if (data.code === 'NOT_FOUND') return alert("This item is no longer available.");
+      if (data.code === 'NOT_AUTHENTICATED') return alert("Please sign in again.");
+      return alert("Purchase could not be completed. Please try again.");
+    }
 
     this.ownedItems.add(item.id);
-    this.walletBalance = newBalance;
-    alert(`Purchase successful! You earned ${earnedPoints} GP.`);
+    if (data && typeof data.balance === 'number') this.walletBalance = data.balance;
+    alert(data && data.already_owned ? "You already own this item." : "Purchase successful! It's unlocked in My Collections.");
     document.querySelector('.modal-overlay')?.remove();
     this.init();
   },

@@ -1,5 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
+import { ensureAccess, showBillingDenied } from '../billing.js';
 import hubView from './hub.js';
 
 export default {
@@ -24,7 +25,15 @@ export default {
     this.targetUserId = targetId || store.user.id;
 
     window.profileInstance = {
-      printProfile: () => window.print(),
+      printProfile: async () => {
+        // Printing another Gliimait's portfolio is a billable profile_print;
+        // your own profile prints free.
+        if (this.targetUserId && this.targetUserId !== store.user.id) {
+          const gate = await ensureAccess('profile_print', { itemId: this.targetUserId, creatorId: this.targetUserId });
+          if (!gate.allowed) { await showBillingDenied(gate); return; }
+        }
+        window.print();
+      },
       viewUser: (userId) => this.viewUser(userId),
       searchUsers: (query) => this.searchUsers(query),
       changePortfolioImage: () => document.getElementById('portfolio-image-input')?.click(),
@@ -127,6 +136,7 @@ export default {
   async renderProfile(userId) {
     const container = document.getElementById('profile-container');
     const isMe = userId === store.user.id;
+    this.targetUserId = userId;
 
     // Find user in our cached list first for instant load
     let user = this.allUsers.find(u => u.id === userId);

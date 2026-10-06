@@ -1,5 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
+import { fetchBillingSummary, goToBilling } from '../billing.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -35,6 +36,17 @@ export default {
     this.queue = [];
     this.applicants = [];
     this.appFilter = 'general';
+
+    // Deals are subscription-only: wallet blocked, trial/payngo capped,
+    // pro unlimited. Null tier = summary unavailable (pre-migration) → the
+    // DB trigger is the backstop, so fail open here.
+    this.billingTier = null;
+    this.dealCap = 3;
+    fetchBillingSummary().then(s => {
+      if (!s || s.code) return;
+      this.billingTier = s.tier;
+      if (s.prices && s.prices.limit_deals_payngo) this.dealCap = Number(s.prices.limit_deals_payngo) || 3;
+    });
 
     document.querySelectorAll('.sub-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === this.currentTab);
@@ -417,11 +429,31 @@ export default {
     corporate.style.display = type === 'corporate' ? 'block' : 'none';
   },
 
-  toggleDealForm() {
+  /* Returns true when the user may queue another gig. Trial and Pay n' Go are
+     capped (dealCap, default 3 open gigs); Pro is unlimited; wallet blocked. */
+  async dealAccessAllowed() {
+    if (this.billingTier === 'wallet') {
+      await appAlert("Deals and Projects are part of a subscription. Switch to Pay n' Go (up to " + this.dealCap + " active gigs) or Pro (unlimited) to bring us work.");
+      goToBilling();
+      return false;
+    }
+    if (this.billingTier === 'trial' || this.billingTier === 'payngo') {
+      const mine = this.queue.filter(d => d.user_id === store.user.id).length;
+      if (mine >= this.dealCap) {
+        await appAlert(`You already have ${mine} active gig${mine === 1 ? '' : 's'} — your plan allows ${this.dealCap}. Finish or cancel one first, or go Pro for unlimited gigs.`);
+        return false;
+      }
+    }
+    return true;
+  },
+
+  async toggleDealForm() {
     const card = document.getElementById('deal-form-card');
     if (!card) return;
-    card.style.display = card.style.display === 'none' ? 'block' : 'none';
-    if (card.style.display === 'block') card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const opening = card.style.display === 'none';
+    if (opening && !await this.dealAccessAllowed()) return;
+    card.style.display = opening ? 'block' : 'none';
+    if (opening) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
 
   async submitDeal() {
@@ -432,6 +464,7 @@ export default {
     const timeline = document.getElementById('deal-timeline').value.trim();
 
     if (!description) return alert("Please describe the job.");
+    if (!await this.dealAccessAllowed()) return;
 
     let relationship = null;
     let companyName = null;
@@ -467,7 +500,16 @@ export default {
     });
 
     if (submitBtn) submitBtn.disabled = false;
-    if (error) return alert("Error: " + error.message);
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('DEALS_REQUIRE_SUBSCRIPTION')) {
+        return alert("Deals and Projects are part of a subscription. Switch to Pay n' Go or Pro to bring us work.");
+      }
+      if (msg.includes('DEAL_LIMIT_REACHED')) {
+        return alert(`You've reached the ${this.dealCap} active gigs your plan allows. Finish or cancel one, or go Pro for unlimited gigs.`);
+      }
+      return alert("Error: " + error.message);
+    }
 
     await alert("Your gig is in the queue. We will reach out with the next steps.");
     this.loadTab();

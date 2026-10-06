@@ -1,5 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
+import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -35,6 +36,11 @@ const hubView = {
     this.viewStyle = localStorage.getItem('hub-view') || 'list';
     this.isModalOpen = false;
     this.feedLoaded = false;
+    this.billingSummary = null;
+
+    // Cached for the premium badge and the composer lock toggle; refreshed
+    // when the composer opens. Fails silently pre-migration.
+    fetchBillingSummary().then(s => { if (s && !s.code) this.billingSummary = s; });
 
     this.setupTopbarSearch();
     this.setupTopbarActions();
@@ -461,7 +467,13 @@ const hubView = {
     window.profileInstance?.refreshProjects?.();
   },
 
-  openCreateModal() {
+  async openCreateModal() {
+    this.billingSummary = (await fetchBillingSummary()) || this.billingSummary;
+    const summary = this.billingSummary;
+    const tier = summary && !summary.code ? summary.tier : null;
+    const canLock = tier === 'trial' || tier === 'payngo' || tier === 'pro';
+    const premiumPrice = Number((summary && summary.prices && summary.prices.premium_unlock) || 0);
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -481,6 +493,15 @@ const hubView = {
             <div class="hub-tag-results" id="tag-results"></div>
           </div>
         </div>
+        ${canLock ? `
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <input type="checkbox" id="post-premium-toggle" style="width: 18px; height: 18px; accent-color: var(--brand-primary); flex-shrink: 0;">
+            <span><strong>Premium lock</strong>${premiumPrice ? ` — viewers pay ₦${premiumPrice.toLocaleString()} per open` : ' — viewers pay per open'}</span>
+          </label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn 70% of every unlock. Leave it unchecked and the gliim stays free to open.</p>
+        </div>
+        ` : ''}
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
         <h3 style="margin-bottom: 16px;">Content Blocks</h3>
         <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
@@ -546,13 +567,17 @@ const hubView = {
       btn.innerText = "Publishing...";
       btn.disabled = true;
 
-      const { data: created, error } = await supabase.from('posts').insert({
+      const payload = {
         title, category, description,
         cover_url: coverUrl,
         blocks: finalBlocks,
         content: description,
         user_id: store.user.id
-      }).select('id').single();
+      };
+      const premiumToggle = document.getElementById('post-premium-toggle');
+      if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
+
+      const { data: created, error } = await supabase.from('posts').insert(payload).select('id').single();
 
       if (error) {
         alert("Failed: " + error.message);
@@ -624,12 +649,20 @@ const hubView = {
   },
 
   async fetchPosts() {
-    const [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await Promise.all([
-      supabase.from('posts').select(`id, title, category, description, cover_url, blocks, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`).order('created_at', { ascending: false }).limit(20),
+    const colsWithPremium = `id, title, category, description, cover_url, blocks, views, created_at, user_id, is_premium, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+    const colsBase = `id, title, category, description, cover_url, blocks, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+    const load = (cols) => Promise.all([
+      supabase.from('posts').select(cols).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
       supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
     ]);
+
+    let [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsWithPremium);
+    if (error) {
+      // Pre-migration fallback: posts.is_premium may not exist yet.
+      [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsBase);
+    }
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.userGP = profile?.total_gp || 0;
@@ -669,6 +702,7 @@ const hubView = {
     if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
 
     container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
+    const premiumPrice = Number((this.billingSummary && this.billingSummary.prices && this.billingSummary.prices.premium_unlock) || 0);
     container.innerHTML = filtered.map(post => {
       const isAmbassador = (post.profiles?.total_gp || 0) >= 5000;
       const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
@@ -677,9 +711,11 @@ const hubView = {
       const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
       const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
       const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
+      const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+      const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
       const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
       const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-      return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span><span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
+      return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
     }).join('');
   },
 
@@ -780,6 +816,16 @@ const hubView = {
     }
 
     if (!this.isModalOpen) return;
+
+    // Billing gate: premium unlocks are charged/recorded server-side and free
+    // gliims resolve to price 0, so this call is safe for every open.
+    const access = await ensureAccess('gliim', { itemId: postId });
+    if (!access.allowed) {
+      this.isModalOpen = false;
+      await showBillingDenied(access);
+      return;
+    }
+
     sessionStorage.setItem('openReadViewId', postId);
 
     // Count one view per post per browser session

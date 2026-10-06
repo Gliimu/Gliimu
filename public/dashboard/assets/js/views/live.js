@@ -1,5 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
+import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -133,6 +134,11 @@ const liveView = {
     this.searchQuery = '';
     this.boardUnavailable = false;
     this.statusById = {};
+
+    // Live is subscription-only; wallet users get the billing dialog on
+    // create/claim/open. Null tier = summary unavailable (pre-migration) → fail open.
+    this.billingTier = null;
+    fetchBillingSummary().then(s => { if (s && !s.code) this.billingTier = s.tier; });
 
     if (this.onPresenceChanged) window.removeEventListener('presence-changed', this.onPresenceChanged);
     this.onPresenceChanged = () => this.renderBoard();
@@ -351,6 +357,7 @@ const liveView = {
     const myGp = store.profile?.total_gp || 0;
     if (myGp < MIN_GP_FOR_LIVE) return alert(`You need at least ${MIN_GP_FOR_LIVE} GP to start live sessions. You have ${myGp} GP.`);
     if (this.countMySessions() >= MAX_SESSIONS) return alert(`You can be in up to ${MAX_SESSIONS} live sessions at a time.`);
+    if (this.billingTier === 'wallet') return showBillingDenied({ allowed: false, code: 'TIER_BLOCKED' });
 
     const modal = document.getElementById('live-request-modal');
     if (modal) {
@@ -392,6 +399,9 @@ const liveView = {
 
     if (error) {
       if (isMissingTable(error)) return alert("Live Learning isn't available yet. Please try again later.");
+      if ((error.message || '').includes('LIVE_REQUIRES_SUBSCRIPTION')) {
+        return showBillingDenied({ allowed: false, code: 'TIER_BLOCKED' });
+      }
       return alert('Could not post your request: ' + error.message);
     }
 
@@ -418,6 +428,11 @@ const liveView = {
     const learnerName = row.profiles?.full_name || 'this Gliimait';
     if (!await appConfirm(`Step into "${row.title}" with ${learnerName}?\nYou'll be connected one-on-one. GP builds up at ${GP_PER_MINUTE} GP for every minute you're live together.`, { okText: 'Step in' })) return;
 
+    // Billing gate: wallet tier can't join live. The server records the
+    // per-open mini-price for subscribers before the claim goes through.
+    const gate = await ensureAccess('live', { itemId: id });
+    if (!gate.allowed) { await showBillingDenied(gate); return; }
+
     const { data: claimed, error } = await supabase
       .from('live_requests')
       .update({ status: 'active', partner_id: store.user.id, activated_at: new Date().toISOString() })
@@ -428,6 +443,9 @@ const liveView = {
 
     if (error || !claimed) {
       if (error && isMissingTable(error)) return alert("Live Learning isn't available yet.");
+      if (error && (error.message || '').includes('LIVE_REQUIRES_SUBSCRIPTION')) {
+        return showBillingDenied({ allowed: false, code: 'TIER_BLOCKED' });
+      }
       alert('This request was just taken by someone else.');
       this.loadBoard();
       return;
@@ -506,6 +524,11 @@ const liveView = {
     if (!row || row.status !== 'active') return this.loadBoard();
     const isPoster = row.user_id === store.user.id;
     if (!isPoster && row.partner_id !== store.user.id) return;
+
+    // Billing gate: every studio open (host or teacher) is a billable live
+    // event for subscribers and blocked entirely for wallet tier.
+    const gate = await ensureAccess('live', { itemId: row.id });
+    if (!gate.allowed) { await showBillingDenied(gate); return; }
 
     if (isPoster) {
       if ((row.poster_views || 0) >= MAX_SESSION_VIEWS) {
