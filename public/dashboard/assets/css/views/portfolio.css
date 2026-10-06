@@ -92,6 +92,37 @@
   border-radius: 10px;
 }
 
+.portfolio-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.copy-name-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.copy-name-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.copy-name-btn .ic-check { display: none; }
+.copy-name-btn.copied .ic-copy { display: none; }
+.copy-name-btn.copied .ic-check { display: block; color: var(--success, #22c55e); }
+
 .portfolio-bio {
   margin-top: 8px;
   font-size: 14px;
@@ -219,11 +250,6 @@
   color: var(--text-muted);
 }
 
-/* Other-user actions */
-.portfolio-other-actions {
-  display: flex;
-  justify-content: flex-end;
-}
 
 /* QR large view */
 #qr-large-overlay {
@@ -393,6 +419,11 @@
 
   .printable-area, .printable-area * {
     visibility: visible;
+  }
+
+  /* The copy-name helper is screen-only */
+  .copy-name-btn {
+    display: none !important;
   }
 
   .printable-area {

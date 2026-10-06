@@ -345,7 +345,7 @@ begin
      now() - interval '6 seconds'),
 
     ($q3$How can I pay for my tuition?$q3$,
-     $a3$You can pay your tuition through real projects with real clients. Additionally, we offer sponsored programs from time to time that can help you clear your balance faster than you might expect.$a3$,
+     $a3$The primary means of making payment for your tuition or subscription is via transfer. You can also pay through real projects with real clients, and we offer sponsored programs from time to time that can help you clear your balance faster than you might expect.$a3$,
      now() - interval '5 seconds'),
 
     ($q4$Can I earn money through Gliimu?$q4$,

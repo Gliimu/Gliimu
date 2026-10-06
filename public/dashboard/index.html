@@ -100,7 +100,10 @@
       <!-- Main Content -->
       <main class="main-content">
         <header class="topbar">
-          <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+          <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+            <img src="/icons/in.svg" class="sidebar-toggle-icon" id="sidebar-icon-in" alt="Expand sidebar">
+            <img src="/icons/out.svg" class="sidebar-toggle-icon" id="sidebar-icon-out" alt="Collapse sidebar" style="display:none;">
+          </button>
           <a href="https://gliimu.com" class="topbar-logo-link"><img src="/icons/logo.png" alt="Gliimu" class="topbar-logo-img"></a>
           <div id="topbar-dynamic-content" style="flex: 1; display: flex; justify-content: center; padding: 0 16px;"></div>
           <div id="topbar-right-actions" style="display: flex; align-items: center; gap: 8px; margin-left: auto;"></div>
@@ -121,16 +124,30 @@
       // Mobile: slide the drawer in/out. Desktop: collapse to an icon rail.
       if (window.innerWidth <= 768) {
         document.body.classList.toggle('sidebar-open');
-        return;
+      } else {
+        const collapsed = document.body.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('gliimu-sidebar-collapsed', collapsed ? '1' : '0');
       }
-      const collapsed = document.body.classList.toggle('sidebar-collapsed');
-      localStorage.setItem('gliimu-sidebar-collapsed', collapsed ? '1' : '0');
+      updateSidebarToggleIcon();
+    }
+
+    // in.svg invites expanding the sidebar; out.svg invites collapsing it.
+    function updateSidebarToggleIcon() {
+      const inIcon = document.getElementById('sidebar-icon-in');
+      const outIcon = document.getElementById('sidebar-icon-out');
+      if (!inIcon || !outIcon) return;
+      const collapsed = window.innerWidth <= 768
+        ? !document.body.classList.contains('sidebar-open')
+        : document.body.classList.contains('sidebar-collapsed');
+      inIcon.style.display = collapsed ? '' : 'none';
+      outIcon.style.display = collapsed ? 'none' : '';
     }
 
     // Close the mobile sidebar right away when something inside it is used
     function toggleSidebarOnMobileNav() {
       if (window.innerWidth <= 768) {
         document.body.classList.remove('sidebar-open');
+        updateSidebarToggleIcon();
       }
     }
 
@@ -138,6 +155,8 @@
     if (localStorage.getItem('gliimu-sidebar-collapsed') === '1') {
       document.body.classList.add('sidebar-collapsed');
     }
+    updateSidebarToggleIcon();
+    window.addEventListener('resize', updateSidebarToggleIcon);
   </script>
 </body>
 </html>

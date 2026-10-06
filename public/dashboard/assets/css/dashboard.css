@@ -208,7 +208,6 @@
   justify-content: center;
   background: none;
   border: none;
-  font-size: var(--fs-xl);
   cursor: pointer;
   color: var(--text-primary);
   padding: 4px;
@@ -217,6 +216,16 @@
 }
 
 .menu-toggle:hover { background: var(--surface-hover); }
+
+.menu-toggle .sidebar-toggle-icon {
+  width: 20px;
+  height: 20px;
+  transition: opacity var(--transition-fast);
+}
+
+[data-theme="light"] .menu-toggle .sidebar-toggle-icon { filter: brightness(0); opacity: 0.75; }
+[data-theme="dark"] .menu-toggle .sidebar-toggle-icon { filter: brightness(0) invert(1); opacity: 0.85; }
+.menu-toggle:hover .sidebar-toggle-icon { opacity: 1; }
 
 .view-container { padding: var(--space-8); flex: 1; }
 

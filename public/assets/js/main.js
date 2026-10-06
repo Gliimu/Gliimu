@@ -443,7 +443,7 @@ const FALLBACK_FAQS = [
   },
   {
     question: 'How can I pay for my tuition?',
-    answer: 'You can pay your tuition through real projects with real clients. Additionally, we offer sponsored programs from time to time that can help you clear your balance faster than you might expect.'
+    answer: 'The primary means of making payment for your tuition or subscription is via transfer. You can also pay through real projects with real clients, and we offer sponsored programs from time to time that can help you clear your balance faster than you might expect.'
   },
   {
     question: 'Can I earn money through Gliimu?',

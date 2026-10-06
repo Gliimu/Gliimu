@@ -30,7 +30,7 @@ export default {
       handlePortfolioImage: (input) => this.uploadPortfolioImage(input),
       openQr: () => this.openQrModal(),
       closeQr: (e, el) => { if (e.target === el) el.remove(); },
-      messageUser: () => this.messageUser()
+      copyName: () => this.copyName()
     };
 
     await this.fetchAllUsers();
@@ -109,9 +109,15 @@ export default {
     this.renderProfile(userId);
   },
 
-  messageUser() {
-    sessionStorage.setItem('ping_target_user', this.targetUserId);
-    window.location.hash = '#/ping';
+  copyName() {
+    const btn = document.querySelector('.copy-name-btn');
+    if (navigator.clipboard && this.currentName) {
+      navigator.clipboard.writeText(this.currentName);
+    }
+    if (btn) {
+      btn.classList.add('copied');
+      setTimeout(() => btn.classList.remove('copied'), 1500);
+    }
   },
 
   async renderProfile(userId) {
@@ -129,6 +135,8 @@ export default {
 
     if (freshUser) user = freshUser;
     if (!user) return;
+
+    this.currentName = user.full_name || '';
 
     const p = user;
     const gp = p.total_gp || 0;
@@ -160,7 +168,13 @@ export default {
 
         <div class="portfolio-right">
           <div class="portfolio-identity">
-            <h1>${p.full_name || 'Gliimait'}</h1>
+            <div class="portfolio-name-row">
+              <h1>${p.full_name || 'Gliimait'}</h1>
+              <button class="copy-name-btn" title="Copy name — paste it in Ping to start a chat" onclick="profileInstance.copyName()">
+                <svg class="ic-copy" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg class="ic-check" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </button>
+            </div>
             ${p.bio ? `<p class="portfolio-bio">${p.bio}</p>` : ''}
           </div>
 
@@ -226,14 +240,6 @@ export default {
         </div>
       </div>
 
-      ${!isMe ? `
-        <div class="portfolio-other-actions">
-          <button class="btn-secondary" onclick="profileInstance.messageUser()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            Message
-          </button>
-        </div>
-      ` : ''}
     `;
   },
 
