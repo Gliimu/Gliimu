@@ -131,14 +131,22 @@ async function loadSiteSettings() {
 // DOWNLOAD SECTION (version, links, background, QR)
 // ============================================
 function applyDownloadSection(settings) {
+  const section = document.getElementById('download-section');
   const panel = document.getElementById('download-panel');
-  if (!panel) return;
+  if (!section || !panel) return;
 
+  // Background lives on the whole section; the panel keeps its own dark card.
   const bg = safeUrl(settings.app_download_bg_url);
   if (bg) {
-    panel.style.backgroundImage = `url('${bg}')`;
-    panel.style.backgroundSize = 'cover';
-    panel.style.backgroundPosition = 'center';
+    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.94), rgba(10, 15, 30, 0.88)), url('${bg}')`;
+    section.style.backgroundSize = 'cover';
+    section.style.backgroundPosition = 'center';
+    section.classList.add('has-bg');
+  } else {
+    section.style.background = '';
+    section.style.backgroundSize = '';
+    section.style.backgroundPosition = '';
+    section.classList.remove('has-bg');
   }
 
   const versionEl = document.getElementById('dl-version');

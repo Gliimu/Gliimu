@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 
 function escapeHtml(value) {
@@ -10,7 +10,7 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Billing plans — paid from the bill balance (tuition-through-earnings).
+// Billing plans — paid from the wallet balance (tuition-through-earnings).
 // Duration months include the free months: Pro = 4 + 1, Elite = 12 + 2.
 const PLANS = [
   { id: 'starter', name: 'Starter Plan', short: 'Starter', price: 70000, priceNote: 'billed monthly', features: ['Full platform access', 'Conditional updates'], months: 1 },
@@ -29,6 +29,7 @@ export default {
     window.walletInstance = {
       switchTab: (tab) => this.switchTab(tab),
       openTopUpModal: () => this.openTopUpModal(),
+      choosePaymentMethod: (m) => this.choosePaymentMethod(m),
       toggleTransferMenu: () => this.toggleTransferMenu(),
       transferToBank: () => this.transferToBank(),
       openTransferModal: () => this.openTransferModal(),
@@ -52,12 +53,13 @@ export default {
     this.setupTopbar();
     await this.fetchData();
     this.render();
+    await this.checkPaystackReturn();
   },
 
   setupTopbar() {
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
     if (topbarDynamic) {
-      topbarDynamic.innerHTML = `<span class="mobile-bar-hint">Fund your bill to make purchases</span>`;
+      topbarDynamic.innerHTML = `<span class="mobile-bar-hint">Fund your wallet to make purchases</span>`;
     }
   },
 
@@ -104,7 +106,7 @@ export default {
 
     container.innerHTML = `
       <div class="wallet-header-card">
-        <span class="balance-label">Your Bill</span>
+        <span class="balance-label">Wallet Balance</span>
         <h1 class="balance-amount">₦${this.balance.toLocaleString()}</h1>
         <div class="wallet-actions">
           <button class="icon-btn-light" title="Add Funds" onclick="walletInstance.openTopUpModal()">
@@ -462,7 +464,7 @@ export default {
       btn.disabled = false;
       btn.innerText = 'Send';
       const msg = error.message || '';
-      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your bill for this transfer.");
+      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your wallet for this transfer.");
       if (msg.includes('CANNOT_TRANSFER_SELF')) return appAlert("You can't transfer to yourself.");
       if (msg.includes('RECEIVER_NOT_FOUND')) return appAlert("That user no longer exists.");
       if (msg.includes('INVALID_AMOUNT')) return appAlert("Enter a valid amount.");
@@ -483,7 +485,7 @@ export default {
     if (!plan) return;
     if (this.getActivePlan() === planId) return;
 
-    const ok = await appConfirm(`Subscribe to the ${plan.name} for ₦${plan.price.toLocaleString()}? It will be paid from your bill.`);
+    const ok = await appConfirm(`Subscribe to the ${plan.name} for ₦${plan.price.toLocaleString()}? It will be paid from your wallet balance.`);
     if (!ok) return;
 
     const btn = document.querySelector(`.plan-buy[data-plan="${planId}"]`);
@@ -494,7 +496,7 @@ export default {
     if (error) {
       if (btn) { btn.disabled = false; btn.innerText = `Buy ${plan.short}`; }
       const msg = error.message || '';
-      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your bill to buy this plan.");
+      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your wallet to buy this plan.");
       if (msg.includes('INVALID_PLAN')) return appAlert("That plan is not available.");
       return appAlert("Subscription failed: " + msg);
     }
@@ -507,24 +509,70 @@ export default {
     this.render();
   },
 
+  // ============================================
+  // FUND WALLET (bank transfer / Paystack / B*tr)
+  // ============================================
   openTopUpModal() {
+    if (document.getElementById('wallet-fund-modal')) return;
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
+    modal.id = 'wallet-fund-modal';
     modal.innerHTML = `
       <div class="modal-content">
-        <button class="modal-close" id="close-modal">×</button>
-        <h2 style="margin-bottom: var(--space-4);">Fund Your Bill</h2>
+        <button class="modal-close" id="fund-close-btn">×</button>
 
-        <div class="form-group">
-          <label>Enter Amount (₦)</label>
-          <input type="number" id="topup-amount" class="input" placeholder="e.g. 5000" min="100">
+        <div id="fund-picker-screen">
+          <h2 style="margin-bottom: 6px;">Fund Your Wallet</h2>
+          <p class="fund-subtitle">Choose how you want to add money to your balance.</p>
+
+          <div class="form-group" style="margin-top: var(--space-4);">
+            <label>Amount (₦)</label>
+            <input type="number" id="topup-amount" class="input" placeholder="e.g. 5000" min="100">
+          </div>
+
+          <div class="pay-methods">
+            <div class="pay-method" onclick="walletInstance.choosePaymentMethod('bank')">
+              <div class="pay-method-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-4h6v4"></path></svg>
+              </div>
+              <div class="pay-method-info">
+                <span class="pay-method-name">Direct Bank Transfer</span>
+                <span class="pay-method-note">Manual verification · up to 24 hours</span>
+              </div>
+              <span class="pay-method-chevron">›</span>
+            </div>
+
+            <div class="pay-method" onclick="walletInstance.choosePaymentMethod('paystack')">
+              <div class="pay-method-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+              </div>
+              <div class="pay-method-info">
+                <span class="pay-method-name">Paystack</span>
+                <span class="pay-method-note">Card, bank or USSD · within 1 hour · gateway fee applies</span>
+              </div>
+              <span class="pay-method-chevron">›</span>
+            </div>
+
+            <div class="pay-method" onclick="walletInstance.choosePaymentMethod('btr')">
+              <div class="pay-method-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path></svg>
+              </div>
+              <div class="pay-method-info">
+                <span class="pay-method-name">B*tr Wallet</span>
+                <span class="pay-method-note">Instant verification</span>
+              </div>
+              <span class="pay-method-chevron">›</span>
+            </div>
+          </div>
         </div>
 
-        <button id="generate-details-btn" class="btn-primary" style="width: 100%; margin-bottom: var(--space-4);">Generate Bank Details</button>
+        <div id="fund-bank-screen" style="display: none;">
+          <button class="fund-back" id="fund-back-btn">← All methods</button>
+          <h2 style="margin-bottom: var(--space-4);">Bank Transfer</h2>
 
-        <div id="bank-details-area" style="display: none;">
           <div class="info-banner" style="margin-bottom: var(--space-4); padding: 16px; background: var(--brand-primary-light); border-radius: 8px;">
-            <p style="color: var(--text-secondary); font-size: 14px;">Transfer the exact amount to the account below. Use the <strong>Reference Code</strong> as the narration. Your bill will be funded after confirmation.</p>
+            <p style="color: var(--text-secondary); font-size: 14px;">Transfer <strong id="bd-amount"></strong> exactly to the account below. Use the <strong>Reference Code</strong> as the narration. Your wallet will be funded after confirmation (usually within 24 hours).</p>
           </div>
 
           <div class="bank-details-box">
@@ -540,13 +588,39 @@ export default {
     `;
     document.body.appendChild(modal);
 
-    document.getElementById('close-modal').addEventListener('click', () => modal.remove());
+    document.getElementById('fund-close-btn').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.getElementById('fund-back-btn').addEventListener('click', () => this.backToMethods());
+    document.getElementById('confirm-sent-btn').addEventListener('click', (e) => this.confirmBankSent(e.target));
+  },
 
-    document.getElementById('generate-details-btn').addEventListener('click', () => {
-      const amount = parseInt(document.getElementById('topup-amount').value);
-      if (!amount || amount < 100) return appAlert("Please enter a valid amount (min ₦100).");
+  backToMethods() {
+    document.getElementById('fund-bank-screen').style.display = 'none';
+    document.getElementById('fund-picker-screen').style.display = 'block';
+  },
 
+  readTopUpAmount() {
+    const amount = parseInt(document.getElementById('topup-amount').value, 10);
+    if (!amount || amount < 100) {
+      appAlert("Please enter a valid amount (min ₦100).");
+      return null;
+    }
+    return amount;
+  },
+
+  // Silent admin analytics — one row per funding attempt, never blocks the UI.
+  logPaymentAttempt(method) {
+    supabase.from('payment_attempts')
+      .insert({ user_id: store.user.id, method })
+      .then(() => {}, () => {});
+  },
+
+  choosePaymentMethod(method) {
+    const amount = this.readTopUpAmount();
+    if (!amount) return;
+
+    if (method === 'bank') {
+      this.logPaymentAttempt('bank_transfer');
       const banks = [
         { name: 'Opay', acct: '7058929080' },
         { name: 'Moniepoint', acct: '7058929080' }
@@ -557,41 +631,112 @@ export default {
 
       this.pendingTopUp = { amount, bank: selectedBank, ref };
 
+      document.getElementById('bd-amount').innerText = `₦${amount.toLocaleString()}`;
       document.getElementById('bd-bank').innerText = selectedBank.name;
       document.getElementById('bd-acct').innerText = selectedBank.acct;
       document.getElementById('bd-ref').innerText = ref;
 
-      document.getElementById('bank-details-area').style.display = 'block';
-      document.getElementById('generate-details-btn').style.display = 'none';
-    });
+      document.getElementById('fund-picker-screen').style.display = 'none';
+      document.getElementById('fund-bank-screen').style.display = 'block';
+      return;
+    }
 
-    document.getElementById('confirm-sent-btn').addEventListener('click', async (e) => {
-      const btn = e.target;
-      btn.innerText = 'Logging...';
-      btn.disabled = true;
+    if (method === 'paystack') {
+      this.logPaymentAttempt('paystack');
+      this.startPaystack(amount);
+      return;
+    }
 
-      const { amount, ref } = this.pendingTopUp;
+    if (method === 'btr') {
+      this.logPaymentAttempt('btr');
+      document.getElementById('wallet-fund-modal')?.remove();
+      appAlert("B*tr Wallet is coming soon. We'll enable instant funding as soon as it goes live.");
+    }
+  },
 
-      const { error } = await supabase.from('transactions').insert({
-        user_id: store.user.id,
-        amount: amount,
-        type: 'topup',
-        status: 'pending',
-        reference: ref,
-        description: 'Bill Top-up'
+  async startPaystack(amount) {
+    document.getElementById('wallet-fund-modal')?.remove();
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/paystack/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: store.user.id,
+          amount,
+          callbackUrl: `${location.origin}/dashboard/#/wallet`
+        })
       });
+      const data = await res.json();
+      if (!res.ok || !data.authorization_url) {
+        throw new Error(data.error || 'Could not start Paystack checkout.');
+      }
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      await appAlert("Paystack checkout failed: " + err.message);
+    }
+  },
 
-      if (error) {
-        await appAlert("Error logging transaction.");
-        btn.innerText = 'I Have Sent the Cash';
-        btn.disabled = false;
+  // Paystack redirects back to #/wallet?reference=… — verify once, then clean the URL.
+  async checkPaystackReturn() {
+    const hash = window.location.hash || '';
+    const source = hash + '&' + (window.location.search || '');
+    const match = source.match(/[?&](?:reference|trxref)=([A-Za-z0-9._-]+)/);
+    if (!match) return;
+
+    const reference = match[1];
+    history.replaceState(null, '', `${location.pathname}#/wallet`);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/paystack/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference })
+      });
+      const data = await res.json();
+
+      if (data.credited) {
+        await appAlert(`Wallet funded! ₦${Number(data.amount || 0).toLocaleString()} has been added to your balance.`);
+        await this.fetchData();
+        this.render();
         return;
       }
+      if (data.reason === 'duplicate') {
+        await this.fetchData();
+        this.render();
+        return;
+      }
+      await appAlert("We couldn't confirm this Paystack payment yet. If you were debited, your wallet will be credited automatically.");
+    } catch (err) {
+      await appAlert("Payment confirmation is taking longer than usual. If you were debited, your wallet will be credited automatically.");
+    }
+  },
 
-      await appAlert("Transaction received! Your bill will be credited once the payment is verified.");
-      modal.remove();
-      await this.fetchData();
-      this.render();
+  async confirmBankSent(btn) {
+    btn.innerText = 'Logging...';
+    btn.disabled = true;
+
+    const { amount, ref } = this.pendingTopUp;
+
+    const { error } = await supabase.from('transactions').insert({
+      user_id: store.user.id,
+      amount: amount,
+      type: 'topup',
+      status: 'pending',
+      reference: ref,
+      description: 'Wallet Top-up'
     });
+
+    if (error) {
+      await appAlert("Error logging transaction.");
+      btn.innerText = 'I Have Sent the Cash';
+      btn.disabled = false;
+      return;
+    }
+
+    await appAlert("Transaction received! Your wallet will be credited once the payment is verified.");
+    document.getElementById('wallet-fund-modal')?.remove();
+    await this.fetchData();
+    this.render();
   }
 };

@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -8,6 +9,44 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+
+// Paystack webhook — needs the RAW body for HMAC signature verification,
+// so it must be registered before express.json() consumes the stream.
+app.post('/api/paystack/webhook', express.raw({ type: '*/*' }), async (req, res) => {
+  try {
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+    if (!secret) {
+      console.error('Paystack webhook: PAYSTACK_SECRET_KEY missing.');
+      return res.sendStatus(500);
+    }
+
+    const signature = String(req.headers['x-paystack-signature'] || '');
+    const expected = crypto.createHmac('sha512', secret).update(req.body).digest('hex');
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const expBuf = Buffer.from(expected, 'utf8');
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      console.error('Paystack webhook: invalid signature.');
+      return res.sendStatus(401);
+    }
+
+    const event = JSON.parse(req.body.toString('utf8'));
+    if (event && event.event === 'charge.success' && event.data) {
+      const tx = event.data;
+      const userId = tx.metadata && tx.metadata.user_id;
+      const amountNaira = Math.round((tx.amount || 0) / 100);
+      if (userId && amountNaira >= 100 && tx.reference) {
+        const result = await creditWalletFromPaystack(userId, amountNaira, tx.reference, 'paystack');
+        console.log('Paystack webhook credit:', tx.reference, JSON.stringify(result));
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Paystack webhook error:', error);
+    res.sendStatus(500);
+  }
+});
+
 app.use(express.json());
 
 // Simple root route to test if server is alive
@@ -20,6 +59,112 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// ==========================================
+// PAYSTACK WALLET FUNDING
+// ==========================================
+const PAYSTACK_API = 'https://api.paystack.co';
+
+// credit_wallet_topup() is idempotent per reference, so the client verify
+// call and the webhook can both fire without double-crediting.
+async function creditWalletFromPaystack(userId, amountNaira, reference, provider) {
+  const { data, error } = await supabaseAdmin.rpc('credit_wallet_topup', {
+    p_user: userId,
+    p_amount: amountNaira,
+    p_reference: reference,
+    p_provider: provider || 'paystack'
+  });
+  if (error) throw new Error(`credit_wallet_topup failed: ${error.message}`);
+  return data;
+}
+
+// Client asks for a checkout URL; the user pays on Paystack's page.
+app.post('/api/paystack/init', async (req, res) => {
+  try {
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+    if (!secret) return res.status(500).json({ error: 'Paystack is not configured yet.' });
+
+    const { userId, amount, callbackUrl } = req.body || {};
+    const amountNaira = Math.round(Number(amount));
+    if (!userId || !Number.isFinite(amountNaira) || amountNaira < 100) {
+      return res.status(400).json({ error: 'Invalid funding request.' });
+    }
+
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (userError || !userData || !userData.user || !userData.user.email) {
+      return res.status(400).json({ error: 'Could not resolve your account email.' });
+    }
+
+    const reference = `GLI-PS-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const response = await fetch(`${PAYSTACK_API}/transaction/initialize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${secret}`
+      },
+      body: JSON.stringify({
+        email: userData.user.email,
+        amount: amountNaira * 100, // Paystack expects kobo
+        reference,
+        callback_url: typeof callbackUrl === 'string' && /^https?:\/\//.test(callbackUrl) ? callbackUrl : undefined,
+        metadata: { user_id: userId }
+      })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.status || !data.data) {
+      console.error('Paystack init rejected:', data);
+      return res.status(502).json({ error: 'Paystack could not start the checkout.' });
+    }
+
+    res.json({ authorization_url: data.data.authorization_url, reference: data.data.reference });
+  } catch (error) {
+    console.error('Paystack init error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// Client-side confirmation right after the redirect back; webhook stays the fallback.
+app.post('/api/paystack/verify', async (req, res) => {
+  try {
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+    if (!secret) return res.status(500).json({ error: 'Paystack is not configured yet.' });
+
+    const { reference } = req.body || {};
+    if (!reference || typeof reference !== 'string') {
+      return res.status(400).json({ error: 'Missing reference.' });
+    }
+
+    const response = await fetch(`${PAYSTACK_API}/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: { 'Authorization': `Bearer ${secret}` }
+    });
+    const data = await response.json();
+    if (!response.ok || !data.status || !data.data) {
+      return res.status(502).json({ error: 'Paystack verification failed.' });
+    }
+
+    const tx = data.data;
+    if (tx.status !== 'success') {
+      return res.json({ credited: false, reason: tx.status || 'not_successful' });
+    }
+
+    const userId = tx.metadata && tx.metadata.user_id;
+    const amountNaira = Math.round((tx.amount || 0) / 100);
+    if (!userId || amountNaira < 100) {
+      return res.status(400).json({ error: 'Payment metadata is incomplete.' });
+    }
+
+    const result = await creditWalletFromPaystack(userId, amountNaira, tx.reference || reference, 'paystack');
+    res.json({
+      credited: !!(result && result.credited),
+      amount: amountNaira,
+      reason: (result && result.reason) || null
+    });
+  } catch (error) {
+    console.error('Paystack verify error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
 
 // ==========================================
 // GLIIM-PA AI CHAT ROUTE

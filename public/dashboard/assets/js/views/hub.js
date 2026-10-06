@@ -967,7 +967,7 @@ export default {
     const { data: credited, error } = await supabase.rpc('send_support', { p_post: postId });
     if (error) {
       const msg = error.message || '';
-      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your bill to support. ₦1,000 is required.");
+      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your wallet to support. ₦1,000 is required.");
       if (msg.includes('ALREADY_SUPPORTED') || msg.includes('CANNOT_SUPPORT_SELF')) return;
       return appAlert("Support failed: " + msg);
     }

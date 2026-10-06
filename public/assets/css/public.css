@@ -223,6 +223,19 @@ section { padding: 100px 0; }
   border-top: 1px solid var(--border);
 }
 
+.download-section.has-bg {
+  color: #fff;
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.download-section.has-bg .section-title {
+  color: #fff;
+}
+
+.download-section.has-bg .section-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .download-panel {
   position: relative;
   max-width: 900px;
