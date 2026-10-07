@@ -113,6 +113,8 @@ const RPC_ERRORS = {
   ALREADY_PAID: 'That bill is already settled.',
   NOTE_REQUIRED: 'A reason is required before rejecting.',
   REASON_REQUIRED: 'A reason is required — it goes on the audit log.',
+  NOT_A_TOPUP: 'That ledger row is not a wallet top-up.',
+  ALREADY_VERIFIED: 'That transfer has already been dealt with.',
   BAD_ACTION: 'Unknown review action.',
   BAD_STATUS: 'Unknown status.',
   BAD_ROLE: 'Unknown role.',
@@ -132,6 +134,8 @@ const RPC_ERRORS = {
 export function rpcError(data, fallback = 'That did not work. Please try again.') {
   const code = data && data.code;
   const base = RPC_ERRORS[code] || (code ? `Failed (${code}).` : fallback);
+  const hint = data && data.hint ? `\n${data.hint}` : '';
   const where = data && data.where ? `\nWhere: ${data.where}` : '';
-  return data && data.detail ? `${base}${where}\n\n${data.detail}` : `${base}${where}`;
+  const detail = data && data.detail ? `\n\n${data.detail}` : '';
+  return `${base}${hint}${where}${detail}`;
 }

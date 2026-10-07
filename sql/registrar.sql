@@ -14,28 +14,30 @@
 --        registrar_cycles(...)         bills with their event breakdown
 --        registrar_revenue()           library + creator + usage revenue
 --        registrar_payment_attempts()  recent funding intents
+--        registrar_pending_topups()    bank transfers awaiting a click
 --        registrar_audit(p_limit)      the adjustment log
 --   3. Write RPCs, all audited:
+--        registrar_verify_topup(p_txn, p_amount, p_reason)
+--        registrar_reject_topup(p_txn, p_reason)
 --        registrar_adjust_wallet(p_user, p_amount, p_reason)
 --        registrar_extend_subscription(p_user, p_days, p_reason)
 --        registrar_set_cycle_status(p_cycle, p_status, p_reference, p_reason)
 --        registrar_set_price(p_event_type, p_amount, p_reason)
 --
 -- WHY EVERYTHING IS AN RPC
---   transactions, purchases and library_items were created before this
---   repo existed: their real columns and CHECK constraints live only in
---   the deployed database. billing_cycles and billing_events are locked
---   down on purpose (no policies, all revoked). So the registrar reads
---   through SECURITY DEFINER functions that select only columns this repo
---   has proven, and anything unexpected comes back as
---   {ok:false, code:'SCHEMA_MISMATCH', detail:...} instead of breaking.
---   The SELF CHECK prints the real column lists — paste them back if a
---   screen ever says the shape does not match.
+--   billing_cycles and billing_events are locked down on purpose (no
+--   policies, all privileges revoked), so the registrar reaches them
+--   through SECURITY DEFINER functions that check admin_has_role()
+--   themselves. Every failure path returns {ok:false, code:...} instead
+--   of raising, so one broken card never blanks a whole screen.
+--   The legacy money tables were verified against the live database on
+--   2026-10-07: transactions, purchases and library_items have exactly
+--   the columns selected below, and transactions carries no CHECK on
+--   type, so 'adjustment' is a safe ledger value.
 --
--- RUN ORDER: after the CURRENT sql/all.sql (re-run it — payment_attempts
---            only arrived in §19, so an older copy leaves the Funding tab
---            reporting MISSING_TABLE), then sql/billing.sql, then
---            sql/admin.sql. sql/library_content.sql too, for library revenue.
+-- RUN ORDER: after sql/all.sql (it creates payment_attempts in §19),
+--            sql/billing.sql and sql/admin.sql. sql/library_content.sql
+--            too, for library revenue.
 -- ============================================================
 
 select pg_advisory_xact_lock(hashtext('gliimu-registrar'));
@@ -113,6 +115,7 @@ declare
   v_subscriptions jsonb;
   v_attention jsonb;
   v_attempts  jsonb;
+  v_topups    jsonb;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
@@ -166,6 +169,12 @@ begin
       into v_types
       from (select t.type, count(*) as cnt, coalesce(sum(t.amount), 0) as total
               from public.transactions t group by t.type) s;
+
+    -- Bank-transfer claims waiting on a registrar.
+    select jsonb_build_object('count', count(*), 'value', coalesce(sum(t.amount), 0))
+      into v_topups
+      from public.transactions t
+     where t.type = 'topup' and t.status = 'pending';
   exception when others then
     return jsonb_build_object('ok', false, 'code', 'SCHEMA_MISMATCH',
                               'where', 'transactions', 'detail', SQLERRM);
@@ -201,13 +210,13 @@ begin
            order by c.due_at nulls last
            limit 25) s;
 
-  -- Library sales: purchases.item_id may be uuid or text in the live DB, so
-  -- the join compares text on both sides.
+  -- Library sales, counted from purchases rather than library_items.sales:
+  -- the ledger is what the money actually moved through.
   begin
     select jsonb_build_object('sales', count(*), 'total', coalesce(sum(coalesce(li.price, 0)), 0))
       into v_library
       from public.purchases pu
-      join public.library_items li on li.id::text = pu.item_id::text;
+      join public.library_items li on li.id = pu.item_id;
   exception when others then
     v_library := jsonb_build_object('sales', null, 'total', null, 'detail', SQLERRM);
   end;
@@ -245,6 +254,7 @@ begin
     'ledger', v_ledger,
     'ledger_30_days', v_ledger30,
     'by_type', v_types,
+    'pending_topups', v_topups,
     'cycles', v_cycles,
     'attention', v_attention,
     'library', v_library,
@@ -438,7 +448,7 @@ begin
       into v_buys
       from (select pu.item_id::text as item_id, li.title, li.type, coalesce(li.price, 0) as price
               from public.purchases pu
-              left join public.library_items li on li.id::text = pu.item_id::text
+              left join public.library_items li on li.id = pu.item_id
              where pu.user_id = p_user) s;
 
     select coalesce(jsonb_agg(jsonb_build_object(
@@ -447,7 +457,7 @@ begin
       into v_sells
       from (select li.id::text as id, li.title, li.type, coalesce(li.price, 0) as price,
                    (select count(*) from public.purchases pu
-                     where pu.item_id::text = li.id::text) as sales
+                     where pu.item_id = li.id) as sales
               from public.library_items li
              where li.owner_id = p_user) s;
   exception when others then
@@ -590,8 +600,8 @@ begin
       from (select li.id::text as id, li.title, li.type, coalesce(li.price, 0) as price,
                    li.owner_id,
                    coalesce(op.full_name, op.username, li.author, '—') as owner,
-                   (select count(*) from public.purchases pu where pu.item_id::text = li.id::text) as sales,
-                   (select count(*) from public.purchases pu where pu.item_id::text = li.id::text)
+                   (select count(*) from public.purchases pu where pu.item_id = li.id) as sales,
+                   (select count(*) from public.purchases pu where pu.item_id = li.id)
                      * coalesce(li.price, 0) as revenue
               from public.library_items li
               left join public.profiles op on op.id = li.owner_id
@@ -607,9 +617,9 @@ begin
                    coalesce(max(op.full_name), max(op.username), max(li.author), 'Unattributed') as owner,
                    count(distinct li.id) as items,
                    coalesce(sum((select count(*) from public.purchases pu
-                                  where pu.item_id::text = li.id::text)), 0) as sales,
+                                  where pu.item_id = li.id)), 0) as sales,
                    coalesce(sum((select count(*) from public.purchases pu
-                                  where pu.item_id::text = li.id::text) * coalesce(li.price, 0)), 0) as revenue
+                                  where pu.item_id = li.id) * coalesce(li.price, 0)), 0) as revenue
               from public.library_items li
               left join public.profiles op on op.id = li.owner_id
              group by li.owner_id) s;
@@ -747,7 +757,197 @@ $$;
 
 
 -- ============================================================
--- 10. registrar_adjust_wallet — manual credit / debit / refund
+-- 10. Funding queue — one click to credit a bank transfer
+--     A member who pays by bank transfer leaves a transactions row
+--     with status 'pending', their claimed amount and the narration
+--     reference (dashboard wallet.js, confirmBankSent). The registrar
+--     checks the bank statement and clicks Verify: the row flips to
+--     'success', the wallet is credited, and admin_adjustments records
+--     who approved it. Nothing has to be typed in the normal case —
+--     the claimed amount is the default.
+-- ============================================================
+
+create or replace function public.registrar_pending_topups(p_limit integer default 100)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  uid     uuid := auth.uid();
+  v_limit integer := least(greatest(coalesce(p_limit, 100), 1), 300);
+  v_total bigint;
+  v_rows  jsonb;
+begin
+  if uid is null then
+    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
+  end if;
+  if not public.admin_has_role(uid, 'registrar') then
+    return jsonb_build_object('ok', false, 'code', 'NOT_REGISTRAR');
+  end if;
+
+  select count(*) into v_total
+    from public.transactions t
+   where t.type = 'topup' and t.status = 'pending';
+
+  -- Oldest first: whoever has been waiting longest sits at the top.
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', s.id, 'user_id', s.user_id, 'name', s.name, 'username', s.username,
+           'amount', s.amount, 'reference', s.reference, 'created_at', s.created_at)
+           order by s.created_at asc), '[]'::jsonb)
+    into v_rows
+    from (select t.id::text as id, t.user_id,
+                 coalesce(p.full_name, p.username, 'Member') as name, p.username,
+                 t.amount, t.reference, t.created_at
+            from public.transactions t
+            left join public.profiles p on p.id = t.user_id
+           where t.type = 'topup' and t.status = 'pending'
+           order by t.created_at asc
+           limit v_limit) s;
+
+  return jsonb_build_object('ok', true, 'total', v_total, 'rows', v_rows);
+end
+$$;
+
+
+create or replace function public.registrar_verify_topup(
+  p_txn    uuid,
+  p_amount integer default null,
+  p_reason text    default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid      uuid := auth.uid();
+  v_user   uuid;
+  v_type   text;
+  v_status text;
+  v_claim  integer;
+  v_ref    text;
+  v_amount integer;
+  v_reason text;
+  v_after  integer;
+begin
+  if uid is null then
+    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
+  end if;
+  if not public.admin_has_role(uid, 'registrar') then
+    return jsonb_build_object('ok', false, 'code', 'NOT_REGISTRAR');
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('topup_verify:' || p_txn::text));
+
+  select t.user_id, t.type, t.status, t.amount, t.reference
+    into v_user, v_type, v_status, v_claim, v_ref
+    from public.transactions t
+   where t.id = p_txn
+     for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
+  end if;
+  if v_type <> 'topup' then
+    return jsonb_build_object('ok', false, 'code', 'NOT_A_TOPUP');
+  end if;
+  if v_status = 'success' then
+    return jsonb_build_object('ok', false, 'code', 'ALREADY_VERIFIED');
+  end if;
+
+  v_amount := coalesce(p_amount, v_claim);
+  if v_amount is null or v_amount <= 0 then
+    return jsonb_build_object('ok', false, 'code', 'BAD_AMOUNT');
+  end if;
+  if v_amount > 100000000 then
+    return jsonb_build_object('ok', false, 'code', 'AMOUNT_TOO_LARGE');
+  end if;
+
+  v_reason := nullif(btrim(coalesce(p_reason, '')), '');
+  if v_reason is null then
+    v_reason := 'Bank transfer verified against the statement.';
+    if v_amount <> coalesce(v_claim, 0) then
+      v_reason := v_reason || ' Member claimed ' || coalesce(v_claim, 0)::text
+                  || ', credited ' || v_amount::text || '.';
+    end if;
+  end if;
+
+  v_ref := coalesce(nullif(btrim(coalesce(v_ref, '')), ''), 'topup-' || p_txn::text);
+
+  update public.transactions
+     set status = 'success', amount = v_amount
+   where id = p_txn;
+
+  update public.profiles
+     set wallet_balance = coalesce(wallet_balance, 0) + v_amount
+   where id = v_user
+   returning wallet_balance into v_after;
+
+  insert into public.admin_adjustments (kind, user_id, amount, reason, reference, applied_by)
+  values ('wallet', v_user, v_amount, v_reason, v_ref, uid);
+
+  return jsonb_build_object('ok', true, 'amount', v_amount, 'balance', v_after,
+                            'reference', v_ref, 'approved_by', uid);
+end
+$$;
+
+
+create or replace function public.registrar_reject_topup(p_txn uuid, p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid      uuid := auth.uid();
+  v_user   uuid;
+  v_type   text;
+  v_status text;
+  v_amount integer;
+  v_ref    text;
+begin
+  if uid is null then
+    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
+  end if;
+  if not public.admin_has_role(uid, 'registrar') then
+    return jsonb_build_object('ok', false, 'code', 'NOT_REGISTRAR');
+  end if;
+  if coalesce(btrim(coalesce(p_reason, '')), '') = '' then
+    return jsonb_build_object('ok', false, 'code', 'REASON_REQUIRED');
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('topup_verify:' || p_txn::text));
+
+  select t.user_id, t.type, t.status, t.amount, t.reference
+    into v_user, v_type, v_status, v_amount, v_ref
+    from public.transactions t
+   where t.id = p_txn
+     for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
+  end if;
+  if v_type <> 'topup' then
+    return jsonb_build_object('ok', false, 'code', 'NOT_A_TOPUP');
+  end if;
+  if v_status = 'success' then
+    return jsonb_build_object('ok', false, 'code', 'ALREADY_VERIFIED',
+                              'hint', 'That wallet is already credited. Debit it from the member drawer instead.');
+  end if;
+
+  update public.transactions set status = 'failed' where id = p_txn;
+
+  insert into public.admin_adjustments (kind, user_id, amount, reason, reference, applied_by)
+  values ('wallet', v_user, 0, 'Rejected top-up: ' || p_reason,
+          coalesce(nullif(btrim(coalesce(v_ref, '')), ''), 'topup-' || p_txn::text), uid);
+
+  return jsonb_build_object('ok', true, 'rejected', coalesce(v_amount, 0));
+end
+$$;
+
+
+-- ============================================================
+-- 11. registrar_adjust_wallet — manual credit / debit / refund
 --     Always writes the ledger row and the audit row together.
 -- ============================================================
 
@@ -794,19 +994,10 @@ begin
 
   update public.profiles set wallet_balance = v_after where id = p_user;
 
-  -- The ledger's type CHECK predates this repo and may not know
-  -- 'adjustment', so fall back to a value it certainly allows.
-  begin
-    insert into public.transactions (user_id, amount, points, type, status, reference, description)
-    values (p_user, p_amount, 0, 'adjustment', 'success', null,
-            'Admin adjustment: ' || left(p_reason, 140))
-    returning id::text into v_txn;
-  exception when check_violation then
-    insert into public.transactions (user_id, amount, points, type, status, reference, description)
-    values (p_user, p_amount, 0, 'topup', 'success', null,
-            'Admin adjustment: ' || left(p_reason, 140))
-    returning id::text into v_txn;
-  end;
+  insert into public.transactions (user_id, amount, points, type, status, reference, description)
+  values (p_user, p_amount, 0, 'adjustment', 'success', null,
+          'Admin adjustment: ' || left(p_reason, 140))
+  returning id::text into v_txn;
 
   insert into public.admin_adjustments (kind, user_id, amount, reason, applied_by)
   values ('wallet', p_user, p_amount, p_reason, uid);
@@ -818,7 +1009,7 @@ $$;
 
 
 -- ============================================================
--- 11. registrar_extend_subscription — grant or cut paid time
+-- 12. registrar_extend_subscription — grant or cut paid time
 --     Positive days extend from the later of now() and the current
 --     expiry; negative days cut from the current expiry. The stored
 --     tier is kept honest the same way billing_settle_cycle does it.
@@ -890,7 +1081,7 @@ $$;
 
 
 -- ============================================================
--- 12. registrar_set_cycle_status — reconcile a bill by hand
+-- 13. registrar_set_cycle_status — reconcile a bill by hand
 --     'paid' delegates to billing_settle_cycle so the member's tier
 --     and next cycle are handled exactly as an automated payment would.
 -- ============================================================
@@ -957,7 +1148,7 @@ $$;
 
 
 -- ============================================================
--- 13. registrar_set_price — the price list
+-- 14. registrar_set_price — the price list
 --     Only existing keys can change; a new charge needs a code change
 --     too, so inventing one here would silently do nothing.
 -- ============================================================
@@ -1011,7 +1202,7 @@ $$;
 
 
 -- ============================================================
--- 14. Grants — the role check lives inside every function
+-- 15. Grants — the role check lives inside every function
 -- ============================================================
 
 revoke execute on function public.registrar_overview() from public, anon;
@@ -1026,6 +1217,9 @@ revoke execute on function public.registrar_adjust_wallet(uuid, integer, text) f
 revoke execute on function public.registrar_extend_subscription(uuid, integer, text) from public, anon;
 revoke execute on function public.registrar_set_cycle_status(bigint, text, text, text) from public, anon;
 revoke execute on function public.registrar_set_price(text, integer, text) from public, anon;
+revoke execute on function public.registrar_pending_topups(integer) from public, anon;
+revoke execute on function public.registrar_verify_topup(uuid, integer, text) from public, anon;
+revoke execute on function public.registrar_reject_topup(uuid, text) from public, anon;
 
 grant execute on function public.registrar_overview() to authenticated, service_role;
 grant execute on function public.registrar_ledger(text, text, uuid, integer, integer) to authenticated, service_role;
@@ -1039,79 +1233,69 @@ grant execute on function public.registrar_adjust_wallet(uuid, integer, text) to
 grant execute on function public.registrar_extend_subscription(uuid, integer, text) to authenticated, service_role;
 grant execute on function public.registrar_set_cycle_status(bigint, text, text, text) to authenticated, service_role;
 grant execute on function public.registrar_set_price(text, integer, text) to authenticated, service_role;
+grant execute on function public.registrar_pending_topups(integer) to authenticated, service_role;
+grant execute on function public.registrar_verify_topup(uuid, integer, text) to authenticated, service_role;
+grant execute on function public.registrar_reject_topup(uuid, text) to authenticated, service_role;
 
 
 -- ============================================================
--- 15. SELF CHECK — read these notices after running
+-- 16. SELF CHECK — returns a grid in the Results tab.
+--     The Supabase editor replaced its Messages panel with a Chat
+--     tab, so raise notice output has nowhere to go. This is a
+--     plain SELECT instead: run the script and read the grid.
 -- ============================================================
-
-do $$
-declare
-  v_pending integer;
-  v_float   bigint;
-begin
-  raise notice '==== REGISTRAR SELF CHECK ====';
-  raise notice 'admin_adjustments table:   %', case when to_regclass('public.admin_adjustments') is not null then 'OK' else 'MISSING' end;
-  raise notice 'RLS enabled:               %', case when (select relrowsecurity from pg_class where oid = to_regclass('public.admin_adjustments')) is true then 'OK' else 'MISSING' end;
-  raise notice 'registrar_overview():      %', coalesce(to_regprocedure('public.registrar_overview()')::text, 'MISSING');
-  raise notice 'registrar_ledger():        %', coalesce(to_regprocedure('public.registrar_ledger(text,text,uuid,integer,integer)')::text, 'MISSING');
-  raise notice 'registrar_members():       %', coalesce(to_regprocedure('public.registrar_members(text,integer)')::text, 'MISSING');
-  raise notice 'registrar_member():        %', coalesce(to_regprocedure('public.registrar_member(uuid)')::text, 'MISSING');
-  raise notice 'registrar_cycles():        %', coalesce(to_regprocedure('public.registrar_cycles(text,integer,integer)')::text, 'MISSING');
-  raise notice 'registrar_revenue():       %', coalesce(to_regprocedure('public.registrar_revenue(integer)')::text, 'MISSING');
-  raise notice 'registrar_payment_attempts(): %', coalesce(to_regprocedure('public.registrar_payment_attempts(integer)')::text, 'MISSING');
-  raise notice 'registrar_audit():         %', coalesce(to_regprocedure('public.registrar_audit(integer)')::text, 'MISSING');
-  raise notice 'registrar_adjust_wallet(): %', coalesce(to_regprocedure('public.registrar_adjust_wallet(uuid,integer,text)')::text, 'MISSING');
-  raise notice 'registrar_extend_subscription(): %', coalesce(to_regprocedure('public.registrar_extend_subscription(uuid,integer,text)')::text, 'MISSING');
-  raise notice 'registrar_set_cycle_status(): %', coalesce(to_regprocedure('public.registrar_set_cycle_status(bigint,text,text,text)')::text, 'MISSING');
-  raise notice 'registrar_set_price():     %', coalesce(to_regprocedure('public.registrar_set_price(text,integer,text)')::text, 'MISSING');
-
-  if to_regclass('public.admin_users') is not null then
-    raise notice 'registrar admins:          %', (select count(*) from public.admin_users where role in ('registrar', 'super'));
-  else
-    raise warning 'public.admin_users is missing — run sql/admin.sql first.';
-  end if;
-
-  raise notice 'admin_adjustments rows:    %', (select count(*) from public.admin_adjustments);
-
-  if to_regclass('public.billing_cycles') is not null then
-    raise notice 'billing cycles:            %', (select count(*) from public.billing_cycles);
-    select count(*) into v_pending from public.billing_cycles where status in ('open', 'processing');
-    raise notice 'unpaid bills:              %', v_pending;
-  else
-    raise warning 'public.billing_cycles is missing — run sql/billing.sql first.';
-  end if;
-
-  if to_regclass('public.billing_events') is not null then
-    raise notice 'billing_events types:      %', coalesce((select string_agg(distinct event_type, ', ' order by event_type) from public.billing_events), 'none yet');
-  else
-    raise warning 'public.billing_events is missing — run sql/billing.sql first.';
-  end if;
-
-  if to_regclass('public.billing_prices') is not null then
-    raise notice 'price list keys:           %', coalesce((select string_agg(event_type, ', ' order by event_type) from public.billing_prices), 'none');
-  else
-    raise warning 'public.billing_prices is missing — run sql/billing.sql first.';
-  end if;
-
-  select coalesce(sum(coalesce(wallet_balance, 0)), 0) into v_float from public.profiles;
-  raise notice 'wallet float (all members): %', v_float;
-
-  -- Paste these three lines back if a registrar screen ever reports
-  -- SCHEMA_MISMATCH: they show the real shape of the legacy tables.
-  raise notice 'transactions columns:      %', (select string_agg(column_name || ' ' || data_type ||
-                                                                case when is_nullable = 'NO' then ' NOT NULL' else '' end,
-                                                                ', ' order by ordinal_position)
-                                                from information_schema.columns
-                                               where table_schema = 'public' and table_name = 'transactions');
-  raise notice 'transactions type CHECK:   %', coalesce((select string_agg(pg_get_constraintdef(c.oid), ' | ')
-                                                from pg_constraint c
-                                               where c.conrelid = to_regclass('public.transactions')
-                                                 and c.contype = 'c'), 'none found');
-  raise notice 'purchases columns:         %', (select string_agg(column_name || ' ' || data_type, ', ' order by ordinal_position)
-                                                from information_schema.columns
-                                               where table_schema = 'public' and table_name = 'purchases');
-  raise notice '=============================';
-end $$;
 
 notify pgrst, 'reload schema';
+
+select s.item, s.result
+from (
+  select 1 as n, 'admin_adjustments table' as item,
+         case when to_regclass('public.admin_adjustments') is not null
+              then 'OK' else 'MISSING' end as result
+  union all
+  select 2, 'admin_adjustments RLS',
+         case when (select relrowsecurity from pg_class
+                     where oid = to_regclass('public.admin_adjustments')) is true
+              then 'OK' else 'NOT ENABLED' end
+  union all
+  select 3, 'registrar functions installed',
+         (select count(*)::text || ' of 15'
+            from pg_proc p
+            join pg_namespace ns on ns.oid = p.pronamespace
+           where ns.nspname = 'public' and p.proname like 'registrar\_%')
+  union all
+  select 4, 'admins who can open Finance',
+         (select count(*)::text from public.admin_users
+           where role in ('registrar', 'super'))
+  union all
+  select 5, 'audit log rows',
+         (select count(*)::text from public.admin_adjustments)
+  union all
+  select 6, 'billing cycles, total',
+         (select count(*)::text from public.billing_cycles)
+  union all
+  select 7, 'unpaid bills',
+         (select count(*)::text from public.billing_cycles
+           where status in ('open', 'processing'))
+  union all
+  select 8, 'usage event types seen',
+         coalesce((select string_agg(distinct event_type, ', ' order by event_type)
+                     from public.billing_events), 'none yet')
+  union all
+  select 9, 'price list keys',
+         coalesce((select string_agg(event_type, ', ' order by event_type)
+                     from public.billing_prices),
+                  'EMPTY - the Pricing tab has nothing to edit')
+  union all
+  select 10, 'wallet float, all members (naira)',
+         (select coalesce(sum(coalesce(wallet_balance, 0)), 0)::text from public.profiles)
+  union all
+  select 11, 'funding attempts logged',
+         (select count(*)::text from public.payment_attempts)
+  union all
+  select 12, 'bank transfers awaiting verification',
+         (select count(*)::text || ' claimed, worth ' || coalesce(sum(amount), 0)::text
+            from public.transactions
+           where type = 'topup' and status = 'pending')
+) s
+order by s.n;

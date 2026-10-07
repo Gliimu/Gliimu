@@ -7,7 +7,7 @@ const TABS = [
   { id: 'creators', label: 'Creator payouts' },
   { id: 'charges', label: 'Usage charges' },
   { id: 'pricing', label: 'Price list' },
-  { id: 'funding', label: 'Funding intents' },
+  { id: 'funding', label: 'Funding queue' },
   { id: 'audit', label: 'Audit log' }
 ];
 
@@ -61,6 +61,7 @@ export default {
 
     pane.innerHTML = html;
     if (this.tab === 'pricing') this.wirePricing(pane);
+    if (this.tab === 'funding') this.wireFunding(pane);
   },
 
   async fetchFor(key) {
@@ -70,8 +71,20 @@ export default {
         : data;
 
     if (key === 'revenue') return unwrap(await supabase.rpc('registrar_revenue', { p_limit: 200 }));
-    if (key === 'funding') return unwrap(await supabase.rpc('registrar_payment_attempts', { p_limit: 200 }));
     if (key === 'audit') return unwrap(await supabase.rpc('registrar_audit', { p_limit: 200 }));
+
+    if (key === 'funding') {
+      const [queue, attempts] = await Promise.all([
+        supabase.rpc('registrar_pending_topups', { p_limit: 200 }),
+        supabase.rpc('registrar_payment_attempts', { p_limit: 200 })
+      ]);
+      const q = unwrap(queue);
+      if (q.failed) return q;
+      // The intent log is context, not the queue — if it is missing the
+      // verify buttons still work.
+      const a = unwrap(attempts);
+      return { ...q, attempts: a.failed ? null : a.attempts, attemptsFailed: a.failed || null };
+    }
 
     // billing_prices is readable by any signed-in user, so no RPC is needed.
     const { data, error } = await supabase.from('billing_prices')
@@ -228,16 +241,49 @@ export default {
   },
 
   fundingHtml(d) {
-    const rows = d.attempts || [];
+    const rows = d.rows || [];
+    const attempts = d.attempts || [];
+    const claimed = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
 
     return `
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">Awaiting verification</div>
+          <div class="stat-value">${Number(d.total || rows.length)}</div>
+          <div class="stat-note">${naira(claimed)} claimed</div></div>
+      </div>
+
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Funding intents</div>
-        <div class="card-sub">Every time a member opened the add-fund flow. A bank_transfer intent with no matching ledger credit is a transfer waiting to be reconciled.</div></div></div>
+        <div class="card-head"><div><div class="card-title">Bank transfers to verify</div>
+        <div class="card-sub">Match the reference against the bank statement, then press Verify. The amount is what the member claimed — correct it in the row if the bank says otherwise. You are recorded as the approver.</div></div></div>
+        <div class="form-group">
+          <label for="funding-reason">Reason (optional to verify, required to reject)</label>
+          <input type="text" id="funding-reason" class="input" placeholder="e.g. Matches the Opay statement, 07/10">
+        </div>
         ${rows.length ? `
           <div class="table-wrap"><table class="table">
+            <thead><tr><th>Waiting</th><th>Member</th><th>Reference</th><th class="num">Credit</th><th></th></tr></thead>
+            <tbody>${rows.map(r => `
+              <tr data-txn="${escapeHtml(r.id)}" data-name="${escapeHtml(r.name)}">
+                <td class="muted small" style="white-space: nowrap;">${escapeHtml(timeAgo(r.created_at))}<div>${escapeHtml(new Date(r.created_at).toLocaleString())}</div></td>
+                <td>${escapeHtml(r.name)}${r.username ? `<div class="muted small">@${escapeHtml(r.username)}</div>` : ''}</td>
+                <td class="mono small">${escapeHtml(r.reference || '—')}</td>
+                <td class="num"><input type="number" min="100" step="50" class="input" style="width: 130px; padding: 6px 10px;" data-amount="${escapeHtml(r.id)}" value="${Number(r.amount || 0)}"></td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <button class="btn-primary btn-small" data-verify="${escapeHtml(r.id)}">Verify</button>
+                  <button class="btn-quiet btn-small" data-reject="${escapeHtml(r.id)}">Reject</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table></div>` : empty('Nothing waiting — every claimed bank transfer has been settled.')}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Funding intents</div>
+        <div class="card-sub">Every time a member opened the add-fund flow, paid or not. Paystack rows credit themselves, so only bank_transfer needs a person.</div></div></div>
+        ${d.attemptsFailed ? empty(d.attemptsFailed) : attempts.length ? `
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>When</th><th>Member</th><th>Method</th></tr></thead>
-            <tbody>${rows.map(a => `
+            <tbody>${attempts.map(a => `
               <tr>
                 <td class="muted small" style="white-space: nowrap;">${escapeHtml(timeAgo(a.created_at))}<div>${escapeHtml(new Date(a.created_at).toLocaleString())}</div></td>
                 <td>${escapeHtml(a.name)}${a.username ? `<div class="muted small">@${escapeHtml(a.username)}</div>` : ''}</td>
@@ -246,6 +292,67 @@ export default {
             </tbody>
           </table></div>` : empty('No funding intents recorded yet.')}
       </div>`;
+  },
+
+  wireFunding(pane) {
+    // The reason field survives the re-render so a registrar working down a
+    // long queue does not retype it for every row.
+    const reload = async (message) => {
+      const typed = pane.querySelector('#funding-reason')?.value || '';
+      this.cache.funding = null;
+      await this.render();
+      const again = document.getElementById('funding-reason');
+      if (again) again.value = typed;
+      await appAlert(message);
+    };
+
+    const readReason = () => pane.querySelector('#funding-reason').value.trim();
+
+    pane.querySelectorAll('[data-verify]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.verify;
+        const row = pane.querySelector(`[data-txn="${id}"]`);
+        const amount = Number(pane.querySelector(`[data-amount="${id}"]`).value);
+        if (!Number.isFinite(amount) || amount <= 0) return appAlert('Enter an amount above zero.');
+
+        const ok = await appConfirm(
+          `${row.dataset.name} will be credited ${naira(amount)}. You will be recorded as the approver.`,
+          { title: 'Verify this transfer?', okText: 'Credit wallet' }
+        );
+        if (!ok) return;
+
+        const { data, error } = await supabase.rpc('registrar_verify_topup', {
+          p_txn: id, p_amount: amount, p_reason: readReason() || null
+        });
+        if (error) return appAlert(rpcError({ code: error.code, detail: error.message }, 'Could not verify: ' + error.message));
+        if (!data || data.ok === false) return appAlert(rpcError(data));
+
+        await reload(`${row.dataset.name} now has ${naira(data.balance)}.`);
+      });
+    });
+
+    pane.querySelectorAll('[data-reject]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.reject;
+        const row = pane.querySelector(`[data-txn="${id}"]`);
+        const reason = readReason();
+        if (reason.length < 5) {
+          return appAlert('Write a reason of at least 5 characters — it goes on the audit log.');
+        }
+
+        const ok = await appConfirm(
+          `${row.dataset.name}'s claim will be marked failed. Nothing is credited.`,
+          { title: 'Reject this transfer?', okText: 'Reject', danger: true }
+        );
+        if (!ok) return;
+
+        const { data, error } = await supabase.rpc('registrar_reject_topup', { p_txn: id, p_reason: reason });
+        if (error) return appAlert(rpcError({ code: error.code, detail: error.message }, 'Could not reject: ' + error.message));
+        if (!data || data.ok === false) return appAlert(rpcError(data));
+
+        await reload(`Rejected — ${row.dataset.name} was not credited.`);
+      });
+    });
   },
 
   auditHtml(d) {
