@@ -233,7 +233,7 @@ export default {
         <span>${text}</span>
       </li>`;
 
-    const tierName = { trial: 'Free Trial', wallet: 'Wallet', payngo: "Pay n' Go", pro: 'Pro' }[tier] || 'Wallet';
+    const tierName = { trial: 'Free Trial', wallet: "Pay n' Go", payngo: "Use n' Pay", pro: 'Pro' }[tier] || "Pay n' Go";
 
     const statusRows = [];
     if (tier === 'trial') {
@@ -242,6 +242,7 @@ export default {
     } else if (tier === 'payngo') {
       statusRows.push(`<div class="sub-row"><span>Renews on</span><strong>${fmt(expiresAt)} · ${daysLeft(expiresAt)} days left</strong></div>`);
       statusRows.push(`<div class="sub-row"><span>Renewal perk</span><strong>+3 free days</strong></div>`);
+      statusRows.push(`<div class="sub-row"><span>Billing style</span><strong>Charged at month's end</strong></div>`);
     } else if (tier === 'pro') {
       statusRows.push(`<div class="sub-row"><span>Active until</span><strong>${fmt(expiresAt)} · ${daysLeft(expiresAt)} days left</strong></div>`);
       statusRows.push(`<div class="sub-row"><span>Year-end perk</span><strong>+30 free days</strong></div>`);
@@ -298,11 +299,18 @@ export default {
       pro: 'Included with Pro — no per-open charges.'
     }[tier] || '';
 
+    // Pro users see no downgrade buttons — switching would forfeit a paid year.
+    const walletBtn = tier === 'wallet'
+      ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
+      : tier === 'pro'
+        ? ''
+        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('wallet')">${tier === 'trial' ? "Start on Pay n' Go" : "Switch to Pay n' Go"}</button>`;
+
     const payngoBtn = tier === 'payngo'
       ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
       : tier === 'pro'
         ? ''
-        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('payngo')">${tier === 'trial' ? "Continue on Pay n' Go" : "Switch to Pay n' Go"}</button>`;
+        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('payngo')">${tier === 'trial' ? "Continue on Use n' Pay" : "Switch to Use n' Pay"}</button>`;
 
     const proBtn = tier === 'pro'
       ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
@@ -312,7 +320,7 @@ export default {
       <div class="card sub-card">
         <div class="sub-header">
           <h3>${tierName}</h3>
-          <span class="sub-badge ${tier === 'wallet' ? 'inactive' : 'active'}">${tier === 'wallet' ? 'No plan' : 'Active'}</span>
+          <span class="sub-badge ${tier === 'wallet' || tier === 'trial' ? 'inactive' : 'active'}">${tier === 'trial' ? 'Trial' : tier === 'wallet' ? 'Pay as you go' : 'Active'}</span>
         </div>
         <div class="sub-details">${statusRows.join('')}</div>
       </div>
@@ -323,6 +331,18 @@ export default {
       <div class="plan-list">
         <div class="plan-card">
           <span class="plan-name">Pay n' Go</span>
+          <div class="plan-price">No subscription</div>
+          <span class="plan-price-note">charged from your wallet as you use</span>
+          <ul class="plan-features">
+            ${check('Full platform access')}
+            ${check('Pay per open, straight from wallet')}
+            ${check('Buy library items one at a time')}
+            ${check('Live sessions need a subscription')}
+          </ul>
+          ${walletBtn}
+        </div>
+        <div class="plan-card">
+          <span class="plan-name">Use n' Pay</span>
           <div class="plan-price">₦0 upfront</div>
           <span class="plan-price-note">billed monthly after use</span>
           <ul class="plan-features">
@@ -589,21 +609,41 @@ export default {
   // SUBSCRIPTION
   // ============================================
   async activatePlan(planId) {
+    if (planId === 'wallet') {
+      const ok = await appConfirm("Switch to Pay n' Go?\n\nNo subscription fee — every open is charged straight from your wallet balance. Live sessions and monthly billing need Use n' Pay or Pro.", { okText: 'Switch' });
+      if (!ok) return;
+
+      const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'wallet' });
+      if (error) return appAlert("Could not switch plans: " + error.message);
+      if (data && data.ok === false) {
+        if (data.code === 'OUTSTANDING_BILL') {
+          await appAlert("You have an unpaid bill from your last Use n' Pay month. Settle it first — tap Pay Bill above.");
+          return;
+        }
+        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not switch plans right now.");
+      }
+
+      await appAlert("You're on Pay n' Go — usage is charged from your wallet as you go.");
+      await this.fetchData();
+      this.render();
+      return;
+    }
+
     if (planId === 'payngo') {
-      const ok = await appConfirm("Switch to Pay n' Go?\n\nFull platform access from today. At the end of each month you're billed for what you actually used — and every renewal adds 3 free days.", { okText: 'Switch' });
+      const ok = await appConfirm("Switch to Use n' Pay?\n\nFull platform access from today. At the end of each month you're billed for what you actually used — and every renewal adds 3 free days.", { okText: 'Switch' });
       if (!ok) return;
 
       const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'payngo' });
       if (error) return appAlert("Could not switch plans: " + error.message);
       if (data && data.ok === false) {
         if (data.code === 'OUTSTANDING_BILL') {
-          await appAlert("You have an unpaid bill from your last Pay n' Go month. Settle it first — tap Pay Bill above.");
+          await appAlert("You have an unpaid bill from your last Use n' Pay month. Settle it first — tap Pay Bill above.");
           return;
         }
         return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not switch plans right now.");
       }
 
-      await appAlert("You're on Pay n' Go — full access is live. Your usage shows up in this tab as you go.");
+      await appAlert("You're on Use n' Pay — full access is live. Your usage shows up in this tab as you go.");
       await this.fetchData();
       this.render();
       return;

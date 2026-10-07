@@ -7,7 +7,7 @@ import { store } from './store.js';
 
 const ERROR_TEXT = {
   NOT_AUTHENTICATED: 'Please sign in to continue.',
-  TIER_BLOCKED: "Live sessions are part of a subscription. Switch to Pay n' Go or Pro to join and host live rooms.",
+  TIER_BLOCKED: "Live sessions are part of a subscription. Switch to Use n' Pay or Pro to join and host live rooms.",
   INSUFFICIENT_FUNDS: 'Your wallet balance is too low for this. Top up and try again.'
 };
 

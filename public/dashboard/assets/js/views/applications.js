@@ -429,11 +429,12 @@ export default {
     corporate.style.display = type === 'corporate' ? 'block' : 'none';
   },
 
-  /* Returns true when the user may queue another gig. Trial and Pay n' Go are
-     capped (dealCap, default 3 open gigs); Pro is unlimited; wallet blocked. */
+  /* Returns true when the user may queue another gig. Trial and Use n' Pay
+     (internal tier 'payngo') are capped (dealCap, default 3 open gigs);
+     Pro is unlimited; Pay n' Go (internal tier 'wallet') is blocked. */
   async dealAccessAllowed() {
     if (this.billingTier === 'wallet') {
-      await appAlert("Deals and Projects are part of a subscription. Switch to Pay n' Go (up to " + this.dealCap + " active gigs) or Pro (unlimited) to bring us work.");
+      await appAlert("Deals and Projects are part of a subscription. Switch to Use n' Pay (up to " + this.dealCap + " active gigs) or Pro (unlimited) to bring us work.");
       goToBilling();
       return false;
     }
@@ -503,7 +504,7 @@ export default {
     if (error) {
       const msg = error.message || '';
       if (msg.includes('DEALS_REQUIRE_SUBSCRIPTION')) {
-        return alert("Deals and Projects are part of a subscription. Switch to Pay n' Go or Pro to bring us work.");
+        return alert("Deals and Projects are part of a subscription. Switch to Use n' Pay or Pro to bring us work.");
       }
       if (msg.includes('DEAL_LIMIT_REACHED')) {
         return alert(`You've reached the ${this.dealCap} active gigs your plan allows. Finish or cancel one, or go Pro for unlimited gigs.`);

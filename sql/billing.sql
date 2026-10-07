@@ -712,7 +712,8 @@ grant execute on function public.purchase_library_item(uuid) to authenticated, s
 
 
 -- ============================================================
--- 10. activate_plan — payngo (free switch) / pro (₦99,900 from wallet)
+-- 10. activate_plan — wallet (Pay n' Go, pay per open) /
+--     payngo (Use n' Pay, billed monthly) / pro (₦99,900 from wallet)
 -- ============================================================
 
 create or replace function public.activate_plan(p_plan text)
@@ -726,15 +727,69 @@ declare
   v_price integer;
   v_expiry timestamptz;
   v_wallet integer;
+  v_cycle uuid;
+  v_total integer;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
   end if;
-  if p_plan not in ('payngo', 'pro') then
+  if p_plan not in ('wallet', 'payngo', 'pro') then
     return jsonb_build_object('ok', false, 'code', 'UNKNOWN_PLAN');
   end if;
 
   perform pg_advisory_xact_lock(hashtext('plan:' || uid::text));
+
+  if p_plan = 'wallet' then
+    -- Settling an unpaid bill comes first, whichever way you switch.
+    if exists (
+      select 1 from public.billing_cycles c
+       where c.user_id = uid and c.status in ('processing', 'defaulted')
+         and c.total_amount > 0
+    ) then
+      return jsonb_build_object('ok', false, 'code', 'OUTSTANDING_BILL');
+    end if;
+
+    -- Downgrading from a live Pro year would forfeit paid time; the client
+    -- hides the button, and this stops anyone calling the RPC directly.
+    if public.effective_tier(uid) = 'pro' then
+      return jsonb_build_object('ok', false, 'code', 'PRO_ACTIVE');
+    end if;
+
+    -- Accrued Use n' Pay usage is not forgiven by walking away: close the
+    -- open cycle as due, with the same 3-day grace the nightly runner gives.
+    select c.id into v_cycle from public.billing_cycles c
+     where c.user_id = uid and c.status = 'open' limit 1;
+
+    if v_cycle is not null then
+      select coalesce(sum(e.amount), 0) into v_total
+        from public.billing_events e where e.billing_cycle_id = v_cycle;
+
+      if v_total <= 0 then
+        update public.billing_cycles
+           set status = 'closed_empty', total_amount = 0, end_date = now()
+         where id = v_cycle and status = 'open';
+      else
+        update public.billing_cycles
+           set status = 'processing', total_amount = v_total,
+               due_at = now() + interval '3 days', end_date = now()
+         where id = v_cycle and status = 'open';
+
+        update public.profiles
+           set subscription_expires_at = now() + interval '3 days'
+         where id = uid and tier = 'payngo';
+
+        return jsonb_build_object('ok', true, 'tier', 'wallet',
+                                  'bill_due', v_total, 'cycle_id', v_cycle);
+      end if;
+    end if;
+
+    update public.profiles
+       set tier = 'wallet',
+           subscription_expires_at = null
+     where id = uid;
+
+    return jsonb_build_object('ok', true, 'tier', 'wallet');
+  end if;
 
   if p_plan = 'payngo' then
     -- An unpaid bill must be settled first (no switching around it).
