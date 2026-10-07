@@ -50,6 +50,10 @@
 -- NOTE: the dashboard deploy that goes with this script replaces the old
 -- client-side wallet math (library purchase) with these RPCs. Run this
 -- script together with that deploy.
+--
+-- NOTE: run sql/premium_lock.sql AFTER this one. It moves gliim bodies
+-- (posts.blocks) into an RLS-locked post_contents table so premium
+-- content cannot be read without a recorded premium_unlock event.
 -- ============================================================
 
 
@@ -214,6 +218,10 @@ create table if not exists public.billing_events (
   created_at       timestamptz not null default now()
 );
 
+-- Effective tier at event time. Lets premium unlocks recorded during a trial
+-- expire with the trial (NULL = legacy row, grandfathered as a valid unlock).
+alter table public.billing_events add column if not exists tier text;
+
 create index if not exists billing_events_user_idx
   on public.billing_events (user_id, created_at desc);
 
@@ -225,8 +233,9 @@ create unique index if not exists billing_events_request_once
   on public.billing_events (request_id) where (request_id is not null);
 
 -- Library-style opens are recorded at most once per item per billing cycle
--- ("recorded once per item open"). Premium unlocks, live sessions and prints
--- stay per-open by design.
+-- ("recorded once per item open"). Premium unlocks are persistent — once per
+-- viewer per post, ever (short-circuited in billing_access). Live sessions
+-- and profile prints stay per-open by design.
 create unique index if not exists billing_events_cycle_item_once
   on public.billing_events (billing_cycle_id, event_type, item_id)
   where billing_cycle_id is not null and item_id is not null
@@ -366,9 +375,14 @@ begin
     from public.profiles p where p.id = uid;
 
   -- Resolve hub posts: premium status, real creator, AV vs text/image.
+  -- Blocks live in post_contents (created by sql/premium_lock.sql — run it
+  -- right after this script; until then 'gliim' opens error and the client
+  -- fails open).
   if p_event_type = 'gliim' then
-    select po.id, po.user_id, po.is_premium, po.blocks into v_post
-      from public.posts po where po.id::text = p_item_id;
+    select po.id, po.user_id, po.is_premium, pc.blocks into v_post
+      from public.posts po
+      left join public.post_contents pc on pc.post_id = po.id
+     where po.id::text = p_item_id;
     if not found then
       return jsonb_build_object('allowed', true, 'kind', 'free', 'price', 0);
     end if;
@@ -413,10 +427,22 @@ begin
     else 'wallet'
   end;
 
+  -- Premium unlocks are persistent: once a viewer has paid (or accrued) for
+  -- a post, every re-open is free, records nothing, and pays the creator
+  -- nothing new. Unlock once, read forever. Unlocks recorded during a trial
+  -- are NOT persistent — they die with the trial (NULL tier = legacy row).
+  if v_kind = 'premium_unlock'
+     and exists (select 1 from public.billing_events e
+                  where e.user_id = uid and e.event_type = 'premium_unlock'
+                    and e.item_id = p_item_id
+                    and (e.tier is null or e.tier <> 'trial')) then
+    return jsonb_build_object('allowed', true, 'kind', v_kind, 'price', 0, 'unlocked', true);
+  end if;
+
   -- ---- PRO: everything included; the platform still pays creators. ----
   if v_eff = 'pro' then
-    insert into public.billing_events (user_id, event_type, amount, creator_id, item_id, request_id)
-    values (uid, v_kind, 0, v_creator, p_item_id, p_request_id);
+    insert into public.billing_events (user_id, event_type, amount, creator_id, item_id, request_id, tier)
+    values (uid, v_kind, 0, v_creator, p_item_id, p_request_id, v_eff);
 
     if v_kind = 'premium_unlock' and v_creator is not null and v_creator <> uid then
       v_share := (v_price * 70) / 100;
@@ -439,8 +465,8 @@ begin
          and e.event_type in ('publication', 'bundle', 'audiolite', 'gliim_av', 'gliim_image')
     );
     if not v_seen then
-      insert into public.billing_events (user_id, event_type, amount, creator_id, item_id, request_id)
-      values (uid, v_kind, v_price, v_creator, p_item_id, p_request_id);
+      insert into public.billing_events (user_id, event_type, amount, creator_id, item_id, request_id, tier)
+      values (uid, v_kind, v_price, v_creator, p_item_id, p_request_id, v_eff);
     end if;
     return jsonb_build_object('allowed', true, 'tier', 'trial', 'kind', v_kind,
                               'price', v_price, 'preview', true, 'recorded', not v_seen);
@@ -465,8 +491,8 @@ begin
     );
     if not v_seen then
       insert into public.billing_events
-        (user_id, event_type, amount, creator_id, item_id, request_id, billing_cycle_id)
-      values (uid, v_kind, v_price, v_creator, p_item_id, p_request_id, v_cycle);
+        (user_id, event_type, amount, creator_id, item_id, request_id, billing_cycle_id, tier)
+      values (uid, v_kind, v_price, v_creator, p_item_id, p_request_id, v_cycle, v_eff);
     end if;
 
     -- Creators are paid immediately; the subscriber pays at month end.
@@ -507,8 +533,8 @@ begin
                               'price', v_price, 'balance', v_wallet);
   end if;
 
-  insert into public.billing_events (user_id, event_type, amount, creator_id, item_id, request_id)
-  values (uid, v_kind, v_price, v_creator, p_item_id, p_request_id);
+  insert into public.billing_events (user_id, event_type, amount, creator_id, item_id, request_id, tier)
+  values (uid, v_kind, v_price, v_creator, p_item_id, p_request_id, v_eff);
 
   insert into public.transactions (user_id, amount, points, type, status, description)
   values (uid, -v_price, 0, 'purchase', 'success',
@@ -1167,6 +1193,12 @@ begin
   end if;
   if to_regclass('public.billing_events') is null then
     raise warning 'billing_events is MISSING.';
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'billing_events' and column_name = 'tier'
+  ) then
+    raise warning 'billing_events.tier column is MISSING — re-run this script.';
   end if;
 
   -- Functions

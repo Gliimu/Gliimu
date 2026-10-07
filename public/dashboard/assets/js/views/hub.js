@@ -570,7 +570,6 @@ const hubView = {
       const payload = {
         title, category, description,
         cover_url: coverUrl,
-        blocks: finalBlocks,
         content: description,
         user_id: store.user.id
       };
@@ -583,14 +582,27 @@ const hubView = {
         alert("Failed: " + error.message);
         btn.innerText = "Publish Gliim";
         btn.disabled = false;
-      } else {
-        for (const u of this.taggedUsers) {
-          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${created.id}]]`;
-          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
-        }
-        modal.remove();
-        this.fetchPosts();
+        return;
       }
+
+      // The body lives in post_contents (RLS-locked for premium posts).
+      // If that write fails, remove the shell so no empty gliim lingers.
+      const { error: bodyError } = await supabase
+        .from('post_contents').insert({ post_id: created.id, blocks: finalBlocks });
+      if (bodyError) {
+        await supabase.from('posts').delete().eq('id', created.id);
+        alert("Failed to save your content: " + bodyError.message);
+        btn.innerText = "Publish Gliim";
+        btn.disabled = false;
+        return;
+      }
+
+      for (const u of this.taggedUsers) {
+        const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${created.id}]]`;
+        await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+      }
+      modal.remove();
+      this.fetchPosts();
     });
   },
 
@@ -649,8 +661,10 @@ const hubView = {
   },
 
   async fetchPosts() {
-    const colsWithPremium = `id, title, category, description, cover_url, blocks, views, created_at, user_id, is_premium, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
-    const colsBase = `id, title, category, description, cover_url, blocks, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+    // No blocks column here: gliim bodies live in post_contents and are
+    // fetched per-open, so premium content never rides along in the feed.
+    const colsWithPremium = `id, title, category, description, cover_url, views, created_at, user_id, is_premium, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+    const colsBase = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
     const load = (cols) => Promise.all([
       supabase.from('posts').select(cols).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
@@ -817,14 +831,25 @@ const hubView = {
 
     if (!this.isModalOpen) return;
 
-    // Billing gate: premium unlocks are charged/recorded server-side and free
-    // gliims resolve to price 0, so this call is safe for every open.
+    const isOwner = post.user_id === store.user.id;
+
+    // Billing gate: premium unlocks are persistent — the server charges the
+    // first open only and short-circuits every re-open (unlock once, read
+    // forever). Free gliims record the per-open mini-price, deduped per cycle.
     const access = await ensureAccess('gliim', { itemId: postId });
     if (!access.allowed) {
       this.isModalOpen = false;
       await showBillingDenied(access);
       return;
     }
+
+    // Server-side content lock: the body lives in post_contents, and RLS
+    // only returns a premium body once billing_access() recorded the unlock.
+    // A client that skips the gate above simply gets no rows here.
+    const { data: contentRow } = await supabase
+      .from('post_contents').select('blocks')
+      .eq('post_id', postId).maybeSingle();
+    post.blocks = contentRow?.blocks || null;
 
     sessionStorage.setItem('openReadViewId', postId);
 
@@ -851,7 +876,6 @@ const hubView = {
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
     const hasSupported = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'support');
     const isSaved = this.savedPosts.has(post.id);
-    const isOwner = post.user_id === store.user.id;
 
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
@@ -882,6 +906,16 @@ const hubView = {
         if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><i class="fas fa-podcast"></i><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
         return '';
       }).join('');
+    } else if (post.is_premium && !isOwner) {
+      // RLS withheld the body — the unlock was never recorded server-side.
+      // Show the lock card; never fall through to post.content.
+      const lockPrice = Number((this.billingSummary && this.billingSummary.prices && this.billingSummary.prices.premium_unlock) || 0);
+      blocksHtml = `
+        <div style="text-align:center;padding:48px 24px;border:1px dashed var(--border);border-radius:12px;color:var(--text-muted);">
+          <p style="font-weight:700;color:var(--text-primary);margin-bottom:8px;">This gliim is locked</p>
+          <p style="margin-bottom:16px;">${lockPrice ? `Unlock it for ₦${lockPrice.toLocaleString()}.` : 'Unlock it to read the full gliim.'}</p>
+          <button class="btn-primary" onclick="hubInstance.unlockPremiumPost('${post.id}')">Unlock</button>
+        </div>`;
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
 
     // Menu Icons
@@ -966,6 +1000,15 @@ const hubView = {
     `;
     document.body.appendChild(modal);
     this.setupMentionPicker(post.id);
+  },
+
+  // Shown when RLS withheld a premium body (gate skipped or unlock stale).
+  // Records the unlock server-side, then reopens the reader.
+  async unlockPremiumPost(postId) {
+    const gate = await ensureAccess('gliim', { itemId: postId });
+    if (!gate.allowed) { await showBillingDenied(gate); return; }
+    this.closeModal();
+    this.openReadView(postId);
   },
 
   toggleReadMenu(postId) {
@@ -1142,6 +1185,7 @@ const hubView = {
 // even when the hub view was never visited (reader opened from a profile).
 window.hubInstance = {
   openReadView: (id) => hubView.openReadView(id),
+  unlockPremiumPost: (id) => hubView.unlockPremiumPost(id),
   toggleLike: (id) => hubView.toggleLike(id),
   sharePost: (id, title) => hubView.sharePost(id, title),
   scrollToComments: (id) => hubView.scrollToComments(id),
