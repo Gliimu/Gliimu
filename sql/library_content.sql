@@ -36,14 +36,6 @@ do $$ begin
   if to_regclass('public.library_items') is null then
     raise exception 'library_items is MISSING — this script needs the live library table.';
   end if;
-  -- library_item_unlocked() is a SQL-language function, so Postgres resolves
-  -- these at creation time; check first and say what to run instead of
-  -- failing with "function public.effective_tier(uuid) does not exist".
-  if to_regclass('public.purchases') is null
-     or to_regprocedure('public.effective_tier(uuid)') is null
-     or to_regprocedure('public.is_admin()') is null then
-    raise exception 'billing prerequisites MISSING (purchases / effective_tier / is_admin) — run sql/billing.sql first, then re-run this script.';
-  end if;
 end $$;
 
 alter table public.library_items
@@ -141,26 +133,18 @@ create policy "library content update"
 --      bundle      -> bundle_items  [{title, url}]
 --    On approval the admin app copies blocks into library_contents.blocks
 --    and file_url / bundle_items into library_contents.files.
---    Guarded: if sql/library_submissions.sql has not been run yet this section
---    warns and moves on, so the rest of the script still applies. Re-run this
---    file afterwards — it is idempotent.
 -- ============================================================
 
-do $$ begin
-  if to_regclass('public.library_submissions') is null then
-    raise warning 'library_submissions is MISSING — run sql/library_submissions.sql, then re-run this script.';
-    return;
-  end if;
+alter table public.library_submissions
+  add column if not exists blocks jsonb not null default '[]'::jsonb;
 
-  alter table public.library_submissions
-    add column if not exists blocks jsonb not null default '[]'::jsonb;
+alter table public.library_submissions
+  add column if not exists bundle_items jsonb not null default '[]'::jsonb;
 
-  alter table public.library_submissions
-    add column if not exists bundle_items jsonb not null default '[]'::jsonb;
-
-  execute 'comment on column public.library_submissions.blocks is ''Publication body blocks. The admin app copies this into library_contents on approval.''';
-  execute 'comment on column public.library_submissions.bundle_items is ''Bundle parts [{title, url}]. Copied into library_contents.files on approval.''';
-end $$;
+comment on column public.library_submissions.blocks is
+  'Publication body blocks. The admin app copies this into library_contents on approval.';
+comment on column public.library_submissions.bundle_items is
+  'Bundle parts [{title, url}]. Copied into library_contents.files on approval.';
 
 
 -- ============================================================
@@ -251,17 +235,11 @@ do $$ begin
   raise notice 'submissions.blocks:         %', case when exists (
       select 1 from information_schema.columns
        where table_schema = 'public' and table_name = 'library_submissions' and column_name = 'blocks'
-    ) then 'OK'
-    when to_regclass('public.library_submissions') is null
-      then 'MISSING — run sql/library_submissions.sql, then re-run this script'
-    else 'MISSING — re-run this script' end;
+    ) then 'OK' else 'MISSING' end;
   raise notice 'submissions.bundle_items:   %', case when exists (
       select 1 from information_schema.columns
        where table_schema = 'public' and table_name = 'library_submissions' and column_name = 'bundle_items'
-    ) then 'OK'
-    when to_regclass('public.library_submissions') is null
-      then 'MISSING — run sql/library_submissions.sql, then re-run this script'
-    else 'MISSING — re-run this script' end;
+    ) then 'OK' else 'MISSING' end;
   raise notice 'content rows backfilled:    %', (select count(*) from public.library_contents);
   raise notice 'library items total:        %', (select count(*) from public.library_items);
   raise notice 'items with no owner yet:    %', (select count(*) from public.library_items where owner_id is null);

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Gliimu Admin</title>
+  <script>
+    (function () {
+      const saved = localStorage.getItem('gliimu-admin-theme');
+      const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+<body>
+
+  <!-- Shown when there is no session, or the signed-in user holds no admin role -->
+  <div class="gate" id="gate" hidden>
+    <div class="gate-card" id="gate-signin">
+      <img src="/icon.png" alt="" class="gate-logo">
+      <h1>Gliimu Admin</h1>
+      <p class="gate-sub">Staff sign-in. This is not the member dashboard.</p>
+      <form id="signin-form">
+        <div class="form-group">
+          <label for="signin-email">Email</label>
+          <input type="email" id="signin-email" class="input" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="signin-password">Password</label>
+          <input type="password" id="signin-password" class="input" autocomplete="current-password" required>
+        </div>
+        <p class="gate-error" id="signin-error"></p>
+        <button type="submit" class="btn-primary" id="signin-btn">Sign in</button>
+      </form>
+    </div>
+
+    <div class="gate-card" id="gate-denied" hidden>
+      <img src="/icon.png" alt="" class="gate-logo">
+      <h1>Not an admin account</h1>
+      <p class="gate-sub" id="denied-detail">Your Gliimu account has no admin role. Ask a super admin to grant you one.</p>
+      <button class="btn-primary" id="denied-signout">Sign out</button>
+    </div>
+  </div>
+
+  <div class="admin-layout" id="shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="/icon.png" alt="" class="brand-mark">
+        <span class="brand-name">Gliimu <strong>Admin</strong></span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <span class="nav-label">CRM</span>
+        <a href="#/submissions" class="nav-item" data-route="submissions" data-role="crm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          <span class="nav-text">Submissions</span>
+          <span class="nav-count" id="count-submissions" hidden></span>
+        </a>
+        <a href="#/reports" class="nav-item" data-route="reports" data-role="crm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+          <span class="nav-text">Reports</span>
+          <span class="nav-count" id="count-reports" hidden></span>
+        </a>
+        <a href="#/content" class="nav-item" data-route="content" data-role="crm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span class="nav-text">Content</span>
+        </a>
+
+        <span class="nav-label" data-role="super">Super</span>
+        <a href="#/admins" class="nav-item" data-route="admins" data-role="super">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span class="nav-text">Admins</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-card">
+          <img id="admin-avatar" class="admin-avatar" alt="" hidden>
+          <div class="admin-meta">
+            <span class="admin-name" id="admin-name">Loading...</span>
+            <span class="admin-role" id="admin-role"></span>
+          </div>
+        </div>
+        <button class="btn-quiet" id="signout-btn">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <h1 id="page-title">Admin</h1>
+        <div class="topbar-right">
+          <button class="btn-quiet" id="theme-toggle" title="Switch theme">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="view" id="app">
+        <p class="loading">Loading...</p>
+      </div>
+    </main>
+  </div>
+
+  <div class="dialog-overlay" id="dialog-overlay" hidden>
+    <div class="dialog-card">
+      <h2 id="dialog-title"></h2>
+      <p id="dialog-body"></p>
+      <div class="dialog-actions">
+        <button class="btn-quiet" id="dialog-cancel" hidden>Cancel</button>
+        <button class="btn-primary" id="dialog-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/assets/js/app.js"></script>
+</body>
+</html>
