@@ -282,6 +282,16 @@
 .lib-file-download:hover { background: var(--brand-primary-light); color: var(--brand-primary); }
 .lib-file-download svg { width: 16px; height: 16px; }
 
+/* Submission composer */
+.lib-composer-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+.lib-bundle-row .lib-bundle-title { width: 100%; }
+
+/* Publication article view (blocks) */
+.lib-article { display: flex; flex-direction: column; gap: 14px; }
+.lib-article-file { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.lib-article-file svg { width: 18px; height: 18px; color: var(--brand-primary); flex-shrink: 0; }
+.lib-article-file:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
 @media (max-width: 768px) {
   .lib-folder-files { grid-template-columns: 1fr; }
   .lib-audio-art { width: 140px; height: 140px; }

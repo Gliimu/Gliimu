@@ -1,6 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { fetchBillingSummary, goToBilling } from '../billing.js';
+import { uploadFile } from '../upload.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -10,13 +11,6 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
-
-function fileExtension(file) {
-  const raw = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  return raw || 'png';
-}
-
-const DEAL_LOGO_BUCKET = 'deal_logos';
 
 export default {
   title: 'Queue',
@@ -480,10 +474,11 @@ export default {
       if (!companyName) return alert("Please enter the company name.");
       if (!logoFile) return alert("Please upload the company logo.");
 
-      const path = `${store.user.id}/logo_${Date.now()}.${fileExtension(logoFile)}`;
-      const { error: uploadError } = await supabase.storage.from(DEAL_LOGO_BUCKET).upload(path, logoFile);
-      if (uploadError) return alert("Logo upload failed: " + uploadError.message);
-      companyLogoUrl = supabase.storage.from(DEAL_LOGO_BUCKET).getPublicUrl(path).data.publicUrl;
+      try {
+        companyLogoUrl = await uploadFile(logoFile, 'deal');
+      } catch (err) {
+        return alert("Logo upload failed: " + (err.message || err));
+      }
     }
 
     const submitBtn = document.getElementById('deal-submit');

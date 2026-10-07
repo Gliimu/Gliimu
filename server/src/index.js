@@ -39,7 +39,7 @@ app.post('/api/paystack/webhook', express.raw({ type: '*/*' }), async (req, res)
         const result = await settleBillCycle(tx.metadata.cycle_id, tx.reference);
         console.log('Paystack webhook bill settle:', tx.reference, JSON.stringify(result));
         if (result && result.ok && !result.dedupe && userId) {
-          await sendAiNotice(userId, `Payment received — your Pay n' Go bill of ₦${Number(result.total || 0).toLocaleString()} is settled. Your access is renewed with 30 days plus the 3 free days.`);
+          await sendAiNotice(userId, `Payment received — your Use n' Pay bill of ₦${Number(result.total || 0).toLocaleString()} is settled. Your access is renewed with 30 days plus the 3 free days.`);
         }
       } else if (userId && amountNaira >= 100 && tx.reference) {
         const result = await creditWalletFromPaystack(userId, amountNaira, tx.reference, 'paystack');
@@ -209,7 +209,7 @@ app.post('/api/paystack/verify', async (req, res) => {
     const userId = tx.metadata && tx.metadata.user_id;
     const amountNaira = Math.round((tx.amount || 0) / 100);
 
-    // Pay n' Go bill payment — settle the billing cycle, no wallet credit.
+    // Use n' Pay bill payment — settle the billing cycle, no wallet credit.
     if (tx.metadata && tx.metadata.kind === 'bill' && tx.metadata.cycle_id) {
       const result = await settleBillCycle(tx.metadata.cycle_id, tx.reference || reference);
       return res.json({
@@ -237,7 +237,7 @@ app.post('/api/paystack/verify', async (req, res) => {
 });
 
 // ==========================================
-// BILLING — PAY N' GO BILL CHECKOUT
+// BILLING — USE N' PAY BILL CHECKOUT
 // ==========================================
 // The signed-in user pays their bill from the Billing page. Identity comes
 // from the Supabase access token, never from the request body.
@@ -293,6 +293,128 @@ app.post('/api/billing/pay-bill', async (req, res) => {
   } catch (error) {
     console.error('Billing pay-bill error:', error);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// ==========================================
+// MEDIA UPLOADS — CLOUDFLARE R2 (presigned PUT)
+// ==========================================
+// The browser uploads straight to R2 and this server only signs the URL, so
+// no file bytes ever pass through Render. The access token decides the key
+// prefix — a caller can never write into someone else's folder. When R2 is
+// not configured the endpoint says so and the client falls back to Supabase
+// Storage, so nothing breaks before the bucket exists.
+const R2 = {
+  accountId: process.env.R2_ACCOUNT_ID || '',
+  keyId: process.env.R2_ACCESS_KEY_ID || '',
+  secret: process.env.R2_SECRET_ACCESS_KEY || '',
+  bucket: process.env.R2_BUCKET || 'gliimu',
+  publicBase: (process.env.R2_PUBLIC_BASE_URL || '').replace(/\/+$/, '')
+};
+
+const r2Ready = () => Boolean(R2.accountId && R2.keyId && R2.secret && R2.publicBase);
+
+let r2Client = null;
+function r2S3() {
+  if (!r2Client) {
+    const { S3Client } = require('@aws-sdk/client-s3');
+    r2Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${R2.accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId: R2.keyId, secretAccessKey: R2.secret }
+    });
+  }
+  return r2Client;
+}
+
+const MB = 1024 * 1024;
+const MEDIA_TYPES = /^(image|video|audio)\//;
+// Chat and library items have always accepted documents as well as media.
+const DOC_TYPES = /^application\/(pdf|zip|x-zip-compressed|rtf|msword|epub\+zip|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.openxmlformats-officedocument\.[\w.+-]+)$/;
+const allows = (...patterns) => (type) => patterns.some(re => re.test(type));
+
+// Some browsers report `application/octet-stream` for documents and archives,
+// so the extension decides whenever the declared type says nothing.
+const EXT_TYPES = {
+  pdf: 'application/pdf', zip: 'application/zip', epub: 'application/epub+zip',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  txt: 'text/plain', md: 'text/markdown', rtf: 'application/rtf',
+  mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac',
+  mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml'
+};
+
+function resolveContentType(body) {
+  const declared = String((body && body.contentType) || '').toLowerCase();
+  if (declared && declared !== 'application/octet-stream') return declared;
+  const name = String((body && body.filename) || '');
+  const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+  return EXT_TYPES[ext] || '';
+}
+
+// Only the content type is signed: adding Content-Length to the signature
+// breaks browser uploads, so `size` is the client's declaration and the cap
+// is a guardrail, not a hard limit. R2 rejects anything over 5GB per PUT.
+const UPLOAD_KINDS = {
+  avatar:  { prefix: 'avatars/',          maxBytes: 10 * MB,  types: allows(/^image\//) },
+  media:   { prefix: 'media/',            maxBytes: 500 * MB, types: allows(MEDIA_TYPES) },
+  library: { prefix: 'library/',          maxBytes: 500 * MB, types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
+  chat:    { prefix: 'chat_attachments/', maxBytes: 25 * MB,  types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
+  deal:    { prefix: 'deal_logos/',       maxBytes: 10 * MB,  types: allows(/^image\//) },
+  site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminOnly: true }
+};
+
+app.post('/api/upload/presign', async (req, res) => {
+  try {
+    if (!r2Ready()) return res.json({ ok: false, code: 'R2_NOT_CONFIGURED' });
+
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+    const userId = authData.user.id;
+
+    const { kind, size, filename } = req.body || {};
+    const spec = UPLOAD_KINDS[kind];
+    if (!spec) return res.status(400).json({ error: 'Unknown upload kind.' });
+
+    const type = resolveContentType(req.body);
+    if (!type) return res.status(400).json({ error: 'Missing content type.' });
+    if (!spec.types(type)) return res.status(400).json({ error: 'That file type is not allowed here.' });
+
+    const bytes = Number(size);
+    if (!Number.isFinite(bytes) || bytes <= 0) return res.status(400).json({ error: 'Missing file size.' });
+    if (bytes > spec.maxBytes) {
+      return res.status(413).json({ error: `That file is over the ${Math.round(spec.maxBytes / MB)}MB limit.` });
+    }
+
+    if (spec.adminOnly) {
+      const { data: profile } = await supabaseAdmin.from('profiles')
+        .select('is_admin').eq('id', userId).maybeSingle();
+      if (!profile || !profile.is_admin) return res.status(403).json({ error: 'Admins only.' });
+    }
+
+    const safeName = String(filename || 'file').replace(/[^A-Za-z0-9._-]/g, '_').slice(-60) || 'file';
+    const key = `${spec.prefix}${userId}/${Date.now()}_${crypto.randomBytes(4).toString('hex')}_${safeName}`;
+
+    const { PutObjectCommand } = require('@aws-sdk/client-s3');
+    const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+    const url = await getSignedUrl(r2S3(), new PutObjectCommand({
+      Bucket: R2.bucket,
+      Key: key,
+      ContentType: type
+    }), { expiresIn: 900 });
+
+    res.json({ ok: true, url, key, contentType: type, publicUrl: `${R2.publicBase}/${key}` });
+  } catch (error) {
+    console.error('R2 presign error:', error);
+    res.status(500).json({ error: 'Could not start the upload.' });
   }
 });
 
@@ -354,7 +476,7 @@ app.all('/api/billing/run', async (req, res) => {
         summary.links.push({ cycle_id: due.cycle_id, user_id: due.user_id });
 
         await sendAiNotice(due.user_id,
-          `Your Pay n' Go bill of ₦${Number(due.total).toLocaleString()} is ready. Pay within 3 days right here: ${init.authorization_url} — or tap Pay Bill on the Billing page.`);
+          `Your Use n' Pay bill of ₦${Number(due.total).toLocaleString()} is ready. Pay within 3 days right here: ${init.authorization_url} — or tap Pay Bill on the Billing page.`);
       } catch (e) {
         summary.errors.push(`cycle ${due.cycle_id}: ${e.message}`);
       }
@@ -362,17 +484,17 @@ app.all('/api/billing/run', async (req, res) => {
 
     for (const t of (closed && closed.converted_trials) || []) {
       await sendAiNotice(t.user_id,
-        `Your 3-day free trial has ended — welcome to Pay n' Go! Based on your trial activity, a full month would run about ₦${Number(t.preview || 0).toLocaleString()}. You're only billed at month's end for what you actually use.`);
+        `Your 3-day free trial has ended — welcome to Use n' Pay! Based on your trial activity, a full month would run about ₦${Number(t.preview || 0).toLocaleString()}. You're only billed at month's end for what you actually use.`);
     }
 
     for (const p of (closed && closed.downgraded_pro) || []) {
       await sendAiNotice(p.user_id,
-        `Your Pro year has ended, so the account moved to Wallet tier. Top up or go Pro again any time from the Billing page.`);
+        `Your Pro year has ended, so the account moved to Pay n' Go — every open is now charged straight from your wallet. Top up, switch to Use n' Pay, or go Pro again any time from the Billing page.`);
     }
 
     for (const rn of (closed && closed.renewed_free) || []) {
       await sendAiNotice(rn.user_id,
-        `Your Pay n' Go month renewed with ₦0 usage — no bill. Enjoy the new month!`);
+        `Your Use n' Pay month renewed with ₦0 usage — no bill. Enjoy the new month!`);
     }
 
     const { data: enforced, error: enforceError } = await supabaseAdmin.rpc('billing_enforce_deadlines');
@@ -381,7 +503,7 @@ app.all('/api/billing/run', async (req, res) => {
 
     for (const d of (enforced && enforced.defaulted) || []) {
       await sendAiNotice(d.user_id,
-        `Your Pay n' Go bill is past its 3-day grace window and the account is paused on Wallet tier. Settle it from Billing → Pay Bill to restore full access.`);
+        `Your Use n' Pay bill is past its 3-day grace window and the account is paused on Pay n' Go. Settle it from Billing → Pay Bill to restore full access.`);
     }
 
     res.json({ ok: true, ...summary });

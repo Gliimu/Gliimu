@@ -727,7 +727,7 @@ declare
   v_price integer;
   v_expiry timestamptz;
   v_wallet integer;
-  v_cycle uuid;
+  v_cycle bigint;
   v_total integer;
 begin
   if uid is null then
@@ -755,8 +755,10 @@ begin
       return jsonb_build_object('ok', false, 'code', 'PRO_ACTIVE');
     end if;
 
-    -- Accrued Use n' Pay usage is not forgiven by walking away: close the
-    -- open cycle as due, with the same 3-day grace the nightly runner gives.
+    -- Accrued Use n' Pay usage is not forgiven by walking away. Pay n' Go
+    -- pays as it goes, so the open cycle is settled from the wallet right
+    -- here — marking it 'paid' also keeps billing_settle_cycle() from
+    -- re-upgrading them to Use n' Pay later.
     select c.id into v_cycle from public.billing_cycles c
      where c.user_id = uid and c.status = 'open' limit 1;
 
@@ -764,23 +766,32 @@ begin
       select coalesce(sum(e.amount), 0) into v_total
         from public.billing_events e where e.billing_cycle_id = v_cycle;
 
-      if v_total <= 0 then
-        update public.billing_cycles
-           set status = 'closed_empty', total_amount = 0, end_date = now()
-         where id = v_cycle and status = 'open';
-      else
-        update public.billing_cycles
-           set status = 'processing', total_amount = v_total,
-               due_at = now() + interval '3 days', end_date = now()
-         where id = v_cycle and status = 'open';
-
+      if v_total > 0 then
         update public.profiles
-           set subscription_expires_at = now() + interval '3 days'
-         where id = uid and tier = 'payngo';
+           set wallet_balance = coalesce(wallet_balance, 0) - v_total,
+               tier = 'wallet',
+               subscription_expires_at = null
+         where id = uid and coalesce(wallet_balance, 0) >= v_total;
+        if not found then
+          select coalesce(wallet_balance, 0) into v_wallet from public.profiles where id = uid;
+          return jsonb_build_object('ok', false, 'code', 'INSUFFICIENT_FUNDS',
+                                    'price', v_total, 'balance', v_wallet);
+        end if;
 
-        return jsonb_build_object('ok', true, 'tier', 'wallet',
-                                  'bill_due', v_total, 'cycle_id', v_cycle);
+        update public.billing_cycles
+           set status = 'paid', total_amount = v_total, end_date = now()
+         where id = v_cycle and status = 'open';
+
+        insert into public.transactions (user_id, amount, points, type, status, description)
+        values (uid, -v_total, 0, 'subscription', 'success',
+                'Use n'' Pay usage settled on switch #' || v_cycle);
+
+        return jsonb_build_object('ok', true, 'tier', 'wallet', 'settled', v_total);
       end if;
+
+      update public.billing_cycles
+         set status = 'closed_empty', total_amount = 0, end_date = now()
+       where id = v_cycle and status = 'open';
     end if;
 
     update public.profiles
@@ -837,7 +848,7 @@ begin
   values (uid, -v_price, 0, 'subscription', 'success',
           'Pro annual plan (365 + 30 free days)');
 
-  -- Upgrading forgives any accrued Pay n' Go usage.
+  -- Upgrading forgives any accrued Use n' Pay usage.
   update public.billing_cycles
      set status = 'void', end_date = now()
    where user_id = uid and status = 'open';
@@ -877,7 +888,7 @@ declare
   v_pros jsonb := '[]'::jsonb;
   v_renewed jsonb := '[]'::jsonb;
 begin
-  -- 1) Trials that ended -> Pay n' Go (trial usage stays free).
+  -- 1) Trials that ended -> Use n' Pay (trial usage stays free).
   for r in
     select p.id, p.trial_ends_at from public.profiles p
      where p.tier = 'trial' and p.trial_ends_at <= now()
@@ -902,7 +913,7 @@ begin
     v_trials := v_trials || jsonb_build_object('user_id', r.id, 'preview', v_preview);
   end loop;
 
-  -- 2) Pay n' Go / legacy terms that ended.
+  -- 2) Use n' Pay / legacy terms that ended.
   for r in
     select p.id from public.profiles p
      where p.tier = 'payngo' and p.subscription_expires_at <= now()
@@ -1091,7 +1102,7 @@ begin
 
   insert into public.transactions (user_id, amount, points, type, status, reference, description)
   values (v_cycle.user_id, -v_cycle.total_amount, 0, 'subscription', 'success', p_reference,
-          'Pay n Go usage bill #' || p_cycle);
+          'Use n'' Pay usage bill #' || p_cycle);
 
   return jsonb_build_object('ok', true, 'user_id', v_cycle.user_id,
                             'total', v_cycle.total_amount,
@@ -1267,6 +1278,13 @@ begin
       raise warning 'Function public.% is MISSING.', f;
     end if;
   end loop;
+
+  -- activate_plan must accept the Pay n' Go switch (internal plan key 'wallet')
+  if pg_get_functiondef('public.activate_plan(text)'::regprocedure) not like '%''wallet''%' then
+    raise warning 'activate_plan does not handle the ''wallet'' plan — re-run this script.';
+  else
+    raise notice 'activate_plan handles wallet / payngo / pro.';
+  end if;
 
   -- Triggers
   if not exists (select 1 from pg_trigger where tgname = 'profiles_protect_sensitive') then

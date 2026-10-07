@@ -1,6 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied } from '../billing.js';
+import { uploadFile } from '../upload.js';
 import hubView from './hub.js';
 
 export default {
@@ -294,11 +295,8 @@ export default {
     if (!file) return;
     try {
       input.disabled = true;
-      const path = `${store.user.id}/portfolio/portfolio_${Date.now()}`;
-      const { error: upErr } = await supabase.storage.from('media').upload(path, file, { upsert: true });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from('media').getPublicUrl(path);
-      const { error: dbErr } = await supabase.from('profiles').update({ portfolio_image_url: data.publicUrl }).eq('id', store.user.id);
+      const publicUrl = await uploadFile(file, 'media');
+      const { error: dbErr } = await supabase.from('profiles').update({ portfolio_image_url: publicUrl }).eq('id', store.user.id);
       if (dbErr) throw dbErr;
       alert('Portfolio image updated.');
       await this.renderProfile(this.targetUserId);

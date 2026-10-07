@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
+import { uploadFile } from '../upload.js';
 
 const APP_VERSION_KEY = 'gliimu_app_version';
-const SITE_ASSETS_BUCKET = 'site_assets';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -16,11 +16,6 @@ function escapeHtml(value) {
 function safeUrl(value) {
   const raw = String(value == null ? '' : value).trim();
   return /^https?:\/\//i.test(raw) || /^\/[^/]/.test(raw) ? raw : '';
-}
-
-function fileExtension(file) {
-  const raw = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  return raw || 'png';
 }
 
 function parseVersion(v) {
@@ -174,14 +169,15 @@ export default {
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${store.user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, { cacheControl: '3600', upsert: true });
-      if (uploadError) return alert("Error uploading image: " + uploadError.message);
-      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
-      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrlData.publicUrl }).eq('id', store.user.id);
+      let avatarUrl;
+      try {
+        avatarUrl = await uploadFile(file, 'avatar');
+      } catch (err) {
+        return alert("Error uploading image: " + (err.message || err));
+      }
+      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', store.user.id);
       if (updateError) return alert("Error saving profile picture.");
-      document.getElementById('avatar-preview').src = publicUrlData.publicUrl + `?t=${Date.now()}`;
+      document.getElementById('avatar-preview').src = avatarUrl + `?t=${Date.now()}`;
       alert("Profile picture updated!");
     });
 
@@ -372,10 +368,12 @@ export default {
     const file = document.getElementById('admin-partner-logo').files[0];
     if (!name || !file) return alert("Please enter a name and choose a logo.");
 
-    const path = `partners/${Date.now()}_${fileExtension(file)}`;
-    const { error: uploadError } = await supabase.storage.from(SITE_ASSETS_BUCKET).upload(path, file);
-    if (uploadError) return alert("Logo upload failed: " + uploadError.message);
-    const logoUrl = supabase.storage.from(SITE_ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
+    let logoUrl;
+    try {
+      logoUrl = await uploadFile(file, 'site');
+    } catch (err) {
+      return alert("Logo upload failed: " + (err.message || err));
+    }
 
     const { data: rows } = await supabase.from('partners').select('display_order');
     const nextOrder = (rows || []).reduce((max, r) => Math.max(max, Number(r.display_order) || 0), 0) + 1;
@@ -442,13 +440,12 @@ export default {
     if (btn) btn.disabled = true;
 
     if (bgFile) {
-      const path = `app/bg_${Date.now()}.${fileExtension(bgFile)}`;
-      const { error: uploadError } = await supabase.storage.from(SITE_ASSETS_BUCKET).upload(path, bgFile);
-      if (uploadError) {
+      try {
+        updates.app_download_bg_url = await uploadFile(bgFile, 'site');
+      } catch (err) {
         if (btn) btn.disabled = false;
-        return alert("Upload failed: " + uploadError.message);
+        return alert("Upload failed: " + (err.message || err));
       }
-      updates.app_download_bg_url = supabase.storage.from(SITE_ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
     }
 
     const { error } = await supabase.from('site_settings').update(updates).eq('id', this.siteSettingsId || 1);

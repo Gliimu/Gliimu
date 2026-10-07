@@ -4,6 +4,7 @@
 
 import { supabase } from '/shared/js/config.js';
 import { store } from './store.js';
+import { uploadFile } from './upload.js';
 
 // ============================================
 // VOICE NOTE PLAYBACK
@@ -66,24 +67,18 @@ export function attachmentHtml(m, instanceName) {
 }
 
 export async function uploadAttachment(file) {
-  const fileName = `${store.user.id}/${Date.now()}_${file.name}`;
-  const { error } = await supabase.storage.from('chat_attachments').upload(fileName, file);
-  if (error) throw new Error('Upload failed.');
-
-  const { data } = supabase.storage.from('chat_attachments').getPublicUrl(fileName);
+  const url = await uploadFile(file, 'chat');
   let type = 'file';
   if (file.type.startsWith('image/')) type = 'image';
   else if (file.type.startsWith('video/')) type = 'video';
   else if (file.type === 'application/pdf') type = 'pdf';
-  return { url: data.publicUrl, type };
+  return { url, type };
 }
 
 export async function uploadAudioNote(blob) {
-  const fileName = `${store.user.id}/${Date.now()}_audio.webm`;
-  const { error } = await supabase.storage.from('chat_attachments').upload(fileName, blob);
-  if (error) throw new Error('Failed to upload audio.');
-  const { data } = supabase.storage.from('chat_attachments').getPublicUrl(fileName);
-  return data.publicUrl;
+  // Named so R2 stores an .webm key and the right content type.
+  const named = new File([blob], `${Date.now()}_audio.webm`, { type: blob.type || 'audio/webm' });
+  return uploadFile(named, 'chat');
 }
 
 // ============================================

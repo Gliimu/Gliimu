@@ -1,6 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
+import { uploadFile } from '../upload.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -647,14 +648,17 @@ const hubView = {
           const statusEl = blockDiv.querySelector('.upload-status');
           const hiddenInput = blockDiv.querySelector('.block-content-input');
           statusEl.innerText = "Uploading..."; statusEl.style.color = "var(--brand-primary)";
-          const fileName = `${store.user.id}/${Date.now()}_${e.target.files[0].name}`;
-          const { error } = await supabase.storage.from('media').upload(fileName, e.target.files[0]);
-          if (error) { statusEl.innerText = "Upload failed."; statusEl.style.color = "var(--error)"; return; }
-          const { data } = supabase.storage.from('media').getPublicUrl(fileName);
-          hiddenInput.value = data.publicUrl;
+          let fileUrl;
+          try {
+            fileUrl = await uploadFile(e.target.files[0], 'media');
+          } catch (err) {
+            statusEl.innerText = err.message || "Upload failed."; statusEl.style.color = "var(--error)";
+            return;
+          }
+          hiddenInput.value = fileUrl;
           statusEl.innerText = "Upload complete!"; statusEl.style.color = "var(--success)";
           const preview = blockDiv.querySelector('.block-preview');
-          preview.innerHTML = type === 'image' ? `<img src="${data.publicUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>`;
+          preview.innerHTML = type === 'image' ? `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>`;
         }
       });
     }

@@ -1,6 +1,40 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
+import { uploadFile } from '../upload.js';
+
+// The publication builder mirrors the hub composer, so it reuses its icons and
+// its CSS classes (both stylesheets are loaded globally in the dashboard).
+const BLOCK_ICONS = {
+  text: '<span style="font-weight:700; font-size: 14px;">Aa</span>',
+  image: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
+  video: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
+  audio: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>',
+  file: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>'
+};
+
+const REMOVE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+
+// Bundles carry documents as well as media; the server allowlist for the
+// 'library' upload kind is the authority, this just narrows the file picker.
+const LIB_FILE_ACCEPT = '.pdf,.epub,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.rtf,.zip,image/*,audio/*,video/*';
+
+const BLOCK_HEAD = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Older uploads kept the original filename in the URL, percent-encoded.
+function fileNameFromUrl(url) {
+  const last = String(url || '').split('/').pop().split('?')[0];
+  try { return decodeURIComponent(last); } catch (e) { return last; }
+}
 
 export default {
   title: 'Library',
@@ -420,11 +454,27 @@ export default {
     });
   },
 
-  openContent(item) {
+  // Called only after the billing gate has passed. The body lives in
+  // library_contents, whose RLS policy returns a row solely to viewers who
+  // have unlocked the item — so a failed gate shows up here as an empty body
+  // rather than as leaked content.
+  async openContent(item) {
     document.querySelector('.modal-overlay')?.remove();
-    if (item.type === 'audiolite') return this.openAudiolite(item);
-    if (item.type === 'bundle') return this.openBundle(item);
-    return this.openReader(item);
+
+    let body = null;
+    const { data, error } = await supabase.from('library_contents')
+      .select('blocks, files').eq('item_id', item.id).maybeSingle();
+    if (!error && data) body = data;
+
+    const blocks = (body && Array.isArray(body.blocks)) ? body.blocks : [];
+    const files = (body && Array.isArray(body.files) && body.files.length)
+      ? body.files
+      : (Array.isArray(item.bundle_items) ? item.bundle_items : []);
+    const fileUrl = (files[0] && files[0].url) || item.file_url || null;
+
+    if (item.type === 'audiolite') return this.openAudiolite(item, fileUrl);
+    if (item.type === 'bundle') return this.openBundle(item, files);
+    return this.openReader(item, blocks, fileUrl);
   },
 
   fileKind(url) {
@@ -448,19 +498,48 @@ export default {
     return svgs[kind] || svgs.file;
   },
 
-  openReader(item) {
-    const kind = this.fileKind(item.file_url);
+  // Publication blocks reuse the hub reader's .read-block-* classes, so a
+  // library publication looks like a gliim.
+  renderBlock(b) {
+    const value = b && b.content != null ? String(b.content) : '';
+    if (!value.trim()) return '';
+
+    if (b.type === 'image') return `<img src="${escapeHtml(value)}" class="read-block-media">`;
+    if (b.type === 'video') return `<video src="${escapeHtml(value)}" class="read-block-media" controls></video>`;
+    if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><audio src="${escapeHtml(value)}" class="read-block-audio" controls></audio></div>`;
+    if (b.type === 'file') {
+      return `<a class="lib-article-file" href="${escapeHtml(value)}" target="_blank" rel="noopener">${this.fileIcon(this.fileKind(value))}<span>Open document</span></a>`;
+    }
+
+    const text = escapeHtml(value);
+    if (b.type === 'text' && b.style === 'title') return `<h2 class="read-block-title">${text}</h2>`;
+    if (b.type === 'text' && b.style === 'subtitle') return `<h3 class="read-block-subtitle">${text}</h3>`;
+    if (b.type === 'text' && b.style === 'list') {
+      const items = text.split('\n')
+        .map(line => line.replace(/^[-*\u2022]\s*/, '').trim())
+        .filter(Boolean)
+        .map(line => `<div class="read-block-list-item">${line}</div>`)
+        .join('');
+      return `<div class="read-block-list">${items}</div>`;
+    }
+    return `<p class="read-block-text">${text.replace(/\n/g, '<br>')}</p>`;
+  },
+
+  openReader(item, blocks, fileUrl) {
+    const kind = this.fileKind(fileUrl);
     let contentHtml;
-    if (!item.file_url) {
+    if (blocks && blocks.length) {
+      contentHtml = `<div class="lib-article">${blocks.map(b => this.renderBlock(b)).join('')}</div>`;
+    } else if (!fileUrl) {
       contentHtml = '<p class="lib-reader-empty">The author hasn\'t attached a file to this publication yet.</p>';
     } else if (kind === 'image') {
-      contentHtml = `<img class="lib-reader-image" src="${item.file_url}" alt="${item.title}">`;
+      contentHtml = `<img class="lib-reader-image" src="${escapeHtml(fileUrl)}" alt="${escapeHtml(item.title)}">`;
     } else if (kind === 'pdf') {
-      contentHtml = `<iframe class="lib-reader-frame" src="${item.file_url}" title="${item.title}"></iframe>`;
+      contentHtml = `<iframe class="lib-reader-frame" src="${escapeHtml(fileUrl)}" title="${escapeHtml(item.title)}"></iframe>`;
     } else if (kind === 'video') {
-      contentHtml = `<video class="lib-reader-video" src="${item.file_url}" controls></video>`;
+      contentHtml = `<video class="lib-reader-video" src="${escapeHtml(fileUrl)}" controls></video>`;
     } else {
-      contentHtml = `<a class="btn-primary lib-reader-download" href="${item.file_url}" target="_blank" rel="noopener">Open file</a>`;
+      contentHtml = `<a class="btn-primary lib-reader-download" href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener">Open file</a>`;
     }
 
     const modal = document.createElement('div');
@@ -468,12 +547,12 @@ export default {
     modal.innerHTML = `
       <div class="modal-content lib-modal-content lib-reader-modal">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        ${item.cover_url ? `<img class="lib-reader-cover" src="${item.cover_url}" alt="">` : ''}
+        ${item.cover_url ? `<img class="lib-reader-cover" src="${escapeHtml(item.cover_url)}" alt="">` : ''}
         <div class="lib-modal-body">
-          <span class="lib-modal-type">${item.type}</span>
-          <h2>${item.title}</h2>
-          <p class="lib-modal-author">by ${this.displayAuthorName(item)}</p>
-          <p class="lib-modal-desc">${item.description}</p>
+          <span class="lib-modal-type">${escapeHtml(item.type)}</span>
+          <h2>${escapeHtml(item.title)}</h2>
+          <p class="lib-modal-author">by ${escapeHtml(this.displayAuthorName(item))}</p>
+          <p class="lib-modal-desc">${escapeHtml(item.description)}</p>
           <hr class="lib-reader-divider">
           ${contentHtml}
         </div>
@@ -482,7 +561,7 @@ export default {
     document.body.appendChild(modal);
   },
 
-  openAudiolite(item) {
+  openAudiolite(item, audioUrl) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -497,22 +576,22 @@ export default {
         <div class="lib-eq" id="lib-eq"><span></span><span></span><span></span><span></span><span></span></div>
 
         <div class="lib-audio-player">
-          <button class="lib-audio-play" id="lib-audio-play" ${item.file_url ? '' : 'disabled'}>
+          <button class="lib-audio-play" id="lib-audio-play" ${audioUrl ? '' : 'disabled'}>
             <svg id="lib-audio-play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
           </button>
           <div class="lib-audio-timeline">
             <span id="lib-audio-cur">0:00</span>
-            <input type="range" id="lib-audio-seek" min="0" max="1000" value="0" ${item.file_url ? '' : 'disabled'}>
+            <input type="range" id="lib-audio-seek" min="0" max="1000" value="0" ${audioUrl ? '' : 'disabled'}>
             <span id="lib-audio-dur">0:00</span>
           </div>
           <button class="lib-audio-speed" id="lib-audio-speed">1x</button>
         </div>
-        ${item.file_url ? '' : '<p class="lib-reader-empty" style="margin-top: 16px;">No audio file attached yet.</p>'}
-        <audio id="lib-audio" src="${item.file_url || ''}" preload="metadata"></audio>
+        ${audioUrl ? '' : '<p class="lib-reader-empty" style="margin-top: 16px;">No audio file attached yet.</p>'}
+        <audio id="lib-audio" src="${escapeHtml(audioUrl || '')}" preload="metadata"></audio>
       </div>
     `;
     document.body.appendChild(modal);
-    if (!item.file_url) return;
+    if (!audioUrl) return;
 
     const audio = document.getElementById('lib-audio');
     const playBtn = document.getElementById('lib-audio-play');
@@ -546,23 +625,21 @@ export default {
     });
   },
 
-  openBundle(item) {
-    let files = [];
-    if (Array.isArray(item.bundle_items) && item.bundle_items.length) {
-      files = item.bundle_items;
-    } else if (item.file_url) {
-      files = [{ title: decodeURIComponent(item.file_url.split('/').pop().split('?')[0]) || 'Bundle file', url: item.file_url }];
-    }
+  openBundle(item, files) {
+    const list = (Array.isArray(files) ? files : []).filter(f => f && f.url);
 
-    const rows = files.map(f => `
+    const rows = list.map(f => {
+      const title = (f.title && String(f.title).trim()) || fileNameFromUrl(f.url) || 'File';
+      return `
       <div class="lib-file-row">
         <span class="lib-file-icon">${this.fileIcon(this.fileKind(f.url))}</span>
-        <span class="lib-file-name">${f.title || 'File'}</span>
-        <a class="lib-file-download" href="${f.url}" download target="_blank" rel="noopener" title="Download">
+        <span class="lib-file-name">${escapeHtml(title)}</span>
+        <a class="lib-file-download" href="${escapeHtml(f.url)}" download target="_blank" rel="noopener" title="Download">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
         </a>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -572,10 +649,10 @@ export default {
         <div class="lib-folder">
           <div class="lib-folder-tab"></div>
           <div class="lib-folder-body">
-            <span class="lib-modal-type">${item.type}</span>
-            <h2>${item.title}</h2>
-            <p class="lib-modal-author">${files.length} file${files.length === 1 ? '' : 's'} · by ${this.displayAuthorName(item)}</p>
-            <p class="lib-modal-desc">${item.description}</p>
+            <span class="lib-modal-type">${escapeHtml(item.type)}</span>
+            <h2>${escapeHtml(item.title)}</h2>
+            <p class="lib-modal-author">${list.length} file${list.length === 1 ? '' : 's'} · by ${escapeHtml(this.displayAuthorName(item))}</p>
+            <p class="lib-modal-desc">${escapeHtml(item.description)}</p>
             <div class="lib-folder-files">${rows || '<p class="lib-reader-empty">No files attached to this bundle yet.</p>'}</div>
           </div>
         </div>
@@ -719,8 +796,8 @@ export default {
           </div>
 
           <div class="form-group">
-            <label>Content File (optional)</label>
-            <input type="file" id="lib-sub-file" class="input">
+            <label>Content</label>
+            <div id="lib-sub-content"></div>
           </div>
 
           <button class="btn-primary" style="width: 100%; margin-top: 16px;" id="lib-submit-publication-btn">Submit for Review</button>
@@ -729,7 +806,203 @@ export default {
     `;
     document.body.appendChild(modal);
 
+    const typeSelect = document.getElementById('lib-sub-type');
+    typeSelect.addEventListener('change', (e) => this.renderComposerBody(e.target.value));
+    this.renderComposerBody(typeSelect.value);
+
     document.getElementById('lib-submit-publication-btn').addEventListener('click', () => this.submitForPublication(modal));
+  },
+
+  // Each format gets its own composer: publications are built from blocks,
+  // audiolites are a single audio file, bundles are a list of titled files.
+  renderComposerBody(type) {
+    const host = document.getElementById('lib-sub-content');
+    if (!host) return;
+
+    if (type === 'audiolite') {
+      host.innerHTML = `
+        <p class="lib-composer-hint">One audio file. Listeners play it inside the app.</p>
+        <div class="builder-block" id="lib-audio-slot">${this.uploadMarkup('Choose audio', 'audio/*')}</div>
+      `;
+      this.wireFileUpload(document.getElementById('lib-audio-slot'), { accept: 'audio/*', kind: 'library' });
+      return;
+    }
+
+    if (type === 'bundle') {
+      host.innerHTML = `
+        <p class="lib-composer-hint">Add every file in the bundle. Readers download them one at a time.</p>
+        <div id="lib-bundle-rows" style="display: flex; flex-direction: column; gap: 16px;"></div>
+        <div class="builder-add-dropdown">
+          <button class="btn-secondary" id="lib-bundle-add" type="button">+ Add File</button>
+        </div>
+      `;
+      document.getElementById('lib-bundle-add').addEventListener('click', () => this.addBundleRow());
+      this.addBundleRow();
+      return;
+    }
+
+    host.innerHTML = `
+      <p class="lib-composer-hint">Build it the way readers should see it — text, images, video or audio, in any order.</p>
+      <div id="lib-blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
+      <div class="builder-add-dropdown">
+        <button class="btn-secondary" id="lib-block-trigger" type="button">+ Add Block</button>
+        <div class="dropdown-menu" id="lib-block-menu">
+          <div data-block="text">${BLOCK_ICONS.text} Text</div>
+          <div data-block="image">${BLOCK_ICONS.image} Image</div>
+          <div data-block="video">${BLOCK_ICONS.video} Video</div>
+          <div data-block="audio">${BLOCK_ICONS.audio} Audio</div>
+          <div data-block="file">${BLOCK_ICONS.file} Document</div>
+        </div>
+      </div>
+    `;
+    document.getElementById('lib-block-trigger').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('lib-block-menu').classList.toggle('active');
+    });
+    document.getElementById('lib-block-menu').querySelectorAll('[data-block]').forEach((el) => {
+      el.addEventListener('click', () => this.addLibBlock(el.dataset.block));
+    });
+    this.addLibBlock('text');
+  },
+
+  uploadMarkup(label, accept) {
+    return `
+      <label class="custom-file-upload">
+        <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+        <span class="block-file-name">${label}</span>
+        <input type="file" class="block-file-input" accept="${accept}" hidden>
+      </label>
+      <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
+      <div class="block-preview"></div>
+      <input type="hidden" class="block-content-input">
+    `;
+  },
+
+  // One upload path for every file slot: the chosen name shows on the label,
+  // the bytes go up through uploadFile(), and the public URL lands in the
+  // hidden .block-content-input that collectComposer() reads back.
+  wireFileUpload(root, { accept, kind, onDone }) {
+    const input = root.querySelector('.block-file-input');
+    const nameEl = root.querySelector('.block-file-name');
+    const statusEl = root.querySelector('.upload-status');
+    const hidden = root.querySelector('.block-content-input');
+    const preview = root.querySelector('.block-preview');
+    if (accept) input.accept = accept;
+
+    input.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      nameEl.innerText = file.name;
+      statusEl.innerText = 'Uploading...';
+      statusEl.style.color = 'var(--brand-primary)';
+      try {
+        const url = await uploadFile(file, kind);
+        hidden.value = url;
+        statusEl.innerText = 'Upload complete!';
+        statusEl.style.color = 'var(--success)';
+        if (preview) {
+          preview.innerHTML = /^image\//.test(file.type)
+            ? `<img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`
+            : '<div style="background: var(--bg-tertiary); padding: 8px; border-radius: 8px; margin-top: 8px; font-size: 12px;">File ready</div>';
+        }
+        if (onDone) onDone(url, file);
+      } catch (err) {
+        hidden.value = '';
+        if (preview) preview.innerHTML = '';
+        statusEl.innerText = err.message || 'Upload failed.';
+        statusEl.style.color = 'var(--error)';
+      }
+    });
+  },
+
+  addLibBlock(type) {
+    document.getElementById('lib-block-menu')?.classList.remove('active');
+    const container = document.getElementById('lib-blocks-container');
+    if (!container) return;
+
+    const block = document.createElement('div');
+    block.className = 'builder-block';
+    block.dataset.type = type;
+    const head = `${BLOCK_HEAD}<span class="block-label">${BLOCK_ICONS[type] || BLOCK_ICONS.file}</span><button class="block-remove-btn" type="button">${REMOVE_ICON}</button></div>`;
+
+    if (type === 'text') {
+      block.innerHTML = `${head}
+        <select class="input block-style-select" style="margin-bottom: 8px;">
+          <option value="paragraph">Paragraph</option>
+          <option value="title">Title</option>
+          <option value="subtitle">Subtitle</option>
+          <option value="list">List</option>
+        </select>
+        <textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
+    } else {
+      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : LIB_FILE_ACCEPT;
+      const label = type === 'file' ? 'Choose document' : `Choose ${type}`;
+      block.innerHTML = `${head}${this.uploadMarkup(label, accept)}`;
+    }
+
+    container.appendChild(block);
+    block.querySelector('.block-remove-btn').addEventListener('click', () => block.remove());
+    if (type !== 'text') this.wireFileUpload(block, { kind: 'library' });
+  },
+
+  addBundleRow() {
+    const container = document.getElementById('lib-bundle-rows');
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'builder-block lib-bundle-row';
+    row.innerHTML = `
+      ${BLOCK_HEAD}<span class="block-label">${BLOCK_ICONS.file}</span><button class="block-remove-btn" type="button">${REMOVE_ICON}</button></div>
+      <input type="text" class="input lib-bundle-title" placeholder="What readers will see (e.g. Chapter 1 PDF)" style="margin-bottom: 8px;">
+      ${this.uploadMarkup('Choose file', LIB_FILE_ACCEPT)}
+    `;
+    container.appendChild(row);
+
+    row.querySelector('.block-remove-btn').addEventListener('click', () => row.remove());
+    this.wireFileUpload(row, {
+      kind: 'library',
+      onDone: (url, file) => {
+        const titleEl = row.querySelector('.lib-bundle-title');
+        if (!titleEl.value.trim()) titleEl.value = file.name.replace(/\.[^.]+$/, '');
+      }
+    });
+  },
+
+  // Reads the composer back out. Returns { error } when the format has nothing
+  // worth submitting, otherwise { blocks, files, fileUrl }.
+  collectComposer(type) {
+    const blocks = [];
+    const files = [];
+    let fileUrl = null;
+
+    if (type === 'publication') {
+      document.querySelectorAll('#lib-blocks-container .builder-block').forEach((b) => {
+        const kind = b.dataset.type;
+        const input = b.querySelector('.block-content-input');
+        if (!input || !input.value.trim()) return;
+        if (kind === 'text') {
+          blocks.push({ type: 'text', style: b.querySelector('.block-style-select').value, content: input.value.trim() });
+        } else {
+          blocks.push({ type: kind, content: input.value.trim() });
+        }
+      });
+      if (!blocks.length) return { error: 'Add at least one content block.' };
+    } else if (type === 'audiolite') {
+      const input = document.querySelector('#lib-audio-slot .block-content-input');
+      fileUrl = input ? input.value : '';
+      if (!fileUrl) return { error: 'Attach the audio file for this audiolite.' };
+    } else {
+      document.querySelectorAll('#lib-bundle-rows .lib-bundle-row').forEach((row) => {
+        const input = row.querySelector('.block-content-input');
+        if (!input || !input.value) return;
+        const named = row.querySelector('.lib-bundle-title').value.trim()
+          || row.querySelector('.block-file-name').innerText.trim();
+        files.push({ title: named || 'File', url: input.value });
+      });
+      if (!files.length) return { error: 'Add at least one file to the bundle.' };
+    }
+
+    return { blocks, files, fileUrl };
   },
 
   async submitForPublication(modal) {
@@ -741,21 +1014,23 @@ export default {
     if (!title) return alert("Title is required.");
     if (!description) return alert("Please add a short description.");
 
+    const composer = this.collectComposer(type);
+    if (composer.error) return alert(composer.error);
+
     const btn = document.getElementById('lib-submit-publication-btn');
+    const reset = () => { btn.disabled = false; btn.innerText = 'Submit for Review'; };
     btn.disabled = true;
     btn.innerText = 'Submitting...';
 
-    const uploadTo = async (file) => {
-      if (!file) return null;
-      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const fileName = `${store.user.id}/submissions/${Date.now()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file, { cacheControl: '3600', upsert: false });
-      if (uploadError) return null;
-      return supabase.storage.from('media').getPublicUrl(fileName).data.publicUrl;
-    };
-
-    const coverUrl = await uploadTo(document.getElementById('lib-sub-cover').files[0]);
-    const fileUrl = await uploadTo(document.getElementById('lib-sub-file').files[0]);
+    let coverUrl = null;
+    try {
+      const coverFile = document.getElementById('lib-sub-cover').files[0];
+      coverUrl = coverFile ? await uploadFile(coverFile, 'library') : null;
+    } catch (e) {
+      alert(e.message || 'Upload failed. Please try again.');
+      reset();
+      return;
+    }
 
     const { error } = await supabase.from('library_submissions').insert({
       user_id: store.user.id,
@@ -764,19 +1039,21 @@ export default {
       description,
       price,
       cover_url: coverUrl,
-      file_url: fileUrl,
+      file_url: composer.fileUrl,
+      blocks: composer.blocks,
+      bundle_items: composer.files,
       status: 'pending'
     });
 
     if (error) {
-      // Table not provisioned yet (SQL pending): fail softly
-      if (error.code === '42P01' || error.code === 'PGRST205') {
+      // 42P01/42703/PGRST2xx = the submissions table or its new columns are
+      // not in the database yet (sql/library_content.sql not run).
+      if (error.code === '42P01' || error.code === '42703' || /^PGRST2/.test(error.code)) {
         alert("Library submissions are not enabled yet. Please try again later.");
       } else {
         alert("Submission failed: " + error.message);
       }
-      btn.disabled = false;
-      btn.innerText = 'Submit for Review';
+      reset();
       return;
     }
 

@@ -337,7 +337,7 @@ export default {
             ${check('Full platform access')}
             ${check('Pay per open, straight from wallet')}
             ${check('Buy library items one at a time')}
-            ${check('Live sessions need a subscription')}
+            ${check('No monthly bill')}
           </ul>
           ${walletBtn}
         </div>
@@ -610,7 +610,12 @@ export default {
   // ============================================
   async activatePlan(planId) {
     if (planId === 'wallet') {
-      const ok = await appConfirm("Switch to Pay n' Go?\n\nNo subscription fee — every open is charged straight from your wallet balance. Live sessions and monthly billing need Use n' Pay or Pro.", { okText: 'Switch' });
+      // Leaving Use n' Pay settles whatever this month accrued, right now.
+      const accrued = Number((this.summary && this.summary.open_cycle && this.summary.open_cycle.total) || 0);
+      const settleLine = accrued > 0
+        ? `\n\nYou've used ₦${accrued.toLocaleString()} this month — switching settles that from your wallet balance immediately.`
+        : '';
+      const ok = await appConfirm("Switch to Pay n' Go?\n\nNo subscription fee — every open is charged straight from your wallet balance. Live sessions and monthly billing need Use n' Pay or Pro." + settleLine, { okText: 'Switch' });
       if (!ok) return;
 
       const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'wallet' });
@@ -620,10 +625,25 @@ export default {
           await appAlert("You have an unpaid bill from your last Use n' Pay month. Settle it first — tap Pay Bill above.");
           return;
         }
+        if (data.code === 'INSUFFICIENT_FUNDS') {
+          // Leaving Use n' Pay settles this month's usage from the wallet first.
+          const owed = Number(data.price || 0);
+          const short = Math.max(0, owed - Number(data.balance || 0));
+          await appAlert(`You've used ₦${owed.toLocaleString()} this month on Use n' Pay — switching settles it from your wallet, and you need ₦${short.toLocaleString()} more. Top up, or stay on Use n' Pay until month's end.`);
+          this.openTopUpModal();
+          return;
+        }
+        if (data.code === 'PRO_ACTIVE') {
+          await appAlert("Pro is still active. Switching now would waste the year you paid for.");
+          return;
+        }
         return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not switch plans right now.");
       }
 
-      await appAlert("You're on Pay n' Go — usage is charged from your wallet as you go.");
+      const settled = Number(data && data.settled || 0);
+      await appAlert(settled > 0
+        ? `You're on Pay n' Go. This month's ₦${settled.toLocaleString()} of Use n' Pay usage was settled from your wallet.`
+        : "You're on Pay n' Go — usage is charged from your wallet as you go.");
       await this.fetchData();
       this.render();
       return;
