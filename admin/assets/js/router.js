@@ -7,10 +7,15 @@ const routes = {
   '/submissions': { role: 'crm', title: 'Library Submissions', load: () => import('./views/submissions.js').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs & Legal', load: () => import('./views/content.js').then(m => m.default) },
+  '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js').then(m => m.default) },
+  '/ledger': { role: 'registrar', title: 'Ledger', load: () => import('./views/ledger.js').then(m => m.default) },
+  '/members': { role: 'registrar', title: 'Members', load: () => import('./views/members.js').then(m => m.default) },
+  '/bills': { role: 'registrar', title: 'Bills', load: () => import('./views/bills.js').then(m => m.default) },
+  '/revenue': { role: 'registrar', title: 'Revenue & Pricing', load: () => import('./views/revenue.js').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/submissions', '/reports', '/content', '/admins'];
+const order = ['/submissions', '/reports', '/content', '/finance', '/ledger', '/members', '/bills', '/revenue', '/admins'];
 
 export function firstRoute() {
   return order.find(path => store.can(routes[path].role)) || '/submissions';
