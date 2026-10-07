@@ -125,6 +125,7 @@ const RPC_ERRORS = {
   NO_USER: 'That member account does not exist.',
   NO_AUTHOR_PROFILE: 'The submitter no longer has a profile, so the item cannot be attributed.',
   LAST_SUPER: 'There has to be at least one super admin.',
+  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql and registrar.sql.',
   SCHEMA_MISMATCH: 'The database shape does not match what this build expects. Send the developer the detail below.'
 };
 

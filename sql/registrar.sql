@@ -32,8 +32,10 @@
 --   The SELF CHECK prints the real column lists — paste them back if a
 --   screen ever says the shape does not match.
 --
--- RUN ORDER: after sql/all.sql, sql/billing.sql and sql/admin.sql.
---            (sql/library_content.sql too, if you want library revenue.)
+-- RUN ORDER: after the CURRENT sql/all.sql (re-run it — payment_attempts
+--            only arrived in §19, so an older copy leaves the Funding tab
+--            reporting MISSING_TABLE), then sql/billing.sql, then
+--            sql/admin.sql. sql/library_content.sql too, for library revenue.
 -- ============================================================
 
 select pg_advisory_xact_lock(hashtext('gliimu-registrar'));
@@ -117,6 +119,14 @@ begin
   end if;
   if not public.admin_has_role(uid, 'registrar') then
     return jsonb_build_object('ok', false, 'code', 'NOT_REGISTRAR');
+  end if;
+
+  -- The billing tables come from sql/billing.sql; without them there is no
+  -- finance page to render at all, so say which script to run.
+  if to_regclass('public.billing_cycles') is null
+     or to_regclass('public.billing_events') is null then
+    return jsonb_build_object('ok', false, 'code', 'MISSING_TABLE',
+                              'where', 'billing_cycles / billing_events');
   end if;
 
   select jsonb_build_object(
@@ -214,14 +224,19 @@ begin
     into v_subscriptions
     from public.billing_events be;
 
-  begin
-    select jsonb_build_object('total', count(*),
-                              'last_7_days', count(*) filter (where pa.created_at >= now() - interval '7 days'))
-      into v_attempts
-      from public.payment_attempts pa;
-  exception when others then
-    v_attempts := jsonb_build_object('total', null, 'last_7_days', null, 'detail', SQLERRM);
-  end;
+  if to_regclass('public.payment_attempts') is null then
+    v_attempts := jsonb_build_object('total', null, 'last_7_days', null,
+                                     'detail', 'public.payment_attempts does not exist yet — re-run sql/all.sql.');
+  else
+    begin
+      select jsonb_build_object('total', count(*),
+                                'last_7_days', count(*) filter (where pa.created_at >= now() - interval '7 days'))
+        into v_attempts
+        from public.payment_attempts pa;
+    exception when others then
+      v_attempts := jsonb_build_object('total', null, 'last_7_days', null, 'detail', SQLERRM);
+    end;
+  end if;
 
   return jsonb_build_object(
     'ok', true,
@@ -498,6 +513,10 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_REGISTRAR');
   end if;
 
+  if to_regclass('public.billing_cycles') is null then
+    return jsonb_build_object('ok', false, 'code', 'MISSING_TABLE', 'where', 'billing_cycles');
+  end if;
+
   select count(*) into v_total
     from public.billing_cycles c
    where p_status is null or c.status = p_status;
@@ -556,6 +575,10 @@ begin
   end if;
   if not public.admin_has_role(uid, 'registrar') then
     return jsonb_build_object('ok', false, 'code', 'NOT_REGISTRAR');
+  end if;
+
+  if to_regclass('public.billing_events') is null then
+    return jsonb_build_object('ok', false, 'code', 'MISSING_TABLE', 'where', 'billing_events');
   end if;
 
   begin
@@ -646,6 +669,14 @@ begin
   end if;
   if not public.admin_has_role(uid, 'registrar') then
     return jsonb_build_object('ok', false, 'code', 'NOT_REGISTRAR');
+  end if;
+
+  -- payment_attempts is created by sql/all.sql §19. An older copy of that
+  -- script predates it, so say which script to re-run rather than blaming
+  -- the column layout.
+  if to_regclass('public.payment_attempts') is null then
+    return jsonb_build_object('ok', false, 'code', 'MISSING_TABLE',
+                              'where', 'payment_attempts');
   end if;
 
   begin
