@@ -4,20 +4,6 @@ import { uploadFile } from '../upload.js';
 
 const APP_VERSION_KEY = 'gliimu_app_version';
 
-function escapeHtml(value) {
-  return String(value == null ? '' : value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function safeUrl(value) {
-  const raw = String(value == null ? '' : value).trim();
-  return /^https?:\/\//i.test(raw) || /^\/[^/]/.test(raw) ? raw : '';
-}
-
 function parseVersion(v) {
   return String(v || '0').split('.').map(n => parseInt(n, 10) || 0);
 }
@@ -128,9 +114,6 @@ export default {
         <button type="button" id="logout-btn" class="btn-secondary">Log Out</button>
       </div>
 
-      <!-- Admin tools (injected for admins only) -->
-      <div id="admin-slot"></div>
-
     </div>
   `,
   async init() {
@@ -142,9 +125,6 @@ export default {
 
     // Sync theme icons when the view loads
     if (typeof updateThemeIcon === 'function') updateThemeIcon();
-
-    // Admin-only tools: partner wall and app release
-    if (store.profile && store.profile.is_admin) this.initAdmin();
 
     // App Updates
     document.getElementById('check-update-btn').addEventListener('click', () => this.checkForUpdates(true));
@@ -233,230 +213,6 @@ export default {
 
     // Handle Logout
     document.getElementById('logout-btn').addEventListener('click', () => store.signOut());
-  },
-
-  // ============================================
-  // ADMIN — LANDING PAGE CONTENT
-  // ============================================
-  async initAdmin() {
-    const slot = document.getElementById('admin-slot');
-    if (!slot) return;
-
-    slot.innerHTML = `
-      <div class="card settings-card">
-        <h2>Partner Wall</h2>
-        <p class="setting-desc" style="margin-bottom: 16px;">Logos shown in the "Trusted By" section of the landing page. Lower order numbers come first.</p>
-        <div id="admin-partner-list" class="admin-list"><p class="setting-desc">Loading…</p></div>
-        <form id="admin-partner-form" style="margin-top: 24px;">
-          <div class="form-row">
-            <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>Partner Name</label>
-              <input type="text" id="admin-partner-name" class="input" placeholder="e.g. Northwind Studios" required>
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label>Logo</label>
-              <input type="file" id="admin-partner-logo" class="input" accept="image/*" required>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary">Add Partner</button>
-        </form>
-      </div>
-
-      <div class="card settings-card">
-        <h2>App Release</h2>
-        <p class="setting-desc" style="margin-bottom: 16px;">Powers the "Take Gliimu Everywhere" section on the landing page.</p>
-        <form id="admin-release-form">
-          <div class="form-row">
-            <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>Latest Version</label>
-              <input type="text" id="admin-app-version" class="input" placeholder="1.2.0">
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label>Version Notes</label>
-              <input type="text" id="admin-app-notes" class="input" placeholder="What changed in this release?">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Download Section Background Image</label>
-            <input type="file" id="admin-app-bg" class="input" accept="image/*">
-            <span class="setting-desc" id="admin-app-bg-current">No image set.</span>
-          </div>
-          <div class="form-row">
-            <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>Windows Download URL</label>
-              <input type="url" id="admin-app-windows" class="input" placeholder="https://">
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label>macOS Download URL</label>
-              <input type="url" id="admin-app-mac" class="input" placeholder="https://">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>Linux Download URL</label>
-              <input type="url" id="admin-app-linux" class="input" placeholder="https://">
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label>Android Download URL</label>
-              <input type="url" id="admin-app-android" class="input" placeholder="https://">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>iOS Download URL</label>
-              <input type="url" id="admin-app-ios" class="input" placeholder="https://">
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label>Mobile QR Link (optional)</label>
-              <input type="url" id="admin-app-qr" class="input" placeholder="Defaults to the Android link">
-            </div>
-          </div>
-          <button type="submit" class="btn-primary" id="admin-release-save">Save Release</button>
-        </form>
-      </div>
-    `;
-
-    document.getElementById('admin-partner-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.addPartner();
-    });
-    document.getElementById('admin-release-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.saveRelease();
-    });
-
-    await this.renderPartnerList();
-    await this.loadRelease();
-  },
-
-  async renderPartnerList() {
-    const list = document.getElementById('admin-partner-list');
-    if (!list) return;
-
-    const { data, error } = await supabase
-      .from('partners')
-      .select('*')
-      .order('display_order', { ascending: true })
-      .order('name', { ascending: true });
-
-    if (error) {
-      list.innerHTML = `<p class="setting-desc">Could not load partners: ${escapeHtml(error.message)}</p>`;
-      return;
-    }
-    if (!data || data.length === 0) {
-      list.innerHTML = '<p class="setting-desc">No partners yet. Add the first logo below.</p>';
-      return;
-    }
-
-    list.innerHTML = data.map(p => {
-      const logo = safeUrl(p.logo_url);
-      return `
-        <div class="admin-row">
-          ${logo
-            ? `<img src="${escapeHtml(logo)}" class="admin-logo" alt="">`
-            : `<div class="admin-logo admin-logo-fallback">${escapeHtml((p.name || '?').charAt(0).toUpperCase())}</div>`}
-          <span class="admin-row-name">${escapeHtml(p.name || 'Untitled')}</span>
-          <input type="number" class="input admin-order" value="${Number(p.display_order) || 0}" title="Display order" onchange="settingsInstance.savePartnerOrder('${p.id}', this.value)">
-          <button type="button" class="btn-secondary btn-sm" onclick="settingsInstance.deletePartner('${p.id}')">Delete</button>
-        </div>
-      `;
-    }).join('');
-  },
-
-  async addPartner() {
-    const name = document.getElementById('admin-partner-name').value.trim();
-    const file = document.getElementById('admin-partner-logo').files[0];
-    if (!name || !file) return alert("Please enter a name and choose a logo.");
-
-    let logoUrl;
-    try {
-      logoUrl = await uploadFile(file, 'site');
-    } catch (err) {
-      return alert("Logo upload failed: " + (err.message || err));
-    }
-
-    const { data: rows } = await supabase.from('partners').select('display_order');
-    const nextOrder = (rows || []).reduce((max, r) => Math.max(max, Number(r.display_order) || 0), 0) + 1;
-
-    const { error } = await supabase.from('partners').insert({ name, logo_url: logoUrl, display_order: nextOrder });
-    if (error) return alert("Error: " + error.message);
-
-    document.getElementById('admin-partner-form').reset();
-    await this.renderPartnerList();
-  },
-
-  async deletePartner(id) {
-    if (!await appConfirm("Remove this partner from the landing page?", { okText: 'Delete', danger: true })) return;
-    const { error } = await supabase.from('partners').delete().eq('id', id);
-    if (error) return alert("Error: " + error.message);
-    await this.renderPartnerList();
-  },
-
-  async savePartnerOrder(id, value) {
-    const order = parseInt(value, 10) || 0;
-    const { error } = await supabase.from('partners').update({ display_order: order }).eq('id', id);
-    if (error) alert("Error: " + error.message);
-    else await this.renderPartnerList();
-  },
-
-  async loadRelease() {
-    const { data } = await supabase.from('site_settings').select('*').single();
-    if (!data) return;
-    this.siteSettingsId = data.id;
-
-    const set = (id, value) => {
-      const el = document.getElementById(id);
-      if (el) el.value = value || '';
-    };
-    set('admin-app-version', data.app_version);
-    set('admin-app-notes', data.app_version_notes);
-    set('admin-app-windows', data.app_windows_url);
-    set('admin-app-mac', data.app_mac_url);
-    set('admin-app-linux', data.app_linux_url);
-    set('admin-app-android', data.app_android_url);
-    set('admin-app-ios', data.app_ios_url);
-    set('admin-app-qr', data.app_mobile_qr_url);
-
-    const bg = document.getElementById('admin-app-bg-current');
-    if (bg) bg.innerText = data.app_download_bg_url
-      ? 'A background image is set. Choose a file to replace it.'
-      : 'No background image set.';
-  },
-
-  async saveRelease() {
-    const btn = document.getElementById('admin-release-save');
-    const updates = {
-      app_version: document.getElementById('admin-app-version').value.trim(),
-      app_version_notes: document.getElementById('admin-app-notes').value.trim(),
-      app_windows_url: document.getElementById('admin-app-windows').value.trim(),
-      app_mac_url: document.getElementById('admin-app-mac').value.trim(),
-      app_linux_url: document.getElementById('admin-app-linux').value.trim(),
-      app_android_url: document.getElementById('admin-app-android').value.trim(),
-      app_ios_url: document.getElementById('admin-app-ios').value.trim(),
-      app_mobile_qr_url: document.getElementById('admin-app-qr').value.trim()
-    };
-
-    const bgFile = document.getElementById('admin-app-bg').files[0];
-    if (btn) btn.disabled = true;
-
-    if (bgFile) {
-      try {
-        updates.app_download_bg_url = await uploadFile(bgFile, 'site');
-      } catch (err) {
-        if (btn) btn.disabled = false;
-        return alert("Upload failed: " + (err.message || err));
-      }
-    }
-
-    const { error } = await supabase.from('site_settings').update(updates).eq('id', this.siteSettingsId || 1);
-    if (btn) btn.disabled = false;
-    if (error) return alert("Error: " + error.message);
-
-    // Keep the "App Updates" card in sync with the version we just published.
-    if (updates.app_version) localStorage.setItem(APP_VERSION_KEY, updates.app_version);
-    await alert("Release settings saved. The landing page updates immediately.");
-    document.getElementById('admin-app-bg').value = '';
-    await this.loadRelease();
   },
 
   async checkForUpdates(manual) {

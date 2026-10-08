@@ -109,9 +109,15 @@ const RPC_ERRORS = {
   NOT_SUPER: 'Only a super admin can do that.',
   NOT_REGISTRAR: 'Only registrar admins can do that.',
   NOT_CAPTAIN: 'Only captains and instructors can do that.',
+  NOT_OPERATIONS: 'Only operations admins can do that.',
   NOT_FOUND: 'That record no longer exists.',
   NOT_YOURS: 'That triad belongs to another captain.',
-  BAD_NAME: 'Triad names run from 3 to 40 characters.',
+  BAD_NAME: 'That name is not allowed.',
+  BAD_URL: 'That link is not allowed.',
+  BAD_ORDER: 'That position is not allowed.',
+  VERSION_TOO_LONG: 'That version label is too long.',
+  NOTES_TOO_LONG: 'Those release notes are too long.',
+  NO_SETTINGS_ROW: 'The site settings row is missing, so there is nothing to save against.',
   NAME_TAKEN: 'Another triad already uses that name.',
   TRIAD_FULL: 'A triad holds three apprentices. Free a seat or start a new triad.',
   ALREADY_PLACED: 'That apprentice is already in a triad.',
@@ -139,7 +145,7 @@ const RPC_ERRORS = {
   NO_USER: 'That member account does not exist.',
   NO_AUTHOR_PROFILE: 'The submitter no longer has a profile, so the item cannot be attributed.',
   LAST_SUPER: 'There has to be at least one super admin.',
-  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql, registrar.sql and captain.sql.',
+  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql, registrar.sql, captain.sql and operations.sql.',
   SCHEMA_MISMATCH: 'The database shape does not match what this build expects. Send the developer the detail below.'
 };
 

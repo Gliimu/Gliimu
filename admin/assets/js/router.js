@@ -13,10 +13,11 @@ const routes = {
   '/bills': { role: 'registrar', title: 'Bills', load: () => import('./views/bills.js').then(m => m.default) },
   '/revenue': { role: 'registrar', title: 'Revenue & Pricing', load: () => import('./views/revenue.js').then(m => m.default) },
   '/triads': { role: 'captain', title: 'Triads & Apprentices', load: () => import('./views/triads.js').then(m => m.default) },
+  '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/submissions', '/reports', '/content', '/finance', '/ledger', '/members', '/bills', '/revenue', '/triads', '/admins'];
+const order = ['/submissions', '/reports', '/content', '/finance', '/ledger', '/members', '/bills', '/revenue', '/triads', '/operations', '/admins'];
 
 export function firstRoute() {
   return order.find(path => store.can(routes[path].role)) || '/submissions';

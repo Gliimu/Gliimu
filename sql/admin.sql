@@ -7,11 +7,13 @@
 --   1. admin_users — who is an admin and which role they hold:
 --        super       everything, including managing other admins
 --        crm         library submissions, reports, FAQs, legal text
---                    (contact settings join once their column names are
---                     confirmed — the SELF CHECK prints them)
---        registrar   (reserved — finance screens come later)
---        captain     (reserved — instructors/apprentices come later)
---        operations  (reserved — landing page/partners come later)
+--                    (the contact_info table is CRM's too, but its screen
+--                     is not built yet)
+--        registrar   finance, ledger, members, bills, revenue and pricing
+--                    — see sql/registrar.sql
+--        captain     triads and apprentice progress — see sql/captain.sql
+--        operations  landing page media, the partner wall and the app
+--                    release — see sql/operations.sql
 --   2. Helpers: admin_role(), admin_has_role(), current_admin_role().
 --      'super' implies every other role, so a super admin passes any
 --      role check without being listed twice.
@@ -235,10 +237,11 @@ do $$ begin
   end if;
 end $$;
 
--- Contact details also live in site_settings, but that table mixes CRM's
--- contact columns with Operations' app-release columns, and RLS cannot
--- restrict by column. The CRM contact screen waits until the real column
--- names are confirmed — the SELF CHECK prints them.
+-- Contact details live in their own contact_info table (address, phone,
+-- email and the four social links — public/assets/js/main.js reads them),
+-- not in site_settings. A CRM screen for it needs no column-splitting
+-- trick; it simply has not been built yet. site_settings itself is
+-- Operations-only and is locked down by sql/operations.sql.
 
 
 -- ============================================================

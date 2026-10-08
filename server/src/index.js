@@ -363,7 +363,9 @@ const UPLOAD_KINDS = {
   library: { prefix: 'library/',          maxBytes: 500 * MB, types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
   chat:    { prefix: 'chat_attachments/', maxBytes: 25 * MB,  types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
   deal:    { prefix: 'deal_logos/',       maxBytes: 10 * MB,  types: allows(/^image\//) },
-  site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminOnly: true }
+  // Landing page media and partner logos. Gated on the admin app's role
+  // system, not the legacy profiles.is_admin flag; 'super' implies it.
+  site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' }
 };
 
 app.post('/api/upload/presign', async (req, res) => {
@@ -394,10 +396,14 @@ app.post('/api/upload/presign', async (req, res) => {
       return res.status(413).json({ error: `That file is over the ${Math.round(spec.maxBytes / MB)}MB limit.` });
     }
 
-    if (spec.adminOnly) {
-      const { data: profile } = await supabaseAdmin.from('profiles')
-        .select('is_admin').eq('id', userId).maybeSingle();
-      if (!profile || !profile.is_admin) return res.status(403).json({ error: 'Admins only.' });
+    if (spec.adminRole) {
+      // Fails closed: if admin_has_role() is missing or errors, the upload
+      // is refused rather than allowed.
+      const { data: allowed } = await supabaseAdmin.rpc('admin_has_role', {
+        p_user: userId,
+        p_role: spec.adminRole
+      });
+      if (allowed !== true) return res.status(403).json({ error: 'Admins only.' });
     }
 
     const safeName = String(filename || 'file').replace(/[^A-Za-z0-9._-]/g, '_').slice(-60) || 'file';

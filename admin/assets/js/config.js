@@ -6,3 +6,7 @@ export const SUPABASE_URL = 'https://vsgvscemqtqgolrindcx.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_5csTtIuipKucVlYncRGG0Q_VrokRdoD';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// The Express API on Render, used for the R2 upload presign. admin/ is its
+// own Vercel root, so it cannot import the member app's /shared/js/config.js.
+export const API_BASE_URL = 'https://gliimu-api.onrender.com';
