@@ -108,7 +108,19 @@ const RPC_ERRORS = {
   NOT_CRM: 'Only CRM admins can do that.',
   NOT_SUPER: 'Only a super admin can do that.',
   NOT_REGISTRAR: 'Only registrar admins can do that.',
+  NOT_CAPTAIN: 'Only captains and instructors can do that.',
   NOT_FOUND: 'That record no longer exists.',
+  NOT_YOURS: 'That triad belongs to another captain.',
+  BAD_NAME: 'Triad names run from 3 to 40 characters.',
+  NAME_TAKEN: 'Another triad already uses that name.',
+  TRIAD_FULL: 'A triad holds three apprentices. Free a seat or start a new triad.',
+  ALREADY_PLACED: 'That apprentice is already in a triad.',
+  NOT_IN_QUEUE: 'Only members with a pending apprenticeship request can be placed.',
+  NOT_A_MEMBER: 'That apprentice is not in this triad.',
+  BAD_PROGRESS: 'Pick placed, training, graduated or released.',
+  NOTE_TOO_LONG: 'Keep the note under 1000 characters.',
+  BAD_USER: 'Pick a member first.',
+  NO_SUCH_MEMBER: 'That member account does not exist.',
   ALREADY_REVIEWED: 'Someone has already reviewed this submission.',
   ALREADY_PAID: 'That bill is already settled.',
   NOTE_REQUIRED: 'A reason is required before rejecting.',
@@ -127,7 +139,7 @@ const RPC_ERRORS = {
   NO_USER: 'That member account does not exist.',
   NO_AUTHOR_PROFILE: 'The submitter no longer has a profile, so the item cannot be attributed.',
   LAST_SUPER: 'There has to be at least one super admin.',
-  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql and registrar.sql.',
+  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql, registrar.sql and captain.sql.',
   SCHEMA_MISMATCH: 'The database shape does not match what this build expects. Send the developer the detail below.'
 };
 

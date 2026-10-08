@@ -12,6 +12,10 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// Triads are captain-named, so the colour is positional — it just keeps the
+// three boxes visually distinct the way the original layout did.
+const TRIAD_COLORS = ['var(--brand-primary)', 'var(--success)', 'var(--warning)'];
+
 export default {
   title: 'Queue',
   template: `
@@ -29,6 +33,7 @@ export default {
     this.currentTab = params.get('tab') === 'deals' ? 'deals' : 'apprentice';
     this.queue = [];
     this.applicants = [];
+    this.triads = [];
     this.appFilter = 'general';
 
     // Deals are subscription-only: wallet blocked, trial/payngo capped,
@@ -117,14 +122,26 @@ export default {
       return;
     }
 
-    const { data: apps } = await supabase.from('applications').select('user_id, created_at, profiles:user_id(full_name, avatar_url, total_gp)').eq('type', 'apprentice').eq('status', 'pending');
+    const [appsRes, triadRes] = await Promise.all([
+      supabase.from('applications').select('user_id, created_at, profiles:user_id(full_name, avatar_url, total_gp)').eq('type', 'apprentice').eq('status', 'pending'),
+      supabase.rpc('public_triads')
+    ]);
 
-    this.applicants = (apps || []).map(a => ({
-      ...a,
-      gp: (a.profiles && a.profiles.total_gp) || 0,
-      name: (a.profiles && a.profiles.full_name) || 'Gliimait',
-      avatar: (a.profiles && a.profiles.avatar_url) || ''
-    })).sort((a, b) => b.gp - a.gp || new Date(a.created_at) - new Date(b.created_at));
+    const td = triadRes.data;
+    this.triads = (td && td.ok && Array.isArray(td.triads)) ? td.triads : [];
+
+    // Anyone a captain has already placed shows in their Triad, not in the
+    // list of people still waiting.
+    const placed = new Set(this.triads.flatMap(t => (t.members || []).map(m => m.user_id)));
+
+    this.applicants = ((appsRes.data) || [])
+      .filter(a => !placed.has(a.user_id))
+      .map(a => ({
+        ...a,
+        gp: (a.profiles && a.profiles.total_gp) || 0,
+        name: (a.profiles && a.profiles.full_name) || 'Gliimait',
+        avatar: (a.profiles && a.profiles.avatar_url) || ''
+      })).sort((a, b) => b.gp - a.gp || new Date(a.created_at) - new Date(b.created_at));
 
     const filterIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>';
 
@@ -199,42 +216,37 @@ export default {
   },
 
   renderTriads(view) {
-    const triads = [
-      { name: 'Team Dynamo', color: 'var(--brand-primary)', members: [] },
-      { name: 'Team Sentinel', color: 'var(--success)', members: [] },
-      { name: 'Team Ruminate', color: 'var(--warning)', members: [] }
-    ];
+    const triads = this.triads || [];
 
-    this.applicants.slice(0, 9).forEach((user, index) => {
-      triads[index % 3].members.push(user);
-    });
-
-    triads.forEach(t => {
-      t.members.sort((a, b) => b.gp - a.gp);
-      t.total = t.members.reduce((sum, m) => sum + m.gp, 0);
-    });
-    triads.sort((a, b) => b.total - a.total);
+    if (!triads.length) {
+      view.innerHTML = `
+        <div class="card">
+          <p class="text-muted">No Triads have been formed yet. Submit an apprenticeship request and a Captain will place you.</p>
+        </div>
+      `;
+      return;
+    }
 
     view.innerHTML = `
       <div class="triad-grid">
-        ${triads.map(t => `
+        ${triads.map((t, ti) => `
           <div class="triad-box">
             <div class="triad-head">
-              <span class="triad-name" style="color: ${t.color};">${t.name}</span>
-              <span class="triad-total">${t.total} GP</span>
+              <span class="triad-name" style="color: ${TRIAD_COLORS[ti % TRIAD_COLORS.length]};">${escapeHtml(t.name)}</span>
+              <span class="triad-total">${Number(t.total_gp || 0)} GP</span>
             </div>
             <div class="triad-members">
-              ${t.members.map((m, mi) => {
+              ${(t.members || []).map((m, mi) => {
                 const avatar = m.avatar
                   ? `<img src="${escapeHtml(m.avatar)}" class="triad-avatar" alt="">`
-                  : `<div class="triad-avatar triad-avatar-fallback">${escapeHtml(m.name.charAt(0).toUpperCase() || 'G')}</div>`;
+                  : `<div class="triad-avatar triad-avatar-fallback">${escapeHtml(String(m.name || 'G').charAt(0).toUpperCase())}</div>`;
                 return `
-                <div class="triad-member" title="View profile" onclick="reqInstance.viewProfile('${m.user_id}')">
+                <div class="triad-member" title="View profile" onclick="reqInstance.viewProfile('${escapeHtml(m.user_id)}')">
                   <span class="triad-rank">${mi + 1}</span>
                   ${avatar}
                   <div class="triad-member-info">
                     <span class="triad-member-name">${escapeHtml(m.name)}</span>
-                    <span class="triad-gp">${m.gp} GP</span>
+                    <span class="triad-gp">${Number(m.gp || 0)} GP</span>
                   </div>
                 </div>
               `}).join('') || '<span class="text-muted">Pending...</span>'}

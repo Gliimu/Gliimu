@@ -37,15 +37,23 @@ function showShell() {
 }
 
 async function refreshCounts() {
-  if (!store.can('crm')) return;
+  if (store.can('crm')) {
+    const [{ count: pending }, { count: open }] = await Promise.all([
+      supabase.from('library_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')
+    ]);
 
-  const [{ count: pending }, { count: open }] = await Promise.all([
-    supabase.from('library_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')
-  ]);
+    setCount('count-submissions', pending);
+    setCount('count-reports', open);
+  }
 
-  setCount('count-submissions', pending);
-  setCount('count-reports', open);
+  // p_limit 1 keeps this cheap: the RPC returns the full total regardless.
+  // A database without sql/captain.sql yet just answers an error, and the
+  // badge stays hidden.
+  if (store.can('captain')) {
+    const { data } = await supabase.rpc('captain_queue', { p_limit: 1 });
+    if (data && data.ok) setCount('count-triads', Number(data.total || 0));
+  }
 }
 
 function setCount(id, n) {
