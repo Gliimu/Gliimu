@@ -89,6 +89,9 @@ export default {
 
   invalidate() {
     this.cache = {};
+    // The sidebar badge counts the queue; without this it lags up to a minute
+    // behind a place or a remove.
+    window.adminApp?.refreshCounts?.();
   },
 
   // ============================================
@@ -105,7 +108,7 @@ export default {
           <div class="stat-note">Highest GP first, same order members see.</div></div>
         <div class="stat"><div class="stat-label">Free seats</div>
           <div class="stat-value">${open.reduce((n, t) => n + (SEATS - Number(t.seats || 0)), 0)}</div>
-          <div class="stat-note">${open.length} of ${this.cache.triads.length} triad${this.cache.triads.length === 1 ? '' : 's'} have room.</div></div>
+          <div class="stat-note">${open.length} of ${this.cache.triads.length} triad${this.cache.triads.length === 1 ? '' : 's'} ${open.length === 1 ? 'has' : 'have'} room.</div></div>
       </div>
 
       ${this.cache.queueFailed ? `<div class="card">${empty(this.cache.queueFailed)}</div>` : ''}

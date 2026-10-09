@@ -262,6 +262,7 @@ as $$
 declare
   uid uuid := auth.uid();
   v_bad text;
+  v_id bigint;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
@@ -288,9 +289,13 @@ begin
       'hint', v_bad || ' must start with https://, http:// or a single /.');
   end if;
 
-  if not exists (select 1 from public.site_settings) then
+  -- Supabase preloads pg-safeupdate, which refuses any UPDATE without a WHERE
+  -- clause, so the single settings row is looked up by id first.
+  select s.id into v_id from public.site_settings s order by s.id limit 1;
+
+  if v_id is null then
     begin
-      insert into public.site_settings default values;
+      insert into public.site_settings default values returning id into v_id;
     exception when others then
       return jsonb_build_object('ok', false, 'code', 'NO_SETTINGS_ROW',
         'hint', 'site_settings has no row and a blank one could not be created. Insert one by hand, then save again.');
@@ -306,7 +311,8 @@ begin
                                else nullif(btrim(p_hero_fallback_image_url), '') end,
          squad_bg_url = case when p_squad_bg_url is null
                                then squad_bg_url
-                               else nullif(btrim(p_squad_bg_url), '') end;
+                               else nullif(btrim(p_squad_bg_url), '') end
+   where id = v_id;
 
   return public.operations_settings();
 end
@@ -336,6 +342,7 @@ as $$
 declare
   uid uuid := auth.uid();
   v_bad text;
+  v_id bigint;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
@@ -375,9 +382,13 @@ begin
       'hint', v_bad || ' must start with https://, http:// or a single /.');
   end if;
 
-  if not exists (select 1 from public.site_settings) then
+  -- Supabase preloads pg-safeupdate, which refuses any UPDATE without a WHERE
+  -- clause, so the single settings row is looked up by id first.
+  select s.id into v_id from public.site_settings s order by s.id limit 1;
+
+  if v_id is null then
     begin
-      insert into public.site_settings default values;
+      insert into public.site_settings default values returning id into v_id;
     exception when others then
       return jsonb_build_object('ok', false, 'code', 'NO_SETTINGS_ROW',
         'hint', 'site_settings has no row and a blank one could not be created. Insert one by hand, then save again.');
@@ -411,7 +422,8 @@ begin
                             else nullif(btrim(p_app_ios_url), '') end,
          app_mobile_qr_url = case when p_app_mobile_qr_url is null
                             then app_mobile_qr_url
-                            else nullif(btrim(p_app_mobile_qr_url), '') end;
+                            else nullif(btrim(p_app_mobile_qr_url), '') end
+   where id = v_id;
 
   return public.operations_settings();
 end

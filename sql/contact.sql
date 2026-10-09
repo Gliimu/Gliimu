@@ -187,6 +187,7 @@ as $$
 declare
   uid      uuid := auth.uid();
   v_bad    text;
+  v_id     bigint;
   v_phone  text := case when p_phone is null then null else btrim(p_phone) end;
   v_email  text := case when p_email is null then null else btrim(p_email) end;
 begin
@@ -248,10 +249,14 @@ begin
 
   -- A fresh install has no row to update, so make one. The insert is in
   -- its own block because a hand-made table may have a column this file
-  -- does not know about that refuses a default.
-  if not exists (select 1 from public.contact_info) then
+  -- does not know about that refuses a default. Supabase also preloads
+  -- pg-safeupdate, which refuses an UPDATE with no WHERE clause, so the row
+  -- is looked up by id either way.
+  select c.id into v_id from public.contact_info c order by c.id limit 1;
+
+  if v_id is null then
     begin
-      insert into public.contact_info default values;
+      insert into public.contact_info default values returning id into v_id;
     exception when others then
       return jsonb_build_object('ok', false, 'code', 'NO_CONTACT_ROW',
         'hint', 'contact_info has no row and a blank one could not be created. Insert one by hand, then save again.');
@@ -265,7 +270,8 @@ begin
          youtube   = case when p_youtube is null   then youtube   else nullif(btrim(p_youtube), '')   end,
          tiktok    = case when p_tiktok is null    then tiktok    else nullif(btrim(p_tiktok), '')    end,
          facebook  = case when p_facebook is null  then facebook  else nullif(btrim(p_facebook), '')  end,
-         pinterest = case when p_pinterest is null then pinterest else nullif(btrim(p_pinterest), '') end;
+         pinterest = case when p_pinterest is null then pinterest else nullif(btrim(p_pinterest), '') end
+   where id = v_id;
 
   return public.crm_contact();
 end

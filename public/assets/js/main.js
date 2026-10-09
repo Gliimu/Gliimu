@@ -146,10 +146,11 @@ function applyDownloadSection(settings) {
   const panel = document.getElementById('download-panel');
   if (!section || !panel) return;
 
-  // Background lives on the whole section; the panel keeps its own dark card.
+  // The image is the point of this section, so the scrim over it stays light
+  // and the panel adds the only other layer, at 50%.
   const bg = safeUrl(settings.app_download_bg_url);
   if (bg) {
-    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.94), rgba(10, 15, 30, 0.88)), url('${bg}')`;
+    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.25), rgba(10, 15, 30, 0.25)), url('${bg}')`;
     section.style.backgroundSize = 'cover';
     section.style.backgroundPosition = 'center';
     section.classList.add('has-bg');

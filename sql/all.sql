@@ -331,7 +331,9 @@ create policy "Admins manage site assets" on storage.objects
 -- ------------------------------------------------------------
 do $$
 begin
-  delete from public.faqs;
+  -- pg-safeupdate (preloaded on Supabase) refuses a DELETE with no WHERE
+  -- clause, so the wipe names the primary key.
+  delete from public.faqs where id is not null;
 
   -- Staggered created_at so the page's "order by created_at"
   -- shows the questions in this exact order.

@@ -32,17 +32,30 @@ const RELEASE_BG = { key: 'app_download_bg_url', param: 'p_app_download_bg_url',
   label: 'Download section background', asset: true,
   note: 'Background image behind the "Take Gliimu Everywhere" panel.' };
 
-const RELEASE_LINKS = [
-  { key: 'app_windows_url', param: 'p_app_windows_url', label: 'Windows download link' },
-  { key: 'app_mac_url', param: 'p_app_mac_url', label: 'macOS download link' },
-  { key: 'app_linux_url', param: 'p_app_linux_url', label: 'Linux download link' },
-  { key: 'app_android_url', param: 'p_app_android_url', label: 'Android download link' },
-  { key: 'app_ios_url', param: 'p_app_ios_url', label: 'iOS download link' },
-  { key: 'app_mobile_qr_url', param: 'p_app_mobile_qr_url', label: 'Desktop QR link',
-    note: 'Leave blank to encode the Android link, or iOS if there is no Android link.' }
+// The five platform files are what the landing page's download buttons point
+// at: Operations uploads the build itself and the column stores its R2 URL.
+// A pasted link still works, which is the only way iOS can ever behave.
+const RELEASE_FILES = [
+  { key: 'app_windows_url', param: 'p_app_windows_url', label: 'Windows file', file: true,
+    accept: '.exe,.msi,.zip', note: 'The .exe or .msi members download.' },
+  { key: 'app_mac_url', param: 'p_app_mac_url', label: 'macOS file', file: true,
+    accept: '.dmg,.pkg,.zip', note: 'A .dmg or .pkg. An unsigned build needs a right-click → Open the first time.' },
+  { key: 'app_linux_url', param: 'p_app_linux_url', label: 'Linux file', file: true,
+    accept: '.appimage,.deb,.rpm,.zip,.tar.gz', note: 'An .AppImage, .deb or .rpm.' },
+  { key: 'app_android_url', param: 'p_app_android_url', label: 'Android file', file: true,
+    accept: '.apk,.aab,.zip', note: 'The signed .apk. The desktop QR encodes this file by default.' },
+  { key: 'app_ios_url', param: 'p_app_ios_url', label: 'iOS file or link', file: true,
+    accept: '.ipa,.zip',
+    note: 'iPhones will not install a downloaded file, so this is normally an App Store or TestFlight link.' }
 ];
 
+const QR_LINK = { key: 'app_mobile_qr_url', param: 'p_app_mobile_qr_url', label: 'Desktop QR link',
+  note: 'Leave blank to encode the Android file, or iOS if there is no Android file.' };
+
 const GRID = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px;';
+
+// Where root-relative site_settings values actually resolve.
+const SITE_ORIGIN = 'https://www.gliimu.com';
 
 export default {
   template: `
@@ -147,14 +160,18 @@ export default {
   },
 
   assetField(f) {
+    const accept = f.accept || (f.video ? 'video/*' : 'image/*');
+    const placeholder = f.file
+      ? 'Upload the file below, or paste a link — blank switches it off'
+      : 'https://cdn.gliimu.com/… — leave blank to remove it';
     return `
       <div class="form-group">
         <label for="in-${f.key}">${escapeHtml(f.label)}</label>
         <input type="text" id="in-${f.key}" class="input" data-key="${f.key}" value="${escapeHtml(this.value(f.key))}"
-               placeholder="https://cdn.gliimu.com/… — leave blank to remove it" autocomplete="off">
+               placeholder="${escapeHtml(placeholder)}" autocomplete="off">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-          <label class="btn-quiet btn-small" for="up-${f.key}" style="cursor:pointer;">Upload a file</label>
-          <input type="file" id="up-${f.key}" accept="${f.video ? 'video/*' : 'image/*'}" hidden data-upload="${f.key}">
+          <label class="btn-quiet btn-small" for="up-${f.key}" style="cursor:pointer;">${f.file ? 'Upload a build' : 'Upload a file'}</label>
+          <input type="file" id="up-${f.key}" accept="${escapeHtml(accept)}" hidden data-upload="${f.key}">
           <button type="button" class="btn-quiet btn-small" data-clear="${f.key}">Clear</button>
           <span class="muted small" data-status="${f.key}"></span>
         </div>
@@ -166,10 +183,17 @@ export default {
   previewHtml(f, url) {
     if (!url) return '<span class="muted small">Nothing set.</span>';
     const safe = escapeHtml(url);
-    if (f.video) {
-      return `<div class="file-chip"><span class="mono">${safe}</span><a href="${safe}" target="_blank" rel="noopener">Open</a></div>`;
+    // Root-relative values live on the member site, not on this admin origin,
+    // so a bare "/videos/x.mp4" would preview as a 404 here.
+    const href = escapeHtml(url.charAt(0) === '/' ? SITE_ORIGIN + url : url);
+    if (f.file) {
+      return `<div class="file-chip"><span class="mono">${escapeHtml(url.split('/').pop() || safe)}</span>
+        <a href="${href}" download rel="noopener">Download</a></div>`;
     }
-    return `<img class="cover-preview" src="${safe}" alt="">`;
+    if (f.video) {
+      return `<div class="file-chip"><span class="mono">${safe}</span><a href="${href}" target="_blank" rel="noopener">Open</a></div>`;
+    }
+    return `<img class="cover-preview" src="${href}" alt="">`;
   },
 
   // ============================================
@@ -238,8 +262,11 @@ export default {
         </div></div>
         <div style="${GRID}">${RELEASE.map(f => this.textField(f)).join('')}</div>
         ${this.assetField(RELEASE_BG)}
-        <div class="section-title">Download links</div>
-        <div style="${GRID}">${RELEASE_LINKS.map(f => this.linkField(f)).join('')}</div>
+        <div class="section-title">App files</div>
+        <div class="card-sub">Upload each build once and its button on gliimu.com downloads that file. A platform with nothing uploaded shows a switched-off button.</div>
+        <div style="${GRID}">${RELEASE_FILES.map(f => this.assetField(f)).join('')}</div>
+        <div class="section-title">QR code</div>
+        ${this.linkField(QR_LINK)}
         <div class="card-actions" style="margin-left:0;margin-top:6px;">
           <button class="btn-primary btn-small" data-save="release">Save release</button>
         </div>
@@ -261,7 +288,7 @@ export default {
   async save(which, btn) {
     const fields = which === 'landing'
       ? LANDING
-      : [...RELEASE, RELEASE_BG, ...RELEASE_LINKS];
+      : [...RELEASE, RELEASE_BG, ...RELEASE_FILES, QR_LINK];
     const rpc = which === 'landing' ? 'operations_set_landing' : 'operations_set_release';
 
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -287,12 +314,17 @@ export default {
     const input = this.input(key);
     if (!file) return;
 
-    if (status) status.textContent = 'Uploading…';
+    const spec = [...LANDING, RELEASE_BG, ...RELEASE_FILES].find(f => f.key === key);
+    const isBuild = !!(spec && spec.file);
+    if (status) status.textContent = isBuild
+      ? `Uploading ${Math.max(1, Math.round(file.size / (1024 * 1024)))}MB… this can take a while.`
+      : 'Uploading…';
+
     try {
-      const url = await uploadFile(file, 'site');
+      // Builds go to R2's app_builds/ prefix, which only accepts installers.
+      const url = await uploadFile(file, isBuild ? 'app' : 'site');
       if (input) input.value = url;
       const preview = document.querySelector(`[data-preview="${key}"]`);
-      const spec = [...LANDING, RELEASE_BG].find(f => f.key === key);
       if (preview && spec) preview.innerHTML = this.previewHtml(spec, url);
       if (status) status.textContent = 'Uploaded — press Save to publish it.';
     } catch (err) {

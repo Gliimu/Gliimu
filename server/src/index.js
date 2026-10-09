@@ -331,6 +331,9 @@ const MB = 1024 * 1024;
 const MEDIA_TYPES = /^(image|video|audio)\//;
 // Chat and library items have always accepted documents as well as media.
 const DOC_TYPES = /^application\/(pdf|zip|x-zip-compressed|rtf|msword|epub\+zip|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.openxmlformats-officedocument\.[\w.+-]+)$/;
+// Desktop and mobile installers. Deliberately narrow: nothing here is a type a
+// browser will render, so an uploaded build can never execute on the CDN origin.
+const APP_TYPES = /^application\/(octet-stream|vnd\.microsoft\.portable-executable|x-msdownload|x-apple-diskimage|vnd\.apple\.installer\+xml|vnd\.android\.package-archive|vnd\.debian\.binary-package|x-rpm|x-tar|gzip|x-7z-compressed|zip|x-zip-compressed)$/;
 const allows = (...patterns) => (type) => patterns.some(re => re.test(type));
 
 // Some browsers report `application/octet-stream` for documents and archives,
@@ -343,7 +346,15 @@ const EXT_TYPES = {
   txt: 'text/plain', md: 'text/markdown', rtf: 'application/rtf',
   mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac',
   mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml'
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  // App installers. Every one of these is a type no browser will render, so
+  // serving them from the CDN downloads the file instead of opening it.
+  exe: 'application/vnd.microsoft.portable-executable', msi: 'application/x-msdownload',
+  dmg: 'application/x-apple-diskimage', pkg: 'application/vnd.apple.installer+xml',
+  apk: 'application/vnd.android.package-archive', aab: 'application/octet-stream',
+  ipa: 'application/octet-stream', appimage: 'application/octet-stream',
+  deb: 'application/vnd.debian.binary-package', rpm: 'application/x-rpm',
+  tar: 'application/x-tar', gz: 'application/gzip', tgz: 'application/gzip', '7z': 'application/x-7z-compressed'
 };
 
 function resolveContentType(body) {
@@ -365,7 +376,11 @@ const UPLOAD_KINDS = {
   deal:    { prefix: 'deal_logos/',       maxBytes: 10 * MB,  types: allows(/^image\//) },
   // Landing page media and partner logos. Gated on the admin app's role
   // system, not the legacy profiles.is_admin flag; 'super' implies it.
-  site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' }
+  site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' },
+  // Installers behind the landing page's download buttons. The bytes go
+  // browser → R2, so the cap only guards against a mistaken huge file; R2
+  // itself refuses a single PUT over 5GB.
+  app:     { prefix: 'app_builds/',       maxBytes: 2048 * MB, types: allows(APP_TYPES), adminRole: 'operations' }
 };
 
 app.post('/api/upload/presign', async (req, res) => {
@@ -386,9 +401,17 @@ app.post('/api/upload/presign', async (req, res) => {
     const spec = UPLOAD_KINDS[kind];
     if (!spec) return res.status(400).json({ error: 'Unknown upload kind.' });
 
-    const type = resolveContentType(req.body);
+    let type = resolveContentType(req.body);
     if (!type) return res.status(400).json({ error: 'Missing content type.' });
-    if (!spec.types(type)) return res.status(400).json({ error: 'That file type is not allowed here.' });
+    if (!spec.types(type)) {
+      // Browsers disagree about installer types — a .dmg arrives as
+      // application/x-apple-diskimage from Safari and as octet-stream from
+      // Chrome — so fall back to what the extension says when that is allowed.
+      const name = String(filename || '');
+      const byExt = EXT_TYPES[name.includes('.') ? name.split('.').pop().toLowerCase() : ''] || '';
+      if (!byExt || !spec.types(byExt)) return res.status(400).json({ error: 'That file type is not allowed here.' });
+      type = byExt;
+    }
 
     const bytes = Number(size);
     if (!Number.isFinite(bytes) || bytes <= 0) return res.status(400).json({ error: 'Missing file size.' });
