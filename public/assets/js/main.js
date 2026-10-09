@@ -20,6 +20,17 @@ function safeUrl(value) {
   if (/^\/[^/]/.test(url)) return url;
   return '';
 }
+// The stored address is plain text with newlines, printed into a <p>. Everything
+// is escaped first, so nothing a CRM admin typed can ever reach the parser, and
+// then a bare <br> is put back for the older rows that already hold one. A stray
+// "<" from a truncated tag stays escaped rather than being completed by the
+// browser. Last, newlines become <br>.
+function addressHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/</g, '&lt;')
+    .replace(/&lt;br\s*\/?\s*>/gi, '<br>')
+    .replace(/\n/g, '<br>');
+}
 
 // ============================================
 // JOIN BUTTONS — open the auth page in a modal.
@@ -234,7 +245,7 @@ async function loadContactInfo() {
   if (error || !data) return;
 
   const address = document.getElementById('contact-address');
-  if (address) address.innerHTML = data.address;
+  if (address) address.innerHTML = addressHtml(data.address);
 
   const phone = document.getElementById('contact-phone');
   if (phone) phone.innerText = data.phone;

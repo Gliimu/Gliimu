@@ -6,9 +6,8 @@
 -- WHAT THIS INSTALLS
 --   1. admin_users — who is an admin and which role they hold:
 --        super       everything, including managing other admins
---        crm         library submissions, reports, FAQs, legal text
---                    (the contact_info table is CRM's too, but its screen
---                     is not built yet)
+--        crm         library submissions, reports, FAQs, legal text and
+--                    the landing page contact details — see sql/contact.sql
 --        registrar   finance, ledger, members, bills, revenue and pricing
 --                    — see sql/registrar.sql
 --        captain     triads and apprentice progress — see sql/captain.sql
@@ -239,9 +238,10 @@ end $$;
 
 -- Contact details live in their own contact_info table (address, phone,
 -- email and the four social links — public/assets/js/main.js reads them),
--- not in site_settings. A CRM screen for it needs no column-splitting
--- trick; it simply has not been built yet. site_settings itself is
--- Operations-only and is locked down by sql/operations.sql.
+-- not in site_settings, so no CRM policy is created for them here. That
+-- table and its two crm_* RPCs are installed and locked down by
+-- sql/contact.sql. site_settings itself is Operations-only — see
+-- sql/operations.sql.
 
 
 -- ============================================================

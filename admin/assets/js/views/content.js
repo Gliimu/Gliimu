@@ -1,12 +1,34 @@
 import { supabase } from '../config.js';
-import { escapeHtml, empty } from '../ui.js';
+import { escapeHtml, empty, rpcError } from '../ui.js';
 import { appAlert, appConfirm } from '../dialog.js';
+
+// The seven columns of contact_info, in the order the footer prints them.
+// crm_set_contact() takes null to mean "leave this column alone" and an
+// empty string to mean "clear it", so every save sends all seven.
+const CONTACT = [
+  { key: 'address', param: 'p_address', label: 'Address', textarea: true, maxlength: 500,
+    note: 'Printed in the gliimu.com footer. Line breaks are kept.' },
+  { key: 'phone', param: 'p_phone', label: 'Phone', maxlength: 30, placeholder: '+234 800 000 0000',
+    note: 'Digits, spaces and + ( ) . - only, 6 to 30 characters. Also becomes the tap-to-call link.' },
+  { key: 'email', param: 'p_email', label: 'Email', maxlength: 200, placeholder: 'hello@gliimu.com',
+    note: 'Also becomes the mailto: link.' }
+];
+
+const SOCIALS = [
+  { key: 'youtube', param: 'p_youtube', label: 'YouTube', placeholder: 'https://youtube.com/@gliimu' },
+  { key: 'tiktok', param: 'p_tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@gliimu' },
+  { key: 'facebook', param: 'p_facebook', label: 'Facebook', placeholder: 'https://facebook.com/gliimu' },
+  { key: 'pinterest', param: 'p_pinterest', label: 'Pinterest', placeholder: 'https://pinterest.com/gliimu' }
+];
+
+const GRID = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px;';
 
 export default {
   template: `
     <div class="filters">
       <button class="filter-btn active" data-tab="faqs">FAQs</button>
       <button class="filter-btn" data-tab="legal">Legal documents</button>
+      <button class="filter-btn" data-tab="contact">Contact details</button>
     </div>
     <div id="content-pane"></div>
   `,
@@ -17,6 +39,7 @@ export default {
     this.docs = [];
     this.activeDoc = null;
     this.creating = false;
+    this.contact = null;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -50,8 +73,15 @@ export default {
     this.render();
   },
 
-  render() {
+  async render() {
     const pane = document.getElementById('content-pane');
+    if (!pane) return;
+
+    if (this.tab === 'contact') {
+      await this.renderContact(pane);
+      return;
+    }
+
     pane.innerHTML = this.tab === 'faqs' ? this.faqHtml() : this.legalHtml();
     if (this.tab === 'faqs') this.wireFaqs(pane);
     else this.wireLegal(pane);
@@ -233,6 +263,89 @@ export default {
       if (error) return appAlert('Could not save that document: ' + error.message);
       await appAlert('Saved.');
       await this.load();
+    });
+  },
+
+  // ---------------- Contact details ----------------
+
+  // Fetched only when the tab is opened, so a missing crm_contact() cannot
+  // blank the FAQs or legal tabs that were already working.
+  async renderContact(pane) {
+    if (!this.contact) {
+      pane.innerHTML = '<p class="loading">Loading...</p>';
+      const { data, error } = await supabase.rpc('crm_contact');
+      if (this.tab !== 'contact') return;
+      if (error) { pane.innerHTML = empty('Could not load the contact details: ' + error.message); return; }
+      if (!data || data.ok === false) { pane.innerHTML = empty(rpcError(data)); return; }
+      this.contact = data;
+    }
+
+    pane.innerHTML = this.contactHtml();
+    this.wireContact(pane);
+  },
+
+  contactField(f) {
+    const value = this.contactValue(f.key);
+    const max = f.maxlength ? ` maxlength="${f.maxlength}"` : '';
+    return `
+      <div class="form-group">
+        <label for="c-${f.key}">${escapeHtml(f.label)}</label>
+        ${f.textarea
+          ? `<textarea id="c-${f.key}" class="input" data-c="${f.key}" rows="3"${max} placeholder="${escapeHtml(f.placeholder || '')}">${escapeHtml(value)}</textarea>`
+          : `<input type="text" id="c-${f.key}" class="input" data-c="${f.key}" value="${escapeHtml(value)}"${max} placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="off">`}
+        ${f.note ? `<div class="card-sub">${escapeHtml(f.note)}</div>` : ''}
+      </div>`;
+  },
+
+  contactValue(key) {
+    const c = (this.contact && this.contact.contact) || {};
+    return c[key] == null ? '' : String(c[key]);
+  },
+
+  contactHtml() {
+    const hasRow = !!(this.contact && this.contact.has_row);
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div style="min-width: 0;">
+            <div class="card-title">Contact details</div>
+            <div class="card-sub">The footer of gliimu.com reads these — the address, the tap-to-call number, the mailto link and the four social icons.</div>
+          </div>
+        </div>
+        ${hasRow ? '' : '<div class="card-sub">There is no contact row yet. The first save creates one.</div>'}
+        <div class="section-title">Where members reach you</div>
+        ${CONTACT.map((f) => this.contactField(f)).join('')}
+        <div class="section-title">Social links</div>
+        <div style="${GRID}">${SOCIALS.map((f) => this.contactField(f)).join('')}</div>
+        <div class="card-sub">Each must start with https:// or http://. Leave one blank and its footer icon stays unlinked.</div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 12px;">
+        <button class="btn-primary btn-small" id="save-contact-btn">Save contact details</button>
+      </div>
+    `;
+  },
+
+  wireContact(pane) {
+    const btn = pane.querySelector('#save-contact-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', async () => {
+      const payload = {};
+      [...CONTACT, ...SOCIALS].forEach((f) => {
+        const el = pane.querySelector(`[data-c="${f.key}"]`);
+        payload[f.param] = el ? el.value.trim() : null;
+      });
+
+      btn.disabled = true;
+      const { data, error } = await supabase.rpc('crm_set_contact', payload);
+      btn.disabled = false;
+
+      if (error) return appAlert('Could not save the contact details: ' + error.message);
+      if (!data || data.ok === false) return appAlert(rpcError(data));
+
+      this.contact = data;
+      await this.renderContact(pane);
+      await appAlert('Saved. gliimu.com shows it on the next load.');
     });
   }
 };

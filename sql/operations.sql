@@ -133,21 +133,15 @@ create index if not exists partners_order_idx
 -- 4. Lockdown — public may read, nobody may write directly
 -- ============================================================
 
-do $$ begin
+do $$
+declare
+  pol record;
+begin
   if to_regclass('public.site_settings') is not null then
     execute 'alter table public.site_settings enable row level security';
     execute 'revoke all on public.site_settings from public, anon, authenticated';
     execute 'grant select on public.site_settings to anon, authenticated';
     execute 'grant all on public.site_settings to service_role';
-    execute 'drop policy if exists "Admins update site settings" on public.site_settings';
-
-    -- The public read policy is recreated rather than assumed, so this
-    -- file leaves the landing page working even if all.sql never ran.
-    execute 'drop policy if exists "Public read site settings" on public.site_settings';
-    execute $p$
-      create policy "Public read site settings" on public.site_settings
-        for select to anon, authenticated using (true)
-    $p$;
   end if;
 
   if to_regclass('public.partners') is not null then
@@ -155,9 +149,32 @@ do $$ begin
     execute 'revoke all on public.partners from public, anon, authenticated';
     execute 'grant select on public.partners to anon, authenticated';
     execute 'grant all on public.partners to service_role';
-    execute 'drop policy if exists "Admins manage partners" on public.partners';
+  end if;
 
-    execute 'drop policy if exists "Public read partners" on public.partners';
+  -- Drop every policy on both tables and recreate only the public read.
+  -- Some of these were made by hand, so their names are not knowable from
+  -- here; a leftover is_admin() write policy would do nothing now that the
+  -- table privileges are gone, but it would mislead whoever reads the
+  -- schema next.
+  for pol in
+    select c.relname, p.polname
+      from pg_policy p
+      join pg_class c on c.oid = p.polrelid
+      join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public'
+       and c.relname in ('site_settings', 'partners')
+  loop
+    execute format('drop policy if exists %I on public.%I', pol.polname, pol.relname);
+  end loop;
+
+  if to_regclass('public.site_settings') is not null then
+    execute $p$
+      create policy "Public read site settings" on public.site_settings
+        for select to anon, authenticated using (true)
+    $p$;
+  end if;
+
+  if to_regclass('public.partners') is not null then
     execute $p$
       create policy "Public read partners" on public.partners
         for select to anon, authenticated using (true)

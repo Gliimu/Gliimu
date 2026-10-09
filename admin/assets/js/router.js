@@ -6,7 +6,7 @@ import { store } from './store.js';
 const routes = {
   '/submissions': { role: 'crm', title: 'Library Submissions', load: () => import('./views/submissions.js').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
-  '/content': { role: 'crm', title: 'FAQs & Legal', load: () => import('./views/content.js').then(m => m.default) },
+  '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js').then(m => m.default) },
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js').then(m => m.default) },
   '/ledger': { role: 'registrar', title: 'Ledger', load: () => import('./views/ledger.js').then(m => m.default) },
   '/members': { role: 'registrar', title: 'Members', load: () => import('./views/members.js').then(m => m.default) },

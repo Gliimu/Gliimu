@@ -115,9 +115,14 @@ const RPC_ERRORS = {
   BAD_NAME: 'That name is not allowed.',
   BAD_URL: 'That link is not allowed.',
   BAD_ORDER: 'That position is not allowed.',
+  BAD_EMAIL: 'That email address is not allowed.',
+  BAD_PHONE: 'That phone number is not allowed.',
+  BAD_ADDRESS: 'That address is not allowed.',
   VERSION_TOO_LONG: 'That version label is too long.',
   NOTES_TOO_LONG: 'Those release notes are too long.',
   NO_SETTINGS_ROW: 'The site settings row is missing, so there is nothing to save against.',
+  NO_CONTACT_ROW: 'The contact row is missing, so there is nothing to save against.',
+  MISSING_HELPER: 'A helper this screen needs is missing from the database.',
   NAME_TAKEN: 'Another triad already uses that name.',
   TRIAD_FULL: 'A triad holds three apprentices. Free a seat or start a new triad.',
   ALREADY_PLACED: 'That apprentice is already in a triad.',
@@ -145,7 +150,7 @@ const RPC_ERRORS = {
   NO_USER: 'That member account does not exist.',
   NO_AUTHOR_PROFILE: 'The submitter no longer has a profile, so the item cannot be attributed.',
   LAST_SUPER: 'There has to be at least one super admin.',
-  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql, registrar.sql, captain.sql and operations.sql.',
+  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql, registrar.sql, captain.sql, operations.sql and contact.sql.',
   SCHEMA_MISMATCH: 'The database shape does not match what this build expects. Send the developer the detail below.'
 };
 
