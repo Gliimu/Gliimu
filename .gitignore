@@ -1,6 +1,14 @@
 node_modules/
 .env
 .DS_Store
+*.log
+.vercel/
+
+# Agent scratch — never commit it.
+.zcode/
+
+# Stale whole-project text dumps.
+project_dump.txt
 
 # Android release signing secrets — never commit these.
 *.keystore

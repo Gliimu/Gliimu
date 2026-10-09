@@ -19,11 +19,6 @@
     "url": "https://github.com/Gliimu/Gliimu/issues"
   },
   "homepage": "https://github.com/Gliimu/Gliimu#readme",
-  "dependencies": {
-    "@capacitor/android": "^8.5.2",
-    "@capacitor/cli": "^8.5.2",
-    "@capacitor/core": "^8.5.2"
-  },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.1"
   }
