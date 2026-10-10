@@ -238,8 +238,6 @@ section { padding: 100px 0; }
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
 }
 
-/* The panel stays see-through: the admin's background image is meant to show
-   through it at 50%, so the card paints no opaque gradient of its own. */
 .download-panel {
   position: relative;
   max-width: 900px;
@@ -247,28 +245,12 @@ section { padding: 100px 0; }
   border-radius: var(--radius-2xl);
   overflow: hidden;
   border: 1px solid var(--border);
-  background: transparent;
   box-shadow: var(--shadow-xl);
-}
-
-.download-panel-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(10, 15, 30, 0.5);
-}
-
-/* With no admin image behind it there is nothing to show through, so the panel
-   falls back to the solid dark card it used to be. */
-.download-section:not(.has-bg) .download-panel {
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-}
-
-.download-section:not(.has-bg) .download-panel-overlay {
-  background: transparent;
 }
 
 .download-panel-body {
   position: relative;
+  background: rgba(10, 15, 30, 0.5);
   padding: 56px 40px;
   display: flex;
   flex-direction: column;

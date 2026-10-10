@@ -126,6 +126,18 @@ async function loadSiteSettings() {
     heroSection.style.backgroundPosition = 'center';
   }
 
+  // Hero texts (Operations > Landing page). A blank column keeps the
+  // copy shipped in index.html.
+  const heroTitle = (data.hero_title || '').trim();
+  const heroHighlight = (data.hero_highlight || '').trim();
+  const heroDesc = (data.hero_desc || '').trim();
+  const titleEl = document.getElementById('hero-title-text');
+  if (titleEl && heroTitle) titleEl.textContent = heroTitle + ' ';
+  const highlightEl = document.getElementById('hero-highlight-text');
+  if (highlightEl && heroHighlight) highlightEl.textContent = heroHighlight;
+  const descEl = document.getElementById('hero-desc-text');
+  if (descEl && heroDesc) descEl.innerHTML = escapeHtml(heroDesc).replace(/\n/g, '<br>');
+
   // Squad Background
   const squadSection = document.getElementById('squad-section');
   const squadBg = safeUrl(data.squad_bg_url);
@@ -298,7 +310,7 @@ function forceVideoAutoplay() {
 }
 
 // ============================================
-// FETCH LATEST ON GLIIMU (1 Hub + 1 Library + Top Uploader)
+// FETCH LATEST ON GLIIMU (1 Hub + 1 Library + Top Gliimait)
 // ============================================
 function hubMediaHtml(mediaUrl, mediaType) {
   const media = safeUrl(mediaUrl);
@@ -326,7 +338,7 @@ async function loadHubHighlights() {
       .limit(1),
     supabase
       .from('library_items')
-      .select('title, type, created_at, cover_color, cover_url')
+      .select('title, type, created_at, cover_color, cover_url, author, author_avatar')
       .order('created_at', { ascending: false })
       .limit(1),
     supabase.rpc('top_uploader')
@@ -371,12 +383,17 @@ async function loadHubHighlights() {
     } else if (item.type === 'library') {
       const lib = item.data;
       const cover = safeUrl(lib.cover_url);
+      const avatar = safeUrl(lib.author_avatar);
+      const author = (lib.author || '').trim();
       const bg = cover ? `background-image: url('${cover}'); background-size: cover;` : `background: ${escapeHtml(lib.cover_color || '#4f46e5')};`;
       return `
         <div class="hub-card reveal" style="transition-delay: ${delay}s;">
           <div class="hub-card-meta">
-            <div class="hub-card-avatar" style="background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">L</div>
-            <span class="hub-card-author">New in Library</span>
+            ${avatar
+              ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
+              : `<div class="hub-card-avatar" style="background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">${escapeHtml((author || 'L').charAt(0).toUpperCase())}</div>`
+            }
+            <span class="hub-card-author">${escapeHtml(author || 'New in Library')}</span>
           </div>
           <div class="lib-highlight-thumb" style="height: 120px; border-radius: 8px; margin-bottom: 12px; ${bg}"></div>
           <p class="hub-card-text" style="font-weight: 600;">${escapeHtml(lib.title)}</p>
@@ -384,7 +401,7 @@ async function loadHubHighlights() {
       `;
     }
 
-    // Top uploader profile card
+    // Top Gliimait profile card
     const up = item.data;
     const avatar = safeUrl(up.avatar_url);
     return `
@@ -394,7 +411,7 @@ async function loadHubHighlights() {
             ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
             : `<div class="hub-card-avatar"></div>`
           }
-          <span class="hub-card-author">Top Uploader</span>
+          <span class="hub-card-author">Top Gliimait</span>
         </div>
         <div style="display:flex; align-items:center; gap:14px; margin-top: 12px;">
           ${avatar

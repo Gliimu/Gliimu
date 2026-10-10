@@ -9,14 +9,15 @@
 --      when it is empty, starts with http:// or https:// (any case), or
 --      starts with a single "/" (root-relative). "//evil.com" is
 --      rejected, and so is anything over 2000 characters.
---   2. The three landing-media columns on site_settings, added if the
---      hand-made table does not already have them:
---        hero_video_url, hero_fallback_image_url, squad_bg_url
+--   2. The landing-media and hero-text columns on site_settings, added
+--      if the hand-made table does not already have them:
+--        hero_video_url, hero_fallback_image_url, squad_bg_url,
+--        hero_title, hero_highlight, hero_desc
 --   3. partners — the "Trusted By" wall (created here too, so this file
 --      stands alone even if sql/all.sql was never run).
 --   4. Operations RPCs ('super' passes every check):
 --        operations_settings()                    landing + release values
---        operations_set_landing(...)              hero video / images
+--        operations_set_landing(...)              hero video / images / texts
 --        operations_set_release(...)              version, notes, links, QR
 --        operations_partners()                    the wall, in order
 --        operations_add_partner(p_name, p_logo_url)
@@ -95,6 +96,10 @@ do $$ begin
   alter table public.site_settings add column if not exists hero_video_url text;
   alter table public.site_settings add column if not exists hero_fallback_image_url text;
   alter table public.site_settings add column if not exists squad_bg_url text;
+
+  alter table public.site_settings add column if not exists hero_title text;
+  alter table public.site_settings add column if not exists hero_highlight text;
+  alter table public.site_settings add column if not exists hero_desc text;
 
   alter table public.site_settings add column if not exists app_version text;
   alter table public.site_settings add column if not exists app_version_notes text;
@@ -198,7 +203,8 @@ declare
   uid       uuid := auth.uid();
   v_has_row boolean;
   v_landing jsonb := jsonb_build_object(
-    'hero_video_url', null::text, 'hero_fallback_image_url', null::text, 'squad_bg_url', null::text);
+    'hero_video_url', null::text, 'hero_fallback_image_url', null::text, 'squad_bg_url', null::text,
+    'hero_title', null::text, 'hero_highlight', null::text, 'hero_desc', null::text);
   v_release jsonb := jsonb_build_object(
     'app_version', null::text, 'app_version_notes', null::text, 'app_download_bg_url', null::text,
     'app_windows_url', null::text, 'app_mac_url', null::text, 'app_linux_url', null::text,
@@ -221,7 +227,10 @@ begin
     select jsonb_build_object(
              'hero_video_url', s.hero_video_url,
              'hero_fallback_image_url', s.hero_fallback_image_url,
-             'squad_bg_url', s.squad_bg_url),
+             'squad_bg_url', s.squad_bg_url,
+             'hero_title', s.hero_title,
+             'hero_highlight', s.hero_highlight,
+             'hero_desc', s.hero_desc),
            jsonb_build_object(
              'app_version', s.app_version,
              'app_version_notes', s.app_version_notes,
@@ -246,13 +255,22 @@ $$;
 
 
 -- ============================================================
--- 6. operations_set_landing — hero video, hero image, squad image
+-- 6. operations_set_landing — hero video, hero image, squad image,
+--    and the three hero texts
 -- ============================================================
+
+-- The first version of this function took three URLs. Replacing it with
+-- the six-argument one below would leave both overloads alive, and a
+-- named-argument call from the admin app would then be ambiguous.
+drop function if exists public.operations_set_landing(text, text, text);
 
 create or replace function public.operations_set_landing(
   p_hero_video_url          text default null,
   p_hero_fallback_image_url text default null,
-  p_squad_bg_url            text default null
+  p_squad_bg_url            text default null,
+  p_hero_title              text default null,
+  p_hero_highlight          text default null,
+  p_hero_desc               text default null
 )
 returns jsonb
 language plpgsql
@@ -289,6 +307,20 @@ begin
       'hint', v_bad || ' must start with https://, http:// or a single /.');
   end if;
 
+  select f.field into v_bad
+    from (values
+      ('Headline lead-in',   p_hero_title,     120),
+      ('Highlighted phrase', p_hero_highlight, 120),
+      ('Hero description',   p_hero_desc,      400)
+    ) as f(field, body, cap)
+   where f.body is not null and char_length(btrim(f.body)) > f.cap
+   limit 1;
+
+  if v_bad is not null then
+    return jsonb_build_object('ok', false, 'code', 'TEXT_TOO_LONG', 'field', v_bad,
+      'hint', v_bad || ' is over the character limit. Shorten it and save again.');
+  end if;
+
   -- Supabase preloads pg-safeupdate, which refuses any UPDATE without a WHERE
   -- clause, so the single settings row is looked up by id first.
   select s.id into v_id from public.site_settings s order by s.id limit 1;
@@ -311,7 +343,16 @@ begin
                                else nullif(btrim(p_hero_fallback_image_url), '') end,
          squad_bg_url = case when p_squad_bg_url is null
                                then squad_bg_url
-                               else nullif(btrim(p_squad_bg_url), '') end
+                               else nullif(btrim(p_squad_bg_url), '') end,
+         hero_title = case when p_hero_title is null
+                               then hero_title
+                               else nullif(btrim(p_hero_title), '') end,
+         hero_highlight = case when p_hero_highlight is null
+                               then hero_highlight
+                               else nullif(btrim(p_hero_highlight), '') end,
+         hero_desc = case when p_hero_desc is null
+                               then hero_desc
+                               else nullif(btrim(p_hero_desc), '') end
    where id = v_id;
 
   return public.operations_settings();
@@ -662,7 +703,7 @@ $$;
 -- ============================================================
 
 revoke execute on function public.operations_settings()                                            from public, anon;
-revoke execute on function public.operations_set_landing(text, text, text)                          from public, anon;
+revoke execute on function public.operations_set_landing(text, text, text, text, text, text)          from public, anon;
 revoke execute on function public.operations_set_release(text, text, text, text, text, text, text, text, text) from public, anon;
 revoke execute on function public.operations_partners()                                             from public, anon;
 revoke execute on function public.operations_add_partner(text, text)                                from public, anon;
@@ -671,7 +712,7 @@ revoke execute on function public.operations_remove_partner(uuid)               
 revoke execute on function public.operations_set_partner_order(uuid, integer)                       from public, anon;
 
 grant execute on function public.operations_settings()                                            to authenticated, service_role;
-grant execute on function public.operations_set_landing(text, text, text)                          to authenticated, service_role;
+grant execute on function public.operations_set_landing(text, text, text, text, text, text)          to authenticated, service_role;
 grant execute on function public.operations_set_release(text, text, text, text, text, text, text, text, text) to authenticated, service_role;
 grant execute on function public.operations_partners()                                             to authenticated, service_role;
 grant execute on function public.operations_add_partner(text, text)                                to authenticated, service_role;
@@ -694,11 +735,12 @@ union all
 select '02. partners exists',
        case when to_regclass('public.partners') is null then 'MISSING' else 'OK' end
 union all
-select '03. three landing columns present',
+select '03. six landing columns present',
        case when to_regclass('public.site_settings') is null then 'TABLE MISSING'
             when (select count(*) from information_schema.columns
                    where table_schema = 'public' and table_name = 'site_settings'
-                     and column_name in ('hero_video_url','hero_fallback_image_url','squad_bg_url')) = 3
+                     and column_name in ('hero_video_url','hero_fallback_image_url','squad_bg_url',
+                                         'hero_title','hero_highlight','hero_desc')) = 6
             then 'OK' else 'MISSING' end
 union all
 select '04. nine release columns present',
@@ -804,4 +846,11 @@ union all
 select '19. admin_has_role() is present (from admin.sql)',
        case when to_regprocedure('public.admin_has_role(uuid,text)') is null
             then 'MISSING — run sql/admin.sql first' else 'OK' end
+union all
+select '20. no leftover 3-argument set_landing overload',
+       case when (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                   where n.nspname = 'public'
+                     and p.proname = 'operations_set_landing'
+                     and p.pronargs = 3) = 0
+            then 'OK' else 'OVERLOAD LEFT — named-argument calls would be ambiguous' end
 order by 1;

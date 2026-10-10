@@ -21,6 +21,20 @@ const LANDING = [
     note: 'Background image of the squad section.' }
 ];
 
+// The hero headline and paragraph. Blank on all three keeps the copy that
+// ships in public/index.html, so a fresh install reads exactly as before.
+const HERO_TEXTS = [
+  { key: 'hero_title', param: 'p_hero_title', label: 'Headline lead-in', maxlength: 120,
+    placeholder: 'We are',
+    note: 'The words before the highlighted phrase of the hero headline.' },
+  { key: 'hero_highlight', param: 'p_hero_highlight', label: 'Highlighted phrase', maxlength: 120,
+    placeholder: 'Full Stack Media Architects',
+    note: 'The coloured part of the hero headline.' },
+  { key: 'hero_desc', param: 'p_hero_desc', label: 'Hero description', textarea: true, maxlength: 400,
+    placeholder: 'Become a Full Stack Media Architect.\nGet real-life experiences and earn from real client deals.',
+    note: 'Each line break becomes a line on the landing page.' }
+];
+
 const RELEASE = [
   { key: 'app_version', param: 'p_app_version', label: 'Latest version', placeholder: '1.4.0', maxlength: 40,
     note: 'Printed on the landing page download panel.' },
@@ -207,6 +221,10 @@ export default {
           <div class="card-title">Landing page media</div>
           <div class="card-sub">Everything here goes live on gliimu.com the moment you save.${escapeHtml(note)}</div>
         </div></div>
+        <div class="section-title">Hero texts</div>
+        <div class="card-sub">Leave all three blank to keep the copy that ships with the site.</div>
+        <div style="${GRID}">${HERO_TEXTS.map(f => this.textField(f)).join('')}</div>
+        <div class="section-title">Hero and squad media</div>
         ${LANDING.map(f => this.assetField(f)).join('')}
         <div class="card-actions" style="margin-left:0;margin-top:6px;">
           <button class="btn-primary btn-small" data-save="landing">Save landing page</button>
@@ -287,7 +305,7 @@ export default {
 
   async save(which, btn) {
     const fields = which === 'landing'
-      ? LANDING
+      ? [...HERO_TEXTS, ...LANDING]
       : [...RELEASE, RELEASE_BG, ...RELEASE_FILES, QR_LINK];
     const rpc = which === 'landing' ? 'operations_set_landing' : 'operations_set_release';
 
