@@ -352,8 +352,9 @@ async function loadHubHighlights() {
   if (libItems && libItems.length > 0) {
     combined.push({ type: 'library', data: libItems[0] });
   }
-  if (top && top.full_name) {
-    combined.push({ type: 'uploader', data: top });
+  const tops = Array.isArray(top) ? top.filter(t => t && t.full_name).slice(0, 3) : [];
+  if (tops.length > 0) {
+    combined.push({ type: 'uploader', data: tops });
   }
 
   if (combined.length === 0) {
@@ -401,28 +402,30 @@ async function loadHubHighlights() {
       `;
     }
 
-    // Top Gliimait profile card
-    const up = item.data;
-    const avatar = safeUrl(up.avatar_url);
+    // Top Gliimaits card — the three busiest profiles, one row each
+    const rows = item.data.map((up) => {
+      const avatar = safeUrl(up.avatar_url);
+      const count = Number(up.uploads) || 0;
+      return `
+        <div style="display:flex; align-items:center; gap:14px;">
+          ${avatar
+            ? `<img src="${avatar}" alt="" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">`
+            : `<div style="width:44px; height:44px; border-radius:50%; background: var(--gradient-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:18px;">${escapeHtml((up.full_name || 'G').charAt(0).toUpperCase())}</div>`
+          }
+          <div style="display:flex; flex-direction:column; min-width:0;">
+            <span style="font-weight:700; font-size: var(--fs-md);">${escapeHtml(up.full_name)}</span>
+            <span style="color: var(--text-muted); font-size: var(--fs-sm);">${count} upload${count === 1 ? '' : 's'}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
     return `
       <div class="hub-card reveal" style="transition-delay: ${delay}s;">
         <div class="hub-card-meta">
-          ${avatar
-            ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
-            : `<div class="hub-card-avatar"></div>`
-          }
           <span class="hub-card-author">Top Gliimait</span>
         </div>
-        <div style="display:flex; align-items:center; gap:14px; margin-top: 12px;">
-          ${avatar
-            ? `<img src="${avatar}" alt="" style="width:56px; height:56px; border-radius:50%; object-fit:cover;">`
-            : `<div style="width:56px; height:56px; border-radius:50%; background: var(--gradient-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:20px;">${escapeHtml((up.full_name || 'G').charAt(0).toUpperCase())}</div>`
-          }
-          <div style="display:flex; flex-direction:column;">
-            <span style="font-weight:700; font-size: var(--fs-md);">${escapeHtml(up.full_name)}</span>
-            <span style="color: var(--text-muted); font-size: var(--fs-sm);">${Number(up.uploads) || 0} upload${Number(up.uploads) === 1 ? '' : 's'}</span>
-          </div>
-        </div>
+        <div style="display:flex; flex-direction:column; gap:14px; margin-top: 12px;">${rows}</div>
       </div>
     `;
   }).join('');
@@ -524,7 +527,9 @@ async function loadFAQs() {
 // ============================================
 // INITIALIZE
 // ============================================
-document.addEventListener('DOMContentLoaded', async () => {
+// Module imports can resolve after DOMContentLoaded on a cold CDN cache,
+// which would leave this listener never firing and the page stuck loading.
+const boot = async () => {
   initJoinButtons();
   initScrollReveal();
   initAccordion();
@@ -535,4 +540,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadPartners();
   loadFAQs();
   forceVideoAutoplay();
-});
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}

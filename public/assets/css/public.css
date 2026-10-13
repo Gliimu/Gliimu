@@ -238,6 +238,25 @@ section { padding: 100px 0; }
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
 }
 
+/* The heading carries the same 50% scrim as the panel body, so it sits
+   back into the section instead of shouting over it. */
+.download-head {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto var(--space-16);
+  padding: 10px 28px;
+  border-radius: var(--radius-xl);
+}
+
+.download-head::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(10, 15, 30, 0.5);
+  pointer-events: none;
+}
+
 .download-panel {
   position: relative;
   max-width: 900px;

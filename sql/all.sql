@@ -740,11 +740,13 @@ $$;
 grant execute on function public.purchase_subscription(text) to authenticated;
 
 -- ------------------------------------------------------------
--- 17. Top uploader for the landing page "Latest on Gliimu".
+-- 17. Top gliimaits for the landing page "Latest on Gliimu".
 --     Counts posts + accepted-submission library uploads per user
---     and returns the single busiest profile (full_name, avatar,
---     upload count only — no usernames, matching the privacy rule).
---     Falls back to posts-only if library_submissions is absent.
+--     and returns the three busiest profiles as a jsonb array
+--     (full_name, avatar, upload count only — no usernames,
+--     matching the privacy rule). Empty array when nobody has
+--     uploaded anything. Falls back to posts-only if
+--     library_submissions is absent.
 -- ------------------------------------------------------------
 create or replace function public.top_uploader()
 returns jsonb
@@ -757,11 +759,11 @@ declare
   v_result jsonb;
 begin
   begin
-    select jsonb_build_object(
+    select coalesce(jsonb_agg(jsonb_build_object(
              'full_name', p.full_name,
              'avatar_url', p.avatar_url,
-             'uploads', counts.cnt
-           )
+             'uploads', counts.cnt)
+           order by counts.cnt desc), '[]'::jsonb)
       into v_result
       from (
         select user_id, count(*) as cnt
@@ -772,23 +774,23 @@ begin
         ) all_uploads
         group by user_id
         order by cnt desc
-        limit 1
+        limit 3
       ) counts
       join public.profiles p on p.id = counts.user_id;
   exception
     when undefined_table then
-      select jsonb_build_object(
+      select coalesce(jsonb_agg(jsonb_build_object(
                'full_name', p.full_name,
                'avatar_url', p.avatar_url,
-               'uploads', counts.cnt
-             )
+               'uploads', counts.cnt)
+             order by counts.cnt desc), '[]'::jsonb)
         into v_result
         from (
           select user_id, count(*) as cnt
           from public.posts
           group by user_id
           order by cnt desc
-          limit 1
+          limit 3
         ) counts
         join public.profiles p on p.id = counts.user_id;
   end;
