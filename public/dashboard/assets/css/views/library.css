@@ -80,8 +80,18 @@
 .lib-overlay h4 { color: white; font-size: 13px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 
 /* Minimal Modal & Inline Menu */
-.lib-modal-content { padding: 0 !important; overflow: hidden; }
-.lib-modal-body { padding: 32px; }
+/* The composer is tall, so the panel is capped to the viewport and the body
+   scrolls inside it. Without the cap the centred panel overflows above and
+   below the screen, which hides the top rows, the submit button and the X. */
+.lib-modal-content {
+  padding: 0 !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(88vh, 900px);
+  margin: auto;
+}
+.lib-modal-body { padding: 32px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 .lib-modal-type { text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--brand-primary); background: var(--brand-primary-light); padding: 4px 10px; border-radius: 20px; }
 .lib-modal-body h2 { margin: 16px 0 8px; font-size: 24px; font-weight: 800; }
 .lib-modal-author { color: var(--text-muted); margin-bottom: 24px; font-size: 14px; }

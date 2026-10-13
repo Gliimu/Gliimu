@@ -1,5 +1,13 @@
 import { supabase } from '/shared/js/config.js';
 
+// The hero ships empty in index.html so no stale copy flashes while
+// site_settings loads; these are the defaults when a column is blank.
+const DEFAULT_HERO = {
+  title: 'We are',
+  highlight: 'Full Stack Media Architects',
+  desc: 'Become a Full Stack Media Architect.\nGet real-life experiences and earn from real client deals.'
+};
+
 // ============================================
 // SAFETY HELPERS
 // ============================================
@@ -126,17 +134,18 @@ async function loadSiteSettings() {
     heroSection.style.backgroundPosition = 'center';
   }
 
-  // Hero texts (Operations > Landing page). A blank column keeps the
-  // copy shipped in index.html.
-  const heroTitle = (data.hero_title || '').trim();
-  const heroHighlight = (data.hero_highlight || '').trim();
-  const heroDesc = (data.hero_desc || '').trim();
+  // Hero texts (Operations > Landing page). index.html ships the hero empty
+  // so nothing stale flashes before settings arrive; a blank column keeps
+  // the default copy.
+  const heroTitle = (data.hero_title || '').trim() || DEFAULT_HERO.title;
+  const heroHighlight = (data.hero_highlight || '').trim() || DEFAULT_HERO.highlight;
+  const heroDesc = (data.hero_desc || '').trim() || DEFAULT_HERO.desc;
   const titleEl = document.getElementById('hero-title-text');
-  if (titleEl && heroTitle) titleEl.textContent = heroTitle + ' ';
+  if (titleEl) titleEl.textContent = heroTitle + ' ';
   const highlightEl = document.getElementById('hero-highlight-text');
-  if (highlightEl && heroHighlight) highlightEl.textContent = heroHighlight;
+  if (highlightEl) highlightEl.textContent = heroHighlight;
   const descEl = document.getElementById('hero-desc-text');
-  if (descEl && heroDesc) descEl.innerHTML = escapeHtml(heroDesc).replace(/\n/g, '<br>');
+  if (descEl) descEl.innerHTML = escapeHtml(heroDesc).replace(/\n/g, '<br>');
 
   // Squad Background
   const squadSection = document.getElementById('squad-section');
