@@ -217,6 +217,71 @@
 
 /* Fix Filter SVG stealing clicks */
 .lib-filter-btn svg { pointer-events: none; }
+
+/* ============================================
+   MERGED LIBRARY — gliim feed + shelf on one page
+   ============================================ */
+.libmerge { position: relative; }
+
+.libmerge-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.libmerge-tabs::-webkit-scrollbar { display: none; }
+
+.libmerge-tab {
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.libmerge-tab:hover { color: var(--text-primary); border-color: var(--brand-primary); }
+.libmerge-tab.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+/* The gliim feed's own topbar controls only apply to the feed */
+#topbar-right-actions.libmerge-hide-actions { display: none !important; }
+
+.libmerge-fab-menu {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  min-width: 240px;
+}
+.libmerge-fab-menu.active { display: flex; }
+.libmerge-fab-menu button {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.libmerge-fab-menu button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .lib-menu-btn svg { pointer-events: none; }
 
 /* Subtle Tick Badge for Owned Items */

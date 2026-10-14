@@ -1,26 +1,41 @@
 import { supabase } from '/shared/js/config.js';
-import { API_BASE_URL } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
 import { computeUnread, markChatRead } from '../readState.js';
+import liveView from './live.js';
 
 export default {
   title: 'Ping',
+  // Ping hosts two panes: DMs and the live session board (the Live tab was
+  // folded in here). liveView renders its board into #live-board-content.
   template: `
-    <div class="ping-layout" id="ping-container">
-      <div class="ping-sidebar" id="ping-sidebar">
-        <div class="ping-chat-list" id="ping-chat-list">
-          <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
+    <div class="ping-chats-pane" id="ping-chats-pane">
+      <div class="ping-layout" id="ping-container">
+        <div class="ping-sidebar" id="ping-sidebar">
+          <div class="ping-chat-list" id="ping-chat-list">
+            <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
+          </div>
         </div>
-      </div>
 
-      <div class="ping-main" id="ping-main">
-        <div class="ping-empty-state">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-          <h3>Select a chat to start pinging</h3>
-          <p>Your direct messages and Gliim-PA live here.</p>
+        <div class="ping-main" id="ping-main">
+          <div class="ping-empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <h3>Select a chat to start pinging</h3>
+            <p>Your direct messages live here.</p>
+          </div>
         </div>
       </div>
+    </div>
+
+    <div class="ping-live-pane" id="ping-live-pane" style="display: none;">
+      <div class="ping-live-bar">
+        <div>
+          <h3 class="ping-live-title">Live posts</h3>
+          <p class="ping-live-sub">Ask for a live 1-on-1, or step into someone else's session.</p>
+        </div>
+        <button class="btn-primary btn-sm" id="ping-live-new">Post a live request</button>
+      </div>
+      ${liveView.template}
     </div>
   `,
 
@@ -31,15 +46,22 @@ export default {
     this.chatHistory = [];
     this.unreadMap = {};
     this.messageChannel = null;
+    this.mode = localStorage.getItem('gliimu-ping-mode') === 'live' ? 'live' : 'chats';
+    this.liveMounted = false;
 
     this.recorder = createRecorder({
       instanceName: 'pingInstance',
       inputAreaId: 'ping-input-area',
       restore: () => this.renderChatWindow(),
       send: async (url) => {
-        const msgData = { sender_id: store.user.id, attachment_url: url, attachment_type: 'audio_note', content: '', is_ai: false };
-        if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
-        const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
+        const { data: newMsg } = await supabase.from('messages').insert({
+          sender_id: store.user.id,
+          receiver_id: this.activeChat.id,
+          attachment_url: url,
+          attachment_type: 'audio_note',
+          content: '',
+          is_ai: false
+        }).select('*').single();
         if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
       }
     });
@@ -65,10 +87,14 @@ export default {
       editMessage: (msgId) => this.editMessage(msgId),
       deleteMessage: (msgId) => this.deleteMessage(msgId),
       saveEdit: (msgId) => this.saveEdit(msgId),
-      cancelEdit: () => this.renderChatWindow()
+      cancelEdit: () => this.renderChatWindow(),
+      toggleMode: () => this.toggleMode(),
+      showLive: () => this.setMode('live'),
+      onSearch: (query) => this.onSearch(query)
     };
 
     this.setupTopbar();
+    this.applyMode();
     this.checkPendingPing();
     this.fetchUsers();
     this.fetchContacts();
@@ -83,21 +109,72 @@ export default {
       topbarDynamic.innerHTML = `
         <div class="ping-top-search-wrapper">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="ping-top-search" class="ping-top-search-input" placeholder="Search users to add..." oninput="pingInstance.searchUsers(this.value)">
+          <input type="text" id="ping-top-search" class="ping-top-search-input" placeholder="Search users to add..." oninput="pingInstance.onSearch(this.value)">
           <div class="ping-search-dropdown" id="ping-search-dropdown"></div>
         </div>
       `;
     }
 
-    // Gliim-PA shortcut: top-right on desktop, bottom-bar right on mobile
+    // One button flips the page between DMs and the live session board
     if (topbarRight) {
       topbarRight.innerHTML = `
-        <button class="gliim-pa-btn" title="Chat with Gliim-PA" onclick="pingInstance.openChat('ai', 'ai')">
-          <img src="/icons/gliimpa.png" alt="Gliim-PA">
-          <span class="gliim-pa-label">Gliim-PA</span>
+        <button class="ping-filter-btn" id="ping-filter-btn" title="Switch between chats and live posts" onclick="pingInstance.toggleMode()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+          <span class="ping-filter-label" id="ping-filter-label">Chats</span>
         </button>
       `;
     }
+  },
+
+  onSearch(query) {
+    if (this.mode === 'live') {
+      liveView.searchQuery = query;
+      liveView.renderBoard();
+      return;
+    }
+    this.searchUsers(query);
+  },
+
+  toggleMode() {
+    this.setMode(this.mode === 'live' ? 'chats' : 'live');
+  },
+
+  setMode(mode) {
+    this.mode = mode;
+    localStorage.setItem('gliimu-ping-mode', mode);
+    this.applyMode();
+  },
+
+  applyMode() {
+    const live = this.mode === 'live';
+
+    const chatsPane = document.getElementById('ping-chats-pane');
+    const livePane = document.getElementById('ping-live-pane');
+    if (chatsPane) chatsPane.style.display = live ? 'none' : '';
+    if (livePane) livePane.style.display = live ? '' : 'none';
+
+    const label = document.getElementById('ping-filter-label');
+    if (label) label.textContent = live ? 'Live posts' : 'Chats';
+
+    const input = document.getElementById('ping-top-search');
+    if (input) {
+      input.value = '';
+      input.placeholder = live ? 'Search live topics...' : 'Search users to add...';
+    }
+    const dropdown = document.getElementById('ping-search-dropdown');
+    if (dropdown) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; }
+
+    if (live) this.mountLive();
+  },
+
+  // The board is mounted on first use so the chat-only visit pays nothing for
+  // its realtime channel.
+  mountLive() {
+    if (this.liveMounted) return;
+    this.liveMounted = true;
+
+    liveView.init({ embedded: true });
+    document.getElementById('ping-live-new')?.addEventListener('click', () => liveView.openRequestModal());
   },
 
   searchUsers(query) {
@@ -242,15 +319,10 @@ export default {
   },
 
   async openChat(type, id) {
-    if (type === 'ai') {
-      this.activeChat = { type: 'ai', id: 'ai', name: 'Gliim-PA', avatar: '/icons/gliimpa.png', is_ai: true };
-      this.chatHistory = [];
-      const { data: aiMsgs } = await supabase.from('messages').select('*').eq('sender_id', store.user.id).eq('is_ai', true).order('created_at', { ascending: true });
-      if (aiMsgs) this.chatHistory = aiMsgs.map(m => ({ role: m.is_ai ? 'assistant' : 'user', content: m.content, created_at: m.created_at }));
-    } else if (type === 'dm') {
+    if (type === 'dm') {
       const user = this.contacts.find(u => u.id === id);
       if (!user) return;
-      this.activeChat = { type: 'dm', id: user.id, name: user.full_name, avatar: user.avatar_url, total_gp: user.total_gp, is_ai: false };
+      this.activeChat = { type: 'dm', id: user.id, name: user.full_name, avatar: user.avatar_url, total_gp: user.total_gp };
       const { data: msgs } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${store.user.id},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${store.user.id})`).order('created_at', { ascending: true });
       this.chatHistory = msgs || [];
 
@@ -281,7 +353,7 @@ export default {
   openHubMention(postId, commentId) {
     sessionStorage.setItem('openReadViewId', postId);
     if (commentId) sessionStorage.setItem('openCommentId', commentId);
-    window.location.hash = '#/hub';
+    window.location.hash = '#/library';
   },
 
   renderChatWindow() {
@@ -289,23 +361,15 @@ export default {
     if (!main || !this.activeChat) return;
 
     const avatarClass = tierClass(this.activeChat.total_gp, 'ping-avatar');
-    let avatarHtml = '';
-    if (this.activeChat.is_ai) {
-      avatarHtml = `<img src="${this.activeChat.avatar}" class="ping-avatar" style="object-fit:cover; background:var(--gradient-primary);">`;
-    } else {
-      avatarHtml = this.activeChat.avatar ? `<img src="${this.activeChat.avatar}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${this.activeChat.name?.charAt(0).toUpperCase() || 'G'}</div>`;
-    }
+    const avatarHtml = this.activeChat.avatar
+      ? `<img src="${this.activeChat.avatar}" class="${avatarClass}" style="object-fit:cover;">`
+      : `<div class="${avatarClass}">${this.activeChat.name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
     let messagesHtml = '';
-    if (this.chatHistory.length === 0 && !this.activeChat.is_ai) {
+    if (this.chatHistory.length === 0) {
       messagesHtml = `<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">No messages yet. Say hello!</div>`;
     } else {
       messagesHtml = this.chatHistory.map(m => {
-        if (this.activeChat.is_ai) {
-          const isMe = m.role === 'user';
-          return `<div class="ping-message ${isMe ? 'sent' : 'received'}"><p>${m.content}</p></div>`;
-        }
-
         const isMe = m.sender_id === store.user.id;
         const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const isEditable = isMe && (Date.now() - new Date(m.created_at).getTime() < 180000);
@@ -324,7 +388,7 @@ export default {
             contentHtml = `<p>${readable}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.openHubMention('${hubPost}', '${hubComment}')">Check it out</button>`;
           } else if (m.content.startsWith('🎥 Session accepted:')) {
             const formattedText = m.content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
-            contentHtml = `<p>${formattedText}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="window.location.hash='#/live'">Open Live Page</button>`;
+            contentHtml = `<p>${formattedText}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.showLive()">Open Live Posts</button>`;
           } else {
             const formattedText = m.content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
             contentHtml = `<p>${formattedText}</p>`;
@@ -348,15 +412,11 @@ export default {
       }).join('');
     }
 
-    if (this.activeChat.is_ai && this.chatHistory.length === 0) {
-      messagesHtml = `<div class="ping-message received"><p>Hello! I am Gliim-PA. How can I assist your research today?</p></div>`;
-    }
-
     main.innerHTML = `
       <div class="ping-chat-header">
         <button class="ping-back-btn" onclick="pingInstance.closeChat()"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button>
         ${avatarHtml}
-        <div><h3>${this.activeChat.name}</h3><span>${this.activeChat.is_ai ? 'Online · AI Assistant' : 'Direct Message'}</span></div>
+        <div><h3>${this.activeChat.name}</h3><span>Direct Message</span></div>
       </div>
 
       <div class="ping-messages" id="ping-messages">${messagesHtml}</div>
@@ -387,49 +447,16 @@ export default {
 
     input.value = '';
 
-    const msgData = { sender_id: store.user.id, content: text, is_ai: false };
-    if (this.activeChat.is_ai) msgData.receiver_id = null;
-    else msgData.receiver_id = this.activeChat.id;
-
-    const { data, error } = await supabase.from('messages').insert(msgData).select('*').single();
+    const { data, error } = await supabase.from('messages').insert({
+      sender_id: store.user.id,
+      receiver_id: this.activeChat.id,
+      content: text,
+      is_ai: false
+    }).select('*').single();
     if (error) return alert("Failed to send: " + error.message);
 
     this.chatHistory.push(data);
     this.renderChatWindow();
-
-    if (this.activeChat.is_ai) this.callAI(text);
-  },
-
-  async callAI(text) {
-    const msgContainer = document.getElementById('ping-messages');
-    msgContainer.innerHTML += `<div class="ping-message received" id="ai-typing"><p>Thinking...</p></div>`;
-    msgContainer.scrollTop = msgContainer.scrollHeight;
-
-    const history = this.chatHistory.filter(m => !m.attachment_url).map(m => ({
-      role: m.is_ai ? 'assistant' : 'user',
-      content: m.content
-    }));
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history })
-      });
-      const data = await res.json();
-      document.getElementById('ai-typing')?.remove();
-
-      if (data.reply) {
-        const { data: aiMsg } = await supabase.from('messages').insert({
-          sender_id: store.user.id, receiver_id: null, content: data.reply, is_ai: true
-        }).select('*').single();
-        this.chatHistory.push(aiMsg);
-        this.renderChatWindow();
-      }
-    } catch (err) {
-      document.getElementById('ai-typing')?.remove();
-      alert("AI connection error.");
-    }
   },
 
   triggerFileUpload() { document.getElementById('ping-file-input').click(); },
@@ -441,11 +468,14 @@ export default {
     let uploaded;
     try { uploaded = await uploadAttachment(file); } catch (err) { return alert("Upload failed."); }
 
-    const msgData = { sender_id: store.user.id, attachment_url: uploaded.url, attachment_type: uploaded.type, content: '', is_ai: false };
-    if (!this.activeChat.is_ai) msgData.receiver_id = this.activeChat.id;
-    else msgData.receiver_id = null;
-
-    const { data: newMsg } = await supabase.from('messages').insert(msgData).select('*').single();
+    const { data: newMsg } = await supabase.from('messages').insert({
+      sender_id: store.user.id,
+      receiver_id: this.activeChat.id,
+      attachment_url: uploaded.url,
+      attachment_type: uploaded.type,
+      content: '',
+      is_ai: false
+    }).select('*').single();
     if (newMsg) { this.chatHistory.push(newMsg); this.renderChatWindow(); }
     event.target.value = '';
   },
@@ -520,9 +550,7 @@ export default {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
         if (m.sender_id === store.user.id) return;
-        if (m.is_ai && m.sender_id === store.user.id && this.activeChat?.is_ai) {
-          this.chatHistory.push(m); this.renderChatWindow();
-        } else if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
+        if (!m.is_ai && !m.room && m.receiver_id === store.user.id && this.activeChat?.id === m.sender_id) {
           markChatRead(store.user.id, m.sender_id);
           this.chatHistory.push(m); this.renderChatWindow();
           this.fetchContacts();

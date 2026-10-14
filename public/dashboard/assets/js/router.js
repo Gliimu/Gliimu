@@ -1,20 +1,23 @@
-import { store } from './store.js';
-
 const routes = {
-  '/hub': () => import('./views/hub.js').then(m => m.default),
+  '/assistant': () => import('./views/assistant.js').then(m => m.default),
   '/library': () => import('./views/library.js').then(m => m.default),
-  '/profile': () => import('./views/portfolio.js').then(m => m.default),
-  '/applications': () => import('./views/applications.js').then(m => m.default),
+  '/hub': () => import('./views/debates.js').then(m => m.default),
   '/ping': () => import('./views/messages.js').then(m => m.default),
-  '/live': () => import('./views/live.js').then(m => m.default),
+  '/applications': () => import('./views/applications.js').then(m => m.default),
   '/wallet': () => import('./views/wallet.js').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
+  // Deep links only: Live is folded into Ping, Profile opens from the avatar
+  '/live': () => import('./views/live.js').then(m => m.default),
+  '/profile': () => import('./views/portfolio.js').then(m => m.default),
 };
+
+// Routes with no sidebar entry borrow another tab's highlight
+const NAV_ALIAS = { '/live': '/ping' };
 
 let previousHash = window.location.hash;
 
 export async function router() {
-  const hash = window.location.hash.slice(1) || '/hub';
+  const hash = window.location.hash.slice(1) || '/library';
   // Deep links may carry a query string (e.g. #/applications?tab=deals)
   const path = hash.split('?')[0];
   const routeHandler = routes[path];
@@ -47,9 +50,10 @@ export async function router() {
   if (topbarRightActions) topbarRightActions.innerHTML = '';
   window.scrollTo(0, 0);
 
+  const navPath = NAV_ALIAS[path] || path;
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.remove('active');
-    if (item.getAttribute('href') === `#${path}`) {
+    if (item.getAttribute('href') === `#${navPath}`) {
       item.classList.add('active');
     }
   });

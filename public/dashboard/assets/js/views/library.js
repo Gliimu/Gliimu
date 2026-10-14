@@ -2,8 +2,20 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
+import hubView from './hub.js';
 
-// The publication builder mirrors the hub composer, so it reuses its icons and
+// Library is the merged home of gliims (hub feed) and shelf items. The shelf
+// keeps its database types; only the labels are member-facing.
+const TAB_FILTERS = { all: 'all', books: 'publication', audiolites: 'audiolite', bundles: 'bundle', mine: 'owned' };
+
+function typeLabel(type) {
+  if (type === 'publication') return 'Book';
+  if (type === 'audiolite') return 'Audiolite';
+  if (type === 'bundle') return 'Bundle';
+  return type || 'Item';
+}
+
+// The book builder mirrors the hub composer, so it reuses its icons and
 // its CSS classes (both stylesheets are loaded globally in the dashboard).
 const BLOCK_ICONS = {
   text: '<span style="font-weight:700; font-size: 14px;">Aa</span>',
@@ -39,25 +51,65 @@ function fileNameFromUrl(url) {
 export default {
   title: 'Library',
   template: `
-    <div class="library-layout" id="library-container">
-      <div id="library-content">
-        <p style="color: var(--text-muted); text-align: center;">Loading library...</p>
+    <div class="libmerge" id="library-container">
+      <div class="libmerge-tabs" id="libmerge-tabs">
+        <button class="libmerge-tab active" data-tab="all">All</button>
+        <button class="libmerge-tab" data-tab="gliims">Gliims</button>
+        <button class="libmerge-tab" data-tab="books">Books</button>
+        <button class="libmerge-tab" data-tab="audiolites">Audiolites</button>
+        <button class="libmerge-tab" data-tab="bundles">Bundles</button>
+        <button class="libmerge-tab" data-tab="mine">Mine</button>
+      </div>
+
+      <div class="libmerge-pane hub-layout" id="pane-gliims">
+        <div class="blog-feed" id="posts-container">
+          <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading published Gliims...</p>
+        </div>
+      </div>
+
+      <div class="libmerge-pane library-layout" id="pane-shelf" style="display: none;">
+        <div id="library-content">
+          <p style="color: var(--text-muted); text-align: center;">Loading the shelf...</p>
+        </div>
       </div>
 
       <div class="library-fab-wrapper">
-        <button class="library-fab-main" id="library-fab-main" title="Submit an item for publication">
+        <div class="libmerge-fab-menu" id="libmerge-fab-menu">
+          <button type="button" data-act="gliim">Publish a Gliim</button>
+          <button type="button" data-act="shelf">Submit a Book, Audiolite or Bundle</button>
+        </div>
+        <button class="library-fab-main" id="library-fab-main" title="Create">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
       </div>
     </div>
   `,
-  async init() {
+
+  init() {
     this.currentFilter = 'all';
     this.searchQuery = '';
+    this.activeTab = localStorage.getItem('gliimu-library-tab') || 'all';
 
-    const container = document.getElementById('library-container');
-    if (!container) return;
+    window.libraryInstance = {
+      openDetails: (id) => {
+        const item = (this.allItems || []).find(i => i.id == id);
+        if (item) this.openDetails(item, this.ownedItems.has(item.id), this.walletBalance, this.savedItems.has(item.id));
+      },
+      purchase: (id) => this.purchaseItem(id),
+      toggleSave: (id, isSaved) => this.toggleSave(id, isSaved),
+      rateItem: (id) => this.promptRate(id),
+      logInteraction: (id, type) => this.logInteraction(id, type)
+    };
 
+    this.setupTopbar();
+    this.setupTabs();
+    this.setupFab();
+
+    hubView.init({ embedded: true });
+    this.loadShelf().then(() => this.setTab(this.activeTab, true));
+  },
+
+  async loadShelf() {
     const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: authorProfiles }, { data: adamProfile }, summary] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
@@ -83,77 +135,93 @@ export default {
     this.subscriber = this.effTier === 'trial' || this.effTier === 'payngo' || this.effTier === 'pro';
 
     this.applyFilters();
+  },
 
-    window.libraryInstance = {
-      openDetails: (id) => {
-        const item = this.allItems.find(i => i.id == id);
-        if (item) this.openDetails(item, this.ownedItems.has(item.id), this.walletBalance, this.savedItems.has(item.id));
-      },
-      purchase: (id) => this.purchaseItem(id),
-      toggleSave: (id, isSaved) => this.toggleSave(id, isSaved),
-      rateItem: (id) => this.promptRate(id),
-      logInteraction: (id, type) => this.logInteraction(id, type)
-    };
+  setupTabs() {
+    const tabs = document.getElementById('libmerge-tabs');
+    if (!tabs) return;
+    tabs.querySelectorAll('.libmerge-tab').forEach(btn => {
+      btn.addEventListener('click', () => this.setTab(btn.dataset.tab));
+    });
+  },
 
-    document.getElementById('library-fab-main')?.addEventListener('click', () => this.openSubmitModal());
+  // One page, two feeds. 'gliims' hides the shelf, 'books'/'audiolites'
+  // 'bundles' hide the feed, and 'all'/'mine' show both.
+  setTab(tab, initial = false) {
+    this.activeTab = tab;
+    localStorage.setItem('gliimu-library-tab', tab);
 
-    this.setupTopbar();
+    document.querySelectorAll('#libmerge-tabs .libmerge-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+
+    const showGliims = tab === 'all' || tab === 'gliims' || tab === 'mine';
+    const showShelf = tab !== 'gliims';
+
+    const gliimsPane = document.getElementById('pane-gliims');
+    const shelfPane = document.getElementById('pane-shelf');
+    if (gliimsPane) gliimsPane.style.display = showGliims ? '' : 'none';
+    if (shelfPane) shelfPane.style.display = showShelf ? '' : 'none';
+    document.getElementById('topbar-right-actions')?.classList.toggle('libmerge-hide-actions', !showGliims);
+
+    if (showGliims) {
+      hubView.currentFilter = tab === 'mine' ? 'mine' : 'all';
+      document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(i => {
+        i.classList.toggle('active', i.dataset.filter === hubView.currentFilter);
+      });
+      hubView.renderPosts(hubView.currentPosts || []);
+    }
+
+    if (showShelf && this.allItems) {
+      this.currentFilter = TAB_FILTERS[tab] || 'all';
+      this.applyFilters();
+    }
+
+    if (!initial) window.scrollTo(0, 0);
+  },
+
+  setupFab() {
+    const fab = document.getElementById('library-fab-main');
+    const menu = document.getElementById('libmerge-fab-menu');
+    if (!fab || !menu) return;
+
+    fab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.classList.toggle('active');
+    });
+    menu.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.remove('active');
+        if (btn.dataset.act === 'gliim') hubView.openCreateModal();
+        else this.openSubmitModal();
+      });
+    });
+    document.addEventListener('click', () => menu.classList.remove('active'));
   },
 
   setupTopbar() {
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
-    const topbarRight = document.getElementById('topbar-right-actions');
-
     if (topbarDynamic) {
       topbarDynamic.innerHTML = `
         <div class="lib-topbar-search">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="lib-search" class="lib-topbar-search-input" placeholder="Search library...">
+          <input type="text" id="lib-search" class="lib-topbar-search-input" placeholder="Search gliims, books and audiolites...">
         </div>
       `;
       document.getElementById('lib-search').addEventListener('input', (e) => {
-        this.searchQuery = e.target.value.toLowerCase();
+        const q = e.target.value.toLowerCase();
+        this.searchQuery = q;
+        hubView.searchQuery = q;
+        if (q.length >= 3) hubView.interestSignal(0, null, q);
+        hubView.renderPosts(hubView.currentPosts || []);
         this.applyFilters();
       });
     }
 
-    if (topbarRight) {
-      topbarRight.innerHTML = `
-        <div class="lib-filter-wrapper">
-          <button class="lib-filter-btn" id="lib-filter-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-          </button>
-          <div class="lib-dropdown-menu" id="lib-dropdown">
-            <div class="lib-dropdown-item active" data-filter="all">All Contents</div>
-            <div class="lib-dropdown-item" data-filter="owned">My Collections</div>
-            <div class="lib-dropdown-item" data-filter="bundle">Bundles</div>
-            <div class="lib-dropdown-item" data-filter="publication">Publications</div>
-            <div class="lib-dropdown-item" data-filter="audiolite">Audiolites</div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('lib-filter-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        document.getElementById('lib-dropdown').classList.toggle('active');
-      });
-
-      document.querySelectorAll('.lib-dropdown-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          document.querySelectorAll('.lib-dropdown-item').forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
-          this.currentFilter = item.dataset.filter;
-          document.getElementById('lib-dropdown').classList.remove('active');
-          this.applyFilters();
-        });
-      });
-    }
-
-    document.addEventListener('click', () => {
-      document.getElementById('lib-dropdown')?.classList.remove('active');
-    });
+    // The gliim feed's list/grid toggle and filter menu; hidden on shelf-only
+    // tabs by setTab().
+    hubView.setupTopbarActions();
   },
 
   async logInteraction(itemId, type) {
@@ -359,7 +427,7 @@ export default {
     modal.innerHTML = `
       <div class="modal-content lib-modal-content">
         <div class="lib-modal-body">
-          <span class="lib-modal-type">${item.type}</span>
+          <span class="lib-modal-type">${typeLabel(item.type)}</span>
           <h2>${item.title}</h2>
           <p class="lib-modal-author">by ${authorName}</p>
           <p class="lib-modal-desc">${item.description}</p>
@@ -498,8 +566,8 @@ export default {
     return svgs[kind] || svgs.file;
   },
 
-  // Publication blocks reuse the hub reader's .read-block-* classes, so a
-  // library publication looks like a gliim.
+  // Book blocks reuse the hub reader's .read-block-* classes, so a library
+  // book reads like a gliim.
   renderBlock(b) {
     const value = b && b.content != null ? String(b.content) : '';
     if (!value.trim()) return '';
@@ -531,7 +599,7 @@ export default {
     if (blocks && blocks.length) {
       contentHtml = `<div class="lib-article">${blocks.map(b => this.renderBlock(b)).join('')}</div>`;
     } else if (!fileUrl) {
-      contentHtml = '<p class="lib-reader-empty">The author hasn\'t attached a file to this publication yet.</p>';
+      contentHtml = '<p class="lib-reader-empty">The author hasn\'t attached a file to this book yet.</p>';
     } else if (kind === 'image') {
       contentHtml = `<img class="lib-reader-image" src="${escapeHtml(fileUrl)}" alt="${escapeHtml(item.title)}">`;
     } else if (kind === 'pdf') {
@@ -549,7 +617,7 @@ export default {
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
         ${item.cover_url ? `<img class="lib-reader-cover" src="${escapeHtml(item.cover_url)}" alt="">` : ''}
         <div class="lib-modal-body">
-          <span class="lib-modal-type">${escapeHtml(item.type)}</span>
+          <span class="lib-modal-type">${escapeHtml(typeLabel(item.type))}</span>
           <h2>${escapeHtml(item.title)}</h2>
           <p class="lib-modal-author">by ${escapeHtml(this.displayAuthorName(item))}</p>
           <p class="lib-modal-desc">${escapeHtml(item.description)}</p>
@@ -649,7 +717,7 @@ export default {
         <div class="lib-folder">
           <div class="lib-folder-tab"></div>
           <div class="lib-folder-body">
-            <span class="lib-modal-type">${escapeHtml(item.type)}</span>
+            <span class="lib-modal-type">${escapeHtml(typeLabel(item.type))}</span>
             <h2>${escapeHtml(item.title)}</h2>
             <p class="lib-modal-author">${list.length} file${list.length === 1 ? '' : 's'} · by ${escapeHtml(this.displayAuthorName(item))}</p>
             <p class="lib-modal-desc">${escapeHtml(item.description)}</p>
@@ -723,7 +791,7 @@ export default {
       }
       alert("Thank you for your rating!");
       modal.remove();
-      this.init();
+      this.loadShelf();
     });
   },
 
@@ -749,7 +817,7 @@ export default {
     if (data && typeof data.balance === 'number') this.walletBalance = data.balance;
     alert(data && data.already_owned ? "You already own this item." : "Purchase successful! It's unlocked in My Collections.");
     document.querySelector('.modal-overlay')?.remove();
-    this.init();
+    this.loadShelf();
   },
 
   openSubmitModal() {
@@ -774,7 +842,7 @@ export default {
             <div class="form-group" style="flex: 1; margin-right: 12px;">
               <label>Format</label>
               <select id="lib-sub-type" class="input">
-                <option value="publication">Publication</option>
+                <option value="publication">Book</option>
                 <option value="audiolite">Audiolite</option>
                 <option value="bundle">Bundle</option>
               </select>
@@ -813,7 +881,7 @@ export default {
     document.getElementById('lib-submit-publication-btn').addEventListener('click', () => this.submitForPublication(modal));
   },
 
-  // Each format gets its own composer: publications are built from blocks,
+  // Each format gets its own composer: books are built from blocks,
   // audiolites are a single audio file, bundles are a list of titled files.
   renderComposerBody(type) {
     const host = document.getElementById('lib-sub-content');

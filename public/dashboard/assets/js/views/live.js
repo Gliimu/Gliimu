@@ -112,7 +112,10 @@ const liveView = {
     </div>
   `,
 
-  async init() {
+  // opts.embedded: the host view (Ping) owns the topbar and the "post a
+  // request" button, so this view only renders its board.
+  async init(opts = {}) {
+    this.embedded = !!opts.embedded;
     window.liveInstance = {
       endLive: () => this.endLive(),
       isLiveActive: () => this.sessionModalOpen,
@@ -144,7 +147,7 @@ const liveView = {
     this.onPresenceChanged = () => this.renderBoard();
     window.addEventListener('presence-changed', this.onPresenceChanged);
 
-    this.setupTopbar();
+    if (!this.embedded) this.setupTopbar();
     this.setupBoardRealtime();
     await this.loadBoard();
   },
@@ -342,7 +345,9 @@ const liveView = {
 
   async announceClaim(row) {
     this.loadBoard();
-    if (window.location.hash !== '#/live' || this.sessionModalOpen) return;
+    // The board lives on its own route and inside Ping's live pane
+    const onBoard = ['#/live', '#/ping'].includes(window.location.hash);
+    if (!onBoard || this.sessionModalOpen) return;
 
     let name = 'A Gliimait';
     const { data } = await supabase.from('profiles').select('full_name').eq('id', row.partner_id).maybeSingle();

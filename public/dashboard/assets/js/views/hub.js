@@ -28,7 +28,10 @@ const hubView = {
     </div>
   `,
 
-  init() {
+  // opts.embedded: the merged Library view owns the topbar and the FAB, so
+  // this view only renders its feed into #posts-container.
+  init(opts = {}) {
+    this.embedded = !!opts.embedded;
     this.currentPosts = [];
     this.allInteractions = [];
     this.savedPosts = new Set();
@@ -43,10 +46,12 @@ const hubView = {
     // when the composer opens. Fails silently pre-migration.
     fetchBillingSummary().then(s => { if (s && !s.code) this.billingSummary = s; });
 
-    this.setupTopbarSearch();
-    this.setupTopbarActions();
+    if (!this.embedded) {
+      this.setupTopbarSearch();
+      this.setupTopbarActions();
+      this.setupFab();
+    }
     this.setupRealtime();
-    this.setupFab();
 
     this.fetchPosts().then(() => {
       this.checkPersistedModal();
