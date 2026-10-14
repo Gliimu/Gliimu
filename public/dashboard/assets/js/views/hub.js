@@ -415,8 +415,9 @@ const hubView = {
   async openCreateModal() {
     this.billingSummary = (await fetchBillingSummary()) || this.billingSummary;
     const summary = this.billingSummary;
-    const tier = summary && !summary.code ? summary.tier : null;
-    const canLock = tier === 'trial' || tier === 'payngo' || tier === 'pro';
+    // Eligibility ladder: premium-locking a bundle needs 1000 GP.
+    const userGP = (store.profile && store.profile.total_gp) || 0;
+    const canLock = userGP >= 1000;
     const premiumPrice = Number((summary && summary.prices && summary.prices.premium_unlock) || 0);
 
     const modal = document.createElement('div');
@@ -424,7 +425,7 @@ const hubView = {
     modal.innerHTML = `
       <div class="modal-content gliim-builder">
         <button class="modal-close" onclick="hubInstance.closeModal()">×</button>
-        <h2 style="margin-bottom: 24px;">Publish a Gliim</h2>
+        <h2 style="margin-bottom: 24px;">Publish a Bundle</h2>
         <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
         <div class="form-row" style="gap: 16px;">
           <div class="form-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
@@ -444,9 +445,13 @@ const hubView = {
             <input type="checkbox" id="post-premium-toggle" style="width: 18px; height: 18px; accent-color: var(--brand-primary); flex-shrink: 0;">
             <span><strong>Premium lock</strong>${premiumPrice ? ` — viewers pay ₦${premiumPrice.toLocaleString()} per open` : ' — viewers pay per open'}</span>
           </label>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn 70% of every unlock. Leave it unchecked and the gliim stays free to open.</p>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn 70% of every unlock. Leave it unchecked and the bundle stays free to open.</p>
         </div>
-        ` : ''}
+        ` : `
+        <div class="form-group">
+          <p style="font-size: 12px; color: var(--text-muted);">Reach <strong>1000 GP</strong> to premium-lock a bundle and charge viewers per open. You're at ${userGP.toLocaleString()} GP.</p>
+        </div>
+        `}
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
         <h3 style="margin-bottom: 16px;">Content Blocks</h3>
         <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
@@ -461,7 +466,7 @@ const hubView = {
           </div>
         </div>
 
-        <button id="submit-post-btn" class="btn-primary" style="width: 100%; margin-top: 32px;">Publish Gliim</button>
+        <button id="submit-post-btn" class="btn-primary" style="width: 100%; margin-top: 32px;">Publish Bundle</button>
       </div>
     `;
     document.body.appendChild(modal);
@@ -525,7 +530,7 @@ const hubView = {
 
       if (error) {
         alert("Failed: " + error.message);
-        btn.innerText = "Publish Gliim";
+        btn.innerText = "Publish Bundle";
         btn.disabled = false;
         return;
       }
@@ -537,7 +542,7 @@ const hubView = {
       if (bodyError) {
         await supabase.from('posts').delete().eq('id', created.id);
         alert("Failed to save your content: " + bodyError.message);
-        btn.innerText = "Publish Gliim";
+        btn.innerText = "Publish Bundle";
         btn.disabled = false;
         return;
       }

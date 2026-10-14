@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js?v=5';
+import hubView from './hub.js?v=6';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -49,8 +49,9 @@ export default {
 
       <div class="library-fab-wrapper">
         <div class="libmerge-fab-menu" id="libmerge-fab-menu">
-          <button type="button" data-act="gliim">Publish a Gliim</button>
-          <button type="button" data-act="shelf">Submit a Book or Audiolite</button>
+          <button type="button" data-act="book">Publish a Book</button>
+          <button type="button" data-act="audiolite">Publish an Audiolite</button>
+          <button type="button" data-act="bundle">Publish a Bundle</button>
         </div>
         <button class="library-fab-main" id="library-fab-main" title="Create">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -129,8 +130,8 @@ export default {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         menu.classList.remove('active');
-        if (btn.dataset.act === 'gliim') hubView.openCreateModal();
-        else this.openSubmitModal();
+        if (btn.dataset.act === 'bundle') hubView.openCreateModal();
+        else this.openSubmitModal(btn.dataset.act === 'audiolite' ? 'audiolite' : 'publication');
       });
     });
     document.addEventListener('click', () => menu.classList.remove('active'));
@@ -709,8 +710,10 @@ export default {
     this.loadShelf();
   },
 
-  openSubmitModal() {
+  openSubmitModal(presetType) {
     document.querySelector('.modal-overlay')?.remove();
+    const type = presetType === 'audiolite' ? 'audiolite' : 'publication';
+    const noun = type === 'audiolite' ? 'an Audiolite' : 'a Book';
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -718,8 +721,8 @@ export default {
       <div class="modal-content lib-modal-content">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
         <div class="lib-modal-body">
-          <span class="lib-modal-type">Publish</span>
-          <h2>Submit to Library</h2>
+          <span class="lib-modal-type">${type === 'audiolite' ? 'Audiolite' : 'Book'}</span>
+          <h2>Submit ${noun}</h2>
           <p class="lib-modal-author">Reviewed by the Gliimu team before it goes live on the shelf.</p>
 
           <div class="form-group" style="margin-top: 24px;">
@@ -737,7 +740,7 @@ export default {
             </div>
             <div class="form-group" style="flex: 1;">
               <label>Price (₦)</label>
-              <input type="number" id="lib-sub-price" class="input" min="0" placeholder="e.g. 5000">
+              <input type="number" id="lib-sub-price" class="input" min="0" placeholder="Free or set a price">
             </div>
           </div>
 
@@ -747,7 +750,7 @@ export default {
           </div>
 
           <div class="form-group">
-            <label>Cover Image (optional)</label>
+            <label>Cover ${type === 'audiolite' ? 'Art' : 'Image'} (optional)</label>
             <input type="file" id="lib-sub-cover" class="input" accept="image/*">
           </div>
 
@@ -763,38 +766,39 @@ export default {
     document.body.appendChild(modal);
 
     const typeSelect = document.getElementById('lib-sub-type');
+    typeSelect.value = type;
     typeSelect.addEventListener('change', (e) => this.renderComposerBody(e.target.value));
-    this.renderComposerBody(typeSelect.value);
+    this.renderComposerBody(type);
 
     document.getElementById('lib-submit-publication-btn').addEventListener('click', () => this.submitForPublication(modal));
   },
 
-  // Each format gets its own composer: books are built from blocks,
-  // audiolites are a single audio file.
+  // Each format gets its own composer: audiolites are one audio file plus
+  // optional read-along text; books are text and inner pictures only.
   renderComposerBody(type) {
     const host = document.getElementById('lib-sub-content');
     if (!host) return;
 
     if (type === 'audiolite') {
       host.innerHTML = `
-        <p class="lib-composer-hint">One audio file. Listeners play it inside the app.</p>
+        <p class="lib-composer-hint">One audio file. Listeners play it inside the app. Add text blocks if they should read along.</p>
         <div class="builder-block" id="lib-audio-slot">${this.uploadMarkup('Choose audio', 'audio/*')}</div>
+        <div id="lib-blocks-container" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;"></div>
+        <button class="btn-secondary" id="lib-audiolite-add-text" type="button" style="margin-top: 12px;">+ Add Text</button>
       `;
       this.wireFileUpload(document.getElementById('lib-audio-slot'), { accept: 'audio/*', kind: 'library' });
+      document.getElementById('lib-audiolite-add-text').addEventListener('click', () => this.addLibBlock('text'));
       return;
     }
 
     host.innerHTML = `
-      <p class="lib-composer-hint">Build it the way readers should see it — text, images, video or audio, in any order.</p>
+      <p class="lib-composer-hint">Build it the way readers should see it — text and inner pictures, in any order.</p>
       <div id="lib-blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
       <div class="builder-add-dropdown">
         <button class="btn-secondary" id="lib-block-trigger" type="button">+ Add Block</button>
         <div class="dropdown-menu" id="lib-block-menu">
           <div data-block="text">${BLOCK_ICONS.text} Text</div>
           <div data-block="image">${BLOCK_ICONS.image} Image</div>
-          <div data-block="video">${BLOCK_ICONS.video} Video</div>
-          <div data-block="audio">${BLOCK_ICONS.audio} Audio</div>
-          <div data-block="file">${BLOCK_ICONS.file} Document</div>
         </div>
       </div>
     `;
@@ -898,6 +902,12 @@ export default {
       const input = document.querySelector('#lib-audio-slot .block-content-input');
       fileUrl = input ? input.value : '';
       if (!fileUrl) return { error: 'Attach the audio file for this audiolite.' };
+      // Optional read-along text blocks live in the same container the book uses.
+      document.querySelectorAll('#lib-blocks-container .builder-block').forEach((b) => {
+        const textInput = b.querySelector('.block-content-input');
+        if (!textInput || !textInput.value.trim()) return;
+        blocks.push({ type: 'text', style: b.querySelector('.block-style-select').value, content: textInput.value.trim() });
+      });
     } else {
       document.querySelectorAll('#lib-blocks-container .builder-block').forEach((b) => {
         const kind = b.dataset.type;
