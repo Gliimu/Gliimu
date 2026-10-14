@@ -40,11 +40,11 @@ function escapeHtml(value) {
 }
 
 export default {
-  title: 'Library',
+  title: 'Hub',
   template: `
     <div class="libmerge hub-layout" id="library-container">
-      <div class="blog-feed library-feed" id="library-feed">
-        <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Library...</p>
+      <div class="library-feed" id="library-feed">
+        <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Hub...</p>
       </div>
 
       <div class="library-fab-wrapper">
@@ -272,8 +272,8 @@ export default {
     };
     const hue = [...(item.title || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
     const cover = item.cover_url
-      ? `<img class="lib-feed-cover" src="${escapeHtml(item.cover_url)}" alt="" loading="lazy">`
-      : `<div class="lib-feed-cover lib-feed-cover-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
+      ? `<img class="lib-shelf-img" src="${escapeHtml(item.cover_url)}" alt="" loading="lazy">`
+      : `<div class="lib-shelf-img lib-shelf-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
 
     const badge = isOwned
       ? '<span class="lib-tick-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>'
@@ -284,11 +284,14 @@ export default {
       : (this.subscriber ? 'Included with subscription' : (item.price ? `₦${Number(item.price).toLocaleString()}` : 'Free'));
 
     return `
-      <article class="blog-card lib-feed-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
-        <div class="lib-feed-cover-wrap">${cover}${badge}</div>
+      <article class="blog-card lib-shelf-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
+        <div class="lib-shelf-cover">
+          ${cover}
+          ${badge}
+          <span class="lib-shelf-type">${escapeHtml(typeLabel(item.type))}</span>
+        </div>
         <div class="blog-content">
           <div class="blog-meta">
-            <span class="blog-category">${escapeHtml(typeLabel(item.type))}</span>
             <span class="blog-date">${new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
           </div>
           <h2 class="blog-title">${escapeHtml(item.title)}</h2>

@@ -226,8 +226,10 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 #topbar-right-actions { display: flex; align-items: center; gap: 8px; }
 
 .hub-filter-wrapper { position: relative; }
-.hub-filter-btn { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; width: 38px; height: 38px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; }
+.hub-filter-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; height: 38px; padding: 0 14px; cursor: pointer; color: var(--text-secondary); font-family: var(--font-sans); font-size: 13px; font-weight: 600; transition: all 0.2s ease; }
 .hub-filter-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.hub-filter-btn svg { flex-shrink: 0; }
+.hub-filter-label { white-space: nowrap; }
 
 .hub-filter-menu {
   display: none;
@@ -322,6 +324,10 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   .blog-title { font-size: 19px; margin-bottom: 8px; }
   .blog-desc { font-size: 14px; margin-bottom: 16px; -webkit-line-clamp: 2; }
   .blog-footer { padding-top: 12px; }
+
+  /* Filter button collapses to a square icon on small screens */
+  .hub-filter-btn { width: 38px; padding: 0; justify-content: center; }
+  .hub-filter-label { display: none; }
 
   /* Dropup for the filter menu (desktop keeps the standard dropdown) */
   .hub-filter-menu {

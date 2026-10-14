@@ -37,24 +37,54 @@
 .lib-dropdown-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .lib-dropdown-item.active { color: var(--brand-primary); background: var(--brand-primary-light); font-weight: 600; }
 
-/* Shelf cards in the merged feed: same card shell as a gliim, but cover-led
-   and with a type chip so books and audiolites stay instantly recognisable. */
-.lib-feed-card { display: flex; align-items: stretch; }
-.lib-feed-cover-wrap { position: relative; flex-shrink: 0; width: 132px; }
-.lib-feed-cover { width: 100%; height: 100%; min-height: 186px; object-fit: cover; display: block; }
-.lib-feed-cover-fallback { display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.9); }
-.lib-feed-cover-fallback svg { width: 34px; height: 34px; }
-.lib-feed-card .blog-content { flex: 1; min-width: 0; }
-.lib-feed-card .blog-title { font-size: 19px; }
-.lib-feed-card .blog-desc { -webkit-line-clamp: 2; margin-bottom: 18px; }
+/* ============================================
+   MERGED FEED — gliims + shelf in one responsive grid.
+   Wide screens: multi-column grid of cards. Mobile: single-column list.
+   ============================================ */
+.libmerge.hub-layout { max-width: 1240px; }
+.library-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.library-feed .blog-card { margin-bottom: 0; }
+/* The loading / empty notice spans the whole feed, not one grid cell */
+.library-feed > p { grid-column: 1 / -1; }
+/* Tidy card proportions inside narrow grid cells */
+.library-feed .blog-cover { height: 180px; }
+.library-feed .blog-content { padding: 18px; }
+.library-feed .blog-title { font-size: 18px; margin-bottom: 8px; }
+.library-feed .blog-desc { font-size: 14px; -webkit-line-clamp: 2; margin-bottom: 16px; }
+
+/* Shelf cards (books / audiolites): same vertical card shell as a gliim,
+   but cover-led with a type chip so they stay instantly recognisable. */
+.lib-shelf-cover { position: relative; height: 180px; background: var(--bg-tertiary); overflow: hidden; }
+.lib-shelf-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lib-shelf-fallback { display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.92); }
+.lib-shelf-fallback svg { width: 46px; height: 46px; }
+.lib-shelf-type {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
 .lib-feed-author { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
 .lib-feed-state { font-size: 12px; font-weight: 700; color: var(--text-muted); }
 .lib-feed-state.owned { color: var(--success); }
 
 .lib-tick-badge, .lib-saved-badge {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 10px;
+  right: 10px;
   background: rgba(0, 0, 0, 0.6);
   padding: 4px;
   border-radius: 50%;
@@ -178,12 +208,9 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-  .lib-feed-cover-wrap { width: 104px; }
-  .lib-feed-cover { min-height: 150px; }
-  .lib-feed-card .blog-content { padding: 14px; }
-  .lib-feed-card .blog-title { font-size: 16px; margin-bottom: 8px; }
-  .lib-feed-card .blog-desc { font-size: 13px; margin-bottom: 12px; }
-  .lib-feed-card .blog-footer { padding-top: 10px; }
+  /* Gliims and shelf items collapse to a single-column list */
+  .library-feed { grid-template-columns: 1fr; gap: 16px; }
+  .lib-shelf-cover { height: 170px; }
 
   /* Mobile Dropup for Filter */
   .lib-dropdown-menu {
