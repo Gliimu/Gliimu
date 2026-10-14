@@ -466,11 +466,6 @@
     padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  /* Push Hub FAB up so it doesn't overlap bottom bar */
-  body .hub-fab-wrapper {
-    bottom: 80px !important;
-  }
-
   /* When body has 'sidebar-open' class on mobile */
   body.sidebar-open .sidebar {
     transform: translateX(0);

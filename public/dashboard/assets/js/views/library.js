@@ -6,12 +6,9 @@ import hubView from './hub.js';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
-const TAB_FILTERS = { all: 'all', books: 'publication', audiolites: 'audiolite', bundles: 'bundle', mine: 'owned' };
-
 function typeLabel(type) {
   if (type === 'publication') return 'Book';
   if (type === 'audiolite') return 'Audiolite';
-  if (type === 'bundle') return 'Bundle';
   return type || 'Item';
 }
 
@@ -27,7 +24,7 @@ const BLOCK_ICONS = {
 
 const REMOVE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
-// Bundles carry documents as well as media; the server allowlist for the
+// Books can attach documents as well as media; the server allowlist for the
 // 'library' upload kind is the authority, this just narrows the file picker.
 const LIB_FILE_ACCEPT = '.pdf,.epub,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.rtf,.zip,image/*,audio/*,video/*';
 
@@ -42,41 +39,18 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Older uploads kept the original filename in the URL, percent-encoded.
-function fileNameFromUrl(url) {
-  const last = String(url || '').split('/').pop().split('?')[0];
-  try { return decodeURIComponent(last); } catch (e) { return last; }
-}
-
 export default {
   title: 'Library',
   template: `
-    <div class="libmerge" id="library-container">
-      <div class="libmerge-tabs" id="libmerge-tabs">
-        <button class="libmerge-tab active" data-tab="all">All</button>
-        <button class="libmerge-tab" data-tab="gliims">Gliims</button>
-        <button class="libmerge-tab" data-tab="books">Books</button>
-        <button class="libmerge-tab" data-tab="audiolites">Audiolites</button>
-        <button class="libmerge-tab" data-tab="bundles">Bundles</button>
-        <button class="libmerge-tab" data-tab="mine">Mine</button>
-      </div>
-
-      <div class="libmerge-pane hub-layout" id="pane-gliims">
-        <div class="blog-feed" id="posts-container">
-          <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading published Gliims...</p>
-        </div>
-      </div>
-
-      <div class="libmerge-pane library-layout" id="pane-shelf" style="display: none;">
-        <div id="library-content">
-          <p style="color: var(--text-muted); text-align: center;">Loading the shelf...</p>
-        </div>
+    <div class="libmerge hub-layout" id="library-container">
+      <div class="blog-feed library-feed" id="library-feed">
+        <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Library...</p>
       </div>
 
       <div class="library-fab-wrapper">
         <div class="libmerge-fab-menu" id="libmerge-fab-menu">
           <button type="button" data-act="gliim">Publish a Gliim</button>
-          <button type="button" data-act="shelf">Submit a Book, Audiolite or Bundle</button>
+          <button type="button" data-act="shelf">Submit a Book or Audiolite</button>
         </div>
         <button class="library-fab-main" id="library-fab-main" title="Create">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -86,9 +60,7 @@ export default {
   `,
 
   init() {
-    this.currentFilter = 'all';
     this.searchQuery = '';
-    this.activeTab = localStorage.getItem('gliimu-library-tab') || 'all';
 
     window.libraryInstance = {
       openDetails: (id) => {
@@ -102,82 +74,36 @@ export default {
     };
 
     this.setupTopbar();
-    this.setupTabs();
     this.setupFab();
 
-    hubView.init({ embedded: true });
-    this.loadShelf().then(() => this.setTab(this.activeTab, true));
+    // Gliims and shelf items share one feed: hub hands its render calls back
+    // here so both card types stay interleaved in a single list.
+    hubView.onFeedChange = () => this.renderFeed();
+    hubView.init();
+    this.loadShelf();
   },
 
   async loadShelf() {
-    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: ratings }, { data: interactions }, { data: authorProfiles }, { data: adamProfile }, summary] = await Promise.all([
+    const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: authorProfiles }, { data: adamProfile }, summary] = await Promise.all([
       supabase.from('library_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
-      supabase.from('profiles').select('wallet_balance, interests').eq('id', store.user.id).single(),
-      supabase.from('content_info').select('item_id, rating, review'),
-      supabase.from('library_interactions').select('item_id, interaction_type, created_at'),
+      supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single(),
       supabase.from('profiles').select('id, full_name, avatar_url').neq('id', store.user.id),
       supabase.from('profiles').select('id, full_name, avatar_url').eq('username', 'adam').maybeSingle(),
       fetchBillingSummary()
     ]);
 
-    this.allItems = items || [];
+    this.allItems = (items || []).filter(item => item.type !== 'bundle');
     this.ownedItems = new Set(purchases?.map(p => p.item_id) || []);
     this.savedItems = new Set(saved?.map(s => s.item_id) || []);
     this.walletBalance = profile?.wallet_balance || 0;
-    this.userInterests = profile?.interests ? profile.interests.toLowerCase().split(',') : [];
-    this.ratings = ratings || [];
-    this.interactions = interactions || [];
     this.authorProfiles = authorProfiles || [];
     this.adamProfile = adamProfile || null;
     this.effTier = (summary && !summary.code) ? summary.tier : null;
     this.subscriber = this.effTier === 'trial' || this.effTier === 'payngo' || this.effTier === 'pro';
 
-    this.applyFilters();
-  },
-
-  setupTabs() {
-    const tabs = document.getElementById('libmerge-tabs');
-    if (!tabs) return;
-    tabs.querySelectorAll('.libmerge-tab').forEach(btn => {
-      btn.addEventListener('click', () => this.setTab(btn.dataset.tab));
-    });
-  },
-
-  // One page, two feeds. 'gliims' hides the shelf, 'books'/'audiolites'
-  // 'bundles' hide the feed, and 'all'/'mine' show both.
-  setTab(tab, initial = false) {
-    this.activeTab = tab;
-    localStorage.setItem('gliimu-library-tab', tab);
-
-    document.querySelectorAll('#libmerge-tabs .libmerge-tab').forEach(b => {
-      b.classList.toggle('active', b.dataset.tab === tab);
-    });
-
-    const showGliims = tab === 'all' || tab === 'gliims' || tab === 'mine';
-    const showShelf = tab !== 'gliims';
-
-    const gliimsPane = document.getElementById('pane-gliims');
-    const shelfPane = document.getElementById('pane-shelf');
-    if (gliimsPane) gliimsPane.style.display = showGliims ? '' : 'none';
-    if (shelfPane) shelfPane.style.display = showShelf ? '' : 'none';
-    document.getElementById('topbar-right-actions')?.classList.toggle('libmerge-hide-actions', !showGliims);
-
-    if (showGliims) {
-      hubView.currentFilter = tab === 'mine' ? 'mine' : 'all';
-      document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(i => {
-        i.classList.toggle('active', i.dataset.filter === hubView.currentFilter);
-      });
-      hubView.renderPosts(hubView.currentPosts || []);
-    }
-
-    if (showShelf && this.allItems) {
-      this.currentFilter = TAB_FILTERS[tab] || 'all';
-      this.applyFilters();
-    }
-
-    if (!initial) window.scrollTo(0, 0);
+    this.renderFeed();
   },
 
   setupFab() {
@@ -214,13 +140,11 @@ export default {
         this.searchQuery = q;
         hubView.searchQuery = q;
         if (q.length >= 3) hubView.interestSignal(0, null, q);
-        hubView.renderPosts(hubView.currentPosts || []);
-        this.applyFilters();
+        this.renderFeed();
       });
     }
 
-    // The gliim feed's list/grid toggle and filter menu; hidden on shelf-only
-    // tabs by setTab().
+    // The gliim filter menu (Mine / Tagged / Saved / categories).
     hubView.setupTopbarActions();
   },
 
@@ -302,105 +226,79 @@ export default {
     });
   },
 
-  calculateTrendScore(item) {
-    let score = 0;
-    const now = new Date();
-    const oneDayAgo = new Date(now.setDate(now.getDate() - 1));
-    const oneWeekAgo = new Date(now.setDate(now.getDate() - 7));
-
-    const itemInteractions = this.interactions.filter(i => i.item_id === item.id);
-
-    const uniqueUsersDay = new Set(itemInteractions.filter(i => new Date(i.created_at) >= oneDayAgo).map(i => i.user_id));
-    if (uniqueUsersDay.size >= 9) score += 1000;
-
-    const uniqueUsersWeek = new Set(itemInteractions.filter(i => new Date(i.created_at) >= oneWeekAgo).map(i => i.user_id));
-    score += uniqueUsersWeek.size * 10;
-
-    const itemRatings = this.ratings.filter(r => r.item_id === item.id);
-    itemRatings.forEach(r => {
-      if (r.rating > 5) score += 20;
-      if (r.review) {
-        const lowerReview = r.review.toLowerCase();
-        const positiveWords = ['good', 'great', 'excellent', 'amazing', 'helpful', 'elite', 'best', 'top', 'love', 'perfect', 'quality'];
-        positiveWords.forEach(w => { if (lowerReview.includes(w)) score += 10; });
-      }
-    });
-
-    return score;
+  // Books and audiolites only, matched against the single search box.
+  visibleItems() {
+    const q = this.searchQuery;
+    if (!q) return this.allItems || [];
+    return (this.allItems || []).filter(item =>
+      item.title?.toLowerCase().includes(q) ||
+      item.author?.toLowerCase().includes(q) ||
+      item.description?.toLowerCase().includes(q)
+    );
   },
 
-  applyFilters() {
-    let filtered = this.allItems;
-    if (this.currentFilter === 'owned') {
-      filtered = filtered.filter(item => this.ownedItems.has(item.id) || this.savedItems.has(item.id));
-    } else if (this.currentFilter !== 'all') {
-      filtered = filtered.filter(item => item.type === this.currentFilter);
+  // One list for everything. Gliims keep the order the feed engine gave them;
+  // shelf items are woven through that list so books and audiolites sit beside
+  // gliims instead of piling up at the bottom of the page.
+  renderFeed() {
+    const container = document.getElementById('library-feed');
+    if (!container) return;
+
+    const cards = hubView.filterPosts().map(post => hubView.renderPostCard(post));
+
+    // A gliim filter (Mine / Tagged / Saved / a category) has no meaning for
+    // shelf items, so those only join the feed when everything is showing.
+    if ((hubView.currentFilter || 'all') === 'all') {
+      const shelfCards = this.visibleItems().map(item => this.renderShelfCard(item));
+      const gap = Math.max(2, Math.ceil(cards.length / shelfCards.length));
+      shelfCards.forEach((html, i) => {
+        cards.splice(Math.min(cards.length, (i + 1) * gap - 1), 0, html);
+      });
     }
-    if (this.searchQuery) {
-      filtered = filtered.filter(item => item.title.toLowerCase().includes(this.searchQuery) || item.author?.toLowerCase().includes(this.searchQuery) || item.description?.toLowerCase().includes(this.searchQuery));
-    }
-    this.renderSections(filtered);
+
+    container.innerHTML = cards.length
+      ? cards.join('')
+      : '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
   },
 
-  renderSections(items) {
-    const contentDiv = document.getElementById('library-content');
-    if (items.length === 0) {
-      contentDiv.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">No items found.</p>';
-      return;
-    }
-
-    if (this.currentFilter === 'all' && !this.searchQuery) {
-      const trending = [...items].sort((a, b) => this.calculateTrendScore(b) - this.calculateTrendScore(a)).slice(0, 4);
-      const newToShelf = [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4);
-      const forYou = items.filter(item => this.userInterests.some(interest => item.title.toLowerCase().includes(interest.trim()) || item.description.toLowerCase().includes(interest.trim()))).slice(0, 4);
-      const forYouFinal = forYou.length > 0 ? forYou : items.slice(0, 4);
-
-      let html = '';
-      html += this.renderSection('For You', forYouFinal);
-      html += this.renderSection('Trending', trending);
-      html += this.renderSection('New to Shelf', newToShelf);
-      html += this.renderSection('All Contents', items);
-      contentDiv.innerHTML = html;
-    } else {
-      contentDiv.innerHTML = this.renderSection('Results', items);
-    }
-  },
-
-  renderSection(title, items) {
-    if (items.length === 0) return '';
-    return `
-      <div class="lib-section">
-        <h3 class="lib-section-title">${title}</h3>
-        <div class="lib-masonry-grid">
-          ${items.map(item => this.renderCard(item)).join('')}
-        </div>
-      </div>
-    `;
-  },
-
-  renderCard(item) {
+  // Shelf cards keep their own cover-led look with a type chip, so a book is
+  // never mistaken for a gliim in the shared list.
+  renderShelfCard(item) {
     const isOwned = this.ownedItems.has(item.id);
     const isSaved = this.savedItems.has(item.id);
-    let thumb;
-    if (item.cover_url) {
-      thumb = `<img class="lib-thumb" src="${item.cover_url}" alt="" loading="lazy">`;
-    } else {
-      const icons = {
-        publication: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
-        audiolite: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>',
-        bundle: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>'
-      };
-      const hue = [...(item.title || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
-      thumb = `<div class="lib-thumb lib-thumb-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
-    }
-    const ownedBadge = isOwned ? '<span class="lib-tick-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : '';
-    const savedBadge = (isSaved && !isOwned) ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>' : '';
+    const icons = {
+      publication: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      audiolite: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>'
+    };
+    const hue = [...(item.title || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+    const cover = item.cover_url
+      ? `<img class="lib-feed-cover" src="${escapeHtml(item.cover_url)}" alt="" loading="lazy">`
+      : `<div class="lib-feed-cover lib-feed-cover-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
+
+    const badge = isOwned
+      ? '<span class="lib-tick-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>'
+      : (isSaved ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>' : '');
+
+    const state = isOwned
+      ? 'Unlocked'
+      : (this.subscriber ? 'Included with subscription' : (item.price ? `₦${Number(item.price).toLocaleString()}` : 'Free'));
+
     return `
-      <div class="lib-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
-        ${thumb}
-        ${ownedBadge}${savedBadge}
-        <div class="lib-overlay"><h4>${item.title}</h4></div>
-      </div>
+      <article class="blog-card lib-feed-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
+        <div class="lib-feed-cover-wrap">${cover}${badge}</div>
+        <div class="blog-content">
+          <div class="blog-meta">
+            <span class="blog-category">${escapeHtml(typeLabel(item.type))}</span>
+            <span class="blog-date">${new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+          </div>
+          <h2 class="blog-title">${escapeHtml(item.title)}</h2>
+          <p class="blog-desc">${escapeHtml(item.description || '')}</p>
+          <div class="blog-footer">
+            <span class="lib-feed-author">by ${escapeHtml(this.displayAuthorName(item))}</span>
+            <span class="lib-feed-state${isOwned ? ' owned' : ''}">${state}</span>
+          </div>
+        </div>
+      </article>
     `;
   },
 
@@ -535,13 +433,9 @@ export default {
     if (!error && data) body = data;
 
     const blocks = (body && Array.isArray(body.blocks)) ? body.blocks : [];
-    const files = (body && Array.isArray(body.files) && body.files.length)
-      ? body.files
-      : (Array.isArray(item.bundle_items) ? item.bundle_items : []);
-    const fileUrl = (files[0] && files[0].url) || item.file_url || null;
+    const fileUrl = ((body && Array.isArray(body.files) && body.files[0] && body.files[0].url) || item.file_url || null);
 
     if (item.type === 'audiolite') return this.openAudiolite(item, fileUrl);
-    if (item.type === 'bundle') return this.openBundle(item, files);
     return this.openReader(item, blocks, fileUrl);
   },
 
@@ -693,42 +587,6 @@ export default {
     });
   },
 
-  openBundle(item, files) {
-    const list = (Array.isArray(files) ? files : []).filter(f => f && f.url);
-
-    const rows = list.map(f => {
-      const title = (f.title && String(f.title).trim()) || fileNameFromUrl(f.url) || 'File';
-      return `
-      <div class="lib-file-row">
-        <span class="lib-file-icon">${this.fileIcon(this.fileKind(f.url))}</span>
-        <span class="lib-file-name">${escapeHtml(title)}</span>
-        <a class="lib-file-download" href="${escapeHtml(f.url)}" download target="_blank" rel="noopener" title="Download">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        </a>
-      </div>
-    `;
-    }).join('');
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content lib-modal-content lib-bundle-modal">
-        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <div class="lib-folder">
-          <div class="lib-folder-tab"></div>
-          <div class="lib-folder-body">
-            <span class="lib-modal-type">${escapeHtml(typeLabel(item.type))}</span>
-            <h2>${escapeHtml(item.title)}</h2>
-            <p class="lib-modal-author">${list.length} file${list.length === 1 ? '' : 's'} · by ${escapeHtml(this.displayAuthorName(item))}</p>
-            <p class="lib-modal-desc">${escapeHtml(item.description)}</p>
-            <div class="lib-folder-files">${rows || '<p class="lib-reader-empty">No files attached to this bundle yet.</p>'}</div>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  },
-
   shareItem(item) {
     if (navigator.share) {
       navigator.share({ title: item.title, text: item.description, url: window.location.href }).catch(err => console.log('Share cancelled'));
@@ -748,7 +606,7 @@ export default {
       alert("Item saved to your collections!");
     }
     document.querySelector('.modal-overlay')?.remove();
-    this.applyFilters();
+    this.renderFeed();
   },
 
   promptRate(itemId) {
@@ -844,7 +702,6 @@ export default {
               <select id="lib-sub-type" class="input">
                 <option value="publication">Book</option>
                 <option value="audiolite">Audiolite</option>
-                <option value="bundle">Bundle</option>
               </select>
             </div>
             <div class="form-group" style="flex: 1;">
@@ -882,7 +739,7 @@ export default {
   },
 
   // Each format gets its own composer: books are built from blocks,
-  // audiolites are a single audio file, bundles are a list of titled files.
+  // audiolites are a single audio file.
   renderComposerBody(type) {
     const host = document.getElementById('lib-sub-content');
     if (!host) return;
@@ -893,19 +750,6 @@ export default {
         <div class="builder-block" id="lib-audio-slot">${this.uploadMarkup('Choose audio', 'audio/*')}</div>
       `;
       this.wireFileUpload(document.getElementById('lib-audio-slot'), { accept: 'audio/*', kind: 'library' });
-      return;
-    }
-
-    if (type === 'bundle') {
-      host.innerHTML = `
-        <p class="lib-composer-hint">Add every file in the bundle. Readers download them one at a time.</p>
-        <div id="lib-bundle-rows" style="display: flex; flex-direction: column; gap: 16px;"></div>
-        <div class="builder-add-dropdown">
-          <button class="btn-secondary" id="lib-bundle-add" type="button">+ Add File</button>
-        </div>
-      `;
-      document.getElementById('lib-bundle-add').addEventListener('click', () => this.addBundleRow());
-      this.addBundleRow();
       return;
     }
 
@@ -1013,37 +857,17 @@ export default {
     if (type !== 'text') this.wireFileUpload(block, { kind: 'library' });
   },
 
-  addBundleRow() {
-    const container = document.getElementById('lib-bundle-rows');
-    if (!container) return;
-
-    const row = document.createElement('div');
-    row.className = 'builder-block lib-bundle-row';
-    row.innerHTML = `
-      ${BLOCK_HEAD}<span class="block-label">${BLOCK_ICONS.file}</span><button class="block-remove-btn" type="button">${REMOVE_ICON}</button></div>
-      <input type="text" class="input lib-bundle-title" placeholder="What readers will see (e.g. Chapter 1 PDF)" style="margin-bottom: 8px;">
-      ${this.uploadMarkup('Choose file', LIB_FILE_ACCEPT)}
-    `;
-    container.appendChild(row);
-
-    row.querySelector('.block-remove-btn').addEventListener('click', () => row.remove());
-    this.wireFileUpload(row, {
-      kind: 'library',
-      onDone: (url, file) => {
-        const titleEl = row.querySelector('.lib-bundle-title');
-        if (!titleEl.value.trim()) titleEl.value = file.name.replace(/\.[^.]+$/, '');
-      }
-    });
-  },
-
   // Reads the composer back out. Returns { error } when the format has nothing
-  // worth submitting, otherwise { blocks, files, fileUrl }.
+  // worth submitting, otherwise { blocks, fileUrl }.
   collectComposer(type) {
     const blocks = [];
-    const files = [];
     let fileUrl = null;
 
-    if (type === 'publication') {
+    if (type === 'audiolite') {
+      const input = document.querySelector('#lib-audio-slot .block-content-input');
+      fileUrl = input ? input.value : '';
+      if (!fileUrl) return { error: 'Attach the audio file for this audiolite.' };
+    } else {
       document.querySelectorAll('#lib-blocks-container .builder-block').forEach((b) => {
         const kind = b.dataset.type;
         const input = b.querySelector('.block-content-input');
@@ -1055,22 +879,9 @@ export default {
         }
       });
       if (!blocks.length) return { error: 'Add at least one content block.' };
-    } else if (type === 'audiolite') {
-      const input = document.querySelector('#lib-audio-slot .block-content-input');
-      fileUrl = input ? input.value : '';
-      if (!fileUrl) return { error: 'Attach the audio file for this audiolite.' };
-    } else {
-      document.querySelectorAll('#lib-bundle-rows .lib-bundle-row').forEach((row) => {
-        const input = row.querySelector('.block-content-input');
-        if (!input || !input.value) return;
-        const named = row.querySelector('.lib-bundle-title').value.trim()
-          || row.querySelector('.block-file-name').innerText.trim();
-        files.push({ title: named || 'File', url: input.value });
-      });
-      if (!files.length) return { error: 'Add at least one file to the bundle.' };
     }
 
-    return { blocks, files, fileUrl };
+    return { blocks, fileUrl };
   },
 
   async submitForPublication(modal) {
@@ -1109,7 +920,6 @@ export default {
       cover_url: coverUrl,
       file_url: composer.fileUrl,
       blocks: composer.blocks,
-      bundle_items: composer.files,
       status: 'pending'
     });
 

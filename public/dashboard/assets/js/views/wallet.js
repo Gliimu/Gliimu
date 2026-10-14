@@ -14,8 +14,7 @@ function escapeHtml(value) {
 // Labels for the server-recorded usage events in the running cycle.
 // The amounts themselves always come from billing_summary().prices.
 const USAGE_LABELS = {
-  publication: 'Publication unlock',
-  bundle: 'Bundle unlock',
+  publication: 'Book unlock',
   audiolite: 'Audiolite unlock',
   gliim_av: 'Gliim · video/audio',
   gliim_image: 'Gliim · text/image',
@@ -282,7 +281,7 @@ export default {
     ` : '';
 
     const priceRows = [
-      ['publication', 'Publication'], ['bundle', 'Bundle'], ['audiolite', 'Audiolite'],
+      ['publication', 'Book'], ['audiolite', 'Audiolite'],
       ['gliim_av', 'Gliim · video/audio'], ['gliim_image', 'Gliim · text/image'],
       ['live', 'Live session'], ['premium_unlock', 'Premium Gliim'], ['profile_print', 'Profile print']
     ].map(([key, label]) => {

@@ -13,31 +13,15 @@ function escapeHtml(value) {
 }
 
 const hubView = {
-  title: 'Hub',
-  template: `
-    <div class="hub-layout">
-      <div class="blog-feed" id="posts-container">
-        <p class="hub-empty-state" style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading published Gliims...</p>
-      </div>
-
-      <div class="hub-fab-wrapper">
-        <button class="hub-fab-main" id="hub-fab-main">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        </button>
-      </div>
-    </div>
-  `,
-
-  // opts.embedded: the merged Library view owns the topbar and the FAB, so
-  // this view only renders its feed into #posts-container.
-  init(opts = {}) {
-    this.embedded = !!opts.embedded;
+  // Gliims live inside the merged Library feed: this module owns the data,
+  // the modals and realtime, while Library owns the topbar, the FAB and the
+  // DOM. Feed changes are pushed out through onFeedChange.
+  init() {
     this.currentPosts = [];
     this.allInteractions = [];
     this.savedPosts = new Set();
     this.searchQuery = '';
     this.currentFilter = 'all';
-    this.viewStyle = localStorage.getItem('hub-view') || 'list';
     this.isModalOpen = false;
     this.feedLoaded = false;
     this.billingSummary = null;
@@ -46,11 +30,6 @@ const hubView = {
     // when the composer opens. Fails silently pre-migration.
     fetchBillingSummary().then(s => { if (s && !s.code) this.billingSummary = s; });
 
-    if (!this.embedded) {
-      this.setupTopbarSearch();
-      this.setupTopbarActions();
-      this.setupFab();
-    }
     this.setupRealtime();
 
     this.fetchPosts().then(() => {
@@ -95,90 +74,49 @@ const hubView = {
     }
   },
 
-  setupTopbarSearch() {
-    const topbarDynamic = document.getElementById('topbar-dynamic-content');
-    if (topbarDynamic) {
-      topbarDynamic.innerHTML = `
-        <div class="hub-topbar-search">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="hub-search" placeholder="Search the Hub...">
-        </div>
-      `;
-      document.getElementById('hub-search').addEventListener('input', (e) => {
-        this.searchQuery = e.target.value.toLowerCase();
-        if (this.searchQuery.length >= 3) this.interestSignal(0, null, this.searchQuery);
-        this.renderPosts(this.currentPosts);
-      });
-    }
-  },
-
+  // The gliim filter menu. Library owns the topbar and calls this.
   setupTopbarActions() {
     const rightActions = document.getElementById('topbar-right-actions');
-    if (rightActions) {
-      rightActions.innerHTML = `
-        <div class="hub-view-toggle">
-          <button class="hub-view-btn" data-view="list" title="List View">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-          </button>
-          <button class="hub-view-btn" data-view="grid" title="Grid View">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          </button>
+    if (!rightActions) return;
+
+    rightActions.innerHTML = `
+      <div class="hub-filter-wrapper">
+        <button class="hub-filter-btn" id="hub-filter-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+        </button>
+        <div class="hub-filter-menu" id="hub-dropdown">
+          <div class="hub-filter-item active" data-filter="all">Everything</div>
+          <div class="hub-filter-item" data-filter="mine">My Gliims</div>
+          <div class="hub-filter-item" data-filter="tagged">Tagged Gliims</div>
+          <div class="hub-filter-item" data-filter="saved">Saved Gliims</div>
+          <div class="hub-filter-item" data-filter="Media">Media</div>
+          <div class="hub-filter-item" data-filter="Tech">Tech</div>
+          <div class="hub-filter-item" data-filter="Business">Business</div>
+          <div class="hub-filter-item" data-filter="Personal">Personal</div>
+          <div class="hub-filter-item" data-filter="Education">Education</div>
         </div>
-        <div class="hub-filter-wrapper">
-          <button class="hub-filter-btn" id="hub-filter-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-          </button>
-          <div class="hub-filter-menu" id="hub-dropdown">
-            <div class="hub-filter-item active" data-filter="all">All Gliims</div>
-            <div class="hub-filter-item" data-filter="mine">My Gliims</div>
-            <div class="hub-filter-item" data-filter="tagged">Tagged Gliims</div>
-            <div class="hub-filter-item" data-filter="saved">Saved Gliims</div>
-            <div class="hub-filter-item" data-filter="Media">Media</div>
-            <div class="hub-filter-item" data-filter="Tech">Tech</div>
-            <div class="hub-filter-item" data-filter="Business">Business</div>
-            <div class="hub-filter-item" data-filter="Personal">Personal</div>
-            <div class="hub-filter-item" data-filter="Education">Education</div>
-          </div>
-        </div>
-      `;
+      </div>
+    `;
 
-      const activeBtn = document.querySelector(`.hub-view-btn[data-view="${this.viewStyle}"]`);
-      if (activeBtn) activeBtn.classList.add('active');
-
-      document.getElementById('hub-filter-btn').addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        document.getElementById('hub-dropdown').classList.toggle('active');
+    document.getElementById('hub-filter-btn').addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      document.getElementById('hub-dropdown').classList.toggle('active');
+    });
+    document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        this.currentFilter = item.dataset.filter;
+        document.getElementById('hub-dropdown').classList.remove('active');
+        this.renderPosts(this.currentPosts);
       });
-      document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          document.querySelectorAll('#hub-dropdown .hub-filter-item').forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
-          this.currentFilter = item.dataset.filter;
-          document.getElementById('hub-dropdown').classList.remove('active');
-          this.renderPosts(this.currentPosts);
-        });
-      });
+    });
 
-      document.querySelectorAll('.hub-view-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.hub-view-btn').forEach(b => b.classList.remove('active'));
-          e.currentTarget.classList.add('active');
-          this.viewStyle = e.currentTarget.dataset.view;
-          localStorage.setItem('hub-view', this.viewStyle);
-          this.renderPosts(this.currentPosts);
-        });
-      });
-
-      // Close the filter menu when tapping anywhere else in the app
-      document.addEventListener('click', () => {
-        document.getElementById('hub-dropdown')?.classList.remove('active');
-      });
-    }
-  },
-
-  setupFab() {
-    document.getElementById('hub-fab-main').addEventListener('click', () => this.openCreateModal());
+    // Close the filter menu when tapping anywhere else in the app
+    document.addEventListener('click', () => {
+      document.getElementById('hub-dropdown')?.classList.remove('active');
+    });
   },
 
   closeModal() {
@@ -696,10 +634,10 @@ const hubView = {
     this.renderPosts(this.currentPosts);
   },
 
-  renderPosts(posts) {
-    const container = document.getElementById('posts-container');
-    if (!container) return;
-    let filtered = posts;
+  // Gliim cards live inside the merged Library feed, so filtering and card
+  // markup are split out: Library interleaves these cards with shelf items.
+  filterPosts(posts) {
+    let filtered = posts || this.currentPosts || [];
 
     if (this.currentFilter === 'saved') {
       filtered = filtered.filter(p => this.savedPosts.has(p.id));
@@ -722,24 +660,34 @@ const hubView = {
       filtered = filtered.filter(p => p.title?.toLowerCase().includes(this.searchQuery) || p.description?.toLowerCase().includes(this.searchQuery) || p.category?.toLowerCase().includes(this.searchQuery));
     }
 
-    if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
+    return filtered;
+  },
 
-    container.className = `blog-feed ${this.viewStyle === 'grid' ? 'grid-view' : ''}`;
+  renderPostCard(post) {
     const premiumPrice = Number((this.billingSummary && this.billingSummary.prices && this.billingSummary.prices.premium_unlock) || 0);
-    container.innerHTML = filtered.map(post => {
-      const isAmbassador = (post.profiles?.total_gp || 0) >= 5000;
-      const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
-      const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+    const isAmbassador = (post.profiles?.total_gp || 0) >= 5000;
+    const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
+    const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
 
-      const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
-      const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
-      const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
-      const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
-      const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
-      const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-      const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-      return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
-    }).join('');
+    const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
+    const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
+    const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+    const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
+    const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
+  },
+
+  renderPosts(posts) {
+    // The merged Library feed owns rendering; hand off to it when embedded.
+    if (this.onFeedChange) { this.onFeedChange(); return; }
+
+    const container = document.getElementById('posts-container');
+    if (!container) return;
+    const filtered = this.filterPosts(posts);
+    if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
+    container.className = 'blog-feed';
+    container.innerHTML = filtered.map(post => this.renderPostCard(post)).join('');
   },
 
   parseTags(text) {
