@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js?v=4';
+import hubView from './hub.js?v=5';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -79,6 +79,16 @@ export default {
     // Gliims and shelf items share one feed: hub hands its render calls back
     // here so both card types stay interleaved in a single list.
     hubView.onFeedChange = () => this.renderFeed();
+
+    // Column widths change with the viewport, so re-pack the masonry on resize.
+    if (!this._masonryResize) {
+      this._masonryResize = () => {
+        clearTimeout(this._masonryTimer);
+        this._masonryTimer = setTimeout(() => this.layoutMasonry(), 120);
+      };
+      window.addEventListener('resize', this._masonryResize);
+    }
+
     hubView.init();
     this.loadShelf();
   },
@@ -244,12 +254,12 @@ export default {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const cards = hubView.filterPosts().map(post => hubView.renderPostCard(post));
+    const cards = hubView.filterPosts().map(post => this.wrapItem(hubView.renderPostCard(post), 'gliim'));
 
     // A gliim filter (Mine / Tagged / Saved / a category) has no meaning for
     // shelf items, so those only join the feed when everything is showing.
     if ((hubView.currentFilter || 'all') === 'all') {
-      const shelfCards = this.visibleItems().map(item => this.renderShelfCard(item));
+      const shelfCards = this.visibleItems().map(item => this.wrapItem(this.renderShelfCard(item), 'tile'));
       if (shelfCards.length) {
         const gap = Math.max(2, Math.ceil(cards.length / shelfCards.length));
         shelfCards.forEach((html, i) => {
@@ -261,6 +271,31 @@ export default {
     container.innerHTML = cards.length
       ? `<div class="library-feed">${cards.join('')}</div>`
       : '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
+
+    this.layoutMasonry();
+  },
+
+  wrapItem(html, kind) {
+    return `<div class="feed-item feed-item--${kind}">${html}</div>`;
+  },
+
+  // Pinterest masonry: each item spans exactly its own height in 8px row
+  // slices (plus its bottom gap), so short tiles tuck under tall cards with
+  // no row-sized dead space. Re-run whenever widths change.
+  layoutMasonry() {
+    const feed = document.querySelector('#library-feed .library-feed');
+    if (!feed) return;
+
+    const ROW = 8;
+    const GAP = window.matchMedia('(max-width: 768px)').matches ? 12 : 24;
+
+    feed.querySelectorAll('.feed-item').forEach(item => {
+      const inner = item.firstElementChild;
+      if (!inner) return;
+      item.style.gridRowEnd = 'auto';
+      const height = inner.getBoundingClientRect().height;
+      item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((height + GAP) / ROW))}`;
+    });
   },
 
   // Shelf items are thumbnail-only cover tiles woven into the same feed as

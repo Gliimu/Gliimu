@@ -42,11 +42,15 @@
    Wide screens: multi-column grid of cards. Mobile: single-column list.
    ============================================ */
 .libmerge.hub-layout { max-width: 1240px; }
+/* True Pinterest masonry: rows are 8px slices and each item spans exactly its
+   own height (set by JS), so short tiles pack tight under tall cards instead
+   of leaving a row-sized gap. Vertical spacing is baked into each span. */
 .library-feed {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
-  align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-auto-rows: 8px;
+  column-gap: 24px;
+  row-gap: 0;
 }
 .library-feed .blog-card { margin-bottom: 0; }
 /* The loading / empty notice spans the whole feed, not one grid cell */
@@ -210,11 +214,12 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-  /* Gliims collapse to a single-column list */
-  .library-feed { grid-template-columns: 1fr; gap: 16px; }
-  /* Shelf tiles stay thumbnail-only but shorter on small screens */
-  .lib-tile { aspect-ratio: 16 / 10; }
-  .lib-tile.lib-audiolite { aspect-ratio: 16 / 10; }
+  /* Mobile: gliim posts take the full width (single column) while books and
+     audiolites share the row two-up, so the shelf stays a compact wall. */
+  .library-feed { grid-template-columns: repeat(2, 1fr); column-gap: 12px; }
+  .feed-item--gliim { grid-column: 1 / -1; }
+  .lib-tile { aspect-ratio: 3 / 4; }
+  .lib-tile.lib-audiolite { aspect-ratio: 3 / 4; }
 
   /* Mobile Dropup for Filter */
   .lib-dropdown-menu {
