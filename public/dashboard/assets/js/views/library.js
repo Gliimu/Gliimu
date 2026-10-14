@@ -43,7 +43,7 @@ export default {
   title: 'Hub',
   template: `
     <div class="libmerge hub-layout" id="library-container">
-      <div class="library-feed" id="library-feed">
+      <div class="libmerge-feed" id="library-feed">
         <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Hub...</p>
       </div>
 
@@ -244,25 +244,36 @@ export default {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const cards = hubView.filterPosts().map(post => hubView.renderPostCard(post));
+    const gliimCards = hubView.filterPosts().map(post => hubView.renderPostCard(post));
+    let html = '';
 
-    // A gliim filter (Mine / Tagged / Saved / a category) has no meaning for
-    // shelf items, so those only join the feed when everything is showing.
-    if ((hubView.currentFilter || 'all') === 'all') {
-      const shelfCards = this.visibleItems().map(item => this.renderShelfCard(item));
-      const gap = Math.max(2, Math.ceil(cards.length / shelfCards.length));
-      shelfCards.forEach((html, i) => {
-        cards.splice(Math.min(cards.length, (i + 1) * gap - 1), 0, html);
-      });
+    if (gliimCards.length) {
+      html += `<div class="library-feed">${gliimCards.join('')}</div>`;
     }
 
-    container.innerHTML = cards.length
-      ? cards.join('')
-      : '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
+    // A gliim filter (Mine / Tagged / Saved / a category) has no meaning for
+    // shelf items, so the book/audiolite masonry only shows when everything is.
+    if ((hubView.currentFilter || 'all') === 'all') {
+      const shelf = this.visibleItems();
+      if (shelf.length) {
+        html += `
+          <div class="lib-section">
+            <h3 class="lib-section-title">Books &amp; Audiolites</h3>
+            <div class="lib-masonry-grid">
+              ${shelf.map(item => this.renderShelfCard(item)).join('')}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    container.innerHTML = html
+      || '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
   },
 
-  // Shelf cards keep their own cover-led look with a type chip, so a book is
-  // never mistaken for a gliim in the shared list.
+  // Shelf items are thumbnail-only masonry tiles, exactly as the standalone
+  // library rendered them: cover (or hue-gradient fallback), ownership badge,
+  // and a hover overlay with the title. No text below the thumbnail.
   renderShelfCard(item) {
     const isOwned = this.ownedItems.has(item.id);
     const isSaved = this.savedItems.has(item.id);
@@ -270,38 +281,28 @@ export default {
       publication: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
       audiolite: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>'
     };
-    const hue = [...(item.title || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
-    const cover = item.cover_url
-      ? `<img class="lib-shelf-img" src="${escapeHtml(item.cover_url)}" alt="" loading="lazy">`
-      : `<div class="lib-shelf-img lib-shelf-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
 
-    const badge = isOwned
+    let thumb;
+    if (item.cover_url) {
+      thumb = `<img class="lib-thumb" src="${escapeHtml(item.cover_url)}" alt="" loading="lazy">`;
+    } else {
+      const hue = [...(item.title || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+      thumb = `<div class="lib-thumb lib-thumb-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
+    }
+
+    const ownedBadge = isOwned
       ? '<span class="lib-tick-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>'
-      : (isSaved ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>' : '');
-
-    const state = isOwned
-      ? 'Unlocked'
-      : (this.subscriber ? 'Included with subscription' : (item.price ? `₦${Number(item.price).toLocaleString()}` : 'Free'));
+      : '';
+    const savedBadge = (isSaved && !isOwned)
+      ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>'
+      : '';
 
     return `
-      <article class="blog-card lib-shelf-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
-        <div class="lib-shelf-cover">
-          ${cover}
-          ${badge}
-          <span class="lib-shelf-type">${escapeHtml(typeLabel(item.type))}</span>
-        </div>
-        <div class="blog-content">
-          <div class="blog-meta">
-            <span class="blog-date">${new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-          </div>
-          <h2 class="blog-title">${escapeHtml(item.title)}</h2>
-          <p class="blog-desc">${escapeHtml(item.description || '')}</p>
-          <div class="blog-footer">
-            <span class="lib-feed-author">by ${escapeHtml(this.displayAuthorName(item))}</span>
-            <span class="lib-feed-state${isOwned ? ' owned' : ''}">${state}</span>
-          </div>
-        </div>
-      </article>
+      <div class="lib-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
+        ${thumb}
+        ${ownedBadge}${savedBadge}
+        <div class="lib-overlay"><h4>${escapeHtml(item.title)}</h4></div>
+      </div>
     `;
   },
 
