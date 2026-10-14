@@ -5,6 +5,7 @@ import { store } from './store.js';
 // cosmetics — the RLS policies and the RPC role checks are the real gate.
 const routes = {
   '/submissions': { role: 'crm', title: 'Library Submissions', load: () => import('./views/submissions.js').then(m => m.default) },
+  '/gliims': { role: 'crm', title: 'Gliim Approvals', load: () => import('./views/gliims.js').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js').then(m => m.default) },
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js').then(m => m.default) },
@@ -17,7 +18,7 @@ const routes = {
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/submissions', '/reports', '/content', '/finance', '/ledger', '/members', '/bills', '/revenue', '/triads', '/operations', '/admins'];
+const order = ['/submissions', '/gliims', '/reports', '/content', '/finance', '/ledger', '/members', '/bills', '/revenue', '/triads', '/operations', '/admins'];
 
 export function firstRoute() {
   return order.find(path => store.can(routes[path].role)) || '/submissions';

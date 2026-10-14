@@ -38,13 +38,15 @@ function showShell() {
 
 async function refreshCounts() {
   if (store.can('crm')) {
-    const [{ count: pending }, { count: open }] = await Promise.all([
+    const [{ count: pending }, { count: open }, { count: gliims }] = await Promise.all([
       supabase.from('library_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')
+      supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+      supabase.from('posts').select('id', { count: 'exact', head: true }).eq('status', 'pending')
     ]);
 
     setCount('count-submissions', pending);
     setCount('count-reports', open);
+    setCount('count-gliims', gliims);
   }
 
   // p_limit 1 keeps this cheap: the RPC returns the full total regardless.

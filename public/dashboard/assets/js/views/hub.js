@@ -413,11 +413,17 @@ const hubView = {
   },
 
   async openCreateModal() {
+    // Eligibility ladder: 50 GP to post in the Hub at all.
+    const userGP = (store.profile && store.profile.total_gp) || 0;
+    if (userGP < 50) {
+      return alert(`You need at least 50 GP to post in the Hub. You have ${userGP.toLocaleString()} GP.`);
+    }
+
     this.billingSummary = (await fetchBillingSummary()) || this.billingSummary;
     const summary = this.billingSummary;
-    // Eligibility ladder: premium-locking a bundle needs 1000 GP.
-    const userGP = (store.profile && store.profile.total_gp) || 0;
+    // 1000 GP to premium-lock a bundle; 500 GP to attach priced PDFs.
     const canLock = userGP >= 1000;
+    const canPdf = userGP >= 500;
     const premiumPrice = Number((summary && summary.prices && summary.prices.premium_unlock) || 0);
 
     const modal = document.createElement('div');
@@ -463,6 +469,7 @@ const hubView = {
             <div onclick="hubInstance.addBlock('image')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Image</div>
             <div onclick="hubInstance.addBlock('video')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg> Video</div>
             <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
+            ${canPdf ? `<div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg> PDF</div>` : ''}
           </div>
         </div>
 
@@ -503,6 +510,10 @@ const hubView = {
         if (content) {
           const blockData = { type, content };
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
+          if (type === 'pdf') {
+            const priceEl = b.querySelector('.block-price-input');
+            blockData.price = Math.max(0, parseInt(priceEl ? priceEl.value : '0', 10) || 0);
+          }
           finalBlocks.push(blockData);
 
           if (!coverUrl && (type === 'image' || type === 'video')) {
@@ -547,11 +558,20 @@ const hubView = {
         return;
       }
 
-      for (const u of this.taggedUsers) {
-        const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${created.id}]]`;
-        await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+      // Non-admin gliims go to CRM for approval and stay invisible until an
+      // admin publishes them, so defer the tag pings (their deep links would
+      // 404 for the tagged person). Admins post live and notify immediately.
+      const isAdmin = !!(store.profile && store.profile.is_admin);
+      if (isAdmin) {
+        for (const u of this.taggedUsers) {
+          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${created.id}]]`;
+          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+        }
       }
       modal.remove();
+      if (!isAdmin) {
+        alert("Your gliim was submitted for review. It'll appear in the Hub once the Gliimu team approves it.");
+      }
       this.fetchPosts();
     });
   },
@@ -567,12 +587,28 @@ const hubView = {
     if (type === 'image') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
+    if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     let inputHtml = '';
     if (type === 'text') {
       inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
+    } else if (type === 'pdf') {
+      inputHtml = `
+        <label class="custom-file-upload">
+          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+          <span class="block-file-name">Choose PDF</span>
+          <input type="file" class="block-file-input" accept="application/pdf" hidden>
+        </label>
+        <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
+        <div class="block-preview"></div>
+        <input type="hidden" class="block-content-input">
+        <div style="margin-top: 12px;">
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Price for this PDF (₦) — leave 0 or blank for free</label>
+          <input type="number" class="input block-price-input" min="0" step="1" placeholder="0 = free" style="max-width: 200px;">
+        </div>
+      `;
     } else {
       const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
       inputHtml = `
@@ -599,7 +635,7 @@ const hubView = {
           statusEl.innerText = "Uploading..."; statusEl.style.color = "var(--brand-primary)";
           let fileUrl;
           try {
-            fileUrl = await uploadFile(e.target.files[0], 'media');
+            fileUrl = await uploadFile(e.target.files[0], type === 'pdf' ? 'library' : 'media');
           } catch (err) {
             statusEl.innerText = err.message || "Upload failed."; statusEl.style.color = "var(--error)";
             return;
@@ -616,8 +652,11 @@ const hubView = {
   async fetchPosts() {
     // No blocks column here: gliim bodies live in post_contents and are
     // fetched per-open, so premium content never rides along in the feed.
-    const colsWithPremium = `id, title, category, description, cover_url, views, created_at, user_id, is_premium, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
-    const colsBase = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+    // status drives CRM moderation: only 'approved' gliims are shown (a
+    // pending/rejected row is invisible to everyone but staff). The legacy
+    // fallback drops is_premium AND status for a pre-migration database.
+    const colsFull = `id, title, category, description, cover_url, views, created_at, user_id, is_premium, status, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+    const colsLegacy = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
     const load = (cols) => Promise.all([
       supabase.from('posts').select(cols).order('created_at', { ascending: false }).limit(20),
       supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
@@ -625,16 +664,19 @@ const hubView = {
       supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
     ]);
 
-    let [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsWithPremium);
+    let [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsFull);
     if (error) {
-      // Pre-migration fallback: posts.is_premium may not exist yet.
-      [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsBase);
+      // Pre-migration fallback: posts.is_premium / posts.status may not exist yet.
+      [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsLegacy);
     }
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
-    this.currentPosts = this.orderFeed(posts || []);
+    // A row with no status predates moderation and stays visible; otherwise
+    // only approved gliims reach the feed.
+    const visible = (posts || []).filter(p => !p.status || p.status === 'approved');
+    this.currentPosts = this.orderFeed(visible);
     this.savedPosts = new Set(saved?.map(s => s.post_id) || []);
     this.feedLoaded = true;
     this.renderPosts(this.currentPosts);
@@ -867,6 +909,13 @@ const hubView = {
         if (b.type === 'image') return `<img src="${b.content}" class="read-block-media">`;
         if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
         if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><i class="fas fa-podcast"></i><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
+        if (b.type === 'pdf') {
+          const price = Number(b.price || 0);
+          const priceLabel = price > 0
+            ? `<span class="read-pdf-price">₦${price.toLocaleString()}</span>`
+            : '<span class="read-pdf-price read-pdf-free">Free</span>';
+          return `<div class="read-block-pdf">${priceLabel}<a class="read-pdf-link" href="${b.content}" target="_blank" rel="noopener">Open / download PDF</a></div>`;
+        }
         return '';
       }).join('');
     } else if (post.is_premium && !isOwner) {
@@ -954,10 +1003,11 @@ const hubView = {
             <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
             <span>${shares}</span>
           </button>
+          ${(post.profiles?.total_gp || 0) >= 500 ? `
           <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             <span>${supports}</span>
-          </button>
+          </button>` : ''}
         </div>
       </div>
     `;

@@ -148,6 +148,14 @@
 .read-block-audio-wrapper i { font-size: 24px; color: var(--brand-primary); }
 .read-block-audio { flex: 1; height: 40px; }
 
+/* PDF block in the read view: price label + open/download link (label-only
+   for now — checkout is a later pass). */
+.read-block-pdf { display: flex; align-items: center; gap: 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 24px; }
+.read-pdf-price { font-size: 13px; font-weight: 800; color: #B45309; background: rgba(245, 158, 11, 0.15); padding: 4px 10px; border-radius: 999px; flex-shrink: 0; }
+.read-pdf-price.read-pdf-free { color: var(--success); background: rgba(16, 185, 129, 0.14); }
+.read-pdf-link { font-size: 14px; font-weight: 600; color: var(--brand-primary); text-decoration: none; }
+.read-pdf-link:hover { text-decoration: underline; }
+
 /* Fixed Bottom Action Bar */
 .read-bottom-bar {
   flex-shrink: 0;

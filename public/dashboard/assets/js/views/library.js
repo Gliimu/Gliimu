@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js?v=6';
+import hubView from './hub.js?v=7';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -48,12 +48,7 @@ export default {
       </div>
 
       <div class="library-fab-wrapper">
-        <div class="libmerge-fab-menu" id="libmerge-fab-menu">
-          <button type="button" data-act="book">Publish a Book</button>
-          <button type="button" data-act="audiolite">Publish an Audiolite</button>
-          <button type="button" data-act="bundle">Publish a Bundle</button>
-        </div>
-        <button class="library-fab-main" id="library-fab-main" title="Create">
+        <button class="library-fab-main" id="library-fab-main" title="Publish a Bundle">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
       </div>
@@ -62,6 +57,7 @@ export default {
 
   init() {
     this.searchQuery = '';
+    this.feedView = localStorage.getItem('gliimu_feed_view') === 'list' ? 'list' : 'grid';
 
     window.libraryInstance = {
       openDetails: (id) => {
@@ -119,22 +115,9 @@ export default {
 
   setupFab() {
     const fab = document.getElementById('library-fab-main');
-    const menu = document.getElementById('libmerge-fab-menu');
-    if (!fab || !menu) return;
-
-    fab.addEventListener('click', (e) => {
-      e.stopPropagation();
-      menu.classList.toggle('active');
-    });
-    menu.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menu.classList.remove('active');
-        if (btn.dataset.act === 'bundle') hubView.openCreateModal();
-        else this.openSubmitModal(btn.dataset.act === 'audiolite' ? 'audiolite' : 'publication');
-      });
-    });
-    document.addEventListener('click', () => menu.classList.remove('active'));
+    if (!fab) return;
+    // Bundle (gliim) is the only upload type now — the FAB opens its composer.
+    fab.addEventListener('click', () => hubView.openCreateModal());
   },
 
   setupTopbar() {
@@ -248,32 +231,47 @@ export default {
     );
   },
 
-  // One list for everything. Gliims keep the order the feed engine gave them;
-  // shelf items are woven through that list so books and audiolites sit beside
-  // gliims instead of piling up at the bottom of the page.
+  // The Hub is gliims (bundles) only now — books and audiolites no longer
+  // render here. A small in-page toolbar above the feed switches between the
+  // masonry grid and a single-column list.
   renderFeed() {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
     const cards = hubView.filterPosts().map(post => this.wrapItem(hubView.renderPostCard(post), 'gliim'));
 
-    // A gliim filter (Mine / Tagged / Saved / a category) has no meaning for
-    // shelf items, so those only join the feed when everything is showing.
-    if ((hubView.currentFilter || 'all') === 'all') {
-      const shelfCards = this.visibleItems().map(item => this.wrapItem(this.renderShelfCard(item), 'tile'));
-      if (shelfCards.length) {
-        const gap = Math.max(2, Math.ceil(cards.length / shelfCards.length));
-        shelfCards.forEach((html, i) => {
-          cards.splice(Math.min(cards.length, (i + 1) * gap - 1), 0, html);
-        });
-      }
+    if (!cards.length) {
+      container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
+      return;
     }
 
-    container.innerHTML = cards.length
-      ? `<div class="library-feed">${cards.join('')}</div>`
-      : '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
-
+    container.innerHTML = `${this.viewToggleMarkup()}<div class="library-feed feed-${this.feedView}">${cards.join('')}</div>`;
+    this.wireViewToggle();
     this.layoutMasonry();
+  },
+
+  viewToggleMarkup() {
+    const gridIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>';
+    const listIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>';
+    return `
+      <div class="feed-toolbar">
+        <div class="feed-view-toggle">
+          <button type="button" class="fvt-btn${this.feedView === 'grid' ? ' active' : ''}" data-view="grid" title="Grid view">${gridIcon}</button>
+          <button type="button" class="fvt-btn${this.feedView === 'list' ? ' active' : ''}" data-view="list" title="List view">${listIcon}</button>
+        </div>
+      </div>`;
+  },
+
+  wireViewToggle() {
+    document.querySelectorAll('.feed-view-toggle .fvt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const view = btn.dataset.view;
+        if (view === this.feedView) return;
+        this.feedView = view;
+        localStorage.setItem('gliimu_feed_view', view);
+        this.renderFeed();
+      });
+    });
   },
 
   wrapItem(html, kind) {
@@ -286,6 +284,13 @@ export default {
   layoutMasonry() {
     const feed = document.querySelector('#library-feed .library-feed');
     if (!feed) return;
+
+    // List view is a plain single column — clear any spans and let rows size
+    // naturally. Only the grid view needs the fine-row masonry packing.
+    if (this.feedView === 'list') {
+      feed.querySelectorAll('.feed-item').forEach(item => { item.style.gridRowEnd = 'auto'; });
+      return;
+    }
 
     const ROW = 8;
     const GAP = window.matchMedia('(max-width: 768px)').matches ? 12 : 24;
@@ -710,273 +715,4 @@ export default {
     this.loadShelf();
   },
 
-  openSubmitModal(presetType) {
-    document.querySelector('.modal-overlay')?.remove();
-    const type = presetType === 'audiolite' ? 'audiolite' : 'publication';
-    const noun = type === 'audiolite' ? 'an Audiolite' : 'a Book';
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content lib-modal-content">
-        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <div class="lib-modal-body">
-          <span class="lib-modal-type">${type === 'audiolite' ? 'Audiolite' : 'Book'}</span>
-          <h2>Submit ${noun}</h2>
-          <p class="lib-modal-author">Reviewed by the Gliimu team before it goes live on the shelf.</p>
-
-          <div class="form-group" style="margin-top: 24px;">
-            <label>Title</label>
-            <input type="text" id="lib-sub-title" class="input" placeholder="e.g. UI/UX Fundamentals">
-          </div>
-
-          <div class="form-row">
-            <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>Format</label>
-              <select id="lib-sub-type" class="input">
-                <option value="publication">Book</option>
-                <option value="audiolite">Audiolite</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label>Price (₦)</label>
-              <input type="number" id="lib-sub-price" class="input" min="0" placeholder="Free or set a price">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Description</label>
-            <textarea id="lib-sub-desc" class="input" rows="4" placeholder="What will readers get from this?"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>Cover ${type === 'audiolite' ? 'Art' : 'Image'} (optional)</label>
-            <input type="file" id="lib-sub-cover" class="input" accept="image/*">
-          </div>
-
-          <div class="form-group">
-            <label>Content</label>
-            <div id="lib-sub-content"></div>
-          </div>
-
-          <button class="btn-primary" style="width: 100%; margin-top: 16px;" id="lib-submit-publication-btn">Submit for Review</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-    const typeSelect = document.getElementById('lib-sub-type');
-    typeSelect.value = type;
-    typeSelect.addEventListener('change', (e) => this.renderComposerBody(e.target.value));
-    this.renderComposerBody(type);
-
-    document.getElementById('lib-submit-publication-btn').addEventListener('click', () => this.submitForPublication(modal));
-  },
-
-  // Each format gets its own composer: audiolites are one audio file plus
-  // optional read-along text; books are text and inner pictures only.
-  renderComposerBody(type) {
-    const host = document.getElementById('lib-sub-content');
-    if (!host) return;
-
-    if (type === 'audiolite') {
-      host.innerHTML = `
-        <p class="lib-composer-hint">One audio file. Listeners play it inside the app. Add text blocks if they should read along.</p>
-        <div class="builder-block" id="lib-audio-slot">${this.uploadMarkup('Choose audio', 'audio/*')}</div>
-        <div id="lib-blocks-container" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;"></div>
-        <button class="btn-secondary" id="lib-audiolite-add-text" type="button" style="margin-top: 12px;">+ Add Text</button>
-      `;
-      this.wireFileUpload(document.getElementById('lib-audio-slot'), { accept: 'audio/*', kind: 'library' });
-      document.getElementById('lib-audiolite-add-text').addEventListener('click', () => this.addLibBlock('text'));
-      return;
-    }
-
-    host.innerHTML = `
-      <p class="lib-composer-hint">Build it the way readers should see it — text and inner pictures, in any order.</p>
-      <div id="lib-blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
-      <div class="builder-add-dropdown">
-        <button class="btn-secondary" id="lib-block-trigger" type="button">+ Add Block</button>
-        <div class="dropdown-menu" id="lib-block-menu">
-          <div data-block="text">${BLOCK_ICONS.text} Text</div>
-          <div data-block="image">${BLOCK_ICONS.image} Image</div>
-        </div>
-      </div>
-    `;
-    document.getElementById('lib-block-trigger').addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.getElementById('lib-block-menu').classList.toggle('active');
-    });
-    document.getElementById('lib-block-menu').querySelectorAll('[data-block]').forEach((el) => {
-      el.addEventListener('click', () => this.addLibBlock(el.dataset.block));
-    });
-    this.addLibBlock('text');
-  },
-
-  uploadMarkup(label, accept) {
-    return `
-      <label class="custom-file-upload">
-        <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-        <span class="block-file-name">${label}</span>
-        <input type="file" class="block-file-input" accept="${accept}" hidden>
-      </label>
-      <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
-      <div class="block-preview"></div>
-      <input type="hidden" class="block-content-input">
-    `;
-  },
-
-  // One upload path for every file slot: the chosen name shows on the label,
-  // the bytes go up through uploadFile(), and the public URL lands in the
-  // hidden .block-content-input that collectComposer() reads back.
-  wireFileUpload(root, { accept, kind, onDone }) {
-    const input = root.querySelector('.block-file-input');
-    const nameEl = root.querySelector('.block-file-name');
-    const statusEl = root.querySelector('.upload-status');
-    const hidden = root.querySelector('.block-content-input');
-    const preview = root.querySelector('.block-preview');
-    if (accept) input.accept = accept;
-
-    input.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      nameEl.innerText = file.name;
-      statusEl.innerText = 'Uploading...';
-      statusEl.style.color = 'var(--brand-primary)';
-      try {
-        const url = await uploadFile(file, kind);
-        hidden.value = url;
-        statusEl.innerText = 'Upload complete!';
-        statusEl.style.color = 'var(--success)';
-        if (preview) {
-          preview.innerHTML = /^image\//.test(file.type)
-            ? `<img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`
-            : '<div style="background: var(--bg-tertiary); padding: 8px; border-radius: 8px; margin-top: 8px; font-size: 12px;">File ready</div>';
-        }
-        if (onDone) onDone(url, file);
-      } catch (err) {
-        hidden.value = '';
-        if (preview) preview.innerHTML = '';
-        statusEl.innerText = err.message || 'Upload failed.';
-        statusEl.style.color = 'var(--error)';
-      }
-    });
-  },
-
-  addLibBlock(type) {
-    document.getElementById('lib-block-menu')?.classList.remove('active');
-    const container = document.getElementById('lib-blocks-container');
-    if (!container) return;
-
-    const block = document.createElement('div');
-    block.className = 'builder-block';
-    block.dataset.type = type;
-    const head = `${BLOCK_HEAD}<span class="block-label">${BLOCK_ICONS[type] || BLOCK_ICONS.file}</span><button class="block-remove-btn" type="button">${REMOVE_ICON}</button></div>`;
-
-    if (type === 'text') {
-      block.innerHTML = `${head}
-        <select class="input block-style-select" style="margin-bottom: 8px;">
-          <option value="paragraph">Paragraph</option>
-          <option value="title">Title</option>
-          <option value="subtitle">Subtitle</option>
-          <option value="list">List</option>
-        </select>
-        <textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
-    } else {
-      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : LIB_FILE_ACCEPT;
-      const label = type === 'file' ? 'Choose document' : `Choose ${type}`;
-      block.innerHTML = `${head}${this.uploadMarkup(label, accept)}`;
-    }
-
-    container.appendChild(block);
-    block.querySelector('.block-remove-btn').addEventListener('click', () => block.remove());
-    if (type !== 'text') this.wireFileUpload(block, { kind: 'library' });
-  },
-
-  // Reads the composer back out. Returns { error } when the format has nothing
-  // worth submitting, otherwise { blocks, fileUrl }.
-  collectComposer(type) {
-    const blocks = [];
-    let fileUrl = null;
-
-    if (type === 'audiolite') {
-      const input = document.querySelector('#lib-audio-slot .block-content-input');
-      fileUrl = input ? input.value : '';
-      if (!fileUrl) return { error: 'Attach the audio file for this audiolite.' };
-      // Optional read-along text blocks live in the same container the book uses.
-      document.querySelectorAll('#lib-blocks-container .builder-block').forEach((b) => {
-        const textInput = b.querySelector('.block-content-input');
-        if (!textInput || !textInput.value.trim()) return;
-        blocks.push({ type: 'text', style: b.querySelector('.block-style-select').value, content: textInput.value.trim() });
-      });
-    } else {
-      document.querySelectorAll('#lib-blocks-container .builder-block').forEach((b) => {
-        const kind = b.dataset.type;
-        const input = b.querySelector('.block-content-input');
-        if (!input || !input.value.trim()) return;
-        if (kind === 'text') {
-          blocks.push({ type: 'text', style: b.querySelector('.block-style-select').value, content: input.value.trim() });
-        } else {
-          blocks.push({ type: kind, content: input.value.trim() });
-        }
-      });
-      if (!blocks.length) return { error: 'Add at least one content block.' };
-    }
-
-    return { blocks, fileUrl };
-  },
-
-  async submitForPublication(modal) {
-    const title = document.getElementById('lib-sub-title').value.trim();
-    const type = document.getElementById('lib-sub-type').value;
-    const price = parseInt(document.getElementById('lib-sub-price').value, 10) || 0;
-    const description = document.getElementById('lib-sub-desc').value.trim();
-
-    if (!title) return alert("Title is required.");
-    if (!description) return alert("Please add a short description.");
-
-    const composer = this.collectComposer(type);
-    if (composer.error) return alert(composer.error);
-
-    const btn = document.getElementById('lib-submit-publication-btn');
-    const reset = () => { btn.disabled = false; btn.innerText = 'Submit for Review'; };
-    btn.disabled = true;
-    btn.innerText = 'Submitting...';
-
-    let coverUrl = null;
-    try {
-      const coverFile = document.getElementById('lib-sub-cover').files[0];
-      coverUrl = coverFile ? await uploadFile(coverFile, 'library') : null;
-    } catch (e) {
-      alert(e.message || 'Upload failed. Please try again.');
-      reset();
-      return;
-    }
-
-    const { error } = await supabase.from('library_submissions').insert({
-      user_id: store.user.id,
-      title,
-      type,
-      description,
-      price,
-      cover_url: coverUrl,
-      file_url: composer.fileUrl,
-      blocks: composer.blocks,
-      status: 'pending'
-    });
-
-    if (error) {
-      // 42P01/42703/PGRST2xx = the submissions table or its new columns are
-      // not in the database yet (sql/library_content.sql not run).
-      if (error.code === '42P01' || error.code === '42703' || /^PGRST2/.test(error.code)) {
-        alert("Library submissions are not enabled yet. Please try again later.");
-      } else {
-        alert("Submission failed: " + error.message);
-      }
-      reset();
-      return;
-    }
-
-    modal.remove();
-    alert("Submission received! The Gliimu team will review it shortly.");
-  }
 };
