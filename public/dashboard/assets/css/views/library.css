@@ -57,52 +57,29 @@
 .library-feed .blog-title { font-size: 18px; margin-bottom: 8px; }
 .library-feed .blog-desc { font-size: 14px; -webkit-line-clamp: 2; margin-bottom: 16px; }
 
-/* The Hub stacks two grids: gliims in a responsive card grid, then the
-   shelf (books / audiolites) in the original Pinterest masonry. */
-.libmerge-feed { display: flex; flex-direction: column; gap: 36px; }
+/* The Hub is ONE interleaved feed: gliim cards and shelf cover tiles share
+   the same grid. Shelf tiles are thumbnail-only (cover + hover title), so a
+   book or audiolite never carries text below it like a gliim does. */
+.libmerge-feed { display: flex; flex-direction: column; gap: 24px; }
 
-.lib-section-title {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  margin: 0 0 16px;
-}
-
-/* Perfect Pinterest Masonry — thumbnail-only cards, exactly as the
-   standalone library rendered them before the merge. */
-.lib-masonry-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 215px);
-  grid-auto-rows: 107px;
-  grid-auto-flow: dense;
-  gap: 12px;
-  justify-content: center;
-}
-
-.lib-card {
-  border-radius: 10px;
-  overflow: hidden;
+.lib-tile {
   position: relative;
+  border-radius: 12px;
+  overflow: hidden;
   cursor: pointer;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
+  aspect-ratio: 3 / 4;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  width: 100%;
-  height: 100%;
 }
-.lib-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); z-index: 2; }
-.lib-card:hover .lib-overlay { opacity: 1; }
-
-/* Strict Sizing Math */
-.lib-audiolite { grid-column: span 1; grid-row: span 2; }
-.lib-bundle { grid-column: span 2; grid-row: span 2; }
-.lib-publication { grid-column: span 1; grid-row: span 3; }
+.lib-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); z-index: 2; }
+.lib-tile:hover .lib-overlay { opacity: 1; }
+/* Audiolites read as square covers; books stay portrait */
+.lib-tile.lib-audiolite { aspect-ratio: 1 / 1; }
 
 .lib-thumb { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
 .lib-thumb-fallback { display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.9); }
-.lib-thumb-fallback svg { width: 30px; height: 30px; }
+.lib-thumb-fallback svg { width: 40px; height: 40px; }
 .lib-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; align-items: flex-end; padding: 12px; opacity: 0; transition: opacity 0.2s ease; z-index: 1; }
 .lib-overlay h4 { color: white; font-size: 13px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 
@@ -235,8 +212,9 @@
 @media (max-width: 768px) {
   /* Gliims collapse to a single-column list */
   .library-feed { grid-template-columns: 1fr; gap: 16px; }
-  /* The shelf keeps its masonry but with narrower columns for small screens */
-  .lib-masonry-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); grid-auto-rows: 90px; gap: 10px; }
+  /* Shelf tiles stay thumbnail-only but shorter on small screens */
+  .lib-tile { aspect-ratio: 16 / 10; }
+  .lib-tile.lib-audiolite { aspect-ratio: 16 / 10; }
 
   /* Mobile Dropup for Filter */
   .lib-dropdown-menu {

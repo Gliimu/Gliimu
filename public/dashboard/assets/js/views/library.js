@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js?v=3';
+import hubView from './hub.js?v=4';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -244,36 +244,28 @@ export default {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const gliimCards = hubView.filterPosts().map(post => hubView.renderPostCard(post));
-    let html = '';
-
-    if (gliimCards.length) {
-      html += `<div class="library-feed">${gliimCards.join('')}</div>`;
-    }
+    const cards = hubView.filterPosts().map(post => hubView.renderPostCard(post));
 
     // A gliim filter (Mine / Tagged / Saved / a category) has no meaning for
-    // shelf items, so the book/audiolite masonry only shows when everything is.
+    // shelf items, so those only join the feed when everything is showing.
     if ((hubView.currentFilter || 'all') === 'all') {
-      const shelf = this.visibleItems();
-      if (shelf.length) {
-        html += `
-          <div class="lib-section">
-            <h3 class="lib-section-title">Books &amp; Audiolites</h3>
-            <div class="lib-masonry-grid">
-              ${shelf.map(item => this.renderShelfCard(item)).join('')}
-            </div>
-          </div>
-        `;
+      const shelfCards = this.visibleItems().map(item => this.renderShelfCard(item));
+      if (shelfCards.length) {
+        const gap = Math.max(2, Math.ceil(cards.length / shelfCards.length));
+        shelfCards.forEach((html, i) => {
+          cards.splice(Math.min(cards.length, (i + 1) * gap - 1), 0, html);
+        });
       }
     }
 
-    container.innerHTML = html
-      || '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
+    container.innerHTML = cards.length
+      ? `<div class="library-feed">${cards.join('')}</div>`
+      : '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
   },
 
-  // Shelf items are thumbnail-only masonry tiles, exactly as the standalone
-  // library rendered them: cover (or hue-gradient fallback), ownership badge,
-  // and a hover overlay with the title. No text below the thumbnail.
+  // Shelf items are thumbnail-only cover tiles woven into the same feed as
+  // gliims: cover (or hue-gradient fallback), ownership badge, and a hover
+  // overlay with the title. No text below the thumbnail.
   renderShelfCard(item) {
     const isOwned = this.ownedItems.has(item.id);
     const isSaved = this.savedItems.has(item.id);
@@ -298,7 +290,7 @@ export default {
       : '';
 
     return `
-      <div class="lib-card lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
+      <div class="lib-tile lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
         ${thumb}
         ${ownedBadge}${savedBadge}
         <div class="lib-overlay"><h4>${escapeHtml(item.title)}</h4></div>
