@@ -100,6 +100,11 @@
 
 .apprentice-filter-menu.active { display: block; }
 
+/* In the top/bottom bar: on mobile the bar is at the bottom, so open upward. */
+@media (max-width: 768px) {
+  .apprentice-filter-menu { top: auto; bottom: calc(100% + 8px); }
+}
+
 .apprentice-filter-item {
   padding: 10px 14px;
   border-radius: 8px;

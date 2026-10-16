@@ -179,10 +179,20 @@ const arenaView = {
   render() {
     const el = document.getElementById('com-content');
     if (!el) return;
+    this.renderTopbar();
     if (this.loading) { el.innerHTML = this.renderLoading(); return; }
     if (this.schemaMissing) { el.innerHTML = this.renderMissing(); return; }
     if (!this.board) { el.innerHTML = this.renderError(); return; }
     el.innerHTML = this.renderBoard();
+  },
+
+  // The filter lives in the top/bottom bar, not the page body. It only makes
+  // sense once there is a board to switch sections on.
+  renderTopbar() {
+    const right = document.getElementById('topbar-right-actions');
+    if (!right) return;
+    const ready = !this.loading && !this.schemaMissing && !!this.board;
+    right.innerHTML = ready ? this.renderFilter() : '';
   },
 
   renderLoading() {
@@ -231,13 +241,8 @@ const arenaView = {
     const f = this.filter;
     const head = `
       <header class="com-head">
-        <div class="com-head-row">
-          <div>
-            <h1 class="com-h1">Arena</h1>
-            <p class="com-sub">Contests, cohorts, events and news from across Gliimu. Join a contest to climb the leaderboard.</p>
-          </div>
-          ${this.renderFilter()}
-        </div>
+        <h1 class="com-h1">Arena</h1>
+        <p class="com-sub">Contests, cohorts, events and news from across Gliimu. Join a contest to climb the leaderboard.</p>
       </header>
     `;
 

@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
-import { kbAnswer } from '../gliim-pa-kb.js?v=17';
+import { kbAnswer } from '../gliim-pa-kb.js?v=18';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.
@@ -111,7 +111,6 @@ const assistantView = {
     window.paInstance = {
       send: () => this.send(),
       useStarter: (text) => this.useStarter(text),
-      newChat: () => this.newChat(),
       retry: () => this.retry()
     };
 
@@ -121,14 +120,7 @@ const assistantView = {
 
   setupTopbar() {
     const right = document.getElementById('topbar-right-actions');
-    if (right) {
-      right.innerHTML = `
-        <button class="pa-new-chat" onclick="paInstance.newChat()" title="Start a new chat">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span class="pa-new-chat-label">New chat</span>
-        </button>
-      `;
-    }
+    if (right) right.innerHTML = '';
     const dynamic = document.getElementById('topbar-dynamic-content');
     if (dynamic) dynamic.innerHTML = '';
   },
@@ -257,12 +249,6 @@ const assistantView = {
 
   scrollToBottom() {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  },
-
-  newChat() {
-    this.thread = [];
-    this.busy = false;
-    this.render();
   },
 
   async retry() {
