@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
-import { kbAnswer } from '../gliim-pa-kb.js?v=16';
+import { kbAnswer } from '../gliim-pa-kb.js?v=17';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.
@@ -159,7 +159,7 @@ const assistantView = {
 
     const turns = this.thread.map((m, i) => {
       if (m.role === 'user') {
-        return `<div class="pa-question"><span class="pa-question-icon">${this.icon('search')}</span><div class="pa-question-text">${escapeHtml(m.content)}</div></div>`;
+        return `<div class="pa-question"><div class="pa-question-text">${escapeHtml(m.content)}</div></div>`;
       }
       const isLast = i === this.thread.length - 1;
       const body = m.pending
@@ -169,7 +169,7 @@ const assistantView = {
           : renderMarkdown(m.content));
       return `
         <div class="pa-answer">
-          <div class="pa-answer-head">${this.badge(24, 'pa-answer-avatar')}<span>Assistant</span></div>
+          <div class="pa-answer-head"><img src="/icons/gliimpa.png" alt="" class="pa-answer-avatar"><span>Assistant</span></div>
           <div class="pa-answer-body">${body}</div>
           ${isLast && !this.busy && !m.failed ? this.renderFollowups() : ''}
         </div>
@@ -196,7 +196,7 @@ const assistantView = {
   renderAsk() {
     return `
       <div class="pa-hero">
-        ${this.badge(56, 'pa-hero-logo')}
+        <img src="/icons/gliimpa.png" alt="" class="pa-hero-logo">
         <h1 class="pa-hero-title">Assistant</h1>
         <p class="pa-hero-sub">Ask anything. Research, drafts, explanations — answered in seconds.</p>
         ${this.renderComposer(true)}
@@ -225,13 +225,6 @@ const assistantView = {
       stop: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
     };
     return icons[name] || '';
-  },
-
-  badge(size = 24, cls = '') {
-    return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
-      + `<rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="var(--brand-primary)"/>`
-      + `<text x="12" y="16.2" text-anchor="middle" font-size="10" font-weight="800" font-family="system-ui, -apple-system, sans-serif" fill="#fff">AI</text>`
-      + `</svg>`;
   },
 
   wireComposer() {

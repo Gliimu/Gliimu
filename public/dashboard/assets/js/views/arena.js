@@ -54,12 +54,11 @@ const calendarIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height=
 const pinIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
 const usersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
 const megaphone = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>`;
-const layersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>`;
-const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>`;
+// Same sliders icon the Hub filter uses, for uniformity.
+const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>`;
 
-// The filter menu. 'all' stacks every section; picking one shows just that.
+// The filter menu. One section at a time; the leaderboard is the landing view.
 const SECTIONS = [
-  { key: 'all', label: 'All sections', icon: layersIcon },
   { key: 'leaderboard', label: 'Leaderboard', icon: trophy },
   { key: 'contests', label: 'Contests', icon: trophy },
   { key: 'cohorts', label: 'Cohorts', icon: usersIcon },
@@ -74,7 +73,7 @@ const arenaView = {
   schemaMissing: false,
   loading: true,
   busy: null,
-  filter: 'all',
+  filter: 'leaderboard',
   filterOpen: false,
 
   template: `
@@ -90,7 +89,7 @@ const arenaView = {
       toggleFilter: (ev) => this.toggleFilter(ev),
       setFilter: (key) => this.setFilter(key)
     };
-    this.filter = 'all';
+    this.filter = 'leaderboard';
     this.filterOpen = false;
     this.setupTopbar();
 
@@ -242,21 +241,21 @@ const arenaView = {
       </header>
     `;
 
-    const parts = [head];
-    const show = (key) => f === 'all' || f === key;
-
-    if (show('leaderboard')) {
-      const lb = this.renderLeaderboard(b.leaderboard);
-      parts.push(lb || (f === 'leaderboard'
-        ? `<section class="com-section">${this.sectionTitle(trophy, 'Leaderboard')}<div class="com-mini-empty">No featured contest yet.</div></section>`
-        : ''));
+    let section = '';
+    if (f === 'leaderboard') {
+      section = this.renderLeaderboard(b.leaderboard)
+        || `<section class="com-section">${this.sectionTitle(trophy, 'Leaderboard')}<div class="com-mini-empty">No featured contest yet.</div></section>`;
+    } else if (f === 'contests') {
+      section = this.renderContests(b.contests || []);
+    } else if (f === 'cohorts') {
+      section = this.renderCohorts(b.cohorts || []);
+    } else if (f === 'events') {
+      section = this.renderEvents(b.events || []);
+    } else if (f === 'news') {
+      section = this.renderNews(b.news || []);
     }
-    if (show('contests')) parts.push(this.renderContests(b.contests || []));
-    if (show('cohorts')) parts.push(this.renderCohorts(b.cohorts || []));
-    if (show('events')) parts.push(this.renderEvents(b.events || []));
-    if (show('news')) parts.push(this.renderNews(b.news || []));
 
-    return parts.join('');
+    return head + section;
   },
 
   sectionTitle(icon, text, note) {

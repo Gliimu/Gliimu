@@ -11,7 +11,7 @@
   text-align: center;
   gap: 12px;
 }
-.pa-hero-logo { width: 64px; height: 64px; box-shadow: var(--shadow-lg); }
+.pa-hero-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; box-shadow: var(--shadow-lg); }
 .pa-hero-title { font-size: 34px; font-weight: 800; letter-spacing: -0.8px; color: var(--text-primary); }
 .pa-hero-sub { font-size: 15px; color: var(--text-muted); margin-bottom: 20px; max-width: 460px; line-height: 1.5; }
 .pa-composer-hero { width: 100%; }
@@ -79,15 +79,33 @@
 }
 .pa-chip:hover { border-color: var(--brand-primary); color: var(--text-primary); }
 
-/* Thread */
-.pa-question { display: flex; gap: 12px; align-items: flex-start; margin: 32px 0 12px; }
-.pa-question-icon { color: var(--text-muted); flex-shrink: 0; margin-top: 3px; }
-.pa-question-text { font-size: 20px; font-weight: 700; line-height: 1.35; color: var(--text-primary); letter-spacing: -0.3px; }
+/* Thread — user messages right, assistant answers left */
+.pa-question { display: flex; justify-content: flex-end; margin: 22px 0 16px; }
+.pa-question-text {
+  max-width: 80%;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.1px;
+  padding: 11px 15px;
+  border-radius: 16px 16px 4px 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
-.pa-answer { border-top: 1px solid var(--border); padding-top: 16px; }
-.pa-answer-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 12px; }
-.pa-answer-avatar { width: 20px; height: 20px; flex-shrink: 0; }
-.pa-answer-body { font-size: 15px; line-height: 1.7; color: var(--text-secondary); }
+.pa-answer { display: flex; flex-direction: column; align-items: flex-start; margin: 16px 0; }
+.pa-answer-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
+.pa-answer-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.pa-answer-body {
+  max-width: 88%;
+  font-size: 15px; line-height: 1.7; color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px 16px 16px 16px;
+  padding: 14px 16px;
+}
 .pa-answer-body p { margin-bottom: 12px; }
 .pa-answer-body p:last-child { margin-bottom: 0; }
 .pa-heading { color: var(--text-primary); font-weight: 700; margin: 18px 0 8px; }
