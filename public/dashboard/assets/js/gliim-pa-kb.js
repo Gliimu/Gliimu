@@ -1,7 +1,7 @@
 // Gliim P.A. built-in knowledge base.
 //
 // This lets the assistant answer the questions Gliimaits actually ask —
-// navigation, GP tiers, wallet, pricing, curriculum, publishing, live,
+// navigation, GP tiers, wallet, pricing, community, publishing, live,
 // premium, profile, support and core media craft — with no external LLM.
 // The hosted model (server /api/chat) is still tried first when it is
 // funded; this module is the always-available fallback, so the assistant
@@ -17,11 +17,11 @@ const ENTRIES = [
     answer: `I am **Gliim P.A.**, your built-in assistant on the Gliimu platform. I work right here in the app, so you always get an answer.
 
 I can help with:
-- **Navigating** the dashboard — Hub, Ping, Curriculum, Queue, Billing, Settings
+- **Navigating** the dashboard — Hub, Ping, Community, Queue, Billing, Settings
 - **GP and tiers** — what each level unlocks
 - **Wallet and top-ups** — funding, transfers, withdrawals
 - **Plans and pricing** — Pay n' Go, Monthly, Pro
-- **The curriculum** — your Full Stack Media Architect courses
+- **The Community** — contests, cohorts, events and news
 - **Publishing** — uploading a gliim, books, audiolites, bundles and PDFs
 - **Going live** — 1-on-1 sessions, screen share, rewards
 - **Premium content**, your **portfolio**, and **support**
@@ -31,12 +31,12 @@ Ask me anything above, or tap a suggested chip to get started.`
   },
   {
     title: 'Navigating the dashboard',
-    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'queue', 'billing', 'settings', 'curriculum tab', 'how do i get to', 'section'],
+    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'queue', 'billing', 'settings', 'community tab', 'how do i get to', 'section'],
     answer: `Here is what each tab in the sidebar does:
 
 - **Hub** — the community feed. Browse, publish and read gliims from other Gliimaits.
 - **Ping** — your messages and live sessions. Start a chat or go live with someone.
-- **Curriculum** — your courses. Every lesson of the Full Stack Media Architect track lives here.
+- **Community** — contests, cohorts, events and news. Join a contest to climb the leaderboard.
 - **Queue** — your applications and pending submissions.
 - **Billing** — your wallet balance, plans, top-ups and transaction history.
 - **Settings** — your profile, app version and downloads.
@@ -83,16 +83,16 @@ Program tuition is set at a premium tier, roughly **₦70,000 to ₦780,000**, d
 Open **Billing** to see the current plan cards and pick the one that fits you.`
   },
   {
-    title: 'The curriculum and courses',
-    keys: ['curriculum', 'course', 'courses', 'learn', 'module', 'modules', 'class', 'classes', 'training', 'full stack media architect', 'intern', 'lesson', 'lessons', 'syllabus', 'study'],
-    answer: `Your **Curriculum** tab holds the full **Full Stack Media Architect** track — every course an intern can view, organised module by module.
+    title: 'The Community page',
+    keys: ['community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'event', 'events', 'news', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings'],
+    answer: `Your **Community** tab is where Gliimaits come together:
 
-Open the Curriculum tab to:
-- See each course with its level, duration and lesson list
-- Expand a course to read its lessons
-- Follow the modules in order, from foundations to the capstone
+- **Contests** — join one to be tracked on its leaderboard. Each contest scores you automatically by its metric: GP earned, titles read, engagement, or referrals. The top 7 of the featured contest are shown.
+- **Cohorts** — seat-capped groups. Request a seat and the operations team approves you.
+- **Events** — what is coming up, with the date, time and venue (Online, Gliimu Hall Gwarinpa, or a custom location).
+- **News** — announcements from the team.
 
-Work through them in sequence and publish what you build in the **Hub** — that is how you turn lessons into GP and a portfolio.`
+Join a contest, take part, and your standing updates on its own — no manual scoring.`
   },
   {
     title: 'Publishing a gliim',
@@ -200,7 +200,7 @@ Drop your notes here and tell me the format you want (script, article, carousel 
 5. **Monetisation** — pitching clients, pricing and delivering.
 6. **Capstone** — a complete piece for your portfolio.
 
-Follow the **Curriculum** tab module by module, then publish each result in the Hub. Building in public is how the lessons turn into GP, a portfolio and paid work.`
+Work through them in order, then publish each result in the Hub. Building in public is how the lessons turn into GP, a portfolio and paid work. Check the **Community** tab for contests and cohorts to practise with.`
   }
 ];
 
@@ -212,7 +212,7 @@ Try asking about:
 - **GP and tiers**, or what each level unlocks
 - **Wallet, top-ups and transfers**
 - **Plans and pricing**
-- **The curriculum and your courses**
+- **The Community** — contests, cohorts, events and news
 - **Publishing a gliim** (books, audiolites, bundles, PDFs)
 - **Going live**, **premium content**, or your **portfolio**
 - **Media craft** — b-roll, editing, lighting, pitching clients
