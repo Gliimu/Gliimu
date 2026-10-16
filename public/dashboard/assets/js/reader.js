@@ -302,20 +302,13 @@ async function renderFile(url, bodyEl, setProgress, setBlob) {
 }
 
 async function fetchBlob(url) {
-  try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return await res.blob();
-  } catch (err) {
-    // A copy cached before the bucket CORS policy was fixed carries no
-    // Access-Control-Allow-Origin header, so the first fetch throws. Retry
-    // once with a cache-buster + no-store to force a fresh, CORS-correct
-    // response instead of failing on the stale cached entry.
-    const bust = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
-    const res = await fetch(bust, { mode: 'cors', cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return await res.blob();
-  }
+  // no-store: bypass the browser HTTP cache entirely. A copy cached before the
+  // bucket CORS fix carried no Access-Control-Allow-Origin and made the fetch
+  // throw; skipping the cache removes that failure and keeps premium files out
+  // of disk cache, matching the blob+revoke "no reusable link" intent.
+  const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.blob();
 }
 
 async function renderPdf(url, bodyEl, setProgress, setBlob) {
