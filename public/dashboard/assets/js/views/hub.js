@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=19';
+import { renderFileInto } from '../reader.js?v=20';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -422,9 +422,8 @@ const hubView = {
 
     this.billingSummary = (await fetchBillingSummary()) || this.billingSummary;
     const summary = this.billingSummary;
-    // 1000 GP to premium-lock a bundle; 500 GP to attach priced PDFs.
+    // 1000 GP to premium-lock a bundle.
     const canLock = userGP >= 1000;
-    const canPdf = userGP >= 500;
     const premiumPrice = Number((summary && summary.prices && summary.prices.premium_unlock) || 0);
 
     const modal = document.createElement('div');
@@ -470,7 +469,6 @@ const hubView = {
             <div onclick="hubInstance.addBlock('image')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Image</div>
             <div onclick="hubInstance.addBlock('video')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg> Video</div>
             <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
-            ${canPdf ? `<div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg> PDF</div>` : ''}
           </div>
         </div>
 
@@ -511,10 +509,6 @@ const hubView = {
         if (content) {
           const blockData = { type, content };
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'pdf') {
-            const priceEl = b.querySelector('.block-price-input');
-            blockData.price = Math.max(0, parseInt(priceEl ? priceEl.value : '0', 10) || 0);
-          }
           finalBlocks.push(blockData);
 
           if (!coverUrl && (type === 'image' || type === 'video')) {
@@ -592,28 +586,12 @@ const hubView = {
     if (type === 'image') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
-    if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     let inputHtml = '';
     if (type === 'text') {
       inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
-    } else if (type === 'pdf') {
-      inputHtml = `
-        <label class="custom-file-upload">
-          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-          <span class="block-file-name">Choose PDF</span>
-          <input type="file" class="block-file-input" accept="application/pdf" hidden>
-        </label>
-        <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
-        <div class="block-preview"></div>
-        <input type="hidden" class="block-content-input">
-        <div style="margin-top: 12px;">
-          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Price for this PDF (₦) — leave 0 or blank for free</label>
-          <input type="number" class="input block-price-input" min="0" step="1" placeholder="0 = free" style="max-width: 200px;">
-        </div>
-      `;
     } else {
       const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*';
       inputHtml = `
@@ -640,7 +618,7 @@ const hubView = {
           statusEl.innerText = "Uploading..."; statusEl.style.color = "var(--brand-primary)";
           let fileUrl;
           try {
-            fileUrl = await uploadFile(e.target.files[0], type === 'pdf' ? 'library' : 'media');
+            fileUrl = await uploadFile(e.target.files[0], 'media');
           } catch (err) {
             statusEl.innerText = err.message || "Upload failed."; statusEl.style.color = "var(--error)";
             return;

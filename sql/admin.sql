@@ -323,11 +323,14 @@ begin
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
 
-  -- The bundle/audiolite/publication shapes all land in library_contents.files
-  -- the same way the backfill in sql/library_content.sql does it.
+  -- Every multi-part shape (a bundle's files, an audiolite's ordered chapters)
+  -- rides in bundle_items as [{title,url}]; a single-file book rides in
+  -- file_url. They all land in library_contents.files the same way the
+  -- backfill in sql/library_content.sql does it.
   v_files := case
-    when v_sub.type = 'bundle'
-      then coalesce(v_sub.bundle_items, '[]'::jsonb)
+    when jsonb_typeof(coalesce(v_sub.bundle_items, '[]'::jsonb)) = 'array'
+     and jsonb_array_length(coalesce(v_sub.bundle_items, '[]'::jsonb)) > 0
+      then v_sub.bundle_items
     when coalesce(v_sub.file_url, '') <> ''
       then jsonb_build_array(jsonb_build_object('title', v_sub.title, 'url', v_sub.file_url))
     else '[]'::jsonb

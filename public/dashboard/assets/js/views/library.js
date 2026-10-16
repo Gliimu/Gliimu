@@ -2,8 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { openReader } from '../reader.js?v=19';
-import hubView from './hub.js?v=19';
+import { openReader } from '../reader.js?v=20';
+import hubView from './hub.js?v=20';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -25,9 +25,21 @@ const BLOCK_ICONS = {
 
 const REMOVE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
-// Books can attach documents as well as media; the server allowlist for the
-// 'library' upload kind is the authority, this just narrows the file picker.
-const LIB_FILE_ACCEPT = '.pdf,.epub,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.rtf,.zip,image/*,audio/*,video/*';
+// The server allowlist for the 'library' upload kind is the authority; these
+// just narrow the file picker to what each format actually accepts. A Book
+// takes one reflowable document (no PDF); an Audiolite takes audio chapters.
+const BOOK_FILE_ACCEPT = '.epub,.doc,.docx';
+const COVER_FILE_ACCEPT = 'image/*';
+const AUDIO_FILE_ACCEPT = 'audio/*';
+
+const CATEGORY_OPTIONS = ['Media', 'Tech', 'Business', 'Personal', 'Education']
+  .map(c => `<option>${c}</option>`).join('');
+
+const KIND_ICONS = {
+  bundle: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>',
+  book: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+  audiolite: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>'
+};
 
 const BLOCK_HEAD = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
 
@@ -49,7 +61,7 @@ export default {
       </div>
 
       <div class="library-fab-wrapper">
-        <button class="library-fab-main" id="library-fab-main" title="Publish a Bundle">
+        <button class="library-fab-main" id="library-fab-main" title="Publish to the Library">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
       </div>
@@ -117,8 +129,264 @@ export default {
   setupFab() {
     const fab = document.getElementById('library-fab-main');
     if (!fab) return;
-    // Bundle (gliim) is the only upload type now — the FAB opens its composer.
-    fab.addEventListener('click', () => hubView.openCreateModal());
+    // The FAB opens a three-kind chooser: Bundle (gliim), Book, Audiolite.
+    fab.addEventListener('click', () => this.openKindChooser());
+  },
+
+  // Step 1 of publishing: pick the kind. Bundle delegates to the hub gliim
+  // composer (posts + CRM); Book and Audiolite write library_submissions and
+  // are approved by CRM into library_items + library_contents.
+  openKindChooser() {
+    document.querySelector('.modal-overlay')?.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content kind-chooser">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+        <h2 style="margin-bottom: 4px;">Publish to the Library</h2>
+        <p class="text-muted" style="margin-bottom: 20px;">Choose what you're uploading. Books and audiolites are reviewed by the team before they go live.</p>
+        <div class="kind-options">
+          <button type="button" class="kind-option" id="kind-bundle">
+            <span class="kind-ico">${KIND_ICONS.bundle}</span>
+            <span class="kind-name">Bundle</span>
+            <span class="kind-desc">A gliim: mixed text, image, video and audio blocks.</span>
+          </button>
+          <button type="button" class="kind-option" id="kind-book">
+            <span class="kind-ico">${KIND_ICONS.book}</span>
+            <span class="kind-name">Book</span>
+            <span class="kind-desc">A cover, its details, and one EPUB or DOCX document.</span>
+          </button>
+          <button type="button" class="kind-option" id="kind-audiolite">
+            <span class="kind-ico">${KIND_ICONS.audiolite}</span>
+            <span class="kind-name">Audiolite</span>
+            <span class="kind-desc">Audio chapters that play one after another.</span>
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('kind-bundle').addEventListener('click', () => { modal.remove(); hubView.openCreateModal(); });
+    document.getElementById('kind-book').addEventListener('click', () => { modal.remove(); this.openBookComposer(); });
+    document.getElementById('kind-audiolite').addEventListener('click', () => { modal.remove(); this.openAudioliteComposer(); });
+  },
+
+  // Shared metadata head for the Book and Audiolite submission forms.
+  submissionHeadFields(kindLabel) {
+    return `
+      <div class="form-group"><label>Title</label><input type="text" id="sub-title" class="input" placeholder="Give your ${kindLabel} a title..."></div>
+      <div class="form-row" style="gap: 16px;">
+        <div class="form-group" style="flex: 1;"><label>Category</label><select id="sub-category" class="input">${CATEGORY_OPTIONS}</select></div>
+        <div class="form-group" style="flex: 1;"><label>Price (₦) — 0 for free</label><input type="number" id="sub-price" class="input" min="0" step="1" value="0"></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="sub-description" class="input" rows="3" placeholder="A short summary readers see before opening..."></textarea></div>`;
+  },
+
+  coverUploadField() {
+    return `
+      <div class="form-group">
+        <label>Cover image</label>
+        <label class="custom-file-upload">
+          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+          <span class="block-file-name">Choose cover</span>
+          <input type="file" id="sub-cover-input" accept="${COVER_FILE_ACCEPT}" hidden>
+        </label>
+        <div class="upload-status" id="sub-cover-status" style="font-size: 12px; margin-top: 8px;"></div>
+        <div class="block-preview" id="sub-cover-preview"></div>
+      </div>`;
+  },
+
+  // Wires a single file input to uploadFile, writing the public URL into
+  // `urlTarget` (a hidden input) and reporting progress in `statusEl`.
+  wireSingleUpload(inputEl, statusEl, urlTarget, previewEl, kind) {
+    inputEl.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      statusEl.textContent = 'Uploading...';
+      statusEl.style.color = 'var(--brand-primary)';
+      try {
+        const url = await uploadFile(file, kind);
+        urlTarget.value = url;
+        statusEl.textContent = 'Upload complete.';
+        statusEl.style.color = 'var(--success)';
+        if (previewEl) previewEl.innerHTML = `<img src="${url}" style="max-width: 140px; border-radius: 8px; margin-top: 8px;">`;
+      } catch (err) {
+        statusEl.textContent = err.message || 'Upload failed.';
+        statusEl.style.color = 'var(--error)';
+      }
+    });
+  },
+
+  openBookComposer() {
+    document.querySelector('.modal-overlay')?.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content lib-submission-form">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+        <h2 style="margin-bottom: 4px;">Submit a Book</h2>
+        <p class="text-muted" style="margin-bottom: 20px;">Only the cover shows on the shelf. Upload one EPUB or DOCX — readers open it in-page.</p>
+        ${this.submissionHeadFields('book')}
+        ${this.coverUploadField()}
+        <div class="form-group">
+          <label>Document (EPUB or DOCX)</label>
+          <label class="custom-file-upload">
+            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+            <span class="block-file-name" id="sub-doc-name">Choose document</span>
+            <input type="file" id="sub-doc-input" accept="${BOOK_FILE_ACCEPT}" hidden>
+          </label>
+          <div class="upload-status" id="sub-doc-status" style="font-size: 12px; margin-top: 8px;"></div>
+          <input type="hidden" id="sub-doc-url">
+        </div>
+        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Submit for review</button>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const docName = document.getElementById('sub-doc-name');
+    this.wireSingleUpload(
+      document.getElementById('sub-doc-input'),
+      document.getElementById('sub-doc-status'),
+      document.getElementById('sub-doc-url'),
+      null,
+      'library'
+    );
+    document.getElementById('sub-doc-input').addEventListener('change', (e) => {
+      if (e.target.files[0]) docName.textContent = e.target.files[0].name;
+    });
+    this.wireSingleUpload(
+      document.getElementById('sub-cover-input'),
+      document.getElementById('sub-cover-status'),
+      { set value(v) { modal.dataset.coverUrl = v; }, get value() { return modal.dataset.coverUrl || ''; } },
+      document.getElementById('sub-cover-preview'),
+      'library'
+    );
+
+    document.getElementById('sub-submit').addEventListener('click', async () => {
+      const title = document.getElementById('sub-title').value.trim();
+      const fileUrl = document.getElementById('sub-doc-url').value;
+      if (!title) return appAlert('Give your book a title.');
+      if (!fileUrl) return appAlert('Upload the EPUB or DOCX document.');
+
+      const btn = document.getElementById('sub-submit');
+      btn.disabled = true; btn.textContent = 'Submitting...';
+      const { error } = await supabase.from('library_submissions').insert({
+        user_id: store.user.id,
+        title,
+        type: 'publication',
+        description: document.getElementById('sub-description').value.trim(),
+        price: Math.max(0, parseInt(document.getElementById('sub-price').value, 10) || 0),
+        category: document.getElementById('sub-category').value,
+        cover_url: modal.dataset.coverUrl || null,
+        file_url: fileUrl,
+        blocks: [],
+        bundle_items: []
+      });
+      if (error) {
+        btn.disabled = false; btn.textContent = 'Submit for review';
+        return appAlert('Submission failed: ' + error.message);
+      }
+      modal.remove();
+      appAlert('Your book was submitted for review. It appears on the shelf once the Gliimu team approves it.');
+    });
+  },
+
+  openAudioliteComposer() {
+    document.querySelector('.modal-overlay')?.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content lib-submission-form">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+        <h2 style="margin-bottom: 4px;">Submit an Audiolite</h2>
+        <p class="text-muted" style="margin-bottom: 20px;">Add one audio file per chapter. They play in order, one after another.</p>
+        ${this.submissionHeadFields('audiolite')}
+        ${this.coverUploadField()}
+        <div class="form-group">
+          <label>Chapters</label>
+          <div id="sub-chapters" style="display: flex; flex-direction: column; gap: 12px;"></div>
+          <button type="button" class="btn-secondary" id="sub-add-chapter" style="margin-top: 12px;">+ Add chapter</button>
+        </div>
+        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Submit for review</button>
+      </div>`;
+    document.body.appendChild(modal);
+
+    this.wireSingleUpload(
+      document.getElementById('sub-cover-input'),
+      document.getElementById('sub-cover-status'),
+      { set value(v) { modal.dataset.coverUrl = v; }, get value() { return modal.dataset.coverUrl || ''; } },
+      document.getElementById('sub-cover-preview'),
+      'library'
+    );
+
+    const chaptersEl = document.getElementById('sub-chapters');
+    let chapterSeq = 0;
+    const addChapter = () => {
+      chapterSeq += 1;
+      const row = document.createElement('div');
+      row.className = 'chapter-row';
+      row.innerHTML = `
+        <div class="chapter-row-head">
+          <input type="text" class="input chapter-title" placeholder="Chapter ${chapterSeq} title">
+          <button type="button" class="chapter-remove" title="Remove chapter">
+            ${REMOVE_ICON}
+          </button>
+        </div>
+        <label class="custom-file-upload">
+          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+          <span class="block-file-name chapter-file-name">Choose audio</span>
+          <input type="file" class="chapter-file-input" accept="${AUDIO_FILE_ACCEPT}" hidden>
+        </label>
+        <div class="upload-status chapter-status" style="font-size: 12px; margin-top: 6px;"></div>
+        <input type="hidden" class="chapter-url">`;
+      chaptersEl.appendChild(row);
+
+      row.querySelector('.chapter-remove').addEventListener('click', () => row.remove());
+      const fileInput = row.querySelector('.chapter-file-input');
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) row.querySelector('.chapter-file-name').textContent = e.target.files[0].name;
+      });
+      this.wireSingleUpload(
+        fileInput,
+        row.querySelector('.chapter-status'),
+        row.querySelector('.chapter-url'),
+        null,
+        'library'
+      );
+    };
+    document.getElementById('sub-add-chapter').addEventListener('click', addChapter);
+    addChapter();
+
+    document.getElementById('sub-submit').addEventListener('click', async () => {
+      const title = document.getElementById('sub-title').value.trim();
+      if (!title) return appAlert('Give your audiolite a title.');
+
+      const bundleItems = [];
+      chaptersEl.querySelectorAll('.chapter-row').forEach((row, i) => {
+        const url = row.querySelector('.chapter-url').value;
+        if (!url) return;
+        const chapterTitle = row.querySelector('.chapter-title').value.trim() || `Chapter ${i + 1}`;
+        bundleItems.push({ title: chapterTitle, url });
+      });
+      if (!bundleItems.length) return appAlert('Upload at least one audio chapter.');
+
+      const btn = document.getElementById('sub-submit');
+      btn.disabled = true; btn.textContent = 'Submitting...';
+      const { error } = await supabase.from('library_submissions').insert({
+        user_id: store.user.id,
+        title,
+        type: 'audiolite',
+        description: document.getElementById('sub-description').value.trim(),
+        price: Math.max(0, parseInt(document.getElementById('sub-price').value, 10) || 0),
+        category: document.getElementById('sub-category').value,
+        cover_url: modal.dataset.coverUrl || null,
+        bundle_items: bundleItems,
+        blocks: []
+      });
+      if (error) {
+        btn.disabled = false; btn.textContent = 'Submit for review';
+        return appAlert('Submission failed: ' + error.message);
+      }
+      modal.remove();
+      appAlert('Your audiolite was submitted for review. It appears on the shelf once the Gliimu team approves it.');
+    });
   },
 
   setupTopbar() {
@@ -221,25 +489,45 @@ export default {
     });
   },
 
-  // Books and audiolites only, matched against the single search box.
+  // Books and audiolites, matched against the same filter + search box that
+  // drives the gliim feed, so both kinds weave into one list consistently.
   visibleItems() {
+    const f = hubView.currentFilter || 'all';
+    let items = this.allItems || [];
+    if (f === 'saved') items = items.filter(i => this.savedItems.has(i.id));
+    else if (f === 'mine') items = items.filter(i => i.owner_id === store.user.id);
+    else if (f === 'tagged') items = [];
+    else if (f !== 'all') items = items.filter(i => i.category === f);
+
     const q = this.searchQuery;
-    if (!q) return this.allItems || [];
-    return (this.allItems || []).filter(item =>
-      item.title?.toLowerCase().includes(q) ||
-      item.author?.toLowerCase().includes(q) ||
-      item.description?.toLowerCase().includes(q)
-    );
+    if (q) {
+      items = items.filter(item =>
+        item.title?.toLowerCase().includes(q) ||
+        item.author?.toLowerCase().includes(q) ||
+        item.description?.toLowerCase().includes(q)
+      );
+    }
+    return items;
   },
 
-  // The Hub is gliims (bundles) only now — books and audiolites no longer
-  // render here. A small in-page toolbar above the feed switches between the
-  // masonry grid and a single-column list.
+  // Gliims and shelf items (books/audiolites) share one feed: both card kinds
+  // are merged and sorted newest-first so they interleave by publish date. A
+  // small in-page toolbar switches between the masonry grid and a list.
   renderFeed() {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const cards = hubView.filterPosts().map(post => this.wrapItem(hubView.renderPostCard(post), 'gliim'));
+    const gliims = hubView.filterPosts().map(post => ({
+      at: Date.parse(post.created_at) || 0,
+      html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
+    }));
+    const shelf = this.visibleItems().map(item => ({
+      at: Date.parse(item.created_at) || 0,
+      html: this.wrapItem(this.renderShelfCard(item), 'shelf')
+    }));
+    const cards = [...gliims, ...shelf]
+      .sort((a, b) => b.at - a.at)
+      .map(c => c.html);
 
     if (!cards.length) {
       container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
@@ -471,9 +759,10 @@ export default {
     if (!error && data) body = data;
 
     const blocks = (body && Array.isArray(body.blocks)) ? body.blocks : [];
-    const fileUrl = ((body && Array.isArray(body.files) && body.files[0] && body.files[0].url) || item.file_url || null);
+    const files = (body && Array.isArray(body.files)) ? body.files.filter(f => f && f.url) : [];
 
-    if (item.type === 'audiolite') return this.openAudiolite(item, fileUrl);
+    if (item.type === 'audiolite') return this.openAudiolite(item, files);
+    const fileUrl = (files[0] && files[0].url) || item.file_url || null;
     return this.openReader(item, blocks, fileUrl);
   },
 
@@ -538,37 +827,52 @@ export default {
     });
   },
 
-  openAudiolite(item, audioUrl) {
+  // Audiolite player: `chapters` is an ordered [{title,url}] list. Chapters
+  // auto-advance — when one ends the next starts — and finishing the last one
+  // completes the audiolite and earns its GP (idempotent, once).
+  openAudiolite(item, chapters) {
+    let list = Array.isArray(chapters) ? chapters.filter(c => c && c.url) : [];
+    if (!list.length && item.file_url) list = [{ title: item.title, url: item.file_url }];
+    const hasAudio = list.length > 0;
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
       <div class="modal-content lib-modal-content lib-audio-modal">
         <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        <div class="lib-audio-art ${item.cover_url ? '' : 'lib-audio-art-fallback'}" style="${item.cover_url ? `background-image:url('${item.cover_url}')` : ''}">
+        <div class="lib-audio-art ${item.cover_url ? '' : 'lib-audio-art-fallback'}" style="${item.cover_url ? `background-image:url('${escapeHtml(item.cover_url)}')` : ''}">
           ${item.cover_url ? '' : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>'}
         </div>
-        <h2 class="lib-audio-title">${item.title}</h2>
-        <p class="lib-audio-author">${this.displayAuthorName(item)}</p>
+        <h2 class="lib-audio-title">${escapeHtml(item.title)}</h2>
+        <p class="lib-audio-author">${escapeHtml(this.displayAuthorName(item))}</p>
+        <p class="lib-audio-chapter" id="lib-audio-chapter">${hasAudio ? escapeHtml(list[0].title || 'Chapter 1') : ''}</p>
 
         <div class="lib-eq" id="lib-eq"><span></span><span></span><span></span><span></span><span></span></div>
 
         <div class="lib-audio-player">
-          <button class="lib-audio-play" id="lib-audio-play" ${audioUrl ? '' : 'disabled'}>
+          <button class="lib-audio-play" id="lib-audio-play" ${hasAudio ? '' : 'disabled'}>
             <svg id="lib-audio-play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
           </button>
           <div class="lib-audio-timeline">
             <span id="lib-audio-cur">0:00</span>
-            <input type="range" id="lib-audio-seek" min="0" max="1000" value="0" ${audioUrl ? '' : 'disabled'}>
+            <input type="range" id="lib-audio-seek" min="0" max="1000" value="0" ${hasAudio ? '' : 'disabled'}>
             <span id="lib-audio-dur">0:00</span>
           </div>
           <button class="lib-audio-speed" id="lib-audio-speed">1x</button>
         </div>
-        ${audioUrl ? '' : '<p class="lib-reader-empty" style="margin-top: 16px;">No audio file attached yet.</p>'}
-        <audio id="lib-audio" src="${escapeHtml(audioUrl || '')}" preload="metadata"></audio>
+        ${hasAudio ? `
+          <div class="lib-audio-chapters" id="lib-audio-chapters">
+            ${list.map((c, i) => `
+              <button type="button" class="lib-chapter${i === 0 ? ' active' : ''}" data-idx="${i}">
+                <span class="lib-chapter-n">${i + 1}</span>
+                <span class="lib-chapter-title">${escapeHtml(c.title || `Chapter ${i + 1}`)}</span>
+              </button>`).join('')}
+          </div>` : '<p class="lib-reader-empty" style="margin-top: 16px;">No audio chapters attached yet.</p>'}
+        <audio id="lib-audio" preload="metadata"></audio>
       </div>
     `;
     document.body.appendChild(modal);
-    if (!audioUrl) return;
+    if (!hasAudio) return;
 
     const audio = document.getElementById('lib-audio');
     const playBtn = document.getElementById('lib-audio-play');
@@ -578,17 +882,43 @@ export default {
     const dur = document.getElementById('lib-audio-dur');
     const eq = document.getElementById('lib-eq');
     const speedBtn = document.getElementById('lib-audio-speed');
+    const chapterLabel = document.getElementById('lib-audio-chapter');
+    const chapterBtns = Array.from(modal.querySelectorAll('.lib-chapter'));
     const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     const PLAY = '<polygon points="6 4 20 12 6 20 6 4"></polygon>';
     const PAUSE = '<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>';
 
+    let idx = 0;
     let audioCompleted = false;
+
+    function highlight(i) {
+      chapterBtns.forEach((b, bi) => b.classList.toggle('active', bi === i));
+      chapterLabel.textContent = list[i].title || `Chapter ${i + 1}`;
+    }
+    function loadChapter(i, autoplay) {
+      idx = i;
+      highlight(i);
+      seek.value = 0; cur.textContent = '0:00'; dur.textContent = '0:00';
+      audio.src = list[i].url;
+      audio.playbackRate = parseFloat(speedBtn.textContent) || 1;
+      if (autoplay) audio.play().catch(() => {});
+    }
+
+    chapterBtns.forEach((b) => {
+      b.addEventListener('click', () => loadChapter(parseInt(b.dataset.idx, 10), true));
+    });
+
+    loadChapter(0, false);
+
     playBtn.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
     audio.addEventListener('play', () => { playIcon.innerHTML = PAUSE; eq.classList.add('playing'); });
     audio.addEventListener('pause', () => { playIcon.innerHTML = PLAY; eq.classList.remove('playing'); });
     audio.addEventListener('ended', async () => {
-      playIcon.innerHTML = PLAY; eq.classList.remove('playing'); seek.value = 0; cur.textContent = '0:00';
-      // Finishing the audio completes the audiolite and earns its GP (idempotent).
+      playIcon.innerHTML = PLAY; eq.classList.remove('playing');
+      // Auto-advance to the next chapter; the last one completes the audiolite.
+      if (idx < list.length - 1) { loadChapter(idx + 1, true); return; }
+
+      seek.value = 0; cur.textContent = '0:00';
       if (audioCompleted) return;
       audioCompleted = true;
       try {

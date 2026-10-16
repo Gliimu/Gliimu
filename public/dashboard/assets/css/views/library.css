@@ -340,3 +340,50 @@
 @media (max-width: 768px) {
   .lib-audio-art { width: 140px; height: 140px; }
 }
+
+/* ---- Three-kind chooser (Bundle / Book / Audiolite) ---- */
+.kind-chooser { max-width: 560px; }
+.kind-options { display: flex; flex-direction: column; gap: 12px; }
+.kind-option {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  grid-template-areas: "ico name" "ico desc";
+  column-gap: 14px;
+  align-items: center;
+  text-align: left;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+.kind-option:hover { border-color: var(--brand-primary); transform: translateY(-1px); }
+.kind-ico { grid-area: ico; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: var(--surface); color: var(--brand-primary); }
+.kind-name { grid-area: name; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.kind-desc { grid-area: desc; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+
+/* ---- Book / Audiolite submission form ---- */
+.lib-submission-form { max-width: 560px; }
+
+/* Audiolite chapter rows in the composer */
+.chapter-row { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.chapter-row-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.chapter-row-head .chapter-title { flex: 1; }
+.chapter-remove { background: none; border: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 8px; flex-shrink: 0; }
+.chapter-remove:hover { color: var(--error); background: var(--surface); }
+
+/* Audiolite player: now-playing chapter + chapter list */
+.lib-audio-chapter { font-size: 13px; font-weight: 600; color: var(--brand-primary); margin: -14px 0 16px; min-height: 18px; }
+.lib-audio-chapters { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; text-align: left; }
+.lib-chapter { display: flex; align-items: center; gap: 10px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.lib-chapter:hover { border-color: var(--brand-primary); }
+.lib-chapter.active { border-color: var(--brand-primary); background: var(--surface); }
+.lib-chapter-n { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
+.lib-chapter.active .lib-chapter-n { background: var(--brand-primary); border-color: var(--brand-primary); color: #fff; }
+.lib-chapter-title { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-chapter.active .lib-chapter-title { color: var(--text-primary); font-weight: 600; }
+
+@media (max-width: 480px) {
+  .kind-option { grid-template-columns: auto 1fr; grid-template-areas: "ico name" "desc desc"; }
+}

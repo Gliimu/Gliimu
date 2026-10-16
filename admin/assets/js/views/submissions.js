@@ -111,7 +111,12 @@ export default {
     const blocks = Array.isArray(item.blocks) ? item.blocks.length : 0;
     const files = Array.isArray(item.bundle_items) ? item.bundle_items.length : 0;
     if (item.type === 'bundle') return `${files} file${files === 1 ? '' : 's'}`;
-    if (item.type === 'audiolite') return item.file_url ? '1 audio file' : 'no audio yet';
+    if (item.type === 'audiolite') {
+      if (files) return `${files} chapter${files === 1 ? '' : 's'}`;
+      return item.file_url ? '1 audio file' : 'no audio yet';
+    }
+    // publication (Book): one attached EPUB/DOCX, or legacy block body
+    if (item.file_url) return '1 document';
     return `${blocks} block${blocks === 1 ? '' : 's'}`;
   },
 
@@ -136,12 +141,17 @@ export default {
       return `<div class="block-preview-item"><span class="block-kind">${kind}</span>${inner}</div>`;
     }).join('');
 
-    const fileList = (item.type === 'bundle' ? files : [])
+    // A bundle's files and an audiolite's chapters both ride in bundle_items,
+    // in order; chapters get a numbered label so the sequence is reviewable.
+    const isChapters = item.type === 'audiolite';
+    const fileList = (item.type === 'bundle' || isChapters ? files : [])
       .filter(f => f && f.url)
-      .map(f => `<div class="file-chip"><span>${escapeHtml(f.title || 'File')}</span><a href="${escapeHtml(f.url)}" target="_blank" rel="noopener">Open</a></div>`)
-      .join('');
+      .map((f, i) => {
+        const label = f.title || (isChapters ? `Chapter ${i + 1}` : 'File');
+        return `<div class="file-chip"><span>${isChapters ? `${i + 1}. ` : ''}${escapeHtml(label)}</span><a href="${escapeHtml(f.url)}" target="_blank" rel="noopener">Open</a></div>`;
+      }).join('');
 
-    const singleFile = (item.type !== 'bundle' && item.file_url)
+    const singleFile = (item.type !== 'bundle' && !isChapters && item.file_url)
       ? `<div class="file-chip"><span>${escapeHtml(item.title)}</span><a href="${escapeHtml(item.file_url)}" target="_blank" rel="noopener">Open</a></div>`
       : '';
 
