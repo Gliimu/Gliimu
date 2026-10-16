@@ -1,0 +1,13 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://www.gliimu.com",
+      "https://gliimu.com",
+      "https://admin.gliimu.com"
+    ],
+    "AllowedMethods": ["GET", "HEAD", "PUT", "POST"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag", "Content-Length", "Content-Type"],
+    "MaxAgeSeconds": 3600
+  }
+]

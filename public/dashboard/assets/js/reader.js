@@ -302,9 +302,20 @@ async function renderFile(url, bodyEl, setProgress, setBlob) {
 }
 
 async function fetchBlob(url) {
-  const res = await fetch(url, { mode: 'cors' });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return await res.blob();
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.blob();
+  } catch (err) {
+    // A copy cached before the bucket CORS policy was fixed carries no
+    // Access-Control-Allow-Origin header, so the first fetch throws. Retry
+    // once with a cache-buster + no-store to force a fresh, CORS-correct
+    // response instead of failing on the stale cached entry.
+    const bust = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    const res = await fetch(bust, { mode: 'cors', cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.blob();
+  }
 }
 
 async function renderPdf(url, bodyEl, setProgress, setBlob) {
