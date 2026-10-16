@@ -342,7 +342,7 @@ async function loadHubHighlights() {
   const [{ data: hubPosts }, { data: libItems }, { data: top }] = await Promise.all([
     supabase
       .from('public_hub_posts')
-      .select('content, media_url, media_type, created_at, username, full_name, avatar_url')
+      .select('content, media_url, media_type, created_at, full_name, avatar_url')
       .order('created_at', { ascending: false })
       .limit(1),
     supabase
