@@ -2,7 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js?v=9';
+import { openReader } from '../reader.js?v=10';
+import hubView from './hub.js?v=10';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -524,40 +525,15 @@ export default {
     return `<p class="read-block-text">${text.replace(/\n/g, '<br>')}</p>`;
   },
 
+  // Delegate to the shared client-side reader (assets/js/reader.js). It owns
+  // the overlay, progress tracking, completion GP and the deterrence layer.
   openReader(item, blocks, fileUrl) {
-    const kind = this.fileKind(fileUrl);
-    let contentHtml;
-    if (blocks && blocks.length) {
-      contentHtml = `<div class="lib-article">${blocks.map(b => this.renderBlock(b)).join('')}</div>`;
-    } else if (!fileUrl) {
-      contentHtml = '<p class="lib-reader-empty">The author hasn\'t attached a file to this book yet.</p>';
-    } else if (kind === 'image') {
-      contentHtml = `<img class="lib-reader-image" src="${escapeHtml(fileUrl)}" alt="${escapeHtml(item.title)}">`;
-    } else if (kind === 'pdf') {
-      contentHtml = `<iframe class="lib-reader-frame" src="${escapeHtml(fileUrl)}" title="${escapeHtml(item.title)}"></iframe>`;
-    } else if (kind === 'video') {
-      contentHtml = `<video class="lib-reader-video" src="${escapeHtml(fileUrl)}" controls></video>`;
-    } else {
-      contentHtml = `<a class="btn-primary lib-reader-download" href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener">Open file</a>`;
-    }
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content lib-modal-content lib-reader-modal">
-        <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        ${item.cover_url ? `<img class="lib-reader-cover" src="${escapeHtml(item.cover_url)}" alt="">` : ''}
-        <div class="lib-modal-body">
-          <span class="lib-modal-type">${escapeHtml(typeLabel(item.type))}</span>
-          <h2>${escapeHtml(item.title)}</h2>
-          <p class="lib-modal-author">by ${escapeHtml(this.displayAuthorName(item))}</p>
-          <p class="lib-modal-desc">${escapeHtml(item.description)}</p>
-          <hr class="lib-reader-divider">
-          ${contentHtml}
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
+    return openReader({
+      item,
+      blocks,
+      fileUrl,
+      renderBlock: (b) => this.renderBlock(b)
+    });
   },
 
   openAudiolite(item, audioUrl) {
@@ -604,10 +580,30 @@ export default {
     const PLAY = '<polygon points="6 4 20 12 6 20 6 4"></polygon>';
     const PAUSE = '<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>';
 
+    let audioCompleted = false;
     playBtn.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
     audio.addEventListener('play', () => { playIcon.innerHTML = PAUSE; eq.classList.add('playing'); });
     audio.addEventListener('pause', () => { playIcon.innerHTML = PLAY; eq.classList.remove('playing'); });
-    audio.addEventListener('ended', () => { playIcon.innerHTML = PLAY; eq.classList.remove('playing'); seek.value = 0; cur.textContent = '0:00'; });
+    audio.addEventListener('ended', async () => {
+      playIcon.innerHTML = PLAY; eq.classList.remove('playing'); seek.value = 0; cur.textContent = '0:00';
+      // Finishing the audio completes the audiolite and earns its GP (idempotent).
+      if (audioCompleted) return;
+      audioCompleted = true;
+      try {
+        await supabase.from('reading_progress').upsert(
+          { user_id: store.user.id, item_id: item.id, percent: 100, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,item_id' }
+        );
+        const { data } = await supabase.rpc('complete_reading', { p_item: item.id });
+        if (data && data.ok && data.gp_awarded > 0) {
+          const t = document.createElement('div');
+          t.className = 'rdr-toast';
+          t.textContent = `Completed — +${data.gp_awarded} GP`;
+          modal.appendChild(t);
+          setTimeout(() => t.remove(), 3200);
+        }
+      } catch (_) {}
+    });
     audio.addEventListener('loadedmetadata', () => { dur.textContent = fmt(audio.duration); });
     audio.addEventListener('timeupdate', () => {
       cur.textContent = fmt(audio.currentTime);
