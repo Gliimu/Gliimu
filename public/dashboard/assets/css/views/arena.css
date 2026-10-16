@@ -1,9 +1,36 @@
-/* Community — contests, cohorts, events, news, leaderboard */
+/* Arena — contests, cohorts, events, news, leaderboard */
 .com-layout { max-width: 960px; margin: 0 auto; padding-bottom: 60px; }
 
 .com-head { margin-bottom: 24px; }
+.com-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .com-h1 { font-size: 28px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.6px; margin-bottom: 8px; }
 .com-sub { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 640px; }
+
+/* ---------- Filter (show one section at a time) ---------- */
+.com-filter { position: relative; flex-shrink: 0; }
+.com-filter-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 13px; font-size: 13px; font-weight: 700; color: var(--text-secondary);
+  cursor: pointer; font-family: var(--font-sans); box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.com-filter-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.com-filter-btn svg { flex-shrink: 0; }
+.com-filter-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 200px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; gap: 2px;
+}
+.com-filter-opt {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: none; border: 0; border-radius: 8px; padding: 9px 10px;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; font-family: var(--font-sans);
+}
+.com-filter-opt:hover { background: var(--bg-tertiary); }
+.com-filter-opt.active { color: var(--brand-primary); background: var(--bg-tertiary); font-weight: 800; }
+.com-filter-opt svg { flex-shrink: 0; }
 
 .com-section { margin-bottom: 34px; }
 .com-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -186,4 +213,6 @@
   .com-board-score { font-size: 14px; }
   .com-event { gap: 12px; }
   .com-event-date { width: 52px; padding-right: 10px; }
+  .com-filter-label { display: none; }
+  .com-filter-btn { padding: 9px 10px; }
 }

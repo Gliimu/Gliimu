@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=15';
+import { renderFileInto } from '../reader.js?v=16';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

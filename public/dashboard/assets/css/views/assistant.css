@@ -1,4 +1,4 @@
-/* Gliim P.A. — an ask-first assistant page */
+/* Assistant — an ask-first assistant page */
 .pa-page { max-width: 780px; margin: 0 auto; padding-bottom: 40px; }
 
 /* Empty state */
@@ -11,7 +11,7 @@
   text-align: center;
   gap: 12px;
 }
-.pa-hero-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; box-shadow: var(--shadow-lg); }
+.pa-hero-logo { width: 64px; height: 64px; box-shadow: var(--shadow-lg); }
 .pa-hero-title { font-size: 34px; font-weight: 800; letter-spacing: -0.8px; color: var(--text-primary); }
 .pa-hero-sub { font-size: 15px; color: var(--text-muted); margin-bottom: 20px; max-width: 460px; line-height: 1.5; }
 .pa-composer-hero { width: 100%; }
@@ -86,7 +86,7 @@
 
 .pa-answer { border-top: 1px solid var(--border); padding-top: 16px; }
 .pa-answer-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 12px; }
-.pa-answer-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+.pa-answer-avatar { width: 20px; height: 20px; flex-shrink: 0; }
 .pa-answer-body { font-size: 15px; line-height: 1.7; color: var(--text-secondary); }
 .pa-answer-body p { margin-bottom: 12px; }
 .pa-answer-body p:last-child { margin-bottom: 0; }

@@ -54,12 +54,28 @@ const calendarIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height=
 const pinIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
 const usersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
 const megaphone = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>`;
+const layersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>`;
+const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>`;
 
-const communityView = {
+// The filter menu. 'all' stacks every section; picking one shows just that.
+const SECTIONS = [
+  { key: 'all', label: 'All sections', icon: layersIcon },
+  { key: 'leaderboard', label: 'Leaderboard', icon: trophy },
+  { key: 'contests', label: 'Contests', icon: trophy },
+  { key: 'cohorts', label: 'Cohorts', icon: usersIcon },
+  { key: 'events', label: 'Events', icon: calendarIcon },
+  { key: 'news', label: 'News', icon: megaphone }
+];
+
+let outsideBound = false;
+
+const arenaView = {
   board: null,
   schemaMissing: false,
   loading: true,
   busy: null,
+  filter: 'all',
+  filterOpen: false,
 
   template: `
     <div class="com-layout" id="com-container">
@@ -68,11 +84,26 @@ const communityView = {
   `,
 
   async init() {
-    window.communityInstance = {
+    window.arenaInstance = {
       joinContest: (id) => this.joinContest(id),
-      requestCohort: (id) => this.requestCohort(id)
+      requestCohort: (id) => this.requestCohort(id),
+      toggleFilter: (ev) => this.toggleFilter(ev),
+      setFilter: (key) => this.setFilter(key)
     };
+    this.filter = 'all';
+    this.filterOpen = false;
     this.setupTopbar();
+
+    // Bound once so repeated navigations do not stack listeners.
+    if (!outsideBound) {
+      outsideBound = true;
+      document.addEventListener('click', (e) => {
+        if (!this.filterOpen) return;
+        const box = document.getElementById('com-filter');
+        if (box && !box.contains(e.target)) { this.filterOpen = false; this.render(); }
+      });
+    }
+
     await this.load();
   },
 
@@ -81,6 +112,18 @@ const communityView = {
     const right = document.getElementById('topbar-right-actions');
     if (dyn) dyn.innerHTML = '';
     if (right) right.innerHTML = '';
+  },
+
+  toggleFilter(ev) {
+    if (ev) ev.stopPropagation();
+    this.filterOpen = !this.filterOpen;
+    this.render();
+  },
+
+  setFilter(key) {
+    this.filter = key;
+    this.filterOpen = false;
+    this.render();
   },
 
   async load() {
@@ -95,7 +138,7 @@ const communityView = {
         this.schemaMissing = true;
         this.board = null;
       } else {
-        console.error('Failed to load community', error);
+        console.error('Failed to load the Arena', error);
       }
       this.render();
       return;
@@ -144,13 +187,13 @@ const communityView = {
   },
 
   renderLoading() {
-    return `<div class="com-empty"><p>Loading community…</p></div>`;
+    return `<div class="com-empty"><p>Loading the Arena…</p></div>`;
   },
 
   renderMissing() {
     return `
       <div class="com-empty">
-        <h3>The Community page is not set up yet</h3>
+        <h3>The Arena is not set up yet</h3>
         <p>Run <code>sql/community.sql</code> in the Supabase SQL Editor, then reload.</p>
       </div>
     `;
@@ -159,28 +202,61 @@ const communityView = {
   renderError() {
     return `
       <div class="com-empty">
-        <h3>Could not load the Community page</h3>
+        <h3>Could not load the Arena</h3>
         <p>Check your connection and reload.</p>
+      </div>
+    `;
+  },
+
+  renderFilter() {
+    const current = SECTIONS.find(s => s.key === this.filter) || SECTIONS[0];
+    return `
+      <div class="com-filter" id="com-filter">
+        <button class="com-filter-btn" onclick="arenaInstance.toggleFilter(event)" title="Filter sections" aria-haspopup="true" aria-expanded="${this.filterOpen ? 'true' : 'false'}">
+          ${filterIcon}
+          <span class="com-filter-label">${esc(current.label)}</span>
+        </button>
+        ${this.filterOpen ? `
+          <div class="com-filter-menu" role="menu">
+            ${SECTIONS.map(s => `
+              <button class="com-filter-opt${s.key === this.filter ? ' active' : ''}" role="menuitem" onclick="arenaInstance.setFilter('${s.key}')">
+                ${s.icon}<span>${esc(s.label)}</span>
+              </button>`).join('')}
+          </div>` : ''}
       </div>
     `;
   },
 
   renderBoard() {
     const b = this.board;
+    const f = this.filter;
     const head = `
       <header class="com-head">
-        <h1 class="com-h1">Community</h1>
-        <p class="com-sub">Contests, cohorts, events and news from across Gliimu. Join a contest to climb the leaderboard.</p>
+        <div class="com-head-row">
+          <div>
+            <h1 class="com-h1">Arena</h1>
+            <p class="com-sub">Contests, cohorts, events and news from across Gliimu. Join a contest to climb the leaderboard.</p>
+          </div>
+          ${this.renderFilter()}
+        </div>
       </header>
     `;
-    return [
-      head,
-      this.renderLeaderboard(b.leaderboard),
-      this.renderContests(b.contests || []),
-      this.renderCohorts(b.cohorts || []),
-      this.renderEvents(b.events || []),
-      this.renderNews(b.news || [])
-    ].join('');
+
+    const parts = [head];
+    const show = (key) => f === 'all' || f === key;
+
+    if (show('leaderboard')) {
+      const lb = this.renderLeaderboard(b.leaderboard);
+      parts.push(lb || (f === 'leaderboard'
+        ? `<section class="com-section">${this.sectionTitle(trophy, 'Leaderboard')}<div class="com-mini-empty">No featured contest yet.</div></section>`
+        : ''));
+    }
+    if (show('contests')) parts.push(this.renderContests(b.contests || []));
+    if (show('cohorts')) parts.push(this.renderCohorts(b.cohorts || []));
+    if (show('events')) parts.push(this.renderEvents(b.events || []));
+    if (show('news')) parts.push(this.renderNews(b.news || []));
+
+    return parts.join('');
   },
 
   sectionTitle(icon, text, note) {
@@ -234,7 +310,7 @@ const communityView = {
       } else if (c.joined) {
         action = `<span class="com-pill joined">Joined · ${Number(c.score || 0).toLocaleString()}</span>`;
       } else {
-        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="communityInstance.joinContest('${c.id}')">${busy ? 'Joining…' : 'Join contest'}</button>`;
+        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="arenaInstance.joinContest('${c.id}')">${busy ? 'Joining…' : 'Join contest'}</button>`;
       }
 
       return `
@@ -276,11 +352,11 @@ const communityView = {
       } else if (co.my_status === 'pending') {
         action = `<span class="com-pill pending">Request pending</span>`;
       } else if (co.my_status === 'rejected') {
-        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="communityInstance.requestCohort('${co.id}')">${busy ? 'Sending…' : 'Request again'}</button>`;
+        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="arenaInstance.requestCohort('${co.id}')">${busy ? 'Sending…' : 'Request again'}</button>`;
       } else if (full) {
         action = `<span class="com-pill ended">Full</span>`;
       } else {
-        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="communityInstance.requestCohort('${co.id}')">${busy ? 'Sending…' : 'Request a seat'}</button>`;
+        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="arenaInstance.requestCohort('${co.id}')">${busy ? 'Sending…' : 'Request a seat'}</button>`;
       }
 
       return `
@@ -348,4 +424,4 @@ const communityView = {
   }
 };
 
-export default communityView;
+export default arenaView;

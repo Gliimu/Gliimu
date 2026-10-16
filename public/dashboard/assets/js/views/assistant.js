@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
-import { kbAnswer } from '../gliim-pa-kb.js?v=15';
+import { kbAnswer } from '../gliim-pa-kb.js?v=16';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.
@@ -94,7 +94,7 @@ const FOLLOWUPS = [
 ];
 
 const assistantView = {
-  title: 'Gliim P.A.',
+  title: 'Assistant',
   thread: [],
   busy: false,
 
@@ -169,7 +169,7 @@ const assistantView = {
           : renderMarkdown(m.content));
       return `
         <div class="pa-answer">
-          <div class="pa-answer-head"><img src="/icons/gliimpa.png" alt="" class="pa-answer-avatar"><span>Gliim P.A.</span></div>
+          <div class="pa-answer-head">${this.badge(24, 'pa-answer-avatar')}<span>Assistant</span></div>
           <div class="pa-answer-body">${body}</div>
           ${isLast && !this.busy && !m.failed ? this.renderFollowups() : ''}
         </div>
@@ -196,8 +196,8 @@ const assistantView = {
   renderAsk() {
     return `
       <div class="pa-hero">
-        <img src="/icons/gliimpa.png" alt="" class="pa-hero-logo">
-        <h1 class="pa-hero-title">Gliim P.A.</h1>
+        ${this.badge(56, 'pa-hero-logo')}
+        <h1 class="pa-hero-title">Assistant</h1>
         <p class="pa-hero-sub">Ask anything. Research, drafts, explanations — answered in seconds.</p>
         ${this.renderComposer(true)}
         <div class="pa-starters">
@@ -210,7 +210,7 @@ const assistantView = {
   renderComposer(hero = false) {
     return `
       <div class="pa-composer ${hero ? 'pa-composer-hero' : ''}">
-        <textarea id="pa-input" class="pa-input" rows="1" placeholder="Ask Gliim P.A. anything..." ${this.busy ? 'disabled' : ''}></textarea>
+        <textarea id="pa-input" class="pa-input" rows="1" placeholder="Ask Assistant anything..." ${this.busy ? 'disabled' : ''}></textarea>
         <button class="pa-send" id="pa-send" onclick="paInstance.send()" ${this.busy ? 'disabled' : ''} title="Ask">
           ${this.busy ? this.icon('stop') : this.icon('arrow')}
         </button>
@@ -225,6 +225,13 @@ const assistantView = {
       stop: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
     };
     return icons[name] || '';
+  },
+
+  badge(size = 24, cls = '') {
+    return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
+      + `<rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="var(--brand-primary)"/>`
+      + `<text x="12" y="16.2" text-anchor="middle" font-size="10" font-weight="800" font-family="system-ui, -apple-system, sans-serif" fill="#fff">AI</text>`
+      + `</svg>`;
   },
 
   wireComposer() {
@@ -308,7 +315,7 @@ const assistantView = {
     // The hosted model is tried first so a funded DeepSeek (or any provider
     // behind /api/chat) still powers the assistant. When it is unreachable,
     // unconfigured or out of balance, the built-in knowledge base answers
-    // instead — so Gliim P.A. never shows a dead end.
+    // instead — so Assistant never shows a dead end.
     let reply = null;
     try {
       const ctrl = new AbortController();

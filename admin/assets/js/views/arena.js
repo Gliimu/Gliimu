@@ -61,7 +61,7 @@ export default {
     <div class="filters">
       ${TABS.map((t, i) => `<button class="filter-btn${i === 0 ? ' active' : ''}" data-tab="${t.id}">${escapeHtml(t.label)}</button>`).join('')}
     </div>
-    <div id="community-pane"><p class="loading">Loading...</p></div>
+    <div id="arena-pane"><p class="loading">Loading...</p></div>
   `,
 
   async init() {
@@ -81,7 +81,7 @@ export default {
   },
 
   async render() {
-    const pane = document.getElementById('community-pane');
+    const pane = document.getElementById('arena-pane');
     if (!pane) return;
 
     const failed = await this.fetch();
@@ -104,7 +104,7 @@ export default {
     if (error) {
       // A missing function means sql/community.sql has not been run yet.
       if (['42883', 'PGRST202'].includes(error.code)) {
-        return 'The Community tables are not set up yet. Run sql/community.sql in the Supabase SQL Editor, then reload.';
+        return 'The Arena tables are not set up yet. Run sql/community.sql in the Supabase SQL Editor, then reload.';
       }
       return error.message;
     }
@@ -388,7 +388,7 @@ export default {
         <div class="card-head">
           <div>
             <div class="card-title">Events</div>
-            <div class="card-sub">Display-only on the member Community page. Only upcoming events (start at or after now) are shown to members.</div>
+            <div class="card-sub">Display-only on the member Arena page. Only upcoming events (start at or after now) are shown to members.</div>
           </div>
           <div class="card-actions"><button class="btn-primary btn-small" data-add="events">New event</button></div>
         </div>
@@ -494,7 +494,7 @@ export default {
         <div class="card-head">
           <div>
             <div class="card-title">News</div>
-            <div class="card-sub">Announcements on the member Community page. Only published items are shown.</div>
+            <div class="card-sub">Announcements on the member Arena page. Only published items are shown.</div>
           </div>
           <div class="card-actions"><button class="btn-primary btn-small" data-add="news">New post</button></div>
         </div>

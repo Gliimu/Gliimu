@@ -307,7 +307,7 @@ begin
                             where e2.contest_id = c.id),
            'score',       case when exists (select 1 from public.contest_entries e3
                                             where e3.contest_id = c.id and e3.user_id = uid)
-                               then public.contest_score(c.id, uid) else 0 end
+                               then public.contest_score(c.id, uid) else 0 end)
            order by c.is_featured desc, c.created_at desc),
          '[]'::jsonb)
     into v_contests
@@ -335,7 +335,7 @@ begin
            'pending',     (select count(*) from public.cohort_requests rq2
                             where rq2.cohort_id = co.id and rq2.status = 'pending'),
            'my_status',   (select rq3.status from public.cohort_requests rq3
-                            where rq3.cohort_id = co.id and rq3.user_id = uid limit 1)
+                            where rq3.cohort_id = co.id and rq3.user_id = uid limit 1))
            order by co.created_at desc),
          '[]'::jsonb)
     into v_cohorts
@@ -348,7 +348,7 @@ begin
            'description', ev.description,
            'starts_at',   ev.starts_at,
            'venue_type',  ev.venue_type,
-           'venue_text',  ev.venue_text
+           'venue_text',  ev.venue_text)
            order by ev.starts_at asc),
          '[]'::jsonb)
     into v_events
@@ -360,7 +360,7 @@ begin
            'id',         n.id,
            'title',      n.title,
            'body',       n.body,
-           'created_at', n.created_at
+           'created_at', n.created_at)
            order by n.created_at desc),
          '[]'::jsonb)
     into v_news
@@ -505,7 +505,7 @@ begin
            'id', c.id, 'title', c.title, 'description', c.description, 'metric', c.metric,
            'starts_at', c.starts_at, 'ends_at', c.ends_at, 'prize_text', c.prize_text,
            'is_featured', c.is_featured, 'is_archived', c.is_archived, 'created_at', c.created_at,
-           'entries', (select count(*) from public.contest_entries e where e.contest_id = c.id)
+           'entries', (select count(*) from public.contest_entries e where e.contest_id = c.id))
            order by c.is_featured desc, c.created_at desc), '[]'::jsonb)
     into v_rows from public.contests c;
 
@@ -621,7 +621,7 @@ begin
            'seats_taken', (select count(*) from public.cohort_requests rq
                             where rq.cohort_id = co.id and rq.status = 'approved'),
            'pending', (select count(*) from public.cohort_requests rq2
-                        where rq2.cohort_id = co.id and rq2.status = 'pending')
+                        where rq2.cohort_id = co.id and rq2.status = 'pending'))
            order by co.created_at desc), '[]'::jsonb)
     into v_rows from public.cohorts co;
 
@@ -714,7 +714,7 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', cr.id, 'cohort_id', cr.cohort_id, 'user_id', cr.user_id,
            'status', cr.status, 'requested_at', cr.requested_at, 'decided_at', cr.decided_at,
-           'full_name', pr.full_name, 'avatar_url', pr.avatar_url
+           'full_name', pr.full_name, 'avatar_url', pr.avatar_url)
            order by (cr.status = 'pending') desc, cr.requested_at asc), '[]'::jsonb)
     into v_rows
     from public.cohort_requests cr
@@ -792,7 +792,7 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', ev.id, 'title', ev.title, 'description', ev.description, 'starts_at', ev.starts_at,
            'venue_type', ev.venue_type, 'venue_text', ev.venue_text,
-           'is_archived', ev.is_archived, 'created_at', ev.created_at
+           'is_archived', ev.is_archived, 'created_at', ev.created_at)
            order by ev.starts_at asc), '[]'::jsonb)
     into v_rows from public.events ev;
 
@@ -896,7 +896,7 @@ begin
 
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', n.id, 'title', n.title, 'body', n.body,
-           'is_published', n.is_published, 'created_at', n.created_at
+           'is_published', n.is_published, 'created_at', n.created_at)
            order by n.created_at desc), '[]'::jsonb)
     into v_rows from public.news n;
 

@@ -1,7 +1,7 @@
-// Gliim P.A. built-in knowledge base.
+// Assistant built-in knowledge base.
 //
 // This lets the assistant answer the questions Gliimaits actually ask —
-// navigation, GP tiers, wallet, pricing, community, publishing, live,
+// navigation, GP tiers, wallet, pricing, arena, publishing, live,
 // premium, profile, support and core media craft — with no external LLM.
 // The hosted model (server /api/chat) is still tried first when it is
 // funded; this module is the always-available fallback, so the assistant
@@ -12,16 +12,16 @@
 
 const ENTRIES = [
   {
-    title: 'What Gliim P.A. can do',
+    title: 'What the Assistant can do',
     keys: ['help', 'what can you do', 'who are you', 'gliim pa', 'gliim-pa', 'assistant', 'commands', 'what do you do', 'capabilit'],
-    answer: `I am **Gliim P.A.**, your built-in assistant on the Gliimu platform. I work right here in the app, so you always get an answer.
+    answer: `I am **Assistant**, your built-in AI helper on the Gliimu platform. I work right here in the app, so you always get an answer.
 
 I can help with:
-- **Navigating** the dashboard — Hub, Ping, Community, Queue, Billing, Settings
+- **Navigating** the dashboard — Hub, Ping, Arena, Queue, Billing, Settings
 - **GP and tiers** — what each level unlocks
 - **Wallet and top-ups** — funding, transfers, withdrawals
 - **Plans and pricing** — Pay n' Go, Monthly, Pro
-- **The Community** — contests, cohorts, events and news
+- **The Arena** — contests, cohorts, events and news
 - **Publishing** — uploading a gliim, books, audiolites, bundles and PDFs
 - **Going live** — 1-on-1 sessions, screen share, rewards
 - **Premium content**, your **portfolio**, and **support**
@@ -31,16 +31,16 @@ Ask me anything above, or tap a suggested chip to get started.`
   },
   {
     title: 'Navigating the dashboard',
-    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'queue', 'billing', 'settings', 'community tab', 'how do i get to', 'section'],
+    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'queue', 'billing', 'settings', 'arena', 'arena tab', 'community tab', 'how do i get to', 'section'],
     answer: `Here is what each tab in the sidebar does:
 
 - **Hub** — the community feed. Browse, publish and read gliims from other Gliimaits.
 - **Ping** — your messages and live sessions. Start a chat or go live with someone.
-- **Community** — contests, cohorts, events and news. Join a contest to climb the leaderboard.
+- **Arena** — contests, cohorts, events and news. Join a contest to climb the leaderboard.
 - **Queue** — your applications and pending submissions.
 - **Billing** — your wallet balance, plans, top-ups and transaction history.
 - **Settings** — your profile, app version and downloads.
-- **Gliim P.A.** — that is me. Ask me anything, any time.
+- **Assistant** — that is me. Ask me anything, any time.
 
 On a phone the same tabs slide out from the menu button, and the top bar moves to the bottom of the screen. Tap your avatar to open your public portfolio.`
   },
@@ -83,16 +83,16 @@ Program tuition is set at a premium tier, roughly **₦70,000 to ₦780,000**, d
 Open **Billing** to see the current plan cards and pick the one that fits you.`
   },
   {
-    title: 'The Community page',
-    keys: ['community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'event', 'events', 'news', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings'],
-    answer: `Your **Community** tab is where Gliimaits come together:
+    title: 'The Arena page',
+    keys: ['arena', 'community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'event', 'events', 'news', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings'],
+    answer: `Your **Arena** tab is where Gliimaits come together:
 
 - **Contests** — join one to be tracked on its leaderboard. Each contest scores you automatically by its metric: GP earned, titles read, engagement, or referrals. The top 7 of the featured contest are shown.
 - **Cohorts** — seat-capped groups. Request a seat and the operations team approves you.
 - **Events** — what is coming up, with the date, time and venue (Online, Gliimu Hall Gwarinpa, or a custom location).
 - **News** — announcements from the team.
 
-Join a contest, take part, and your standing updates on its own — no manual scoring.`
+Use the filter button at the top to view one section at a time. Join a contest, take part, and your standing updates on its own — no manual scoring.`
   },
   {
     title: 'Publishing a gliim',
@@ -200,7 +200,7 @@ Drop your notes here and tell me the format you want (script, article, carousel 
 5. **Monetisation** — pitching clients, pricing and delivering.
 6. **Capstone** — a complete piece for your portfolio.
 
-Work through them in order, then publish each result in the Hub. Building in public is how the lessons turn into GP, a portfolio and paid work. Check the **Community** tab for contests and cohorts to practise with.`
+Work through them in order, then publish each result in the Hub. Building in public is how the lessons turn into GP, a portfolio and paid work. Check the **Arena** tab for contests and cohorts to practise with.`
   }
 ];
 
@@ -212,7 +212,7 @@ Try asking about:
 - **GP and tiers**, or what each level unlocks
 - **Wallet, top-ups and transfers**
 - **Plans and pricing**
-- **The Community** — contests, cohorts, events and news
+- **The Arena** — contests, cohorts, events and news
 - **Publishing a gliim** (books, audiolites, bundles, PDFs)
 - **Going live**, **premium content**, or your **portfolio**
 - **Media craft** — b-roll, editing, lighting, pitching clients
@@ -245,7 +245,7 @@ export function kbAnswer(text) {
   // A bare greeting gets a warm, useful hello rather than the generic guide.
   const words = query.split(' ');
   if (words.length <= 3 && words.some(w => GREETING_KEYS.includes(w))) {
-    return `Hey, I am **Gliim P.A.** Ask me anything about Gliimu — your **courses**, **GP and tiers**, the **wallet**, **publishing**, **going live** or **media craft**. What would you like to do?`;
+    return `Hey, I am **Assistant**, your AI helper on Gliimu. Ask me anything about Gliimu — your **courses**, **GP and tiers**, the **wallet**, **publishing**, **going live** or **media craft**. What would you like to do?`;
   }
 
   let best = null;
