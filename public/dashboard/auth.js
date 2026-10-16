@@ -11,6 +11,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // Referral capture: a guest arriving directly on /auth.html?ref=CODE keeps
+  // the code so the dashboard can attribute them after they sign up/in.
+  try {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref) localStorage.setItem('gliimu_ref', ref.trim().toUpperCase());
+  } catch (e) {}
+
   // ============================================
   // Load Video Settings from Database
   // ============================================

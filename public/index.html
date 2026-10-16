@@ -295,6 +295,15 @@
       const item = header.parentElement;
       item.classList.toggle('active');
     }
+    // Referral capture: a guest arriving via /?ref=CODE keeps the code so the
+    // signup flow can attribute them to the referrer. Same-origin localStorage
+    // carries it into auth.html (whether opened directly or in the modal frame).
+    (function () {
+      try {
+        const ref = new URLSearchParams(window.location.search).get('ref');
+        if (ref) localStorage.setItem('gliimu_ref', ref.trim().toUpperCase());
+      } catch (e) {}
+    })();
   </script>
 </body>
 </html>

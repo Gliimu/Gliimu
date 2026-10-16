@@ -54,6 +54,8 @@ const calendarIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height=
 const pinIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
 const usersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
 const megaphone = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>`;
+const referIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>`;
+const linkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
 // Same sliders icon the Hub filter uses, for uniformity.
 const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>`;
 
@@ -63,13 +65,15 @@ const SECTIONS = [
   { key: 'contests', label: 'Contests', icon: trophy },
   { key: 'cohorts', label: 'Cohorts', icon: usersIcon },
   { key: 'events', label: 'Events', icon: calendarIcon },
-  { key: 'news', label: 'News', icon: megaphone }
+  { key: 'news', label: 'News', icon: megaphone },
+  { key: 'refer', label: 'Refer & earn', icon: referIcon }
 ];
 
 let outsideBound = false;
 
 const arenaView = {
   board: null,
+  referral: null,
   schemaMissing: false,
   loading: true,
   busy: null,
@@ -87,7 +91,8 @@ const arenaView = {
       joinContest: (id) => this.joinContest(id),
       requestCohort: (id) => this.requestCohort(id),
       toggleFilter: (ev) => this.toggleFilter(ev),
-      setFilter: (key) => this.setFilter(key)
+      setFilter: (key) => this.setFilter(key),
+      copyRefLink: () => this.copyRefLink()
     };
     this.filter = 'leaderboard';
     this.filterOpen = false;
@@ -129,7 +134,14 @@ const arenaView = {
     this.loading = true;
     this.render();
 
-    const { data, error } = await supabase.rpc('community_board', {});
+    // Referral summary is fetched alongside the board but never blocks it —
+    // if sql/referrals.sql is not run yet the Refer & earn section just shows
+    // a setup note instead of the card.
+    const [{ data, error }, { data: ref }] = await Promise.all([
+      supabase.rpc('community_board', {}),
+      supabase.rpc('referral_summary', {}).then((r) => r, () => ({ data: null }))
+    ]);
+    this.referral = ref && ref.code ? ref : null;
 
     if (error) {
       this.loading = false;
@@ -258,6 +270,8 @@ const arenaView = {
       section = this.renderEvents(b.events || []);
     } else if (f === 'news') {
       section = this.renderNews(b.news || []);
+    } else if (f === 'refer') {
+      section = this.renderRefer();
     }
 
     return head + section;
@@ -425,6 +439,51 @@ const arenaView = {
         ${list.length ? `<div class="com-news-list">${rows}</div>` : `<div class="com-mini-empty">Nothing posted yet.</div>`}
       </section>
     `;
+  },
+
+  renderRefer() {
+    const r = this.referral;
+    if (!r || !r.code) {
+      return `
+        <section class="com-section">
+          ${this.sectionTitle(referIcon, 'Refer & earn')}
+          <div class="com-mini-empty">Run <code>sql/referrals.sql</code> in the Supabase SQL Editor to enable referrals.</div>
+        </section>
+      `;
+    }
+    const link = `${window.location.origin}${r.link}`;
+    return `
+      <section class="com-section com-refer">
+        ${this.sectionTitle(referIcon, 'Refer & earn', '100 GP per friend')}
+        <div class="com-refer-card">
+          <p class="com-refer-blurb">Share your link. When your friend signs up and makes their first purchase, you earn <strong>100 GP</strong>.</p>
+          <div class="com-refer-link">
+            <input class="com-refer-input" id="com-refer-input" readonly value="${esc(link)}" onfocus="this.select()">
+            <button class="com-btn" onclick="arenaInstance.copyRefLink()">${linkIcon}<span>Copy link</span></button>
+          </div>
+          <div class="com-refer-stats">
+            <div class="com-refer-stat"><span>${Number(r.vested || 0).toLocaleString()}</span><em>Friends joined</em></div>
+            <div class="com-refer-stat"><span>${Number(r.pending || 0).toLocaleString()}</span><em>Pending</em></div>
+            <div class="com-refer-stat"><span>${Number(r.gp_earned || 0).toLocaleString()}</span><em>GP earned</em></div>
+          </div>
+        </div>
+      </section>
+    `;
+  },
+
+  async copyRefLink() {
+    const input = document.getElementById('com-refer-input');
+    const link = input ? input.value : `${window.location.origin}${(this.referral && this.referral.link) || ''}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      await appAlert('Referral link copied.');
+    } catch (e) {
+      if (input) {
+        input.select();
+        try { document.execCommand('copy'); await appAlert('Referral link copied.'); }
+        catch (_) { await appAlert('Copy failed — select the link and copy it manually.'); }
+      }
+    }
   }
 };
 

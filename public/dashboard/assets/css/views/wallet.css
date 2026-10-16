@@ -680,3 +680,33 @@
     min-width: 190px;
   }
 }
+
+/* ---- Refer & earn card ---- */
+.refer-card { padding: 18px; }
+.refer-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.refer-link-row { display: flex; gap: 10px; align-items: stretch; margin-bottom: 14px; }
+.refer-link-input {
+  flex: 1; min-width: 0; background: var(--bg-tertiary); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+}
+.refer-link-input:focus { outline: none; border-color: var(--brand-primary); }
+.refer-copy-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px;
+  background: var(--brand-primary); border: 1px solid var(--brand-primary); color: #fff;
+  border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+  font-family: var(--font-sans); transition: filter 0.15s ease;
+}
+.refer-copy-btn:hover { filter: brightness(1.06); }
+.refer-stats-row { display: flex; gap: 10px; }
+.refer-stat {
+  flex: 1; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 8px; text-align: center; display: flex; flex-direction: column; gap: 4px;
+}
+.refer-stat strong { font-size: 20px; font-weight: 800; color: var(--text-primary); line-height: 1.1; }
+.refer-stat span { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+@media (max-width: 480px) {
+  .refer-link-row { flex-direction: column; }
+  .refer-copy-btn { width: 100%; justify-content: center; }
+  .refer-stats-row { flex-direction: column; }
+}

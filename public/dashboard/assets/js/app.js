@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { router } from './router.js?v=18';
+import { router } from './router.js?v=19';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread } from './readState.js';
 
@@ -153,6 +153,19 @@ async function initApp() {
     window.location.href = '/auth.html';
     return;
   }
+
+  // Referral attribution: if this browser arrived via someone's referral link,
+  // attach this member to their referrer. apply_referral is idempotent, so it
+  // is safe to attempt on every load until it returns a definitive answer.
+  try {
+    const ref = localStorage.getItem('gliimu_ref');
+    if (ref) {
+      const { data } = await supabase.rpc('apply_referral', { p_code: ref });
+      if (data && (data.ok || data.code === 'INVALID_CODE' || data.code === 'SELF_REFERRAL')) {
+        localStorage.removeItem('gliimu_ref');
+      }
+    }
+  } catch (e) {}
 
   document.getElementById('user-name').innerText = store.profile.username;
 

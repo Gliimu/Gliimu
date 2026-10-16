@@ -44,7 +44,8 @@
 --     gp         = SUM of positive transactions.points (credits) in window
 --     reading    = COUNT of reading_progress rows completed_at in window
 --     engagement = COUNT of hub_interactions + COUNT of posts created in window
---     referrals  = 0  (referral tracking lands in Phase 3)
+--     referrals  = COUNT of public.referrals vested to the member in window
+--                  (needs sql/referrals.sql; returns 0 until that is run)
 --   The leaderboard ranks the contest's ENTRIES by that score, top 7.
 --
 -- PRIVACY
@@ -216,8 +217,23 @@ begin
            )::integer
       into v_score;
 
+  elsif v_metric = 'referrals' then
+    -- Vested referrals attributed to this member inside the contest window.
+    -- Guarded so this still compiles/returns 0 if sql/referrals.sql has not
+    -- been run yet (the referrals table would be missing).
+    if to_regclass('public.referrals') is not null then
+      select count(*)::integer into v_score
+        from public.referrals rf
+       where rf.referrer_id = p_user
+         and rf.status = 'vested'
+         and rf.vested_at >= v_from
+         and rf.vested_at <= v_to;
+    else
+      v_score := 0;
+    end if;
+
   else
-    -- 'referrals' (and anything unknown): no tracking until Phase 3.
+    -- Unknown metric: no tracking.
     v_score := 0;
   end if;
 
