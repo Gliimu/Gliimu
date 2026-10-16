@@ -16,8 +16,11 @@ export const store = {
     this.user = user;
 
     if (user) {
-      // Fetch live data from the profiles table instead of just signup metadata
-      const baseCols = 'username, full_name, avatar_url, total_gp, wallet_balance, is_admin';
+      // Own username comes from the JWT (user_metadata), never from profiles:
+      // the profiles.username column is revoked from anon/authenticated so no
+      // member can read another's handle. Selecting it here would error the
+      // whole query, so it is deliberately omitted from baseCols.
+      const baseCols = 'full_name, avatar_url, total_gp, wallet_balance, is_admin';
       let { data: profile } = await supabase
         .from('profiles')
         .select(`${baseCols}, tier, trial_ends_at, subscription_expires_at`)
@@ -34,6 +37,7 @@ export const store = {
       }
 
       if (profile) {
+        profile.username = user.user_metadata?.username || 'Gliimait';
         this.profile = profile;
       } else {
         // Fallback to metadata if profile table fetch fails

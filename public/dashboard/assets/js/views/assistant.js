@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
-import { kbAnswer } from '../gliim-pa-kb.js?v=10';
+import { kbAnswer } from '../gliim-pa-kb.js?v=11';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.

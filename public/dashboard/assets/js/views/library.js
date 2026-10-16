@@ -2,8 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { openReader } from '../reader.js?v=10';
-import hubView from './hub.js?v=10';
+import { openReader } from '../reader.js?v=11';
+import hubView from './hub.js?v=11';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -98,7 +98,7 @@ export default {
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
       supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single(),
       supabase.from('profiles').select('id, full_name, avatar_url').neq('id', store.user.id),
-      supabase.from('profiles').select('id, full_name, avatar_url').eq('username', 'adam').maybeSingle(),
+      supabase.rpc('library_adam_profile'),
       fetchBillingSummary()
     ]);
 

@@ -54,8 +54,9 @@ export default {
 
     const ids = [...new Set(this.items.map(i => i.user_id).filter(Boolean))];
     if (ids.length) {
-      const { data: profiles } = await supabase.from('profiles')
-        .select('id, full_name, username, avatar_url').in('id', ids);
+      // profiles.username is revoked from authenticated; admins resolve handles
+      // through the is_admin()-gated SECURITY DEFINER lookup instead.
+      const { data: profiles } = await supabase.rpc('admin_member_lookup', { p_ids: ids });
       this.people = new Map((profiles || []).map(p => [p.id, p]));
     }
 

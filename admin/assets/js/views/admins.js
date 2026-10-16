@@ -75,10 +75,9 @@ export default {
 
     host.innerHTML = '<p class="loading">Searching...</p>';
 
-    const { data, error } = await supabase.from('profiles')
-      .select('id, username, full_name, avatar_url')
-      .or(`username.ilike.%${clean}%,full_name.ilike.%${clean}%`)
-      .limit(8);
+    // profiles.username is revoked from authenticated; the ilike search on the
+    // username column moves into the is_admin()-gated SECURITY DEFINER RPC.
+    const { data, error } = await supabase.rpc('admin_member_search', { p_term: clean, p_limit: 8 });
 
     if (error) {
       host.innerHTML = empty(`Search failed: ${error.message}`);

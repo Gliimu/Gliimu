@@ -130,11 +130,13 @@ export default {
     document.getElementById('check-update-btn').addEventListener('click', () => this.checkForUpdates(true));
     this.checkForUpdates(false);
 
-    // Fetch Profile Data
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', store.user.id).single();
+    // Fetch Profile Data. Explicit columns (never select('*')) because the
+    // profiles.username column is revoked from authenticated; username is
+    // shown from the JWT-sourced store.profile.username instead.
+    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url').eq('id', store.user.id).single();
     if (profile) {
       document.getElementById('settings-name').value = profile.full_name || '';
-      document.getElementById('settings-username').value = profile.username || '';
+      document.getElementById('settings-username').value = store.profile?.username || '';
       document.getElementById('settings-bio').value = profile.bio || '';
       document.getElementById('settings-skills').value = profile.skills || '';
       document.getElementById('settings-interests').value = profile.interests || '';

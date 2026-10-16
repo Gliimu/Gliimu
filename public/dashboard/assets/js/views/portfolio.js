@@ -142,9 +142,11 @@ export default {
     // Find user in our cached list first for instant load
     let user = this.allUsers.find(u => u.id === userId);
 
-    // Fetch full details + posts
+    // Fetch full details + posts. Explicit columns (never select('*')) because
+    // the profiles.username column is revoked from authenticated, and this
+    // usually renders ANOTHER member's portfolio — username must never load.
     const [{ data: freshUser }, { data: posts }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio').eq('id', userId).single(),
       supabase.from('posts').select('id, title, category, created_at').eq('user_id', userId).order('created_at', { ascending: false })
     ]);
 

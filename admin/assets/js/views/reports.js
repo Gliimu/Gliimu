@@ -50,8 +50,8 @@ export default {
 
     const ids = [...new Set(this.items.map(i => i.reporter_id).filter(Boolean))];
     if (ids.length) {
-      const { data: profiles } = await supabase.from('profiles')
-        .select('id, full_name, username, avatar_url').in('id', ids);
+      // profiles.username is revoked from authenticated; use the is_admin()-gated lookup.
+      const { data: profiles } = await supabase.rpc('admin_member_lookup', { p_ids: ids });
       this.people = new Map((profiles || []).map(p => [p.id, p]));
     }
 
@@ -97,9 +97,8 @@ export default {
   // list stays fast and a locked premium body is never pulled speculatively.
   async targetDetails(item) {
     if (item.target_type === 'user') {
-      const { data } = await supabase.from('profiles')
-        .select('full_name, username, avatar_url, total_gp, tier, is_admin')
-        .eq('id', item.target_id).maybeSingle();
+      const { data: rows } = await supabase.rpc('admin_member_lookup', { p_ids: [item.target_id] });
+      const data = rows && rows[0];
       if (!data) return '<p class="muted small">This member account no longer exists.</p>';
       return `
         <dl class="kv">
@@ -116,8 +115,8 @@ export default {
         .select('title, description, category, is_premium, created_at, user_id')
         .eq('id', item.target_id).maybeSingle();
       if (!data) return '<p class="muted small">This gliim has been deleted.</p>';
-      const { data: author } = await supabase.from('profiles')
-        .select('full_name, username').eq('id', data.user_id).maybeSingle();
+      const { data: arows } = await supabase.rpc('admin_member_lookup', { p_ids: [data.user_id] });
+      const author = arows && arows[0];
       return `
         <dl class="kv">
           <dt>Title</dt><dd>${escapeHtml(data.title || '—')}</dd>

@@ -28,12 +28,16 @@ export const store = {
     const { data: role } = await supabase.rpc('current_admin_role');
     this.role = role || null;
 
+    // profiles.username is revoked from authenticated (privacy hardening), so
+    // the admin's own handle comes from the JWT, and the table read omits it.
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username, full_name, avatar_url')
+      .select('full_name, avatar_url')
       .eq('id', user.id)
       .maybeSingle();
-    this.profile = profile || null;
+    this.profile = profile
+      ? { ...profile, username: user.user_metadata?.username || '' }
+      : null;
 
     return user;
   },
