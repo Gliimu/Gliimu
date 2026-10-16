@@ -98,6 +98,7 @@ as $$
       cover_url,
       gp_cost,
       lessons,
+      created_at,
       jsonb_array_length(lessons) as lesson_count
     from public.courses
     where is_published

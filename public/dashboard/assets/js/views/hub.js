@@ -528,7 +528,9 @@ const hubView = {
       btn.innerText = "Publishing...";
       btn.disabled = true;
 
+      const newId = crypto.randomUUID();
       const payload = {
+        id: newId,
         title, category, description,
         cover_url: coverUrl,
         content: description,
@@ -537,7 +539,9 @@ const hubView = {
       const premiumToggle = document.getElementById('post-premium-toggle');
       if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
-      const { data: created, error } = await supabase.from('posts').insert(payload).select('id').single();
+      // No .select(): a member's gliim is forced to 'pending' and RLS hides it
+      // even from its author, so RETURNING would abort the insert. We set the id.
+      const { error } = await supabase.from('posts').insert(payload);
 
       if (error) {
         alert("Failed: " + error.message);
@@ -549,9 +553,9 @@ const hubView = {
       // The body lives in post_contents (RLS-locked for premium posts).
       // If that write fails, remove the shell so no empty gliim lingers.
       const { error: bodyError } = await supabase
-        .from('post_contents').insert({ post_id: created.id, blocks: finalBlocks });
+        .from('post_contents').insert({ post_id: newId, blocks: finalBlocks });
       if (bodyError) {
-        await supabase.from('posts').delete().eq('id', created.id);
+        await supabase.from('posts').delete().eq('id', newId);
         alert("Failed to save your content: " + bodyError.message);
         btn.innerText = "Publish Bundle";
         btn.disabled = false;
@@ -564,7 +568,7 @@ const hubView = {
       const isAdmin = !!(store.profile && store.profile.is_admin);
       if (isAdmin) {
         for (const u of this.taggedUsers) {
-          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${created.id}]]`;
+          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${newId}]]`;
           await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
         }
       }
