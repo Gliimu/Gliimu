@@ -1,0 +1,121 @@
+/* Curriculum — the Full Stack Media Architect track */
+.cur-layout { max-width: 960px; margin: 0 auto; padding-bottom: 60px; }
+
+.cur-top-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.cur-top-search svg { color: var(--text-muted); flex-shrink: 0; }
+.cur-top-search input { background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); width: 100%; font-family: var(--font-sans); }
+
+.cur-head { margin-bottom: 20px; }
+.cur-h1 { font-size: 28px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.6px; margin-bottom: 8px; }
+.cur-sub { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 640px; }
+
+.cur-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.cur-filter {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.cur-filter.active { background: var(--brand-primary); border-color: var(--brand-primary); color: #fff; }
+
+.cur-module { margin-bottom: 28px; }
+.cur-module-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.cur-module-no {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+}
+.cur-module-name { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.3px; }
+
+.cur-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.cur-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.cur-card:hover { box-shadow: var(--shadow-lg); border-color: var(--brand-primary); }
+.cur-card.open { border-color: var(--brand-primary); }
+
+.cur-card-main { padding: 18px 20px; cursor: pointer; }
+
+.cur-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.cur-level {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+.cur-level.lvl-intermediate { color: #b45309; border-color: rgba(180, 83, 9, 0.35); background: rgba(180, 83, 9, 0.08); }
+.cur-level.lvl-advanced { color: #7c3aed; border-color: rgba(124, 58, 237, 0.35); background: rgba(124, 58, 237, 0.08); }
+
+.cur-cost { font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
+.cur-cost.free { color: #16a34a; }
+
+.cur-title { font-size: 17px; font-weight: 700; color: var(--text-primary); line-height: 1.35; letter-spacing: -0.3px; margin-bottom: 6px; }
+.cur-summary { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 14px; }
+
+.cur-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cur-meta { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.cur-chevron { display: flex; color: var(--text-muted); transition: transform 0.2s ease; }
+.cur-card.open .cur-chevron { transform: rotate(180deg); color: var(--brand-primary); }
+
+.cur-lessons { list-style: none; margin: 0; padding: 4px 20px 16px; border-top: 1px solid var(--border); }
+.cur-lesson { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.cur-lesson:last-child { border-bottom: none; }
+.cur-lesson-no {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cur-lesson-title { flex: 1; font-size: 13px; color: var(--text-primary); line-height: 1.4; }
+.cur-lesson-min { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+.cur-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.cur-empty h3 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.cur-empty p { font-size: 14px; line-height: 1.6; }
+.cur-empty code { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; font-family: var(--font-mono, monospace); font-size: 13px; }
+
+@media (max-width: 600px) {
+  .cur-h1 { font-size: 24px; }
+  .cur-grid { grid-template-columns: 1fr; }
+}

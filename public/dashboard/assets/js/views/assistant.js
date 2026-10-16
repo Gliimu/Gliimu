@@ -1,5 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
+import { kbAnswer } from '../gliim-pa-kb.js?v=8';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.
@@ -79,17 +80,17 @@ function renderMarkdown(source) {
 }
 
 const STARTERS = [
-  'Explain b-roll like I am brand new to it',
-  'Draft a short pitch I can send a client',
-  'What should a Full Stack Media Architect learn next?',
-  'Turn these notes into a clean outline'
+  'What can you help me with?',
+  'How do GP tiers work?',
+  'Where do I find my courses?',
+  'How do I top up my wallet?'
 ];
 
 const FOLLOWUPS = [
-  'Make it shorter',
-  'Give me an example',
-  'Explain it like I am a beginner',
-  'What should I do next?'
+  'How do I publish a gliim?',
+  'How do I go live?',
+  'What are the plans and pricing?',
+  'How do I reach support?'
 ];
 
 const assistantView = {
@@ -301,36 +302,40 @@ const assistantView = {
       .slice(-20)
       .map(m => ({ role: m.role, content: m.content }));
 
-    let reply = null;
-    let failure = null;
+    const lastUser = [...this.thread].reverse().find(m => m.role === 'user' && m.content);
+    const userText = lastUser ? lastUser.content : '';
 
+    // The hosted model is tried first so a funded DeepSeek (or any provider
+    // behind /api/chat) still powers the assistant. When it is unreachable,
+    // unconfigured or out of balance, the built-in knowledge base answers
+    // instead — so Gliim P.A. never shows a dead end.
+    let reply = null;
     try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 9000);
       const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history })
+        body: JSON.stringify({ messages: history }),
+        signal: ctrl.signal
       });
-      const data = await res.json();
-      if (!res.ok || !data.reply) failure = data.error || `Gliim P.A. could not answer (${res.status}).`;
-      else reply = data.reply;
+      clearTimeout(timer);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.reply) reply = data.reply;
     } catch (err) {
-      failure = 'Could not reach Gliim P.A. Check your connection and try again.';
+      reply = null;
     }
+
+    if (!reply) reply = kbAnswer(userText);
 
     const pending = this.thread[this.thread.length - 1];
     if (!pending || !pending.pending) { this.busy = false; return; }
 
-    if (reply) {
-      pending.content = reply;
-      pending.pending = false;
-      supabase.from('messages').insert({
-        sender_id: store.user.id, receiver_id: null, room: null, content: reply, is_ai: true
-      }).then(({ error }) => { if (error) console.warn('Could not store the answer:', error.message); });
-    } else {
-      pending.content = failure;
-      pending.pending = false;
-      pending.failed = true;
-    }
+    pending.content = reply;
+    pending.pending = false;
+    supabase.from('messages').insert({
+      sender_id: store.user.id, receiver_id: null, room: null, content: reply, is_ai: true
+    }).then(({ error }) => { if (error) console.warn('Could not store the answer:', error.message); });
 
     this.busy = false;
     this.render();
