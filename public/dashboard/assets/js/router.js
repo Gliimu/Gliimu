@@ -1,7 +1,7 @@
 const routes = {
-  '/assistant': () => import('./views/assistant.js?v=11').then(m => m.default),
-  '/library': () => import('./views/library.js?v=11').then(m => m.default),
-  '/curriculum': () => import('./views/curriculum.js?v=11').then(m => m.default),
+  '/assistant': () => import('./views/assistant.js?v=12').then(m => m.default),
+  '/library': () => import('./views/library.js?v=12').then(m => m.default),
+  '/curriculum': () => import('./views/curriculum.js?v=12').then(m => m.default),
   '/ping': () => import('./views/messages.js').then(m => m.default),
   '/applications': () => import('./views/applications.js').then(m => m.default),
   '/wallet': () => import('./views/wallet.js').then(m => m.default),

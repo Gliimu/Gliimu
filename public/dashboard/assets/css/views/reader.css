@@ -175,6 +175,16 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Inline document holder inside block content (library 'file' blocks and
+   hub 'pdf' blocks). The rendered pdf/docx/epub lands inside this element. */
+.rdr-inline-file {
+  width: 100%;
+  margin: 12px 0;
+}
+.rdr-inline-file .rdr-loading {
+  padding: 16px 0;
+}
+
 /* mammoth output + block content reuse .lib-article typography. */
 .rdr-docx img { max-width: 100%; height: auto; }
 .rdr-docx table { width: 100%; border-collapse: collapse; }

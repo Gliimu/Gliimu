@@ -2,6 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
+import { renderFileInto } from '../reader.js?v=12';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -918,7 +919,9 @@ const hubView = {
           const priceLabel = price > 0
             ? `<span class="read-pdf-price">₦${price.toLocaleString()}</span>`
             : '<span class="read-pdf-price read-pdf-free">Free</span>';
-          return `<div class="read-block-pdf">${priceLabel}<a class="read-pdf-link" href="${b.content}" target="_blank" rel="noopener">Open / download PDF</a></div>`;
+          // Rendered in-page by renderFileInto after the modal is appended —
+          // the PDF stays inside this read view instead of opening a new tab.
+          return `<div class="read-block-pdf">${priceLabel}<div class="rdr-inline-file" data-file-src="${b.content}"></div></div>`;
         }
         return '';
       }).join('');
@@ -1016,6 +1019,11 @@ const hubView = {
       </div>
     `;
     document.body.appendChild(modal);
+    // Hydrate PDF blocks in-page (pdf.js) so they never open a new browser tab.
+    modal.querySelectorAll('.rdr-inline-file[data-file-src]').forEach(el => {
+      const src = el.getAttribute('data-file-src');
+      if (src) renderFileInto(src, el);
+    });
     this.setupMentionPicker(post.id);
   },
 

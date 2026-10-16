@@ -104,7 +104,8 @@ export function openReader({ item, blocks, fileUrl, renderBlock }) {
 
   let destroyed = false;
   let completed = false;
-  let blobUrl = null;
+  const blobUrls = [];
+  const setBlob = (u) => { if (u) blobUrls.push(u); };
   const cleanups = [];
 
   const api = {
@@ -113,7 +114,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock }) {
       destroyed = true;
       cleanups.forEach(fn => { try { fn(); } catch (_) {} });
       document.removeEventListener('keydown', onGlobalKey, true);
-      if (blobUrl) { try { URL.revokeObjectURL(blobUrl); } catch (_) {} }
+      blobUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (_) {} });
       overlay.remove();
       if (_active === api) _active = null;
     }
@@ -226,11 +227,12 @@ export function openReader({ item, blocks, fileUrl, renderBlock }) {
     try {
       if (blocks && blocks.length) {
         bodyEl.innerHTML = `<div class="lib-article">${blocks.map(renderBlock).join('')}</div>`;
+        await hydrateInlineFiles(bodyEl);
         requestAnimationFrame(() => setProgress(0));
         // Short block-only books may not scroll; treat as complete on open.
         if (scrollEl.scrollHeight - scrollEl.clientHeight <= 4) setProgress(100);
       } else if (fileUrl) {
-        await renderFile(fileUrl, bodyEl, setProgress, (u) => { blobUrl = u; });
+        await renderFile(fileUrl, bodyEl, setProgress, setBlob);
       } else {
         bodyEl.innerHTML = '<p class="rdr-loading">The author hasn\'t attached a file to this book yet.</p>';
       }
@@ -240,6 +242,25 @@ export function openReader({ item, blocks, fileUrl, renderBlock }) {
     }
   })();
 
+  // PDF/document blocks are emitted by renderBlock as empty placeholder divs
+  // (data-file-src) so they render in-page through pdf.js/mammoth/epub.js
+  // instead of opening a new browser tab. Progress stays scroll-driven here —
+  // per-file page observers are suppressed by passing a no-op setProgress.
+  async function hydrateInlineFiles(container) {
+    const holders = Array.from(container.querySelectorAll('[data-file-src]'));
+    for (const el of holders) {
+      const src = el.getAttribute('data-file-src');
+      if (!src || el.dataset.hydrated) continue;
+      el.dataset.hydrated = '1';
+      try {
+        await renderFile(src, el, () => {}, setBlob);
+      } catch (err) {
+        el.innerHTML = '<p class="rdr-loading">This file couldn\'t be previewed in the reader.</p>';
+        console.error('[reader] inline file', err);
+      }
+    }
+  }
+
   return api;
 }
 
@@ -247,6 +268,14 @@ function typeLabel(type) {
   if (type === 'publication') return 'Book';
   if (type === 'audiolite') return 'Audiolite';
   return type || 'Item';
+}
+
+// Render one attached file in-page into `el` (pdf.js/mammoth/epub.js/image).
+// Used by surfaces that build their own modal (e.g. the hub gliim read view)
+// so a PDF opens inside the page instead of a new browser tab. `setBlob`
+// receives any object URL that must be revoked when the surface closes.
+export function renderFileInto(url, el, setBlob) {
+  return renderFile(url, el, () => {}, setBlob || (() => {}));
 }
 
 // Render a single attached file. `setBlob` captures any object URL so the

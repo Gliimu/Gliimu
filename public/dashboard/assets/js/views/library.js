@@ -2,8 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { openReader } from '../reader.js?v=11';
-import hubView from './hub.js?v=11';
+import { openReader } from '../reader.js?v=12';
+import hubView from './hub.js?v=12';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -508,7 +508,9 @@ export default {
     if (b.type === 'video') return `<video src="${escapeHtml(value)}" class="read-block-media" controls></video>`;
     if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><audio src="${escapeHtml(value)}" class="read-block-audio" controls></audio></div>`;
     if (b.type === 'file') {
-      return `<a class="lib-article-file" href="${escapeHtml(value)}" target="_blank" rel="noopener">${this.fileIcon(this.fileKind(value))}<span>Open document</span></a>`;
+      // Placeholder — reader.js hydrates this in-page (pdf.js/mammoth/epub.js)
+      // so the document never leaves the reader overlay for a new browser tab.
+      return `<div class="rdr-inline-file" data-file-src="${escapeHtml(value)}"></div>`;
     }
 
     const text = escapeHtml(value);
