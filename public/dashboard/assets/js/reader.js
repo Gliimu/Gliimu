@@ -275,7 +275,10 @@ function typeLabel(type) {
 // so a PDF opens inside the page instead of a new browser tab. `setBlob`
 // receives any object URL that must be revoked when the surface closes.
 export function renderFileInto(url, el, setBlob) {
-  return renderFile(url, el, () => {}, setBlob || (() => {}));
+  return renderFile(url, el, () => {}, setBlob || (() => {})).catch(err => {
+    console.error('[reader] inline file', err);
+    el.innerHTML = '<p class="rdr-loading">This file couldn\'t be previewed in the reader.</p>';
+  });
 }
 
 // Render a single attached file. `setBlob` captures any object URL so the
