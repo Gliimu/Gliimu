@@ -112,7 +112,8 @@ export default {
         sender_id: store.user.id,
         receiver_id: member.id,
         content,
-        is_ai: false
+        is_ai: false,
+        is_admin: true
       });
 
       if (error) {

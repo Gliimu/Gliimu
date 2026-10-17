@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { router } from './router.js?v=21';
+import { router } from './router.js?v=22';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread } from './readState.js';
 
@@ -49,7 +49,7 @@ const NotificationManager = {
     supabase.channel('app-global-notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const m = payload.new;
-        if (m.receiver_id === store.user.id && !m.read_at && !m.room && !m.is_ai) {
+        if (m.sender_id !== store.user.id && m.receiver_id === store.user.id && !m.read_at && !m.room && !m.is_ai) {
           this.counts.ping++;
           this.updateBadge('ping', this.counts.ping);
         }

@@ -142,7 +142,8 @@ export default {
       sender_id: store.user.id,
       receiver_id: deal.user_id,
       content: 'Your gig has been completed and taken off the queue. Thank you for building with Gliimu.',
-      is_ai: false
+      is_ai: false,
+      is_admin: true
     });
 
     await appAlert('Gig marked as done.');
@@ -188,7 +189,8 @@ export default {
         sender_id: store.user.id,
         receiver_id: userId,
         content,
-        is_ai: false
+        is_ai: false,
+        is_admin: true
       });
 
       btn.disabled = false;

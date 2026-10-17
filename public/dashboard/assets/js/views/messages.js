@@ -238,7 +238,7 @@ export default {
     let userIds = explicitContacts.map(c => c.contact_id).filter(id => !hiddenMap[id]);
 
     // Fetch unread counts per sender (computed locally; receivers can't write read_at)
-    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at, read_at, room, is_ai').eq('receiver_id', store.user.id);
+    const { data: receivedMsgs } = await supabase.from('messages').select('sender_id, created_at, read_at, room, is_ai, is_admin').eq('receiver_id', store.user.id);
 
     const { unreadMap } = computeUnread(store.user.id, receivedMsgs);
     this.unreadMap = unreadMap;
@@ -250,7 +250,12 @@ export default {
       }
     });
 
-    const { data: sentMsgs } = await supabase.from('messages').select('receiver_id, created_at, room').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
+    const { data: sentMsgs } = await supabase.from('messages').select('receiver_id, created_at, room, is_admin').eq('sender_id', store.user.id).not('receiver_id', 'is', null);
+
+    const adminIds = new Set();
+    receivedMsgs.forEach(m => { if (m.is_admin) adminIds.add(m.sender_id); });
+    sentMsgs.forEach(m => { if (m.is_admin) adminIds.add(m.receiver_id); });
+
     sentMsgs.forEach(m => {
       if (m.room) return;
       const msgTime = new Date(m.created_at).getTime();
@@ -286,6 +291,7 @@ export default {
       const timeB = lastMsgMap[b.id] || 0;
       return timeB - timeA;
     });
+    this.adminIds = adminIds;
 
     this.renderChatList();
   },
@@ -295,10 +301,14 @@ export default {
     if (!list) return;
 
     const usersHtml = this.contacts.map(u => {
+      const isAdmin = this.adminIds?.has(u.id);
       const avatarClass = tierClass(u.total_gp, 'ping-avatar');
-      const avatar = u.avatar_url ? `<img src="${u.avatar_url}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+      const avatar = isAdmin
+        ? `<img src="/icons/icon.png" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">`
+        : (u.avatar_url ? `<img src="${u.avatar_url}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`);
 
-      // Unread Badge
+      const displayName = isAdmin ? `${u.full_name}@gliimu` : u.full_name;
+
       const unreadCount = this.unreadMap[u.id] || 0;
       const unreadBadge = unreadCount > 0 ? `<span class="chat-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : '';
 
@@ -306,8 +316,8 @@ export default {
         <div class="ping-chat-item ${this.activeChat?.id === u.id ? 'active' : ''} ${unreadCount > 0 ? 'unread' : ''}" onclick="pingInstance.openChat('dm', '${u.id}')">
           ${avatar}
           <div class="ping-chat-info">
-            <span class="ping-chat-name">${u.full_name}</span>
-            <span class="ping-chat-preview">${u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP'}</span>
+            <span class="ping-chat-name">${displayName}</span>
+            <span class="ping-chat-preview">${isAdmin ? 'Gliimu Team' : (u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP')}</span>
           </div>
           ${unreadBadge}
         </div>
@@ -322,7 +332,7 @@ export default {
     if (type === 'dm') {
       const user = this.contacts.find(u => u.id === id);
       if (!user) return;
-      this.activeChat = { type: 'dm', id: user.id, name: user.full_name, avatar: user.avatar_url, total_gp: user.total_gp };
+      this.activeChat = { type: 'dm', id: user.id, name: user.full_name, avatar: user.avatar_url, total_gp: user.total_gp, isAdmin: this.adminIds?.has(user.id) };
       const { data: msgs } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${store.user.id},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${store.user.id})`).order('created_at', { ascending: true });
       this.chatHistory = msgs || [];
 
@@ -361,9 +371,14 @@ export default {
     if (!main || !this.activeChat) return;
 
     const avatarClass = tierClass(this.activeChat.total_gp, 'ping-avatar');
-    const avatarHtml = this.activeChat.avatar
-      ? `<img src="${this.activeChat.avatar}" class="${avatarClass}" style="object-fit:cover;">`
-      : `<div class="${avatarClass}">${this.activeChat.name?.charAt(0).toUpperCase() || 'G'}</div>`;
+    const isAdmin = this.activeChat.isAdmin;
+    const avatarHtml = isAdmin
+      ? `<img src="/icons/icon.png" class="${avatarClass}" style="object-fit:cover;">`
+      : (this.activeChat.avatar
+        ? `<img src="${this.activeChat.avatar}" class="${avatarClass}" style="object-fit:cover;">`
+        : `<div class="${avatarClass}">${this.activeChat.name?.charAt(0).toUpperCase() || 'G'}</div>`);
+    const headerName = isAdmin ? `${this.activeChat.name}@gliimu` : this.activeChat.name;
+    const headerSub = isAdmin ? 'Gliimu Team' : 'Direct Message';
 
     let messagesHtml = '';
     if (this.chatHistory.length === 0) {
@@ -416,7 +431,7 @@ export default {
       <div class="ping-chat-header">
         <button class="ping-back-btn" onclick="pingInstance.closeChat()"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button>
         ${avatarHtml}
-        <div><h3>${this.activeChat.name}</h3><span>Direct Message</span></div>
+        <div><h3>${headerName}</h3><span>${headerSub}</span></div>
       </div>
 
       <div class="ping-messages" id="ping-messages">${messagesHtml}</div>
@@ -431,7 +446,7 @@ export default {
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
         </button>
 
-        <input type="text" id="ping-input" class="input" placeholder="Message ${this.activeChat.name}..." onkeypress="if(event.key==='Enter') pingInstance.sendMessage()">
+        <input type="text" id="ping-input" class="input" placeholder="Message ${headerName}..." onkeypress="if(event.key==='Enter') pingInstance.sendMessage()">
         <button class="btn-primary" onclick="pingInstance.sendMessage()"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
       </div>
     `;
