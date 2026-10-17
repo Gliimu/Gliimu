@@ -132,7 +132,7 @@ export default {
       const kind = b.type === 'text' ? `text · ${escapeHtml(b.style || 'paragraph')}` : escapeHtml(b.type);
 
       let inner;
-      if (b.type === 'image') inner = `<img src="${escapeHtml(value)}" alt="">`;
+      if (b.type === 'image') inner = `<img src="${escapeHtml(value)}" alt="">${b.caption ? `<div class="muted small" style="margin-top:6px;text-align:center;">${escapeHtml(b.caption)}</div>` : ''}`;
       else if (b.type === 'video') inner = `<video src="${escapeHtml(value)}" controls></video>`;
       else if (b.type === 'audio') inner = `<audio src="${escapeHtml(value)}" controls></audio>`;
       else if (b.type === 'file') inner = `<a class="file-chip" href="${escapeHtml(value)}" target="_blank" rel="noopener">Open document</a>`;

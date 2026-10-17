@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=20';
+import { renderFileInto } from '../reader.js?v=21';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -509,6 +509,11 @@ const hubView = {
         if (content) {
           const blockData = { type, content };
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
+          if (type === 'image') {
+            const capEl = b.querySelector('.block-caption-input');
+            const cap = capEl ? capEl.value.trim() : '';
+            if (cap) blockData.caption = cap;
+          }
           finalBlocks.push(blockData);
 
           if (!coverUrl && (type === 'image' || type === 'video')) {
@@ -602,6 +607,7 @@ const hubView = {
         </label>
         <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
         <div class="block-preview"></div>
+        ${type === 'image' ? `<input type="text" class="input block-caption-input" placeholder="Caption (optional)" style="margin-top: 8px;">` : ''}
         <input type="hidden" class="block-content-input">
       `;
     }
@@ -889,7 +895,10 @@ const hubView = {
           }
           return `<p class="read-block-text">${b.content}</p>`;
         }
-        if (b.type === 'image') return `<img src="${b.content}" class="read-block-media">`;
+        if (b.type === 'image') {
+          const cap = b.caption ? `<figcaption class="read-block-caption">${escapeHtml(b.caption)}</figcaption>` : '';
+          return `<figure class="read-block-figure"><img src="${escapeHtml(b.content)}" class="read-block-media" data-lightbox data-caption="${escapeHtml(b.caption || '')}">${cap}</figure>`;
+        }
         if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
         if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><i class="fas fa-podcast"></i><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
         if (b.type === 'pdf') {

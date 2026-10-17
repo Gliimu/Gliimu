@@ -2,8 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { openReader } from '../reader.js?v=20';
-import hubView from './hub.js?v=20';
+import { openReader } from '../reader.js?v=21';
+import hubView from './hub.js?v=21';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -793,7 +793,10 @@ export default {
     const value = b && b.content != null ? String(b.content) : '';
     if (!value.trim()) return '';
 
-    if (b.type === 'image') return `<img src="${escapeHtml(value)}" class="read-block-media">`;
+    if (b.type === 'image') {
+      const cap = b.caption ? `<figcaption class="read-block-caption">${escapeHtml(b.caption)}</figcaption>` : '';
+      return `<figure class="read-block-figure"><img src="${escapeHtml(value)}" class="read-block-media" data-lightbox data-caption="${escapeHtml(b.caption || '')}">${cap}</figure>`;
+    }
     if (b.type === 'video') return `<video src="${escapeHtml(value)}" class="read-block-media" controls></video>`;
     if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><audio src="${escapeHtml(value)}" class="read-block-audio" controls></audio></div>`;
     if (b.type === 'file') {

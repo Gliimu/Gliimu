@@ -270,6 +270,51 @@ function typeLabel(type) {
   return type || 'Item';
 }
 
+// Tap-to-expand illustration lightbox, shared by the gliim read view and the
+// Library book reader. An inline image is rendered as
+// `<img data-lightbox data-caption="...">`; the delegated listener below opens
+// it full-screen with its caption. This is deterrence UI, not DRM.
+const LIGHTBOX_CLOSE = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+let _lightbox = null;
+export function openLightbox(src, caption) {
+  if (!src) return;
+  if (_lightbox) { _lightbox.remove(); _lightbox = null; }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay lightbox-overlay';
+  overlay.innerHTML = `
+    <button class="lightbox-close" type="button" aria-label="Close">${LIGHTBOX_CLOSE}</button>
+    <figure class="lightbox-figure">
+      <img class="lightbox-img" src="${escapeHtml(src)}" alt="">
+      ${caption ? `<figcaption class="lightbox-caption">${escapeHtml(caption)}</figcaption>` : ''}
+    </figure>`;
+
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
+    if (_lightbox === overlay) _lightbox = null;
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.closest('.lightbox-close')) close();
+  });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  _lightbox = overlay;
+}
+
+// Installed once at module load (reader.js is imported by both hub and library):
+// any inline illustration with data-lightbox opens the lightbox on tap.
+document.addEventListener('click', (e) => {
+  const img = e.target.closest && e.target.closest('img[data-lightbox]');
+  if (!img) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openLightbox(img.getAttribute('src'), img.getAttribute('data-caption') || '');
+});
+
 // Render one attached file in-page into `el` (pdf.js/mammoth/epub.js/image).
 // Used by surfaces that build their own modal (e.g. the hub gliim read view)
 // so a PDF opens inside the page instead of a new browser tab. `setBlob`
