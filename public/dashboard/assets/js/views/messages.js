@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
-import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=25';
+import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=26';
 import liveView from './live.js';
 
 function escapeHtml(value) {
@@ -319,7 +319,7 @@ export default {
       const header = document.querySelector('#ping-main .ping-chat-header');
       if (header) header.innerHTML = this.chatHeaderHtml();
       const input = document.getElementById('ping-input');
-      if (input) input.placeholder = `Message ${this.activeChat.name}${this.activeChat.isAdmin ? '@gliimu' : ''}...`;
+      if (input) input.placeholder = `Message ${this.activeChat.name || 'Gliimait'}...`;
     }
     this.renderChatList();
   },
@@ -335,7 +335,7 @@ export default {
         ? `<img src="/icons/icon.png" alt="Gliimu" class="ping-avatar" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">`
         : (u.avatar_url ? `<img src="${escapeHtml(u.avatar_url)}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${escapeHtml(u.full_name?.charAt(0).toUpperCase() || 'G')}</div>`);
 
-      const displayName = escapeHtml(`${u.full_name || 'Gliimait'}${isAdmin ? '@gliimu' : ''}`);
+      const displayName = isAdmin ? 'Team Gliimu' : escapeHtml(u.full_name || 'Gliimait');
 
       const unreadCount = this.unreadMap[u.id] || 0;
       const unreadBadge = unreadCount > 0 ? `<span class="chat-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : '';
@@ -345,7 +345,7 @@ export default {
           ${avatar}
           <div class="ping-chat-info">
             <span class="ping-chat-name">${displayName}</span>
-            <span class="ping-chat-preview">${isAdmin ? 'Gliimu Team' : (u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP')}</span>
+            <span class="ping-chat-preview">${isAdmin ? 'Team Gliimu' : (u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP')}</span>
           </div>
           ${unreadBadge}
         </div>
@@ -427,17 +427,25 @@ export default {
 
   chatHeaderHtml() {
     const avatarClass = tierClass(this.activeChat.total_gp, 'ping-avatar');
-    const isAdmin = this.activeChat.isAdmin;
-    const avatarHtml = isAdmin
-      ? `<img src="/icons/icon.png" alt="Gliimu" class="ping-avatar" style="object-fit:cover;">`
-      : (this.activeChat.avatar
-        ? `<img src="${escapeHtml(this.activeChat.avatar)}" class="${avatarClass}" style="object-fit:cover;">`
-        : `<div class="${avatarClass}">${escapeHtml(this.activeChat.name?.charAt(0).toUpperCase() || 'G')}</div>`);
-    const headerName = `${this.activeChat.name || 'Gliimait'}${isAdmin ? '@gliimu' : ''}`;
+    // An admin thread is listed as "Team Gliimu", but opening it shows who
+    // actually sent the messages.
+    const avatarHtml = this.activeChat.avatar
+      ? `<img src="${escapeHtml(this.activeChat.avatar)}" class="${avatarClass}" style="object-fit:cover;">`
+      : `<div class="${avatarClass}">${escapeHtml(this.activeChat.name?.charAt(0).toUpperCase() || 'G')}</div>`;
     return `
       <button class="ping-back-btn" onclick="pingInstance.closeChat()"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button>
       ${avatarHtml}
-      <div><h3>${escapeHtml(headerName)}</h3><span>${isAdmin ? 'Gliimu Team' : 'Direct Message'}</span></div>`;
+      <div><h3>${escapeHtml(this.activeChat.name || 'Gliimait')}</h3><span>${this.activeChat.isAdmin ? 'Team Gliimu' : 'Direct Message'}</span></div>`;
+  },
+
+  // Inside a Team Gliimu thread each reply carries the admin's own name and
+  // picture, so members can tell which admin is answering.
+  senderIdentityHtml() {
+    const name = this.activeChat.name || 'Gliimait';
+    const avatar = this.activeChat.avatar
+      ? `<img src="${escapeHtml(this.activeChat.avatar)}" alt="" style="width:18px;height:18px;border-radius:50%;object-fit:cover;">`
+      : `<div style="width:18px;height:18px;border-radius:50%;background:var(--bg-tertiary);color:var(--text-primary);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">${avatar}<span style="font-size:11px;font-weight:600;color:var(--text-muted);">${escapeHtml(name)}</span></div>`;
   },
 
   renderChatWindow() {
@@ -447,7 +455,6 @@ export default {
     const draft = input?.value || '';
     const focused = document.activeElement === input;
     const selection = input ? [input.selectionStart, input.selectionEnd] : null;
-    const headerName = `${this.activeChat.name || 'Gliimait'}${this.activeChat.isAdmin ? '@gliimu' : ''}`;
 
     let messagesHtml = '';
     if (this.chatHistory.length === 0) {
@@ -455,6 +462,7 @@ export default {
     } else {
       messagesHtml = this.chatHistory.map(m => {
         const isMe = m.sender_id === store.user.id && !isIncomingDm(store.user.id, m);
+        const showSender = !isMe && this.activeChat.isAdmin;
         const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const isEditable = isMe && !m.is_admin && (Date.now() - new Date(m.created_at).getTime() < 180000);
 
@@ -484,6 +492,7 @@ export default {
 
         return `
           <div class="ping-message ${isMe ? 'sent' : 'received'}" id="msg-${m.id}">
+            ${showSender ? this.senderIdentityHtml() : ''}
             ${attachments}
             ${contentHtml}
             <div class="ping-msg-footer">
@@ -511,7 +520,7 @@ export default {
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
         </button>
 
-        <input type="text" id="ping-input" class="input" placeholder="Message ${escapeHtml(headerName)}..." onkeypress="if(event.key==='Enter') pingInstance.sendMessage()">
+        <input type="text" id="ping-input" class="input" placeholder="Message ${escapeHtml(this.activeChat.name || 'Gliimait')}..." onkeypress="if(event.key==='Enter') pingInstance.sendMessage()">
         <button class="btn-primary" onclick="pingInstance.sendMessage()"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
       </div>
     `;

@@ -369,13 +369,14 @@ export default {
 
     if (error) return alert("Error: " + error.message);
 
+    // Sent from the member dashboard, so these stay ordinary member-to-member
+    // messages: flagging them would brand the sender as admin staff.
     const notices = [await supabase.from('messages').insert({
       sender_id: store.user.id,
       receiver_id: deal.user_id,
       content: 'Your gig has been completed and taken off the queue. Thank you for building with Gliimu.',
-      is_ai: false,
-      is_admin: true
-    }).select('id, is_admin').single()];
+      is_ai: false
+    }).select('id').single()];
 
     const { data: next, error: nextError } = await supabase.from('deals')
       .select('user_id')
@@ -388,12 +389,11 @@ export default {
         sender_id: store.user.id,
         receiver_id: next.user_id,
         content: "You're up next on the gig queue — your gig is now at the front of the queue.",
-        is_ai: false,
-        is_admin: true
-      }).select('id, is_admin').single());
+        is_ai: false
+      }).select('id').single());
     }
 
-    const failed = nextError || notices.some(result => result.error || !result.data?.id || result.data.is_admin !== true);
+    const failed = nextError || notices.some(result => result.error || !result.data?.id);
     await alert(failed
       ? 'Gig marked as done, but one or more notifications could not be confirmed. Check Ping before resending.'
       : 'Gig marked as done. The next gig is now up.');
