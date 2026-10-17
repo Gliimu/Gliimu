@@ -300,7 +300,12 @@ const supportView = {
     }
 
     if (item.kind === 'escalation') {
-      return `<p class="sup-note">Flagged for the Gliimu team — an admin has been notified</p>`;
+      return `
+        <div class="ping-message sent">
+          <p><strong>Your question was passed to Team Gliimu:</strong></p>
+          <p style="margin-top: 6px; font-style: italic;">${escapeHtml(item.content || '')}</p>
+          <div class="ping-msg-footer"><span class="ping-msg-time">${timeOf(item.at)}</span></div>
+        </div>`;
     }
 
     if (item.kind === 'support') {
