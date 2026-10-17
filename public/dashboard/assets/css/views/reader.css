@@ -371,3 +371,108 @@
   transition: background 0.15s ease;
 }
 .lightbox-close:hover { background: rgba(255, 255, 255, 0.18); }
+
+/* ---- Engagement bar (library reader bottom bar) ----------- */
+.rdr-engagement-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.rdr-eng-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.rdr-eng-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.rdr-eng-btn.active { color: var(--brand-primary); }
+
+.rdr-eng-icon-img {
+  width: 18px;
+  height: 18px;
+  opacity: 0.8;
+}
+
+/* ---- Drop-up menu (topbar, extreme right) ----------------- */
+.rdr-menu-wrapper {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.rdr-menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.rdr-menu-toggle:hover { background: var(--brand-primary-light); color: var(--brand-primary); }
+
+.rdr-menu-dropup {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  overflow: hidden;
+}
+.rdr-menu-dropup.active { display: block; }
+
+.rdr-menu-dropup-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.rdr-menu-dropup-item:hover { background: var(--bg-tertiary); }
+
+.rdr-menu-dropup-author {
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.rdr-menu-author-img {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.rdr-menu-author-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+  font-size: 11px;
+  font-weight: 700;
+}

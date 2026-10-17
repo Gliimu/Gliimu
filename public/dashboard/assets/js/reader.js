@@ -68,8 +68,49 @@ function viewerName() {
 // One reader at a time; closing it tears down listeners and revokes blobs.
 let _active = null;
 
-export function openReader({ item, blocks, fileUrl, renderBlock }) {
+export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
   if (_active) _active.destroy();
+
+  const eng = engagement || null;
+  const menuBtnHtml = eng ? `
+    <div class="rdr-menu-wrapper">
+      <button class="rdr-menu-toggle" aria-label="More options">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+      </button>
+      <div class="rdr-menu-dropup" id="rdr-menu-dropup">
+        <div class="rdr-menu-dropup-item" id="rdr-menu-close">Close</div>
+        <div class="rdr-menu-dropup-item" id="rdr-menu-save">${eng.isSaved ? 'Unsave Item' : 'Save Item'}</div>
+        <div class="rdr-menu-dropup-item" id="rdr-menu-report">Report Content</div>
+        <div class="rdr-menu-dropup-item rdr-menu-dropup-author" id="rdr-menu-author">
+          ${eng.authorAvatar
+            ? `<img src="${eng.authorAvatar}" alt="" class="rdr-menu-author-img">`
+            : `<div class="rdr-menu-author-img rdr-menu-author-fallback">${(eng.authorName || '?').charAt(0).toUpperCase()}</div>`}
+          ${escapeHtml(eng.authorName || 'Author')}
+        </div>
+      </div>
+    </div>
+  ` : '';
+
+  const engagementBarHtml = eng ? `
+    <div class="rdr-engagement-bar">
+      <button class="rdr-eng-btn" id="rdr-eng-views">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        <span id="rdr-eng-views-count">0</span>
+      </button>
+      <button class="rdr-eng-btn" id="rdr-eng-likes">
+        <img src="/icons/clap.svg" class="rdr-eng-icon-img" alt="" loading="eager">
+        <span id="rdr-eng-likes-count">0</span>
+      </button>
+      <button class="rdr-eng-btn" id="rdr-eng-share">
+        <img src="/icons/share.svg" class="rdr-eng-icon-img" alt="" loading="eager">
+        <span>Share</span>
+      </button>
+      <button class="rdr-eng-btn" id="rdr-eng-support">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span>Support</span>
+      </button>
+    </div>
+  ` : '';
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay rdr-overlay';
@@ -80,6 +121,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock }) {
           <span class="rdr-type">${escapeHtml(typeLabel(item.type))}</span>
           <span class="rdr-name">${escapeHtml(item.title)}</span>
         </div>
+        ${menuBtnHtml}
         <button class="rdr-close" aria-label="Close reader">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
@@ -90,6 +132,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock }) {
         <div class="rdr-body"><p class="rdr-loading">Opening&hellip;</p></div>
         <div class="rdr-next" hidden></div>
       </div>
+      ${engagementBarHtml}
     </div>`;
   document.body.appendChild(overlay);
 
@@ -123,6 +166,142 @@ export function openReader({ item, blocks, fileUrl, renderBlock }) {
 
   overlay.querySelector('.rdr-close').addEventListener('click', () => api.destroy());
   overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) api.destroy(); });
+
+  // ---- Engagement bar + menu (library items only) -------------------------
+  if (eng) {
+    const menuToggle = overlay.querySelector('.rdr-menu-toggle');
+    const menuDropup = overlay.querySelector('#rdr-menu-dropup');
+
+    if (menuToggle && menuDropup) {
+      menuToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropup.classList.toggle('active');
+        if (menuDropup.classList.contains('active')) {
+          setTimeout(() => {
+            document.addEventListener('click', function closeDropup(ev) {
+              if (!menuDropup.contains(ev.target) && ev.target !== menuToggle) {
+                menuDropup.classList.remove('active');
+                document.removeEventListener('click', closeDropup);
+              }
+            });
+          }, 0);
+        }
+      });
+    }
+
+    const menuClose = overlay.querySelector('#rdr-menu-close');
+    if (menuClose) menuClose.addEventListener('click', () => api.destroy());
+
+    const menuSave = overlay.querySelector('#rdr-menu-save');
+    if (menuSave) {
+      menuSave.addEventListener('click', async () => {
+        menuDropup?.classList.remove('active');
+        if (eng.isSaved) {
+          await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('item_id', eng.itemId);
+          menuSave.textContent = 'Save Item';
+          eng.isSaved = false;
+        } else {
+          await supabase.from('saved_items').insert({ user_id: store.user.id, item_id: eng.itemId });
+          menuSave.textContent = 'Unsave Item';
+          eng.isSaved = true;
+        }
+      });
+    }
+
+    const menuReport = overlay.querySelector('#rdr-menu-report');
+    if (menuReport) {
+      menuReport.addEventListener('click', () => {
+        menuDropup?.classList.remove('active');
+        if (window.libraryInstance && window.libraryInstance.logInteraction) {
+          // Delegate to library's report flow
+          const overlay2 = document.createElement('div');
+          overlay2.className = 'modal-overlay';
+          overlay2.innerHTML = `
+            <div class="modal-content" style="max-width:440px;">
+              <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+              <h2 style="margin-bottom:8px;">Report Content</h2>
+              <p class="text-muted" style="margin-bottom:16px;">State your reason for reporting this item.</p>
+              <textarea id="rdr-report-reason" class="input" rows="4" placeholder="Reason for reporting..."></textarea>
+              <button class="btn-primary" id="rdr-report-submit" style="width:100%;margin-top:16px;">Submit Report</button>
+            </div>`;
+          document.body.appendChild(overlay2);
+          overlay2.querySelector('#rdr-report-submit').addEventListener('click', async () => {
+            const reason = overlay2.querySelector('#rdr-report-reason').value.trim();
+            if (reason.length < 5) return alert('Please state a reason (at least 5 characters).');
+            await supabase.from('reports').insert({ reporter_id: store.user.id, target_type: 'library', target_id: eng.itemId, reason });
+            overlay2.remove();
+            alert('Thank you. Your report has been submitted for review.');
+          });
+        }
+      });
+    }
+
+    const menuAuthor = overlay.querySelector('#rdr-menu-author');
+    if (menuAuthor) {
+      menuAuthor.addEventListener('click', () => {
+        menuDropup?.classList.remove('active');
+        eng.onRecordInteraction && eng.onRecordInteraction('ask_me');
+        if (window.libraryInstance && window.libraryInstance.logInteraction) {
+          const authorTarget = window.libraryInstance.resolveAuthor
+            ? window.libraryInstance.resolveAuthor(item)
+            : null;
+          if (authorTarget) {
+            if (authorTarget.id === store.user.id) sessionStorage.removeItem('view_profile_id');
+            else sessionStorage.setItem('view_profile_id', authorTarget.id);
+            api.destroy();
+            window.location.hash = '#/profile';
+          }
+        }
+      });
+    }
+
+    // Engagement bar buttons
+    const viewsCountEl = overlay.querySelector('#rdr-eng-views-count');
+    const likesCountEl = overlay.querySelector('#rdr-eng-likes-count');
+    let localLikes = 0;
+
+    // Fetch initial counts
+    supabase.from('library_interactions').select('interaction_type').eq('item_id', eng.itemId).then(({ data }) => {
+      if (!data) return;
+      const likes = data.filter(r => r.interaction_type === 'like').length;
+      const views = data.filter(r => r.interaction_type === 'read_end').length;
+      localLikes = likes;
+      if (likesCountEl) likesCountEl.textContent = likes;
+      if (viewsCountEl) viewsCountEl.textContent = views;
+    });
+
+    const likesBtn = overlay.querySelector('#rdr-eng-likes');
+    if (likesBtn) {
+      likesBtn.addEventListener('click', async () => {
+        localLikes++;
+        if (likesCountEl) likesCountEl.textContent = localLikes;
+        likesBtn.classList.add('active');
+        await supabase.from('library_interactions').insert({ user_id: store.user.id, item_id: eng.itemId, interaction_type: 'like' }).catch(() => {});
+        eng.onRecordInteraction && eng.onRecordInteraction('like');
+      });
+    }
+
+    const shareBtn = overlay.querySelector('#rdr-eng-share');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', () => {
+        eng.onRecordInteraction && eng.onRecordInteraction('share');
+        if (navigator.share) {
+          navigator.share({ title: item.title, text: item.description || '', url: window.location.href }).catch(() => {});
+        } else {
+          alert('Share link copied from address bar.');
+        }
+      });
+    }
+
+    const supportBtn = overlay.querySelector('#rdr-eng-support');
+    if (supportBtn) {
+      supportBtn.addEventListener('click', async () => {
+        supportBtn.classList.add('active');
+        await supabase.from('library_interactions').insert({ user_id: store.user.id, item_id: eng.itemId, interaction_type: 'support' }).catch(() => {});
+        eng.onRecordInteraction && eng.onRecordInteraction('support');
+      });
+    }
+  }
 
   // ---- Deterrence -------------------------------------------------------
   const block = (e) => { e.preventDefault(); return false; };

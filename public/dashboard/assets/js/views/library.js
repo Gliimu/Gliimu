@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { openReader } from '../reader.js?v=21';
+import { openReader } from '../reader.js?v=22';
 import hubView from './hub.js?v=21';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
@@ -603,6 +603,13 @@ export default {
   openDetails(item, isOwned, balance, isSaved) {
     document.querySelector('.modal-overlay')?.remove();
 
+    // Owned items skip the detail modal and open straight into the content
+    // (same as audiolites). The billing gate already passed at purchase time.
+    if (isOwned) {
+      this.openContent(item);
+      return;
+    }
+
     const author = this.resolveAuthor(item);
     const authorName = this.displayAuthorName(item);
     const authorAvatar = (author && author.avatar_url) || item.author_avatar;
@@ -794,11 +801,21 @@ export default {
   // Delegate to the shared client-side reader (assets/js/reader.js). It owns
   // the overlay, progress tracking, completion GP and the deterrence layer.
   openReader(item, blocks, fileUrl) {
+    const author = this.resolveAuthor(item);
+    const authorName = this.displayAuthorName(item);
+    const isSaved = this.savedItems.has(item.id);
     return openReader({
       item,
       blocks,
       fileUrl,
-      renderBlock: (b) => this.renderBlock(b)
+      renderBlock: (b) => this.renderBlock(b),
+      engagement: {
+        itemId: item.id,
+        authorName,
+        authorAvatar: author?.avatar_url || null,
+        isSaved,
+        onRecordInteraction: (type) => this.logInteraction(item.id, type)
+      }
     });
   },
 

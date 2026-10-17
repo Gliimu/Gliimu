@@ -1,6 +1,6 @@
 const routes = {
   '/assistant': () => import('./views/assistant.js?v=21').then(m => m.default),
-  '/library': () => import('./views/library.js?v=21').then(m => m.default),
+  '/library': () => import('./views/library.js?v=22').then(m => m.default),
   '/updates': () => import('./views/updates.js?v=22').then(m => m.default),
   '/ping': () => import('./views/messages.js?v=23').then(m => m.default),
   '/applications': () => import('./views/applications.js').then(m => m.default),
