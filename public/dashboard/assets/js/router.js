@@ -2,8 +2,8 @@ const routes = {
   '/assistant': () => import('./views/assistant.js?v=21').then(m => m.default),
   '/library': () => import('./views/library.js?v=22').then(m => m.default),
   '/updates': () => import('./views/updates.js?v=22').then(m => m.default),
-  '/ping': () => import('./views/messages.js?v=24').then(m => m.default),
-  '/applications': () => import('./views/applications.js').then(m => m.default),
+  '/ping': () => import('./views/messages.js?v=25').then(m => m.default),
+  '/applications': () => import('./views/applications.js?v=25').then(m => m.default),
   '/wallet': () => import('./views/wallet.js').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
   // Deep links only: Live is folded into Ping, Profile opens from the avatar
@@ -15,6 +15,8 @@ const routes = {
 const NAV_ALIAS = { '/live': '/ping' };
 
 let previousHash = window.location.hash;
+let currentView = null;
+let navigationRequest = 0;
 
 export async function router() {
   const hash = window.location.hash.slice(1) || '/library';
@@ -45,6 +47,9 @@ export async function router() {
   }
 
   previousHash = window.location.hash;
+  const request = ++navigationRequest;
+  currentView?.destroy?.();
+  currentView = null;
 
   if (topbarDynamic) topbarDynamic.innerHTML = '';
   if (topbarRightActions) topbarRightActions.innerHTML = '';
@@ -60,6 +65,8 @@ export async function router() {
 
   if (routeHandler) {
     const view = await routeHandler();
+    if (request !== navigationRequest) return;
+    currentView = view;
     app.innerHTML = view.template;
     if (view.init) {
       view.init();

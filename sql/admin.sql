@@ -272,6 +272,9 @@ end $$;
 --    transaction, one RPC.
 -- ============================================================
 
+-- Review notices must be branded even before messages_admin.sql is run.
+alter table public.messages add column if not exists is_admin boolean not null default false;
+
 create or replace function public.admin_review_submission(p_submission uuid, p_action text, p_note text default null)
 returns jsonb
 language plpgsql
@@ -315,10 +318,10 @@ begin
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_submission;
 
-    insert into public.messages (sender_id, receiver_id, content, is_ai)
+    insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
     values (uid, v_sub.user_id,
             'Your library submission "' || v_sub.title || '" was not approved. Reason: ' || p_note,
-            false);
+            false, true);
 
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
@@ -369,10 +372,10 @@ begin
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_submission;
 
-  insert into public.messages (sender_id, receiver_id, content, is_ai)
+  insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
   values (uid, v_sub.user_id,
           'Your library submission "' || v_sub.title || '" was approved and is now live on the shelf.',
-          false);
+          false, true);
 
   return jsonb_build_object('ok', true, 'status', 'approved', 'item_id', v_item);
 end

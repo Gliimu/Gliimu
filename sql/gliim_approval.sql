@@ -216,6 +216,9 @@ grant execute on function public.admin_list_pending_posts(text) to authenticated
 -- 7. Approve / reject
 -- ============================================================
 
+-- Review notices must be branded even before messages_admin.sql is run.
+alter table public.messages add column if not exists is_admin boolean not null default false;
+
 create or replace function public.admin_review_post(p_post uuid, p_action text, p_note text default null)
 returns jsonb
 language plpgsql
@@ -252,10 +255,10 @@ begin
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_post;
 
-    insert into public.messages (sender_id, receiver_id, content, is_ai)
+    insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
     values (uid, v_post.user_id,
             'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was not approved. Reason: ' || p_note,
-            false);
+            false, true);
 
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
@@ -264,10 +267,10 @@ begin
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_post;
 
-  insert into public.messages (sender_id, receiver_id, content, is_ai)
+  insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
   values (uid, v_post.user_id,
           'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was approved and is now live in the Hub.',
-          false);
+          false, true);
 
   return jsonb_build_object('ok', true, 'status', 'approved');
 end $$;

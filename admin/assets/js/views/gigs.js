@@ -138,13 +138,23 @@ export default {
 
     if (error) return appAlert(`Could not update: ${error.message}`);
 
-    await supabase.from('messages').insert({
-      sender_id: store.user.id,
-      receiver_id: deal.user_id,
-      content: 'Your gig has been completed and taken off the queue. Thank you for building with Gliimu.',
-      is_ai: false,
-      is_admin: true
-    });
+    try {
+      const { data, error: notificationError } = await supabase.from('messages').insert({
+        sender_id: store.user.id,
+        receiver_id: deal.user_id,
+        content: 'Your gig has been completed and taken off the queue. Thank you for building with Gliimu.',
+        is_ai: false,
+        is_admin: true
+      }).select('id, is_admin').single();
+
+      if (notificationError) throw notificationError;
+      if (!data?.id) throw new Error('Message confirmation was not returned. Check the conversation before retrying.');
+      if (data.is_admin !== true) throw new Error('Admin branding was not persisted. The message may appear without Gliimu branding.');
+    } catch (err) {
+      await appAlert(`Gig updated but notification failed: ${err.message || 'Unknown error.'}`);
+      await this.load();
+      return;
+    }
 
     await appAlert('Gig marked as done.');
     await this.load();
@@ -162,7 +172,6 @@ export default {
   },
 
   chatClient(userId, name) {
-    if (userId === store.user.id) return;
     const { overlay, close } = openDrawer({
       title: `Chat with ${name}`,
       body: `
@@ -186,18 +195,25 @@ export default {
       const btn = overlay.querySelector('#gigs-chat-send');
       btn.disabled = true;
 
-      const { error } = await supabase.from('messages').insert({
-        sender_id: store.user.id,
-        receiver_id: userId,
-        content,
-        is_ai: false,
-        is_admin: true
-      });
+      try {
+        const { data, error } = await supabase.from('messages').insert({
+          sender_id: store.user.id,
+          receiver_id: userId,
+          content,
+          is_ai: false,
+          is_admin: true
+        }).select('id, is_admin').single();
 
-      btn.disabled = false;
-      if (error) return appAlert(`Could not send: ${error.message}`);
+        if (error) throw error;
+        if (!data?.id) throw new Error('Message confirmation was not returned. Check the conversation before retrying.');
+        if (data.is_admin !== true) throw new Error('Admin branding was not persisted. The message may appear without Gliimu branding.');
+        textarea.value = '';
+      } catch (err) {
+        return appAlert(`Could not send as admin: ${err.message || 'Unknown error.'}`);
+      } finally {
+        btn.disabled = false;
+      }
 
-      textarea.value = '';
       this.loadChat(overlay, userId);
     });
   },
@@ -208,7 +224,7 @@ export default {
       .from('messages')
       .select('sender_id, content, created_at')
       .or(`and(sender_id.eq.${store.user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${store.user.id})`)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(50);
 
     if (error) {
@@ -221,7 +237,7 @@ export default {
       return;
     }
 
-    container.innerHTML = data.map(m => {
+    container.innerHTML = data.reverse().map(m => {
       const mine = m.sender_id === store.user.id;
       return `<div style="margin-bottom:8px; text-align:${mine ? 'right' : 'left'};">
         <div style="display:inline-block; padding:8px 12px; border-radius:12px; background:${mine ? 'var(--brand-primary)' : 'var(--bg-tertiary)'}; color:${mine ? '#fff' : 'var(--text-primary)'}; max-width:80%; text-align:left;">

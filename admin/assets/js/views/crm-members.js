@@ -44,7 +44,7 @@ export default {
       return;
     }
 
-    this.members = (data || []).filter(p => p.id !== store.user.id);
+    this.members = data || [];
     document.getElementById('crm-member-count').textContent =
       this.members.length >= 100 ? 'First 100 shown — narrow the search.' : `${this.members.length} member${this.members.length === 1 ? '' : 's'}`;
     this.render();
@@ -108,23 +108,26 @@ export default {
       btn.disabled = true;
       btn.textContent = 'Sending...';
 
-      const { error } = await supabase.from('messages').insert({
-        sender_id: store.user.id,
-        receiver_id: member.id,
-        content,
-        is_ai: false,
-        is_admin: true
-      });
+      try {
+        const { data, error } = await supabase.from('messages').insert({
+          sender_id: store.user.id,
+          receiver_id: member.id,
+          content,
+          is_ai: false,
+          is_admin: true
+        }).select('id, is_admin').single();
 
-      if (error) {
+        if (error) throw error;
+        if (!data?.id) throw new Error('Message confirmation was not returned. Check the conversation before retrying.');
+        if (data.is_admin !== true) throw new Error('Admin branding was not persisted. The message may appear without Gliimu branding.');
+        textarea.value = '';
+      } catch (err) {
+        return appAlert(`Could not send as admin: ${err.message || 'Unknown error.'}`);
+      } finally {
         btn.disabled = false;
         btn.textContent = 'Send';
-        return appAlert(`Could not send: ${error.message}`);
       }
 
-      textarea.value = '';
-      btn.disabled = false;
-      btn.textContent = 'Send';
       await appAlert('Message sent.');
     });
   }

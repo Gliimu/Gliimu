@@ -1,7 +1,7 @@
 import { store } from './store.js';
-import { router } from './router.js?v=23';
+import { router } from './router.js?v=25';
 import { supabase } from '/shared/js/config.js';
-import { computeUnread } from './readState.js';
+import { computeUnread } from './readState.js?v=25';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -30,13 +30,23 @@ const NotificationManager = {
     }
   },
 
-  async fetchInitialCounts() {
-    // Ping (Unread DMs) — DMs only; live-room and AI messages are not pings
-    const { data: received } = await supabase.from('messages').select('sender_id, created_at, read_at, room, is_ai').eq('receiver_id', store.user.id);
-    const dms = (received || []).filter(m => !m.room && !m.is_ai && m.sender_id !== store.user.id);
-    const { total } = computeUnread(store.user.id, dms);
+  async refreshUnread() {
+    const request = this.unreadRequest = (this.unreadRequest || 0) + 1;
+    const { data, error } = await supabase.from('messages')
+      .select('sender_id, receiver_id, created_at, read_at, room, is_ai, is_admin')
+      .eq('receiver_id', store.user.id);
+    if (request !== this.unreadRequest) return;
+    if (error) {
+      console.warn('Could not refresh unread messages:', error.message);
+      return;
+    }
+    const { total } = computeUnread(store.user.id, data);
     this.counts.ping = total;
     this.updateBadge('ping', total);
+  },
+
+  async fetchInitialCounts() {
+    await this.refreshUnread();
 
     // Settings (App Version - Placeholder logic)
     // For now, we'll just set it to 0. You can change this to 1 when you deploy a new version.
@@ -45,15 +55,16 @@ const NotificationManager = {
   },
 
   initRealtimeListeners() {
-    // Listen for new DMs
     supabase.channel('app-global-notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        const m = payload.new;
-        if (m.sender_id !== store.user.id && m.receiver_id === store.user.id && !m.read_at && !m.room && !m.is_ai) {
-          this.counts.ping++;
-          this.updateBadge('ping', this.counts.ping);
-        }
-      }).subscribe();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${store.user.id}` }, () => {
+        this.refreshUnread();
+      }).subscribe(status => {
+        if (status === 'SUBSCRIBED') this.refreshUnread();
+      });
+    window.addEventListener('gliimu-chat-read', () => this.refreshUnread());
+    window.addEventListener('storage', (event) => {
+      if (event.key === `gliimu_read_map_${store.user.id}`) this.refreshUnread();
+    });
   }
 };
 

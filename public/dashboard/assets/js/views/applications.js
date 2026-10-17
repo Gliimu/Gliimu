@@ -369,31 +369,34 @@ export default {
 
     if (error) return alert("Error: " + error.message);
 
-    if (deal.user_id !== store.user.id) {
-      await supabase.from('messages').insert({
-        sender_id: store.user.id,
-        receiver_id: deal.user_id,
-        content: 'Your gig has been completed and taken off the queue. Thank you for building with Gliimu.',
-        is_ai: false
-      });
-    }
+    const notices = [await supabase.from('messages').insert({
+      sender_id: store.user.id,
+      receiver_id: deal.user_id,
+      content: 'Your gig has been completed and taken off the queue. Thank you for building with Gliimu.',
+      is_ai: false,
+      is_admin: true
+    }).select('id, is_admin').single()];
 
-    const { data: next } = await supabase.from('deals')
+    const { data: next, error: nextError } = await supabase.from('deals')
       .select('user_id')
       .eq('status', 'queued')
       .order('queue_position', { ascending: true })
       .limit(1)
       .maybeSingle();
-    if (next && next.user_id !== store.user.id) {
-      await supabase.from('messages').insert({
+    if (next) {
+      notices.push(await supabase.from('messages').insert({
         sender_id: store.user.id,
         receiver_id: next.user_id,
         content: "You're up next on the gig queue — your gig is now at the front of the queue.",
-        is_ai: false
-      });
+        is_ai: false,
+        is_admin: true
+      }).select('id, is_admin').single());
     }
 
-    await alert("Gig marked as done. The next gig is now up.");
+    const failed = nextError || notices.some(result => result.error || !result.data?.id || result.data.is_admin !== true);
+    await alert(failed
+      ? 'Gig marked as done, but one or more notifications could not be confirmed. Check Ping before resending.'
+      : 'Gig marked as done. The next gig is now up.');
     this.loadDeals();
   },
 

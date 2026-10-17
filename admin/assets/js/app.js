@@ -1,6 +1,6 @@
 import { supabase } from './config.js';
 import { store } from './store.js';
-import { router, firstRoute } from './router.js';
+import { router, firstRoute } from './router.js?v=4';
 
 // ============================================
 // GATE — three states: signing in, signed in but
