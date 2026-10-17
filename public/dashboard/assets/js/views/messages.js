@@ -264,7 +264,10 @@ export default {
       }
     });
 
-    const uniqueIds = [...new Set(userIds)].filter(id => id !== store.user.id);
+    const hasSelfAdmin = receivedMsgs.some(m => m.is_admin && m.sender_id === store.user.id)
+      || sentMsgs.some(m => m.is_admin && m.receiver_id === store.user.id);
+
+    const uniqueIds = [...new Set(userIds)].filter(id => id !== store.user.id || hasSelfAdmin);
 
     if (uniqueIds.length === 0) {
       this.contacts = [];
@@ -291,7 +294,19 @@ export default {
       const timeB = lastMsgMap[b.id] || 0;
       return timeB - timeA;
     });
+
+    if (hasSelfAdmin && !this.contacts.find(c => c.id === store.user.id)) {
+      const selfProfile = contactProfiles?.find(p => p.id === store.user.id);
+      this.contacts.unshift({
+        id: store.user.id,
+        full_name: selfProfile?.full_name || store.user?.full_name || 'Admin',
+        avatar_url: null,
+        total_gp: selfProfile?.total_gp || 0
+      });
+    }
+
     this.adminIds = adminIds;
+    if (hasSelfAdmin) this.adminIds.add(store.user.id);
 
     this.renderChatList();
   },

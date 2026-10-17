@@ -33,7 +33,7 @@ const NotificationManager = {
   async fetchInitialCounts() {
     // Ping (Unread DMs) — DMs only; live-room and AI messages are not pings
     const { data: received } = await supabase.from('messages').select('sender_id, created_at, read_at, room, is_ai').eq('receiver_id', store.user.id);
-    const dms = (received || []).filter(m => !m.room && !m.is_ai);
+    const dms = (received || []).filter(m => !m.room && !m.is_ai && m.sender_id !== store.user.id);
     const { total } = computeUnread(store.user.id, dms);
     this.counts.ping = total;
     this.updateBadge('ping', total);

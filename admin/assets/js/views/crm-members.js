@@ -44,7 +44,7 @@ export default {
       return;
     }
 
-    this.members = data || [];
+    this.members = (data || []).filter(p => p.id !== store.user.id);
     document.getElementById('crm-member-count').textContent =
       this.members.length >= 100 ? 'First 100 shown — narrow the search.' : `${this.members.length} member${this.members.length === 1 ? '' : 's'}`;
     this.render();

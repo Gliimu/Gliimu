@@ -162,6 +162,7 @@ export default {
   },
 
   chatClient(userId, name) {
+    if (userId === store.user.id) return;
     const { overlay, close } = openDrawer({
       title: `Chat with ${name}`,
       body: `
