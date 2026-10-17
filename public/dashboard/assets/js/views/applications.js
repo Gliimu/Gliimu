@@ -12,33 +12,34 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Triads are captain-named, so the colour is positional — it just keeps the
-// three boxes visually distinct the way the original layout did.
-const TRIAD_COLORS = ['var(--brand-primary)', 'var(--success)', 'var(--warning)'];
+const CATEGORIES = [
+  'Branding',
+  'Business Services',
+  'Publishing',
+  'Editing & Proofreading',
+  'Writing',
+  'Bulk Purchase',
+  'WebApp Development',
+  'Marketing',
+  'Deep Mentorship',
+  'Others'
+];
+
+const filterIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>';
 
 export default {
   title: 'Queue',
   template: `
     <div class="requests-layout" id="requests-container">
-      <div class="sub-tabs">
-        <button class="sub-tab active" data-tab="apprentice">Apprenticeship</button>
-        <button class="sub-tab" data-tab="deals">Deals</button>
-      </div>
       <div id="tab-content"></div>
     </div>
   `,
 
   init() {
-    const params = new URLSearchParams((window.location.hash.split('?')[1] || ''));
-    this.currentTab = params.get('tab') === 'deals' ? 'deals' : 'apprentice';
     this.queue = [];
-    this.applicants = [];
-    this.triads = [];
-    this.appFilter = 'general';
+    this.categoryFilter = 'all';
+    this.filterOpen = false;
 
-    // Deals are subscription-only: wallet blocked, trial/payngo capped,
-    // pro unlimited. Null tier = summary unavailable (pre-migration) → the
-    // DB trigger is the backstop, so fail open here.
     this.billingTier = null;
     this.dealCap = 3;
     fetchBillingSummary().then(s => {
@@ -47,260 +48,73 @@ export default {
       if (s.prices && s.prices.limit_deals_payngo) this.dealCap = Number(s.prices.limit_deals_payngo) || 3;
     });
 
-    document.querySelectorAll('.sub-tab').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === this.currentTab);
-    });
-
-    // Mobile bottom bar hint
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
-    if (topbarDynamic) topbarDynamic.innerHTML = `<span class="mobile-bar-hint">Become an Apprentice or bring us a Deal</span>`;
+    if (topbarDynamic) topbarDynamic.innerHTML = '';
     const topbarRight = document.getElementById('topbar-right-actions');
     if (topbarRight) topbarRight.innerHTML = '';
 
     window.reqInstance = {
-      switchTab: (tab) => this.switchTab(tab),
-      submitApprentice: () => this.submitApprentice(),
       submitDeal: () => this.submitDeal(),
       setDealType: (type) => this.setDealType(type),
       toggleDealForm: () => this.toggleDealForm(),
       markDealDone: (id) => this.markDealDone(id),
       removeDeal: (id) => this.removeDeal(id),
       cancelMyDeal: (id) => this.cancelMyDeal(id),
-      viewProfile: (userId) => this.viewProfile(userId)
+      viewProfile: (userId) => this.viewProfile(userId),
+      toggleFilter: () => this.toggleFilter(),
+      setCategoryFilter: (cat) => this.setCategoryFilter(cat)
     };
 
-    this.setupTabs();
-    this.loadTab();
+    this.loadDeals();
   },
 
-  setupTabs() {
-    document.querySelectorAll('.sub-tab').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const target = e.currentTarget;
-        document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
-        target.classList.add('active');
-        this.currentTab = target.dataset.tab;
-        this.loadTab();
-      });
-    });
+  toggleFilter() {
+    this.filterOpen = !this.filterOpen;
+    this.renderFilter();
+    this.renderQueue();
   },
 
-  switchTab(tab) {
-    const btn = document.querySelector(`.sub-tab[data-tab="${tab}"]`);
-    if (btn) btn.click();
+  setCategoryFilter(cat) {
+    this.categoryFilter = cat;
+    this.filterOpen = false;
+    this.renderFilter();
+    this.renderQueue();
   },
 
-  async loadTab() {
-    const content = document.getElementById('tab-content');
-    content.innerHTML = `<p style="color: var(--text-muted); text-align: center;">Loading...</p>`;
-
-    if (this.currentTab === 'deals') {
-      await this.loadDeals(content);
-    } else {
-      await this.loadApprentice(content);
-    }
-  },
-
-  // ============================================
-  // APPRENTICESHIP
-  // ============================================
-  async loadApprentice(container) {
-    const { data: myApp } = await supabase.from('applications').select('*').eq('user_id', store.user.id).eq('type', 'apprentice').maybeSingle();
-
-    if (!myApp) {
-      const right = document.getElementById('topbar-right-actions');
-      if (right) right.innerHTML = '';
-      container.innerHTML = `
-        <div class="card form-card">
-          <h2>Apprenticeship Request</h2>
-          <p class="text-muted">Join an elite Triad. We don't train employees; we train independent Full Stack Media Architects.</p>
-          <form onsubmit="event.preventDefault(); reqInstance.submitApprentice()" style="margin-top: 24px;">
-            <div class="form-group">
-              <label>Why do you want to become a Gliimait? (Min. 50 chars)</label>
-              <textarea id="apprentice-text" class="input" rows="5" required></textarea>
-            </div>
-            <button type="submit" class="btn-primary">Submit Request</button>
-          </form>
-        </div>
-      `;
-      return;
-    }
-
-    const [appsRes, triadRes] = await Promise.all([
-      supabase.from('applications').select('user_id, created_at, profiles:user_id(full_name, avatar_url, total_gp)').eq('type', 'apprentice').eq('status', 'pending'),
-      supabase.rpc('public_triads')
-    ]);
-
-    const td = triadRes.data;
-    this.triads = (td && td.ok && Array.isArray(td.triads)) ? td.triads : [];
-
-    // Anyone a captain has already placed shows in their Triad, not in the
-    // list of people still waiting.
-    const placed = new Set(this.triads.flatMap(t => (t.members || []).map(m => m.user_id)));
-
-    this.applicants = ((appsRes.data) || [])
-      .filter(a => !placed.has(a.user_id))
-      .map(a => ({
-        ...a,
-        gp: (a.profiles && a.profiles.total_gp) || 0,
-        name: (a.profiles && a.profiles.full_name) || 'Gliimait',
-        avatar: (a.profiles && a.profiles.avatar_url) || ''
-      })).sort((a, b) => b.gp - a.gp || new Date(a.created_at) - new Date(b.created_at));
-
-    container.innerHTML = `
-      <div class="apprentice-head">
-        <h2>Apprenticeship Requests</h2>
-      </div>
-      <div id="apprentice-view"></div>
-    `;
-
-    this.renderAppFilter();
-    this.renderApprenticeView();
-  },
-
-  // The General/Triad filter lives in the top/bottom bar, matching the Hub.
-  renderAppFilter() {
+  renderFilter() {
     const right = document.getElementById('topbar-right-actions');
     if (!right) return;
-    const filterIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>';
 
+    const label = this.categoryFilter === 'all' ? 'All Categories' : this.categoryFilter;
     right.innerHTML = `
       <div class="apprentice-filter-wrap">
-        <button type="button" class="apprentice-filter-btn" id="apprentice-filter-btn">${filterIcon}</button>
-        <div class="apprentice-filter-menu" id="apprentice-filter-menu">
-          <div class="apprentice-filter-item${this.appFilter === 'general' ? ' active' : ''}" data-filter="general">General</div>
-          <div class="apprentice-filter-item${this.appFilter === 'triad' ? ' active' : ''}" data-filter="triad">Triad</div>
-        </div>
-      </div>
-    `;
-
-    const filterBtn = document.getElementById('apprentice-filter-btn');
-    const filterMenu = document.getElementById('apprentice-filter-menu');
-
-    filterBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      filterMenu.classList.toggle('active');
-    });
-    document.addEventListener('click', () => filterMenu.classList.remove('active'));
-    filterMenu.querySelectorAll('.apprentice-filter-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        filterMenu.querySelectorAll('.apprentice-filter-item').forEach(i => i.classList.remove('active'));
-        item.classList.add('active');
-        this.appFilter = item.dataset.filter;
-        filterMenu.classList.remove('active');
-        this.renderApprenticeView();
-      });
-    });
-  },
-
-  renderApprenticeView() {
-    const view = document.getElementById('apprentice-view');
-    if (!view) return;
-
-    if (this.appFilter === 'triad') {
-      this.renderTriads(view);
-    } else {
-      this.renderGeneral(view);
-    }
-  },
-
-  renderGeneral(view) {
-    view.innerHTML = `
-      <div class="card applicant-list">
-        ${this.applicants.map((a, i) => {
-          const avatar = a.avatar
-            ? `<img src="${escapeHtml(a.avatar)}" class="applicant-avatar" alt="">`
-            : `<div class="applicant-avatar applicant-avatar-fallback">${escapeHtml(a.name.charAt(0).toUpperCase() || 'G')}</div>`;
-          return `
-            <div class="applicant-row" title="View profile" onclick="reqInstance.viewProfile('${a.user_id}')">
-              <span class="applicant-rank">${i + 1}</span>
-              ${avatar}
-              <div class="applicant-info">
-                <span class="applicant-name">${escapeHtml(a.name)}</span>
-                <span class="applicant-gp">${a.gp} GP</span>
-              </div>
-            </div>
-          `;
-        }).join('') || '<p class="text-muted">No applications yet.</p>'}
-      </div>
-    `;
-  },
-
-  renderTriads(view) {
-    const triads = this.triads || [];
-
-    if (!triads.length) {
-      view.innerHTML = `
-        <div class="card">
-          <p class="text-muted">No Triads have been formed yet. Submit an apprenticeship request and a Captain will place you.</p>
-        </div>
-      `;
-      return;
-    }
-
-    view.innerHTML = `
-      <div class="triad-grid">
-        ${triads.map((t, ti) => `
-          <div class="triad-box">
-            <div class="triad-head">
-              <span class="triad-name" style="color: ${TRIAD_COLORS[ti % TRIAD_COLORS.length]};">${escapeHtml(t.name)}</span>
-              <span class="triad-total">${Number(t.total_gp || 0)} GP</span>
-            </div>
-            <div class="triad-members">
-              ${(t.members || []).map((m, mi) => {
-                const avatar = m.avatar
-                  ? `<img src="${escapeHtml(m.avatar)}" class="triad-avatar" alt="">`
-                  : `<div class="triad-avatar triad-avatar-fallback">${escapeHtml(String(m.name || 'G').charAt(0).toUpperCase())}</div>`;
-                return `
-                <div class="triad-member" title="View profile" onclick="reqInstance.viewProfile('${escapeHtml(m.user_id)}')">
-                  <span class="triad-rank">${mi + 1}</span>
-                  ${avatar}
-                  <div class="triad-member-info">
-                    <span class="triad-member-name">${escapeHtml(m.name)}</span>
-                    <span class="triad-gp">${Number(m.gp || 0)} GP</span>
-                  </div>
-                </div>
-              `}).join('') || '<span class="text-muted">Pending...</span>'}
-            </div>
+        <button type="button" class="apprentice-filter-btn" id="queue-filter-btn" onclick="reqInstance.toggleFilter()">${filterIcon}<span class="queue-filter-label">${escapeHtml(label)}</span></button>
+        ${this.filterOpen ? `
+          <div class="apprentice-filter-menu active" id="queue-filter-menu">
+            <div class="apprentice-filter-item${this.categoryFilter === 'all' ? ' active' : ''}" onclick="reqInstance.setCategoryFilter('all')">All Categories</div>
+            ${CATEGORIES.map(c => `
+              <div class="apprentice-filter-item${this.categoryFilter === c ? ' active' : ''}" onclick="reqInstance.setCategoryFilter('${escapeHtml(c)}')">${escapeHtml(c)}</div>
+            `).join('')}
           </div>
-        `).join('')}
+        ` : ''}
       </div>
     `;
   },
 
-  async submitApprentice() {
-    const text = document.getElementById('apprentice-text').value.trim();
-    if (text.length < 50) return alert("Please write at least 50 characters.");
-
-    const { error } = await supabase.from('applications').insert({ user_id: store.user.id, motivation: text, type: 'apprentice' });
-    if (error) return alert("Error: " + error.message);
-    this.loadTab();
-  },
-
-  // ============================================
-  // DEALS (queue board + submission form)
-  // ============================================
-  async loadDeals(container) {
-    const right = document.getElementById('topbar-right-actions');
-    if (right) right.innerHTML = '';
-
-    const { data, error } = await supabase
-      .from('deals')
-      .select('id, user_id, deal_type, relationship, company_name, company_logo_url, job_description, budget, timeline, status, created_at, profiles:profiles!deals_user_id_fkey(full_name, avatar_url)')
-      .in('status', ['queued', 'in_progress'])
-      .order('queue_position', { ascending: true });
-
-    this.queue = error ? [] : (data || []);
+  renderQueue() {
+    const container = document.getElementById('tab-content');
+    if (!container) return;
 
     const isAdmin = !!(store.profile && store.profile.is_admin);
     const mine = this.queue.filter(d => d.user_id === store.user.id);
-    const openForm = this.queue.length === 0;
+
+    const filtered = this.categoryFilter === 'all'
+      ? this.queue
+      : this.queue.filter(d => (d.category || 'Others') === this.categoryFilter);
 
     container.innerHTML = `
-      ${this.renderQueueCard(isAdmin)}
-      ${this.renderDealForm(openForm)}
+      ${this.renderQueueCard(filtered, isAdmin)}
+      ${this.renderDealForm(false)}
       ${mine.length > 0 ? `
         <div class="card" style="margin-top: 24px;">
           <h3>Your Active Gigs</h3>
@@ -318,15 +132,34 @@ export default {
     `;
   },
 
-  renderQueueCard(isAdmin) {
+  async loadDeals() {
+    const content = document.getElementById('tab-content');
+    content.innerHTML = `<p style="color: var(--text-muted); text-align: center;">Loading...</p>`;
+
+    const right = document.getElementById('topbar-right-actions');
+    if (right) right.innerHTML = '';
+
+    const { data, error } = await supabase
+      .from('deals')
+      .select('id, user_id, deal_type, category, relationship, company_name, company_logo_url, job_description, budget, timeline, status, created_at, profiles:profiles!deals_user_id_fkey(full_name, avatar_url)')
+      .in('status', ['queued', 'in_progress'])
+      .order('queue_position', { ascending: true });
+
+    this.queue = error ? [] : (data || []);
+    this.renderFilter();
+    this.renderQueue();
+  },
+
+  renderQueueCard(filtered, isAdmin) {
     const total = this.queue.length;
+    const showingFiltered = this.categoryFilter !== 'all' && filtered.length !== total;
 
     return `
       <div class="card queue-card">
         <div class="queue-card-head">
           <div>
-            <h2>Deal Queue</h2>
-            <p class="text-muted">Partners bring the work. We deliver it in order, first come first served.</p>
+            <h2>Gig Queue</h2>
+            <p class="text-muted">Bring us a gig. We deliver in order, first come first served.</p>
           </div>
           <button type="button" class="btn-primary btn-sm" onclick="reqInstance.toggleDealForm()">
             <i class="fas fa-plus"></i> Add New Gig
@@ -334,53 +167,57 @@ export default {
         </div>
 
         ${total === 0 ? `
-          <p class="text-muted" style="margin-top: 20px;">The queue is empty. Be the first to bring us a deal.</p>
+          <p class="text-muted" style="margin-top: 20px;">The queue is empty. Be the first to bring us a gig.</p>
         ` : `
-          <div class="queue-list">
-            ${this.queue.map((deal, index) => {
-              const isCorporate = deal.deal_type === 'corporate';
-              const logo = isCorporate ? deal.company_logo_url : (deal.profiles && deal.profiles.avatar_url);
-              const name = isCorporate
-                ? (deal.company_name || 'A Partner')
-                : ((deal.profiles && deal.profiles.full_name) || 'A Gliimait');
-              const isMine = deal.user_id === store.user.id;
+          ${showingFiltered ? `<p class="text-muted" style="margin-top: 12px;">Showing ${filtered.length} of ${total} gigs in <strong>${escapeHtml(this.categoryFilter)}</strong></p>` : ''}
+          ${filtered.length === 0 ? `
+            <p class="text-muted" style="margin-top: 12px;">No gigs in this category yet.</p>
+          ` : `
+            <div class="queue-list">
+              ${filtered.map((deal, index) => {
+                const isCorporate = deal.deal_type === 'corporate';
+                const logo = isCorporate ? deal.company_logo_url : null;
+                const name = isCorporate
+                  ? (deal.company_name || 'A Partner')
+                  : null;
+                const isMine = deal.user_id === store.user.id;
+                const globalIndex = this.queue.indexOf(deal);
 
-              return `
-                <div class="queue-item${index === 0 ? ' is-next' : ''}${isMine ? ' is-mine' : ''}">
-                  <div class="queue-pos">${index + 1}</div>
-                  <div class="queue-body">
-                    <div class="queue-head">
-                      ${isCorporate
-                        ? `${logo
-                            ? `<img src="${escapeHtml(logo)}" class="queue-logo" alt="">`
-                            : `<div class="queue-logo queue-logo-fallback">${escapeHtml(name.charAt(0).toUpperCase())}</div>`
-                          }<span class="queue-name">${escapeHtml(name)}</span>`
-                        : `<span class="queue-user-link" title="View profile" onclick="reqInstance.viewProfile('${deal.user_id}')">${logo
-                            ? `<img src="${escapeHtml(logo)}" class="queue-logo" alt="">`
-                            : `<div class="queue-logo queue-logo-fallback">${escapeHtml(name.charAt(0).toUpperCase())}</div>`
-                          }<span class="queue-name">${escapeHtml(name)}</span></span>`
-                      }
-                      <span class="queue-tag">${isCorporate ? 'Corporate' : 'Personal'}</span>
-                      ${index === 0 ? '<span class="queue-tag queue-tag-next">Next Up</span>' : ''}
-                      ${isMine ? '<span class="queue-tag queue-tag-mine">Yours</span>' : ''}
+                return `
+                  <div class="queue-item${globalIndex === 0 ? ' is-next' : ''}${isMine ? ' is-mine' : ''}">
+                    <div class="queue-pos">${globalIndex + 1}</div>
+                    <div class="queue-body">
+                      <div class="queue-head">
+                        ${isCorporate
+                          ? `${logo
+                              ? `<img src="${escapeHtml(logo)}" class="queue-logo" alt="">`
+                              : `<div class="queue-logo queue-logo-fallback">${escapeHtml(name.charAt(0).toUpperCase())}</div>`
+                            }<span class="queue-name">${escapeHtml(name)}</span>`
+                          : `<span class="queue-tag queue-tag-personal">Personal</span>`
+                        }
+                        <span class="queue-tag">${isCorporate ? 'Corporate' : 'Personal'}</span>
+                        ${deal.category ? `<span class="queue-tag queue-tag-category">${escapeHtml(deal.category)}</span>` : ''}
+                        ${globalIndex === 0 ? '<span class="queue-tag queue-tag-next">Next Up</span>' : ''}
+                        ${isMine ? '<span class="queue-tag queue-tag-mine">Yours</span>' : ''}
+                      </div>
+                      ${isCorporate && deal.relationship ? `<p class="queue-relationship">${escapeHtml(deal.relationship)}</p>` : ''}
+                      <p class="queue-desc">${escapeHtml(deal.job_description)}</p>
+                      <div class="queue-meta">
+                        ${deal.budget ? `<span><i class="fas fa-coins"></i> ${escapeHtml(deal.budget)}</span>` : ''}
+                        ${deal.timeline ? `<span><i class="fas fa-clock"></i> ${escapeHtml(deal.timeline)}</span>` : ''}
+                      </div>
                     </div>
-                    ${isCorporate && deal.relationship ? `<p class="queue-relationship">${escapeHtml(deal.relationship)}</p>` : ''}
-                    <p class="queue-desc">${escapeHtml(deal.job_description)}</p>
-                    <div class="queue-meta">
-                      ${deal.budget ? `<span><i class="fas fa-coins"></i> ${escapeHtml(deal.budget)}</span>` : ''}
-                      ${deal.timeline ? `<span><i class="fas fa-clock"></i> ${escapeHtml(deal.timeline)}</span>` : ''}
-                    </div>
+                    ${isAdmin ? `
+                      <div class="queue-actions">
+                        <button type="button" class="btn-primary btn-sm" onclick="reqInstance.markDealDone('${deal.id}')">Mark Done</button>
+                        <button type="button" class="btn-secondary btn-sm" onclick="reqInstance.removeDeal('${deal.id}')">Remove</button>
+                      </div>
+                    ` : ''}
                   </div>
-                  ${isAdmin ? `
-                    <div class="queue-actions">
-                      <button type="button" class="btn-primary btn-sm" onclick="reqInstance.markDealDone('${deal.id}')">Mark Done</button>
-                      <button type="button" class="btn-secondary btn-sm" onclick="reqInstance.removeDeal('${deal.id}')">Remove</button>
-                    </div>
-                  ` : ''}
-                </div>
-              `;
-            }).join('')}
-          </div>
+                `;
+              }).join('')}
+            </div>
+          `}
         `}
       </div>
     `;
@@ -389,12 +226,12 @@ export default {
   renderDealForm(open) {
     return `
       <div class="card form-card" id="deal-form-card" style="margin-top: 24px;${open ? '' : ' display: none;'}">
-        <h2>Bring Us a Deal</h2>
+        <h2>Bring Us a Gig</h2>
         <p class="text-muted">A paid gig, a contract, a partnership idea. Tell us what you need built and we will put it in the queue.</p>
 
         <form onsubmit="event.preventDefault(); reqInstance.submitDeal()" style="margin-top: 24px;">
           <div class="form-group">
-            <label>Who is this deal from?</label>
+            <label>Who is this gig from?</label>
             <div class="deal-type-toggle">
               <label class="deal-type-opt">
                 <input type="radio" name="deal-type" value="personal" checked onchange="reqInstance.setDealType('personal')">
@@ -421,6 +258,14 @@ export default {
               <input type="file" id="deal-logo" class="input" accept="image/*">
               <span class="text-muted">Shown on the queue board in place of your profile photo and name.</span>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Category</label>
+            <select id="deal-category" class="input" required>
+              <option value="">Select a category</option>
+              ${CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+            </select>
           </div>
 
           <div class="form-group">
@@ -451,12 +296,9 @@ export default {
     corporate.style.display = type === 'corporate' ? 'block' : 'none';
   },
 
-  /* Returns true when the user may queue another gig. Trial and Use n' Pay
-     (internal tier 'payngo') are capped (dealCap, default 3 open gigs);
-     Pro is unlimited; Pay n' Go (internal tier 'wallet') is blocked. */
   async dealAccessAllowed() {
     if (this.billingTier === 'wallet') {
-      await appAlert("Deals and Projects are part of a subscription. Switch to Use n' Pay (up to " + this.dealCap + " active gigs) or Pro (unlimited) to bring us work.");
+      await appAlert("Gigs are part of a subscription. Switch to Use n' Pay (up to " + this.dealCap + " active gigs) or Pro (unlimited) to bring us work.");
       goToBilling();
       return false;
     }
@@ -482,10 +324,12 @@ export default {
   async submitDeal() {
     const typeEl = document.querySelector('input[name="deal-type"]:checked');
     const dealType = typeEl ? typeEl.value : 'personal';
+    const category = document.getElementById('deal-category').value.trim();
     const description = document.getElementById('deal-description').value.trim();
     const budget = document.getElementById('deal-budget').value.trim();
     const timeline = document.getElementById('deal-timeline').value.trim();
 
+    if (!category) return alert("Please select a category.");
     if (!description) return alert("Please describe the job.");
     if (!await this.dealAccessAllowed()) return;
 
@@ -515,6 +359,7 @@ export default {
     const { error } = await supabase.from('deals').insert({
       user_id: store.user.id,
       deal_type: dealType,
+      category,
       relationship,
       company_name: companyName,
       company_logo_url: companyLogoUrl,
@@ -527,7 +372,7 @@ export default {
     if (error) {
       const msg = error.message || '';
       if (msg.includes('DEALS_REQUIRE_SUBSCRIPTION')) {
-        return alert("Deals and Projects are part of a subscription. Switch to Use n' Pay or Pro to bring us work.");
+        return alert("Gigs are part of a subscription. Switch to Use n' Pay or Pro to bring us work.");
       }
       if (msg.includes('DEAL_LIMIT_REACHED')) {
         return alert(`You've reached the ${this.dealCap} active gigs your plan allows. Finish or cancel one, or go Pro for unlimited gigs.`);
@@ -536,14 +381,14 @@ export default {
     }
 
     await alert("Your gig is in the queue. We will reach out with the next steps.");
-    this.loadTab();
+    this.loadDeals();
   },
 
   async markDealDone(id) {
     const deal = this.queue.find(d => d.id === id);
     if (!deal) return;
 
-    const confirmed = await appConfirm("Mark this gig as done? It leaves the board and the next one moves up.", { okText: 'Mark Done' });
+    const confirmed = await appConfirm("Mark this gig as done? It leaves the queue and the next one moves up.", { okText: 'Mark Done' });
     if (!confirmed) return;
 
     const { error } = await supabase.from('deals').update({
@@ -558,12 +403,11 @@ export default {
       await supabase.from('messages').insert({
         sender_id: store.user.id,
         receiver_id: deal.user_id,
-        content: 'Your deal has been completed and taken off the board. Thank you for building with Gliimu.',
+        content: 'Your gig has been completed and taken off the queue. Thank you for building with Gliimu.',
         is_ai: false
       });
     }
 
-    // Tell whoever is now first in line that their deal is up next.
     const { data: next } = await supabase.from('deals')
       .select('user_id')
       .eq('status', 'queued')
@@ -574,13 +418,13 @@ export default {
       await supabase.from('messages').insert({
         sender_id: store.user.id,
         receiver_id: next.user_id,
-        content: "You're up next on the deal board — your gig is now at the front of the queue.",
+        content: "You're up next on the gig queue — your gig is now at the front of the queue.",
         is_ai: false
       });
     }
 
     await alert("Gig marked as done. The next gig is now up.");
-    this.loadTab();
+    this.loadDeals();
   },
 
   async removeDeal(id) {
@@ -590,7 +434,7 @@ export default {
     const { error } = await supabase.from('deals').update({ status: 'cancelled' }).eq('id', id);
     if (error) return alert("Error: " + error.message);
     await alert("Gig removed from the queue.");
-    this.loadTab();
+    this.loadDeals();
   },
 
   async cancelMyDeal(id) {
@@ -599,7 +443,7 @@ export default {
 
     const { error } = await supabase.from('deals').update({ status: 'cancelled' }).eq('id', id);
     if (error) return alert("Error: " + error.message);
-    this.loadTab();
+    this.loadDeals();
   },
 
   viewProfile(userId) {

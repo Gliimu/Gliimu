@@ -70,7 +70,6 @@ export default {
 
   init() {
     this.searchQuery = '';
-    this.feedView = localStorage.getItem('gliimu_feed_view') === 'list' ? 'list' : 'grid';
 
     window.libraryInstance = {
       openDetails: (id) => {
@@ -534,33 +533,8 @@ export default {
       return;
     }
 
-    container.innerHTML = `${this.viewToggleMarkup()}<div class="library-feed feed-${this.feedView}">${cards.join('')}</div>`;
-    this.wireViewToggle();
+    container.innerHTML = `<div class="library-feed feed-grid">${cards.join('')}</div>`;
     this.layoutMasonry();
-  },
-
-  viewToggleMarkup() {
-    const gridIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>';
-    const listIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>';
-    return `
-      <div class="feed-toolbar">
-        <div class="feed-view-toggle">
-          <button type="button" class="fvt-btn${this.feedView === 'grid' ? ' active' : ''}" data-view="grid" title="Grid view">${gridIcon}</button>
-          <button type="button" class="fvt-btn${this.feedView === 'list' ? ' active' : ''}" data-view="list" title="List view">${listIcon}</button>
-        </div>
-      </div>`;
-  },
-
-  wireViewToggle() {
-    document.querySelectorAll('.feed-view-toggle .fvt-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const view = btn.dataset.view;
-        if (view === this.feedView) return;
-        this.feedView = view;
-        localStorage.setItem('gliimu_feed_view', view);
-        this.renderFeed();
-      });
-    });
   },
 
   wrapItem(html, kind) {
@@ -573,13 +547,6 @@ export default {
   layoutMasonry() {
     const feed = document.querySelector('#library-feed .library-feed');
     if (!feed) return;
-
-    // List view is a plain single column — clear any spans and let rows size
-    // naturally. Only the grid view needs the fine-row masonry packing.
-    if (this.feedView === 'list') {
-      feed.querySelectorAll('.feed-item').forEach(item => { item.style.gridRowEnd = 'auto'; });
-      return;
-    }
 
     const ROW = 8;
     const GAP = window.matchMedia('(max-width: 768px)').matches ? 12 : 24;
@@ -619,9 +586,14 @@ export default {
       ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>'
       : '';
 
+    const playIcon = item.type === 'audiolite'
+      ? `<div class="lib-play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>`
+      : '';
+
     return `
       <div class="lib-tile lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
         ${thumb}
+        ${playIcon}
         ${ownedBadge}${savedBadge}
         <div class="lib-overlay"><h4>${escapeHtml(item.title)}</h4></div>
       </div>

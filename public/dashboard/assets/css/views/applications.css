@@ -415,6 +415,14 @@
 
 .queue-tag-next { background: var(--brand-primary-light); color: var(--brand-primary); }
 .queue-tag-mine { background: var(--success-light); color: var(--success-text); }
+.queue-tag-category { background: var(--warning-light, #fef3c7); color: var(--warning-text, #92400e); }
+.queue-tag-personal { background: var(--surface-2, #f1f5f9); color: var(--text-muted); }
+
+.queue-filter-label {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
 
 .queue-relationship {
   font-size: 12px;

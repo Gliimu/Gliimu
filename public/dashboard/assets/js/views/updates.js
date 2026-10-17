@@ -11,8 +11,6 @@ const METRIC_LABEL = {
   referrals: 'Referrals'
 };
 
-const VENUE_LABEL = { Online: 'Online', Hall: 'Gliimu Hall, Gwarinpa' };
-
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -44,34 +42,22 @@ const avatar = (row) => row.avatar_url
   ? `<img class="com-ava" src="${esc(row.avatar_url)}" alt="" loading="lazy">`
   : `<span class="com-ava com-ava-fallback">${esc(initials(row.full_name))}</span>`;
 
-const venueOf = (ev) => {
-  if (ev.venue_type === 'Custom') return ev.venue_text || 'Custom venue';
-  return VENUE_LABEL[ev.venue_type] || ev.venue_text || 'Online';
-};
-
 const trophy = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>`;
 const calendarIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
-const pinIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
 const usersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
-const megaphone = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>`;
 const referIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>`;
 const linkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-// Same sliders icon the Hub filter uses, for uniformity.
 const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>`;
 
-// The filter menu. One section at a time; the leaderboard is the landing view.
 const SECTIONS = [
   { key: 'leaderboard', label: 'Leaderboard', icon: trophy },
-  { key: 'contests', label: 'Contests', icon: trophy },
   { key: 'cohorts', label: 'Cohorts', icon: usersIcon },
-  { key: 'events', label: 'Events', icon: calendarIcon },
-  { key: 'news', label: 'News', icon: megaphone },
   { key: 'refer', label: 'Refer & earn', icon: referIcon }
 ];
 
 let outsideBound = false;
 
-const arenaView = {
+const updatesView = {
   board: null,
   referral: null,
   schemaMissing: false,
@@ -87,7 +73,7 @@ const arenaView = {
   `,
 
   async init() {
-    window.arenaInstance = {
+    window.updatesInstance = {
       joinContest: (id) => this.joinContest(id),
       requestCohort: (id) => this.requestCohort(id),
       toggleFilter: (ev) => this.toggleFilter(ev),
@@ -98,7 +84,6 @@ const arenaView = {
     this.filterOpen = false;
     this.setupTopbar();
 
-    // Bound once so repeated navigations do not stack listeners.
     if (!outsideBound) {
       outsideBound = true;
       document.addEventListener('click', (e) => {
@@ -134,9 +119,6 @@ const arenaView = {
     this.loading = true;
     this.render();
 
-    // Referral summary is fetched alongside the board but never blocks it —
-    // if sql/referrals.sql is not run yet the Refer & earn section just shows
-    // a setup note instead of the card.
     const [{ data, error }, { data: ref }] = await Promise.all([
       supabase.rpc('community_board', {}),
       supabase.rpc('referral_summary', {}).then((r) => r, () => ({ data: null }))
@@ -149,7 +131,7 @@ const arenaView = {
         this.schemaMissing = true;
         this.board = null;
       } else {
-        console.error('Failed to load the Arena', error);
+        console.error('Failed to load Updates', error);
       }
       this.render();
       return;
@@ -198,8 +180,6 @@ const arenaView = {
     el.innerHTML = this.renderBoard();
   },
 
-  // The filter lives in the top/bottom bar, not the page body. It only makes
-  // sense once there is a board to switch sections on.
   renderTopbar() {
     const right = document.getElementById('topbar-right-actions');
     if (!right) return;
@@ -208,13 +188,13 @@ const arenaView = {
   },
 
   renderLoading() {
-    return `<div class="com-empty"><p>Loading the Arena…</p></div>`;
+    return `<div class="com-empty"><p>Loading Updates…</p></div>`;
   },
 
   renderMissing() {
     return `
       <div class="com-empty">
-        <h3>The Arena is not set up yet</h3>
+        <h3>Updates are not set up yet</h3>
         <p>Run <code>sql/community.sql</code> in the Supabase SQL Editor, then reload.</p>
       </div>
     `;
@@ -223,7 +203,7 @@ const arenaView = {
   renderError() {
     return `
       <div class="com-empty">
-        <h3>Could not load the Arena</h3>
+        <h3>Could not load Updates</h3>
         <p>Check your connection and reload.</p>
       </div>
     `;
@@ -233,14 +213,14 @@ const arenaView = {
     const current = SECTIONS.find(s => s.key === this.filter) || SECTIONS[0];
     return `
       <div class="com-filter" id="com-filter">
-        <button class="com-filter-btn" onclick="arenaInstance.toggleFilter(event)" title="Filter sections" aria-haspopup="true" aria-expanded="${this.filterOpen ? 'true' : 'false'}">
+        <button class="com-filter-btn" onclick="updatesInstance.toggleFilter(event)" title="Filter sections" aria-haspopup="true" aria-expanded="${this.filterOpen ? 'true' : 'false'}">
           ${filterIcon}
           <span class="com-filter-label">${esc(current.label)}</span>
         </button>
         ${this.filterOpen ? `
           <div class="com-filter-menu" role="menu">
             ${SECTIONS.map(s => `
-              <button class="com-filter-opt${s.key === this.filter ? ' active' : ''}" role="menuitem" onclick="arenaInstance.setFilter('${s.key}')">
+              <button class="com-filter-opt${s.key === this.filter ? ' active' : ''}" role="menuitem" onclick="updatesInstance.setFilter('${s.key}')">
                 ${s.icon}<span>${esc(s.label)}</span>
               </button>`).join('')}
           </div>` : ''}
@@ -253,23 +233,20 @@ const arenaView = {
     const f = this.filter;
     const head = `
       <header class="com-head">
-        <h1 class="com-h1">Arena</h1>
-        <p class="com-sub">Contests, cohorts, events and news from across Gliimu. Join a contest to climb the leaderboard.</p>
+        <h1 class="com-h1">Updates</h1>
       </header>
     `;
 
     let section = '';
     if (f === 'leaderboard') {
-      section = this.renderLeaderboard(b.leaderboard)
-        || `<section class="com-section">${this.sectionTitle(trophy, 'Leaderboard')}<div class="com-mini-empty">No featured contest yet.</div></section>`;
-    } else if (f === 'contests') {
-      section = this.renderContests(b.contests || []);
+      const lb = this.renderLeaderboard(b.leaderboard);
+      const contests = this.renderContests(b.contests || []);
+      section = (lb || '') + contests;
+      if (!lb && !(b.contests || []).length) {
+        section = `<section class="com-section">${this.sectionTitle(trophy, 'Leaderboard')}<div class="com-mini-empty">No featured contest yet.</div></section>`;
+      }
     } else if (f === 'cohorts') {
       section = this.renderCohorts(b.cohorts || []);
-    } else if (f === 'events') {
-      section = this.renderEvents(b.events || []);
-    } else if (f === 'news') {
-      section = this.renderNews(b.news || []);
     } else if (f === 'refer') {
       section = this.renderRefer();
     }
@@ -328,7 +305,7 @@ const arenaView = {
       } else if (c.joined) {
         action = `<span class="com-pill joined">Joined · ${Number(c.score || 0).toLocaleString()}</span>`;
       } else {
-        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="arenaInstance.joinContest('${c.id}')">${busy ? 'Joining…' : 'Join contest'}</button>`;
+        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="updatesInstance.joinContest('${c.id}')">${busy ? 'Joining…' : 'Join contest'}</button>`;
       }
 
       return `
@@ -370,11 +347,11 @@ const arenaView = {
       } else if (co.my_status === 'pending') {
         action = `<span class="com-pill pending">Request pending</span>`;
       } else if (co.my_status === 'rejected') {
-        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="arenaInstance.requestCohort('${co.id}')">${busy ? 'Sending…' : 'Request again'}</button>`;
+        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="updatesInstance.requestCohort('${co.id}')">${busy ? 'Sending…' : 'Request again'}</button>`;
       } else if (full) {
         action = `<span class="com-pill ended">Full</span>`;
       } else {
-        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="arenaInstance.requestCohort('${co.id}')">${busy ? 'Sending…' : 'Request a seat'}</button>`;
+        action = `<button class="com-btn" ${busy ? 'disabled' : ''} onclick="updatesInstance.requestCohort('${co.id}')">${busy ? 'Request a seat' : 'Request a seat'}</button>`;
       }
 
       return `
@@ -399,48 +376,6 @@ const arenaView = {
     `;
   },
 
-  renderEvents(list) {
-    const rows = list.map(ev => `
-      <article class="com-event">
-        <div class="com-event-date">
-          <span class="com-event-day">${esc(fmtDay(ev.starts_at))}</span>
-        </div>
-        <div class="com-event-body">
-          <h3 class="com-event-title">${esc(ev.title)}</h3>
-          <div class="com-event-meta">
-            <span>${calendarIcon} ${esc(fmtDate(ev.starts_at))}</span>
-            <span>${pinIcon} ${esc(venueOf(ev))}</span>
-          </div>
-          ${ev.description ? `<p class="com-event-desc">${esc(ev.description)}</p>` : ''}
-        </div>
-      </article>
-    `).join('');
-
-    return `
-      <section class="com-section">
-        ${this.sectionTitle(calendarIcon, 'Events')}
-        ${list.length ? `<div class="com-events">${rows}</div>` : `<div class="com-mini-empty">No upcoming events.</div>`}
-      </section>
-    `;
-  },
-
-  renderNews(list) {
-    const rows = list.map(n => `
-      <article class="com-news">
-        <h3 class="com-news-title">${esc(n.title)}</h3>
-        ${n.body ? `<p class="com-news-body">${esc(n.body)}</p>` : ''}
-        <span class="com-news-date">${esc(fmtDay(n.created_at))}</span>
-      </article>
-    `).join('');
-
-    return `
-      <section class="com-section">
-        ${this.sectionTitle(megaphone, 'News')}
-        ${list.length ? `<div class="com-news-list">${rows}</div>` : `<div class="com-mini-empty">Nothing posted yet.</div>`}
-      </section>
-    `;
-  },
-
   renderRefer() {
     const r = this.referral;
     if (!r || !r.code) {
@@ -459,7 +394,7 @@ const arenaView = {
           <p class="com-refer-blurb">Share your link. When your friend signs up and makes their first purchase, you earn <strong>100 GP</strong>.</p>
           <div class="com-refer-link">
             <input class="com-refer-input" id="com-refer-input" readonly value="${esc(link)}" onfocus="this.select()">
-            <button class="com-btn" onclick="arenaInstance.copyRefLink()">${linkIcon}<span>Copy link</span></button>
+            <button class="com-btn" onclick="updatesInstance.copyRefLink()">${linkIcon}<span>Copy link</span></button>
           </div>
           <div class="com-refer-stats">
             <div class="com-refer-stat"><span>${Number(r.vested || 0).toLocaleString()}</span><em>Friends joined</em></div>
@@ -487,4 +422,4 @@ const arenaView = {
   }
 };
 
-export default arenaView;
+export default updatesView;

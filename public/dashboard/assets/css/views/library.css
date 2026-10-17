@@ -87,6 +87,25 @@
 .lib-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; align-items: flex-end; padding: 12px; opacity: 0; transition: opacity 0.2s ease; z-index: 1; }
 .lib-overlay h4 { color: white; font-size: 13px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 
+.lib-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.lib-play-icon svg { width: 24px; height: 24px; margin-left: 2px; }
+.lib-tile:hover .lib-play-icon { background: rgba(0, 0, 0, 0.75); transform: translate(-50%, -50%) scale(1.08); }
+
 .lib-tick-badge, .lib-saved-badge {
   position: absolute;
   top: 10px;

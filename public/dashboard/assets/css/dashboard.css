@@ -323,6 +323,8 @@
   max-width: 500px;
   position: relative;
   box-shadow: var(--shadow-2xl);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 .modal-close {
   position: absolute;

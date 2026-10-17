@@ -398,7 +398,7 @@ export default {
           <ul class="plan-features">
             ${check('Full platform access')}
             ${check('Live sessions')}
-            ${check('Deals & Projects (up to 3)')}
+            ${check('Gigs (up to 3)')}
             ${check('+3 free days on renewal')}
           </ul>
           ${payngoBtn}
@@ -409,7 +409,7 @@ export default {
           <span class="plan-price-note">per year · paid from wallet</span>
           <ul class="plan-features">
             ${check('Unlimited everything')}
-            ${check('Full Deals & Projects')}
+            ${check('Unlimited Gigs')}
             ${check('No per-open charges')}
             ${check('365 days + 30 free days')}
           </ul>

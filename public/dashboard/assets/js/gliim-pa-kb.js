@@ -1,7 +1,7 @@
 // Assistant built-in knowledge base.
 //
 // This lets the assistant answer the questions Gliimaits actually ask —
-// navigation, GP tiers, wallet, pricing, arena, publishing, live,
+// navigation, GP tiers, wallet, pricing, updates, publishing, live,
 // premium, profile, support and core media craft — with no external LLM.
 // The hosted model (server /api/chat) is still tried first when it is
 // funded; this module is the always-available fallback, so the assistant
@@ -17,11 +17,11 @@ const ENTRIES = [
     answer: `I am **Assistant**, your built-in AI helper on the Gliimu platform. I work right here in the app, so you always get an answer.
 
 I can help with:
-- **Navigating** the dashboard — Hub, Ping, Arena, Queue, Billing, Settings
+- **Navigating** the dashboard — Hub, Ping, Updates, Queue, Billing, Settings
 - **GP and tiers** — what each level unlocks
 - **Wallet and top-ups** — funding, transfers, withdrawals
 - **Plans and pricing** — Pay n' Go, Monthly, Pro
-- **The Arena** — contests, cohorts, events and news
+- **The Updates** — contests, cohorts, leaderboard and referrals
 - **Publishing** — uploading a gliim, books, audiolites, bundles and PDFs
 - **Going live** — 1-on-1 sessions, screen share, rewards
 - **Premium content**, your **portfolio**, and **support**
@@ -31,13 +31,13 @@ Ask me anything above, or tap a suggested chip to get started.`
   },
   {
     title: 'Navigating the dashboard',
-    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'queue', 'billing', 'settings', 'arena', 'arena tab', 'community tab', 'how do i get to', 'section'],
+    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'queue', 'billing', 'settings', 'updates', 'updates tab', 'community tab', 'how do i get to', 'section'],
     answer: `Here is what each tab in the sidebar does:
 
 - **Hub** — the community feed. Browse, publish and read gliims from other Gliimaits.
 - **Ping** — your messages and live sessions. Start a chat or go live with someone.
-- **Arena** — contests, cohorts, events and news. Join a contest to climb the leaderboard.
-- **Queue** — your applications and pending submissions.
+- **Updates** — contests, cohorts, leaderboard and referrals. Join a contest to climb the leaderboard.
+- **Queue** — bring us a deal or gig. See the queue and track your work.
 - **Billing** — your wallet balance, plans, top-ups and transaction history.
 - **Settings** — your profile, app version and downloads.
 - **Assistant** — that is me. Ask me anything, any time.
@@ -83,14 +83,13 @@ Program tuition is set at a premium tier, roughly **₦70,000 to ₦780,000**, d
 Open **Billing** to see the current plan cards and pick the one that fits you.`
   },
   {
-    title: 'The Arena page',
-    keys: ['arena', 'community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'event', 'events', 'news', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings'],
-    answer: `Your **Arena** tab is where Gliimaits come together:
+    title: 'The Updates page',
+    keys: ['updates', 'arena', 'community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings'],
+    answer: `Your **Updates** tab is where Gliimaits come together:
 
-- **Contests** — join one to be tracked on its leaderboard. Each contest scores you automatically by its metric: GP earned, titles read, engagement, or referrals. The top 7 of the featured contest are shown.
+- **Leaderboard & Contests** — join a contest to be tracked on its leaderboard. Each contest scores you automatically by its metric: GP earned, titles read, engagement, or referrals. The top 7 of the featured contest are shown.
 - **Cohorts** — seat-capped groups. Request a seat and the operations team approves you.
-- **Events** — what is coming up, with the date, time and venue (Online, Gliimu Hall Gwarinpa, or a custom location).
-- **News** — announcements from the team.
+- **Refer & earn** — share your referral link and earn 100 GP when a friend signs up and buys.
 
 Use the filter button at the top to view one section at a time. Join a contest, take part, and your standing updates on its own — no manual scoring.`
   },
@@ -212,7 +211,7 @@ Try asking about:
 - **GP and tiers**, or what each level unlocks
 - **Wallet, top-ups and transfers**
 - **Plans and pricing**
-- **The Arena** — contests, cohorts, events and news
+- **The Updates** — contests, cohorts, leaderboard and referrals
 - **Publishing a gliim** (books, audiolites, bundles, PDFs)
 - **Going live**, **premium content**, or your **portfolio**
 - **Media craft** — b-roll, editing, lighting, pitching clients
