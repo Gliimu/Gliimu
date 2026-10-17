@@ -1,9 +1,9 @@
 const routes = {
-  '/support': () => import('./views/assistant.js?v=28').then(m => m.default),
-  '/library': () => import('./views/library.js?v=28').then(m => m.default),
-  '/updates': () => import('./views/updates.js?v=28').then(m => m.default),
-  '/ping': () => import('./views/messages.js?v=28').then(m => m.default),
-  '/wallet': () => import('./views/wallet.js?v=28').then(m => m.default),
+  '/support': () => import('./views/support.js?v=29').then(m => m.default),
+  '/library': () => import('./views/library.js?v=29').then(m => m.default),
+  '/updates': () => import('./views/updates.js?v=29').then(m => m.default),
+  '/ping': () => import('./views/messages.js?v=29').then(m => m.default),
+  '/wallet': () => import('./views/wallet.js?v=29').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
   // Deep links only: Live is folded into Ping, Profile opens from the avatar
   '/live': () => import('./views/live.js').then(m => m.default),

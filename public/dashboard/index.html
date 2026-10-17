@@ -19,7 +19,7 @@
 
   <!-- Use absolute paths starting with / to prevent Vercel routing issues -->
   <link rel="stylesheet" href="/shared/css/design-system.css">
-  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=28">
+  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=29">
   <link rel="stylesheet" href="/dashboard/assets/css/views/portfolio.css">
   <link rel="stylesheet" href="/dashboard/assets/css/views/hub.css?v=3">
   <link rel="stylesheet" href="/dashboard/assets/css/views/settings.css">
@@ -28,9 +28,9 @@
   <link rel="stylesheet" href="/dashboard/assets/css/views/wallet.css">
   <link rel="stylesheet" href="/dashboard/assets/css/views/library.css?v=23">
   <link rel="stylesheet" href="/dashboard/assets/css/views/reader.css?v=23">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/assistant.css?v=28">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/support.css?v=28">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/arena.css?v=22">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/assistant.css?v=29">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/support.css?v=29">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/arena.css?v=23">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -102,11 +102,6 @@
           <a href="https://gliimu.com" class="topbar-logo-link"><img src="/icons/logo.png" alt="Gliimu" class="topbar-logo-img"></a>
           <div id="topbar-dynamic-content" style="flex: 1; display: flex; justify-content: center; padding: 0 16px;"></div>
           <div id="topbar-right-actions" style="display: flex; align-items: center; gap: 8px; margin-left: auto;"></div>
-          <!-- Persistent staff-desk entry point: lives outside the containers the router clears -->
-          <button class="support-desk-btn" id="support-desk-btn" type="button" title="Message Team Gliimu" aria-label="Message Team Gliimu">
-            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a8 8 0 0 1 16 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"></path><path d="M21 16v2a4 4 0 0 1-4 4h-4"></path></svg>
-            <span class="support-desk-badge" id="support-desk-badge" hidden></span>
-          </button>
         </header>
 
       <div class="view-container" id="app">
@@ -115,12 +110,9 @@
     </main>
   </div>
 
-  <!-- Staff-desk conversation panel; mounted outside the router-managed containers -->
-  <div id="support-desk-root"></div>
-
   <!-- Use absolute paths for JS as well -->
   <script src="/shared/js/theme.js"></script>
-  <script type="module" src="/dashboard/assets/js/app.js?v=28"></script>
+  <script type="module" src="/dashboard/assets/js/app.js?v=29"></script>
 
   <script>
     function toggleSidebar() {

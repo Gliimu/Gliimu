@@ -1,20 +1,26 @@
 -- state.sql — READ ONLY. Nothing here writes or drops anything.
 --
--- Run the whole file in one paste. It returns FOUR result grids in order.
+-- Run the whole file in one paste. It returns FIVE result grids.
+--
 -- Grid 0 matters most: it decides whether to_regclass() can be trusted on
 -- this database, which is a big deal because several scripts in sql/ guard
 -- their drops with `if to_regclass('public.x') is not null then ...`. If
--- to_regclass lies, those guards silently skip and the self-check that
--- asserts "dropped" can read true while the table is still there.
+-- to_regclass lies, those guards silently skip, and a self-check row that
+-- asserts `to_regclass(...) is null` reads "true" while the table survives.
+--
+-- Grid 2 is the precondition list for sql/support.sql section 7, which
+-- selects m.is_admin, m.receiver_id, m.sender_id, m.content,
+-- m.attachment_url, m.attachment_type and m.created_at from public.messages.
+-- Any of those missing aborts the entire script with 42703.
 
 -- ------------------------------------------------------------
 -- 0. CATALOG BEHAVIOUR — is to_regclass usable here?
---   rc_profiles        = NULL  while isn_profiles = 1  → to_regclass is
---   BLIND on this DB. Report that back to me before running any drop
---   script, and do not trust any `to_regclass(...) is null` self-check row.
---   rc_profiles = 'profiles' while isn_profiles = 1      → catalog is
---   normal, and the earlier "relation support_messages does not exist"
---   was simply that the table is genuinely absent (support.sql not run).
+--   rc_profiles = NULL while isn_profiles = 1  → to_regclass is BLIND here.
+--     Tell me before running any drop script; no to_regclass guard or
+--     self-check row can be trusted.
+--   rc_profiles = 'profiles' (or a qualified name) → catalog is normal, and
+--     the earlier "relation support_messages does not exist" simply meant
+--     the table is genuinely absent, i.e. support.sql has not applied.
 -- ------------------------------------------------------------
 select current_setting('server_version') as server_version,
        current_setting('server_version_num')::bigint as version_num,
@@ -28,10 +34,8 @@ select current_setting('server_version') as server_version,
 
 -- ------------------------------------------------------------
 -- 1. PROBE — which scripts have already applied?
---   state = true means the object EXISTS right now.
---   Expected when neither support.sql nor gigs_drop.sql has applied:
---   rows 1, 5, 6, 7 true; rows 2, 3, 4, 9 false; row 8 is a count of the
---   admin DMs that support.sql moves out of Ping.
+--   state = true means the object EXISTS right now. Every row is boolean,
+--   so the UNION cannot type-clash.
 -- ------------------------------------------------------------
 select 1 as "#", 'public.deals table exists (gigs_drop NOT applied)' as check_name,
        exists (select 1 from information_schema.tables
@@ -61,8 +65,10 @@ union all select 6, 'deal_logos storage bucket still present',
 union all select 7, 'site_assets storage bucket present (must be true)',
        exists (select 1 from storage.buckets where id = 'site_assets')
 
-union all select 8, 'admin-origin DMs in messages (support.sql moves these)',
-       (select count(*) from public.messages where is_admin = true)
+union all select 8, 'messages.is_admin column exists (support.sql now self-heals this)',
+       exists (select 1 from information_schema.columns
+                where table_schema = 'public' and table_name = 'messages'
+                  and column_name = 'is_admin')
 
 union all select 9, 'enforce_deal_tier() function still present',
        exists (select 1 from pg_proc p
@@ -72,7 +78,18 @@ union all select 9, 'enforce_deal_tier() function still present',
 order by "#";
 
 -- ------------------------------------------------------------
--- 2. TABLE INVENTORY — every public table, RLS state, policy count.
+-- 2. public.messages COLUMN INVENTORY — compare against the header list.
+-- ------------------------------------------------------------
+select c.column_name as column_name,
+       c.data_type as data_type,
+       case when c.is_nullable = 'NO' then 'not null' else 'nullable' end as nulability,
+       coalesce(c.column_default, '') as default_value
+  from information_schema.columns c
+ where c.table_schema = 'public' and c.table_name = 'messages'
+ order by c.ordinal_position;
+
+-- ------------------------------------------------------------
+-- 3. TABLE INVENTORY — every public table, RLS state, policy count.
 -- ------------------------------------------------------------
 select t.table_name as table_name,
        case when t.row_security = 'YES' then 'rls on' else 'RLS OFF' end as rls,
@@ -88,8 +105,7 @@ select t.table_name as table_name,
  order by t.table_name;
 
 -- ------------------------------------------------------------
--- 3. FUNCTION INVENTORY — every public function and who may run it.
---    Check for SECURITY DEFINER functions that are still public.
+-- 4. FUNCTION INVENTORY — every public function and who may run it.
 -- ------------------------------------------------------------
 select p.proname as function_name,
        case p.prosecdef when true then 'definer' else 'invoker' end as security,
@@ -99,3 +115,14 @@ select p.proname as function_name,
   join pg_namespace n on n.oid = p.pronamespace
  where n.nspname = 'public'
  order by p.proname;
+
+-- ------------------------------------------------------------
+-- 5. HOW MUCH THERE IS TO MIGRATE — how many admin-origin DMs support.sql
+--    section 7 will copy into support_messages. This one deliberately
+--    references messages.is_admin, so if that column is missing it errors
+--    with 42703. That error is itself the answer (grid 1 row 8 false), not a
+--    problem — read it as "is_admin not applied yet", not as a broken file.
+-- ------------------------------------------------------------
+select count(*) filter (where m.is_admin) as admin_origin_messages,
+       count(*) as messages_total
+  from public.messages m;

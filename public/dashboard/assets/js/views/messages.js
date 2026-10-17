@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
-import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
-import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=28';
+import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
+import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
 import liveView from './live.js';
 
 function escapeHtml(value) {
@@ -53,6 +53,7 @@ export default {
     this.chatReady = false;
     this.chatHistory = [];
     this.unreadMap = {};
+    this.previewMap = {};
     this.mode = localStorage.getItem('gliimu-ping-mode') === 'live' ? 'live' : 'chats';
     this.liveMounted = false;
 
@@ -78,6 +79,7 @@ export default {
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
+      getActiveChat: () => this.activeChat?.id || null,
       openHubMention: (postId, commentId) => this.openHubMention(postId, commentId),
       sendMessage: () => this.sendMessage(),
       searchUsers: (query) => this.searchUsers(query),
@@ -273,8 +275,8 @@ export default {
     const results = await Promise.all([
       supabase.from('contacts').select('contact_id').eq('user_id', store.user.id),
       supabase.from('hidden_chats').select('contact_id, hidden_at').eq('user_id', store.user.id),
-      supabase.from('messages').select('sender_id, receiver_id, created_at, read_at, room, is_ai, is_admin').eq('receiver_id', store.user.id),
-      supabase.from('messages').select('sender_id, receiver_id, created_at, room, is_ai, is_admin').eq('sender_id', store.user.id).not('receiver_id', 'is', null)
+      supabase.from('messages').select('sender_id, receiver_id, created_at, read_at, room, is_ai, is_admin, content, attachment_url, attachment_type').eq('receiver_id', store.user.id),
+      supabase.from('messages').select('sender_id, receiver_id, created_at, room, is_ai, is_admin, content, attachment_url, attachment_type').eq('sender_id', store.user.id).not('receiver_id', 'is', null)
     ]);
     if (this.disposed || request !== this.contactsRequest) return;
     const failure = results.find(result => result.error);
@@ -290,11 +292,16 @@ export default {
     const hiddenMap = Object.fromEntries(hiddenChats.map(h => [h.contact_id, new Date(h.hidden_at).getTime()]));
     const userIds = new Set(explicitContacts.filter(c => !hiddenMap[c.contact_id]).map(c => c.contact_id));
     const lastMsgMap = {};
+    const previewMap = {};
 
     [...receivedMsgs, ...sentMsgs].forEach(m => {
       const otherId = m.sender_id === store.user.id ? m.receiver_id : m.sender_id;
       const time = new Date(m.created_at).getTime();
       if (!hiddenMap[otherId] || time > hiddenMap[otherId]) userIds.add(otherId);
+      if (time > (lastMsgMap[otherId] || 0)) {
+        const text = previewText(m);
+        if (text) previewMap[otherId] = { text, mine: m.sender_id === store.user.id };
+      }
       lastMsgMap[otherId] = Math.max(lastMsgMap[otherId] || 0, time);
     });
     userIds.delete(store.user.id);
@@ -310,6 +317,7 @@ export default {
       profiles = data || [];
     }
     this.unreadMap = computeUnread(store.user.id, receivedMsgs).unreadMap;
+    this.previewMap = previewMap;
     this.contacts = profiles.sort((a, b) => (lastMsgMap[b.id] || 0) - (lastMsgMap[a.id] || 0));
     if (this.activeChat) {
       const header = document.querySelector('#ping-main .ping-chat-header');
@@ -332,13 +340,15 @@ export default {
 
       const unreadCount = this.unreadMap[u.id] || 0;
       const unreadBadge = unreadCount > 0 ? `<span class="chat-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : '';
+      const preview = this.previewMap[u.id];
+      const snippet = preview ? (preview.mine ? `You: ${preview.text}` : preview.text) : 'No messages yet';
 
       return `
         <div class="ping-chat-item ${this.activeChat?.id === u.id ? 'active' : ''} ${unreadCount > 0 ? 'unread' : ''}" onclick="pingInstance.openChat('dm', '${u.id}')">
           ${avatar}
           <div class="ping-chat-info">
             <span class="ping-chat-name">${escapeHtml(u.full_name || 'Gliimait')}</span>
-            <span class="ping-chat-preview">${u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP'}</span>
+            <span class="ping-chat-preview">${escapeHtml(snippet)}</span>
           </div>
           ${unreadBadge}
         </div>
@@ -631,6 +641,7 @@ export default {
     if (this.disposed) return;
     this.contacts = this.contacts.filter(c => c.id !== userId);
     delete this.unreadMap[userId];
+    delete this.previewMap[userId];
     if (this.activeChat?.id === userId) this.closeChat();
     this.renderChatList();
   },

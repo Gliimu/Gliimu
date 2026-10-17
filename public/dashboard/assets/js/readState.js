@@ -34,3 +34,17 @@ export function computeUnread(userId, receivedMsgs) {
   });
   return { unreadMap, total };
 }
+
+// The newest message the reader has not seen yet — the one worth alerting on.
+export function latestIncomingUnread(userId, receivedMsgs) {
+  const map = getReadMap(userId);
+  let best = null;
+  let bestTime = 0;
+  (receivedMsgs || []).forEach(m => {
+    if (m.read_at || !isIncomingDm(userId, m)) return;
+    const time = new Date(m.created_at).getTime();
+    if (time <= (map[m.sender_id] || 0)) return;
+    if (time > bestTime) { best = m; bestTime = time; }
+  });
+  return best;
+}

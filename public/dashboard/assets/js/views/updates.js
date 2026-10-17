@@ -41,20 +41,20 @@ const contestIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="
 const calendarIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
 const usersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
 const referIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>`;
-const linkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
 const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>`;
 
 const SECTIONS = [
   { key: 'leaderboard', label: 'Leaderboard', icon: trophy },
+  { key: 'contests', label: 'Contests', icon: contestIcon },
   { key: 'cohorts', label: 'Cohorts', icon: usersIcon },
-  { key: 'refer', label: 'Refer & earn', icon: referIcon }
+  { key: 'referrals', label: 'Referrals', icon: referIcon }
 ];
 
 let outsideBound = false;
 
 const updatesView = {
   board: null,
-  referral: null,
+  boards: null,
   schemaMissing: false,
   loading: true,
   busy: null,
@@ -72,8 +72,7 @@ const updatesView = {
       joinContest: (id) => this.joinContest(id),
       requestCohort: (id) => this.requestCohort(id),
       toggleFilter: (ev) => this.toggleFilter(ev),
-      setFilter: (key) => this.setFilter(key),
-      copyRefLink: () => this.copyRefLink()
+      setFilter: (key) => this.setFilter(key)
     };
     this.filter = 'leaderboard';
     this.filterOpen = false;
@@ -114,11 +113,13 @@ const updatesView = {
     this.loading = true;
     this.render();
 
-    const [{ data, error }, { data: ref }] = await Promise.all([
+    // community_board carries your own join state; updates_boards carries the
+    // ranked lists each filter shows. Missing RPCs simply hide those boards.
+    const [{ data, error }, boards] = await Promise.all([
       supabase.rpc('community_board', {}),
-      supabase.rpc('referral_summary', {}).then((r) => r, () => ({ data: null }))
+      supabase.rpc('updates_boards', {})
+        .then((r) => (r.error ? null : r.data), () => null)
     ]);
-    this.referral = ref && ref.code ? ref : null;
 
     if (error) {
       this.loading = false;
@@ -135,6 +136,7 @@ const updatesView = {
     this.loading = false;
     this.schemaMissing = false;
     this.board = data && data.ok ? data : null;
+    this.boards = boards || null;
     this.render();
   },
 
@@ -234,16 +236,14 @@ const updatesView = {
 
     let section = '';
     if (f === 'leaderboard') {
-      const lb = this.renderLeaderboard(b.leaderboard);
-      const contests = this.renderContests(b.contests || []);
-      section = (lb || '') + contests;
-      if (!lb && !(b.contests || []).length) {
-        section = `<section class="com-section">${this.sectionTitle(trophy, 'Leaderboard')}<div class="com-mini-empty">No featured contest yet.</div></section>`;
-      }
+      section = this.renderLeaderboard(b.leaderboard) || `
+        <section class="com-section">${this.sectionTitle(trophy, 'Leaderboard')}<div class="com-mini-empty">No featured contest yet.</div></section>`;
+    } else if (f === 'contests') {
+      section = this.renderContests(b.contests || []) + this.renderGroups('contests', contestIcon, 'Contest scores', 'GP earned since you joined');
     } else if (f === 'cohorts') {
-      section = this.renderCohorts(b.cohorts || []);
-    } else if (f === 'refer') {
-      section = this.renderRefer();
+      section = this.renderCohorts(b.cohorts || []) + this.renderGroups('cohorts', usersIcon, 'Cohort scores', 'GP earned since approval');
+    } else if (f === 'referrals') {
+      section = this.renderGroups('referrals', referIcon, 'Most referrals', 'Friends who signed up');
     }
 
     return head + section;
@@ -259,30 +259,71 @@ const updatesView = {
     `;
   },
 
-  renderLeaderboard(lb) {
-    if (!lb || !lb.contest_id) return '';
-    const rows = Array.isArray(lb.rows) ? lb.rows : [];
-    const metric = METRIC_LABEL[lb.metric] || 'Points';
-
-    const body = rows.length ? `
+  renderRows(rows, metricLabel) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return `<div class="com-mini-empty">No one on the board yet.</div>`;
+    return `
       <ol class="com-board">
-        ${rows.map(r => `
+        ${list.map(r => `
           <li class="com-board-row rank-${r.rank <= 3 ? r.rank : 'n'}">
             <span class="com-rank">${r.rank}</span>
             <a class="com-board-id" href="#/profile?u=${esc(r.user_id)}">
               ${avatar(r)}
               <span class="com-board-name">${esc(r.full_name || 'Member')}</span>
             </a>
-            <span class="com-board-score">${Number(r.score || 0).toLocaleString()}<em>${esc(metric)}</em></span>
+            <span class="com-board-score">${Number(r.score || 0).toLocaleString()}<em>${esc(metricLabel)}</em></span>
           </li>
         `).join('')}
       </ol>
-    ` : `<div class="com-mini-empty">No one has joined yet. Be the first.</div>`;
+    `;
+  },
 
+  // Each filter shows the ranking that matches its own content. The boards come
+  // from updates_boards(); without that RPC there is nothing to invent, so the
+  // section says what is missing.
+  renderGroups(key, icon, title, note) {
+    if (!this.boards) {
+      return `
+        <section class="com-section">
+          ${this.sectionTitle(icon, title)}
+          <div class="com-mini-empty">Run <code>sql/updates_boards.sql</code> in the Supabase SQL Editor to show these rankings.</div>
+        </section>
+      `;
+    }
+    const boards = this.boards[key];
+    if (!boards || !boards.length) return '';
+
+    if (key === 'referrals') {
+      return `
+        <section class="com-section">
+          ${this.sectionTitle(icon, title, note)}
+          ${this.renderRows(boards, 'Friends')}
+        </section>
+      `;
+    }
+
+    return `
+      <section class="com-section">
+        ${this.sectionTitle(icon, title, note)}
+        ${boards.map(g => `
+          <div class="com-board-group">
+            <div class="com-board-group-head">
+              <span class="com-board-group-title">${esc(g.title)}</span>
+              <span class="com-board-group-note">${esc(g.ends_at ? `until ${fmtDay(g.ends_at)}` : g.starts_at ? `from ${fmtDay(g.starts_at)}` : '')}</span>
+            </div>
+            ${this.renderRows(g.rows, 'GP')}
+          </div>`).join('')}
+      </section>
+    `;
+  },
+
+  renderLeaderboard(lb) {
+    if (!lb || !lb.contest_id) return '';
+    const metric = METRIC_LABEL[lb.metric] || 'Points';
     return `
       <section class="com-section com-leaderboard">
         ${this.sectionTitle(trophy, 'Leaderboard', lb.contest_title)}
-        ${body}
+        ${this.renderRows(lb.rows, metric)}
       </section>
     `;
   },
@@ -369,51 +410,6 @@ const updatesView = {
         ${list.length ? `<div class="com-grid">${cards}</div>` : `<div class="com-mini-empty">No open cohorts yet.</div>`}
       </section>
     `;
-  },
-
-  renderRefer() {
-    const r = this.referral;
-    if (!r || !r.code) {
-      return `
-        <section class="com-section">
-          ${this.sectionTitle(referIcon, 'Refer & earn')}
-          <div class="com-mini-empty">Run <code>sql/referrals.sql</code> in the Supabase SQL Editor to enable referrals.</div>
-        </section>
-      `;
-    }
-    const link = `${window.location.origin}${r.link}`;
-    return `
-      <section class="com-section com-refer">
-        ${this.sectionTitle(referIcon, 'Refer & earn', '100 GP per friend')}
-        <div class="com-refer-card">
-          <p class="com-refer-blurb">Share your link. When your friend signs up and makes their first purchase, you earn <strong>100 GP</strong>.</p>
-          <div class="com-refer-link">
-            <input class="com-refer-input" id="com-refer-input" readonly value="${esc(link)}" onfocus="this.select()">
-            <button class="com-btn" onclick="updatesInstance.copyRefLink()">${linkIcon}<span>Copy link</span></button>
-          </div>
-          <div class="com-refer-stats">
-            <div class="com-refer-stat"><span>${Number(r.vested || 0).toLocaleString()}</span><em>Friends joined</em></div>
-            <div class="com-refer-stat"><span>${Number(r.pending || 0).toLocaleString()}</span><em>Pending</em></div>
-            <div class="com-refer-stat"><span>${Number(r.gp_earned || 0).toLocaleString()}</span><em>GP earned</em></div>
-          </div>
-        </div>
-      </section>
-    `;
-  },
-
-  async copyRefLink() {
-    const input = document.getElementById('com-refer-input');
-    const link = input ? input.value : `${window.location.origin}${(this.referral && this.referral.link) || ''}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      await appAlert('Referral link copied.');
-    } catch (e) {
-      if (input) {
-        input.select();
-        try { document.execCommand('copy'); await appAlert('Referral link copied.'); }
-        catch (_) { await appAlert('Copy failed — select the link and copy it manually.'); }
-      }
-    }
   }
 };
 

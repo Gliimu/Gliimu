@@ -1,47 +1,46 @@
-// Assistant built-in knowledge base.
+// Gliim P.A. built-in knowledge base.
 //
-// This lets the assistant answer the questions Gliimaits actually ask —
-// navigation, GP tiers, wallet, pricing, updates, publishing, live,
-// premium, profile, support and core media craft — with no external LLM.
-// The hosted model (server /api/chat) is still tried first when it is
-// funded; this module is the always-available fallback, so the assistant
-// never shows a dead end.
+// This lets her answer the questions Gliimaits actually ask — navigation,
+// GP tiers, wallet, pricing, Updates, publishing, live, premium, portfolio and
+// core media craft — with no external LLM. The hosted model (server /api/chat)
+// is still tried first when it is funded; this module is the always-available
+// fallback, so the Support page never shows a dead end.
 //
-// Answers are plain markdown. assistant.js escapes everything before it
+// Answers are plain markdown. views/support.js escapes everything before it
 // renders, so nothing here can inject markup.
 
 const ENTRIES = [
   {
-    title: 'What the Assistant can do',
+    title: 'What Gliim P.A. can do',
     keys: ['help', 'what can you do', 'who are you', 'gliim pa', 'gliim-pa', 'assistant', 'commands', 'what do you do', 'capabilit'],
-    answer: `I am **Assistant**, your built-in AI helper on the Gliimu platform. I work right here in the app, so you always get an answer.
+    answer: `I am **Gliim P.A.**, your built-in assistant on Gliimu. I live on the **Support** tab, so you always get an answer.
 
 I can help with:
 - **Navigating** the dashboard — Hub, Ping, Updates, Support, Billing, Settings
 - **GP and tiers** — what each level unlocks
 - **Wallet and top-ups** — funding, transfers, withdrawals
-- **Plans and pricing** — Pay n' Go, Monthly, Pro
-- **The Updates** — contests, cohorts, leaderboard and referrals
-- **Publishing** — uploading a gliim, books, audiolites, bundles and PDFs
-- **Going live** — 1-on-1 sessions, screen share, rewards
+- **Plans and pricing** — Wallet, Use n' Pay, Xtra
+- **The Updates** — leaderboard, contests, cohorts and referrals
+- **Publishing** — a gliim, a book, an audiolite or a bundle
+- **Going live** — 1-on-1 sessions, screen share, voice notes
 - **Premium content**, your **portfolio**, and **support**
 - **Media craft** — b-roll, editing, lighting, audio, pitching clients
 
-Ask me anything above, or tap a suggested chip to get started.`
+Ask me anything above, or tap a suggested chip to get started. If my answer ever misses the mark, press the thumbs-down and a person from Team Gliimu takes over.`
   },
   {
     title: 'Navigating the dashboard',
-    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'billing', 'settings', 'updates', 'updates tab', 'how do i get to', 'section'],
+    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'billing', 'settings', 'updates', 'support', 'how do i get to', 'section'],
     answer: `Here is what each tab in the sidebar does:
 
 - **Hub** — the community feed. Browse, publish and read gliims from other Gliimaits.
-- **Ping** — your messages and live sessions. Start a chat or go live with someone.
-- **Updates** — contests, cohorts, leaderboard and referrals. Join a contest to climb the leaderboard.
+- **Ping** — your messages. Text, photos, video and voice notes, plus 1-on-1 live sessions.
+- **Updates** — leaderboard, contests, cohorts and referrals, each with its own board.
+- **Support** — me, Gliim P.A., and the Team Gliimu desk behind me.
 - **Billing** — your wallet balance, plans, top-ups and transaction history.
 - **Settings** — your profile, app version and downloads.
-- **Assistant** — that is me. Ask me anything, any time.
 
-On a phone the same tabs slide out from the menu button, and the top bar moves to the bottom of the screen. Tap your avatar to open your public portfolio.`
+On a phone the same tabs slide out from the menu button, and the tab bar moves to the bottom of the screen. Tap your avatar to open your public portfolio.`
   },
   {
     title: 'GP and tiers',
@@ -81,14 +80,15 @@ Open **Billing** to see the current plan cards and pick the one that fits you.`
   },
   {
     title: 'The Updates page',
-    keys: ['updates', 'arena', 'community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings'],
-    answer: `Your **Updates** tab is where Gliimaits come together:
+    keys: ['updates', 'arena', 'community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings', 'referrals', 'refer'],
+    answer: `Your **Updates** tab is where Gliimaits come together. The filter button at the top picks one section at a time, and each section shows the board that matches it:
 
-- **Leaderboard & Contests** — join a contest to be tracked on its leaderboard. Each contest scores you automatically by its metric: GP earned, titles read, engagement, or referrals. The top 7 of the featured contest are shown.
-- **Cohorts** — seat-capped groups. Request a seat and the operations team approves you.
-- **Refer & earn** — share your referral link and earn 100 GP when a friend signs up and buys.
+- **Leaderboard** — the standings of the featured contest. When a new contest opens it becomes the featured one.
+- **Contests** — the three latest contests, each with a board of the GP earned inside that contest window.
+- **Cohorts** — seat-capped groups. Request a seat and the operations team approves you; the board shows GP earned since you were approved.
+- **Referrals** — a board of who has brought the most friends to Gliimu.
 
-Use the filter button at the top to view one section at a time. Join a contest, take part, and your standing updates on its own — no manual scoring.`
+Contest scores update on their own from your activity — no manual scoring. Use the same filter to move between the boards.`
   },
   {
     title: 'Publishing a gliim',
@@ -102,6 +102,18 @@ Use the filter button at the top to view one section at a time. Join a contest, 
 5. Submit.
 
 New gliims go to the CRM team for a quick review. Once approved they appear in the Hub and on your portfolio. You can mark a gliim **premium** to lock it behind GP.`
+  },
+  {
+    title: 'Ping, messages and voice notes',
+    keys: ['ping', 'message', 'messages', 'chat', 'dm', 'voice note', 'voice', 'audio message', 'send a photo', 'notification', 'sound', 'unread'],
+    answer: `**Ping** is your private inbox with other Gliimaits.
+
+- Send text, photos, video, documents and **voice notes** — tap the microphone, talk, and press send.
+- The list shows the newest message from each person under their name, so you can see what came in before you open it.
+- A new message plays a short chime and raises a desktop notification, unless the chat is already open.
+- Anything from a Team Gliimu admin does **not** appear in Ping — staff answers you on the **Support** tab instead, so your conversations with other members stay clean.
+
+Unread counts show as a badge on the Ping tab and clear the moment you open the chat.`
   },
   {
     title: 'Going live',
@@ -140,14 +152,15 @@ Use the print button to export a clean PDF you can share with clients. Your avat
   },
   {
     title: 'Support and reporting',
-    keys: ['support', 'contact', 'help desk', 'report', 'issue', 'bug', 'problem', 'reach', 'complaint', 'not working', 'broken', 'error'],
-    answer: `If something is not right:
+    keys: ['support', 'contact', 'help desk', 'report', 'issue', 'bug', 'problem', 'reach', 'complaint', 'not working', 'broken', 'error', 'talk to a human', 'real person', 'admin'],
+    answer: `The **Support** tab is one thread with two helpers in it.
 
-- **Report content** — use the report option on any gliim or profile and pick a reason. The CRM team reviews every report.
-- **Payment or top-up problems** — check your Billing history first, then reach the registrar.
-- **Platform support** — use the contact form on the Gliimu site, or ping the support account.
+- **Ask me first.** Type your question and I answer instantly from what I know about Gliimu and about media work.
+- **Reach a person.** Tap the **Team** chip in the composer and your message goes to the Team Gliimu desk instead of me. Every admin on the desk can read it and reply, you can attach a file or screenshot there, and you get a sound plus a desktop notification when someone answers.
+- **If my answer misses**, press the thumbs-down on it. That hands the question to a human straight away, and I go quiet while they pick it up.
+- **I come back automatically.** After a person replies, I stay out of the way for five minutes and then take the thread over again on my own — nobody has to switch anything back on.
 
-Tell me what is going wrong and I will point you to the right place.`
+For content problems use the **report** option on the gliim or profile itself and pick a reason; the CRM team reviews every report. For anything about money, check your **Billing** history first, then write to the desk.`
   },
   {
     title: 'B-roll and core craft',

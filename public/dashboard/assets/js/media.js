@@ -47,6 +47,20 @@ export function toggleAudio(msgId, url) {
 // ============================================
 // ATTACHMENT MARKUP & UPLOADS
 // ============================================
+// One-line summary of a message, used by the Ping chat list and by the
+// desktop notification body. Attachments have no text, so they name themselves.
+export function previewText(message) {
+  const text = String(message.content || '').replace(/\s+/g, ' ').trim();
+  if (text) return text.length > 44 ? `${text.slice(0, 44).trimEnd()}…` : text;
+  if (message.attachment_url) {
+    if (message.attachment_type === 'image') return 'Photo';
+    if (message.attachment_type === 'video') return 'Video';
+    if (message.attachment_type === 'audio_note') return 'Voice note';
+    return 'Attachment';
+  }
+  return '';
+}
+
 export function attachmentHtml(m, instanceName) {
   if (!m.attachment_url) return '';
   if (m.attachment_type === 'image') return `<img src="${m.attachment_url}" class="ping-attachment img">`;
@@ -63,7 +77,7 @@ export function attachmentHtml(m, instanceName) {
     `;
   }
   if (m.attachment_type === 'video') return `<video controls src="${m.attachment_url}" class="ping-attachment video"></video>`;
-  return `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file">📎 Download File</a>`;
+  return `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg> Download File</a>`;
 }
 
 export async function uploadAttachment(file) {

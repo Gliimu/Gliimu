@@ -366,6 +366,44 @@ select.input { cursor: pointer; }
 .sb-attach { display: block; max-width: 240px; max-height: 200px; border-radius: var(--radius-md); }
 .sb-file { font-size: 13px; font-weight: 600; color: var(--brand-primary); }
 .sb.me .sb-file { color: #fff; text-decoration: underline; }
+.sb-del {
+  display: inline-flex; align-items: center; margin-left: 6px; padding: 0;
+  background: none; border: 0; cursor: pointer;
+  color: rgba(255, 255, 255, .7); vertical-align: -2px;
+}
+.sb-del:hover { color: #fff; }
+
+/* Gliim P.A. handover: the desk shows who currently owns the thread. */
+.sb-hold {
+  margin-left: auto; flex-shrink: 0; font-size: 11.5px; font-weight: 700;
+  color: var(--text-muted); background: var(--bg-tertiary);
+  border: 1px solid var(--border); border-radius: var(--radius-full); padding: 6px 11px;
+  white-space: nowrap;
+}
+.sb-hold.active { color: var(--brand-primary); background: var(--brand-light); border-color: var(--brand-primary); }
+.inbox-esc {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 3px;
+  font-size: 11px; font-weight: 700; color: var(--warning-text);
+}
+.sb-esc {
+  align-self: center; max-width: 92%; display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--warning); border-radius: var(--radius-md);
+  padding: 11px 13px; font-size: 13.5px; color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.sb-esc-head { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; color: var(--warning-text); text-transform: uppercase; letter-spacing: .03em; }
+.sb-esc-q { font-weight: 600; }
+.sb-esc-a { color: var(--text-secondary); }
+.sb-esc-hint { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+
+/* Admins room: the same thread chrome, no member involved. */
+.room-count { margin-left: auto; }
+.inbox-icon-btn.recording {
+  color: #fff; background: var(--error); border-color: var(--error);
+  animation: room-pulse 1.2s ease-in-out infinite;
+}
+@keyframes room-pulse { 50% { opacity: .55; } }
 
 /* ---------------- States ---------------- */
 

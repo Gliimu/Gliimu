@@ -1,8 +1,9 @@
 import { store } from './store.js';
-import { router } from './router.js?v=28';
+import { router } from './router.js?v=29';
 import { supabase } from '/shared/js/config.js';
-import { computeUnread } from './readState.js?v=28';
-import { supportDesk } from './supportChat.js?v=28';
+import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
+import { notify } from './notify.js?v=29';
+import { previewText } from './media.js';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -10,6 +11,7 @@ import { supportDesk } from './supportChat.js?v=28';
 const NotificationManager = {
   counts: {
     ping: 0,
+    support: 0,
     settings: 0
   },
 
@@ -34,7 +36,7 @@ const NotificationManager = {
   async refreshUnread() {
     const request = this.unreadRequest = (this.unreadRequest || 0) + 1;
     const { data, error } = await supabase.from('messages')
-      .select('sender_id, receiver_id, created_at, read_at, room, is_ai, is_admin')
+      .select('sender_id, receiver_id, created_at, read_at, room, is_ai, is_admin, content, attachment_url, attachment_type')
       .eq('receiver_id', store.user.id);
     if (request !== this.unreadRequest) return;
     if (error) {
@@ -42,12 +44,64 @@ const NotificationManager = {
       return;
     }
     const { total } = computeUnread(store.user.id, data);
+    const previous = this.counts.ping;
     this.counts.ping = total;
     this.updateBadge('ping', total);
+    // The first pass only seeds the baseline — old unread messages must not
+    // ring the bell on every page load.
+    if (this.pingCounted && total > previous) {
+      const newest = latestIncomingUnread(store.user.id, data);
+      if (newest) this.alertPing(newest);
+    }
+    this.pingCounted = true;
+  },
+
+  async alertPing(message) {
+    const { data } = await supabase.from('profiles')
+      .select('full_name').eq('id', message.sender_id).maybeSingle();
+    const openChatId = window.pingInstance?.getActiveChat?.() || null;
+    notify.message({
+      title: data?.full_name || 'New ping',
+      body: previewText(message) || 'Sent you a message',
+      tag: `gliimu-ping-${message.sender_id}`,
+      // No beep while they are reading that exact chat.
+      sound: openChatId !== message.sender_id,
+      desktop: document.hidden || !/^#\/(ping|live)/.test(window.location.hash)
+    });
+  },
+
+  async refreshSupportUnread() {
+    const request = this.supportRequest = (this.supportRequest || 0) + 1;
+    const { data, error } = await supabase.rpc('support_thread_unread', { p_thread_user: store.user.id });
+    if (request !== this.supportRequest) return;
+    if (error) {
+      // Expected until sql/support.sql has been run on this project.
+      console.warn('Could not read the support unread count:', error.message);
+      return;
+    }
+    this.counts.support = data || 0;
+    this.updateBadge('support', this.counts.support);
+  },
+
+  // Staff replies arrive under the agent's own id, so the sender has to be
+  // looked up before the alert can name them.
+  async alertSupport(row) {
+    // Escalations and the member's own messages never ring their own bell.
+    const onSupport = /^#\/support/.test(window.location.hash) && !document.hidden;
+    if (row.sender_id === store.user.id || onSupport) return;
+    const { data } = await supabase.from('profiles')
+      .select('full_name').eq('id', row.sender_id).maybeSingle();
+    notify.message({
+      title: data?.full_name || 'Team Gliimu',
+      body: previewText(row) || 'Replied on the support desk',
+      tag: 'gliimu-support',
+      desktop: true
+    });
   },
 
   async fetchInitialCounts() {
     await this.refreshUnread();
+    await this.refreshSupportUnread();
 
     // Settings (App Version - Placeholder logic)
     // For now, we'll just set it to 0. You can change this to 1 when you deploy a new version.
@@ -59,8 +113,19 @@ const NotificationManager = {
     supabase.channel('app-global-notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${store.user.id}` }, () => {
         this.refreshUnread();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'support_messages',
+        filter: `thread_user=eq.${store.user.id}`
+      }, ({ new: row }) => {
+        // Thread-keyed, not sender-keyed: every admin answers with their own id.
+        this.alertSupport(row);
+        this.refreshSupportUnread();
       }).subscribe(status => {
-        if (status === 'SUBSCRIBED') this.refreshUnread();
+        if (status === 'SUBSCRIBED') {
+          this.refreshUnread();
+          this.refreshSupportUnread();
+        }
       });
     window.addEventListener('gliimu-chat-read', () => this.refreshUnread());
     window.addEventListener('storage', (event) => {
@@ -194,12 +259,10 @@ async function initApp() {
   }
 
   // Initialize Notifications
+  notify.init();
   await NotificationManager.fetchInitialCounts();
   NotificationManager.initRealtimeListeners();
   window.NotificationManager = NotificationManager;
-
-  supportDesk.init();
-  window.supportDesk = supportDesk;
 
   Presence.init();
   window.GliimuPresence = Presence;

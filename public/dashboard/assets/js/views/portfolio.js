@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js?v=28';
+import hubView from './hub.js?v=29';
 
 export default {
   title: 'Profile',

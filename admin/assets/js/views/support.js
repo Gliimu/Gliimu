@@ -13,6 +13,8 @@ const QUICK_REPLIES = [
   { label: 'Resolved', text: 'This is resolved on our side. Reply here any time and the desk picks it straight back up.' }
 ];
 
+const ESCALATION_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+
 function attachmentHtml(url, type) {
   const kind = String(type || '');
   const safe = escapeHtml(url);
@@ -95,8 +97,11 @@ export default {
     }
 
     this.threads = (data || []).sort((a, b) => {
-      const byUnread = Number(b.unread || 0) - Number(a.unread || 0);
-      if (byUnread) return byUnread;
+      // A disliked Gliim P.A. answer is as urgent as an unread message, and it
+      // never counts as unread, so both have to move a thread up the list.
+      const pending = (t) => Number(t.unread || 0) + Number(t.escalations || 0);
+      const byPending = pending(b) - pending(a);
+      if (byPending) return byPending;
       return new Date(b.last_created_at || 0) - new Date(a.last_created_at || 0);
     });
 
@@ -111,9 +116,11 @@ export default {
   renderList() {
     const list = document.getElementById('support-list');
     const rows = this.visibleThreads();
+    const esc = this.threads.reduce((n, t) => n + Number(t.escalations || 0), 0);
 
     document.getElementById('support-count').textContent =
-      `${this.threads.length} thread${this.threads.length === 1 ? '' : 's'}`;
+      `${this.threads.length} thread${this.threads.length === 1 ? '' : 's'}` +
+      (esc ? ` · ${esc} answer${esc === 1 ? '' : 's'} marked unhelpful` : '');
 
     if (!rows.length) {
       list.innerHTML = empty(this.threads.length
@@ -128,6 +135,7 @@ export default {
         <span class="inbox-main">
           <span class="inbox-name">${escapeHtml(t.member_name || 'Gliimait')}</span>
           <span class="inbox-preview">${t.last_is_staff ? 'Team: ' : ''}${escapeHtml((t.last_content || '').slice(0, 70) || 'Sent an attachment')}</span>
+          ${Number(t.escalations || 0) > 0 ? `<span class="inbox-esc">Gliim P.A. answered badly — needs a human</span>` : ''}
         </span>
         <span class="inbox-side">
           <span class="inbox-time">${timeAgo(t.last_created_at)}</span>
@@ -156,7 +164,7 @@ export default {
   async loadMessages() {
     const { data, error } = await supabase
       .from('support_messages')
-      .select('id, thread_user, sender_id, content, attachment_url, attachment_type, created_at')
+      .select('id, thread_user, sender_id, content, attachment_url, attachment_type, kind, context, created_at')
       .eq('thread_user', this.activeId)
       .order('created_at', { ascending: true })
       .limit(500);
@@ -206,6 +214,7 @@ export default {
           <span class="card-title">${escapeHtml(t.member_name || 'Gliimait')}</span>
           <span class="card-sub">Support thread · ${Number(t.message_count || 0)} message${Number(t.message_count || 0) === 1 ? '' : 's'}</span>
         </span>
+        ${this.holdChip()}
       </div>
       <div class="inbox-body" id="support-body">
         ${this.messages.map(m => this.bubble(m, t)).join('')}
@@ -255,6 +264,7 @@ export default {
   },
 
   bubble(m, t) {
+    if (m.kind === 'escalation') return this.escalation(m);
     const mine = m.sender_id === store.user.id;
     const isMember = m.sender_id === t.thread_user;
     const author = this.staff.get(m.sender_id);
@@ -273,6 +283,35 @@ export default {
           </span>
         </span>
       </div>`;
+  },
+
+  // The member pressed dislike on a Gliim P.A. answer. The question and her
+  // reply arrive as one row the member owns, so both are shown and a human is
+  // asked to take over.
+  escalation(m) {
+    const ctx = m.context || {};
+    const answer = String(ctx.answer || '').trim();
+    return `
+      <div class="sb-esc">
+        <span class="sb-esc-head">${ESCALATION_ICON}<span>Gliim P.A. answer marked unhelpful</span></span>
+        <span class="sb-esc-q">${escapeHtml(ctx.question || m.content || '')}</span>
+        ${answer ? `<span class="sb-esc-a"><strong>Gliim P.A. said:</strong> ${escapeHtml(answer)}</span>` : ''}
+        <span class="sb-esc-hint">Reply here — she goes quiet for five minutes and then picks the thread back up on her own.</span>
+      </div>`;
+  },
+
+  // The hold window is derived from timestamps, never stored, so it cannot get
+  // stuck if someone closes the tab mid-conversation.
+  holdChip() {
+    let at = 0;
+    this.messages.forEach((m) => {
+      if (m.kind !== 'escalation' && m.sender_id === m.thread_user) return;
+      const seen = new Date(m.created_at).getTime();
+      if (Number.isFinite(seen) && seen > at) at = seen;
+    });
+    const left = Math.round((at + 5 * 60 * 1000 - Date.now()) / 1000);
+    if (left <= 0) return '<span class="sb-hold">Gliim P.A. is answering this thread</span>';
+    return `<span class="sb-hold active">You have this one · she resumes in ${left >= 60 ? `${Math.ceil(left / 60)}m` : `${left}s`}</span>`;
   },
 
   async send(content) {
@@ -347,7 +386,7 @@ export default {
     const threadUser = this.activeId;
     await supabase.rpc('support_mark_read', { p_thread_user: threadUser });
     const t = this.thread();
-    if (t) t.unread = 0;
+    if (t) { t.unread = 0; t.escalations = 0; }
     this.renderList();
     window.adminApp?.refreshCounts();
   }

@@ -1,68 +1,8 @@
-/* Assistant — an ask-first assistant page */
-.pa-page { max-width: 780px; margin: 0 auto; padding-bottom: 40px; }
-
-/* Empty state */
-.pa-hero {
-  min-height: 58vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 12px;
-}
-.pa-hero-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; box-shadow: var(--shadow-lg); }
-.pa-hero-title { font-size: 34px; font-weight: 800; letter-spacing: -0.8px; color: var(--text-primary); }
-.pa-hero-sub { font-size: 15px; color: var(--text-muted); margin-bottom: 20px; max-width: 460px; line-height: 1.5; }
-.pa-composer-hero { width: 100%; }
+/* Gliim P.A. — answer bubbles, markdown and rating row.
+   The Support page mounts these inside the Ping layout (messages.css). */
 
 .pa-starters { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 24px; }
-
-/* Composer */
-.pa-composer {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 10px 10px 10px 16px;
-  box-shadow: var(--shadow-sm);
-  position: sticky;
-  bottom: 12px;
-  z-index: 5;
-}
-.pa-composer:focus-within { border-color: var(--brand-primary); box-shadow: var(--shadow-lg); }
-.pa-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  resize: none;
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--text-primary);
-  max-height: 200px;
-  padding: 8px 0;
-}
-.pa-input::placeholder { color: var(--text-muted); }
-.pa-send {
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  border: none;
-  background: var(--brand-primary);
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease, opacity 0.15s ease;
-}
-.pa-send:hover { background: var(--brand-primary-hover); }
-.pa-send:disabled { opacity: 0.5; cursor: default; }
+.pa-hero-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; box-shadow: var(--shadow-lg); }
 
 /* Chips */
 .pa-chip {
@@ -79,23 +19,8 @@
 }
 .pa-chip:hover { border-color: var(--brand-primary); color: var(--text-primary); }
 
-/* Thread — user messages right, assistant answers left */
-.pa-question { display: flex; justify-content: flex-end; margin: 22px 0 16px; }
-.pa-question-text {
-  max-width: 80%;
-  background: var(--brand-primary);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.5;
-  letter-spacing: -0.1px;
-  padding: 11px 15px;
-  border-radius: 16px 16px 4px 16px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.pa-answer { display: flex; flex-direction: column; align-items: flex-start; margin: 16px 0; }
+/* Answer bubble */
+.pa-answer { display: flex; flex-direction: column; align-items: flex-start; margin: 4px 0; }
 .pa-answer-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
 .pa-answer-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .pa-answer-body {
@@ -109,6 +34,7 @@
 .pa-answer-body p { margin-bottom: 12px; }
 .pa-answer-body p:last-child { margin-bottom: 0; }
 .pa-heading { color: var(--text-primary); font-weight: 700; margin: 18px 0 8px; }
+.pa-heading:first-child { margin-top: 0; }
 .pa-list { margin: 0 0 12px 20px; }
 .pa-list li { margin-bottom: 6px; }
 .pa-code {
@@ -129,8 +55,6 @@
 }
 .pa-pre code { font-family: var(--font-mono, monospace); font-size: 13px; line-height: 1.6; color: var(--text-primary); }
 .pa-error { color: var(--error); font-size: 14px; margin-bottom: 10px; }
-
-.pa-followups { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-bottom: 8px; }
 
 /* Thinking dots */
 .pa-typing { display: flex; gap: 5px; padding: 6px 0; }
@@ -167,27 +91,6 @@
 .pa-fb-btn[data-state="like"].active { color: var(--brand-primary); border-color: var(--brand-primary); background: var(--bg-tertiary); }
 .pa-fb-btn[data-state="dislike"].active { color: var(--error); border-color: var(--error); background: var(--bg-tertiary); }
 
-/* Hand-off to the human desk */
-.pa-desk-cta {
-  margin-top: 26px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 9px 16px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.pa-desk-cta:hover { border-color: var(--brand-primary); color: var(--text-primary); }
-
 @media (max-width: 768px) {
-  .pa-hero { min-height: 52vh; }
-  .pa-hero-title { font-size: 28px; }
-  .pa-question-text { font-size: 17px; }
+  .pa-answer-body { max-width: 100%; }
 }

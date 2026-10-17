@@ -12,6 +12,12 @@
 -- sql/messages_admin.sql and sql/gliim_approval.sql.
 -- Safe to rerun: one transaction, explicit definitions, guarded inserts.
 --
+-- Section 9 adds the Gliim P.A. handover: an admin reply silences her for
+-- five minutes and she resumes on her own, with no state column to get stuck
+-- and no button for a staff member to forget. It also adds kind='escalation'
+-- rows for disliked answers, opens the desk to every admin role, and creates
+-- the admins-only room (admin_chat) with voice-note attachments.
+--
 -- This script is the authoritative definition of admin_review_submission and
 -- admin_review_post — run it LAST in the review-function family.
 -- ============================================================
@@ -20,8 +26,9 @@ begin;
 
 -- ============================================================
 -- 1. Staff gate for Support.
---    Deliberately narrower than "any admin": crm + operations + super only,
---    so captain/registrar staff cannot read member conversations.
+--    ANY admin role, per the 2026-10-17 decision: the whole team must be
+--    able to answer a member, so captain and registrar staff see the desk
+--    too. It was previously crm + operations + super only.
 --    SECURITY DEFINER because admin_users is revoked from authenticated;
 --    this is the same trick the CRM post-review policies already use.
 -- ============================================================
@@ -34,7 +41,7 @@ security definer
 set search_path = public
 as $$
   select coalesce((
-    select a.role in ('crm', 'operations', 'super')
+    select a.role in ('crm', 'operations', 'super', 'registrar', 'captain')
       from public.admin_users a
      where a.user_id = p_user
   ), false);
@@ -242,6 +249,12 @@ grant execute on function public.support_inbox() to authenticated, service_role;
 -- ============================================================
 
 alter table public.messages add column if not exists feedback text;
+
+-- §7 selects on m.is_admin, so the column must exist or this whole script
+-- aborts (42703) inside its single transaction. admin.sql, messages_admin.sql
+-- and library_kinds.sql each add this same column; repeating it here is
+-- idempotent and makes support.sql runnable whichever of those has applied.
+alter table public.messages add column if not exists is_admin boolean not null default false;
 
 do $$
 begin
@@ -470,10 +483,288 @@ grant execute on function public.admin_review_post(uuid, text, text) to authenti
 -- longer use that column, so the sender-revalidation branch must not fire on
 -- rows this script migrated. Left as-is: it only ever constrained NEW rows.
 
+-- ============================================================
+-- 9. Gliim P.A. handover, escalations and the admins-only room.
+--    Added 2026-10-17 after the Support page was merged with the desk.
+--    Decisions this encodes:
+--      * An admin reply pauses Gliim P.A. for 5 minutes, then she resumes on
+--        her own. There is deliberately NO mode column and NO button: the
+--        pause is derived from the timestamp of the newest staff row, so it
+--        cannot get stuck if an admin closes the tab mid-conversation.
+--      * A dislike sends the question and her answer to the desk as a row the
+--        member owns, flagged with kind='escalation'.
+--      * Every admin role can open the desk (section 1 above).
+-- ============================================================
+
+alter table public.support_messages
+  add column if not exists kind text not null default 'message';
+
+alter table public.support_messages
+  add column if not exists context jsonb;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conrelid = 'public.support_messages'::regclass
+       and conname = 'support_messages_kind_check'
+  ) then
+    alter table public.support_messages
+      add constraint support_messages_kind_check
+      check (kind in ('message', 'escalation'));
+  end if;
+end
+$$;
+
+-- Newest row that means "a human is on this": a staff message, or the
+-- member's own dislike escalation. Both start the same 5-minute hold.
+create or replace function public.support_last_staff_at(p_thread_user uuid)
+returns timestamptz
+language plpgsql
+stable
+security invoker
+set search_path = public
+as $$
+declare
+  v_at timestamptz;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  -- A member may only inspect their own thread; staff may inspect any thread,
+  -- which is the same rule support_messages' SELECT policies already enforce.
+  if auth.uid() <> p_thread_user and not public.support_can_view(auth.uid()) then
+    raise exception 'Not allowed to read that thread' using errcode = '42501';
+  end if;
+
+  select max(s.created_at) into v_at
+    from public.support_messages s
+   where s.thread_user = p_thread_user
+     and (
+       (s.kind = 'message' and s.sender_id <> s.thread_user
+         and public.support_can_view(s.sender_id))
+       or s.kind = 'escalation'
+     );
+
+  return v_at;
+end
+$$;
+
+revoke execute on function public.support_last_staff_at(uuid) from public, anon;
+grant execute on function public.support_last_staff_at(uuid) to authenticated, service_role;
+
+-- The gate Gliim P.A. consults before she answers anything.
+create or replace function public.gliimpa_paused(p_thread_user uuid)
+returns boolean
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select coalesce(
+    public.support_last_staff_at(p_thread_user)
+      > now() - interval '5 minutes',
+    false);
+$$;
+
+revoke execute on function public.gliimpa_paused(uuid) from public, anon;
+grant execute on function public.gliimpa_paused(uuid) to authenticated, service_role;
+
+-- A dislike posts the question and the answer into the member's own thread.
+-- SECURITY INVOKER, and the row is written as the member (sender = thread =
+-- auth.uid()), which is exactly what "Member posts in own thread" already
+-- allows — so a member cannot forge a staff row here.
+create or replace function public.gliimpa_escalate(
+  p_question text,
+  p_answer text default null,
+  p_message_id uuid default null)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  if coalesce(trim(p_question), '') = '' then
+    raise exception 'Nothing to escalate' using errcode = '22023';
+  end if;
+
+  -- One open escalation per question row, so double-tapping dislike cannot
+  -- flood the desk.
+  if p_message_id is not null and exists (
+    select 1 from public.support_messages s
+     where s.kind = 'escalation'
+       and s.context->>'message_id' = p_message_id::text
+  ) then
+    select s.id into v_id
+      from public.support_messages s
+     where s.kind = 'escalation'
+       and s.context->>'message_id' = p_message_id::text
+     limit 1;
+    return v_id;
+  end if;
+
+  insert into public.support_messages (thread_user, sender_id, content, kind, context)
+  values (
+    v_uid,
+    v_uid,
+    left(p_question, 2000),
+    'escalation',
+    jsonb_strip_nulls(jsonb_build_object(
+      'question', left(p_question, 2000),
+      'answer', left(coalesce(p_answer, ''), 4000),
+      'message_id', p_message_id)))
+  returning id into v_id;
+
+  return v_id;
+end
+$$;
+
+revoke execute on function public.gliimpa_escalate(text, text, uuid) from public, anon;
+grant execute on function public.gliimpa_escalate(text, text, uuid) to authenticated, service_role;
+
+-- Staff clear an escalation by replying; the desk badge counts escalations
+-- newer than the reader's own watermark. support_inbox() gains a column, so
+-- the old signature has to go first — create or replace cannot change it.
+drop function if exists public.support_inbox();
+
+create or replace function public.support_inbox()
+returns table (
+  thread_user uuid,
+  member_name text,
+  member_avatar text,
+  last_content text,
+  last_is_staff boolean,
+  last_created_at timestamptz,
+  unread integer,
+  message_count integer,
+  escalations integer
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select m.thread_user,
+         coalesce(p.full_name, 'Gliimait'),
+         p.avatar_url,
+         last_msg.content,
+         last_msg.is_staff,
+         last_msg.created_at,
+         unread.n::integer,
+         cnt.n::integer,
+         esc.n::integer
+    from (select distinct thread_user from public.support_messages) m
+    left join public.profiles p on p.id = m.thread_user
+    cross join lateral (
+      select s.content,
+             coalesce(s.sender_id <> s.thread_user, false) as is_staff,
+             s.created_at
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+       order by s.created_at desc
+       limit 1
+    ) last_msg
+    cross join lateral (
+      select count(*) n
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+    ) cnt
+    cross join lateral (
+      select count(*) n
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+         and s.kind = 'message'
+         and s.sender_id <> auth.uid()
+         and s.created_at > coalesce(
+               (select r.last_read_at from public.support_reads r
+                 where r.thread_user = m.thread_user and r.reader_id = auth.uid()),
+               '-infinity'::timestamptz)
+    ) unread
+    cross join lateral (
+      select count(*) n
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+         and s.kind = 'escalation'
+         and s.created_at > coalesce(
+               (select r.last_read_at from public.support_reads r
+                 where r.thread_user = m.thread_user and r.reader_id = auth.uid()),
+               '-infinity'::timestamptz)
+    ) esc
+   where public.support_can_view(auth.uid());
+$$;
+
+revoke execute on function public.support_inbox() from public, anon;
+grant execute on function public.support_inbox() to authenticated, service_role;
+
+-- The admins-only room: one shared thread between staff members, text and
+-- voice notes. No member can read or write it because every policy calls
+-- support_can_view(), which only ever returns true for an admin_users row.
+create table if not exists public.admin_chat (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null,
+  content text not null default '',
+  attachment_url text,
+  attachment_type text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists admin_chat_time_idx
+  on public.admin_chat (created_at);
+
+alter table public.admin_chat enable row level security;
+
+revoke all on public.admin_chat from anon;
+grant select, insert on public.admin_chat to authenticated;
+grant all on public.admin_chat to service_role;
+
+drop policy if exists "Staff read the admins room" on public.admin_chat;
+create policy "Staff read the admins room" on public.admin_chat
+  for select to authenticated
+  using ( public.support_can_view(auth.uid()) );
+
+drop policy if exists "Staff post in the admins room" on public.admin_chat;
+create policy "Staff post in the admins room" on public.admin_chat
+  for insert to authenticated
+  with check ( sender_id = (select auth.uid())
+               and public.support_can_view(auth.uid()) );
+
+-- Voice notes are immutable like support messages, but unlike the member
+-- thread an admin may delete their own row, so a mistaken recording does not
+-- have to stay on screen forever.
+drop policy if exists "Staff delete own admins room post" on public.admin_chat;
+create policy "Staff delete own admins room post" on public.admin_chat
+  for delete to authenticated
+  using ( sender_id = (select auth.uid())
+           and public.support_can_view(auth.uid()) );
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and tablename = 'admin_chat'
+     ) then
+    begin
+      alter publication supabase_realtime add table public.admin_chat;
+    exception when duplicate_object or insufficient_privilege then
+      null;
+    end;
+  end if;
+end
+$$;
+
 notify pgrst, 'reload schema';
 
 -- ============================================================
--- 9. Self-check SELECT grid: every ok cell should be true.
+-- 10. Self-check SELECT grid: 24 rows, every ok cell should be true.
 -- ============================================================
 
 with support_fns (name, oid) as (
@@ -481,7 +772,10 @@ with support_fns (name, oid) as (
     ('support_can_view',    to_regprocedure('public.support_can_view(uuid)')),
     ('support_thread_unread', to_regprocedure('public.support_thread_unread(uuid)')),
     ('support_mark_read',   to_regprocedure('public.support_mark_read(uuid)')),
-    ('support_inbox',       to_regprocedure('public.support_inbox()'))
+    ('support_inbox',       to_regprocedure('public.support_inbox()')),
+    ('support_last_staff_at', to_regprocedure('public.support_last_staff_at(uuid)')),
+    ('gliimpa_paused',      to_regprocedure('public.gliimpa_paused(uuid)')),
+    ('gliimpa_escalate',    to_regprocedure('public.gliimpa_escalate(text,text,uuid)'))
 ), checks as (
   select 1 as "#", 'support_messages exists with the four core columns' as check_name,
          exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -511,11 +805,11 @@ with support_fns (name, oid) as (
                                                              (select attnum from pg_attribute
                                                               where attrelid = 'public.support_reads'::regclass and attname = 'reader_id')])
   union all
-  select 6, 'support_can_view is SECURITY DEFINER and crm/operations/super only',
+  select 6, 'support_can_view is SECURITY DEFINER and allows all five admin roles',
          exists (select 1 from pg_proc where oid = to_regprocedure('public.support_can_view(uuid)')
                   and prosecdef and proconfig @> array['search_path=public'])
          and (select prosrc from pg_proc where oid = to_regprocedure('public.support_can_view(uuid)'))
-             ilike '%crm%, %operations%, %super%'
+             ilike '%crm%, %operations%, %super%, %registrar%, %captain%'
   union all
   select 7, 'anon can neither read support tables nor run support functions',
          not has_table_privilege('anon', 'public.support_messages', 'SELECT')
@@ -529,10 +823,10 @@ with support_fns (name, oid) as (
          and has_table_privilege('authenticated', 'public.support_reads', 'INSERT')
          and has_table_privilege('authenticated', 'public.support_reads', 'UPDATE')
   union all
-  select 9, 'authenticated can execute all four support functions',
+  select 9, 'authenticated can execute all seven support functions',
          (select bool_and(has_function_privilege('authenticated', oid, 'EXECUTE')) from support_fns)
   union all
-  select 10, 'service_role can execute all four support functions',
+  select 10, 'service_role can execute all seven support functions',
          (select bool_and(has_function_privilege('service_role', oid, 'EXECUTE')) from support_fns)
   union all
   select 11, 'support_messages in supabase_realtime publication',
@@ -570,6 +864,57 @@ with support_fns (name, oid) as (
   select 16, 'no support thread row points at a member with no profile',
          not exists (select 1 from public.support_messages s
                       where not exists (select 1 from public.profiles p where p.id = s.thread_user))
+  union all
+  select 17, 'support_messages carries kind + context with a two-value check',
+         (select count(*) = 2 from information_schema.columns
+           where table_schema = 'public' and table_name = 'support_messages'
+             and column_name in ('kind', 'context'))
+         and exists (select 1 from pg_constraint
+                      where conrelid = 'public.support_messages'::regclass
+                        and conname = 'support_messages_kind_check')
+  union all
+  select 18, 'handover gate reads staff activity over a 5 minute window',
+         exists (select 1 from pg_proc where oid = to_regprocedure('public.gliimpa_paused(uuid)')
+                  and not prosecdef
+                  and prosrc ilike '%support_last_staff_at%')
+         and exists (select 1 from pg_proc where oid = to_regprocedure('public.support_last_staff_at(uuid)')
+                  and not prosecdef
+                  and prosrc ilike '%interval%5 minutes%')
+  union all
+  select 19, 'gliimpa_escalate writes a member-owned escalation row',
+         exists (select 1 from pg_proc where oid = to_regprocedure('public.gliimpa_escalate(text,text,uuid)')
+                  and not prosecdef
+                  and prosrc ilike '%escalation%')
+  union all
+  select 20, 'support_inbox() now returns nine columns including escalations',
+         (select array_length(proargmodes, 1) from pg_proc
+           where oid = to_regprocedure('public.support_inbox()')) = 9
+         and (select prosrc from pg_proc where oid = to_regprocedure('public.support_inbox()'))
+             ilike '%escalations%'
+  union all
+  select 21, 'admin_chat exists, RLS on, three staff-only policies',
+         exists (select 1 from information_schema.tables
+                  where table_schema = 'public' and table_name = 'admin_chat')
+         and (select relrowsecurity from pg_class where oid = 'public.admin_chat'::regclass)
+         and (select count(*) = 3 from pg_policy where polrelid = 'public.admin_chat'::regclass)
+         and (select count(*) = 3 from pg_policy where polrelid = 'public.admin_chat'::regclass
+               and (coalesce(pg_get_expr(polqual, polrelid), '')
+                    || coalesce(pg_get_expr(polwithcheck, polrelid), ''))
+                   ilike '%support_can_view%')
+  union all
+  select 22, 'admins cannot forge an admins-room post as someone else',
+         (select count(*) = 2 from pg_policy where polrelid = 'public.admin_chat'::regclass
+           and polcmd in ('a', 'r')  -- insert + select
+           and (pg_get_expr(polwithcheck, polrelid) ilike '%auth.uid()%'
+                or pg_get_expr(polqual, polrelid) ilike '%auth.uid()%'))
+  union all
+  select 23, 'admin_chat in supabase_realtime publication',
+         exists (select 1 from pg_publication_tables
+                  where pubname = 'supabase_realtime' and tablename = 'admin_chat')
+  union all
+  select 24, 'anon has no access to admin_chat',
+         not has_table_privilege('anon', 'public.admin_chat', 'SELECT')
+         and not has_table_privilege('anon', 'public.admin_chat', 'INSERT')
 )
 select "#", check_name, ok from checks order by "#";
 

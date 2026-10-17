@@ -1,6 +1,6 @@
 import { supabase } from './config.js';
 import { store } from './store.js';
-import { router, firstRoute } from './router.js?v=6';
+import { router, firstRoute } from './router.js?v=7';
 
 // ============================================
 // GATE — three states: signing in, signed in but
@@ -73,12 +73,12 @@ async function refreshCounts() {
   }
 
   // support_inbox() answers zero rows for anyone the staff gate rejects, so
-  // the call doubles as the access check and costs one round trip.
-  if (store.can('crm') || store.can('operations')) {
-    const { data } = await supabase.rpc('support_inbox');
-    const unread = (data || []).reduce((n, t) => n + Number(t.unread || 0), 0);
-    setCount('count-support', unread);
-  }
+  // the call doubles as the access check and costs one round trip. Every admin
+  // role can work the desk, so every admin role gets the badge.
+  // Dislike escalations count too — they are questions waiting for a human.
+  const { data } = await supabase.rpc('support_inbox');
+  const unread = (data || []).reduce((n, t) => n + Number(t.unread || 0) + Number(t.escalations || 0), 0);
+  setCount('count-support', unread);
 
   // p_limit 1 keeps this cheap: the RPC returns the full total regardless.
   // A database without sql/captain.sql yet just answers an error, and the
@@ -87,6 +87,18 @@ async function refreshCounts() {
     const { data } = await supabase.rpc('captain_queue', { p_limit: 1 });
     if (data && data.ok) setCount('count-triads', Number(data.total || 0));
   }
+}
+
+// Polling alone leaves the desk badge up to a minute stale, so the global
+// channel nudges it the moment a member writes. Started after the session is
+// live because the realtime policies read auth.uid().
+function watchSupport() {
+  supabase
+    .channel('admin-global-support')
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'support_messages' },
+      () => refreshCounts())
+    .subscribe();
 }
 
 function setCount(id, n) {
@@ -117,6 +129,7 @@ async function boot() {
   }
 
   showShell();
+  watchSupport();
   if (!window.location.hash) window.location.hash = `#${firstRoute()}`;
 
   window.addEventListener('hashchange', router);

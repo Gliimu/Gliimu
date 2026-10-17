@@ -42,8 +42,7 @@ export default {
       selectTransferUser: (id) => this.selectTransferUser(id),
       clearTransferUser: () => this.clearTransferUser(),
       activatePlan: (id) => this.activatePlan(id),
-      payBill: (id) => this.payBill(id),
-      copyRefLink: () => this.copyRefLink()
+      payBill: (id) => this.payBill(id)
     };
 
     this.currentTab = 'summary'; // Default view
@@ -101,11 +100,6 @@ export default {
     this.balance = Number((hasSummary ? summary.wallet_balance : profile?.wallet_balance) || 0);
     this.subscriptionExpiresAt = (hasSummary ? summary.subscription_expires_at : profile?.subscription_expires_at) || null;
     this.allTransactions = transactions || [];
-
-    // Refer & earn summary (sql/referrals.sql). Optional — if the RPC is not
-    // installed yet the card simply does not render.
-    this.referral = await supabase.rpc('referral_summary', {})
-      .then(({ data }) => (data && data.code ? data : null), () => null);
 
     if (store.profile) store.profile.wallet_balance = this.balance;
   },
@@ -193,7 +187,6 @@ export default {
             </div>
           </div>
         </div>
-        ${this.renderReferCard()}
       `;
     }
 
@@ -213,50 +206,6 @@ export default {
 
     if (this.currentTab === 'subscription') {
       return this.renderSubscription();
-    }
-  },
-
-  renderReferCard() {
-    const r = this.referral;
-    if (!r || !r.code) return '';
-    const link = `${window.location.origin}${r.link}`;
-    return `
-      <div class="card refer-card" style="margin-top: 16px;">
-        <div class="refer-head">
-          <div class="stat-icon-wrap bg-brand"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg></div>
-          <div class="stat-info">
-            <span class="stat-value" style="font-size:18px;">Refer &amp; earn</span>
-            <span class="stat-label">100 GP for each friend who joins and buys</span>
-          </div>
-        </div>
-        <div class="refer-link-row">
-          <input class="refer-link-input" id="wallet-refer-input" readonly value="${escapeHtml(link)}" onfocus="this.select()">
-          <button class="refer-copy-btn" onclick="walletInstance.copyRefLink()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            Copy
-          </button>
-        </div>
-        <div class="refer-stats-row">
-          <div class="refer-stat"><strong>${Number(r.vested || 0).toLocaleString()}</strong><span>Joined</span></div>
-          <div class="refer-stat"><strong>${Number(r.pending || 0).toLocaleString()}</strong><span>Pending</span></div>
-          <div class="refer-stat"><strong>${Number(r.gp_earned || 0).toLocaleString()}</strong><span>GP earned</span></div>
-        </div>
-      </div>
-    `;
-  },
-
-  async copyRefLink() {
-    const input = document.getElementById('wallet-refer-input');
-    const link = input ? input.value : `${window.location.origin}${(this.referral && this.referral.link) || ''}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      await appAlert('Referral link copied.');
-    } catch (e) {
-      if (input) {
-        input.select();
-        try { document.execCommand('copy'); await appAlert('Referral link copied.'); }
-        catch (_) { await appAlert('Copy failed — select the link and copy it manually.'); }
-      }
     }
   },
 
