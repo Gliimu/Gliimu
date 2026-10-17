@@ -28,17 +28,6 @@ function safeUrl(value) {
   if (/^\/[^/]/.test(url)) return url;
   return '';
 }
-// The stored address is plain text with newlines, printed into a <p>. Everything
-// is escaped first, so nothing a CRM admin typed can ever reach the parser, and
-// then a bare <br> is put back for the older rows that already hold one. A stray
-// "<" from a truncated tag stays escaped rather than being completed by the
-// browser. Last, newlines become <br>.
-function addressHtml(value) {
-  return String(value == null ? '' : value)
-    .replace(/</g, '&lt;')
-    .replace(/&lt;br\s*\/?\s*>/gi, '<br>')
-    .replace(/\n/g, '<br>');
-}
 
 // ============================================
 // JOIN BUTTONS — open the auth page in a modal.
@@ -97,24 +86,6 @@ function initScrollReveal() {
 }
 
 // ============================================
-// ACCORDION LOGIC
-// ============================================
-function initAccordion() {
-  const accordionItems = document.querySelectorAll('.accordion-item');
-  accordionItems.forEach(item => item.classList.remove('active'));
-  accordionItems.forEach(item => {
-    const header = item.querySelector('.accordion-header');
-    if (!header) return;
-    header.addEventListener('click', () => {
-      accordionItems.forEach(other => {
-        if (other !== item && other.classList.contains('active')) other.classList.remove('active');
-      });
-      item.classList.toggle('active');
-    });
-  });
-}
-
-// ============================================
 // FETCH SITE SETTINGS (Video, Images, App Releases)
 // ============================================
 async function loadSiteSettings() {
@@ -146,15 +117,6 @@ async function loadSiteSettings() {
   if (highlightEl) highlightEl.textContent = heroHighlight;
   const descEl = document.getElementById('hero-desc-text');
   if (descEl) descEl.innerHTML = escapeHtml(heroDesc).replace(/\n/g, '<br>');
-
-  // Squad Background
-  const squadSection = document.getElementById('squad-section');
-  const squadBg = safeUrl(data.squad_bg_url);
-  if (squadSection && squadBg) {
-    squadSection.style.background = `linear-gradient(to right, rgba(10, 15, 30, 0.95), rgba(10, 15, 30, 0.85)), url('${squadBg}')`;
-    squadSection.style.backgroundSize = 'cover';
-    squadSection.style.backgroundPosition = 'center';
-  }
 
   applyDownloadSection(data);
 }
@@ -225,74 +187,6 @@ function applyDownloadSection(settings) {
       <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
     </div>
   `;
-}
-
-// ============================================
-// FETCH CURRICULUM
-// ============================================
-async function loadCurriculum() {
-  const container = document.getElementById('curriculum-container');
-  if (!container) return;
-
-  const { data: courses, error } = await supabase.from('curriculum').select('*').order('created_at', { ascending: true });
-
-  if (error || !courses) return;
-
-  container.innerHTML = courses.map((course, index) => `
-    <div class="accordion-item reveal" style="transition-delay: ${0.1 * (index + 1)}s;">
-      <div class="accordion-header">
-        <div class="accordion-number">${escapeHtml(course.number)}</div>
-        <div class="accordion-icon"><i class="${escapeHtml(course.icon)}"></i></div>
-        <h3>${escapeHtml(course.title)}</h3>
-        <i class="fas fa-chevron-down accordion-arrow"></i>
-      </div>
-      <div class="accordion-content">
-        <p>${escapeHtml(course.description)}</p>
-        <ul>
-          ${(course.modules || []).map(m => `<li>${escapeHtml(m)}</li>`).join('')}
-        </ul>
-      </div>
-    </div>
-  `).join('');
-
-  initAccordion(); // Re-init click listeners for new items
-  initScrollReveal(); // Observe new items for animation
-}
-
-// ============================================
-// FETCH CONTACT INFO
-// ============================================
-async function loadContactInfo() {
-  const { data, error } = await supabase.from('contact_info').select('*').single();
-  if (error || !data) return;
-
-  const address = document.getElementById('contact-address');
-  if (address) address.innerHTML = addressHtml(data.address);
-
-  const phone = document.getElementById('contact-phone');
-  if (phone) phone.innerText = data.phone;
-
-  const phoneLink = document.getElementById('contact-phone-link');
-  if (phoneLink && data.phone) phoneLink.href = `tel:${String(data.phone).replace(/\s/g, '')}`;
-
-  const email = document.getElementById('contact-email');
-  if (email) email.innerText = data.email;
-
-  const emailLink = document.getElementById('contact-email-link');
-  if (emailLink && data.email) emailLink.href = `mailto:${data.email}`;
-
-  const socials = [
-    ['social-yt', data.youtube],
-    ['social-tt', data.tiktok],
-    ['social-fb', data.facebook],
-    ['social-pt', data.pinterest],
-  ];
-  socials.forEach(([id, raw]) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const href = safeUrl(raw);
-    if (href) el.href = href;
-  });
 }
 
 // ============================================
@@ -479,61 +373,6 @@ async function loadPartners() {
 }
 
 // ============================================
-// FETCH FAQS
-// ============================================
-const FALLBACK_FAQS = [
-  {
-    question: 'How much is the tuition?',
-    answer: 'Tuition is subscription-based. The amount you pay depends on your usage and preferred plan, meaning some users may pay significantly less or more than others. For more details, please visit the "Billing" page in your dashboard.'
-  },
-  {
-    question: 'Why is the tuition priced like this?',
-    answer: "To use an analogy, a bottle of water costs less from a street vendor than it does in a first-class cabin, even though the contents are exactly the same. The price of our program is not meant to deter you, but rather to reflect a shift in mindset. Since everyone utilizes our resources differently, we designed a fair payment structure rather than forcing everyone to pay a flat rate for features they may not need or use."
-  },
-  {
-    question: 'How can I pay for my tuition?',
-    answer: 'The primary means of making payment for your tuition or subscription is via transfer. You can also pay through real projects with real clients, and we offer sponsored programs from time to time that can help you clear your balance faster than you might expect.'
-  },
-  {
-    question: 'Can I earn money through Gliimu?',
-    answer: 'Yes. You can earn through Gliimu, and withdrawal requests are processed within 24 hours. Please note, however, that you must have fully cleared your outstanding tuition before withdrawing your earnings.'
-  },
-  {
-    question: 'What exactly is a Full Stack Media Architect?',
-    answer: "A Full Stack Media Architect is a creator who can generate value from scratch. They have mastered content creation, brand design, and idea visualization, alongside technical skills like programming and AI-prompt engineering. You don't just edit videos or write code; you learn to build concepts from zero."
-  },
-  {
-    question: 'Do I need any prior experience?',
-    answer: 'No. We train elite minds from the ground up. Our Triad system ensures you learn at your own pace without holding others back.'
-  },
-  {
-    question: 'How long does it take to graduate?',
-    answer: 'The program is untimed. You get certified once you demonstrate competence through practical work. The timeline depends entirely on your zeal and effort—it can take as little as two months or up to a year.'
-  }
-];
-
-async function loadFAQs() {
-  const container = document.getElementById('faq-accordion-container');
-  if (!container) return;
-
-  const { data: faqs, error } = await supabase.from('faqs').select('question, answer').order('created_at', { ascending: true });
-
-  const list = (error || !faqs || faqs.length === 0) ? FALLBACK_FAQS : faqs;
-
-  container.innerHTML = list.map(faq => `
-    <div class="faq-acc-item">
-      <div class="faq-acc-header" onclick="toggleFAQ(this)">
-        <h4>${escapeHtml(faq.question)}</h4>
-        <i class="fas fa-chevron-down"></i>
-      </div>
-      <div class="faq-acc-content">
-        <p>${escapeHtml(faq.answer)}</p>
-      </div>
-    </div>
-  `).join('');
-}
-
-// ============================================
 // INITIALIZE
 // ============================================
 // Module imports can resolve after DOMContentLoaded on a cold CDN cache,
@@ -541,13 +380,9 @@ async function loadFAQs() {
 const boot = async () => {
   initJoinButtons();
   initScrollReveal();
-  initAccordion();
   loadSiteSettings();
-  loadCurriculum();
-  loadContactInfo();
   loadHubHighlights();
   loadPartners();
-  loadFAQs();
   forceVideoAutoplay();
 };
 

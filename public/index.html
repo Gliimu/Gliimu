@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=10">
+  <link rel="stylesheet" href="/assets/css/public.css?v=11">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -51,63 +51,36 @@
     </div>
   </section>
 
-  <!-- THREE PILLARS SECTION -->
-  <section class="pillars-section">
+  <!-- WHAT WE DO -->
+  <section class="what-we-do-section" id="what-we-do-section">
     <div class="container">
-      <div class="pillars-header reveal">
-        <h2 class="section-title">Three Platforms. One Mission.</h2>
-        <p class="section-subtitle">Your complete functional ecosystem</p>
-      </div>
-
-      <div class="pillars-grid">
-        <div class="pillar-card reveal" style="transition-delay: 0.1s;">
-          <div class="pillar-icon"><i class="fas fa-book"></i></div>
-          <h3>Elite Library</h3>
-          <p>Premium publications, audiolites, and bundles crafted by industry experts.</p>
+      <div class="what-we-do-grid">
+        <div class="what-we-do-content reveal">
+          <h2 class="section-title" style="text-align: left;">What We Do</h2>
+          <div class="what-we-do-lines">
+            <div class="wwd-line">
+              <span class="wwd-num">01</span>
+              <div>
+                <h3>Elite content</h3>
+                <p>Publications, audiolites and bundles built by industry experts — read, listen, learn.</p>
+              </div>
+            </div>
+            <div class="wwd-line">
+              <span class="wwd-num">02</span>
+              <div>
+                <h3>Real gigs</h3>
+                <p>Bring us work or pick up what's in the queue. Actual clients, actual pay, actual portfolio.</p>
+              </div>
+            </div>
+            <div class="wwd-line">
+              <span class="wwd-num">03</span>
+              <div>
+                <h3>Triad mentorship</h3>
+                <p>Small groups, deep guidance. You build with a team, not alone in a crowd.</p>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div class="pillar-card reveal" style="transition-delay: 0.2s;">
-          <div class="pillar-icon"><i class="fas fa-users"></i></div>
-          <h3>Community Hub</h3>
-          <p>Connect with elite Gliimaits. Share works, get feedback & grow together.</p>
-        </div>
-
-        <div class="pillar-card reveal" style="transition-delay: 0.3s;">
-          <div class="pillar-icon"><img src="/icons/gliimpa.png" alt="Gliim-PA" style="width: 32px; height: 32px; object-fit: contain; filter: none;"></div>
-          <h3>Gliim-PA</h3>
-          <p>Your personal AI assistant for deep research, brainstorming, and platform navigation.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- SQUAD SYSTEM (Background Image Dynamic) -->
-  <section class="squad-section" id="squad-section">
-    <div class="container">
-      <div class="squad-grid">
-        <div class="squad-content reveal">
-          <h2 class="section-title" style="text-align: left;">Learn in Triad &amp; Grow</h2>
-          <p style="margin-top: 16px;">You are not a number, you are a builder in a tight knit that grows together.</p>
-          <ul class="squad-features">
-            <li><i class="fas fa-users"></i> Deep mentorship, not crowded lectures</li>
-            <li><i class="fas fa-project-diagram"></i> Real projects from real clients</li>
-            <li><i class="fas fa-handshake"></i> Elite network for life</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- WHAT YOU'LL MASTER (Dynamic Curriculum) -->
-  <section id="curriculum" class="course-redesign">
-    <div class="container">
-      <div class="course-header reveal">
-        <h2 class="section-title">What You'll Master</h2>
-        <p class="section-subtitle">The only curriculum that builds complete Full Stack Media Architects — not one-skill specialists.</p>
-      </div>
-
-      <div class="accordion-container" id="curriculum-container">
-        <p style="text-align: center; color: var(--text-muted);">Loading curriculum...</p>
       </div>
     </div>
   </section>
@@ -138,27 +111,6 @@
       </div>
       <div class="hub-grid" id="hub-grid">
         <p style="color: var(--text-muted); text-align: center;">Loading latest insights...</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- CONTACT, FAQ & JOIN US SECTION -->
-  <section class="contact-faq-section">
-    <div class="container">
-      <div class="cf-grid">
-        <div class="cf-card reveal-left" onclick="openModal('contact-modal')">
-          <i class="fas fa-headset"></i>
-          <h3>Contact Us</h3>
-          <p>Have questions? Reach out to our team.</p>
-        </div>
-        <div class="cf-card reveal-right" onclick="openModal('faq-modal')">
-          <i class="fas fa-question-circle"></i>
-          <h3>FAQ</h3>
-          <p>Find answers to common questions.</p>
-        </div>
-      </div>
-      <div class="cta-content reveal" style="margin-top: 40px; text-align: center;">
-        <a href="/auth.html" class="btn-primary btn-lg js-join-link">Join Us <i class="fas fa-arrow-right"></i></a>
       </div>
     </div>
   </section>
@@ -221,58 +173,6 @@
     </div>
   </footer>
 
-  <!-- CONTACT MODAL -->
-  <div class="modal-overlay" id="contact-modal" style="display: none;">
-    <div class="modal-content modal-lg">
-      <button class="modal-close" onclick="closeModal('contact-modal')">×</button>
-      <h2 class="modal-title">Let's Talk</h2>
-      <p class="modal-subtitle">Have questions? We're here to help. Reach out to us anytime.</p>
-
-      <div class="contact-info-grid">
-        <div class="contact-info-item">
-          <i class="fas fa-map-marker-alt"></i>
-          <h4>Visit Us</h4>
-          <p id="contact-address">Loading...</p>
-        </div>
-        <div class="contact-info-item">
-          <i class="fas fa-phone-alt"></i>
-          <h4>Call Us</h4>
-          <p><a href="#" id="contact-phone-link"><span id="contact-phone">Loading...</span></a></p>
-          <span class="meta">Mon - Fri, 9AM - 5PM</span>
-        </div>
-        <div class="contact-info-item">
-          <i class="fas fa-envelope-open-text"></i>
-          <h4>Email Us</h4>
-          <p><a href="#" id="contact-email-link"><span id="contact-email">Loading...</span></a></p>
-          <span class="meta">Response within 24 hours</span>
-        </div>
-      </div>
-
-      <div class="social-section-modal">
-        <p>Follow us for updates and news</p>
-        <div class="social-icons-modal">
-          <a href="#" id="social-yt" target="_blank"><i class="fab fa-youtube"></i></a>
-          <a href="#" id="social-tt" target="_blank"><i class="fab fa-tiktok"></i></a>
-          <a href="#" id="social-fb" target="_blank"><i class="fab fa-facebook-f"></i></a>
-          <a href="#" id="social-pt" target="_blank"><i class="fab fa-pinterest-p"></i></a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- FAQ MODAL -->
-  <div class="modal-overlay" id="faq-modal" style="display: none;">
-    <div class="modal-content modal-lg">
-      <button class="modal-close" onclick="closeModal('faq-modal')">×</button>
-      <h2 class="modal-title">Frequently Asked Questions</h2>
-      <p class="modal-subtitle">Find answers to common questions about what we do and why we do it.</p>
-
-      <div id="faq-accordion-container" class="faq-accordion-container">
-        <p style="text-align: center; color: var(--text-muted);">Loading FAQs...</p>
-      </div>
-    </div>
-  </div>
-
   <!-- AUTH MODAL (full auth page embedded) -->
   <div class="modal-overlay" id="auth-modal" style="display: none;">
     <div class="modal-content auth-modal-content">
@@ -282,7 +182,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=11"></script>
+  <script type="module" src="/assets/js/main.js?v=12"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -290,10 +190,6 @@
       const frame = document.getElementById('auth-frame');
       if (frame) frame.src = 'about:blank';
       document.getElementById('auth-modal').style.display = 'none';
-    }
-    window.toggleFAQ = (header) => {
-      const item = header.parentElement;
-      item.classList.toggle('active');
     }
     // Referral capture: a guest arriving via /?ref=CODE keeps the code so the
     // signup flow can attribute them to the referrer. Same-origin localStorage

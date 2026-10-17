@@ -17,7 +17,7 @@ const ENTRIES = [
     answer: `I am **Assistant**, your built-in AI helper on the Gliimu platform. I work right here in the app, so you always get an answer.
 
 I can help with:
-- **Navigating** the dashboard — Hub, Ping, Updates, Queue, Billing, Settings
+- **Navigating** the dashboard — Hub, Ping, Updates, Gigs, Billing, Settings
 - **GP and tiers** — what each level unlocks
 - **Wallet and top-ups** — funding, transfers, withdrawals
 - **Plans and pricing** — Pay n' Go, Monthly, Pro
@@ -31,13 +31,13 @@ Ask me anything above, or tap a suggested chip to get started.`
   },
   {
     title: 'Navigating the dashboard',
-    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'queue', 'billing', 'settings', 'updates', 'updates tab', 'community tab', 'how do i get to', 'section'],
+    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'gigs', 'queue', 'billing', 'settings', 'updates', 'updates tab', 'how do i get to', 'section'],
     answer: `Here is what each tab in the sidebar does:
 
 - **Hub** — the community feed. Browse, publish and read gliims from other Gliimaits.
 - **Ping** — your messages and live sessions. Start a chat or go live with someone.
 - **Updates** — contests, cohorts, leaderboard and referrals. Join a contest to climb the leaderboard.
-- **Queue** — bring us a deal or gig. See the queue and track your work.
+- **Gigs** — bring us a gig. Post work, see the queue and track your gigs by category.
 - **Billing** — your wallet balance, plans, top-ups and transaction history.
 - **Settings** — your profile, app version and downloads.
 - **Assistant** — that is me. Ask me anything, any time.
@@ -74,11 +74,9 @@ Withdrawals and revenue share follow the terms you accepted at sign-up. If a top
     keys: ['price', 'pricing', 'cost', 'tuition', 'plan', 'plans', 'subscription', 'monthly', 'pro', "pay n go", 'pay n\' go', 'how much', 'fee', 'fees'],
     answer: `Gliimu runs three ways to pay:
 
-- **Pay n' Go** — no subscription. You pay only for the premium content you unlock.
-- **Monthly** — a recurring plan with broader access.
-- **Pro** — the full tier.
-
-Program tuition is set at a premium tier, roughly **₦70,000 to ₦780,000**, depending on the subscription plan you choose. All payments are final and non-refundable once access is granted, except in documented cases of verifiable platform failure.
+- **Wallet** — no subscription. You pay from your wallet for what you use.
+- **Use n' Pay** — ₦10,000 for the first month. After that you're billed based on your actual usage.
+- **Xtra** — a flat ₦99,900 per year. Unlimited everything, no per-open charges.
 
 Open **Billing** to see the current plan cards and pick the one that fits you.`
   },

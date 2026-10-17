@@ -29,10 +29,33 @@ function showShell() {
     avatarEl.hidden = false;
   }
 
-  // Nav items and section labels both carry data-role; a role that cannot
-  // open a screen never sees the link.
+  // Nav items and section labels carry data-role; a role that cannot open a
+  // screen never sees the link. Multiple roles are space-separated
+  // (data-role="crm operations") so the link shows for any listed role.
   document.querySelectorAll('[data-role]').forEach((el) => {
-    el.hidden = !store.can(el.dataset.role);
+    const roles = el.dataset.role.split(/\s+/);
+    el.hidden = !roles.some(r => store.can(r));
+  });
+
+  // Super sees every role, which means shared tabs (Members in ops + CRM,
+  // Gigs in captain + ops) would render twice. The data-dup attribute marks
+  // the secondary occurrence; hide it for super so each tab appears once.
+  if (store.role === 'super') {
+    document.querySelectorAll('[data-dup]').forEach(el => { el.hidden = true; });
+  }
+
+  // Section labels that end up with no visible links underneath should hide
+  // themselves — otherwise super sees empty "CRM" / "Captain" headings.
+  document.querySelectorAll('.nav-label[data-role]').forEach(label => {
+    const roles = label.dataset.role.split(/\s+/);
+    if (!roles.some(r => store.can(r))) { label.hidden = true; return; }
+    let next = label.nextElementSibling;
+    let anyVisible = false;
+    while (next && !next.classList.contains('nav-label')) {
+      if (next.classList.contains('nav-item') && !next.hidden) anyVisible = true;
+      next = next.nextElementSibling;
+    }
+    label.hidden = !anyVisible;
   });
 }
 
@@ -55,6 +78,14 @@ async function refreshCounts() {
   if (store.can('captain')) {
     const { data } = await supabase.rpc('captain_queue', { p_limit: 1 });
     if (data && data.ok) setCount('count-triads', Number(data.total || 0));
+  }
+
+  if (store.can('captain') || store.can('operations')) {
+    const { count } = await supabase
+      .from('deals')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['queued', 'in_progress']);
+    setCount('count-gigs', count || 0);
   }
 }
 

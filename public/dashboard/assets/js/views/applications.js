@@ -1,6 +1,5 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
-import { fetchBillingSummary, goToBilling } from '../billing.js';
 import { uploadFile } from '../upload.js';
 
 function escapeHtml(value) {
@@ -28,7 +27,7 @@ const CATEGORIES = [
 const filterIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>';
 
 export default {
-  title: 'Queue',
+  title: 'Gigs',
   template: `
     <div class="requests-layout" id="requests-container">
       <div id="tab-content"></div>
@@ -39,14 +38,6 @@ export default {
     this.queue = [];
     this.categoryFilter = 'all';
     this.filterOpen = false;
-
-    this.billingTier = null;
-    this.dealCap = 3;
-    fetchBillingSummary().then(s => {
-      if (!s || s.code) return;
-      this.billingTier = s.tier;
-      if (s.prices && s.prices.limit_deals_payngo) this.dealCap = Number(s.prices.limit_deals_payngo) || 3;
-    });
 
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
     if (topbarDynamic) topbarDynamic.innerHTML = '';
@@ -256,7 +247,7 @@ export default {
             <div class="form-group">
               <label>Company Logo</label>
               <input type="file" id="deal-logo" class="input" accept="image/*">
-              <span class="text-muted">Shown on the queue board in place of your profile photo and name.</span>
+              <span class="text-muted">Shown on the gig board in place of your profile photo and name.</span>
             </div>
           </div>
 
@@ -296,27 +287,10 @@ export default {
     corporate.style.display = type === 'corporate' ? 'block' : 'none';
   },
 
-  async dealAccessAllowed() {
-    if (this.billingTier === 'wallet') {
-      await appAlert("Gigs are part of a subscription. Switch to Use n' Pay (up to " + this.dealCap + " active gigs) or Pro (unlimited) to bring us work.");
-      goToBilling();
-      return false;
-    }
-    if (this.billingTier === 'trial' || this.billingTier === 'payngo') {
-      const mine = this.queue.filter(d => d.user_id === store.user.id).length;
-      if (mine >= this.dealCap) {
-        await appAlert(`You already have ${mine} active gig${mine === 1 ? '' : 's'} — your plan allows ${this.dealCap}. Finish or cancel one first, or go Pro for unlimited gigs.`);
-        return false;
-      }
-    }
-    return true;
-  },
-
   async toggleDealForm() {
     const card = document.getElementById('deal-form-card');
     if (!card) return;
     const opening = card.style.display === 'none';
-    if (opening && !await this.dealAccessAllowed()) return;
     card.style.display = opening ? 'block' : 'none';
     if (opening) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
@@ -331,7 +305,6 @@ export default {
 
     if (!category) return alert("Please select a category.");
     if (!description) return alert("Please describe the job.");
-    if (!await this.dealAccessAllowed()) return;
 
     let relationship = null;
     let companyName = null;
@@ -372,10 +345,7 @@ export default {
     if (error) {
       const msg = error.message || '';
       if (msg.includes('DEALS_REQUIRE_SUBSCRIPTION')) {
-        return alert("Gigs are part of a subscription. Switch to Use n' Pay or Pro to bring us work.");
-      }
-      if (msg.includes('DEAL_LIMIT_REACHED')) {
-        return alert(`You've reached the ${this.dealCap} active gigs your plan allows. Finish or cancel one, or go Pro for unlimited gigs.`);
+        return alert("You need an active account to post gigs.");
       }
       return alert("Error: " + error.message);
     }

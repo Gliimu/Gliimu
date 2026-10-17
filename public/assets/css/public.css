@@ -47,6 +47,16 @@ section { padding: 100px 0; }
 .section-subtitle { font-size: var(--fs-md); color: var(--text-secondary); max-width: 600px; margin: 0 auto; text-align: center; }
 .pillars-header { text-align: center; margin-bottom: var(--space-16); }
 
+/* What We Do */
+.what-we-do-section { background: var(--bg-primary); }
+.what-we-do-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-16); align-items: center; }
+.what-we-do-content { max-width: 700px; }
+.what-we-do-lines { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-10); }
+.wwd-line { display: flex; align-items: flex-start; gap: var(--space-6); }
+.wwd-num { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--brand-primary); background: var(--brand-primary-light); width: 44px; height: 44px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wwd-line h3 { font-size: var(--fs-lg); font-weight: var(--fw-bold); margin-bottom: var(--space-1); }
+.wwd-line p { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.6; margin: 0; }
+
 /* Pillars Grid */
 .pillars-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-6); }
 .pillar-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-8); text-align: center; transition: transform var(--transition-fast); }
@@ -221,6 +231,7 @@ section { padding: 100px 0; }
   background: var(--bg-secondary);
   padding: 100px 0;
   border-top: 1px solid var(--border);
+  min-height: 50vh;
 }
 
 .download-section.has-bg {

@@ -85,7 +85,7 @@ export function openDrawer({ title, sub = '', body = '', foot = '' }) {
 }
 
 // Shared money/plan vocabulary, kept next to the SQL that writes it.
-export const TIER_LABEL = { trial: 'Trial', wallet: "Pay n' Go", payngo: "Use n' Pay", pro: 'Pro' };
+export const TIER_LABEL = { trial: 'Trial', wallet: 'Wallet', payngo: "Use n' Pay", pro: 'Xtra' };
 
 export const TXN_LABEL = {
   topup: 'Wallet top-up',

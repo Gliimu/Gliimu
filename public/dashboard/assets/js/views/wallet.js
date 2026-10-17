@@ -274,6 +274,7 @@ export default {
     const dueTotal = due.reduce((n, c) => n + (Number(c.total) || 0), 0);
     const openCycle = s && s.open_cycle;
     const proPrice = Number(prices.plan_pro || 99900);
+    const payngoFirst = Number(prices.plan_payngo_first || 10000);
 
     const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
     const daysLeft = (d) => d ? Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) : 0;
@@ -283,7 +284,7 @@ export default {
         <span>${text}</span>
       </li>`;
 
-    const tierName = { trial: 'Free Trial', wallet: "Pay n' Go", payngo: "Use n' Pay", pro: 'Pro' }[tier] || "Pay n' Go";
+    const tierName = { trial: 'Free Trial', wallet: 'Wallet', payngo: "Use n' Pay", pro: 'Xtra' }[tier] || 'Wallet';
 
     const statusRows = [];
     if (tier === 'trial') {
@@ -346,25 +347,25 @@ export default {
       trial: 'Preview only — nothing is charged during the trial.',
       wallet: 'Charged from your wallet when you open.',
       payngo: 'Added to your monthly bill as you use.',
-      pro: 'Included with Pro — no per-open charges.'
+      pro: 'Included with Xtra — no per-open charges.'
     }[tier] || '';
 
-    // Pro users see no downgrade buttons — switching would forfeit a paid year.
+    // Xtra users see no downgrade buttons — switching would forfeit a paid year.
     const walletBtn = tier === 'wallet'
       ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
-      : tier === 'pro'
-        ? ''
-        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('wallet')">${tier === 'trial' ? "Start on Pay n' Go" : "Switch to Pay n' Go"}</button>`;
+        : tier === 'pro'
+          ? ''
+          : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('wallet')">${tier === 'trial' ? 'Start with Wallet' : 'Switch to Wallet'}</button>`;
 
     const payngoBtn = tier === 'payngo'
       ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
       : tier === 'pro'
         ? ''
-        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('payngo')">${tier === 'trial' ? "Continue on Use n' Pay" : "Switch to Use n' Pay"}</button>`;
+        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('payngo')">${tier === 'trial' ? "Start Use n' Pay" : "Switch to Use n' Pay"}</button>`;
 
     const proBtn = tier === 'pro'
       ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
-      : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('pro')">Go Pro</button>`;
+      : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('pro')">Go Xtra</button>`;
 
     return `
       <div class="card sub-card">
@@ -380,7 +381,7 @@ export default {
 
       <div class="plan-list">
         <div class="plan-card">
-          <span class="plan-name">Pay n' Go</span>
+          <span class="plan-name">Wallet</span>
           <div class="plan-price">No subscription</div>
           <span class="plan-price-note">charged from your wallet as you use</span>
           <ul class="plan-features">
@@ -393,23 +394,23 @@ export default {
         </div>
         <div class="plan-card">
           <span class="plan-name">Use n' Pay</span>
-          <div class="plan-price">₦0 upfront</div>
-          <span class="plan-price-note">billed monthly after use</span>
+          <div class="plan-price">₦${payngoFirst.toLocaleString()}</div>
+          <span class="plan-price-note">first month · then billed by usage</span>
           <ul class="plan-features">
             ${check('Full platform access')}
             ${check('Live sessions')}
-            ${check('Gigs (up to 3)')}
-            ${check('+3 free days on renewal')}
+            ${check('Post gigs')}
+            ${check('Billed monthly after use')}
           </ul>
           ${payngoBtn}
         </div>
         <div class="plan-card">
-          <span class="plan-name">Pro</span>
+          <span class="plan-name">Xtra</span>
           <div class="plan-price">₦${proPrice.toLocaleString()}</div>
           <span class="plan-price-note">per year · paid from wallet</span>
           <ul class="plan-features">
             ${check('Unlimited everything')}
-            ${check('Unlimited Gigs')}
+            ${check('Unlimited gigs')}
             ${check('No per-open charges')}
             ${check('365 days + 30 free days')}
           </ul>
@@ -665,7 +666,7 @@ export default {
       const settleLine = accrued > 0
         ? `\n\nYou've used ₦${accrued.toLocaleString()} this month — switching settles that from your wallet balance immediately.`
         : '';
-      const ok = await appConfirm("Switch to Pay n' Go?\n\nNo subscription fee — every open is charged straight from your wallet balance. Live sessions and monthly billing need Use n' Pay or Pro." + settleLine, { okText: 'Switch' });
+      const ok = await appConfirm(`Switch to Wallet?\n\nNo subscription fee — every open is charged straight from your wallet balance. Live sessions and monthly billing need Use n' Pay or Xtra.` + settleLine, { okText: 'Switch' });
       if (!ok) return;
 
       const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'wallet' });
@@ -684,7 +685,7 @@ export default {
           return;
         }
         if (data.code === 'PRO_ACTIVE') {
-          await appAlert("Pro is still active. Switching now would waste the year you paid for.");
+          await appAlert("Xtra is still active. Switching now would waste the year you paid for.");
           return;
         }
         return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not switch plans right now.");
@@ -692,8 +693,8 @@ export default {
 
       const settled = Number(data && data.settled || 0);
       await appAlert(settled > 0
-        ? `You're on Pay n' Go. This month's ₦${settled.toLocaleString()} of Use n' Pay usage was settled from your wallet.`
-        : "You're on Pay n' Go — usage is charged from your wallet as you go.");
+        ? `You're on Wallet. This month's ₦${settled.toLocaleString()} of Use n' Pay usage was settled from your wallet.`
+        : "You're on Wallet — usage is charged from your wallet as you go.");
       await this.fetchData();
       this.render();
       return;
@@ -721,22 +722,22 @@ export default {
 
     if (planId === 'pro') {
       const price = Number((this.summary && this.summary.prices && this.summary.prices.plan_pro) || 99900);
-      const ok = await appConfirm(`Go Pro for ₦${price.toLocaleString()}?\n\nIt's paid from your wallet balance and covers a full year — 365 days plus 30 free days at the end.`, { okText: 'Go Pro' });
+      const ok = await appConfirm(`Go Xtra for ₦${price.toLocaleString()}?\n\nIt's paid from your wallet balance and covers a full year — 365 days plus 30 free days at the end.`, { okText: 'Go Xtra' });
       if (!ok) return;
 
       const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'pro' });
-      if (error) return appAlert("Could not activate Pro: " + error.message);
+      if (error) return appAlert("Could not activate Xtra: " + error.message);
       if (data && data.ok === false) {
         if (data.code === 'INSUFFICIENT_FUNDS') {
           const short = Math.max(0, price - Number(data.balance || 0));
-          await appAlert(`Your wallet needs ₦${short.toLocaleString()} more for Pro. Top up, then come back.`);
+          await appAlert(`Your wallet needs ₦${short.toLocaleString()} more for Xtra. Top up, then come back.`);
           this.openTopUpModal();
           return;
         }
-        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not activate Pro right now.");
+        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not activate Xtra right now.");
       }
 
-      await appAlert('Pro is active — unlimited everything for a year. Enjoy!');
+      await appAlert('Xtra is active — unlimited everything for a year. Enjoy!');
       await this.fetchData();
       this.render();
     }
