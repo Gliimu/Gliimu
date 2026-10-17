@@ -2,8 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { openReader } from '../reader.js?v=22';
-import hubView from './hub.js?v=21';
+import { openReader } from '../reader.js?v=28';
+import hubView from './hub.js?v=28';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.
@@ -561,22 +561,17 @@ export default {
   },
 
   // Shelf items are thumbnail-only cover tiles woven into the same feed as
-  // gliims: cover (or hue-gradient fallback), ownership badge, and a hover
+  // gliims: real cover or a plain placeholder tile, ownership badge, and a hover
   // overlay with the title. No text below the thumbnail.
   renderShelfCard(item) {
     const isOwned = this.ownedItems.has(item.id);
     const isSaved = this.savedItems.has(item.id);
-    const icons = {
-      publication: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
-      audiolite: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>'
-    };
 
     let thumb;
     if (item.cover_url) {
       thumb = `<img class="lib-thumb" src="${escapeHtml(item.cover_url)}" alt="" loading="lazy">`;
     } else {
-      const hue = [...(item.title || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
-      thumb = `<div class="lib-thumb lib-thumb-fallback" style="background: linear-gradient(135deg, hsl(${hue}, 42%, 34%), hsl(${(hue + 70) % 360}, 45%, 16%));">${icons[item.type] || icons.publication}</div>`;
+      thumb = '<div class="lib-thumb lib-thumb-fallback"></div>';
     }
 
     const ownedBadge = isOwned
@@ -659,7 +654,7 @@ export default {
                 <div class="lib-menu-item ask-me-item" id="ask-me-btn">
                   ${authorAvatar
                     ? `<img src="${authorAvatar}" alt="Author" class="lib-menu-avatar">`
-                    : `<div class="lib-menu-avatar lib-menu-avatar-fallback">${authorName.charAt(0).toUpperCase()}</div>`} ${authorName}
+                    : `<div class="lib-menu-avatar lib-menu-avatar-fallback"></div>`} ${authorName}
                 </div>
               </div>
             </div>

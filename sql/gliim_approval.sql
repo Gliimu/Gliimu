@@ -255,10 +255,9 @@ begin
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_post;
 
-    insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-    values (uid, v_post.user_id,
-            'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was not approved. Reason: ' || p_note,
-            false, true);
+    insert into public.support_messages (thread_user, sender_id, content)
+    values (v_post.user_id, uid,
+            'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was not approved. Reason: ' || p_note);
 
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
@@ -267,10 +266,9 @@ begin
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_post;
 
-  insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-  values (uid, v_post.user_id,
-          'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was approved and is now live in the Hub.',
-          false, true);
+  insert into public.support_messages (thread_user, sender_id, content)
+  values (v_post.user_id, uid,
+          'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was approved and is now live in the Hub.');
 
   return jsonb_build_object('ok', true, 'status', 'approved');
 end $$;

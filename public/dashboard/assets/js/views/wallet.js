@@ -399,7 +399,6 @@ export default {
           <ul class="plan-features">
             ${check('Full platform access')}
             ${check('Live sessions')}
-            ${check('Post gigs')}
             ${check('Billed monthly after use')}
           </ul>
           ${payngoBtn}
@@ -410,7 +409,6 @@ export default {
           <span class="plan-price-note">per year · paid from wallet</span>
           <ul class="plan-features">
             ${check('Unlimited everything')}
-            ${check('Unlimited gigs')}
             ${check('No per-open charges')}
             ${check('365 days + 30 free days')}
           </ul>
@@ -589,7 +587,7 @@ export default {
 
       results.innerHTML = list.map(u => {
         const cls = tierClass(u.total_gp, 'transfer-result-avatar');
-        const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}">${(u.full_name || 'G').charAt(0).toUpperCase()}</div>`;
+        const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}"></div>`;
         return `<div class="transfer-result" onclick="walletInstance.selectTransferUser('${u.id}')">${av}<div class="transfer-result-info"><span class="transfer-result-name">${escapeHtml(u.full_name || 'Gliimait')}</span><span class="transfer-result-gp">${u.total_gp || 0} GP</span></div></div>`;
       }).join('');
       results.classList.add('active');

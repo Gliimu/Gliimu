@@ -1,12 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 
-// The hero ships empty in index.html so no stale copy flashes while
-// site_settings loads; these are the defaults when a column is blank.
-const DEFAULT_HERO = {
-  title: 'We are',
-  highlight: 'Full Stack Media Architects',
-  desc: 'Become a Full Stack Media Architect.\nGet real-life experiences and earn from real client deals.'
-};
+// The hero copy has exactly one source: site_settings, edited by operations
+// at admin.gliimu.com. A blank column renders a blank hero — no copy is
+// invented here.
 
 // ============================================
 // SAFETY HELPERS
@@ -106,17 +102,13 @@ async function loadSiteSettings() {
   }
 
   // Hero texts (Operations > Landing page). index.html ships the hero empty
-  // so nothing stale flashes before settings arrive; a blank column keeps
-  // the default copy.
-  const heroTitle = (data.hero_title || '').trim() || DEFAULT_HERO.title;
-  const heroHighlight = (data.hero_highlight || '').trim() || DEFAULT_HERO.highlight;
-  const heroDesc = (data.hero_desc || '').trim() || DEFAULT_HERO.desc;
+  // so nothing stale flashes before settings arrive.
   const titleEl = document.getElementById('hero-title-text');
-  if (titleEl) titleEl.textContent = heroTitle + ' ';
+  if (titleEl) titleEl.textContent = (data.hero_title || '').trim() + ' ';
   const highlightEl = document.getElementById('hero-highlight-text');
-  if (highlightEl) highlightEl.textContent = heroHighlight;
+  if (highlightEl) highlightEl.textContent = (data.hero_highlight || '').trim();
   const descEl = document.getElementById('hero-desc-text');
-  if (descEl) descEl.innerHTML = escapeHtml(heroDesc).replace(/\n/g, '<br>');
+  if (descEl) descEl.innerHTML = escapeHtml((data.hero_desc || '').trim()).replace(/\n/g, '<br>');
 
   applyDownloadSection(data);
 }
@@ -145,10 +137,13 @@ function applyDownloadSection(settings) {
   }
 
   const versionEl = document.getElementById('dl-version');
-  if (versionEl && settings.app_version) versionEl.textContent = settings.app_version;
+  const versionBadge = versionEl ? versionEl.closest('.download-version-badge') : null;
+  const version = (settings.app_version || '').trim();
+  if (versionEl) versionEl.textContent = version;
+  if (versionBadge) versionBadge.style.display = version ? '' : 'none';
 
   const notesEl = document.getElementById('dl-notes');
-  if (notesEl && settings.app_version_notes) notesEl.textContent = settings.app_version_notes;
+  if (notesEl) notesEl.textContent = (settings.app_version_notes || '').trim();
 
   const targets = [
     ['dl-windows', settings.app_windows_url],
@@ -158,12 +153,16 @@ function applyDownloadSection(settings) {
     ['dl-ios', settings.app_ios_url],
   ];
 
+  // The buttons ship disabled in index.html; a DB URL is the only thing that
+  // switches one on, so a placeholder link can never be handed to a visitor.
   targets.forEach(([id, raw]) => {
     const el = document.getElementById(id);
     if (!el) return;
     const href = safeUrl(raw);
     if (href) {
       el.href = href;
+      el.classList.remove('is-off');
+      el.removeAttribute('aria-disabled');
     } else {
       el.removeAttribute('href');
       el.classList.add('is-off');
@@ -278,7 +277,7 @@ async function loadHubHighlights() {
               ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
               : `<div class="hub-card-avatar"></div>`
             }
-            <span class="hub-card-author">${escapeHtml(post.full_name || 'Gliimait')}</span>
+            <span class="hub-card-author">${escapeHtml(post.full_name || '')}</span>
           </div>
           <p class="hub-card-text clamp-4">${escapeHtml(post.content)}</p>
           ${hubMediaHtml(post.media_url, post.media_type)}
@@ -289,15 +288,15 @@ async function loadHubHighlights() {
       const cover = safeUrl(lib.cover_url);
       const avatar = safeUrl(lib.author_avatar);
       const author = (lib.author || '').trim();
-      const bg = cover ? `background-image: url('${cover}'); background-size: cover;` : `background: ${escapeHtml(lib.cover_color || '#4f46e5')};`;
+      const bg = cover ? `background-image: url('${cover}'); background-size: cover;` : '';
       return `
         <div class="hub-card reveal" style="transition-delay: ${delay}s;">
           <div class="hub-card-meta">
             ${avatar
               ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
-              : `<div class="hub-card-avatar" style="background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">${escapeHtml((author || 'L').charAt(0).toUpperCase())}</div>`
+              : `<div class="hub-card-avatar"></div>`
             }
-            <span class="hub-card-author">${escapeHtml(author || 'New in Library')}</span>
+            <span class="hub-card-author">${escapeHtml(author || 'Gliimu Library')}</span>
           </div>
           <div class="lib-highlight-thumb" style="height: 120px; border-radius: 8px; margin-bottom: 12px; ${bg}"></div>
           <p class="hub-card-text" style="font-weight: 600;">${escapeHtml(lib.title)}</p>
@@ -313,7 +312,7 @@ async function loadHubHighlights() {
         <div style="display:flex; align-items:center; gap:14px;">
           ${avatar
             ? `<img src="${avatar}" alt="" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">`
-            : `<div style="width:44px; height:44px; border-radius:50%; background: var(--gradient-primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:18px;">${escapeHtml((up.full_name || 'G').charAt(0).toUpperCase())}</div>`
+            : `<div class="uploader-avatar-empty"></div>`
           }
           <div style="display:flex; flex-direction:column; min-width:0;">
             <span style="font-weight:700; font-size: var(--fs-md);">${escapeHtml(up.full_name)}</span>

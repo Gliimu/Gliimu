@@ -108,7 +108,6 @@ export default {
     const events = Array.isArray(d.events) ? d.events : [];
     const buys = Array.isArray(d.purchases) ? d.purchases : null;
     const sells = Array.isArray(d.library_items) ? d.library_items : null;
-    const deals = d.deals || [];
     const edits = d.adjustments || [];
 
     const section = (title, inner) => `<div class="section-title">${escapeHtml(title)}</div>${inner}`;
@@ -178,12 +177,6 @@ export default {
             <tbody>${sells.map(s => `<tr><td>${escapeHtml(s.title || '—')}</td><td class="num">${money(s.price)}</td><td class="num">${Number(s.sales || 0)}</td></tr>`).join('')}</tbody>
           </table></div>` : ''}
       `)}
-
-      ${deals.length ? section(`Deals (${deals.length})`, `
-        <div class="table-wrap"><table class="table">
-          <thead><tr><th>Company</th><th>Status</th><th>Budget</th></tr></thead>
-          <tbody>${deals.map(x => `<tr><td>${escapeHtml(x.company_name || x.deal_type || '—')}</td><td>${badge(x.status, x.status === 'completed' ? 'success' : 'neutral')}</td><td class="muted small">${escapeHtml(x.budget || '—')}</td></tr>`).join('')}</tbody>
-        </table></div>`) : ''}
 
       ${edits.length ? section(`Admin adjustments (${edits.length})`, `
         <div class="table-wrap"><table class="table">

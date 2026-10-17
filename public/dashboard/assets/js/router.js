@@ -1,10 +1,9 @@
 const routes = {
-  '/assistant': () => import('./views/assistant.js?v=21').then(m => m.default),
-  '/library': () => import('./views/library.js?v=22').then(m => m.default),
-  '/updates': () => import('./views/updates.js?v=22').then(m => m.default),
-  '/ping': () => import('./views/messages.js?v=26').then(m => m.default),
-  '/applications': () => import('./views/applications.js?v=26').then(m => m.default),
-  '/wallet': () => import('./views/wallet.js').then(m => m.default),
+  '/support': () => import('./views/assistant.js?v=28').then(m => m.default),
+  '/library': () => import('./views/library.js?v=28').then(m => m.default),
+  '/updates': () => import('./views/updates.js?v=28').then(m => m.default),
+  '/ping': () => import('./views/messages.js?v=28').then(m => m.default),
+  '/wallet': () => import('./views/wallet.js?v=28').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
   // Deep links only: Live is folded into Ping, Profile opens from the avatar
   '/live': () => import('./views/live.js').then(m => m.default),
@@ -20,7 +19,7 @@ let navigationRequest = 0;
 
 export async function router() {
   const hash = window.location.hash.slice(1) || '/library';
-  // Deep links may carry a query string (e.g. #/applications?tab=deals)
+  // Deep links may carry a query string (e.g. #/ping?chat=<id>)
   const path = hash.split('?')[0];
   const routeHandler = routes[path];
 

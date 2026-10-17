@@ -399,7 +399,6 @@ declare
   v_events  jsonb;
   v_buys    jsonb;
   v_sells   jsonb;
-  v_deals   jsonb;
   v_edits   jsonb;
 begin
   if uid is null then
@@ -466,13 +465,6 @@ begin
   end;
 
   select coalesce(jsonb_agg(jsonb_build_object(
-           'id', d.id, 'deal_type', d.deal_type, 'company_name', d.company_name,
-           'budget', d.budget, 'status', d.status, 'created_at', d.created_at)
-           order by d.created_at desc), '[]'::jsonb)
-    into v_deals
-    from (select * from public.deals d where d.user_id = p_user order by d.created_at desc limit 25) d;
-
-  select coalesce(jsonb_agg(jsonb_build_object(
            'id', a.id, 'kind', a.kind, 'amount', a.amount, 'reason', a.reason,
            'applied_by', a.applied_by, 'created_at', a.created_at)
            order by a.created_at desc), '[]'::jsonb)
@@ -487,7 +479,6 @@ begin
     'events', v_events,
     'purchases', v_buys,
     'library_items', v_sells,
-    'deals', v_deals,
     'adjustments', v_edits
   );
 end

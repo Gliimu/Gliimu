@@ -150,6 +150,8 @@ section { padding: 100px 0; }
 .hub-card-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--gradient-primary); }
 .hub-card-author { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
 .hub-card-text { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.5; }
+.uploader-avatar-empty { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--gradient-primary); }
+.lib-highlight-thumb { background: var(--bg-tertiary); border: 1px solid var(--border); }
 .clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* CTA Section */

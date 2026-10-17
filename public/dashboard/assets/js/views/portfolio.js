@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js';
+import hubView from './hub.js?v=28';
 
 export default {
   title: 'Profile',
@@ -105,7 +105,7 @@ export default {
     dropdown.innerHTML = filtered.map(u => {
       const avatar = u.avatar_url
         ? `<img src="${u.avatar_url}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; margin-right:8px;">`
-        : `<div style="width:24px; height:24px; border-radius:50%; background:var(--gradient-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-right:8px;">${u.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+        : `<div style="width:24px; height:24px; border-radius:50%; background:var(--gradient-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-right:8px;"></div>`;
       return `
       <div class="lib-dropdown-item" onclick="profileInstance.viewUser('${u.id}')" style="display:flex; align-items:center;">
         ${avatar}
@@ -174,7 +174,7 @@ export default {
         <div class="portfolio-left ${tierClass}">
           ${portfolioImg
             ? `<img src="${portfolioImg}" alt="${p.full_name || 'Gliimait'}" style="object-fit:cover;">`
-            : `<div class="portfolio-img-fallback">${p.full_name?.charAt(0).toUpperCase() || 'G'}</div>`}
+            : `<div class="portfolio-img-fallback"></div>`}
           ${isMe ? `
             ${p.portfolio_image_url ? `
               <button class="portfolio-img-reset" title="Use your profile picture instead" onclick="profileInstance.resetPortfolioImage()">

@@ -72,10 +72,9 @@ begin
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_submission;
 
-    insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-    values (uid, v_sub.user_id,
-            'Your library submission "' || v_sub.title || '" was not approved. Reason: ' || p_note,
-            false, true);
+    insert into public.support_messages (thread_user, sender_id, content)
+    values (v_sub.user_id, uid,
+            'Your library submission "' || v_sub.title || '" was not approved. Reason: ' || p_note);
 
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
@@ -126,10 +125,9 @@ begin
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_submission;
 
-  insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-  values (uid, v_sub.user_id,
-          'Your library submission "' || v_sub.title || '" was approved and is now live on the shelf.',
-          false, true);
+  insert into public.support_messages (thread_user, sender_id, content)
+  values (v_sub.user_id, uid,
+          'Your library submission "' || v_sub.title || '" was approved and is now live on the shelf.');
 
   return jsonb_build_object('ok', true, 'status', 'approved', 'item_id', v_item);
 end

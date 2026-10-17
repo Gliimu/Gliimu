@@ -84,7 +84,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
         <div class="rdr-menu-dropup-item rdr-menu-dropup-author" id="rdr-menu-author">
           ${eng.authorAvatar
             ? `<img src="${eng.authorAvatar}" alt="" class="rdr-menu-author-img">`
-            : `<div class="rdr-menu-author-img rdr-menu-author-fallback">${(eng.authorName || '?').charAt(0).toUpperCase()}</div>`}
+            : `<div class="rdr-menu-author-img rdr-menu-author-fallback"></div>`}
           ${escapeHtml(eng.authorName || 'Author')}
         </div>
       </div>
@@ -379,7 +379,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
           <button class="rdr-next-card" data-id="${escapeHtml(r.id)}">
             ${r.cover_url
               ? `<img src="${escapeHtml(r.cover_url)}" alt="">`
-              : `<div class="rdr-next-cover-fallback">${escapeHtml((r.title || '?').charAt(0))}</div>`}
+              : `<div class="rdr-next-cover-fallback"></div>`}
             <span class="rdr-next-name">${escapeHtml(r.title)}</span>
             <span class="rdr-next-author">${escapeHtml(r.author || '')}</span>
           </button>`).join('')}

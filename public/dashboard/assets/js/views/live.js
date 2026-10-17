@@ -265,7 +265,7 @@ const liveView = {
     const name = r.profiles?.full_name || 'A Gliimait';
     const avatar = r.profiles?.avatar_url
       ? `<img src="${esc(r.profiles.avatar_url)}" class="live-req-avatar" alt="">`
-      : `<div class="live-req-avatar">${esc(name.charAt(0).toUpperCase())}</div>`;
+      : `<div class="live-req-avatar"></div>`;
     const desc = r.description ? `<p class="live-req-desc">${esc(r.description)}</p>` : '';
 
     let action = '';

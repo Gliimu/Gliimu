@@ -1,9 +1,9 @@
 -- ============================================================
--- Gliimu: ONE-SHOT SETUP — admin role, deal queue, landing
--- page, hub supports, bill transfers, subscriptions, reports.
+-- Gliimu: ONE-SHOT SETUP — admin role, landing page, hub
+-- supports, bill transfers, subscriptions, reports.
 --
--- This one script sets up everything the new landing page and
--- the Requests page need. It only ADDS missing pieces — it never
+-- This one script sets up everything the new landing page
+-- needs. It only ADDS missing pieces — it never
 -- drops or rewrites your existing tables (curriculum,
 -- contact_info, hub posts, etc. are not touched at all).
 --
@@ -165,154 +165,12 @@ create policy "Admins update site settings" on public.site_settings
   for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- ------------------------------------------------------------
--- 6. Deals — the Requests page FIFO queue board.
---    A "deal" is work brought to Gliimu by an individual
---    (personal) or an organisation (corporate). Deals queue up
---    in order; an admin marks one done and the next moves up.
+-- 7. Storage bucket: landing-page assets (partner logos and the
+--    app download background).
 -- ------------------------------------------------------------
-create table if not exists public.deals (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  deal_type text not null default 'personal',
-  relationship text,
-  company_name text,
-  company_logo_url text,
-  job_description text,
-  budget text,
-  timeline text,
-  status text not null default 'queued',
-  queue_position bigint,
-  created_at timestamptz not null default now(),
-  started_at timestamptz,
-  completed_at timestamptz,
-  completed_by uuid
-);
-
-alter table public.deals add column if not exists user_id uuid;
-alter table public.deals add column if not exists deal_type text not null default 'personal';
-alter table public.deals add column if not exists relationship text;
-alter table public.deals add column if not exists company_name text;
-alter table public.deals add column if not exists company_logo_url text;
-alter table public.deals add column if not exists job_description text;
-alter table public.deals add column if not exists budget text;
-alter table public.deals add column if not exists timeline text;
-alter table public.deals add column if not exists status text not null default 'queued';
-alter table public.deals add column if not exists queue_position bigint;
-alter table public.deals add column if not exists created_at timestamptz not null default now();
-alter table public.deals add column if not exists started_at timestamptz;
-alter table public.deals add column if not exists completed_at timestamptz;
-alter table public.deals add column if not exists completed_by uuid;
-
--- Constraints: drop (if a previous run added them) then re-add.
-alter table public.deals drop constraint if exists deals_status_check;
-alter table public.deals
-  add constraint deals_status_check
-  check (status in ('queued', 'in_progress', 'completed', 'cancelled')) not valid;
-
-alter table public.deals drop constraint if exists deals_type_check;
-alter table public.deals
-  add constraint deals_type_check
-  check (deal_type in ('personal', 'corporate')) not valid;
-
-alter table public.deals drop constraint if exists deals_user_id_fkey;
-alter table public.deals
-  add constraint deals_user_id_fkey foreign key (user_id)
-  references public.profiles(id) on delete cascade;
-
-alter table public.deals drop constraint if exists deals_completed_by_fkey;
-alter table public.deals
-  add constraint deals_completed_by_fkey foreign key (completed_by)
-  references public.profiles(id) on delete set null;
-
--- FIFO queue. A sequence guarantees the "next up" order without
--- a read-then-write race between two people posting at once.
-create sequence if not exists public.deals_queue_seq;
-
-alter table public.deals
-  alter column queue_position set default nextval('public.deals_queue_seq');
-
-update public.deals set queue_position = nextval('public.deals_queue_seq')
-where queue_position is null;
-
-create index if not exists deals_status_idx on public.deals (status, queue_position);
-create index if not exists deals_user_idx on public.deals (user_id, created_at desc);
-
-alter table public.deals enable row level security;
-
-drop policy if exists "Authenticated read deals" on public.deals;
-drop policy if exists "Public read active deals" on public.deals;
-drop policy if exists "Users insert own deals" on public.deals;
-drop policy if exists "Owners update own deals" on public.deals;
-drop policy if exists "Owners delete own deals" on public.deals;
-drop policy if exists "Admins update any deal" on public.deals;
-drop policy if exists "Admins delete any deal" on public.deals;
-
-grant select on public.deals to anon;
-grant select, insert, update, delete on public.deals to authenticated;
-grant all on public.deals to service_role;
-grant usage, select on sequence public.deals_queue_seq to authenticated;
-
--- Everyone signed in can see the whole queue.
-create policy "Authenticated read deals"
-  on public.deals for select
-  to authenticated using (true);
-
--- The public landing page shows the newest active deal.
-create policy "Public read active deals"
-  on public.deals for select
-  to anon using (status in ('queued', 'in_progress'));
-
--- Post a deal.
-create policy "Users insert own deals"
-  on public.deals for insert
-  to authenticated with check (auth.uid() = user_id);
-
--- Owners edit or cancel their own deal.
-create policy "Owners update own deals"
-  on public.deals for update
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-create policy "Owners delete own deals"
-  on public.deals for delete
-  to authenticated using (auth.uid() = user_id);
-
--- Admins work the queue: mark done, cancel, clean up.
-create policy "Admins update any deal"
-  on public.deals for update
-  to authenticated using (public.is_admin()) with check (public.is_admin());
-
-create policy "Admins delete any deal"
-  on public.deals for delete
-  to authenticated using (public.is_admin());
-
--- Realtime board updates.
-do $$
-begin
-  alter publication supabase_realtime add table public.deals;
-exception when duplicate_object then null;
-end $$;
-
--- ------------------------------------------------------------
--- 7. Storage buckets: company logos (deal posters) and landing-
---    page assets (partner logos, app download background).
--- ------------------------------------------------------------
-insert into storage.buckets (id, name, public)
-values ('deal_logos', 'deal_logos', true)
-on conflict (id) do update set public = true;
-
 insert into storage.buckets (id, name, public)
 values ('site_assets', 'site_assets', true)
 on conflict (id) do update set public = true;
-
-drop policy if exists "Public read deal logos" on storage.objects;
-create policy "Public read deal logos" on storage.objects
-  for select to anon, authenticated using (bucket_id = 'deal_logos');
-
-drop policy if exists "Users upload deal logos" on storage.objects;
-create policy "Users upload deal logos" on storage.objects
-  for insert to authenticated with check (bucket_id = 'deal_logos');
 
 drop policy if exists "Public read site assets" on storage.objects;
 create policy "Public read site assets" on storage.objects
@@ -928,8 +786,6 @@ grant execute on function public.credit_wallet_topup(uuid, integer, text, text) 
 do $$
 begin
   raise notice '=== SELF CHECK ===';
-  raise notice 'deals table:           %', coalesce(to_regclass('public.deals')::text, 'MISSING');
-  raise notice 'deals queue sequence:  %', coalesce(to_regclass('public.deals_queue_seq')::text, 'MISSING');
   raise notice 'is_admin() function:   %', coalesce(to_regprocedure('public.is_admin()')::text, 'MISSING');
   raise notice 'mark_dm_read function: %', coalesce(to_regprocedure('public.mark_dm_read(uuid)')::text, 'MISSING');
   raise notice 'bump_live_views fn:    %', coalesce(to_regprocedure('public.bump_live_views(uuid)')::text, 'MISSING');
@@ -962,7 +818,7 @@ begin
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'site_settings' and column_name = 'app_windows_url'
   ) then 'present' else 'MISSING' end;
-  raise notice 'storage buckets:       % of 2', (select count(*) from storage.buckets where id in ('deal_logos', 'site_assets'));
+  raise notice 'storage buckets:       % of 1', (select count(*) from storage.buckets where id in ('site_assets'));
   raise notice 'transfer_to_user fn:   %', coalesce(to_regprocedure('public.transfer_to_user(uuid,integer)')::text, 'MISSING');
   raise notice 'purchase_sub fn:       %', coalesce(to_regprocedure('public.purchase_subscription(text)')::text, 'MISSING');
   raise notice 'top_uploader fn:       %', coalesce(to_regprocedure('public.top_uploader()')::text, 'MISSING');

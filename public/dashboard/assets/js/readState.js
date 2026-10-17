@@ -6,9 +6,11 @@ export function getReadMap(userId) {
   try { return JSON.parse(localStorage.getItem(storageKey(userId)) || '{}'); } catch { return {}; }
 }
 
+// Ping is member-to-member only. Anything that came from the admin desk
+// lives in the Support thread, so it never counts as an incoming ping.
 export function isIncomingDm(userId, message) {
   return message.receiver_id === userId && !message.room && !message.is_ai
-    && (message.sender_id !== userId || message.is_admin === true);
+    && !message.is_admin && message.sender_id !== userId;
 }
 
 export function markChatRead(userId, contactId, through = Date.now()) {

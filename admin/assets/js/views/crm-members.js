@@ -91,10 +91,11 @@ export default {
           <dt>GP</dt><dd>${Number(member.total_gp || 0).toLocaleString()}</dd>
           <dt>Joined</dt><dd>${member.created_at ? new Date(member.created_at).toLocaleDateString() : '—'}</dd>
         </dl>
-        <div class="section-title">Send a message</div>
+        <div class="section-title">Send to their Support thread</div>
         <div class="form-group">
           <textarea id="crm-msg-text" class="input" rows="4" placeholder="Type your message..."></textarea>
         </div>
+        <p class="muted small">This lands in the member's Support desk, not their Ping chats. Nobody can edit or retract it afterwards.</p>
       `,
       foot: `<button class="btn-primary" id="crm-msg-send">Send</button>`
     });
@@ -109,26 +110,22 @@ export default {
       btn.textContent = 'Sending...';
 
       try {
-        const { data, error } = await supabase.from('messages').insert({
+        const { error } = await supabase.from('support_messages').insert({
+          thread_user: member.id,
           sender_id: store.user.id,
-          receiver_id: member.id,
-          content,
-          is_ai: false,
-          is_admin: true
-        }).select('id, is_admin').single();
+          content
+        });
 
         if (error) throw error;
-        if (!data?.id) throw new Error('Message confirmation was not returned. Check the conversation before retrying.');
-        if (data.is_admin !== true) throw new Error('Admin branding was not persisted. The message may appear without Gliimu branding.');
         textarea.value = '';
       } catch (err) {
-        return appAlert(`Could not send as admin: ${err.message || 'Unknown error.'}`);
+        return appAlert(`Could not send: ${err.message || 'Unknown error.'}`);
       } finally {
         btn.disabled = false;
         btn.textContent = 'Send';
       }
 
-      await appAlert('Message sent.');
+      await appAlert('Sent to their Support thread.');
     });
   }
 };

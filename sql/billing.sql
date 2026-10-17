@@ -26,7 +26,7 @@
 --        billing_mark_processing()    cron helper: attach the Paystack link
 --        billing_enforce_deadlines()  cron: unpaid bills -> wallet tier
 --        billing_settle_cycle()       payment confirmed (verify + webhook)
---   9. Tier gates on live_requests + deals (defense in depth behind the UI).
+--   9. Tier gates on live_requests (defense in depth behind the UI).
 --
 -- TIERS
 --   trial  3 free days, full access. Usage is only PREVIEWED, never charged.
@@ -35,14 +35,14 @@
 --          a profile costs ₦100; NO live sessions; free gliims are free.
 --   payngo Postpaid monthly. Usage accrues silently to the open cycle and is
 --          billed at month end via Paystack (creator shares are paid
---          immediately). Limited Deals access. +3 free days on renewal.
+--          immediately). +3 free days on renewal.
 --   pro    ₦99,900/year flat, everything included (premium-post creators
---          still earn their 70% share). Full Deals access. +30 free days.
+--          still earn their 70% share). +30 free days.
 --
 -- PRICES (seeded below, change the numbers in billing_prices):
 --   publication ₦100 | bundle ₦200 | audiolite ₦100 | gliim_av ₦20
 --   gliim_image ₦10 | live ₦15 | profile_print ₦100 | premium_unlock ₦100
---   plan_pro ₦99,900 | limit_deals_payngo 3
+--   plan_pro ₦99,900
 --
 -- MONEY UNITS: NAIRA integers, like the rest of the app. Paystack's kobo
 -- conversion happens ONLY in the server.
@@ -176,8 +176,7 @@ insert into public.billing_prices (event_type, amount) values
   ('live',            15),
   ('profile_print',  100),
   ('premium_unlock', 100),
-  ('plan_pro',     99900),
-  ('limit_deals_payngo', 3)
+  ('plan_pro',     99900)
 on conflict (event_type) do nothing;
 
 
@@ -1121,7 +1120,7 @@ grant execute on function public.billing_settle_cycle(bigint, text) to service_r
 
 
 -- ============================================================
--- 12. Tier gates on live_requests + deals (defense in depth)
+-- 12. Tier gates on live_requests (defense in depth)
 -- ============================================================
 
 -- Live sessions: only active trial / payngo / pro users may post or join.
@@ -1158,46 +1157,6 @@ drop trigger if exists enforce_live_subscription on public.live_requests;
 create trigger enforce_live_subscription
   before insert or update on public.live_requests
   for each row execute function public.enforce_live_subscription();
-
--- Deals: wallet / expired users cannot queue; trial + payngo are capped
--- (billing_prices.limit_deals_payngo, default 3 open deals); pro is unlimited.
-create or replace function public.enforce_deal_tier()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_tier text;
-  v_cap integer;
-  v_open integer;
-begin
-  if public.is_admin() then return new; end if;
-
-  v_tier := coalesce(public.effective_tier(new.user_id), 'wallet');
-
-  if v_tier = 'wallet' then
-    raise exception 'DEALS_REQUIRE_SUBSCRIPTION';
-  end if;
-
-  if v_tier in ('trial', 'payngo') then
-    select amount into v_cap from public.billing_prices where event_type = 'limit_deals_payngo';
-    v_cap := coalesce(v_cap, 3);
-    select count(*) into v_open
-      from public.deals d
-     where d.user_id = new.user_id and d.status in ('queued', 'in_progress');
-    if v_open >= v_cap then
-      raise exception 'DEAL_LIMIT_REACHED';
-    end if;
-  end if;
-
-  return new;
-end $$;
-
-drop trigger if exists enforce_deal_tier on public.deals;
-create trigger enforce_deal_tier
-  before insert on public.deals
-  for each row execute function public.enforce_deal_tier();
 
 
 -- ============================================================
@@ -1237,11 +1196,10 @@ begin
 
   -- Prices
   select count(*) into n from public.billing_prices;
-  raise notice 'billing_prices rows: % (expected 10).', n;
+  raise notice 'billing_prices rows: % (expected 9).', n;
   for f in
     select t.e from unnest(array['publication','bundle','audiolite','gliim_av','gliim_image',
-                                 'live','profile_print','premium_unlock','plan_pro',
-                                 'limit_deals_payngo']) as t(e)
+                                 'live','profile_print','premium_unlock','plan_pro']) as t(e)
   loop
     if not exists (select 1 from public.billing_prices where event_type = f) then
       missing := missing || f || ' ';
@@ -1292,9 +1250,6 @@ begin
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'enforce_live_subscription') then
     raise warning 'enforce_live_subscription trigger is MISSING (live_requests table?).';
-  end if;
-  if not exists (select 1 from pg_trigger where tgname = 'enforce_deal_tier') then
-    raise warning 'enforce_deal_tier trigger is MISSING (deals table?).';
   end if;
 
   -- Wallet constraint

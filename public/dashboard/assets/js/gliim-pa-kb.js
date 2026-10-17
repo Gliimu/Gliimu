@@ -17,7 +17,7 @@ const ENTRIES = [
     answer: `I am **Assistant**, your built-in AI helper on the Gliimu platform. I work right here in the app, so you always get an answer.
 
 I can help with:
-- **Navigating** the dashboard — Hub, Ping, Updates, Gigs, Billing, Settings
+- **Navigating** the dashboard — Hub, Ping, Updates, Support, Billing, Settings
 - **GP and tiers** — what each level unlocks
 - **Wallet and top-ups** — funding, transfers, withdrawals
 - **Plans and pricing** — Pay n' Go, Monthly, Pro
@@ -31,13 +31,12 @@ Ask me anything above, or tap a suggested chip to get started.`
   },
   {
     title: 'Navigating the dashboard',
-    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'gigs', 'queue', 'billing', 'settings', 'updates', 'updates tab', 'how do i get to', 'section'],
+    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'billing', 'settings', 'updates', 'updates tab', 'how do i get to', 'section'],
     answer: `Here is what each tab in the sidebar does:
 
 - **Hub** — the community feed. Browse, publish and read gliims from other Gliimaits.
 - **Ping** — your messages and live sessions. Start a chat or go live with someone.
 - **Updates** — contests, cohorts, leaderboard and referrals. Join a contest to climb the leaderboard.
-- **Gigs** — bring us a gig. Post work, see the queue and track your gigs by category.
 - **Billing** — your wallet balance, plans, top-ups and transaction history.
 - **Settings** — your profile, app version and downloads.
 - **Assistant** — that is me. Ask me anything, any time.
@@ -165,12 +164,12 @@ As a Full Stack Media Architect, your b-roll library is an asset — reuse it ac
   },
   {
     title: 'Pitching and client work',
-    keys: ['pitch', 'client', 'clients', 'proposal', 'brief', 'contract', 'freelance', 'deal', 'deals', 'gig', 'sell', 'outreach'],
+    keys: ['pitch', 'client', 'clients', 'proposal', 'brief', 'contract', 'freelance', 'sell', 'outreach'],
     answer: `A short pitch that lands:
 
 > Hi [name] — I am a Full Stack Media Architect. I help [type of business] turn one idea into a full set of assets: video, stills, copy and a distribution plan. For [their goal], I would deliver [1-2 concrete outputs] by [timeframe]. Happy to send a quick sample or a 15-minute plan — which works for you?
 
-Keep it under five sentences, name their goal, promise a concrete deliverable and end with one easy question. Follow up once after three days. Track live opportunities in the **Queue** tab.`
+Keep it under five sentences, name their goal, promise a concrete deliverable and end with one easy question. Follow up once after three days.`
   },
   {
     title: 'Outlines and structuring notes',

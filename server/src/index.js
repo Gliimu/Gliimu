@@ -373,7 +373,6 @@ const UPLOAD_KINDS = {
   media:   { prefix: 'media/',            maxBytes: 500 * MB, types: allows(MEDIA_TYPES) },
   library: { prefix: 'library/',          maxBytes: 500 * MB, types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
   chat:    { prefix: 'chat_attachments/', maxBytes: 25 * MB,  types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
-  deal:    { prefix: 'deal_logos/',       maxBytes: 10 * MB,  types: allows(/^image\//) },
   // Landing page media and partner logos. Gated on the admin app's role
   // system, not the legacy profiles.is_admin flag; 'super' implies it.
   site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' },

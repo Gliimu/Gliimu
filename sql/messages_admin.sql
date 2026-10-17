@@ -79,8 +79,12 @@ create trigger trg_guard_message_admin_flag
   for each row execute function public.guard_message_admin_flag();
 
 -- ============================================================
--- 2. Exact review definitions: keep in sync with admin.sql /
---    library_kinds.sql and gliim_approval.sql respectively.
+-- 2. Exact review definitions: sql/support.sql is now the authoritative
+--    copy of both RPCs — review notices land in the member's Support
+--    thread, not in Ping. This script only redefines them the same way so
+--    rerunning it cannot silently put the notices back into messages.
+--    support_messages is resolved at call time, so this script still runs
+--    before sql/support.sql.
 -- ============================================================
 
 create or replace function public.admin_review_submission(p_submission uuid, p_action text, p_note text default null)
@@ -126,10 +130,9 @@ begin
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_submission;
 
-    insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-    values (uid, v_sub.user_id,
-            'Your library submission "' || v_sub.title || '" was not approved. Reason: ' || p_note,
-            false, true);
+    insert into public.support_messages (thread_user, sender_id, content)
+    values (v_sub.user_id, uid,
+            'Your library submission "' || v_sub.title || '" was not approved. Reason: ' || p_note);
 
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
@@ -180,10 +183,9 @@ begin
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_submission;
 
-  insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-  values (uid, v_sub.user_id,
-          'Your library submission "' || v_sub.title || '" was approved and is now live on the shelf.',
-          false, true);
+  insert into public.support_messages (thread_user, sender_id, content)
+  values (v_sub.user_id, uid,
+          'Your library submission "' || v_sub.title || '" was approved and is now live on the shelf.');
 
   return jsonb_build_object('ok', true, 'status', 'approved', 'item_id', v_item);
 end
@@ -228,10 +230,9 @@ begin
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_post;
 
-    insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-    values (uid, v_post.user_id,
-            'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was not approved. Reason: ' || p_note,
-            false, true);
+    insert into public.support_messages (thread_user, sender_id, content)
+    values (v_post.user_id, uid,
+            'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was not approved. Reason: ' || p_note);
 
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
@@ -240,10 +241,9 @@ begin
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_post;
 
-  insert into public.messages (sender_id, receiver_id, content, is_ai, is_admin)
-  values (uid, v_post.user_id,
-          'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was approved and is now live in the Hub.',
-          false, true);
+  insert into public.support_messages (thread_user, sender_id, content)
+  values (v_post.user_id, uid,
+          'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was approved and is now live in the Hub.');
 
   return jsonb_build_object('ok', true, 'status', 'approved');
 end $$;
@@ -340,9 +340,10 @@ with functions_to_check (name, oid) as (
          (select bool_and(has_function_privilege('service_role', oid, 'EXECUTE')) from functions_to_check)
   union all
   select case when f.name = 'admin_review_submission' then 10 else 11 end,
-         f.name || ' tags both approve/reject notices is_admin=true',
+         f.name || ' posts both approve/reject notices into support_messages',
          (select count(*) = 2 from regexp_matches(p.prosrc,
-           'insert\s+into\s+public\.messages\s*\(sender_id,\s*receiver_id,\s*content,\s*is_ai,\s*is_admin\)\s*values\s*\(uid,\s*[^;]+,\s*false,\s*true\s*\);', 'gi'))
+           'insert\s+into\s+public\.support_messages\s*\(thread_user,\s*sender_id,\s*content\)\s*values\s*\([^;]+\);', 'gi'))
+         and not (p.prosrc ilike '%insert into public.messages%')
     from functions_to_check f
     left join pg_proc p on p.oid = f.oid
    where f.name in ('admin_review_submission', 'admin_review_post')

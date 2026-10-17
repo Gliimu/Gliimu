@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=21';
+import { renderFileInto } from '../reader.js?v=28';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -201,7 +201,7 @@ const hubView = {
       if (matches.length === 0) return close();
       picker.innerHTML = matches.map((u, i) => {
         const cls = tierClass(u.total_gp, 'mention-avatar');
-        const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}">${escapeHtml((u.full_name || 'G').charAt(0).toUpperCase())}</div>`;
+        const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}"></div>`;
         return `<div class="mention-option${i === activeIndex ? ' active' : ''}" data-index="${i}">${av}<span class="mention-option-name">${escapeHtml(u.full_name || 'Gliimait')}</span><span class="mention-option-gp">${u.total_gp || 0} GP</span></div>`;
       }).join('');
       picker.classList.add('active');
@@ -360,7 +360,7 @@ const hubView = {
         } else {
           results.innerHTML = list.map(u => {
             const cls = tierClass(u.total_gp, 'hub-tag-avatar');
-            const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}">${(u.full_name || 'G').charAt(0).toUpperCase()}</div>`;
+            const av = u.avatar_url ? `<img src="${u.avatar_url}" class="${cls}" style="object-fit:cover;">` : `<div class="${cls}"></div>`;
             return `<div class="hub-tag-result" data-id="${u.id}">${av}<span>${escapeHtml(u.full_name)}</span></div>`;
           }).join('');
 
@@ -704,7 +704,7 @@ const hubView = {
     const premiumPrice = Number((this.billingSummary && this.billingSummary.prices && this.billingSummary.prices.premium_unlock) || 0);
     const isAmbassador = (post.profiles?.total_gp || 0) >= 5000;
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
-    const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+    const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}"></div>`;
 
     const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
     const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
@@ -861,7 +861,7 @@ const hubView = {
     }
 
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
-    const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}">${post.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+    const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}"></div>`;
 
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
     const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
@@ -876,7 +876,7 @@ const hubView = {
     if (postComments.length > 0) {
       commentsHtml = postComments.map(c => {
         const cAvatarClass = tierClass(c.profiles?.total_gp, 'comment-avatar');
-        const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">${c.profiles?.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+        const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')"></div>`;
         const parsedText = this.parseTags(c.comment_text);
         const commentTime = new Date(c.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
@@ -1118,7 +1118,7 @@ const hubView = {
       this.allInteractions.push(data);
       const list = document.getElementById(`comment-list-${postId}`);
       const cAvatarClass = tierClass(data.profiles.total_gp, 'comment-avatar');
-      const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">${data.profiles.full_name?.charAt(0).toUpperCase() || 'G'}</div>`;
+      const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')"></div>`;
       const parsedText = this.parseTags(text);
       const commentTime = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       list.innerHTML += `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${data.profiles.full_name}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;

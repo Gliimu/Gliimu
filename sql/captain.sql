@@ -32,10 +32,10 @@
 --   so one broken card never blanks a whole screen.
 --
 -- THE applications TABLE
---   Apprentice requests are written by the dashboard Queue page
---   (public/dashboard/assets/js/views/applications.js) into a table
---   called applications with type='apprentice' and status='pending'.
---   That table was created by hand and is not in any of the other
+--   Apprentice requests land in a table called applications with
+--   type='apprentice' and status='pending'. This is the Triads queue
+--   — a different feature from the (now-removed) gigs/deals board. That
+--   table was created by hand and is not in any of the other
 --   scripts, so this file only ever READS it — it never alters it, to
 --   avoid colliding with a shape we cannot see from here. Placement is
 --   tracked in triad_members instead.
@@ -140,8 +140,8 @@ grant all on public.triad_progress to service_role;
 
 -- ============================================================
 -- 5. captain_queue — applicants waiting for a triad
---    Ordered highest GP first, matching the leaderboard the
---    members already see on the Queue page.
+--    Ordered highest GP first, matching the leaderboard order
+--    members already see.
 -- ============================================================
 
 create or replace function public.captain_queue(p_limit integer default 100)

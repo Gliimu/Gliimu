@@ -9,20 +9,20 @@ const routes = {
   '/gliims': { role: 'crm', title: 'Gliim Approvals', load: () => import('./views/gliims.js').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js').then(m => m.default) },
-  '/crm-members': { role: 'crm', title: 'Members', load: () => import('./views/crm-members.js?v=4').then(m => m.default) },
+  '/crm-members': { role: 'crm', title: 'Members', load: () => import('./views/crm-members.js?v=6').then(m => m.default) },
+  '/support': { role: 'crm operations', title: 'Support Desk', load: () => import('./views/support.js?v=6').then(m => m.default) },
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js').then(m => m.default) },
   '/ledger': { role: 'registrar', title: 'Ledger', load: () => import('./views/ledger.js').then(m => m.default) },
   '/bills': { role: 'registrar', title: 'Bills', load: () => import('./views/bills.js').then(m => m.default) },
   '/revenue': { role: 'registrar', title: 'Revenue & Pricing', load: () => import('./views/revenue.js').then(m => m.default) },
   '/triads': { role: 'captain', title: 'Triads & Apprentices', load: () => import('./views/triads.js').then(m => m.default) },
-  '/gigs': { role: 'captain operations', title: 'Gigs', load: () => import('./views/gigs.js?v=4').then(m => m.default) },
-  '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js').then(m => m.default) },
+  '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js?v=5').then(m => m.default) },
   '/arena': { role: 'operations', title: 'Updates', load: () => import('./views/arena.js').then(m => m.default) },
-  '/members': { role: 'operations', title: 'Members', load: () => import('./views/members.js').then(m => m.default) },
+  '/members': { role: 'operations', title: 'Members', load: () => import('./views/members.js?v=5').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/submissions', '/gliims', '/reports', '/content', '/crm-members', '/finance', '/ledger', '/bills', '/revenue', '/triads', '/gigs', '/operations', '/arena', '/members', '/admins'];
+const order = ['/submissions', '/gliims', '/reports', '/content', '/crm-members', '/support', '/finance', '/ledger', '/bills', '/revenue', '/triads', '/operations', '/arena', '/members', '/admins'];
 
 export function firstRoute() {
   return order.find(path => {

@@ -118,8 +118,8 @@ select '04. nothing depended on them',
 
 union all
 select '05. the tables the app actually uses',
-       (select count(*)::text || ' of 8 present'
-          from (values ('profiles'), ('posts'), ('deals'), ('faqs'),
+       (select count(*)::text || ' of 7 present'
+          from (values ('profiles'), ('posts'), ('faqs'),
                        ('reports'), ('site_settings'), ('partners'),
                        ('contact_info')) as v(t)
          where to_regclass('public.' || v.t) is not null)

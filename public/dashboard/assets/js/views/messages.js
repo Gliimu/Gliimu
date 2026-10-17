@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
-import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=26';
+import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=28';
 import liveView from './live.js';
 
 function escapeHtml(value) {
@@ -49,7 +49,6 @@ export default {
     this.disposed = false;
     this.allUsers = [];
     this.contacts = [];
-    this.adminIds = new Set();
     this.activeChat = null;
     this.chatReady = false;
     this.chatHistory = [];
@@ -240,7 +239,7 @@ export default {
     dropdown.innerHTML = filtered.map(u => {
       const avatar = u.avatar_url
         ? `<img src="${escapeHtml(u.avatar_url)}" class="ping-search-avatar" style="object-fit:cover;">`
-        : `<div class="ping-search-avatar">${escapeHtml(u.full_name?.charAt(0).toUpperCase() || 'G')}</div>`;
+        : `<div class="ping-search-avatar"></div>`;
       return `
         <div class="ping-search-item" onclick="pingInstance.addContact('${u.id}')">
           ${avatar}
@@ -287,8 +286,7 @@ export default {
     }
     const [explicitContacts, hiddenChats, received, sent] = results.map(result => result.data || []);
     const receivedMsgs = received.filter(m => isIncomingDm(store.user.id, m));
-    const sentMsgs = sent.filter(m => !m.room && !m.is_ai);
-    const adminIds = new Set(receivedMsgs.filter(m => m.is_admin).map(m => m.sender_id));
+    const sentMsgs = sent.filter(m => !m.room && !m.is_ai && !m.is_admin);
     const hiddenMap = Object.fromEntries(hiddenChats.map(h => [h.contact_id, new Date(h.hidden_at).getTime()]));
     const userIds = new Set(explicitContacts.filter(c => !hiddenMap[c.contact_id]).map(c => c.contact_id));
     const lastMsgMap = {};
@@ -299,7 +297,7 @@ export default {
       if (!hiddenMap[otherId] || time > hiddenMap[otherId]) userIds.add(otherId);
       lastMsgMap[otherId] = Math.max(lastMsgMap[otherId] || 0, time);
     });
-    if (!adminIds.has(store.user.id)) userIds.delete(store.user.id);
+    userIds.delete(store.user.id);
 
     let profiles = [];
     if (userIds.size) {
@@ -313,9 +311,7 @@ export default {
     }
     this.unreadMap = computeUnread(store.user.id, receivedMsgs).unreadMap;
     this.contacts = profiles.sort((a, b) => (lastMsgMap[b.id] || 0) - (lastMsgMap[a.id] || 0));
-    this.adminIds = adminIds;
     if (this.activeChat) {
-      this.activeChat.isAdmin = adminIds.has(this.activeChat.id);
       const header = document.querySelector('#ping-main .ping-chat-header');
       if (header) header.innerHTML = this.chatHeaderHtml();
       const input = document.getElementById('ping-input');
@@ -329,13 +325,10 @@ export default {
     if (!list) return;
 
     const usersHtml = this.contacts.map(u => {
-      const isAdmin = this.adminIds?.has(u.id);
       const avatarClass = tierClass(u.total_gp, 'ping-avatar');
-      const avatar = isAdmin
-        ? `<img src="/icons/icon.png" alt="Gliimu" class="ping-avatar" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">`
-        : (u.avatar_url ? `<img src="${escapeHtml(u.avatar_url)}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">` : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">${escapeHtml(u.full_name?.charAt(0).toUpperCase() || 'G')}</div>`);
-
-      const displayName = isAdmin ? 'Team Gliimu' : escapeHtml(u.full_name || 'Gliimait');
+      const avatar = u.avatar_url
+        ? `<img src="${escapeHtml(u.avatar_url)}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">`
+        : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')"></div>`;
 
       const unreadCount = this.unreadMap[u.id] || 0;
       const unreadBadge = unreadCount > 0 ? `<span class="chat-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : '';
@@ -344,8 +337,8 @@ export default {
         <div class="ping-chat-item ${this.activeChat?.id === u.id ? 'active' : ''} ${unreadCount > 0 ? 'unread' : ''}" onclick="pingInstance.openChat('dm', '${u.id}')">
           ${avatar}
           <div class="ping-chat-info">
-            <span class="ping-chat-name">${displayName}</span>
-            <span class="ping-chat-preview">${isAdmin ? 'Team Gliimu' : (u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP')}</span>
+            <span class="ping-chat-name">${escapeHtml(u.full_name || 'Gliimait')}</span>
+            <span class="ping-chat-preview">${u.total_gp >= 10000 ? 'Maxed out' : (u.total_gp || 0) + ' GP'}</span>
           </div>
           ${unreadBadge}
         </div>
@@ -364,7 +357,7 @@ export default {
     const draft = this.activeChat?.id === id ? document.getElementById('ping-input')?.value || '' : '';
     this.activeChat = null;
     this.recorder?.cancel();
-    this.activeChat = { type: 'dm', id: user.id, name: user.full_name, avatar: user.avatar_url, total_gp: user.total_gp, isAdmin: this.adminIds.has(user.id) };
+    this.activeChat = { type: 'dm', id: user.id, name: user.full_name, avatar: user.avatar_url, total_gp: user.total_gp };
     this.chatReady = false;
     this.chatEvents = [];
     document.getElementById('ping-main').innerHTML = `<div class="ping-chat-header">${this.chatHeaderHtml()}</div><p id="ping-load-status">Loading messages...</p>`;
@@ -377,11 +370,9 @@ export default {
       document.getElementById('ping-load-status').textContent = 'Could not load messages. Go back and select the chat to retry.';
       return;
     }
-    const messages = new Map((data || []).filter(m => !m.room && !m.is_ai).map(m => [m.id, m]));
+    const messages = new Map((data || []).filter(m => !m.room && !m.is_ai && !m.is_admin).map(m => [m.id, m]));
     this.chatEvents.forEach(m => messages.set(m.id, m));
     this.chatHistory = [...messages.values()].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    if (this.chatHistory.some(m => m.sender_id === id && m.is_admin)) this.adminIds.add(id);
-    this.activeChat.isAdmin = this.adminIds.has(id);
     this.chatReady = true;
     this.renderChatWindow();
     document.getElementById('ping-input').value = draft;
@@ -427,25 +418,13 @@ export default {
 
   chatHeaderHtml() {
     const avatarClass = tierClass(this.activeChat.total_gp, 'ping-avatar');
-    // An admin thread is listed as "Team Gliimu", but opening it shows who
-    // actually sent the messages.
     const avatarHtml = this.activeChat.avatar
       ? `<img src="${escapeHtml(this.activeChat.avatar)}" class="${avatarClass}" style="object-fit:cover;">`
-      : `<div class="${avatarClass}">${escapeHtml(this.activeChat.name?.charAt(0).toUpperCase() || 'G')}</div>`;
+      : `<div class="${avatarClass}"></div>`;
     return `
       <button class="ping-back-btn" onclick="pingInstance.closeChat()"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button>
       ${avatarHtml}
-      <div><h3>${escapeHtml(this.activeChat.name || 'Gliimait')}</h3><span>${this.activeChat.isAdmin ? 'Team Gliimu' : 'Direct Message'}</span></div>`;
-  },
-
-  // Inside a Team Gliimu thread each reply carries the admin's own name and
-  // picture, so members can tell which admin is answering.
-  senderIdentityHtml() {
-    const name = this.activeChat.name || 'Gliimait';
-    const avatar = this.activeChat.avatar
-      ? `<img src="${escapeHtml(this.activeChat.avatar)}" alt="" style="width:18px;height:18px;border-radius:50%;object-fit:cover;">`
-      : `<div style="width:18px;height:18px;border-radius:50%;background:var(--bg-tertiary);color:var(--text-primary);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
-    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">${avatar}<span style="font-size:11px;font-weight:600;color:var(--text-muted);">${escapeHtml(name)}</span></div>`;
+      <div><h3>${escapeHtml(this.activeChat.name || 'Gliimait')}</h3><span>Direct Message</span></div>`;
   },
 
   renderChatWindow() {
@@ -462,9 +441,8 @@ export default {
     } else {
       messagesHtml = this.chatHistory.map(m => {
         const isMe = m.sender_id === store.user.id && !isIncomingDm(store.user.id, m);
-        const showSender = !isMe && this.activeChat.isAdmin;
         const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const isEditable = isMe && !m.is_admin && (Date.now() - new Date(m.created_at).getTime() < 180000);
+        const isEditable = isMe && (Date.now() - new Date(m.created_at).getTime() < 180000);
 
         const attachments = attachmentHtml(m, 'pingInstance');
 
@@ -492,7 +470,6 @@ export default {
 
         return `
           <div class="ping-message ${isMe ? 'sent' : 'received'}" id="msg-${m.id}">
-            ${showSender ? this.senderIdentityHtml() : ''}
             ${attachments}
             ${contentHtml}
             <div class="ping-msg-footer">
@@ -601,7 +578,7 @@ export default {
 
   editMessage(msgId) {
     const msg = this.chatHistory.find(m => m.id === msgId);
-    if (!msg || msg.is_admin || msg.sender_id !== store.user.id) return;
+    if (!msg || msg.sender_id !== store.user.id) return;
     document.getElementById(`msg-${msgId}`).innerHTML = `
       <textarea class="input ping-edit-textarea" id="edit-${msgId}">${escapeHtml(msg.content)}</textarea>
       <div class="ping-edit-actions"><button class="btn-secondary btn-sm" onclick="pingInstance.cancelEdit()">Cancel</button><button class="btn-primary btn-sm" onclick="pingInstance.saveEdit('${msgId}')">Save</button></div>
@@ -663,17 +640,15 @@ export default {
     const receive = payload => {
       if (this.disposed) return;
       const m = payload.new;
-      if (m && !m.room && !m.is_ai) {
+      if (m && !m.room && !m.is_ai && !m.is_admin) {
         const incoming = isIncomingDm(store.user.id, m);
         const otherId = incoming ? m.sender_id : m.receiver_id;
-        if (incoming && m.is_admin) this.adminIds.add(m.sender_id);
         if (otherId && this.activeChat?.id === otherId) {
           if (!this.chatReady) {
             this.chatEvents.push(m);
           } else {
-            this.activeChat.isAdmin = this.adminIds.has(otherId);
             const index = this.chatHistory.findIndex(message => message.id === m.id);
-            const changed = index === -1 || ['content', 'is_admin', 'attachment_url', 'attachment_type', 'is_edited'].some(key => this.chatHistory[index][key] !== m[key]);
+            const changed = index === -1 || ['content', 'attachment_url', 'attachment_type', 'is_edited'].some(key => this.chatHistory[index][key] !== m[key]);
             if (index === -1) this.chatHistory.push(m);
             else this.chatHistory[index] = m;
             this.chatHistory.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));

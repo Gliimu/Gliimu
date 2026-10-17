@@ -12,7 +12,6 @@ const FALLBACK_BUCKET = {
   media: 'media',
   library: 'media',
   chat: 'chat_attachments',
-  deal: 'deal_logos',
   site: 'site_assets'
 };
 
@@ -67,7 +66,7 @@ async function supabaseFallback(kind, file) {
 }
 
 // Uploads a file and resolves with its public URL.
-// kind: 'media' | 'library' | 'avatar' | 'chat' | 'deal' | 'site'
+// kind: 'media' | 'library' | 'avatar' | 'chat' | 'site'
 export async function uploadFile(file, kind = 'media') {
   if (!file) throw new Error('No file selected.');
 

@@ -32,15 +32,9 @@ const fmtDay = (ts) => {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 };
 
-const initials = (name) => {
-  const parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
-};
-
 const avatar = (row) => row.avatar_url
   ? `<img class="com-ava" src="${esc(row.avatar_url)}" alt="" loading="lazy">`
-  : `<span class="com-ava com-ava-fallback">${esc(initials(row.full_name))}</span>`;
+  : `<span class="com-ava com-ava-fallback"></span>`;
 
 const trophy = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>`;
 const contestIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>`;

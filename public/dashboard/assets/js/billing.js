@@ -34,7 +34,7 @@ export async function ensureAccess(eventType, { itemId = null, creatorId = null 
     return data;
   } catch (e) {
     // Pre-migration / offline safety: never brick content because the billing
-    // RPC is unreachable. Live and deals still have server-side DB triggers.
+    // RPC is unreachable. Live sessions still have a server-side DB trigger.
     console.warn('billing_access unavailable — allowing access:', e.message || e);
     return { allowed: true, failOpen: true };
   }

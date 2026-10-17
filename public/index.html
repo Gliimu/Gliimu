@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=11">
+  <link rel="stylesheet" href="/assets/css/public.css?v=12">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -68,8 +68,8 @@
             <div class="wwd-line">
               <span class="wwd-num">02</span>
               <div>
-                <h3>Real gigs</h3>
-                <p>Bring us work or pick up what's in the queue. Actual clients, actual pay, actual portfolio.</p>
+                <h3>Real human support</h3>
+                <p>An assistant and a support team that answer when you are stuck — no ticket black holes.</p>
               </div>
             </div>
             <div class="wwd-line">
@@ -96,9 +96,6 @@
         <div class="marquee-content" id="partners-marquee-content"></div>
       </div>
       <p class="partners-empty" id="partners-empty" style="display: none;">Our partner wall is being curated. Check back soon.</p>
-      <div class="partners-cta reveal">
-        <a href="/dashboard/index.html#/applications" class="btn-secondary btn-lg">Bring Us a Gig</a>
-      </div>
     </div>
   </section>
 
@@ -127,20 +124,20 @@
         <div class="download-panel-body">
 
           <div class="download-version">
-            <span class="download-version-badge">v<span id="dl-version">1.0.0</span></span>
+            <span class="download-version-badge">v<span id="dl-version"></span></span>
             <span class="download-version-notes" id="dl-notes"></span>
           </div>
 
           <div class="download-block download-desktop">
             <span class="download-block-label">Desktop</span>
             <div class="download-buttons">
-              <a class="dl-btn" id="dl-windows" href="#" download target="_blank" rel="noopener">
+              <a class="dl-btn is-off" id="dl-windows" download target="_blank" rel="noopener" aria-disabled="true">
                 <i class="fab fa-windows"></i><span>Windows</span>
               </a>
-              <a class="dl-btn" id="dl-mac" href="#" download target="_blank" rel="noopener">
+              <a class="dl-btn is-off" id="dl-mac" download target="_blank" rel="noopener" aria-disabled="true">
                 <i class="fab fa-apple"></i><span>macOS</span>
               </a>
-              <a class="dl-btn" id="dl-linux" href="#" download target="_blank" rel="noopener">
+              <a class="dl-btn is-off" id="dl-linux" download target="_blank" rel="noopener" aria-disabled="true">
                 <i class="fab fa-linux"></i><span>Linux</span>
               </a>
             </div>
@@ -153,10 +150,10 @@
           <div class="download-block download-mobile">
             <span class="download-block-label">Mobile</span>
             <div class="download-buttons">
-              <a class="dl-btn" id="dl-android" href="#" download target="_blank" rel="noopener">
+              <a class="dl-btn is-off" id="dl-android" download target="_blank" rel="noopener" aria-disabled="true">
                 <i class="fab fa-android"></i><span>Android</span>
               </a>
-              <a class="dl-btn" id="dl-ios" href="#" download target="_blank" rel="noopener">
+              <a class="dl-btn is-off" id="dl-ios" download target="_blank" rel="noopener" aria-disabled="true">
                 <i class="fab fa-apple"></i><span>iOS</span>
               </a>
             </div>
@@ -182,7 +179,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=12"></script>
+  <script type="module" src="/assets/js/main.js?v=13"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

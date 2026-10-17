@@ -31,7 +31,7 @@ const HERO_TEXTS = [
     placeholder: 'Full Stack Media Architects',
     note: 'The coloured part of the hero headline.' },
   { key: 'hero_desc', param: 'p_hero_desc', label: 'Hero description', textarea: true, maxlength: 400,
-    placeholder: 'Become a Full Stack Media Architect.\nGet real-life experiences and earn from real client deals.',
+    placeholder: 'Become a Full Stack Media Architect.\nGet real-life experience and build a portfolio that speaks for itself.',
     note: 'Each line break becomes a line on the landing page.' }
 ];
 

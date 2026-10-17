@@ -1,6 +1,6 @@
 import { supabase } from './config.js';
 import { store } from './store.js';
-import { router, firstRoute } from './router.js?v=4';
+import { router, firstRoute } from './router.js?v=6';
 
 // ============================================
 // GATE — three states: signing in, signed in but
@@ -37,9 +37,9 @@ function showShell() {
     el.hidden = !roles.some(r => store.can(r));
   });
 
-  // Super sees every role, which means shared tabs (Members in ops + CRM,
-  // Gigs in captain + ops) would render twice. The data-dup attribute marks
-  // the secondary occurrence; hide it for super so each tab appears once.
+  // Super sees every role, which means a shared tab (Members in ops + CRM)
+  // would render twice. The data-dup attribute marks the secondary
+  // occurrence; hide it for super so each tab appears once.
   if (store.role === 'super') {
     document.querySelectorAll('[data-dup]').forEach(el => { el.hidden = true; });
   }
@@ -72,20 +72,20 @@ async function refreshCounts() {
     setCount('count-gliims', gliims);
   }
 
+  // support_inbox() answers zero rows for anyone the staff gate rejects, so
+  // the call doubles as the access check and costs one round trip.
+  if (store.can('crm') || store.can('operations')) {
+    const { data } = await supabase.rpc('support_inbox');
+    const unread = (data || []).reduce((n, t) => n + Number(t.unread || 0), 0);
+    setCount('count-support', unread);
+  }
+
   // p_limit 1 keeps this cheap: the RPC returns the full total regardless.
   // A database without sql/captain.sql yet just answers an error, and the
   // badge stays hidden.
   if (store.can('captain')) {
     const { data } = await supabase.rpc('captain_queue', { p_limit: 1 });
     if (data && data.ok) setCount('count-triads', Number(data.total || 0));
-  }
-
-  if (store.can('captain') || store.can('operations')) {
-    const { count } = await supabase
-      .from('deals')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['queued', 'in_progress']);
-    setCount('count-gigs', count || 0);
   }
 }
 

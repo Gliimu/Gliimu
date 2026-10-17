@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
-import { kbAnswer } from '../gliim-pa-kb.js?v=19';
+import { kbAnswer } from '../gliim-pa-kb.js?v=28';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.
@@ -90,11 +90,11 @@ const FOLLOWUPS = [
   'How do I publish a gliim?',
   'How do I go live?',
   'What are the plans and pricing?',
-  'How do I reach support?'
+  'How do I report a payment issue?'
 ];
 
 const assistantView = {
-  title: 'Assistant',
+  title: 'Support',
   thread: [],
   busy: false,
 
@@ -111,7 +111,9 @@ const assistantView = {
     window.paInstance = {
       send: () => this.send(),
       useStarter: (text) => this.useStarter(text),
-      retry: () => this.retry()
+      retry: () => this.retry(),
+      feedback: (id, value) => this.feedback(id, value),
+      openDesk: () => window.supportDesk?.open?.()
     };
 
     this.setupTopbar();
@@ -127,7 +129,7 @@ const assistantView = {
 
   async loadHistory() {
     const { data } = await supabase.from('messages')
-      .select('content, is_ai, created_at')
+      .select('id, content, is_ai, created_at, feedback')
       .eq('sender_id', store.user.id)
       .is('receiver_id', null)
       .is('room', null)
@@ -136,7 +138,7 @@ const assistantView = {
 
     this.thread = (data || [])
       .filter(m => m.content)
-      .map(m => ({ role: m.is_ai ? 'assistant' : 'user', content: m.content }));
+      .map(m => ({ id: m.id, role: m.is_ai ? 'assistant' : 'user', content: m.content, feedback: m.feedback }));
   },
 
   render() {
@@ -161,8 +163,9 @@ const assistantView = {
           : renderMarkdown(m.content));
       return `
         <div class="pa-answer">
-          <div class="pa-answer-head"><img src="/icons/gliimpa.png" alt="" class="pa-answer-avatar"><span>Assistant</span></div>
+          <div class="pa-answer-head"><img src="/icons/gliimpa.png" alt="" class="pa-answer-avatar"><span>Support</span></div>
           <div class="pa-answer-body">${body}</div>
+          ${m.id && !m.pending && !m.failed ? this.renderFeedback(m) : ''}
           ${isLast && !this.busy && !m.failed ? this.renderFollowups() : ''}
         </div>
       `;
@@ -177,6 +180,29 @@ const assistantView = {
     return '<div class="pa-typing"><span></span><span></span><span></span></div>';
   },
 
+  // Each reply is rated against the message row it was stored on, so the
+  // team can see which answers missed without a separate ratings table.
+  renderFeedback(m) {
+    const button = (value, label, iconName) => `
+      <button class="pa-fb-btn ${m.feedback === value ? 'active' : ''}" data-state="${value}" title="${label}" aria-label="${label}"
+        aria-pressed="${m.feedback === value}" onclick="paInstance.feedback('${m.id}', '${value}')">${this.icon(iconName)}</button>`;
+    return `
+      <div class="pa-feedback">
+        ${button('like', 'Helpful', 'thumbsUp')}
+        ${button('dislike', 'Not helpful', 'thumbsDown')}
+      </div>
+    `;
+  },
+
+  async feedback(id, value) {
+    const item = this.thread.find(m => m.id === id);
+    if (!item) return;
+    item.feedback = item.feedback === value ? null : value;
+    this.render();
+    const { error } = await supabase.from('messages').update({ feedback: item.feedback }).eq('id', id);
+    if (error) console.warn('Could not save the rating:', error.message);
+  },
+
   renderFollowups() {
     return `
       <div class="pa-followups">
@@ -189,12 +215,16 @@ const assistantView = {
     return `
       <div class="pa-hero">
         <img src="/icons/gliimpa.png" alt="" class="pa-hero-logo">
-        <h1 class="pa-hero-title">Assistant</h1>
+        <h1 class="pa-hero-title">Support</h1>
         <p class="pa-hero-sub">Ask anything. Research, drafts, explanations — answered in seconds.</p>
         ${this.renderComposer(true)}
         <div class="pa-starters">
           ${STARTERS.map(s => `<button class="pa-chip" onclick="paInstance.useStarter('${s.replace(/'/g, "\\'")}')">${escapeHtml(s)}</button>`).join('')}
         </div>
+        <button class="pa-desk-cta" onclick="paInstance.openDesk()">
+          ${this.icon('headset')}
+          <span>Chat with the Gliimu team</span>
+        </button>
       </div>
     `;
   },
@@ -202,7 +232,7 @@ const assistantView = {
   renderComposer(hero = false) {
     return `
       <div class="pa-composer ${hero ? 'pa-composer-hero' : ''}">
-        <textarea id="pa-input" class="pa-input" rows="1" placeholder="Ask Assistant anything..." ${this.busy ? 'disabled' : ''}></textarea>
+        <textarea id="pa-input" class="pa-input" rows="1" placeholder="Ask Support anything..." ${this.busy ? 'disabled' : ''}></textarea>
         <button class="pa-send" id="pa-send" onclick="paInstance.send()" ${this.busy ? 'disabled' : ''} title="Ask">
           ${this.busy ? this.icon('stop') : this.icon('arrow')}
         </button>
@@ -214,7 +244,10 @@ const assistantView = {
     const icons = {
       search: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
       arrow: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>',
-      stop: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
+      stop: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>',
+      thumbsUp: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"></path><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"></path></svg>',
+      thumbsDown: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"></path><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"></path></svg>',
+      headset: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a8 8 0 0 1 16 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"></path><path d="M21 16v2a4 4 0 0 1-4 4h-4"></path></svg>'
     };
     return icons[name] || '';
   },
@@ -294,7 +327,7 @@ const assistantView = {
     // The hosted model is tried first so a funded DeepSeek (or any provider
     // behind /api/chat) still powers the assistant. When it is unreachable,
     // unconfigured or out of balance, the built-in knowledge base answers
-    // instead — so Assistant never shows a dead end.
+    // instead — so Support never shows a dead end.
     let reply = null;
     try {
       const ctrl = new AbortController();
@@ -319,9 +352,12 @@ const assistantView = {
 
     pending.content = reply;
     pending.pending = false;
-    supabase.from('messages').insert({
+    // Keep the row id so the reply can be rated without reloading the thread.
+    const { data, error } = await supabase.from('messages').insert({
       sender_id: store.user.id, receiver_id: null, room: null, content: reply, is_ai: true
-    }).then(({ error }) => { if (error) console.warn('Could not store the answer:', error.message); });
+    }).select('id').single();
+    if (error) console.warn('Could not store the answer:', error.message);
+    else pending.id = data.id;
 
     this.busy = false;
     this.render();
