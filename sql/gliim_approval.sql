@@ -204,7 +204,10 @@ begin
       from public.posts p
       left join public.profiles pr      on pr.id = p.user_id
       left join public.post_contents pc on pc.post_id = p.id
-     where p.status = coalesce(nullif(btrim(p_status), ''), 'pending')
+     where (
+       p_status = 'all'
+       or p.status = coalesce(nullif(btrim(p_status), ''), 'pending')
+     )
   ), '[]'::jsonb));
 end $$;
 

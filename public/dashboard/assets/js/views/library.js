@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { openReader } from '../reader.js?v=29';
-import hubView from './hub.js?v=29';
+import hubView from './hub.js?v=30';
 
 // Library is the merged home of gliims (hub feed) and shelf items. The shelf
 // keeps its database types; only the labels are member-facing.

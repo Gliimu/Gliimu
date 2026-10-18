@@ -31,11 +31,11 @@ set search_path = public
 as $$
 declare
   v_caller uuid := auth.uid();
-  v_is_admin boolean;
+  v_can_delete boolean;
 begin
   -- Gate: only admins/CRM can delete posts
-  select public.is_admin() into v_is_admin;
-  if not v_is_admin then
+  select (public.is_admin() or public.admin_has_role(v_caller, 'crm')) into v_can_delete;
+  if not v_can_delete then
     raise exception 'PERMISSION_DENIED';
   end if;
 

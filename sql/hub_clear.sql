@@ -28,6 +28,11 @@
 delete from public.hub_interactions where id is not null;
 
 -- ------------------------------------------------------------
+-- Clear saved_posts referencing these posts
+-- ------------------------------------------------------------
+delete from public.saved_posts where id is not null;
+
+-- ------------------------------------------------------------
 -- Clear billing events for premium unlocks on ALL posts
 -- (item_id is text, so we match before posts are gone)
 -- ------------------------------------------------------------

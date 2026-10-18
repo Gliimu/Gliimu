@@ -1189,7 +1189,11 @@ const hubView = {
 
   setupRealtime() {
     const channelName = `hub-posts-${Date.now()}`;
-    supabase.channel(channelName).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => { this.fetchPosts(); }).subscribe();
+    supabase.channel(channelName)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async () => { this.fetchPosts(); })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, async () => { this.fetchPosts(); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, async () => { this.fetchPosts(); })
+      .subscribe();
   }
 };
 
