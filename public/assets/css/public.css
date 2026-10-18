@@ -195,57 +195,60 @@ section { padding: 100px 0; }
 }
 
 /* ============================================
-   PARTNERS SECTION & MARQUEE
+   PARTNERS STRIP (inside Get in Touch)
    ============================================ */
-.partners-section {
-  padding: 80px 0;
-  background: var(--bg-primary);
-}
-
-.marquee {
-  overflow: hidden;
-  position: relative;
-  margin-top: 40px;
+.partners-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 40px;
+  overflow: hidden;
 }
 
-.marquee-content {
+.partners-row {
   display: flex;
   width: max-content;
-  animation: marquee 80s linear infinite;
 }
 
-.partner-logo {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-muted);
-  margin: 0 40px;
+.partners-row-left .partners-track {
+  animation: scroll-left 80s linear infinite;
+}
+
+.partners-row-right .partners-track {
+  animation: scroll-right 80s linear infinite;
+}
+
+.partners-row .partner-logo {
+  margin: 0 24px;
   display: flex;
   align-items: center;
-  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.partner-logo img {
-  height: 80px;
+.partners-row .partner-logo img {
+  height: 48px;
   width: auto;
-  max-width: 240px;
+  max-width: 160px;
   object-fit: contain;
   display: block;
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
-  mix-blend-mode: multiply;
+  filter: grayscale(100%);
+  opacity: 0.5;
+  transition: opacity 0.3s ease, filter 0.3s ease;
 }
 
-.partner-logo:hover img { opacity: 1; }
+.partners-row .partner-logo img:hover {
+  opacity: 0.85;
+  filter: grayscale(0%);
+}
 
-@keyframes marquee {
+@keyframes scroll-left {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 
-.partners-cta {
-  text-align: center;
-  margin-top: 32px;
+@keyframes scroll-right {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
 }
 
 /* ============================================

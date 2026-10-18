@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=17">
+  <link rel="stylesheet" href="/assets/css/public.css?v=18">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -64,20 +64,6 @@
     </div>
   </section>
 
-  <!-- PARTNERS SECTION -->
-  <section class="partners-section">
-    <div class="container">
-      <div class="pillars-header reveal">
-        <h2 class="section-title">Trusted By</h2>
-        <p class="section-subtitle">We envision a world built by Full Stack Media Architects. We made it happen.</p>
-      </div>
-      <div class="marquee" id="partners-marquee" style="display: none;">
-        <div class="marquee-content" id="partners-marquee-content"></div>
-      </div>
-      <p class="partners-empty" id="partners-empty" style="display: none;">Our partner wall is being curated. Check back soon.</p>
-    </div>
-  </section>
-
   <!-- CONTACT / FAQ SECTION -->
   <section class="contact-faq-section" id="contact-faq-section">
     <div class="container">
@@ -85,14 +71,20 @@
         <h2 class="section-title">Get in Touch</h2>
         <p class="section-subtitle">Find answers or reach out to the team.</p>
       </div>
+
+      <div class="partners-strip" id="partners-strip" style="display: none;">
+        <div class="partners-row partners-row-left" id="partners-row-left"></div>
+        <div class="partners-row partners-row-right" id="partners-row-right"></div>
+      </div>
+
       <div class="cf-grid reveal">
         <div class="cf-card" onclick="openFaqModal()">
-          <i class="fas fa-question-circle"></i>
+          <i class="fas fa-book-open"></i>
           <h3>FAQs</h3>
           <p>Quick answers to the questions we get the most.</p>
         </div>
         <div class="cf-card" onclick="openContactModal()">
-          <i class="fas fa-envelope"></i>
+          <i class="fas fa-headset"></i>
           <h3>Contact Us</h3>
           <p>Reach the team by email or social media.</p>
         </div>
@@ -189,7 +181,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=18"></script>
+  <script type="module" src="/assets/js/main.js?v=19"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

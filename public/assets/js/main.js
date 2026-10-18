@@ -346,10 +346,10 @@ async function loadHubHighlights() {
 // FETCH PARTNERS (admin managed)
 // ============================================
 async function loadPartners() {
-  const marquee = document.getElementById('partners-marquee');
-  const marqueeContent = document.getElementById('partners-marquee-content');
-  const emptyState = document.getElementById('partners-empty');
-  if (!marquee || !marqueeContent) return;
+  const strip = document.getElementById('partners-strip');
+  const rowLeft = document.getElementById('partners-row-left');
+  const rowRight = document.getElementById('partners-row-right');
+  if (!strip || !rowLeft || !rowRight) return;
 
   const { data: partners, error } = await supabase
     .from('partners')
@@ -357,25 +357,30 @@ async function loadPartners() {
     .order('display_order', { ascending: true });
 
   const usable = (error || !partners ? [] : partners).filter(p => safeUrl(p.logo_url));
+  if (usable.length === 0) return;
 
-  if (usable.length === 0) {
-    if (emptyState) emptyState.style.display = 'block';
-    return;
+  const logos = usable.slice(0, 12);
+  const half = Math.ceil(logos.length / 2);
+  const topRow = logos.slice(0, half);
+  const bottomRow = logos.slice(half);
+
+  function renderRow(container, items) {
+    let loopSet = [];
+    while (loopSet.length < 6) loopSet = loopSet.concat(items);
+    const doubled = [...loopSet, ...loopSet];
+    const track = document.createElement('div');
+    track.className = 'partners-track';
+    track.innerHTML = doubled.map(p => `
+      <span class="partner-logo">
+        <img src="${safeUrl(p.logo_url)}" alt="" loading="lazy">
+      </span>
+    `).join('');
+    container.appendChild(track);
   }
 
-  // Repeat the set until the strip is long enough to fill the viewport,
-  // then double it so the -50% keyframe loops seamlessly.
-  let loopSet = [];
-  while (loopSet.length < 8) loopSet = loopSet.concat(usable);
-  const fullSet = [...loopSet, ...loopSet];
-
-  marqueeContent.innerHTML = fullSet.map(p => `
-    <span class="partner-logo">
-      <img src="${safeUrl(p.logo_url)}" alt="${escapeHtml(p.name)}" loading="lazy">
-    </span>
-  `).join('');
-
-  marquee.style.display = 'block';
+  renderRow(rowLeft, topRow);
+  renderRow(rowRight, bottomRow);
+  strip.style.display = 'flex';
 }
 
 // ============================================
