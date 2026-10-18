@@ -212,7 +212,7 @@ section { padding: 100px 0; }
 .marquee-content {
   display: flex;
   width: max-content;
-  animation: marquee 40s linear infinite;
+  animation: marquee 80s linear infinite;
 }
 
 .partner-logo {
@@ -226,13 +226,14 @@ section { padding: 100px 0; }
 }
 
 .partner-logo img {
-  height: 40px;
+  height: 80px;
   width: auto;
-  max-width: 120px;
+  max-width: 240px;
   object-fit: contain;
   display: block;
   opacity: 0.6;
   transition: opacity 0.3s ease;
+  mix-blend-mode: multiply;
 }
 
 .partner-logo:hover img { opacity: 1; }
