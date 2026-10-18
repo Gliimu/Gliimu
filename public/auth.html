@@ -11,10 +11,6 @@
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = saved || (prefersDark ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', theme);
-      // Embedded in the landing page's modal: strip the video backdrop and chrome.
-      if (new URLSearchParams(location.search).get('embed') === '1') {
-        document.documentElement.setAttribute('data-embed', '1');
-      }
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,21 +18,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="/shared/css/design-system.css">
-  <link rel="stylesheet" href="/assets/css/auth.css?v=12">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="/assets/css/auth.css?v=13">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
 </head>
 <body class="auth-body">
 
-  <!-- Full Page Background Video -->
-  <video id="auth-video" class="auth-bg-video" autoplay muted loop playsinline webkit-playsinline>
-    <source id="auth-video-src" src="/videos/pnp.mp4" type="video/mp4">
-  </video>
-  <div class="auth-bg-overlay" id="auth-bg-overlay"></div>
+  <div class="auth-bg-image" id="auth-bg-image"></div>
+  <div class="auth-bg-overlay"></div>
 
-  <!-- Centered Auth Wrapper -->
   <div class="auth-wrapper">
     <div class="auth-card">
       <div class="auth-tabs">
@@ -44,7 +35,6 @@
         <button class="auth-tab" data-tab="join">Join Us</button>
       </div>
 
-      <!-- Log In -->
       <form id="login-form" class="auth-form active">
         <div class="form-group">
           <label>Username</label>
@@ -60,7 +50,6 @@
         <button type="submit" class="btn-primary w-full">Log In to Dashboard</button>
       </form>
 
-      <!-- Join Us -->
       <form id="join-form" class="auth-form">
         <div class="form-group">
           <label>Full Name</label>
@@ -87,11 +76,10 @@
       </form>
     </div>
 
-    <!-- Recovery Kit (Signup) -->
     <div id="recovery-view" class="auth-card" style="display: none;">
       <div class="recovery-header">
         <h2>Save Your Recovery Kit</h2>
-        <p class="recovery-warning">⚠️ We do not collect your email. If you lose your password, this phrase is the <strong>only</strong> way to recover your account. Store it securely.</p>
+        <p class="recovery-warning">We do not collect your email. If you lose your password, this phrase is the <strong>only</strong> way to recover your account. Store it securely.</p>
       </div>
       <div class="form-group">
         <label>Your Unique Recovery Phrase</label>
@@ -106,10 +94,9 @@
     </div>
   </div>
 
-  <!-- FORGOT PASSWORD MODAL -->
   <div class="modal-overlay" id="forgot-modal" style="display: none;">
     <div class="modal-content">
-      <button class="modal-close" onclick="document.getElementById('forgot-modal').style.display = 'none'">×</button>
+      <button class="modal-close" onclick="document.getElementById('forgot-modal').style.display = 'none'">&times;</button>
       <h2 class="modal-title">Recover Account</h2>
       <p class="modal-subtitle">Verify that it's you with your 16-word recovery phrase.</p>
 
@@ -141,7 +128,7 @@
       <div id="forgot-step-3" style="display: none;">
         <div class="recovery-header">
           <h2>New Recovery Kit</h2>
-          <p class="recovery-warning">⚠️ Your password has been updated. Here is your <strong>new</strong> recovery phrase. Store it securely.</p>
+          <p class="recovery-warning">Your password has been updated. Here is your <strong>new</strong> recovery phrase. Store it securely.</p>
         </div>
         <div class="form-group">
           <textarea id="new-recovery-phrase" class="input" readonly style="height: 100px; font-family: var(--font-mono); font-size: var(--fs-sm);"></textarea>
@@ -152,14 +139,14 @@
     </div>
   </div>
 
-  <script type="module" src="/dashboard/auth.js?v=16"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="/dashboard/auth.js?v=17"></script>
 
-  <!-- TERMS AND POLICY MODAL -->
   <div class="modal-overlay" id="terms-modal" style="display: none;">
     <div class="modal-content modal-lg">
-      <button class="modal-close" onclick="document.getElementById('terms-modal').style.display = 'none'">×</button>
+      <button class="modal-close" onclick="document.getElementById('terms-modal').style.display = 'none'">&times;</button>
       <h2 class="modal-title">Terms & Policy</h2>
-      <p class="modal-subtitle">Last Updated: October 2024</p>
+      <p class="modal-subtitle" id="terms-updated">Loading...</p>
 
       <div class="terms-content" id="terms-content-container" style="text-align: left; max-height: 50vh; overflow-y: auto; padding-right: 16px;">
         <p style="color: var(--text-muted);">Loading terms...</p>

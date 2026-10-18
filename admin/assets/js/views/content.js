@@ -62,7 +62,7 @@ export default {
 
     const [{ data: faqs, error: faqError }, { data: docs, error: docError }] = await Promise.all([
       supabase.from('faqs').select('id, question, answer, created_at').order('created_at', { ascending: true }),
-      supabase.from('legal_documents').select('id, type, content, created_at').order('type', { ascending: true })
+      supabase.from('legal_documents').select('id, type, content, created_at, updated_at').order('type', { ascending: true })
     ]);
 
     if (faqError || docError) {
@@ -262,7 +262,7 @@ export default {
     pane.querySelector('#save-doc-btn')?.addEventListener('click', async () => {
       const content = pane.querySelector('#doc-content').value;
       const { error } = await supabase.from('legal_documents')
-        .update({ content }).eq('id', this.activeDoc);
+        .update({ content, updated_at: new Date().toISOString() }).eq('id', this.activeDoc);
       if (error) return appAlert('Could not save that document: ' + error.message);
       await appAlert('Saved.');
       await this.load();

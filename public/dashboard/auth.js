@@ -2,69 +2,55 @@ import { supabase } from '/shared/js/config.js';
 import { API_BASE_URL } from '/shared/js/config.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // ============================================
-  // Auto-redirect if already logged in
-  // ============================================
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
-    window.top.location.href = '/dashboard/index.html';
+    window.location.href = '/dashboard/index.html';
     return;
   }
 
-  // Referral capture: a guest arriving directly on /auth.html?ref=CODE keeps
-  // the code so the dashboard can attribute them after they sign up/in.
   try {
     const ref = new URLSearchParams(window.location.search).get('ref');
     if (ref) localStorage.setItem('gliimu_ref', ref.trim().toUpperCase());
   } catch (e) {}
 
   // ============================================
-  // Load Video Settings from Database
+  // Background image (same as landing download section)
   // ============================================
-  async function loadAuthVideo() {
-    const { data } = await supabase.from('site_settings').select('hero_video_url, hero_fallback_image_url').single();
-    if (data) {
-      const video = document.getElementById('auth-video');
-      const source = document.getElementById('auth-video-src');
-      const overlay = document.getElementById('auth-bg-overlay');
-
-      if (data.hero_video_url) {
-        source.src = data.hero_video_url;
-        video.load();
-        video.play().catch(err => {
-          // If iOS blocks autoplay, hide video and show fallback image on the overlay
-          video.style.display = 'none';
-          if (data.hero_fallback_image_url) {
-            overlay.style.backgroundImage = `url('${data.hero_fallback_image_url}')`;
-            overlay.style.backgroundSize = 'cover';
-            overlay.style.backgroundPosition = 'center';
-          }
-        });
-      }
+  async function loadAuthBackground() {
+    const { data } = await supabase.from('site_settings').select('app_download_bg_url').single();
+    const el = document.getElementById('auth-bg-image');
+    if (!el) return;
+    const bg = (data?.app_download_bg_url || '').trim();
+    if (bg) {
+      el.style.backgroundImage = `url('${bg}')`;
     }
   }
-  loadAuthVideo();
+  loadAuthBackground();
 
   // ============================================
-  // Load Terms & Policy from Database
+  // Terms & Policy (from legal_documents)
   // ============================================
-  // legal_documents is the only source; CRM edits it at admin.gliimu.com.
-  // Nothing is invented here, so a missing row is stated as missing.
   async function loadTermsAndPolicy() {
     const container = document.getElementById('terms-content-container');
+    const updatedEl = document.getElementById('terms-updated');
     if (!container) return;
 
     const { data, error } = await supabase
       .from('legal_documents')
-      .select('content')
+      .select('content, updated_at')
       .eq('type', 'terms')
       .single();
 
     if (error || !data || !data.content) {
       container.innerHTML = '<p>The terms of service are unavailable right now. Please reload this page before continuing.</p>';
+      if (updatedEl) updatedEl.textContent = '';
       return;
     }
     container.innerHTML = data.content;
+    if (updatedEl && data.updated_at) {
+      const d = new Date(data.updated_at);
+      updatedEl.textContent = 'Last Updated: ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
   }
   loadTermsAndPolicy();
 
@@ -152,28 +138,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fakeEmail = `${username}@gliimu.app`;
 
     const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
-    if (error) alert('Error logging in: ' + error.message);
-    else window.top.location.href = '/dashboard/index.html';
+    if (error) await appAlert('Error logging in: ' + error.message);
+    else window.location.href = '/dashboard/index.html';
   });
 
   // Handle Join Us
-    document.getElementById('join-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
+  document.getElementById('join-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      // Checkbox Check
-      if (!document.getElementById('agree-terms').checked) {
-        return alert('You must agree to the terms and policy to create an account.');
-      }
+    if (!document.getElementById('agree-terms').checked) {
+      return appAlert('You must agree to the terms and policy to create an account.');
+    }
 
-      if (usernameCheck.style.color === 'var(--error)') return alert('Please choose an available username.');
+    if (usernameCheck.style.color === 'var(--error)') return appAlert('Please choose an available username.');
 
     const fullName = document.getElementById('join-name').value.trim();
     const username = document.getElementById('join-username').value.trim().toLowerCase();
     const password = document.getElementById('join-password').value;
     const confirmPass = document.getElementById('join-confirm').value;
 
-    if (password !== confirmPass) return alert('Passwords do not match!');
-    if (password.length < 8) return alert('Password must be at least 8 characters.');
+    if (password !== confirmPass) return appAlert('Passwords do not match!');
+    if (password.length < 8) return appAlert('Password must be at least 8 characters.');
 
     const fakeEmail = `${username}@gliimu.app`;
     const recoveryPhrase = generateRecoveryPhrase();
@@ -185,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (error) {
-      alert('Error signing up: ' + error.message);
+      await appAlert('Error signing up: ' + error.message);
     } else {
       authCard.style.display = 'none';
       recoveryView.style.display = 'block';
@@ -201,11 +186,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const enteredPassword = document.getElementById('recovery-password').value;
     const actualPassword = document.getElementById('join-password').value;
 
-    if (enteredPassword !== actualPassword) return alert('Password does not match the one you just created.');
+    if (enteredPassword !== actualPassword) return appAlert('Password does not match the one you just created.');
     downloadRecoveryPDF(phrase, false);
   });
 
-  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.top.location.href = '/dashboard/index.html');
+  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.location.href = '/dashboard/index.html');
 
   // ============================================
   // TERMS MODAL LOGIC
@@ -227,7 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('verify-recovery-btn').addEventListener('click', () => {
     const username = document.getElementById('forgot-username').value.trim().toLowerCase();
     const phrase = document.getElementById('forgot-phrase').value.trim();
-    if (!username || !phrase) return alert('Please enter your username and recovery phrase.');
+    if (!username || !phrase) return appAlert('Please enter your username and recovery phrase.');
     document.getElementById('forgot-step-1').style.display = 'none';
     document.getElementById('forgot-step-2').style.display = 'block';
   });
@@ -238,8 +223,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const newPass = document.getElementById('forgot-new-pass').value;
     const confirmPass = document.getElementById('forgot-confirm-pass').value;
 
-    if (newPass.length < 8) return alert('Password must be at least 8 characters.');
-    if (newPass !== confirmPass) return alert('Passwords do not match.');
+    if (newPass.length < 8) return appAlert('Password must be at least 8 characters.');
+    if (newPass !== confirmPass) return appAlert('Passwords do not match.');
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/reset-password`, {
@@ -255,12 +240,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('forgot-step-3').style.display = 'block';
         document.getElementById('new-recovery-phrase').value = data.newRecoveryPhrase;
       } else {
-        alert(data.error || 'Failed to reset password. Check your details.');
+        await appAlert(data.error || 'Failed to reset password. Check your details.');
         document.getElementById('forgot-step-2').style.display = 'none';
         document.getElementById('forgot-step-1').style.display = 'block';
       }
     } catch (err) {
-      alert('Server connection error. Is the backend awake?');
+      await appAlert('Server connection error. Is the backend awake?');
     }
   });
 
@@ -285,7 +270,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       reader.onloadend = () => {
         const base64data = reader.result;
 
-        // Logo dimensions: 35x9.1
         doc.addImage(base64data, 'PNG', 87.5, 22, 35, 9.1);
 
         doc.setFontSize(22);
@@ -316,7 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     } catch (error) {
       console.error("Failed to generate PDF with logo", error);
-      alert("Error generating PDF. Please try again.");
+      appAlert("Error generating PDF. Please try again.");
     }
   }
 });

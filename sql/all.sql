@@ -95,12 +95,14 @@ create table if not exists public.legal_documents (
   id uuid primary key default gen_random_uuid(),
   type text not null,
   content text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 alter table public.legal_documents add column if not exists type text;
 alter table public.legal_documents add column if not exists content text;
 alter table public.legal_documents add column if not exists created_at timestamptz;
+alter table public.legal_documents add column if not exists updated_at timestamptz not null default now();
 
 alter table public.legal_documents enable row level security;
 grant select on public.legal_documents to anon, authenticated;
