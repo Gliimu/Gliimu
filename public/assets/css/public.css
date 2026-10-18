@@ -32,7 +32,7 @@ body { background: var(--bg-primary); }
 /* Hero Section */
 .hero-video-section { position: relative; height: 100vh; min-height: 620px; display: flex; align-items: flex-end; padding-bottom: 80px; overflow: hidden; }
 .hero-background-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
-.hero-video-overlay { position: absolute; inset: 0; background: rgba(10, 15, 30, 0.85); z-index: -1; }
+.hero-video-overlay { position: absolute; inset: 0; background: rgba(10, 15, 30, 0.5); z-index: -1; }
 
 .hero-container { width: 100%; }
 .hero-content { max-width: 700px; }
@@ -178,10 +178,6 @@ section { padding: 100px 0; }
 /* CTA Section */
 .contact-faq-section .cta-content { text-align: center; margin-top: 40px; }
 
-/* Footer */
-.copyright-footer { background: var(--surface); border-top: 1px solid var(--border); padding: var(--space-6) 0; text-align: center; }
-.copyright-footer p { color: var(--text-muted); font-size: var(--fs-xs); }
-
 /* Scroll Reveal Animations */
 .reveal, .reveal-left, .reveal-right { opacity: 0; transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
 .reveal { transform: translateY(40px); }
@@ -235,7 +231,7 @@ section { padding: 100px 0; }
    ============================================ */
 .download-section {
   background: var(--bg-secondary);
-  padding: 100px 0;
+  padding: 70px 0;
   border-top: 1px solid var(--border);
   min-height: 50vh;
 }
