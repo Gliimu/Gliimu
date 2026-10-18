@@ -42,6 +42,8 @@ const calendarIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height=
 const usersIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
 const referIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>`;
 const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>`;
+const copyIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+const linkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
 
 const SECTIONS = [
   { key: 'contests', label: 'Contests', icon: contestIcon },
@@ -51,6 +53,13 @@ const SECTIONS = [
 
 let outsideBound = false;
 
+const REFERRAL_PERIODS = [
+  { key: 'all', label: 'All time' },
+  { key: 'month', label: 'Monthly' },
+  { key: 'week', label: 'Weekly' },
+  { key: 'today', label: 'Today' }
+];
+
 const updatesView = {
   board: null,
   boards: null,
@@ -59,6 +68,9 @@ const updatesView = {
   busy: null,
   filter: 'contests',
   filterOpen: false,
+  referralPeriod: 'all',
+  referralSummary: null,
+  referralBoard: null,
 
   template: `
     <div class="com-layout" id="com-container">
@@ -71,7 +83,10 @@ const updatesView = {
       joinContest: (id) => this.joinContest(id),
       requestCohort: (id) => this.requestCohort(id),
       toggleFilter: (ev) => this.toggleFilter(ev),
-      setFilter: (key) => this.setFilter(key)
+      setFilter: (key) => this.setFilter(key),
+      setReferralPeriod: (p) => this.setReferralPeriod(p),
+      copyReferralCode: () => this.copyReferralCode(),
+      copyReferralLink: () => this.copyReferralLink()
     };
     this.filter = 'contests';
     this.filterOpen = false;
@@ -112,11 +127,13 @@ const updatesView = {
     this.loading = true;
     this.render();
 
-    // community_board carries your own join state; updates_boards carries the
-    // ranked lists each filter shows. Missing RPCs simply hide those boards.
-    const [{ data, error }, boards] = await Promise.all([
+    const [{ data, error }, boards, summary, board] = await Promise.all([
       supabase.rpc('community_board', {}),
       supabase.rpc('updates_boards', {})
+        .then((r) => (r.error ? null : r.data), () => null),
+      supabase.rpc('referral_summary', {})
+        .then((r) => (r.error ? null : r.data), () => null),
+      supabase.rpc('referral_leaderboard', { p_period: this.referralPeriod })
         .then((r) => (r.error ? null : r.data), () => null)
     ]);
 
@@ -136,6 +153,8 @@ const updatesView = {
     this.schemaMissing = false;
     this.board = data && data.ok ? data : null;
     this.boards = boards || null;
+    this.referralSummary = summary || null;
+    this.referralBoard = Array.isArray(board) ? board : null;
     this.render();
   },
 
@@ -164,6 +183,33 @@ const updatesView = {
       await appAlert(msg || data.hint || 'Could not request a seat.');
     }
     await this.load();
+  },
+
+  async setReferralPeriod(period) {
+    this.referralPeriod = period;
+    this.referralBoard = null;
+    this.render();
+    const { data } = await supabase.rpc('referral_leaderboard', { p_period: period })
+      .then((r) => r, () => ({ data: null }));
+    this.referralBoard = Array.isArray(data) ? data : null;
+    this.render();
+  },
+
+  async copyReferralCode() {
+    if (!this.referralSummary?.code) return;
+    try {
+      await navigator.clipboard.writeText(this.referralSummary.code);
+      await appAlert('Referral code copied.');
+    } catch { await appAlert('Could not copy to clipboard.'); }
+  },
+
+  async copyReferralLink() {
+    if (!this.referralSummary?.code) return;
+    const link = `https://gliimu.com/?ref=${this.referralSummary.code}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      await appAlert('Referral link copied.');
+    } catch { await appAlert('Could not copy to clipboard.'); }
   },
 
   render() {
@@ -238,7 +284,7 @@ const updatesView = {
     } else if (f === 'cohorts') {
       section = this.renderCohorts(b.cohorts || []) + this.renderGroups('cohorts', usersIcon, 'Cohort scores', 'GP earned since approval');
     } else if (f === 'referrals') {
-      section = this.renderGroups('referrals', referIcon, 'Most referrals', 'Friends who signed up');
+      section = this.renderReferralCard() + this.renderReferralLeaderboard();
     }
 
     return head + section;
@@ -309,6 +355,81 @@ const updatesView = {
             </div>
             ${this.renderRows(g.rows, 'GP')}
           </div>`).join('')}
+      </section>
+    `;
+  },
+
+  renderReferralCard() {
+    const s = this.referralSummary;
+    if (!s || s.code === 'NOT_AUTHENTICATED') {
+      return `
+        <section class="com-section">
+          ${this.sectionTitle(referIcon, 'Refer & earn')}
+          <div class="com-mini-empty">Sign in to get your referral code.</div>
+        </section>
+      `;
+    }
+
+    const fullLink = `https://gliimu.com/?ref=${esc(s.code)}`;
+
+    return `
+      <section class="com-section">
+        ${this.sectionTitle(referIcon, 'Refer & earn', 'Invite friends, earn GP')}
+        <div class="ref-card">
+          <div class="ref-code-row">
+            <div class="ref-code-label">Your code</div>
+            <div class="ref-code-value">${esc(s.code)}</div>
+            <button class="ref-copy-btn" onclick="updatesInstance.copyReferralCode()" title="Copy code">${copyIcon}</button>
+          </div>
+          <div class="ref-link-row">
+            <span class="ref-link-icon">${linkIcon}</span>
+            <span class="ref-link-text">${fullLink}</span>
+            <button class="ref-copy-btn" onclick="updatesInstance.copyReferralLink()" title="Copy link">${copyIcon}</button>
+          </div>
+          <div class="ref-stats">
+            <div class="ref-stat">
+              <span class="ref-stat-num">${s.pending || 0}</span>
+              <span class="ref-stat-label">Pending</span>
+            </div>
+            <div class="ref-stat">
+              <span class="ref-stat-num">${s.vested || 0}</span>
+              <span class="ref-stat-label">Vested</span>
+            </div>
+            <div class="ref-stat">
+              <span class="ref-stat-num">${Number(s.gp_earned || 0).toLocaleString()}</span>
+              <span class="ref-stat-label">GP earned</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
+  },
+
+  renderReferralPeriodFilter() {
+    return `
+      <div class="ref-period-filter">
+        ${REFERRAL_PERIODS.map(p => `
+          <button class="ref-period-btn${p.key === this.referralPeriod ? ' active' : ''}"
+                  onclick="updatesInstance.setReferralPeriod('${p.key}')">
+            ${esc(p.label)}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  renderReferralLeaderboard() {
+    const rows = this.referralBoard;
+    const loading = rows === null;
+
+    return `
+      <section class="com-section">
+        ${this.sectionTitle(referIcon, 'Top referrers', 'Friends who signed up')}
+        ${this.renderReferralPeriodFilter()}
+        ${loading
+          ? `<div class="com-mini-empty">Loading leaderboard…</div>`
+          : this.renderRows(rows, 'Friends')
+        }
       </section>
     `;
   },

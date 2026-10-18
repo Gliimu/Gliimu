@@ -238,3 +238,161 @@
 @media (max-width: 480px) {
   .com-board-group-note { display: none; }
 }
+
+/* ---- Refer & earn card ---- */
+.ref-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ref-code-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ref-code-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ref-code-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--brand-primary);
+  letter-spacing: 1.5px;
+  font-family: var(--font-mono, monospace);
+}
+
+.ref-copy-btn {
+  margin-left: auto;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.ref-copy-btn:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.ref-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.ref-link-icon {
+  display: flex;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ref-link-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+}
+
+.ref-link-row .ref-copy-btn {
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+.ref-stats {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.ref-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ref-stat + .ref-stat {
+  border-left: 1px solid var(--border);
+}
+
+.ref-stat-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.ref-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ---- Period filter buttons ---- */
+.ref-period-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.ref-period-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.ref-period-btn:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.ref-period-btn.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .ref-card { padding: 16px; }
+  .ref-code-value { font-size: 17px; }
+  .ref-stat-num { font-size: 18px; }
+  .ref-link-text { font-size: 11px; }
+}
