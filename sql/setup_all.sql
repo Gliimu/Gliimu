@@ -2209,6 +2209,16 @@ alter table public.contests enable row level security;
 alter table public.contest_entries enable row level security;
 alter table public.cohorts enable row level security;
 alter table public.cohort_requests enable row level security;
+
+-- landing_highlights() is SECURITY INVOKER, so anon needs table-level SELECT
+-- before RLS policies are even checked. Without these grants the landing page
+-- gets a 401 from the REST API.
+grant select on public.contests        to anon, authenticated;
+grant select on public.contest_entries to anon, authenticated;
+grant select on public.cohorts         to anon, authenticated;
+grant select on public.cohort_requests to anon, authenticated;
+grant select on public.profiles        to anon;
+
 alter table public.live_requests enable row level security;
 alter table public.reading_progress enable row level security;
 alter table public.referrals enable row level security;
@@ -2456,7 +2466,7 @@ create policy admin_chat_admin on public.admin_chat for all to authenticated
 
 -- contests: public read
 drop policy if exists contests_read on public.contests;
-create policy contests_read on public.contests for select to authenticated
+create policy contests_read on public.contests for select to anon, authenticated
   using (true);
 
 drop policy if exists contests_admin on public.contests;
@@ -2465,7 +2475,7 @@ create policy contests_admin on public.contests for all to authenticated
 
 -- contest_entries: public read, own insert
 drop policy if exists contest_entries_read on public.contest_entries;
-create policy contest_entries_read on public.contest_entries for select to authenticated
+create policy contest_entries_read on public.contest_entries for select to anon, authenticated
   using (true);
 
 drop policy if exists contest_entries_insert on public.contest_entries;
@@ -2474,7 +2484,7 @@ create policy contest_entries_insert on public.contest_entries for insert to aut
 
 -- cohorts: public read
 drop policy if exists cohorts_read on public.cohorts;
-create policy cohorts_read on public.cohorts for select to authenticated
+create policy cohorts_read on public.cohorts for select to anon, authenticated
   using (true);
 
 drop policy if exists cohorts_admin on public.cohorts;

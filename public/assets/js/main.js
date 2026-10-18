@@ -396,15 +396,7 @@ async function loadContact() {
   if (!el || el.dataset.loaded) return;
   el.dataset.loaded = '1';
 
-  const SOCIAL_ICONS = {
-    youtube:   { icon: 'fab fa-youtube',   label: 'YouTube' },
-    tiktok:    { icon: 'fab fa-tiktok',    label: 'TikTok' },
-    facebook:  { icon: 'fab fa-facebook',  label: 'Facebook' },
-    pinterest: { icon: 'fab fa-pinterest', label: 'Pinterest' },
-    twitter:   { icon: 'fab fa-x-twitter', label: 'X' },
-    instagram: { icon: 'fab fa-instagram', label: 'Instagram' },
-    linkedin:  { icon: 'fab fa-linkedin',  label: 'LinkedIn' }
-  };
+  const SOCIAL_KEYS = ['youtube', 'tiktok', 'facebook', 'pinterest', 'twitter', 'instagram', 'linkedin'];
 
   let contact = null;
   try {
@@ -424,27 +416,32 @@ async function loadContact() {
   if (contact.email) {
     infoItems.push(`<div class="contact-info-item"><i class="fas fa-envelope"></i><h4>Email</h4><p><a href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a></p></div>`);
   }
-  if (contact.address) {
-    infoItems.push(`<div class="contact-info-item"><i class="fas fa-map-marker-alt"></i><h4>Address</h4><p>${escapeHtml(contact.address).replace(/\n/g, '<br>')}</p></div>`);
-  }
+
+  const addressHtml = contact.address ? `<div class="contact-info-item contact-address"><i class="fas fa-map-marker-alt"></i><h4>Address</h4><p>${escapeHtml(contact.address).replace(/\n/g, '<br>')}</p></div>` : '';
 
   const socialLinks = [];
-  for (const [key, meta] of Object.entries(SOCIAL_ICONS)) {
+  for (const key of SOCIAL_KEYS) {
     const url = safeUrl(contact[key]);
     if (url) {
-      socialLinks.push(`<a href="${url}" target="_blank" rel="noopener" title="${meta.label}"><i class="${meta.icon}"></i></a>`);
+      try {
+        const domain = new URL(url).hostname;
+        const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+        const label = key.charAt(0).toUpperCase() + key.slice(1);
+        socialLinks.push(`<a href="${url}" target="_blank" rel="noopener" title="${label}"><img src="${faviconUrl}" alt="${label}" style="width:24px;height:24px;border-radius:4px;"></a>`);
+      } catch {}
     }
   }
 
   el.innerHTML = `
     ${infoItems.length ? `<div class="contact-info-grid">${infoItems.join('')}</div>` : ''}
+    ${addressHtml}
     ${socialLinks.length ? `
       <div class="social-section-modal">
         <p>Follow us</p>
         <div class="social-icons-modal">${socialLinks.join('')}</div>
       </div>
     ` : ''}
-    ${!infoItems.length && !socialLinks.length ? '<p style="color:var(--text-muted); text-align:center;">No contact details on file yet.</p>' : ''}
+    ${!infoItems.length && !addressHtml && !socialLinks.length ? '<p style="color:var(--text-muted); text-align:center;">No contact details on file yet.</p>' : ''}
   `;
 }
 

@@ -265,6 +265,15 @@ begin
   );
 end $$;
 
+-- The function is SECURITY INVOKER, so anon needs SELECT on every table it
+-- touches. RLS policies alone are not enough — the table-level privilege
+-- must be granted first, then the policy filters which rows are visible.
+grant select on public.contests        to anon, authenticated;
+grant select on public.contest_entries to anon, authenticated;
+grant select on public.cohorts         to anon, authenticated;
+grant select on public.cohort_requests to anon, authenticated;
+grant select on public.profiles        to anon;
+
 grant execute on function public.landing_highlights() to anon;
 grant execute on function public.landing_highlights() to authenticated;
 grant execute on function public.landing_highlights() to service_role;
