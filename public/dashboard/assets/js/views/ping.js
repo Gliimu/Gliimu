@@ -253,8 +253,6 @@ export default {
 
   async addContact(userId) {
     await supabase.from('hidden_chats').delete().eq('user_id', store.user.id).eq('contact_id', userId);
-    const { error } = await supabase.from('contacts').insert({ user_id: store.user.id, contact_id: userId });
-    if (error && !error.message.includes('duplicate')) return alert("Error adding contact.");
     if (this.disposed) return;
 
     document.getElementById('ping-top-search').value = '';
@@ -273,7 +271,6 @@ export default {
   async fetchContacts() {
     const request = this.contactsRequest = (this.contactsRequest || 0) + 1;
     const results = await Promise.all([
-      supabase.from('contacts').select('contact_id').eq('user_id', store.user.id),
       supabase.from('hidden_chats').select('contact_id, hidden_at').eq('user_id', store.user.id),
       supabase.from('messages').select('sender_id, receiver_id, created_at, read_at, room, is_ai, is_admin, content, attachment_url, attachment_type').eq('receiver_id', store.user.id),
       supabase.from('messages').select('sender_id, receiver_id, created_at, room, is_ai, is_admin, content, attachment_url, attachment_type').eq('sender_id', store.user.id).not('receiver_id', 'is', null)
@@ -286,11 +283,11 @@ export default {
       if (list && !this.contacts.length) list.textContent = 'Could not load chats. Please reopen Ping to retry.';
       return;
     }
-    const [explicitContacts, hiddenChats, received, sent] = results.map(result => result.data || []);
+    const [hiddenChats, received, sent] = results.map(result => result.data || []);
     const receivedMsgs = received.filter(m => isIncomingDm(store.user.id, m));
     const sentMsgs = sent.filter(m => !m.room && !m.is_ai && !m.is_admin);
     const hiddenMap = Object.fromEntries(hiddenChats.map(h => [h.contact_id, new Date(h.hidden_at).getTime()]));
-    const userIds = new Set(explicitContacts.filter(c => !hiddenMap[c.contact_id]).map(c => c.contact_id));
+    const userIds = new Set();
     const lastMsgMap = {};
     const previewMap = {};
 
@@ -634,7 +631,6 @@ export default {
     if (clearError) return alert("Could not remove chat: " + clearError.message);
     const { error } = await supabase.from('hidden_chats').insert({ user_id: store.user.id, contact_id: userId, hidden_at: through });
     if (error) return alert("Could not remove chat: " + error.message);
-    await supabase.from('contacts').delete().eq('user_id', store.user.id).eq('contact_id', userId);
     markChatRead(store.user.id, userId, new Date(through).getTime());
     const { error: readError } = await supabase.rpc('mark_dm_read_through', { p_other: userId, p_through: through });
     if (readError) console.warn('Could not sync removed chat receipt:', readError.message);

@@ -2,7 +2,7 @@ const routes = {
   '/support': () => import('./views/support.js?v=30').then(m => m.default),
   '/feed': () => import('./views/feed.js?v=35').then(m => m.default),
   '/updates': () => import('./views/updates.js?v=33').then(m => m.default),
-  '/ping': () => import('./views/ping.js?v=34').then(m => m.default),
+  '/ping': () => import('./views/ping.js?v=35').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=30').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
   // Deep links only: Live is folded into Ping, Profile opens from the avatar
