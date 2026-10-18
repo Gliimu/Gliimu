@@ -139,10 +139,11 @@ export default {
       const kindBadge = badge(KIND_LABEL[item.kind] || item.kind, 'neutral');
       const typeBadge = item.kind === 'post' ? '' : badge(item.type, TYPE_TONE[item.type] || 'neutral');
       const statusBadge = badge(item.status, STATUS_TONE[item.status] || 'neutral');
+      const safeTitle = (item.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
       return `
         <div class="card" style="position: relative;">
-          <button class="delete-btn" onclick="submissionsInstance.confirmDelete('${item.id}', '${escapeHtml(item.title)}')" title="Delete permanently" aria-label="Delete">
+          <button class="delete-btn" onclick="window.submissionsInstance.confirmDelete('${item.id}', '${safeTitle}')" title="Delete permanently" aria-label="Delete">
             ${deleteIcon}
           </button>
           <div class="card-head" data-open="${item.id}" style="cursor: pointer;">

@@ -37,7 +37,7 @@ delete from public.hub_interactions where id is not null;
 -- ------------------------------------------------------------
 delete from public.billing_events
 where event_type = 'premium_unlock'
-  and target_id in (select id from public.posts);
+  and item_id in (select id::text from public.posts);
 
 -- ------------------------------------------------------------
 -- Clear reports targeting deleted posts
