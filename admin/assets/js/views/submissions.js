@@ -4,7 +4,7 @@ import { appAlert, appConfirm } from '../dialog.js';
 
 const TYPE_TONE = { publication: 'brand', audiolite: 'info', bundle: 'warning', post: 'neutral' };
 const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'error' };
-const KIND_LABEL = { submission: 'Feed', post: 'Gliim' };
+const KIND_LABEL = { submission: 'Publication', post: 'Gliim' };
 
 // Delete icon SVG
 const deleteIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
@@ -13,7 +13,7 @@ export default {
   template: `
     <div class="filters">
       <button class="filter-btn active" data-kind="all">All</button>
-      <button class="filter-btn" data-kind="submission">Feed</button>
+      <button class="filter-btn" data-kind="submission">Publications</button>
       <button class="filter-btn" data-kind="post">Gliims</button>
       <button class="filter-btn" data-status="pending">Pending</button>
       <button class="filter-btn" data-status="approved">Approved</button>
@@ -143,10 +143,9 @@ export default {
 
       return `
         <div class="card" style="position: relative;">
-          ${item.kind === 'post' ? `
           <button class="delete-btn" onclick="window.submissionsInstance.confirmDelete('${item.id}', '${safeTitle}')" title="Delete permanently" aria-label="Delete">
             ${deleteIcon}
-          </button>` : ''}
+          </button>
           <div class="card-head" data-open="${item.id}" style="cursor: pointer;">
             ${avatar(person && person.avatar_url, this.submitterName(item.user_id))}
             <div style="min-width: 0;">
@@ -218,8 +217,8 @@ export default {
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Deleting...';
 
-      const { data, error } = await supabase.rpc('admin_delete_post', {
-        p_post_id: itemId,
+      const { data, error } = await supabase.rpc('admin_delete_feed_item', {
+        p_item_id: itemId,
         p_password: password
       });
 
@@ -352,7 +351,7 @@ export default {
     overlay.querySelector('#approve-btn').addEventListener('click', async () => {
       const note = overlay.querySelector('#review-note').value.trim();
       const ok = await appConfirm(
-        `"${item.title}" goes live on the shelf at ${money(item.price)}, attributed to ${this.submitterName(item.user_id)}.`,
+        `"${item.title}" goes live on the Feed at ${money(item.price)}, attributed to ${this.submitterName(item.user_id)}.`,
         { okText: 'Approve', title: 'Approve submission?' }
       );
       if (!ok) return;
@@ -383,6 +382,6 @@ export default {
     close();
     await this.load();
     window.adminApp?.refreshCounts();
-    appAlert(action === 'approve' ? 'Approved and published to the shelf.' : 'Rejected. The submitter has been told why.');
+    appAlert(action === 'approve' ? 'Approved and published to the Feed.' : 'Rejected. The submitter has been told why.');
   }
 };
