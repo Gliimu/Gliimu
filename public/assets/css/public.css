@@ -8,7 +8,8 @@ body { background: var(--bg-primary); }
 .fixed-logo {
   position: fixed;
   top: 20px;
-  right: 30px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 100;
   pointer-events: none;
 }
@@ -17,6 +18,11 @@ body { background: var(--bg-primary); }
   height: 48px;
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Invert logo in light theme */
+[data-theme="light"] .fixed-logo img {
+  filter: invert(1);
 }
 
 /* Buttons */
