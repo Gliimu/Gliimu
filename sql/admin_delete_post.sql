@@ -60,7 +60,7 @@ begin
   -- - billing_events for premium_unlocks
   -- - reports targeting this post
   delete from public.hub_interactions where post_id = p_post_id;
-  delete from public.billing_events where event_type = 'premium_unlock' and target_id = p_post_id;
+  delete from public.billing_events where event_type = 'premium_unlock' and item_id = p_post_id::text;
   delete from public.reports where target_type = 'post' and target_id = p_post_id;
   delete from public.posts where id = p_post_id;
 

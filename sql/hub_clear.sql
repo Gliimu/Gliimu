@@ -22,29 +22,30 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
--- Delete all posts (cascades to post_contents via FK)
--- ------------------------------------------------------------
-delete from public.posts where id is not null;
-
--- ------------------------------------------------------------
 -- Clear hub interactions (comments, reactions, supports)
+-- Must run BEFORE deleting posts since FK has no cascade
 -- ------------------------------------------------------------
 delete from public.hub_interactions where id is not null;
 
 -- ------------------------------------------------------------
--- Clear billing events for premium unlocks on deleted posts
--- (FK cascade should handle this, but belt-and-suspenders)
+-- Clear billing events for premium unlocks on ALL posts
+-- (item_id is text, so we match before posts are gone)
 -- ------------------------------------------------------------
 delete from public.billing_events
 where event_type = 'premium_unlock'
   and item_id in (select id::text from public.posts);
 
 -- ------------------------------------------------------------
--- Clear reports targeting deleted posts
+-- Clear reports targeting posts
+-- Must run BEFORE deleting posts
 -- ------------------------------------------------------------
 delete from public.reports
-where target_type = 'post'
-  and target_id in (select id from public.posts);
+where target_type = 'post';
+
+-- ------------------------------------------------------------
+-- Delete all posts (cascades to post_contents via FK)
+-- ------------------------------------------------------------
+delete from public.posts where id is not null;
 
 notify pgrst, 'reload schema';
 

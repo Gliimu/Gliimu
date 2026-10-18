@@ -292,7 +292,7 @@ const updatesView = {
       return `
         <section class="com-section">
           ${this.sectionTitle(icon, title, note)}
-          ${this.renderRows(boards, 'Friends')}
+          ${boards.length ? this.renderRows(boards, 'Friends') : `<div class="com-mini-empty">No referrals yet.</div>`}
         </section>
       `;
     }

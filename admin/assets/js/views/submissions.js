@@ -143,9 +143,10 @@ export default {
 
       return `
         <div class="card" style="position: relative;">
+          ${item.kind === 'post' ? `
           <button class="delete-btn" onclick="window.submissionsInstance.confirmDelete('${item.id}', '${safeTitle}')" title="Delete permanently" aria-label="Delete">
             ${deleteIcon}
-          </button>
+          </button>` : ''}
           <div class="card-head" data-open="${item.id}" style="cursor: pointer;">
             ${avatar(person && person.avatar_url, this.submitterName(item.user_id))}
             <div style="min-width: 0;">
