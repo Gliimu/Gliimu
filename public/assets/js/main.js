@@ -347,9 +347,8 @@ async function loadHubHighlights() {
 // ============================================
 async function loadPartners() {
   const strip = document.getElementById('partners-strip');
-  const rowLeft = document.getElementById('partners-row-left');
-  const rowRight = document.getElementById('partners-row-right');
-  if (!strip || !rowLeft || !rowRight) return;
+  const grid = document.getElementById('partners-grid');
+  if (!strip || !grid) return;
 
   const { data: partners, error } = await supabase
     .from('partners')
@@ -360,27 +359,14 @@ async function loadPartners() {
   if (usable.length === 0) return;
 
   const logos = usable.slice(0, 12);
-  const half = Math.ceil(logos.length / 2);
-  const topRow = logos.slice(0, half);
-  const bottomRow = logos.slice(half);
 
-  function renderRow(container, items) {
-    let loopSet = [];
-    while (loopSet.length < 6) loopSet = loopSet.concat(items);
-    const doubled = [...loopSet, ...loopSet];
-    const track = document.createElement('div');
-    track.className = 'partners-track';
-    track.innerHTML = doubled.map(p => `
-      <span class="partner-logo">
-        <img src="${safeUrl(p.logo_url)}" alt="" loading="lazy">
-      </span>
-    `).join('');
-    container.appendChild(track);
-  }
+  grid.innerHTML = logos.map(p => `
+    <span class="partner-logo">
+      <img src="${safeUrl(p.logo_url)}" alt="" loading="lazy">
+    </span>
+  `).join('');
 
-  renderRow(rowLeft, topRow);
-  renderRow(rowRight, bottomRow);
-  strip.style.display = 'flex';
+  strip.style.display = 'block';
 }
 
 // ============================================

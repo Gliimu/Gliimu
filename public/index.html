@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=18">
+  <link rel="stylesheet" href="/assets/css/public.css?v=19">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -73,13 +73,12 @@
       </div>
 
       <div class="partners-strip" id="partners-strip" style="display: none;">
-        <div class="partners-row partners-row-left" id="partners-row-left"></div>
-        <div class="partners-row partners-row-right" id="partners-row-right"></div>
+        <div class="partners-grid" id="partners-grid"></div>
       </div>
 
       <div class="cf-grid reveal">
         <div class="cf-card" onclick="openFaqModal()">
-          <i class="fas fa-book-open"></i>
+          <i class="fas fa-question-circle"></i>
           <h3>FAQs</h3>
           <p>Quick answers to the questions we get the most.</p>
         </div>
@@ -181,7 +180,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=19"></script>
+  <script type="module" src="/assets/js/main.js?v=20"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

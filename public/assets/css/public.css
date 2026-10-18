@@ -198,57 +198,36 @@ section { padding: 100px 0; }
    PARTNERS STRIP (inside Get in Touch)
    ============================================ */
 .partners-strip {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   margin-bottom: 40px;
-  overflow: hidden;
 }
 
-.partners-row {
-  display: flex;
-  width: max-content;
+.partners-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 24px;
+  align-items: center;
+  justify-items: center;
 }
 
-.partners-row-left .partners-track {
-  animation: scroll-left 80s linear infinite;
-}
-
-.partners-row-right .partners-track {
-  animation: scroll-right 80s linear infinite;
-}
-
-.partners-row .partner-logo {
-  margin: 0 24px;
+.partners-grid .partner-logo {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  justify-content: center;
 }
 
-.partners-row .partner-logo img {
-  height: 48px;
+.partners-grid .partner-logo img {
+  height: 40px;
   width: auto;
-  max-width: 160px;
+  max-width: 120px;
   object-fit: contain;
   display: block;
   filter: grayscale(100%);
   opacity: 0.5;
-  transition: opacity 0.3s ease, filter 0.3s ease;
 }
 
-.partners-row .partner-logo img:hover {
-  opacity: 0.85;
-  filter: grayscale(0%);
-}
-
-@keyframes scroll-left {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-
-@keyframes scroll-right {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(0); }
+@media (max-width: 768px) {
+  .partners-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .partners-grid .partner-logo img { height: 32px; max-width: 90px; }
 }
 
 /* ============================================
