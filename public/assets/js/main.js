@@ -121,11 +121,11 @@ function applyDownloadSection(settings) {
   const panel = document.getElementById('download-panel');
   if (!section || !panel) return;
 
-  // The image is the point of this section, so the scrim over it stays at 40%
+  // The image is the point of this section, so the scrim over it sits at 50%
   // and the panel adds the only other layer, at 50%.
   const bg = safeUrl(settings.app_download_bg_url);
   if (bg) {
-    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.4), rgba(10, 15, 30, 0.4)), url('${bg}')`;
+    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.5), rgba(10, 15, 30, 0.5)), url('${bg}')`;
     section.style.backgroundSize = 'cover';
     section.style.backgroundPosition = 'center';
     section.classList.add('has-bg');
@@ -212,8 +212,25 @@ function forceVideoAutoplay() {
 }
 
 // ============================================
-// FETCH LATEST ON GLIIMU (daily top 7, latest post, top author)
+// FETCH LATEST ON GLIIMU (contest, cohort, top 3 GP)
 // ============================================
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function timeLeft(iso) {
+  if (!iso) return 'No deadline';
+  const diff = new Date(iso) - new Date();
+  if (diff <= 0) return 'Ended';
+  const days = Math.floor(diff / 86400000);
+  if (days > 30) return Math.floor(days / 30) + 'mo left';
+  if (days > 0) return days + 'd left';
+  const hrs = Math.floor(diff / 3600000);
+  return hrs + 'h left';
+}
+
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
@@ -224,88 +241,101 @@ async function loadHubHighlights() {
     return;
   }
 
-  const dailyTop = Array.isArray(data.daily_top) ? data.daily_top : [];
-  const latestPost = data.latest_post;
-  const topAuthor = data.top_author;
-
+  const contest = data.contest;
+  const cohort = data.cohort;
+  const top3 = Array.isArray(data.top3) ? data.top3 : [];
   let cards = '';
 
-  // Card 1: Top of the Day — 7 users by GP earned today
-  const dailyRows = dailyTop.length
-    ? dailyTop.map((u, i) => {
-        const avatar = safeUrl(u.avatar_url);
-        return `
-          <div class="lh-daily-row">
-            <span class="lh-daily-rank">${i + 1}</span>
-            ${avatar
-              ? `<img src="${avatar}" class="lh-daily-ava" style="object-fit:cover;" alt="">`
-              : `<div class="lh-daily-ava lh-daily-ava-empty"></div>`
-            }
-            <span class="lh-daily-name">${escapeHtml(u.full_name || 'Member')}</span>
-            <span class="lh-daily-gp">${Number(u.gp_earned || 0).toLocaleString()} GP</span>
-          </div>
-        `;
-      }).join('')
-    : '<p style="color: var(--text-muted); font-size: 13px; text-align: center;">No GP earned today yet.</p>';
-
-  cards += `
-    <div class="hub-card reveal" style="transition-delay: 0.1s;">
-      <div class="hub-card-meta">
-        <span class="hub-card-author">Top of the Day</span>
-      </div>
-      <div class="lh-daily-list">${dailyRows}</div>
-    </div>
-  `;
-
-  // Card 2: Latest post from the feed
-  if (latestPost) {
-    const cover = safeUrl(latestPost.cover_url);
-    const avatar = safeUrl(latestPost.author_avatar);
-    const bg = cover ? `background-image: url('${cover}'); background-size: cover;` : '';
-    const typeLabel = (latestPost.type || '').replace(/_/g, ' ');
-
+  // Card 1: Active contest
+  if (contest) {
+    const metric = (contest.metric || '').replace(/_/g, ' ');
     cards += `
-      <div class="hub-card reveal" style="transition-delay: 0.2s;">
+      <div class="hub-card reveal" style="transition-delay: 0.1s;">
         <div class="hub-card-meta">
-          ${avatar
-            ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
-            : `<div class="hub-card-avatar"></div>`
-          }
-          <span class="hub-card-author">${escapeHtml(latestPost.author || 'Gliimu')}</span>
-          ${typeLabel ? `<span style="margin-left:auto; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">${escapeHtml(typeLabel)}</span>` : ''}
+          <span class="hub-card-author">Live Contest</span>
         </div>
-        <div class="lib-highlight-thumb" style="height: 120px; border-radius: 8px; margin-bottom: 12px; ${bg}"></div>
-        <p class="hub-card-text" style="font-weight: 600;">${escapeHtml(latestPost.title || 'Untitled')}</p>
+        <h3 style="font-size:16px; font-weight:700; margin:0 0 8px;">${escapeHtml(contest.title)}</h3>
+        <p class="hub-card-text" style="margin-bottom:12px;">${escapeHtml(contest.description || '')}</p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+          <span class="lh-tag">${escapeHtml(metric || 'General')}</span>
+          <span class="lh-tag">${escapeHtml(timeLeft(contest.ends_at))}</span>
+          <span class="lh-tag">${contest.entries_count} entries</span>
+        </div>
+        ${contest.prize_text ? `<p style="font-size:12px; font-weight:700; color:var(--brand-primary); margin:0;">Prize: ${escapeHtml(contest.prize_text)}</p>` : ''}
+      </div>
+    `;
+  } else {
+    cards += `
+      <div class="hub-card reveal" style="transition-delay: 0.1s;">
+        <div class="hub-card-meta"><span class="hub-card-author">Live Contest</span></div>
+        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No active contest right now.</p>
       </div>
     `;
   }
 
-  // Card 3: Top Gliimait — all-time most engaged author
-  if (topAuthor) {
-    const avatar = safeUrl(topAuthor.avatar_url);
+  // Card 2: Latest cohort
+  if (cohort) {
+    const pct = cohort.seats ? Math.round((cohort.seats_taken / cohort.seats) * 100) : 0;
+    cards += `
+      <div class="hub-card reveal" style="transition-delay: 0.2s;">
+        <div class="hub-card-meta">
+          <span class="hub-card-author">Cohort</span>
+        </div>
+        <h3 style="font-size:16px; font-weight:700; margin:0 0 8px;">${escapeHtml(cohort.title)}</h3>
+        <p class="hub-card-text" style="margin-bottom:12px;">${escapeHtml((cohort.description || '').slice(0, 120))}${(cohort.description || '').length > 120 ? '...' : ''}</p>
+        <div style="margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+            <span style="color:var(--text-muted);">Seats</span>
+            <span style="font-weight:700;">${cohort.seats_taken} / ${cohort.seats}</span>
+          </div>
+          <div style="height:6px; background:var(--bg-tertiary); border-radius:3px; overflow:hidden;">
+            <div style="height:100%; width:${pct}%; background:var(--brand-primary); border-radius:3px; transition:width 0.3s;"></div>
+          </div>
+        </div>
+        ${cohort.starts_at ? `<p style="font-size:12px; color:var(--text-muted); margin:0;">Starts ${formatDate(cohort.starts_at)}</p>` : ''}
+      </div>
+    `;
+  } else {
+    cards += `
+      <div class="hub-card reveal" style="transition-delay: 0.2s;">
+        <div class="hub-card-meta"><span class="hub-card-author">Cohort</span></div>
+        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No cohort available.</p>
+      </div>
+    `;
+  }
+
+  // Card 3: Top 3 all-time by GP
+  if (top3.length) {
+    const rows = top3.map((u, i) => {
+      const avatar = safeUrl(u.avatar_url);
+      return `
+        <div class="lh-daily-row">
+          <span class="lh-daily-rank">${i + 1}</span>
+          ${avatar
+            ? `<img src="${avatar}" class="lh-daily-ava" style="object-fit:cover;" alt="">`
+            : `<div class="lh-daily-ava lh-daily-ava-empty"></div>`
+          }
+          <span class="lh-daily-name">${escapeHtml(u.full_name || 'Member')}</span>
+          <span class="lh-daily-gp">${Number(u.total_gp || 0).toLocaleString()} GP</span>
+        </div>
+      `;
+    }).join('');
+
     cards += `
       <div class="hub-card reveal" style="transition-delay: 0.3s;">
         <div class="hub-card-meta">
           <span class="hub-card-author">Top Gliimait</span>
         </div>
-        <div style="display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; margin-top:8px;">
-          ${avatar
-            ? `<img src="${avatar}" alt="" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--brand-primary);">`
-            : `<div style="width:64px; height:64px; border-radius:50%; background:var(--gradient-primary);"></div>`
-          }
-          <div>
-            <p style="font-weight:700; font-size:16px; margin:0;">${escapeHtml(topAuthor.full_name || 'Member')}</p>
-            <p style="color:var(--text-muted); font-size:12px; margin:4px 0 0;">${Number(topAuthor.total_gp || 0).toLocaleString()} GP</p>
-          </div>
-          <p style="color:var(--text-secondary); font-size:12px; margin:0;">Most engaged post: <strong>${escapeHtml(topAuthor.item_title || 'N/A')}</strong></p>
-        </div>
+        <div class="lh-daily-list">${rows}</div>
       </div>
     `;
-  }
-
-  if (!cards) {
-    grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Be the first to post on Gliimu!</p>';
-    return;
+  } else {
+    cards += `
+      <div class="hub-card reveal" style="transition-delay: 0.3s;">
+        <div class="hub-card-meta"><span class="hub-card-author">Top Gliimait</span></div>
+        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No GP earned yet.</p>
+      </div>
+    `;
   }
 
   grid.innerHTML = cards;
@@ -358,6 +388,64 @@ function openFaqModal() {
 
 function openContactModal() {
   document.getElementById('contact-modal').style.display = 'flex';
+  loadContact();
+}
+
+async function loadContact() {
+  const el = document.getElementById('contact-body');
+  if (!el || el.dataset.loaded) return;
+  el.dataset.loaded = '1';
+
+  const SOCIAL_ICONS = {
+    youtube:   { icon: 'fab fa-youtube',   label: 'YouTube' },
+    tiktok:    { icon: 'fab fa-tiktok',    label: 'TikTok' },
+    facebook:  { icon: 'fab fa-facebook',  label: 'Facebook' },
+    pinterest: { icon: 'fab fa-pinterest', label: 'Pinterest' },
+    twitter:   { icon: 'fab fa-x-twitter', label: 'X' },
+    instagram: { icon: 'fab fa-instagram', label: 'Instagram' },
+    linkedin:  { icon: 'fab fa-linkedin',  label: 'LinkedIn' }
+  };
+
+  let contact = null;
+  try {
+    const { data } = await supabase.from('contact_info').select('*').limit(1).maybeSingle();
+    contact = data;
+  } catch {}
+
+  if (!contact) {
+    el.innerHTML = '<p style="color:var(--text-muted); text-align:center;">No contact details on file yet.</p>';
+    return;
+  }
+
+  const infoItems = [];
+  if (contact.phone) {
+    infoItems.push(`<div class="contact-info-item"><i class="fas fa-phone"></i><h4>Phone</h4><p><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></p></div>`);
+  }
+  if (contact.email) {
+    infoItems.push(`<div class="contact-info-item"><i class="fas fa-envelope"></i><h4>Email</h4><p><a href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a></p></div>`);
+  }
+  if (contact.address) {
+    infoItems.push(`<div class="contact-info-item"><i class="fas fa-map-marker-alt"></i><h4>Address</h4><p>${escapeHtml(contact.address).replace(/\n/g, '<br>')}</p></div>`);
+  }
+
+  const socialLinks = [];
+  for (const [key, meta] of Object.entries(SOCIAL_ICONS)) {
+    const url = safeUrl(contact[key]);
+    if (url) {
+      socialLinks.push(`<a href="${url}" target="_blank" rel="noopener" title="${meta.label}"><i class="${meta.icon}"></i></a>`);
+    }
+  }
+
+  el.innerHTML = `
+    ${infoItems.length ? `<div class="contact-info-grid">${infoItems.join('')}</div>` : ''}
+    ${socialLinks.length ? `
+      <div class="social-section-modal">
+        <p>Follow us</p>
+        <div class="social-icons-modal">${socialLinks.join('')}</div>
+      </div>
+    ` : ''}
+    ${!infoItems.length && !socialLinks.length ? '<p style="color:var(--text-muted); text-align:center;">No contact details on file yet.</p>' : ''}
+  `;
 }
 
 async function loadFaqs() {

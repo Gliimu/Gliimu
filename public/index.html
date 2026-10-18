@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=13">
+  <link rel="stylesheet" href="/assets/css/public.css?v=14">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -56,7 +56,7 @@
     <div class="container">
       <div class="pillars-header reveal">
         <h2 class="section-title">Latest on Gliimu</h2>
-        <p class="section-subtitle">Today's movers, the freshest drop, and the most engaged creator on the platform.</p>
+        <p class="section-subtitle">Contests, cohorts, and the top builders on the platform.</p>
       </div>
       <div class="hub-grid" id="hub-grid">
         <p style="color: var(--text-muted); text-align: center;">Loading latest insights...</p>
@@ -174,22 +174,8 @@
       <button class="modal-close" onclick="document.getElementById('contact-modal').style.display='none'">&times;</button>
       <h2 class="modal-title">Contact Us</h2>
       <p class="modal-subtitle">We would love to hear from you.</p>
-      <div class="contact-info-grid">
-        <div class="contact-info-item">
-          <i class="fas fa-envelope"></i>
-          <h4>Email</h4>
-          <p><a href="mailto:support@gliimu.com">support@gliimu.com</a></p>
-        </div>
-        <div class="contact-info-item">
-          <i class="fab fa-twitter"></i>
-          <h4>Twitter</h4>
-          <p><a href="https://twitter.com/gliimu" target="_blank" rel="noopener">@gliimu</a></p>
-        </div>
-        <div class="contact-info-item">
-          <i class="fab fa-instagram"></i>
-          <h4>Instagram</h4>
-          <p><a href="https://instagram.com/gliimu" target="_blank" rel="noopener">@gliimu</a></p>
-        </div>
+      <div id="contact-body">
+        <p style="color: var(--text-muted); text-align: center;">Loading...</p>
       </div>
     </div>
   </div>
@@ -203,7 +189,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=14"></script>
+  <script type="module" src="/assets/js/main.js?v=15"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

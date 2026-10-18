@@ -163,6 +163,17 @@ section { padding: 100px 0; }
 .lh-daily-name { flex: 1; font-size: var(--fs-sm); font-weight: var(--fw-semibold); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lh-daily-gp { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--brand-primary); flex-shrink: 0; }
 
+/* Contest tag pills */
+.lh-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
 /* CTA Section */
 .contact-faq-section .cta-content { text-align: center; margin-top: 40px; }
 
@@ -260,23 +271,11 @@ section { padding: 100px 0; }
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
 }
 
-/* The heading carries the same 50% scrim as the panel body, so it sits
-   back into the section instead of shouting over it. */
 .download-head {
-  position: relative;
   width: fit-content;
   margin: 0 auto var(--space-16);
   padding: 10px 28px;
   border-radius: var(--radius-xl);
-}
-
-.download-head::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(10, 15, 30, 0.5);
-  pointer-events: none;
 }
 
 .download-panel {
