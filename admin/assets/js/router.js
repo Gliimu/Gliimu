@@ -10,7 +10,7 @@ import { store } from './store.js';
 const STAFF = 'crm operations registrar captain super';
 
 const routes = {
-  '/submissions': { role: 'crm', title: 'Submissions', load: () => import('./views/submissions.js?v=11').then(m => m.default) },
+  '/submissions': { role: 'crm', title: 'Submissions', load: () => import('./views/submissions.js?v=12').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js').then(m => m.default) },
   '/crm-members': { role: 'crm', title: 'Members', load: () => import('./views/crm-members.js?v=8').then(m => m.default) },

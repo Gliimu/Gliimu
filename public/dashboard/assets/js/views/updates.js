@@ -286,16 +286,17 @@ const updatesView = {
       `;
     }
     const boards = this.boards[key];
-    if (!boards || !boards.length) return '';
 
     if (key === 'referrals') {
       return `
         <section class="com-section">
           ${this.sectionTitle(icon, title, note)}
-          ${boards.length ? this.renderRows(boards, 'Friends') : `<div class="com-mini-empty">No referrals yet.</div>`}
+          ${boards && boards.length ? this.renderRows(boards, 'Friends') : `<div class="com-mini-empty">No referrals yet.</div>`}
         </section>
       `;
     }
+
+    if (!boards || !boards.length) return '';
 
     return `
       <section class="com-section">

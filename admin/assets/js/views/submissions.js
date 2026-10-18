@@ -4,7 +4,7 @@ import { appAlert, appConfirm } from '../dialog.js';
 
 const TYPE_TONE = { publication: 'brand', audiolite: 'info', bundle: 'warning', post: 'neutral' };
 const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'error' };
-const KIND_LABEL = { submission: 'Library', post: 'Hub' };
+const KIND_LABEL = { submission: 'Feed', post: 'Gliim' };
 
 // Delete icon SVG
 const deleteIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
@@ -13,8 +13,8 @@ export default {
   template: `
     <div class="filters">
       <button class="filter-btn active" data-kind="all">All</button>
-      <button class="filter-btn" data-kind="submission">Library</button>
-      <button class="filter-btn" data-kind="post">Hub</button>
+      <button class="filter-btn" data-kind="submission">Feed</button>
+      <button class="filter-btn" data-kind="post">Gliims</button>
       <button class="filter-btn" data-status="pending">Pending</button>
       <button class="filter-btn" data-status="approved">Approved</button>
       <button class="filter-btn" data-status="rejected">Rejected</button>
@@ -304,7 +304,7 @@ export default {
         <div class="drawer-head">
           <div style="min-width: 0;">
             <h2>${escapeHtml(item.title)}</h2>
-            <div class="card-sub">${badge(item.kind === 'post' ? 'Hub Post' : item.type, TYPE_TONE[item.type] || 'neutral')} ${badge(item.status, STATUS_TONE[item.status] || 'neutral')}</div>
+            <div class="card-sub">${badge(item.kind === 'post' ? 'Gliim' : item.type, TYPE_TONE[item.type] || 'neutral')} ${badge(item.status, STATUS_TONE[item.status] || 'neutral')}</div>
           </div>
           <button class="drawer-close" aria-label="Close">×</button>
         </div>
