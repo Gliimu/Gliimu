@@ -51,7 +51,7 @@ export default {
   async load() {
     // Load library submissions
     const { data: subs, error: subErr } = await supabase
-      .from('library_submissions')
+      .from('feed_submissions')
       .select('id, user_id, title, type, description, price, cover_url, file_url, blocks, bundle_items, status, review_note, created_at, reviewed_at')
       .order('created_at', { ascending: false })
       .limit(200);

@@ -49,7 +49,7 @@ const hubView = {
     let post = this.currentPosts.find(p => p.id === savedPostId);
 
     if (!post) {
-      const { data, error } = await supabase.from('posts')
+      const { data, error } = await supabase.from('feed_gliims')
         .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
         .eq('id', savedPostId).single();
 
@@ -404,7 +404,7 @@ const hubView = {
       return alert("Incorrect password. Deletion cancelled.");
     }
 
-    const { error: deleteError } = await supabase.from('posts').delete().eq('id', postId);
+    const { error: deleteError } = await supabase.from('feed_gliims').delete().eq('id', postId);
     if (deleteError) return alert("Error deleting post: " + deleteError.message);
 
     alert("Gliim deleted successfully.");
@@ -541,7 +541,7 @@ const hubView = {
 
       // No .select(): a member's gliim is forced to 'pending' and RLS hides it
       // even from its author, so RETURNING would abort the insert. We set the id.
-      const { error } = await supabase.from('posts').insert(payload);
+      const { error } = await supabase.from('feed_gliims').insert(payload);
 
       if (error) {
         alert("Failed: " + error.message);
@@ -550,12 +550,12 @@ const hubView = {
         return;
       }
 
-      // The body lives in post_contents (RLS-locked for premium posts).
+      // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
       // If that write fails, remove the shell so no empty gliim lingers.
       const { error: bodyError } = await supabase
-        .from('post_contents').insert({ post_id: newId, blocks: finalBlocks });
+        .from('feed_gliim_contents').insert({ post_id: newId, blocks: finalBlocks });
       if (bodyError) {
-        await supabase.from('posts').delete().eq('id', newId);
+        await supabase.from('feed_gliims').delete().eq('id', newId);
         alert("Failed to save your content: " + bodyError.message);
         btn.innerText = "Publish Bundle";
         btn.disabled = false;
@@ -632,7 +632,7 @@ const hubView = {
   },
 
   async fetchPosts() {
-    // No blocks column here: gliim bodies live in post_contents and are
+    // No blocks column here: gliim bodies live in feed_gliim_contents and are
     // fetched per-open, so premium content never rides along in the feed.
     // status drives CRM moderation: only 'approved' gliims are shown (a
     // pending/rejected row is invisible to everyone but staff). The legacy
@@ -640,16 +640,16 @@ const hubView = {
     const colsFull = `id, title, category, description, cover_url, views, created_at, user_id, is_premium, status, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
     const colsLegacy = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
     const load = (cols) => Promise.all([
-      supabase.from('posts').select(cols).order('created_at', { ascending: false }).limit(20),
-      supabase.from('hub_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
+      supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }).limit(20),
+      supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
-      supabase.from('saved_posts').select('post_id').eq('user_id', store.user.id)
+      supabase.from('saved_items').select('post_id').eq('user_id', store.user.id)
     ]);
 
-    let [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsFull);
+    let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsFull);
     if (error) {
-      // Pre-migration fallback: posts.is_premium / posts.status may not exist yet.
-      [{ data: posts, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsLegacy);
+      // Pre-migration fallback: feed_gliims.is_premium / feed_gliims.status may not exist yet.
+      [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsLegacy);
     }
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
@@ -657,7 +657,7 @@ const hubView = {
     this.allInteractions = interactions || [];
     // A row with no status predates moderation and stays visible; otherwise
     // only approved gliims reach the feed.
-    const visible = (posts || []).filter(p => !p.status || p.status === 'approved');
+    const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved');
     this.currentPosts = this.orderFeed(visible);
     this.savedPosts = new Set(saved?.map(s => s.post_id) || []);
     this.feedLoaded = true;
@@ -666,8 +666,8 @@ const hubView = {
 
   // Gliim cards live inside the merged Library feed, so filtering and card
   // markup are split out: Library interleaves these cards with shelf items.
-  filterPosts(posts) {
-    let filtered = posts || this.currentPosts || [];
+  filterPosts(feed_gliims) {
+    let filtered = feed_gliims || this.currentPosts || [];
 
     if (this.currentFilter === 'saved') {
       filtered = filtered.filter(p => this.savedPosts.has(p.id));
@@ -708,13 +708,13 @@ const hubView = {
     return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
-  renderPosts(posts) {
+  renderPosts(feed_gliims) {
     // The merged Library feed owns rendering; hand off to it when embedded.
     if (this.onFeedChange) { this.onFeedChange(); return; }
 
-    const container = document.getElementById('posts-container');
+    const container = document.getElementById('feed_gliims-container');
     if (!container) return;
-    const filtered = this.filterPosts(posts);
+    const filtered = this.filterPosts(feed_gliims);
     if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
     container.className = 'blog-feed';
     container.innerHTML = filtered.map(post => this.renderPostCard(post)).join('');
@@ -764,7 +764,7 @@ const hubView = {
     return score;
   },
 
-  seededShuffle(posts) {
+  seededShuffle(feed_gliims) {
     let seed = parseInt(sessionStorage.getItem('gliimu_feed_seed') || '', 10);
     if (isNaN(seed)) {
       seed = Math.floor(Math.random() * 1e9);
@@ -776,7 +776,7 @@ const hubView = {
       t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
-    const arr = [...posts];
+    const arr = [...feed_gliims];
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -784,15 +784,15 @@ const hubView = {
     return arr;
   },
 
-  orderFeed(posts) {
+  orderFeed(feed_gliims) {
     const interest = this.loadInterest();
     if ((interest.signals || 0) >= 5) {
-      return [...posts].sort((a, b) =>
+      return [...feed_gliims].sort((a, b) =>
         this.feedScore(b, interest) - this.feedScore(a, interest) ||
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
     }
-    return this.seededShuffle(posts);
+    return this.seededShuffle(feed_gliims);
   },
 
   async openReadView(postId) {
@@ -803,7 +803,7 @@ const hubView = {
 
     let post = (this.currentPosts || []).find(p => p.id === postId);
     if (!post) {
-      const { data, error } = await supabase.from('posts')
+      const { data, error } = await supabase.from('feed_gliims')
         .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
         .eq('id', postId).single();
 
@@ -830,11 +830,11 @@ const hubView = {
       return;
     }
 
-    // Server-side content lock: the body lives in post_contents, and RLS
+    // Server-side content lock: the body lives in feed_gliim_contents, and RLS
     // only returns a premium body once billing_access() recorded the unlock.
     // A client that skips the gate above simply gets no rows here.
     const { data: contentRow } = await supabase
-      .from('post_contents').select('blocks')
+      .from('feed_gliim_contents').select('blocks')
       .eq('post_id', postId).maybeSingle();
     post.blocks = contentRow?.blocks || null;
 
@@ -1034,11 +1034,11 @@ const hubView = {
 
   async toggleSavePost(postId) {
     if (this.savedPosts.has(postId)) {
-      await supabase.from('saved_posts').delete().eq('user_id', store.user.id).eq('post_id', postId);
+      await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('post_id', postId);
       this.savedPosts.delete(postId);
       alert("Gliim unsaved.");
     } else {
-      await supabase.from('saved_posts').insert({ user_id: store.user.id, post_id: postId });
+      await supabase.from('saved_items').insert({ user_id: store.user.id, post_id: postId });
       this.savedPosts.add(postId);
       alert("Gliim saved! Find it in the 'Saved Gliims' filter.");
     }
@@ -1083,10 +1083,10 @@ const hubView = {
     const post = this.currentPosts.find(p => p.id === postId);
     const existingLike = this.allInteractions.find(i => i.post_id === postId && i.user_id === store.user.id && i.interaction_type === 'like');
     if (existingLike) {
-      await supabase.from('hub_interactions').delete().eq('id', existingLike.id);
+      await supabase.from('feed_interactions').delete().eq('id', existingLike.id);
       this.allInteractions = this.allInteractions.filter(i => i.id !== existingLike.id);
     } else {
-      const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
+      const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
       if (data) this.allInteractions.push(data);
       if (post && post.user_id !== store.user.id) {
         await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 3 });
@@ -1104,7 +1104,7 @@ const hubView = {
     if (!text) return;
 
     const post = this.currentPosts.find(p => p.id === postId);
-    const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text }).select('*').single();
+    const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text }).select('*').single();
 
     if (data) {
       data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp };
@@ -1170,7 +1170,7 @@ const hubView = {
   },
 
   async sharePost(postId, title) {
-    const { data } = await supabase.from('hub_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'share' }).select('*').single();
+    const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'share' }).select('*').single();
     if (data) this.allInteractions.push(data);
     const post = this.currentPosts.find(p => p.id === postId);
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
@@ -1181,11 +1181,11 @@ const hubView = {
   },
 
   setupRealtime() {
-    const channelName = `hub-posts-${Date.now()}`;
+    const channelName = `hub-feed_gliims-${Date.now()}`;
     supabase.channel(channelName)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async () => { this.fetchPosts(); })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, async () => { this.fetchPosts(); })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, async () => { this.fetchPosts(); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_gliims' }, async () => { this.fetchPosts(); })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'feed_gliims' }, async () => { this.fetchPosts(); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feed_gliims' }, async () => { this.fetchPosts(); })
       .subscribe();
   }
 };

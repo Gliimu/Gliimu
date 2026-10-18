@@ -62,7 +62,7 @@ function showShell() {
 async function refreshCounts() {
   if (store.can('crm')) {
     const [{ count: pending }, { count: open }] = await Promise.all([
-      supabase.from('library_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('feed_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')
     ]);
 

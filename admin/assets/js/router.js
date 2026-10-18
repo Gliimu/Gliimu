@@ -14,7 +14,7 @@ const routes = {
   '/submissions': { role: 'crm', title: 'Submissions', load: () => import('./views/submissions.js?v=13').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js').then(m => m.default) },
-  '/crm-members': { role: 'crm', title: 'Members', load: () => import('./views/crm-members.js?v=8').then(m => m.default) },
+  '/crm-members': { role: 'crm', title: 'Members', load: () => import('./views/crm.js?v=14').then(m => m.default) },
   '/support': { role: STAFF, title: 'Support Desk', load: () => import('./views/support.js?v=8').then(m => m.default) },
   '/admin-room': { role: STAFF, title: 'Admins Room', load: () => import('./views/admin-room.js?v=8').then(m => m.default) },
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js').then(m => m.default) },
@@ -23,8 +23,8 @@ const routes = {
   '/revenue': { role: 'registrar', title: 'Revenue & Pricing', load: () => import('./views/revenue.js').then(m => m.default) },
   '/triads': { role: 'captain', title: 'Triads & Apprentices', load: () => import('./views/triads.js').then(m => m.default) },
   '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js?v=8').then(m => m.default) },
-  '/arena': { role: 'operations', title: 'Updates', load: () => import('./views/arena.js').then(m => m.default) },
-  '/members': { role: 'operations', title: 'Members', load: () => import('./views/members.js?v=8').then(m => m.default) },
+  '/arena': { role: 'operations', title: 'Updates', load: () => import('./views/updates.js?v=14').then(m => m.default) },
+  '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=14').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 

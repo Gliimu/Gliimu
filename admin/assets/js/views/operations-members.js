@@ -107,7 +107,7 @@ export default {
     const cycles = d.cycles || [];
     const events = Array.isArray(d.events) ? d.events : [];
     const buys = Array.isArray(d.purchases) ? d.purchases : null;
-    const sells = Array.isArray(d.library_items) ? d.library_items : null;
+    const sells = Array.isArray(d.feed_items) ? d.feed_items : null;
     const edits = d.adjustments || [];
 
     const section = (title, inner) => `<div class="section-title">${escapeHtml(title)}</div>${inner}`;

@@ -64,7 +64,7 @@ export default {
   async loadMetrics() {
     // Pending submissions (books + audiolites)
     const { data: subs } = await supabase
-      .from('library_submissions')
+      .from('feed_submissions')
       .select('id')
       .eq('status', 'pending');
     const pendingSubs = subs ? subs.length : 0;

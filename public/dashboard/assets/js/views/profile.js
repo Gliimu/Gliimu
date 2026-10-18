@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './hub.js?v=32';
+import hubView from './feed-gliims.js?v=34';
 
 export default {
   title: 'Profile',
@@ -147,7 +147,7 @@ export default {
     // usually renders ANOTHER member's portfolio — username must never load.
     const [{ data: freshUser }, { data: posts }] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio').eq('id', userId).single(),
-      supabase.from('posts').select('id, title, category, created_at').eq('user_id', userId).order('created_at', { ascending: false })
+      supabase.from('feed_gliims').select('id, title, category, created_at').eq('user_id', userId).order('created_at', { ascending: false })
     ]);
 
     if (freshUser) user = freshUser;

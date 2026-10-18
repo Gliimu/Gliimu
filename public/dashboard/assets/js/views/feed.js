@@ -2,8 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { openReader } from '../reader.js?v=29';
-import hubView from './hub.js?v=32';
+import { openReader } from '../reader.js?v=30';
+import hubView from './feed-gliims.js?v=34';
 
 // Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
@@ -104,7 +104,7 @@ export default {
 
   async loadShelf() {
     const [{ data: items }, { data: purchases }, { data: saved }, { data: profile }, { data: authorProfiles }, { data: adamProfile }, summary] = await Promise.all([
-      supabase.from('library_items').select('*').order('created_at', { ascending: false }),
+      supabase.from('feed_items').select('*').order('created_at', { ascending: false }),
       supabase.from('purchases').select('item_id').eq('user_id', store.user.id),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
       supabase.from('profiles').select('wallet_balance').eq('id', store.user.id).single(),
@@ -133,8 +133,8 @@ export default {
   },
 
   // Step 1 of publishing: pick the kind. Bundle delegates to the hub gliim
-  // composer (posts + CRM); Book and Audiolite write library_submissions and
-  // are approved by CRM into library_items + library_contents.
+  // composer (posts + CRM); Book and Audiolite write feed_submissions and
+  // are approved by CRM into feed_items + feed_contents.
   openKindChooser() {
     document.querySelector('.modal-overlay')?.remove();
     const modal = document.createElement('div');
@@ -266,7 +266,7 @@ export default {
 
       const btn = document.getElementById('sub-submit');
       btn.disabled = true; btn.textContent = 'Submitting...';
-      const { error } = await supabase.from('library_submissions').insert({
+      const { error } = await supabase.from('feed_submissions').insert({
         user_id: store.user.id,
         title,
         type: 'publication',
@@ -368,7 +368,7 @@ export default {
 
       const btn = document.getElementById('sub-submit');
       btn.disabled = true; btn.textContent = 'Submitting...';
-      const { error } = await supabase.from('library_submissions').insert({
+      const { error } = await supabase.from('feed_submissions').insert({
         user_id: store.user.id,
         title,
         type: 'audiolite',
@@ -411,7 +411,7 @@ export default {
   },
 
   async logInteraction(itemId, type) {
-    await supabase.from('library_interactions').insert({ user_id: store.user.id, item_id: itemId, interaction_type: type });
+    await supabase.from('feed_interactions').insert({ user_id: store.user.id, item_id: itemId, interaction_type: type });
   },
 
   // Shelf items belong to the account with username 'adam'; name and
@@ -721,14 +721,14 @@ export default {
   },
 
   // Called only after the billing gate has passed. The body lives in
-  // library_contents, whose RLS policy returns a row solely to viewers who
+  // feed_contents, whose RLS policy returns a row solely to viewers who
   // have unlocked the item — so a failed gate shows up here as an empty body
   // rather than as leaked content.
   async openContent(item) {
     document.querySelector('.modal-overlay')?.remove();
 
     let body = null;
-    const { data, error } = await supabase.from('library_contents')
+    const { data, error } = await supabase.from('feed_contents')
       .select('blocks, files').eq('item_id', item.id).maybeSingle();
     if (!error && data) body = data;
 

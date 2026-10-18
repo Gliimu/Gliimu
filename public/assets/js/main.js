@@ -239,7 +239,7 @@ async function loadHubHighlights() {
       .order('created_at', { ascending: false })
       .limit(1),
     supabase
-      .from('library_items')
+      .from('feed_items')
       .select('title, type, created_at, cover_color, cover_url, author, author_avatar')
       .order('created_at', { ascending: false })
       .limit(1),

@@ -111,7 +111,7 @@ export default {
     }
 
     if (item.target_type === 'post') {
-      const { data } = await supabase.from('posts')
+      const { data } = await supabase.from('feed_gliims')
         .select('title, description, category, is_premium, created_at, user_id')
         .eq('id', item.target_id).maybeSingle();
       if (!data) return '<p class="muted small">This gliim has been deleted.</p>';
@@ -129,7 +129,7 @@ export default {
         <p class="card-body">${escapeHtml(data.description || '—')}</p>`;
     }
 
-    const { data } = await supabase.from('library_items')
+    const { data } = await supabase.from('feed_items')
       .select('title, type, description, price, author')
       .eq('id', item.target_id).maybeSingle();
     if (!data) return '<p class="muted small">This library item no longer exists.</p>';

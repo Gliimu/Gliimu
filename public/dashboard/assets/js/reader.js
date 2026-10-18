@@ -261,7 +261,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
     let localLikes = 0;
 
     // Fetch initial counts
-    supabase.from('library_interactions').select('interaction_type').eq('item_id', eng.itemId).then(({ data }) => {
+    supabase.from('feed_interactions').select('interaction_type').eq('item_id', eng.itemId).then(({ data }) => {
       if (!data) return;
       const likes = data.filter(r => r.interaction_type === 'like').length;
       const views = data.filter(r => r.interaction_type === 'read_end').length;
@@ -276,7 +276,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
         localLikes++;
         if (likesCountEl) likesCountEl.textContent = localLikes;
         likesBtn.classList.add('active');
-        await supabase.from('library_interactions').insert({ user_id: store.user.id, item_id: eng.itemId, interaction_type: 'like' }).catch(() => {});
+        await supabase.from('feed_interactions').insert({ user_id: store.user.id, item_id: eng.itemId, interaction_type: 'like' }).catch(() => {});
         eng.onRecordInteraction && eng.onRecordInteraction('like');
       });
     }
@@ -297,7 +297,7 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
     if (supportBtn) {
       supportBtn.addEventListener('click', async () => {
         supportBtn.classList.add('active');
-        await supabase.from('library_interactions').insert({ user_id: store.user.id, item_id: eng.itemId, interaction_type: 'support' }).catch(() => {});
+        await supabase.from('feed_interactions').insert({ user_id: store.user.id, item_id: eng.itemId, interaction_type: 'support' }).catch(() => {});
         eng.onRecordInteraction && eng.onRecordInteraction('support');
       });
     }
