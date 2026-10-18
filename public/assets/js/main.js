@@ -358,7 +358,7 @@ async function loadPartners() {
   const usable = (error || !partners ? [] : partners).filter(p => safeUrl(p.logo_url));
   if (usable.length === 0) return;
 
-  const logos = usable.slice(0, 12);
+  const logos = usable.slice(0, 6);
 
   grid.innerHTML = logos.map(p => `
     <span class="partner-logo">

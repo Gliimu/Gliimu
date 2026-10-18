@@ -97,7 +97,7 @@ section { padding: 100px 0; }
 .accordion-content li::before { content: "→"; color: var(--brand-primary); font-weight: bold; }
 
 /* Contact / FAQ Section */
-.contact-faq-section { background: var(--bg-primary); padding: 80px 0; }
+.contact-faq-section { background: var(--bg-primary); padding: 104px 0; }
 .cf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); max-width: 800px; margin: 0 auto; }
 .cf-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-10); text-align: center; cursor: pointer; transition: transform var(--transition-fast); display: flex; flex-direction: column; align-items: center; }
 .cf-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--brand-primary-soft); }
@@ -144,7 +144,7 @@ section { padding: 100px 0; }
 .faq-acc-content p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 
 /* Hub Highlights */
-.hub-highlights-section { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.hub-highlights-section { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 104px 0; }
 .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-6); }
 .hub-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-sm); }
 .hub-card-meta { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); }
