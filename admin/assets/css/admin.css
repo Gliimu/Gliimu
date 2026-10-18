@@ -160,12 +160,25 @@ select.input { cursor: pointer; }
 .card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 18px; margin-bottom: 14px;
+  position: relative;
 }
 .card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .card-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
 .card-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
 .card-actions { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
 .card-body { font-size: 14px; color: var(--text-secondary); }
+
+.delete-btn {
+  position: absolute; top: 12px; right: 12px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px; cursor: pointer;
+  color: var(--text-muted); transition: all 0.15s ease;
+  z-index: 1;
+}
+.delete-btn:hover {
+  background: var(--danger); border-color: var(--danger);
+  color: white;
+}
 
 .row-list { display: flex; flex-direction: column; gap: 10px; }
 

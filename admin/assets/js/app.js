@@ -61,15 +61,13 @@ function showShell() {
 
 async function refreshCounts() {
   if (store.can('crm')) {
-    const [{ count: pending }, { count: open }, { count: gliims }] = await Promise.all([
+    const [{ count: pending }, { count: open }] = await Promise.all([
       supabase.from('library_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-      supabase.from('posts').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')
     ]);
 
     setCount('count-submissions', pending);
     setCount('count-reports', open);
-    setCount('count-gliims', gliims);
   }
 
   // support_inbox() answers zero rows for anyone the staff gate rejects, so
