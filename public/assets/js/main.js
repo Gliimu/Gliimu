@@ -479,6 +479,13 @@ const boot = async () => {
   loadHubHighlights();
   loadPartners();
   forceVideoAutoplay();
+
+  // Dynamic copyright year
+  const copyrightEl = document.getElementById('copyright-text');
+  if (copyrightEl) {
+    const year = new Date().getFullYear();
+    copyrightEl.textContent = `\u00A9 ${year} Gliimu Ltd.`;
+  }
 };
 
 if (document.readyState === 'loading') {

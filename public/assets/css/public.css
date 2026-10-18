@@ -231,7 +231,7 @@ section { padding: 100px 0; }
    ============================================ */
 .download-section {
   background: var(--bg-secondary);
-  padding: 70px 0;
+  padding: 50px 0;
   border-top: 1px solid var(--border);
   min-height: 50vh;
 }
