@@ -10,6 +10,7 @@ import { store } from './store.js';
 const STAFF = 'crm operations registrar captain super';
 
 const routes = {
+  '/dashboard': { role: 'crm', title: 'Dashboard', load: () => import('./views/dashboard.js?v=1').then(m => m.default) },
   '/submissions': { role: 'crm', title: 'Submissions', load: () => import('./views/submissions.js?v=13').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js').then(m => m.default) },
@@ -27,7 +28,7 @@ const routes = {
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/submissions', '/reports', '/content', '/crm-members', '/support', '/admin-room', '/finance', '/ledger', '/bills', '/revenue', '/triads', '/operations', '/arena', '/members', '/admins'];
+const order = ['/dashboard', '/submissions', '/reports', '/content', '/crm-members', '/support', '/admin-room', '/finance', '/ledger', '/bills', '/revenue', '/triads', '/operations', '/arena', '/members', '/admins'];
 
 export function firstRoute() {
   return order.find(path => {

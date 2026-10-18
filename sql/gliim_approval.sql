@@ -86,11 +86,9 @@ security definer
 set search_path = public
 as $$
 begin
-  if public.is_admin() then
-    new.status := 'approved';
-  else
-    new.status := 'pending';
-  end if;
+  -- Bundles (gliims) auto-publish without approval. Only books and audiolites
+  -- go through the library_submissions review flow.
+  new.status := 'approved';
   new.reviewed_by := null;
   new.reviewed_at := null;
   new.review_note := null;

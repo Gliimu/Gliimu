@@ -376,17 +376,7 @@
   font-weight: 600;
 }
 
-.ping-chat-item.unread::after {
-  content: '';
-  display: block;
-  width: 8px;
-  height: 8px;
-  background: var(--brand-primary);
-  border-radius: 50%;
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+/* Unread dot removed - not useful per user request */
 }
 
 .chat-unread-badge {

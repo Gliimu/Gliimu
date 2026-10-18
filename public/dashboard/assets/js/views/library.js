@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { openReader } from '../reader.js?v=29';
-import hubView from './hub.js?v=31';
+import hubView from './hub.js?v=32';
 
 // Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
@@ -143,7 +143,7 @@ export default {
       <div class="modal-content kind-chooser">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
         <h2 style="margin-bottom: 4px;">Publish to the Feed</h2>
-        <p class="text-muted" style="margin-bottom: 20px;">Choose what you're uploading. Books and audiolites are reviewed by the team before they go live.</p>
+        <p class="text-muted" style="margin-bottom: 20px;">Choose what you're uploading. Books and audiolites are reviewed by the team before they go live. Bundles appear instantly.</p>
         <div class="kind-options">
           <button type="button" class="kind-option" id="kind-bundle">
             <span class="kind-ico">${KIND_ICONS.bundle}</span>

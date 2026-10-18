@@ -21,6 +21,9 @@
 --   4. Check SELF CHECK at bottom
 -- ============================================================
 
+-- Enable pgcrypto for password verification
+create extension if not exists pgcrypto;
+
 create or replace function public.admin_delete_feed_item(
   p_item_id uuid,
   p_password text
@@ -94,6 +97,7 @@ do $$
 begin
   raise notice '=== ADMIN DELETE FEED ITEM SELF CHECK ===';
   raise notice 'admin_delete_feed_item fn:  %', coalesce(to_regprocedure('public.admin_delete_feed_item(uuid,text)')::text, 'MISSING');
+  raise notice 'pgcrypto extension:       %', coalesce((select extname from pg_extension where extname = 'pgcrypto'), 'MISSING');
   raise notice '';
   raise notice 'Function should be callable by authenticated admins only.';
 end $$;

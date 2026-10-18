@@ -562,20 +562,13 @@ const hubView = {
         return;
       }
 
-      // Non-admin gliims go to CRM for approval and stay invisible until an
-      // admin publishes them, so defer the tag pings (their deep links would
-      // 404 for the tagged person). Admins post live and notify immediately.
-      const isAdmin = !!(store.profile && store.profile.is_admin);
-      if (isAdmin) {
-        for (const u of this.taggedUsers) {
-          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${newId}]]`;
-          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
-        }
+      // Bundles (gliims) auto-publish without approval. Tag pings go out
+      // immediately since the post is live.
+      for (const u of this.taggedUsers) {
+        const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${newId}]]`;
+        await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
       }
       modal.remove();
-      if (!isAdmin) {
-        alert("Your gliim was submitted for review. It'll appear in the Hub once the Gliimu team approves it.");
-      }
       this.fetchPosts();
     });
   },
