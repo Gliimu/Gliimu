@@ -15,13 +15,13 @@ const CONTACT = [
 ];
 
 const SOCIALS = [
-  { key: 'youtube', param: 'p_youtube', label: 'YouTube', placeholder: 'https://youtube.com/@gliimu' },
-  { key: 'tiktok', param: 'p_tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@gliimu' },
-  { key: 'facebook', param: 'p_facebook', label: 'Facebook', placeholder: 'https://facebook.com/gliimu' },
-  { key: 'pinterest', param: 'p_pinterest', label: 'Pinterest', placeholder: 'https://pinterest.com/gliimu' },
-  { key: 'twitter', param: 'p_twitter', label: 'Twitter / X', placeholder: 'https://x.com/gliimu' },
-  { key: 'instagram', param: 'p_instagram', label: 'Instagram', placeholder: 'https://instagram.com/gliimu' },
-  { key: 'linkedin', param: 'p_linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/gliimu' }
+  { key: 'youtube', param: 'p_youtube', label: 'Social link 1', placeholder: 'https://example.com/profile' },
+  { key: 'tiktok', param: 'p_tiktok', label: 'Social link 2', placeholder: 'https://example.com/profile' },
+  { key: 'facebook', param: 'p_facebook', label: 'Social link 3', placeholder: 'https://example.com/profile' },
+  { key: 'pinterest', param: 'p_pinterest', label: 'Social link 4', placeholder: 'https://example.com/profile' },
+  { key: 'twitter', param: 'p_twitter', label: 'Social link 5', placeholder: 'https://example.com/profile' },
+  { key: 'instagram', param: 'p_instagram', label: 'Social link 6', placeholder: 'https://example.com/profile' },
+  { key: 'linkedin', param: 'p_linkedin', label: 'Social link 7', placeholder: 'https://example.com/profile' }
 ];
 
 const GRID = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px;';
@@ -312,7 +312,7 @@ export default {
         <div class="card-head">
           <div style="min-width: 0;">
             <div class="card-title">Contact details</div>
-            <div class="card-sub">The footer of gliimu.com reads these — the address, the tap-to-call number, the mailto link and the social icons.</div>
+            <div class="card-sub">The contact modal on gliimu.com reads these — the address, the tap-to-call number, the mailto link and the social links.</div>
           </div>
         </div>
         ${hasRow ? '' : '<div class="card-sub">There is no contact row yet. The first save creates one.</div>'}
@@ -320,7 +320,7 @@ export default {
         ${CONTACT.map((f) => this.contactField(f)).join('')}
         <div class="section-title">Social links</div>
         <div style="${GRID}">${SOCIALS.map((f) => this.contactField(f)).join('')}</div>
-        <div class="card-sub">Each must start with https:// or http://. Leave one blank and its icon is hidden on the landing page.</div>
+        <div class="card-sub">Each must start with https:// or http://. Leave one blank and its link is hidden on the landing page. The icon is fetched automatically from the domain.</div>
       </div>
       <div style="display: flex; gap: 8px; margin-top: 12px;">
         <button class="btn-primary btn-small" id="save-contact-btn">Save contact details</button>

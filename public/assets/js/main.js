@@ -426,8 +426,7 @@ async function loadContact() {
       try {
         const domain = new URL(url).hostname;
         const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
-        const label = key.charAt(0).toUpperCase() + key.slice(1);
-        socialLinks.push(`<a href="${url}" target="_blank" rel="noopener" title="${label}"><img src="${faviconUrl}" alt="${label}" style="width:24px;height:24px;border-radius:4px;"></a>`);
+        socialLinks.push(`<a href="${url}" target="_blank" rel="noopener"><img src="${faviconUrl}" alt="" style="width:24px;height:24px;border-radius:4px;"></a>`);
       } catch {}
     }
   }
