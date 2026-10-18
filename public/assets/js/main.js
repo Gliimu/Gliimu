@@ -5,6 +5,73 @@ import { supabase } from '/shared/js/config.js';
 // invented here.
 
 // ============================================
+// FAVICON NOTIFICATION DOT
+// ============================================
+let faviconCanvas = null;
+let faviconCtx = null;
+let originalFavicon = null;
+
+function initFavicon() {
+  const link = document.querySelector("link[rel~='icon']");
+  if (link && !originalFavicon) originalFavicon = link.href;
+}
+
+function updateFaviconDot(hasNotification) {
+  const link = document.querySelector("link[rel~='icon']");
+  if (!link) return;
+  if (!hasNotification) {
+    if (originalFavicon) link.href = originalFavicon;
+    return;
+  }
+  if (!faviconCanvas) {
+    faviconCanvas = document.createElement('canvas');
+    faviconCanvas.width = 32;
+    faviconCanvas.height = 32;
+    faviconCtx = faviconCanvas.getContext('2d');
+  }
+  const img = new Image();
+  img.onload = () => {
+    faviconCtx.clearRect(0, 0, 32, 32);
+    faviconCtx.drawImage(img, 0, 0, 32, 32);
+    const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim() || '#6366F1';
+    faviconCtx.fillStyle = brand;
+    faviconCtx.beginPath();
+    faviconCtx.arc(24, 8, 6, 0, Math.PI * 2);
+    faviconCtx.fill();
+    link.href = faviconCanvas.toDataURL();
+  };
+  img.src = originalFavicon || '/icons/icon.png';
+}
+
+async function initFaviconNotifications() {
+  let session;
+  try {
+    ({ data: { session } } = await supabase.auth.getSession());
+  } catch { return; }
+  if (!session?.user) return;
+
+  initFavicon();
+  const userId = session.user.id;
+
+  const check = async () => {
+    const [pingRes, supportRes] = await Promise.all([
+      supabase.from('messages').select('id').eq('receiver_id', userId).is('read_at', null).eq('is_ai', false).eq('is_admin', false).limit(1),
+      supabase.rpc('support_thread_unread', { p_thread_user: userId }).then(r => r).catch(() => ({ data: 0 }))
+    ]);
+    const hasPing = pingRes.data && pingRes.data.length > 0;
+    const hasSupport = (supportRes.data || 0) > 0;
+    updateFaviconDot(hasPing || hasSupport);
+  };
+
+  await check();
+
+  supabase.channel('landing-favicon-notifs')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${userId}` }, () => check())
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `thread_user=eq.${userId}` }, () => check())
+    .subscribe();
+}
+
+// ============================================
 // SAFETY HELPERS
 // ============================================
 function escapeHtml(value) {
@@ -463,6 +530,7 @@ const boot = async () => {
   loadHubHighlights();
   loadPartners();
   forceVideoAutoplay();
+  initFaviconNotifications();
 
   // Dynamic copyright year
   const copyrightEl = document.getElementById('copyright-text');

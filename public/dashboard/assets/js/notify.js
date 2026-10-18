@@ -69,7 +69,8 @@ function updateFaviconDot(hasNotification) {
     faviconCtx.drawImage(img, 0, 0, 32, 32);
 
     // Draw notification dot (top-right)
-    faviconCtx.fillStyle = 'var(--brand-primary)';
+    const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim() || '#6366F1';
+    faviconCtx.fillStyle = brand;
     faviconCtx.beginPath();
     faviconCtx.arc(24, 8, 6, 0, Math.PI * 2);
     faviconCtx.fill();
