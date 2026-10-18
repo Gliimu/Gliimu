@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=27">
+  <link rel="stylesheet" href="/assets/css/public.css?v=28">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -48,10 +48,11 @@
         </h1>
         <p class="hero-desc" id="hero-desc-text"></p>
         <div class="hero-actions">
-          <a href="/auth.html" class="btn-primary btn-lg js-join-link">
+          <a href="/auth.html" class="btn-primary btn-lg">
             Join Us <i class="fas fa-arrow-right"></i>
           </a>
         </div>
+        <p id="copyright-text" style="text-align: center; color: rgba(255,255,255,0.6); font-size: var(--fs-xs); margin-top: 40px;"></p>
       </div>
     </div>
   </section>
@@ -147,8 +148,6 @@
           </div>
 
         </div>
-
-        <p id="copyright-text" style="text-align: center; color: rgba(255,255,255,0.6); font-size: var(--fs-xs); margin-top: 4px; margin-bottom: 20px;"></p>
       </div>
     </div>
   </section>
@@ -178,24 +177,11 @@
     </div>
   </div>
 
-  <!-- AUTH MODAL (full auth page embedded) -->
-  <div class="modal-overlay" id="auth-modal" style="display: none;">
-    <div class="modal-content auth-modal-content">
-      <button class="modal-close" onclick="closeAuthModal()">×</button>
-      <iframe id="auth-frame" title="Join Gliimu" style="display: none;"></iframe>
-    </div>
-  </div>
-
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=22"></script>
+  <script type="module" src="/assets/js/main.js?v=23"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function closeAuthModal() {
-      const frame = document.getElementById('auth-frame');
-      if (frame) frame.src = 'about:blank';
-      document.getElementById('auth-modal').style.display = 'none';
-    }
     // Referral capture: a guest arriving via /?ref=CODE keeps the code so the
     // signup flow can attribute them to the referrer. Same-origin localStorage
     // carries it into auth.html (whether opened directly or in the modal frame).

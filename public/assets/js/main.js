@@ -26,20 +26,9 @@ function safeUrl(value) {
 }
 
 // ============================================
-// JOIN BUTTONS — open the auth page in a modal.
+// JOIN BUTTONS — link to auth page or dashboard.
 // Signed-in visitors see a "Dashboard" button instead.
 // ============================================
-function openAuthModal() {
-  const modal = document.getElementById('auth-modal');
-  const frame = document.getElementById('auth-frame');
-  if (!modal || !frame) return window.location.href = '/auth.html';
-  modal.style.display = 'flex';
-  if (!frame.src || frame.src === 'about:blank') {
-    frame.src = '/auth.html?embed=1';
-    frame.style.display = 'block';
-  }
-}
-
 async function initJoinButtons() {
   const buttons = document.querySelectorAll('.js-join-link');
   if (!buttons.length) return;
@@ -56,11 +45,6 @@ async function initJoinButtons() {
     if (authed) {
       btn.textContent = 'Dashboard';
       btn.href = '/dashboard/index.html';
-    } else {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        openAuthModal();
-      });
     }
   });
 }
