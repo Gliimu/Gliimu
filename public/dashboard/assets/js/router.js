@@ -1,6 +1,6 @@
 const routes = {
   '/support': () => import('./views/support.js?v=30').then(m => m.default),
-  '/library': () => import('./views/library.js?v=31').then(m => m.default),
+  '/feed': () => import('./views/library.js?v=32').then(m => m.default),
   '/updates': () => import('./views/updates.js?v=32').then(m => m.default),
   '/ping': () => import('./views/messages.js?v=30').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=30').then(m => m.default),
@@ -18,7 +18,7 @@ let currentView = null;
 let navigationRequest = 0;
 
 export async function router() {
-  const hash = window.location.hash.slice(1) || '/library';
+  const hash = window.location.hash.slice(1) || '/feed';
   // Deep links may carry a query string (e.g. #/ping?chat=<id>)
   const path = hash.split('?')[0];
   const routeHandler = routes[path];
@@ -36,7 +36,7 @@ export async function router() {
     window.liveInstance.endLive(); // Force end live session
   }
 
-  // 2. Intercept Navigation if Modal is Open (from Hub)
+  // 2. Intercept Navigation if Modal is Open (from Feed)
   if (window.hubInstance && window.hubInstance.isModalOpen && window.hubInstance.isModalOpen()) {
     if (!await appConfirm("Would you like to close the modal?", { okText: 'Close' })) {
       history.replaceState(null, '', previousHash);

@@ -3,9 +3,9 @@ import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { openReader } from '../reader.js?v=29';
-import hubView from './hub.js?v=30';
+import hubView from './hub.js?v=31';
 
-// Library is the merged home of gliims (hub feed) and shelf items. The shelf
+// Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
 function typeLabel(type) {
   if (type === 'publication') return 'Book';
@@ -53,15 +53,15 @@ function escapeHtml(value) {
 }
 
 export default {
-  title: 'Hub',
+  title: 'Feed',
   template: `
     <div class="libmerge hub-layout" id="library-container">
       <div class="libmerge-feed" id="library-feed">
-        <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Hub...</p>
+        <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
       </div>
 
       <div class="library-fab-wrapper">
-        <button class="library-fab-main" id="library-fab-main" title="Publish to the Library">
+        <button class="library-fab-main" id="library-fab-main" title="Publish">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
       </div>
@@ -142,7 +142,7 @@ export default {
     modal.innerHTML = `
       <div class="modal-content kind-chooser">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
-        <h2 style="margin-bottom: 4px;">Publish to the Library</h2>
+        <h2 style="margin-bottom: 4px;">Publish to the Feed</h2>
         <p class="text-muted" style="margin-bottom: 20px;">Choose what you're uploading. Books and audiolites are reviewed by the team before they go live.</p>
         <div class="kind-options">
           <button type="button" class="kind-option" id="kind-bundle">

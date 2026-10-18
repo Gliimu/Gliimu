@@ -14,8 +14,8 @@ function escapeHtml(value) {
 }
 
 const hubView = {
-  // Gliims live inside the merged Library feed: this module owns the data,
-  // the modals and realtime, while Library owns the topbar, the FAB and the
+  // Gliims live inside the merged Feed: this module owns the data,
+  // the modals and realtime, while the Feed view owns the topbar, the FAB and the
   // DOM. Feed changes are pushed out through onFeedChange.
   init() {
     this.currentPosts = [];
@@ -414,10 +414,10 @@ const hubView = {
   },
 
   async openCreateModal() {
-    // Eligibility ladder: 50 GP to post in the Hub at all.
+    // Eligibility ladder: 50 GP to post in the Feed at all.
     const userGP = (store.profile && store.profile.total_gp) || 0;
     if (userGP < 50) {
-      return alert(`You need at least 50 GP to post in the Hub. You have ${userGP.toLocaleString()} GP.`);
+      return alert(`You need at least 50 GP to post in the Feed. You have ${userGP.toLocaleString()} GP.`);
     }
 
     this.billingSummary = (await fetchBillingSummary()) || this.billingSummary;
