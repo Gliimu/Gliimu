@@ -2,7 +2,7 @@ import { store } from './store.js';
 import { router } from './router.js?v=30';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
-import { notify } from './notify.js?v=29';
+import { notify } from './notify.js?v=30';
 import { previewText } from './media.js';
 
 // ============================================
@@ -31,6 +31,10 @@ const NotificationManager = {
     } else {
       if (badge) badge.remove();
     }
+
+    // Update favicon notification dot
+    const hasNotifications = this.counts.ping > 0 || this.counts.support > 0;
+    notify.faviconDot(hasNotifications);
   },
 
   async refreshUnread() {

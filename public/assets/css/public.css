@@ -163,7 +163,7 @@ section:not(.hero-video-section) { position: relative; z-index: 1; }
 .faq-acc-content p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 
 /* Hub Highlights */
-.hub-highlights-section { background: rgba(10, 15, 30, 0.5); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 104px 0; }
+.hub-highlights-section { background: rgba(10, 15, 30, 0.75); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 104px 0; }
 .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-6); }
 .hub-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-sm); }
 .hub-card-meta { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); }

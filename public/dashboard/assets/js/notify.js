@@ -5,6 +5,9 @@
 
 let audio = null;
 let desktopAsked = false;
+let faviconCanvas = null;
+let faviconCtx = null;
+let originalFavicon = null;
 
 function armAudio() {
   if (audio) return;
@@ -38,6 +41,53 @@ function askDesktop() {
   } catch { /* older browsers only support the callback form */ }
 }
 
+// Draw a colored notification dot on the favicon
+function updateFaviconDot(hasNotification) {
+  const link = document.querySelector("link[rel~='icon']");
+  if (!link) return;
+
+  if (!hasNotification) {
+    // Restore original favicon
+    if (originalFavicon) {
+      link.href = originalFavicon;
+    }
+    return;
+  }
+
+  // Create canvas for favicon with dot
+  if (!faviconCanvas) {
+    faviconCanvas = document.createElement('canvas');
+    faviconCanvas.width = 32;
+    faviconCanvas.height = 32;
+    faviconCtx = faviconCanvas.getContext('2d');
+  }
+
+  // Load original favicon image
+  const img = new Image();
+  img.onload = () => {
+    faviconCtx.clearRect(0, 0, 32, 32);
+    faviconCtx.drawImage(img, 0, 0, 32, 32);
+
+    // Draw notification dot (top-right)
+    faviconCtx.fillStyle = 'var(--brand-primary)';
+    faviconCtx.beginPath();
+    faviconCtx.arc(24, 8, 6, 0, Math.PI * 2);
+    faviconCtx.fill();
+
+    // Update favicon
+    link.href = faviconCanvas.toDataURL();
+  };
+  img.src = originalFavicon || '/icons/icon.png';
+}
+
+// Initialize original favicon on load
+function initFavicon() {
+  const link = document.querySelector("link[rel~='icon']");
+  if (link && !originalFavicon) {
+    originalFavicon = link.href;
+  }
+}
+
 export const notify = {
   init() {
     const arm = () => {
@@ -48,6 +98,7 @@ export const notify = {
     };
     window.addEventListener('pointerdown', arm, true);
     window.addEventListener('keydown', arm, true);
+    initFavicon();
   },
 
   sound() {
@@ -71,6 +122,11 @@ export const notify = {
       });
       note.onclick = () => { window.focus(); note.close(); };
     } catch { /* iOS Safari and some webviews throw instead of showing */ }
+  },
+
+  // Update favicon notification dot
+  faviconDot(hasNotification) {
+    updateFaviconDot(hasNotification);
   },
 
   // sound=false when the user is already looking at the conversation, desktop
