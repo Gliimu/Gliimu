@@ -1,4 +1,20 @@
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+// Manual .env loader (no dotenv dependency needed)
+const fs = require('fs');
+const path = require('path');
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    line = line.trim();
+    if (line && !line.startsWith('#')) {
+      const [key, ...valParts] = line.split('=');
+      if (key && valParts.length) {
+        process.env[key.trim()] = valParts.join('=').trim();
+      }
+    }
+  });
+}
+
 const { createClient } = require('@supabase/supabase-js');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 
