@@ -121,11 +121,11 @@ function applyDownloadSection(settings) {
   const panel = document.getElementById('download-panel');
   if (!section || !panel) return;
 
-  // The image is the point of this section, so the scrim over it sits at 50%
-  // and the panel adds the only other layer, at 50%.
+  // The scrim gradients from 50% dark at the top to solid black at the bottom,
+  // and the panel adds its own 50% layer on top.
   const bg = safeUrl(settings.app_download_bg_url);
   if (bg) {
-    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.5), rgba(10, 15, 30, 0.5)), url('${bg}')`;
+    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.5), rgb(0, 0, 0)) center center / cover, url('${bg}')`;
     section.style.backgroundSize = 'cover';
     section.style.backgroundPosition = 'center';
     section.classList.add('has-bg');
