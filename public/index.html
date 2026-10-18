@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=8">
-  <link rel="stylesheet" href="/assets/css/public.css?v=12">
+  <link rel="stylesheet" href="/assets/css/public.css?v=13">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -51,36 +51,15 @@
     </div>
   </section>
 
-  <!-- WHAT WE DO -->
-  <section class="what-we-do-section" id="what-we-do-section">
+  <!-- LATEST ON GLIIMU -->
+  <section class="hub-highlights-section" id="hub-highlights">
     <div class="container">
-      <div class="what-we-do-grid">
-        <div class="what-we-do-content reveal">
-          <h2 class="section-title" style="text-align: left;">What We Do</h2>
-          <div class="what-we-do-lines">
-            <div class="wwd-line">
-              <span class="wwd-num">01</span>
-              <div>
-                <h3>Elite content</h3>
-                <p>Publications, audiolites and bundles built by industry experts — read, listen, learn.</p>
-              </div>
-            </div>
-            <div class="wwd-line">
-              <span class="wwd-num">02</span>
-              <div>
-                <h3>Real human support</h3>
-                <p>An assistant and a support team that answer when you are stuck — no ticket black holes.</p>
-              </div>
-            </div>
-            <div class="wwd-line">
-              <span class="wwd-num">03</span>
-              <div>
-                <h3>Triad mentorship</h3>
-                <p>Small groups, deep guidance. You build with a team, not alone in a crowd.</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="pillars-header reveal">
+        <h2 class="section-title">Latest on Gliimu</h2>
+        <p class="section-subtitle">Today's movers, the freshest drop, and the most engaged creator on the platform.</p>
+      </div>
+      <div class="hub-grid" id="hub-grid">
+        <p style="color: var(--text-muted); text-align: center;">Loading latest insights...</p>
       </div>
     </div>
   </section>
@@ -99,15 +78,24 @@
     </div>
   </section>
 
-  <!-- HUB HIGHLIGHTS -->
-  <section class="hub-highlights-section" id="hub-highlights">
+  <!-- CONTACT / FAQ SECTION -->
+  <section class="contact-faq-section" id="contact-faq-section">
     <div class="container">
       <div class="pillars-header reveal">
-        <h2 class="section-title">Latest on Gliimu</h2>
-        <p class="section-subtitle">Stay informed, skilled, and future-proof with live updates.</p>
+        <h2 class="section-title">Get in Touch</h2>
+        <p class="section-subtitle">Find answers or reach out to the team.</p>
       </div>
-      <div class="hub-grid" id="hub-grid">
-        <p style="color: var(--text-muted); text-align: center;">Loading latest insights...</p>
+      <div class="cf-grid reveal">
+        <div class="cf-card" onclick="openFaqModal()">
+          <i class="fas fa-question-circle"></i>
+          <h3>FAQs</h3>
+          <p>Quick answers to the questions we get the most.</p>
+        </div>
+        <div class="cf-card" onclick="openContactModal()">
+          <i class="fas fa-envelope"></i>
+          <h3>Contact Us</h3>
+          <p>Reach the team by email or social media.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -170,6 +158,42 @@
     </div>
   </footer>
 
+  <!-- FAQ MODAL -->
+  <div class="modal-overlay" id="faq-modal" style="display: none;">
+    <div class="modal-content modal-lg">
+      <button class="modal-close" onclick="document.getElementById('faq-modal').style.display='none'">&times;</button>
+      <h2 class="modal-title">Frequently Asked Questions</h2>
+      <p class="modal-subtitle">Everything you need to know about Gliimu.</p>
+      <div class="faq-accordion-container" id="faq-accordion"></div>
+    </div>
+  </div>
+
+  <!-- CONTACT MODAL -->
+  <div class="modal-overlay" id="contact-modal" style="display: none;">
+    <div class="modal-content modal-lg">
+      <button class="modal-close" onclick="document.getElementById('contact-modal').style.display='none'">&times;</button>
+      <h2 class="modal-title">Contact Us</h2>
+      <p class="modal-subtitle">We would love to hear from you.</p>
+      <div class="contact-info-grid">
+        <div class="contact-info-item">
+          <i class="fas fa-envelope"></i>
+          <h4>Email</h4>
+          <p><a href="mailto:support@gliimu.com">support@gliimu.com</a></p>
+        </div>
+        <div class="contact-info-item">
+          <i class="fab fa-twitter"></i>
+          <h4>Twitter</h4>
+          <p><a href="https://twitter.com/gliimu" target="_blank" rel="noopener">@gliimu</a></p>
+        </div>
+        <div class="contact-info-item">
+          <i class="fab fa-instagram"></i>
+          <h4>Instagram</h4>
+          <p><a href="https://instagram.com/gliimu" target="_blank" rel="noopener">@gliimu</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- AUTH MODAL (full auth page embedded) -->
   <div class="modal-overlay" id="auth-modal" style="display: none;">
     <div class="modal-content auth-modal-content">
@@ -179,7 +203,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=13"></script>
+  <script type="module" src="/assets/js/main.js?v=14"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

@@ -154,6 +154,15 @@ section { padding: 100px 0; }
 .lib-highlight-thumb { background: var(--bg-tertiary); border: 1px solid var(--border); }
 .clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 
+/* Daily top list rows */
+.lh-daily-list { display: flex; flex-direction: column; gap: 10px; }
+.lh-daily-row { display: flex; align-items: center; gap: 10px; }
+.lh-daily-rank { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text-muted); width: 18px; text-align: center; flex-shrink: 0; }
+.lh-daily-ava { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; }
+.lh-daily-ava-empty { background: var(--gradient-primary); }
+.lh-daily-name { flex: 1; font-size: var(--fs-sm); font-weight: var(--fw-semibold); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lh-daily-gp { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--brand-primary); flex-shrink: 0; }
+
 /* CTA Section */
 .contact-faq-section .cta-content { text-align: center; margin-top: 40px; }
 

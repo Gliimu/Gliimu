@@ -121,11 +121,11 @@ function applyDownloadSection(settings) {
   const panel = document.getElementById('download-panel');
   if (!section || !panel) return;
 
-  // The image is the point of this section, so the scrim over it stays light
+  // The image is the point of this section, so the scrim over it stays at 40%
   // and the panel adds the only other layer, at 50%.
   const bg = safeUrl(settings.app_download_bg_url);
   if (bg) {
-    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.25), rgba(10, 15, 30, 0.25)), url('${bg}')`;
+    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.4), rgba(10, 15, 30, 0.4)), url('${bg}')`;
     section.style.backgroundSize = 'cover';
     section.style.backgroundPosition = 'center';
     section.classList.add('has-bg');
@@ -212,126 +212,103 @@ function forceVideoAutoplay() {
 }
 
 // ============================================
-// FETCH LATEST ON GLIIMU (1 Hub + 1 Library + Top Gliimait)
+// FETCH LATEST ON GLIIMU (daily top 7, latest post, top author)
 // ============================================
-function hubMediaHtml(mediaUrl, mediaType) {
-  const media = safeUrl(mediaUrl);
-  if (!media) return '';
-  if (mediaType === 'image') {
-    return `<img src="${media}" alt="" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;">`;
-  }
-  if (mediaType === 'audio') {
-    return `<audio src="${media}" controls preload="none" style="width:100%; margin-top: 12px;"></audio>`;
-  }
-  return `<video src="${media}" style="width:100%; border-radius: 8px; margin-top: 12px; max-height: 200px; object-fit: cover;" controls preload="metadata"></video>`;
-}
-
 async function loadHubHighlights() {
   const grid = document.getElementById('hub-grid');
   if (!grid) return;
 
-  // Newest Hub Post, newest Library item, and the profile with the
-  // most uploads (posts + library submissions) — fetched in parallel.
-  const [{ data: hubPosts }, { data: libItems }, { data: top }] = await Promise.all([
-    supabase
-      .from('public_hub_posts')
-      .select('content, media_url, media_type, created_at, full_name, avatar_url')
-      .order('created_at', { ascending: false })
-      .limit(1),
-    supabase
-      .from('feed_items')
-      .select('title, type, created_at, cover_color, cover_url, author, author_avatar')
-      .order('created_at', { ascending: false })
-      .limit(1),
-    supabase.rpc('top_uploader')
-  ]);
-
-  let combined = [];
-
-  if (hubPosts && hubPosts.length > 0) {
-    combined.push({ type: 'hub', data: hubPosts[0] });
-  }
-  if (libItems && libItems.length > 0) {
-    combined.push({ type: 'library', data: libItems[0] });
-  }
-  const tops = Array.isArray(top) ? top.filter(t => t && t.full_name).slice(0, 3) : [];
-  if (tops.length > 0) {
-    combined.push({ type: 'uploader', data: tops });
-  }
-
-  if (combined.length === 0) {
-    grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Be the first to post in the Hub!</p>';
+  const { data, error } = await supabase.rpc('landing_highlights', {});
+  if (error || !data) {
+    grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Could not load highlights.</p>';
     return;
   }
 
-  grid.innerHTML = combined.map((item, i) => {
-    const delay = 0.1 + i * 0.1;
-    if (item.type === 'hub') {
-      const post = item.data;
-      const avatar = safeUrl(post.avatar_url);
+  const dailyTop = Array.isArray(data.daily_top) ? data.daily_top : [];
+  const latestPost = data.latest_post;
+  const topAuthor = data.top_author;
 
-      return `
-        <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-          <div class="hub-card-meta">
-            ${avatar
-              ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
-              : `<div class="hub-card-avatar"></div>`
-            }
-            <span class="hub-card-author">${escapeHtml(post.full_name || '')}</span>
-          </div>
-          <p class="hub-card-text clamp-4">${escapeHtml(post.content)}</p>
-          ${hubMediaHtml(post.media_url, post.media_type)}
-        </div>
-      `;
-    } else if (item.type === 'library') {
-      const lib = item.data;
-      const cover = safeUrl(lib.cover_url);
-      const avatar = safeUrl(lib.author_avatar);
-      const author = (lib.author || '').trim();
-      const bg = cover ? `background-image: url('${cover}'); background-size: cover;` : '';
-      return `
-        <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-          <div class="hub-card-meta">
-            ${avatar
-              ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
-              : `<div class="hub-card-avatar"></div>`
-            }
-            <span class="hub-card-author">${escapeHtml(author || 'Gliimu Library')}</span>
-          </div>
-          <div class="lib-highlight-thumb" style="height: 120px; border-radius: 8px; margin-bottom: 12px; ${bg}"></div>
-          <p class="hub-card-text" style="font-weight: 600;">${escapeHtml(lib.title)}</p>
-        </div>
-      `;
-    }
+  let cards = '';
 
-    // Top Gliimaits card — the three busiest profiles, one row each
-    const rows = item.data.map((up) => {
-      const avatar = safeUrl(up.avatar_url);
-      const count = Number(up.uploads) || 0;
-      return `
-        <div style="display:flex; align-items:center; gap:14px;">
+  // Card 1: Top of the Day — 7 users by GP earned today
+  const dailyRows = dailyTop.length
+    ? dailyTop.map((u, i) => {
+        const avatar = safeUrl(u.avatar_url);
+        return `
+          <div class="lh-daily-row">
+            <span class="lh-daily-rank">${i + 1}</span>
+            ${avatar
+              ? `<img src="${avatar}" class="lh-daily-ava" style="object-fit:cover;" alt="">`
+              : `<div class="lh-daily-ava lh-daily-ava-empty"></div>`
+            }
+            <span class="lh-daily-name">${escapeHtml(u.full_name || 'Member')}</span>
+            <span class="lh-daily-gp">${Number(u.gp_earned || 0).toLocaleString()} GP</span>
+          </div>
+        `;
+      }).join('')
+    : '<p style="color: var(--text-muted); font-size: 13px; text-align: center;">No GP earned today yet.</p>';
+
+  cards += `
+    <div class="hub-card reveal" style="transition-delay: 0.1s;">
+      <div class="hub-card-meta">
+        <span class="hub-card-author">Top of the Day</span>
+      </div>
+      <div class="lh-daily-list">${dailyRows}</div>
+    </div>
+  `;
+
+  // Card 2: Latest post from the feed
+  if (latestPost) {
+    const cover = safeUrl(latestPost.cover_url);
+    const avatar = safeUrl(latestPost.author_avatar);
+    const bg = cover ? `background-image: url('${cover}'); background-size: cover;` : '';
+    const typeLabel = (latestPost.type || '').replace(/_/g, ' ');
+
+    cards += `
+      <div class="hub-card reveal" style="transition-delay: 0.2s;">
+        <div class="hub-card-meta">
           ${avatar
-            ? `<img src="${avatar}" alt="" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">`
-            : `<div class="uploader-avatar-empty"></div>`
+            ? `<img src="${avatar}" class="hub-card-avatar" style="object-fit:cover;" alt="">`
+            : `<div class="hub-card-avatar"></div>`
           }
-          <div style="display:flex; flex-direction:column; min-width:0;">
-            <span style="font-weight:700; font-size: var(--fs-md);">${escapeHtml(up.full_name)}</span>
-            <span style="color: var(--text-muted); font-size: var(--fs-sm);">${count} upload${count === 1 ? '' : 's'}</span>
-          </div>
+          <span class="hub-card-author">${escapeHtml(latestPost.author || 'Gliimu')}</span>
+          ${typeLabel ? `<span style="margin-left:auto; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">${escapeHtml(typeLabel)}</span>` : ''}
         </div>
-      `;
-    }).join('');
+        <div class="lib-highlight-thumb" style="height: 120px; border-radius: 8px; margin-bottom: 12px; ${bg}"></div>
+        <p class="hub-card-text" style="font-weight: 600;">${escapeHtml(latestPost.title || 'Untitled')}</p>
+      </div>
+    `;
+  }
 
-    return `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
+  // Card 3: Top Gliimait — all-time most engaged author
+  if (topAuthor) {
+    const avatar = safeUrl(topAuthor.avatar_url);
+    cards += `
+      <div class="hub-card reveal" style="transition-delay: 0.3s;">
         <div class="hub-card-meta">
           <span class="hub-card-author">Top Gliimait</span>
         </div>
-        <div style="display:flex; flex-direction:column; gap:14px; margin-top: 12px;">${rows}</div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; margin-top:8px;">
+          ${avatar
+            ? `<img src="${avatar}" alt="" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--brand-primary);">`
+            : `<div style="width:64px; height:64px; border-radius:50%; background:var(--gradient-primary);"></div>`
+          }
+          <div>
+            <p style="font-weight:700; font-size:16px; margin:0;">${escapeHtml(topAuthor.full_name || 'Member')}</p>
+            <p style="color:var(--text-muted); font-size:12px; margin:4px 0 0;">${Number(topAuthor.total_gp || 0).toLocaleString()} GP</p>
+          </div>
+          <p style="color:var(--text-secondary); font-size:12px; margin:0;">Most engaged post: <strong>${escapeHtml(topAuthor.item_title || 'N/A')}</strong></p>
+        </div>
       </div>
     `;
-  }).join('');
+  }
 
+  if (!cards) {
+    grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Be the first to post on Gliimu!</p>';
+    return;
+  }
+
+  grid.innerHTML = cards;
   initScrollReveal();
 }
 
@@ -370,6 +347,50 @@ async function loadPartners() {
 
   marquee.style.display = 'block';
 }
+
+// ============================================
+// FAQ MODAL (loads from faqs table with fallback)
+// ============================================
+function openFaqModal() {
+  document.getElementById('faq-modal').style.display = 'flex';
+  loadFaqs();
+}
+
+function openContactModal() {
+  document.getElementById('contact-modal').style.display = 'flex';
+}
+
+async function loadFaqs() {
+  const el = document.getElementById('faq-accordion');
+  if (!el || el.dataset.loaded) return;
+  el.dataset.loaded = '1';
+  const fallback = [
+    { q: 'What is Gliimu?', a: 'Gliimu is a full stack media platform where you publish, read, listen, and build your portfolio.' },
+    { q: 'How do I earn GP?', a: 'Post content, get referrals, complete reading, and participate in contests to earn GP.' },
+    { q: 'How do payments work?', a: 'We accept bank transfers and Paystack. Wallet top-ups are instant.' },
+    { q: 'Can I publish my own content?', a: 'Yes. Use the upload button on the Hub page to submit a Book, Audiolite, or Bundle for review.' },
+    { q: 'How do referrals work?', a: 'Share your referral code from the Updates page. When your friend signs up and makes a purchase, you earn GP.' },
+    { q: 'Is there a mobile app?', a: 'Yes. Check the download section for Android, iOS, Windows, macOS, and Linux.' },
+    { q: 'How do I contact support?', a: 'Use the Support tab in your dashboard or email support@gliimu.com.' }
+  ];
+  let faqs = fallback;
+  try {
+    const { data } = await supabase.from('faqs').select('question, answer').order('created_at');
+    if (data && data.length) faqs = data;
+  } catch {}
+  el.innerHTML = faqs.map((f, i) => `
+    <div class="faq-acc-item" onclick="this.classList.toggle('active')">
+      <div class="faq-acc-header">
+        <h4>${String(i + 1).padStart(2, '0')}. ${escapeHtml(f.question)}</h4>
+        <i class="fas fa-chevron-down"></i>
+      </div>
+      <div class="faq-acc-content"><p>${escapeHtml(f.answer)}</p></div>
+    </div>
+  `).join('');
+}
+
+window.openFaqModal = openFaqModal;
+window.openContactModal = openContactModal;
 
 // ============================================
 // INITIALIZE
