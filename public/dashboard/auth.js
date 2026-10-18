@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ============================================
   // Terms & Policy (from legal_documents)
+  // The content column is either a URL to an uploaded .docx or inline HTML
+  // from before the file upload existed. A .docx is converted to HTML via
+  // mammoth; anything else that is not HTML shows a download link.
   // ============================================
   async function loadTermsAndPolicy() {
     const container = document.getElementById('terms-content-container');
@@ -46,11 +49,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (updatedEl) updatedEl.textContent = '';
       return;
     }
-    container.innerHTML = data.content;
+
     if (updatedEl && data.updated_at) {
       const d = new Date(data.updated_at);
       updatedEl.textContent = 'Last Updated: ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     }
+
+    const raw = data.content.trim();
+    const isUrl = /^https?:\/\//.test(raw);
+
+    if (isUrl && /\.docx(\?|$)/i.test(raw)) {
+      try {
+        const resp = await fetch(raw);
+        const buf = await resp.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer: buf });
+        container.innerHTML = result.value || '<p>The document is empty.</p>';
+      } catch (err) {
+        container.innerHTML = `<p>Could not load the terms document.</p>
+          <p><a href="${raw}" target="_blank" rel="noopener" class="link-muted">Download the document instead</a></p>`;
+      }
+      return;
+    }
+
+    if (isUrl) {
+      const name = raw.split('/').pop() || 'document';
+      container.innerHTML = `<p>The terms are stored as a file.</p>
+        <p><a href="${raw}" download rel="noopener" class="link-muted">Download ${name}</a></p>`;
+      return;
+    }
+
+    container.innerHTML = data.content;
   }
   loadTermsAndPolicy();
 

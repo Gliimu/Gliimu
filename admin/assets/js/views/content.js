@@ -1,10 +1,8 @@
 import { supabase } from '../config.js';
 import { escapeHtml, empty, rpcError } from '../ui.js';
 import { appAlert, appConfirm } from '../dialog.js';
+import { uploadFile } from '../upload.js';
 
-// The seven columns of contact_info, in the order the footer prints them.
-// crm_set_contact() takes null to mean "leave this column alone" and an
-// empty string to mean "clear it", so every save sends all seven.
 const CONTACT = [
   { key: 'address', param: 'p_address', label: 'Address', textarea: true, maxlength: 500,
     note: 'Printed in the gliimu.com footer. Line breaks are kept.' },
@@ -15,13 +13,13 @@ const CONTACT = [
 ];
 
 const SOCIALS = [
-  { key: 'youtube', param: 'p_youtube', label: 'Social link 1', placeholder: 'https://example.com/profile' },
-  { key: 'tiktok', param: 'p_tiktok', label: 'Social link 2', placeholder: 'https://example.com/profile' },
-  { key: 'facebook', param: 'p_facebook', label: 'Social link 3', placeholder: 'https://example.com/profile' },
-  { key: 'pinterest', param: 'p_pinterest', label: 'Social link 4', placeholder: 'https://example.com/profile' },
-  { key: 'twitter', param: 'p_twitter', label: 'Social link 5', placeholder: 'https://example.com/profile' },
-  { key: 'instagram', param: 'p_instagram', label: 'Social link 6', placeholder: 'https://example.com/profile' },
-  { key: 'linkedin', param: 'p_linkedin', label: 'Social link 7', placeholder: 'https://example.com/profile' }
+  { key: 'youtube', param: 'p_youtube', label: 'Link 1' },
+  { key: 'tiktok', param: 'p_tiktok', label: 'Link 2' },
+  { key: 'facebook', param: 'p_facebook', label: 'Link 3' },
+  { key: 'pinterest', param: 'p_pinterest', label: 'Link 4' },
+  { key: 'twitter', param: 'p_twitter', label: 'Link 5' },
+  { key: 'instagram', param: 'p_instagram', label: 'Link 6' },
+  { key: 'linkedin', param: 'p_linkedin', label: 'Link 7' }
 ];
 
 const GRID = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px;';
@@ -43,6 +41,7 @@ export default {
     this.activeDoc = null;
     this.creating = false;
     this.contact = null;
+    this.dragId = null;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -61,7 +60,7 @@ export default {
     pane.innerHTML = '<p class="loading">Loading...</p>';
 
     const [{ data: faqs, error: faqError }, { data: docs, error: docError }] = await Promise.all([
-      supabase.from('faqs').select('id, question, answer, created_at').order('created_at', { ascending: true }),
+      supabase.from('faqs').select('id, question, answer, display_order, created_at').order('display_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }),
       supabase.from('legal_documents').select('id, type, content, created_at, updated_at').order('type', { ascending: true })
     ]);
 
@@ -94,10 +93,14 @@ export default {
 
   faqHtml() {
     const list = this.faqs.length
-      ? this.faqs.map(f => `
-          <div class="card" data-faq="${f.id}">
+      ? this.faqs.map((f, i) => `
+          <div class="card" data-faq="${f.id}" draggable="true" data-drag-id="${f.id}"
+               style="cursor:grab;transition:opacity 0.15s,transform 0.15s;">
             <div class="card-head">
-              <div style="min-width: 0;"><div class="card-title">${escapeHtml(f.question)}</div></div>
+              <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                <span style="color:var(--text-muted);font-size:12px;font-weight:600;min-width:20px;">${i + 1}</span>
+                <div style="min-width:0;"><div class="card-title">${escapeHtml(f.question)}</div></div>
+              </div>
               <div class="card-actions">
                 <button class="btn-quiet btn-small" data-edit="${f.id}">Edit</button>
                 <button class="btn-danger btn-small" data-delete="${f.id}">Delete</button>
@@ -120,18 +123,19 @@ export default {
         </div>
         <button class="btn-primary btn-small" id="add-faq-btn">Add FAQ</button>
       </div>
-      <div class="section-title">Live on the landing page (${this.faqs.length})</div>
-      <div class="row-list">${list}</div>
+      <div class="section-title">Live on the landing page (${this.faqs.length}) — drag to reorder</div>
+      <div class="row-list" id="faq-list">${list}</div>
     `;
   },
 
   wireFaqs(pane) {
-    pane.querySelector('#add-faq-btn').addEventListener('click', async () => {
+    pane.querySelector('#add-faq-btn')?.addEventListener('click', async () => {
       const question = pane.querySelector('#new-faq-q').value.trim();
       const answer = pane.querySelector('#new-faq-a').value.trim();
       if (!question || !answer) return appAlert('Both the question and the answer are required.');
 
-      const { error } = await supabase.from('faqs').insert({ question, answer });
+      const maxOrder = this.faqs.reduce((m, f) => Math.max(m, f.display_order || 0), 0);
+      const { error } = await supabase.from('faqs').insert({ question, answer, display_order: maxOrder + 1 });
       if (error) return appAlert('Could not add that FAQ: ' + error.message);
       await this.load();
     });
@@ -152,15 +156,75 @@ export default {
         await this.load();
       });
     });
+
+    this.wireFaqDrag(pane);
   },
 
-  // Editing happens in place so a reviewer can see the live answer next to
-  // the replacement before saving.
+  wireFaqDrag(pane) {
+    const list = pane.querySelector('#faq-list');
+    if (!list) return;
+
+    list.addEventListener('dragstart', (e) => {
+      const card = e.target.closest('[data-drag-id]');
+      if (!card) return;
+      this.dragId = card.dataset.dragId;
+      card.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    list.addEventListener('dragend', (e) => {
+      const card = e.target.closest('[data-drag-id]');
+      if (card) card.style.opacity = '';
+      this.dragId = null;
+      list.querySelectorAll('[data-drag-id]').forEach(c => c.style.opacity = '');
+    });
+
+    list.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const card = e.target.closest('[data-drag-id]');
+      if (!card || card.dataset.dragId === this.dragId) return;
+      const rect = card.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      card.style.transform = e.clientY < mid ? 'translateY(-2px)' : 'translateY(2px)';
+    });
+
+    list.addEventListener('dragleave', (e) => {
+      const card = e.target.closest('[data-drag-id]');
+      if (card) card.style.transform = '';
+    });
+
+    list.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      if (!this.dragId) return;
+      const target = e.target.closest('[data-drag-id]');
+      if (!target || target.dataset.dragId === this.dragId) return;
+
+      const fromId = this.dragId;
+      const toId = target.dataset.dragId;
+      const fromIdx = this.faqs.findIndex(f => f.id === fromId);
+      const toIdx = this.faqs.findIndex(f => f.id === toId);
+      if (fromIdx < 0 || toIdx < 0) return;
+
+      const moved = this.faqs.splice(fromIdx, 1)[0];
+      this.faqs.splice(toIdx, 0, moved);
+
+      const updates = this.faqs.map((f, i) => ({ id: f.id, display_order: i + 1 }));
+      this.dragId = null;
+
+      for (const u of updates) {
+        await supabase.from('faqs').update({ display_order: u.display_order }).eq('id', u.id);
+      }
+      await this.render();
+    });
+  },
+
   editFaq(pane, id) {
     const faq = this.faqs.find(f => f.id === id);
     const card = pane.querySelector(`[data-faq="${id}"]`);
     if (!faq || !card) return;
 
+    card.draggable = false;
     card.innerHTML = `
       <div class="form-group">
         <label>Question</label>
@@ -191,17 +255,20 @@ export default {
   // ---------------- Legal documents ----------------
 
   legalHtml() {
-    const tabs = this.docs.map(d => `
-      <button class="filter-btn ${d.id === this.activeDoc ? 'active' : ''}" data-doc="${d.id}">${escapeHtml(d.type)}</button>
-    `).join('');
+    const tabs = this.docs.map(d => {
+      const date = d.updated_at ? new Date(d.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+      return `<button class="filter-btn ${d.id === this.activeDoc ? 'active' : ''}" data-doc="${d.id}">${escapeHtml(d.type)}${date ? ` <span style="font-size:10px;opacity:0.6;">${date}</span>` : ''}</button>`;
+    }).join('');
 
     const doc = this.docs.find(d => d.id === this.activeDoc);
+    const isFile = doc && doc.content && /^https?:\/\//.test(doc.content.trim());
+    const fileName = isFile ? (doc.content.split('/').pop() || 'document') : '';
 
     const editor = this.creating ? `
       <div class="card">
         <div class="card-head">
           <div><div class="card-title">New document</div>
-          <div class="card-sub">The type is the key the app looks up — the signup page reads "terms".</div></div>
+          <div class="card-sub">The type is the key the app looks up — the auth page reads "terms".</div></div>
         </div>
         <div class="form-group">
           <label for="new-doc-type">Type</label>
@@ -215,14 +282,33 @@ export default {
     ` : doc ? `
       <div class="card">
         <div class="card-head">
-          <div><div class="card-title">${escapeHtml(doc.type)}</div>
-          <div class="card-sub">Shown wherever the app links this document.</div></div>
+          <div style="min-width:0;"><div class="card-title">${escapeHtml(doc.type)}</div>
+          <div class="card-sub">${doc.updated_at
+            ? 'Last saved ' + new Date(doc.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+            : 'Not yet saved.'} — shown on the auth page when members accept terms.</div></div>
+          <div class="card-actions">
+            <button class="btn-danger btn-small" data-delete-doc="${doc.id}">Delete</button>
+          </div>
         </div>
         <div class="form-group">
-          <label for="doc-content">Content</label>
-          <textarea id="doc-content" class="input" rows="18">${escapeHtml(doc.content || '')}</textarea>
+          <label>Document file</label>
+          <div class="card-sub" style="margin-bottom:8px;">Upload a .docx file. It will be displayed in the auth page terms modal.</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label class="btn-quiet btn-small" for="doc-file-upload" style="cursor:pointer;">Upload a file</label>
+            <input type="file" id="doc-file-upload" accept=".docx,.epub,.pdf" hidden>
+            <span class="muted small" id="doc-upload-status"></span>
+          </div>
+          ${isFile ? `
+            <div style="margin-top:10px;" class="file-chip">
+              <span class="mono">${escapeHtml(fileName)}</span>
+              <a href="${escapeHtml(doc.content)}" target="_blank" rel="noopener">Open</a>
+            </div>
+          ` : doc.content ? `
+            <div style="margin-top:10px;">
+              <div class="card-sub">Current content is inline text (${(doc.content || '').length} chars). Upload a file to replace it.</div>
+            </div>
+          ` : '<div class="card-sub" style="margin-top:10px;">No document uploaded yet.</div>'}
         </div>
-        <button class="btn-primary btn-small" id="save-doc-btn">Save changes</button>
       </div>
     ` : empty('No legal documents yet. Create the first one with + New.');
 
@@ -259,20 +345,40 @@ export default {
       await this.load();
     });
 
-    pane.querySelector('#save-doc-btn')?.addEventListener('click', async () => {
-      const content = pane.querySelector('#doc-content').value;
-      const { error } = await supabase.from('legal_documents')
-        .update({ content, updated_at: new Date().toISOString() }).eq('id', this.activeDoc);
-      if (error) return appAlert('Could not save that document: ' + error.message);
-      await appAlert('Saved.');
+    pane.querySelector('#doc-file-upload')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file || !this.activeDoc) return;
+      const status = pane.querySelector('#doc-upload-status');
+      if (status) status.textContent = 'Uploading…';
+      try {
+        const url = await uploadFile(file, 'site');
+        const { error } = await supabase.from('legal_documents')
+          .update({ content: url, updated_at: new Date().toISOString() }).eq('id', this.activeDoc);
+        if (error) return appAlert('Could not save the document: ' + error.message);
+        if (status) status.textContent = 'Uploaded and saved.';
+        await this.load();
+      } catch (err) {
+        if (status) status.textContent = '';
+        await appAlert(err.message || 'Upload failed.');
+      }
+    });
+
+    pane.querySelector('[data-delete-doc]')?.addEventListener('click', async () => {
+      const doc = this.docs.find(d => d.id === pane.querySelector('[data-delete-doc]').dataset.deleteDoc);
+      if (!doc) return;
+      const ok = await appConfirm(`"${doc.type}" will be removed. The auth page will show a blank terms modal until a new document is uploaded.`, {
+        okText: 'Delete', title: 'Delete this document?', danger: true
+      });
+      if (!ok) return;
+      const { error } = await supabase.from('legal_documents').delete().eq('id', doc.id);
+      if (error) return appAlert('Could not delete: ' + error.message);
+      this.activeDoc = this.docs.filter(d => d.id !== doc.id)[0]?.id || null;
       await this.load();
     });
   },
 
   // ---------------- Contact details ----------------
 
-  // Fetched only when the tab is opened, so a missing crm_contact() cannot
-  // blank the FAQs or legal tabs that were already working.
   async renderContact(pane) {
     if (!this.contact) {
       pane.innerHTML = '<p class="loading">Loading...</p>';
@@ -320,7 +426,7 @@ export default {
         ${CONTACT.map((f) => this.contactField(f)).join('')}
         <div class="section-title">Social links</div>
         <div style="${GRID}">${SOCIALS.map((f) => this.contactField(f)).join('')}</div>
-        <div class="card-sub">Each must start with https:// or http://. Leave one blank and its link is hidden on the landing page. The icon is fetched automatically from the domain.</div>
+        <div class="card-sub">Paste each link. Leave one blank and its icon is hidden on the landing page. The icon is fetched automatically from the domain.</div>
       </div>
       <div style="display: flex; gap: 8px; margin-top: 12px;">
         <button class="btn-primary btn-small" id="save-contact-btn">Save contact details</button>

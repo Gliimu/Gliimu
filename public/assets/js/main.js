@@ -501,7 +501,7 @@ async function loadFaqs() {
   ];
   let faqs = fallback;
   try {
-    const { data } = await supabase.from('faqs').select('question, answer').order('created_at');
+    const { data } = await supabase.from('faqs').select('question, answer').order('display_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
     if (data && data.length) faqs = data;
   } catch {}
   el.innerHTML = faqs.map((f, i) => `

@@ -16,9 +16,7 @@ const LANDING = [
   { key: 'hero_video_url', param: 'p_hero_video_url', label: 'Hero video', asset: true, video: true,
     note: 'Plays behind the headline on gliimu.com.' },
   { key: 'hero_fallback_image_url', param: 'p_hero_fallback_image_url', label: 'Hero fallback image', asset: true,
-    note: 'Shown behind the headline while the video loads, or where autoplay is blocked.' },
-  { key: 'squad_bg_url', param: 'p_squad_bg_url', label: 'Squad section background', asset: true,
-    note: 'Background image of the squad section.' }
+    note: 'Shown behind the headline while the video loads, or where autoplay is blocked.' }
 ];
 
 // The hero headline and paragraph. Blank on all three keeps the copy that
@@ -43,8 +41,8 @@ const RELEASE = [
 ];
 
 const RELEASE_BG = { key: 'app_download_bg_url', param: 'p_app_download_bg_url',
-  label: 'Download section background', asset: true,
-  note: 'Background image behind the "Take Gliimu Everywhere" panel.' };
+  label: 'App download & auth page background', asset: true,
+  note: 'Background image behind the download panel on gliimu.com and the auth page.' };
 
 // The five platform files are what the landing page's download buttons point
 // at: Operations uploads the build itself and the column stores its R2 URL.

@@ -74,11 +74,13 @@ create table if not exists public.faqs (
   id uuid primary key default gen_random_uuid(),
   question text not null,
   answer text not null,
+  display_order int not null default 0,
   created_at timestamptz not null default now()
 );
 
 alter table public.faqs add column if not exists question text;
 alter table public.faqs add column if not exists answer text;
+alter table public.faqs add column if not exists display_order int not null default 0;
 alter table public.faqs add column if not exists created_at timestamptz;
 
 alter table public.faqs enable row level security;
