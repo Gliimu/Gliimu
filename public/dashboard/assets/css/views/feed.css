@@ -118,6 +118,53 @@
   z-index: 2;
 }
 
+.lib-tile-menu-wrap { position: absolute; top: 8px; left: 8px; z-index: 3; }
+.lib-tile-menu-btn {
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.lib-tile:hover .lib-tile-menu-btn { opacity: 1; }
+.lib-tile-menu-btn:hover { background: rgba(0, 0, 0, 0.8); }
+.lib-tile-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  min-width: 130px;
+  overflow: hidden;
+  z-index: 10;
+}
+.lib-tile-menu.active { display: block; }
+.lib-tile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lib-tile-menu-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.lib-tile-menu-item.danger { color: #e53e3e; }
+.lib-tile-menu-item.danger:hover { background: rgba(229, 62, 62, 0.08); }
+
 /* Minimal Modal & Inline Menu */
 /* The composer is tall, so the panel is capped to the viewport and the body
    scrolls inside it. Without the cap the centred panel overflows above and

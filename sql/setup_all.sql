@@ -1990,6 +1990,56 @@ $$;
 
 grant execute on function public.admin_delete_feed_item(uuid, text) to authenticated;
 
+-- 26b. user_delete_feed_item — owner-initiated delete for books / audiolites
+create or replace function public.user_delete_feed_item(
+  p_item_id uuid,
+  p_password text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller uuid := auth.uid();
+  v_owner  uuid;
+begin
+  select fi.owner_id into v_owner
+  from public.feed_items fi
+  where fi.id = p_item_id;
+
+  if not found then
+    raise exception 'ITEM_NOT_FOUND';
+  end if;
+
+  if v_owner is distinct from v_caller then
+    raise exception 'NOT_OWNER';
+  end if;
+
+  if not exists (
+    select 1 from auth.users u
+    where u.id = v_caller
+      and u.encrypted_password = crypt(p_password, u.encrypted_password)
+  ) then
+    raise exception 'INVALID_PASSWORD';
+  end if;
+
+  delete from public.saved_items where item_id = p_item_id;
+  delete from public.purchases where item_id = p_item_id;
+  delete from public.billing_events where event_type in ('premium_unlock','library_unlock') and item_id = p_item_id::text;
+  delete from public.reports where target_type = 'library_item' and target_id = p_item_id;
+  delete from public.feed_items where id = p_item_id;
+
+  return jsonb_build_object('deleted', true, 'item_id', p_item_id);
+
+exception
+  when others then
+    return jsonb_build_object('deleted', false, 'error', sqlerrm);
+end;
+$$;
+
+grant execute on function public.user_delete_feed_item(uuid, text) to authenticated;
+
 -- ============================================================
 -- 27. FUNCTIONS — CONTACT
 -- ============================================================

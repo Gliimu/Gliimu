@@ -79,7 +79,9 @@ export default {
       purchase: (id) => this.purchaseItem(id),
       toggleSave: (id, isSaved) => this.toggleSave(id, isSaved),
       rateItem: (id) => this.promptRate(id),
-      logInteraction: (id, type) => this.logInteraction(id, type)
+      logInteraction: (id, type) => this.logInteraction(id, type),
+      toggleTileMenu: (id) => this.toggleTileMenu(id),
+      promptDeleteItem: (id) => this.promptDeleteItem(id)
     };
 
     this.setupTopbar();
@@ -566,6 +568,7 @@ export default {
   renderShelfCard(item) {
     const isOwned = this.ownedItems.has(item.id);
     const isSaved = this.savedItems.has(item.id);
+    const isOwner = item.owner_id === store.user.id;
 
     let thumb;
     if (item.cover_url) {
@@ -585,11 +588,26 @@ export default {
       ? `<div class="lib-play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>`
       : '';
 
+    const ownerMenu = isOwner ? `
+      <div class="lib-tile-menu-wrap">
+        <button class="lib-tile-menu-btn" onclick="event.stopPropagation(); event.preventDefault(); libraryInstance.toggleTileMenu('${item.id}')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+        </button>
+        <div class="lib-tile-menu" id="tile-menu-${item.id}">
+          <div class="lib-tile-menu-item danger" onclick="event.stopPropagation(); event.preventDefault(); libraryInstance.promptDeleteItem('${item.id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Delete
+          </div>
+        </div>
+      </div>
+    ` : '';
+
     return `
       <div class="lib-tile lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
         ${thumb}
         ${playIcon}
         ${ownedBadge}${savedBadge}
+        ${ownerMenu}
         <div class="lib-overlay"><h4>${escapeHtml(item.title)}</h4></div>
       </div>
     `;
@@ -959,6 +977,38 @@ export default {
     }
     document.querySelector('.modal-overlay')?.remove();
     this.renderFeed();
+  },
+
+  toggleTileMenu(itemId) {
+    document.querySelectorAll('.lib-tile-menu.active').forEach(m => m.classList.remove('active'));
+    const menu = document.getElementById(`tile-menu-${itemId}`);
+    if (menu) menu.classList.toggle('active');
+
+    if (!this._tileMenuClose) {
+      this._tileMenuClose = (e) => {
+        if (!e.target.closest('.lib-tile-menu-wrap')) {
+          document.querySelectorAll('.lib-tile-menu.active').forEach(m => m.classList.remove('active'));
+        }
+      };
+      document.addEventListener('click', this._tileMenuClose, true);
+    }
+  },
+
+  async promptDeleteItem(itemId) {
+    document.querySelectorAll('.lib-tile-menu.active').forEach(m => m.classList.remove('active'));
+
+    const item = (this.allItems || []).find(i => i.id === itemId);
+    const label = item ? (item.type === 'audiolite' ? 'Audiolite' : 'Book') : 'Item';
+
+    const password = await appPrompt(`To permanently delete this ${label.toLowerCase()}, please enter your password:`, { inputType: 'password', okText: 'Delete', danger: true });
+    if (!password) return;
+
+    const { data, error } = await supabase.rpc('user_delete_feed_item', { p_item_id: itemId, p_password: password });
+    if (error) return alert('Delete failed: ' + error.message);
+    if (data && data.error) return alert('Delete failed: ' + data.error);
+
+    alert(`${label} deleted successfully.`);
+    this.loadShelf();
   },
 
   promptRate(itemId) {
