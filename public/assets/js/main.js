@@ -331,7 +331,7 @@ async function loadHubHighlights() {
     <a class="xplore-card xplore-card-events" href="#" data-xplore="events">
       <div class="xplore-events-avatars">${avatars || '<div class="xplore-events-ava xplore-events-ava-empty"></div>'}</div>
       <h3>Events</h3>
-      <p>Challenges and cohorts that build read skill</p>
+      <p>Building value and growing together</p>
     </a>
   `;
 
