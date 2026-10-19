@@ -446,18 +446,6 @@ section:not(.hero-video-section):not(.contact-faq-section) { position: relative;
   height: auto;
   margin: 0 auto var(--space-8);
 }
-.error-title {
-  font-size: var(--fs-4xl);
-  font-weight: var(--fw-extrabold);
-  margin-bottom: var(--space-4);
-  color: var(--text-primary);
-}
-.error-subtitle {
-  font-size: var(--fs-lg);
-  color: var(--text-secondary);
-  margin-bottom: var(--space-8);
-  line-height: 1.6;
-}
 .error-page .btn-primary {
   display: inline-flex;
   align-items: center;
