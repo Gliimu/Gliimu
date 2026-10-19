@@ -283,152 +283,69 @@ function timeLeft(iso) {
 }
 
 async function loadHubHighlights() {
-  const grid = document.getElementById('hub-grid');
-  if (!grid) return;
+  const container = document.getElementById('xplore-pillars');
+  if (!container) return;
 
   const { data, error } = await supabase.rpc('landing_highlights', {});
   if (error || !data) {
-    grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Could not load highlights.</p>';
+    container.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Could not load highlights.</p>';
     return;
   }
 
-  const contest = data.contest;
-  const cohort = data.cohort;
-  const top3 = Array.isArray(data.top3) ? data.top3 : [];
-  const tBook = data.trending_book;
-  const tAudio = data.trending_audiolite;
-  const tBundle = data.trending_bundle;
-  let cards = '';
-  let delay = 0.05;
-  const step = 0.05;
+  const book = data.top_book;
+  const audio = data.top_audiolite;
+  const gliimaits = Array.isArray(data.top_gliimaits) ? data.top_gliimaits : [];
 
-  // Trending book
-  cards += trendingCard('Book', tBook, delay); delay += step;
-  // Trending audiolite
-  cards += trendingCard('Audiolite', tAudio, delay); delay += step;
-  // Trending bundle/gliim
-  cards += trendingCard('Gliim', tBundle, delay); delay += step;
+  const bookCover = safeUrl(book?.cover_url);
+  const audioCover = safeUrl(audio?.cover_url);
 
-  // Active contest
-  if (contest) {
-    const metric = (contest.metric || '').replace(/_/g, ' ');
-    cards += `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-        <div class="hub-card-meta">
-          <span class="hub-card-author">Live Contest</span>
+  const avatars = gliimaits.slice(0, 3).map(u => {
+    const ava = safeUrl(u.avatar_url);
+    return ava
+      ? `<img src="${ava}" alt="" class="xplore-events-ava">`
+      : `<div class="xplore-events-ava xplore-events-ava-empty"></div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <a class="xplore-card xplore-card-audio" href="#" data-xplore="audiolite">
+      <div class="xplore-card-cover">
+        ${audioCover
+          ? `<img src="${audioCover}" alt="">`
+          : `<div class="xplore-card-cover-empty"></div>`}
+        <div class="xplore-play-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
         </div>
-        <h3 style="font-size:16px; font-weight:700; margin:0 0 8px;">${escapeHtml(contest.title)}</h3>
-        <p class="hub-card-text" style="margin-bottom:12px;">${escapeHtml(contest.description || '')}</p>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-          <span class="lh-tag">${escapeHtml(metric || 'General')}</span>
-          <span class="lh-tag">${escapeHtml(timeLeft(contest.ends_at))}</span>
-          <span class="lh-tag">${contest.entries_count} entries</span>
-        </div>
-        ${contest.prize_text ? `<p style="font-size:12px; font-weight:700; color:var(--brand-primary); margin:0;">Prize: ${escapeHtml(contest.prize_text)}</p>` : ''}
       </div>
-    `;
-  } else {
-    cards += `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-        <div class="hub-card-meta"><span class="hub-card-author">Live Contest</span></div>
-        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No active contest right now.</p>
+      <h3>Audiolites</h3>
+      <p>Creating spark in minds through spoken words</p>
+    </a>
+    <a class="xplore-card xplore-card-book" href="#" data-xplore="book">
+      <div class="xplore-card-cover">
+        ${bookCover
+          ? `<img src="${bookCover}" alt="">`
+          : `<div class="xplore-card-cover-empty"></div>`}
       </div>
-    `;
-  }
-  delay += step;
+      <h3>Publications</h3>
+      <p>Stories, essays and books that stay with you</p>
+    </a>
+    <a class="xplore-card xplore-card-events" href="#" data-xplore="events">
+      <div class="xplore-events-avatars">${avatars || '<div class="xplore-events-ava xplore-events-ava-empty"></div>'}</div>
+      <h3>Events</h3>
+      <p>Challenges and cohorts that build read skill</p>
+    </a>
+  `;
 
-  // Latest cohort
-  if (cohort) {
-    const pct = cohort.seats ? Math.round((cohort.seats_taken / cohort.seats) * 100) : 0;
-    cards += `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-        <div class="hub-card-meta">
-          <span class="hub-card-author">Cohort</span>
-        </div>
-        <h3 style="font-size:16px; font-weight:700; margin:0 0 8px;">${escapeHtml(cohort.title)}</h3>
-        <p class="hub-card-text" style="margin-bottom:12px;">${escapeHtml((cohort.description || '').slice(0, 120))}${(cohort.description || '').length > 120 ? '...' : ''}</p>
-        <div style="margin-bottom:8px;">
-          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
-            <span style="color:var(--text-muted);">Seats</span>
-            <span style="font-weight:700;">${cohort.seats_taken} / ${cohort.seats}</span>
-          </div>
-          <div style="height:6px; background:var(--bg-tertiary); border-radius:3px; overflow:hidden;">
-            <div style="height:100%; width:${pct}%; background:var(--brand-primary); border-radius:3px; transition:width 0.3s;"></div>
-          </div>
-        </div>
-        ${cohort.starts_at ? `<p style="font-size:12px; color:var(--text-muted); margin:0;">Starts ${formatDate(cohort.starts_at)}</p>` : ''}
-      </div>
-    `;
-  } else {
-    cards += `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-        <div class="hub-card-meta"><span class="hub-card-author">Cohort</span></div>
-        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No cohort available.</p>
-      </div>
-    `;
-  }
-  delay += step;
-
-  // Top 3 all-time by GP
-  if (top3.length) {
-    const rows = top3.map((u, i) => {
-      const avatar = safeUrl(u.avatar_url);
-      return `
-        <div class="lh-daily-row">
-          <span class="lh-daily-rank">${i + 1}</span>
-          ${avatar
-            ? `<img src="${avatar}" class="lh-daily-ava" style="object-fit:cover;" alt="">`
-            : `<div class="lh-daily-ava lh-daily-ava-empty"></div>`
-          }
-          <span class="lh-daily-name">${escapeHtml(u.full_name || 'Member')}</span>
-          <span class="lh-daily-gp">${Number(u.total_gp || 0).toLocaleString()} GP</span>
-        </div>
-      `;
-    }).join('');
-
-    cards += `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-        <div class="hub-card-meta">
-          <span class="hub-card-author">Top Gliimait</span>
-        </div>
-        <div class="lh-daily-list">${rows}</div>
-      </div>
-    `;
-  } else {
-    cards += `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-        <div class="hub-card-meta"><span class="hub-card-author">Top Gliimait</span></div>
-        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No GP earned yet.</p>
-      </div>
-    `;
-  }
-
-  grid.innerHTML = cards;
-  initScrollReveal();
-}
-
-function trendingCard(label, item, delay) {
-  if (!item || !item.title) {
-    return `
-      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-        <div class="hub-card-meta"><span class="hub-card-author">Trending ${escapeHtml(label)}</span></div>
-        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">Nothing trending yet.</p>
-      </div>`;
-  }
-  const cover = safeUrl(item.cover_url);
-  const readers = item.readers != null ? `${item.readers} readers today` : '';
-  const views = item.views != null ? `${Number(item.views).toLocaleString()} views` : '';
-  const stat = readers || views;
-  return `
-    <div class="hub-card reveal" style="transition-delay: ${delay}s;">
-      <div class="hub-card-meta"><span class="hub-card-author">Trending ${escapeHtml(label)}</span></div>
-      ${cover
-        ? `<img class="lh-cover" src="${cover}" alt="">`
-        : `<div class="lh-cover-empty"></div>`}
-      <h3 style="font-size:16px; font-weight:700; margin:0 0 4px;">${escapeHtml(item.title)}</h3>
-      ${item.author ? `<p style="font-size:13px; color:var(--text-muted); margin:0 0 8px;">${escapeHtml(item.author)}</p>` : ''}
-      ${stat ? `<span class="lh-tag">${escapeHtml(stat)}</span>` : ''}
-    </div>`;
+  container.querySelectorAll('[data-xplore]').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/auth.html';
+        return;
+      }
+      window.location.href = '/dashboard/';
+    });
+  });
 }
 
 // ============================================
