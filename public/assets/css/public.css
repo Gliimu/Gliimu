@@ -10,7 +10,7 @@ body { background: var(--bg-primary); }
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 10;
   pointer-events: none;
 }
 .fixed-logo img {
@@ -66,7 +66,7 @@ body { background: var(--bg-primary); }
 
 /* Sections */
 section { padding: 100px 0; }
-section:not(.hero-video-section) { position: relative; z-index: 1; }
+section:not(.hero-video-section):not(.contact-faq-section) { position: relative; z-index: 20; }
 .section-title { font-size: var(--fs-4xl); font-weight: var(--fw-extrabold); letter-spacing: var(--ls-tight); margin-bottom: var(--space-4); text-align: center; }
 .section-subtitle { font-size: var(--fs-md); color: var(--text-secondary); max-width: 600px; margin: 0 auto; text-align: center; }
 .pillars-header { text-align: center; margin-bottom: var(--space-16); }
@@ -121,7 +121,7 @@ section:not(.hero-video-section) { position: relative; z-index: 1; }
 .accordion-content li::before { content: "→"; color: var(--brand-primary); font-weight: bold; }
 
 /* Contact / FAQ Section */
-.contact-faq-section { background: var(--bg-primary); padding: 104px 0; }
+.contact-faq-section { background: var(--bg-primary); padding: 104px 0; position: relative; z-index: 1; }
 .cf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); max-width: 800px; margin: 0 auto; }
 .cf-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-10); text-align: center; cursor: pointer; transition: transform var(--transition-fast); display: flex; flex-direction: column; align-items: center; }
 .cf-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--brand-primary-soft); }
@@ -202,7 +202,8 @@ section:not(.hero-video-section) { position: relative; z-index: 1; }
 }
 
 /* XpLoRe pillar cards */
-.xplore-pillars { display: grid; grid-template-columns: repeat(3, 220px); gap: var(--space-6); margin-top: 48px; justify-content: center; }
+.xplore-pillars { display: grid; grid-template-columns: repeat(3, 220px); gap: var(--space-6); margin-top: 48px; justify-content: center; align-items: end; }
+.xplore-card-audio { margin-top: 20px; }
 .xplore-card { text-align: center; text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s; }
 .xplore-card:hover { transform: translateY(-4px); }
 .xplore-card-cover { width: 120px; height: 120px; margin: 0 auto var(--space-4); position: relative; border-radius: var(--radius-md); overflow: hidden; }
