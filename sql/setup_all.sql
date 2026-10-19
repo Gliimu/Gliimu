@@ -534,7 +534,8 @@ create trigger trg_guard_is_admin
 -- ============================================================
 
 -- 14a. mark_dm_read()
-create or replace function public.mark_dm_read(p_peer uuid)
+drop function if exists public.mark_dm_read(uuid);
+create or replace function public.mark_dm_read(p_other uuid)
 returns void
 language plpgsql
 security definer
@@ -545,7 +546,7 @@ begin
      set read_at = now()
    where room_id = (
      select id from public.messages
-     where sender_id = auth.uid() and recipient_id = p_peer
+     where sender_id = auth.uid() and recipient_id = p_other
      limit 1
    )
      and recipient_id = auth.uid()
@@ -554,7 +555,8 @@ end;
 $$;
 
 -- 14b. bump_live_views()
-create or replace function public.bump_live_views(p_id uuid)
+drop function if exists public.bump_live_views(uuid);
+create or replace function public.bump_live_views(p_request uuid)
 returns void
 language plpgsql
 security definer
@@ -563,12 +565,13 @@ as $$
 begin
   update public.live_requests
      set viewer_count = viewer_count + 1
-   where id = p_id;
+   where id = p_request;
 end;
 $$;
 
 -- 14c. bump_post_views() — uses feed_gliims
-create or replace function public.bump_post_views(p_id uuid)
+drop function if exists public.bump_post_views(uuid);
+create or replace function public.bump_post_views(p_post uuid)
 returns void
 language plpgsql
 security definer
@@ -577,7 +580,7 @@ as $$
 begin
   update public.feed_gliims
      set views = views + 1
-   where id = p_id;
+   where id = p_post;
 end;
 $$;
 
@@ -637,7 +640,8 @@ $$;
 -- ============================================================
 
 -- 15a. effective_tier(p_user_id)
-create or replace function public.effective_tier(p_user_id uuid)
+drop function if exists public.effective_tier(uuid);
+create or replace function public.effective_tier(p_user uuid)
 returns text
 language plpgsql
 security definer
@@ -648,7 +652,7 @@ declare
   v_trial_ends timestamptz;
 begin
   select tier, trial_ends_at into v_tier, v_trial_ends
-  from public.profiles where id = p_user_id;
+  from public.profiles where id = p_user;
 
   if v_tier = 'trial' and v_trial_ends is not null and v_trial_ends < now() then
     return 'wallet';
@@ -732,7 +736,8 @@ end;
 $$;
 
 -- 15d. purchase_library_item(p_item_id) — uses feed_items
-create or replace function public.purchase_library_item(p_item_id uuid)
+drop function if exists public.purchase_library_item(uuid);
+create or replace function public.purchase_library_item(p_item uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -743,7 +748,7 @@ declare
   v_price integer;
   v_balance integer;
 begin
-  select price_gp into v_price from public.feed_items where id = p_item_id;
+  select price into v_price from public.feed_items where id = p_item;
   if v_price is null then
     return jsonb_build_object('ok', false, 'error', 'ITEM_NOT_FOUND');
   end if;
@@ -753,16 +758,14 @@ begin
     return jsonb_build_object('ok', false, 'error', 'INSUFFICIENT_FUNDS');
   end if;
 
-  -- Deduct wallet
   update public.profiles
      set wallet_balance = wallet_balance - v_price
    where id = v_user;
 
-  -- Record event
   insert into public.billing_events (user_id, event_type, item_id, gp_amount)
-  values (v_user, 'library_unlock', p_item_id::text, v_price);
+  values (v_user, 'library_unlock', p_item::text, v_price);
 
-  return jsonb_build_object('ok', true, 'item_id', p_item_id);
+  return jsonb_build_object('ok', true, 'item_id', p_item);
 end;
 $$;
 
@@ -790,95 +793,290 @@ begin
 end;
 $$;
 
--- 15f. credit_wallet_topup(p_amount)
-create or replace function public.credit_wallet_topup(p_amount integer)
-returns void
+-- 15f. credit_wallet_topup(p_user, p_amount, p_reference, p_provider)
+drop function if exists public.credit_wallet_topup(integer);
+drop function if exists public.credit_wallet_topup(uuid, integer, text, text);
+create or replace function public.credit_wallet_topup(
+  p_user uuid, p_amount integer, p_reference text, p_provider text default 'paystack'
+)
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_balance integer;
 begin
+  if p_amount is null or p_amount < 100 then
+    raise exception 'INVALID_AMOUNT';
+  end if;
+  if p_reference is null or length(trim(p_reference)) = 0 then
+    raise exception 'INVALID_REFERENCE';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user) then
+    raise exception 'INVALID_USER';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('topup:' || p_reference)::bigint);
+
+  if exists (
+    select 1 from public.transactions
+    where reference = p_reference
+      and type = 'topup'
+      and status = 'success'
+  ) then
+    return jsonb_build_object('credited', false, 'reason', 'duplicate');
+  end if;
+
+  insert into public.transactions (user_id, amount, points, type, status, reference, description)
+  values (p_user, p_amount, 0, 'topup', 'success', p_reference,
+          'Wallet Top-up via ' || coalesce(p_provider, 'paystack'));
+
   update public.profiles
-     set wallet_balance = coalesce(wallet_balance, 0) + p_amount
-   where id = auth.uid();
+  set wallet_balance = coalesce(wallet_balance, 0) + p_amount
+  where id = p_user
+  returning wallet_balance into v_balance;
+
+  return jsonb_build_object('credited', true, 'amount', p_amount, 'balance', v_balance);
 end;
 $$;
 
 -- 15g. billing_close_due_cycles()
 create or replace function public.billing_close_due_cycles()
-returns integer
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_count integer;
+  r record;
+  v_cycle public.billing_cycles%rowtype;
+  v_total integer;
+  v_preview integer;
+  v_expiry timestamptz;
+  v_due jsonb := '[]'::jsonb;
+  v_trials jsonb := '[]'::jsonb;
+  v_pros jsonb := '[]'::jsonb;
+  v_renewed jsonb := '[]'::jsonb;
 begin
-  with due as (
-    update public.billing_cycles
-       set status = 'void'
-     where status = 'due' and ends_at < now()
-    returning id
-  )
-  select count(*) into v_count from due;
-  return v_count;
+  for r in
+    select p.id, p.trial_ends_at from public.profiles p
+     where p.tier = 'trial' and p.trial_ends_at <= now()
+     for update skip locked
+  loop
+    update public.profiles
+       set tier = 'payngo',
+           subscription_expires_at = now() + interval '33 days'
+     where id = r.id and tier = 'trial'
+     returning subscription_expires_at into v_expiry;
+    if not found then continue; end if;
+
+    insert into public.billing_cycles (user_id, start_date, end_date, status)
+    values (r.id, now(), v_expiry, 'open');
+
+    select coalesce(sum(e.amount), 0) into v_preview
+      from public.billing_events e
+     where e.user_id = r.id and e.billing_cycle_id is null and e.amount > 0
+       and e.created_at >= r.trial_ends_at - interval '3 days'
+       and e.created_at <= r.trial_ends_at;
+
+    v_trials := v_trials || jsonb_build_object('user_id', r.id, 'preview', v_preview);
+  end loop;
+
+  for r in
+    select p.id from public.profiles p
+     where p.tier = 'payngo' and p.subscription_expires_at <= now()
+     for update skip locked
+  loop
+    select c.* into v_cycle from public.billing_cycles c
+     where c.user_id = r.id and c.status = 'open' limit 1;
+
+    if not found then
+      if exists (select 1 from public.billing_cycles c
+                  where c.user_id = r.id and c.status in ('processing', 'defaulted')
+                    and c.total_amount > 0) then
+        update public.profiles set tier = 'wallet' where id = r.id and tier = 'payngo';
+        continue;
+      end if;
+
+      update public.profiles
+         set subscription_expires_at =
+               greatest(coalesce(subscription_expires_at, now()), now()) + interval '33 days'
+       where id = r.id and tier = 'payngo'
+       returning subscription_expires_at into v_expiry;
+      if not found then continue; end if;
+
+      insert into public.billing_cycles (user_id, start_date, end_date, status)
+      values (r.id, now(), v_expiry, 'open');
+      v_renewed := v_renewed || jsonb_build_object('user_id', r.id, 'total', 0);
+      continue;
+    end if;
+
+    select coalesce(sum(e.amount), 0) into v_total
+      from public.billing_events e where e.billing_cycle_id = v_cycle.id;
+
+    if v_total <= 0 then
+      update public.billing_cycles
+         set status = 'closed_empty', total_amount = 0, end_date = now()
+       where id = v_cycle.id and status = 'open';
+      if not found then continue; end if;
+
+      update public.profiles
+         set subscription_expires_at =
+               greatest(coalesce(subscription_expires_at, now()), now()) + interval '33 days'
+       where id = r.id and tier = 'payngo'
+       returning subscription_expires_at into v_expiry;
+
+      insert into public.billing_cycles (user_id, start_date, end_date, status)
+      values (r.id, now(), v_expiry, 'open');
+      v_renewed := v_renewed || jsonb_build_object('user_id', r.id, 'total', 0);
+    else
+      update public.billing_cycles
+         set status = 'processing', total_amount = v_total,
+             due_at = now() + interval '3 days', end_date = now()
+       where id = v_cycle.id and status = 'open';
+      if not found then continue; end if;
+
+      update public.profiles
+         set subscription_expires_at = now() + interval '3 days'
+       where id = r.id and tier = 'payngo';
+
+      v_due := v_due || jsonb_build_object('user_id', r.id, 'cycle_id', v_cycle.id, 'total', v_total);
+    end if;
+  end loop;
+
+  for r in
+    select p.id from public.profiles p
+     where p.tier = 'pro' and p.subscription_expires_at <= now()
+     for update skip locked
+  loop
+    update public.profiles set tier = 'wallet' where id = r.id and tier = 'pro';
+    if found then
+      v_pros := v_pros || jsonb_build_object('user_id', r.id);
+    end if;
+  end loop;
+
+  for r in
+    select c.id, c.user_id, c.total_amount from public.billing_cycles c
+     where c.status = 'processing' and c.payment_url is null and c.total_amount > 0
+     for update skip locked
+  loop
+    v_due := v_due || jsonb_build_object('user_id', r.user_id, 'cycle_id', r.id, 'total', r.total_amount);
+  end loop;
+
+  return jsonb_build_object(
+    'due', v_due,
+    'converted_trials', v_trials,
+    'downgraded_pro', v_pros,
+    'renewed_free', v_renewed
+  );
 end;
 $$;
 
--- 15h. billing_mark_processing()
-create or replace function public.billing_mark_processing()
-returns integer
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_count integer;
-begin
-  with marked as (
-    update public.billing_cycles
-       set status = 'processing'
-     where status = 'due' and starts_at <= now()
-    returning id
-  )
-  select count(*) into v_count from marked;
-  return v_count;
-end;
-$$;
-
--- 15i. billing_enforce_deadlines()
-create or replace function public.billing_enforce_deadlines()
-returns integer
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_count integer;
-begin
-  with overdue as (
-    update public.billing_cycles
-       set status = 'void'
-     where status = 'processing'
-       and ends_at + interval '3 days' < now()
-    returning id
-  )
-  select count(*) into v_count from overdue;
-  return v_count;
-end;
-$$;
-
--- 15j. billing_settle_cycle(p_cycle_id, p_ref)
-create or replace function public.billing_settle_cycle(p_cycle_id bigint, p_ref text)
-returns void
+-- 15h. billing_mark_processing(p_cycle, p_reference, p_url)
+drop function if exists public.billing_mark_processing();
+drop function if exists public.billing_mark_processing(bigint, text, text);
+create or replace function public.billing_mark_processing(p_cycle bigint, p_reference text, p_url text)
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
   update public.billing_cycles
-     set status = 'settled', payment_ref = p_ref
-   where id = p_cycle_id and status = 'processing';
+     set payment_reference = coalesce(p_reference, payment_reference),
+         payment_url = coalesce(p_url, payment_url)
+   where id = p_cycle and status = 'processing';
+  return jsonb_build_object('ok', found);
+end;
+$$;
+
+-- 15i. billing_enforce_deadlines()
+create or replace function public.billing_enforce_deadlines()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r record;
+  v_defaulted jsonb := '[]'::jsonb;
+begin
+  for r in
+    select c.id, c.user_id from public.billing_cycles c
+     where c.status = 'processing' and c.due_at is not null and c.due_at < now()
+     for update skip locked
+  loop
+    update public.billing_cycles set status = 'defaulted'
+     where id = r.id and status = 'processing';
+    if found then
+      update public.profiles set tier = 'wallet'
+       where id = r.user_id and tier = 'payngo';
+      v_defaulted := v_defaulted || jsonb_build_object('user_id', r.user_id, 'cycle_id', r.id);
+    end if;
+  end loop;
+
+  update public.profiles set tier = 'wallet'
+   where tier in ('payngo', 'pro')
+     and subscription_expires_at <= now()
+     and not exists (
+       select 1 from public.billing_cycles c
+        where c.user_id = profiles.id and c.status = 'processing' and c.total_amount > 0
+     );
+
+  return jsonb_build_object('defaulted', v_defaulted);
+end;
+$$;
+
+-- 15j. billing_settle_cycle(p_cycle, p_reference)
+drop function if exists public.billing_settle_cycle(bigint, text);
+create or replace function public.billing_settle_cycle(p_cycle bigint, p_reference text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_cycle public.billing_cycles%rowtype;
+  v_expiry timestamptz;
+begin
+  perform pg_advisory_xact_lock(hashtext('settle:' || p_cycle::text));
+
+  select * into v_cycle from public.billing_cycles where id = p_cycle for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
+  end if;
+  if v_cycle.status = 'paid' then
+    return jsonb_build_object('ok', true, 'dedupe', true);
+  end if;
+  if v_cycle.status not in ('processing', 'defaulted', 'open') then
+    return jsonb_build_object('ok', false, 'code', 'NOT_PAYABLE', 'status', v_cycle.status);
+  end if;
+
+  update public.billing_cycles
+     set status = 'paid',
+         payment_reference = coalesce(p_reference, payment_reference)
+   where id = p_cycle;
+
+  update public.profiles
+     set tier = 'payngo',
+         subscription_expires_at =
+           greatest(coalesce(subscription_expires_at, now()), now()) + interval '33 days'
+   where id = v_cycle.user_id
+   returning subscription_expires_at into v_expiry;
+
+  insert into public.billing_cycles (user_id, start_date, end_date, status)
+  select v_cycle.user_id, now(), v_expiry, 'open'
+   where not exists (select 1 from public.billing_cycles c
+                      where c.user_id = v_cycle.user_id and c.status = 'open');
+
+  insert into public.transactions (user_id, amount, points, type, status, reference, description)
+  values (v_cycle.user_id, -v_cycle.total_amount, 0, 'subscription', 'success', p_reference,
+          'Use n'' Pay usage bill #' || p_cycle);
+
+  return jsonb_build_object('ok', true, 'user_id', v_cycle.user_id,
+                            'total', v_cycle.total_amount,
+                            'subscription_expires_at', v_expiry);
 end;
 $$;
 
