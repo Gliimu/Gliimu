@@ -305,9 +305,23 @@ export default {
             </div>
           ` : doc.content ? `
             <div style="margin-top:10px;">
-              <div class="card-sub">Current content is inline text (${(doc.content || '').length} chars). Upload a file to replace it.</div>
+              <div class="card-sub" style="margin-bottom:8px;">Current content is inline text (${(doc.content || '').length} chars). Edit below or upload a file to replace it.</div>
+              <textarea id="doc-inline-editor" class="input" rows="12" style="font-family:monospace;font-size:13px;">${escapeHtml(doc.content)}</textarea>
+              <div style="display:flex;gap:8px;margin-top:8px;">
+                <button class="btn-primary btn-small" id="save-doc-btn">Save changes</button>
+                <span class="muted small" id="doc-save-status"></span>
+              </div>
             </div>
-          ` : '<div class="card-sub" style="margin-top:10px;">No document uploaded yet.</div>'}
+          ` : `
+            <div style="margin-top:10px;">
+              <div class="card-sub" style="margin-bottom:8px;">No document uploaded yet. Add inline HTML content below or upload a file.</div>
+              <textarea id="doc-inline-editor" class="input" rows="12" style="font-family:monospace;font-size:13px;" placeholder="<p>Paste HTML content here...</p>"></textarea>
+              <div style="display:flex;gap:8px;margin-top:8px;">
+                <button class="btn-primary btn-small" id="save-doc-btn">Save changes</button>
+                <span class="muted small" id="doc-save-status"></span>
+              </div>
+            </div>
+          `}
         </div>
       </div>
     ` : empty('No legal documents yet. Create the first one with + New.');
@@ -361,6 +375,21 @@ export default {
         if (status) status.textContent = '';
         await appAlert(err.message || 'Upload failed.');
       }
+    });
+
+    pane.querySelector('#save-doc-btn')?.addEventListener('click', async () => {
+      const textarea = pane.querySelector('#doc-inline-editor');
+      const status = pane.querySelector('#doc-save-status');
+      if (!textarea || !this.activeDoc) return;
+      if (status) status.textContent = 'Saving…';
+      const { error } = await supabase.from('legal_documents')
+        .update({ content: textarea.value, updated_at: new Date().toISOString() }).eq('id', this.activeDoc);
+      if (error) {
+        if (status) status.textContent = '';
+        return appAlert('Could not save: ' + error.message);
+      }
+      if (status) status.textContent = 'Saved.';
+      await this.load();
     });
 
     pane.querySelector('[data-delete-doc]')?.addEventListener('click', async () => {

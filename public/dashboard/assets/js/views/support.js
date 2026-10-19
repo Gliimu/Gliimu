@@ -126,6 +126,7 @@ const supportView = {
   template: `
     <div class="ping-layout chat-open">
       <div class="ping-main">
+        <div id="sup-terms-banner" style="display:none;"></div>
         <div class="ping-chat-header">
           <img src="/icons/gliimpa.png" alt="" class="ping-avatar">
           <div>
@@ -176,11 +177,13 @@ const supportView = {
       setMode: (mode) => this.setMode(mode),
       pickFile: () => document.getElementById('sup-file-input')?.click(),
       handleFile: (event) => this.handleFile(event),
-      toggleAudio: (id, url) => toggleAudio(id, url)
+      toggleAudio: (id, url) => toggleAudio(id, url),
+      dismissTermsBanner: () => this.dismissTermsBanner()
     };
 
     this.load();
     this.subscribe();
+    this.checkTermsUpdate();
   },
 
   destroy() {
@@ -240,6 +243,46 @@ const supportView = {
     const { data, error } = await supabase.rpc('gliimpa_paused', { p_thread_user: store.user.id });
     this.paused = !error && data === true;
     if (error) console.warn('Could not check the handover gate:', error.message);
+  },
+
+  async checkTermsUpdate() {
+    const { data, error } = await supabase.from('legal_documents')
+      .select('updated_at')
+      .eq('type', 'terms')
+      .single();
+    if (error || !data?.updated_at) return;
+
+    const lastSeen = localStorage.getItem('last_seen_terms_update');
+    const currentUpdate = new Date(data.updated_at).getTime();
+
+    if (!lastSeen || currentUpdate > new Date(lastSeen).getTime()) {
+      const banner = document.getElementById('sup-terms-banner');
+      if (banner) {
+        banner.style.display = 'block';
+        banner.innerHTML = `
+          <div style="background:var(--primary);color:white;padding:12px 16px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="flex:1;">
+              <strong>We've updated our Terms and Policy</strong>
+              <div style="font-size:13px;opacity:0.9;margin-top:4px;">Please review the changes to continue using Gliimu.</div>
+            </div>
+            <button onclick="supInstance.dismissTermsBanner()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;">Review now</button>
+          </div>
+        `;
+      }
+    }
+  },
+
+  async dismissTermsBanner() {
+    const { data } = await supabase.from('legal_documents').select('updated_at').eq('type', 'terms').single();
+    
+    if (data?.updated_at) {
+      localStorage.setItem('last_seen_terms_update', data.updated_at);
+    }
+    
+    const banner = document.getElementById('sup-terms-banner');
+    if (banner) banner.style.display = 'none';
+    
+    window.location.hash = '#/terms';
   },
 
   async loadStaffFor(ids) {
