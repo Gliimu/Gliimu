@@ -143,7 +143,7 @@ const updatesView = {
         this.schemaMissing = true;
         this.board = null;
       } else {
-        console.error('Failed to load Updates', error);
+        console.error('Failed to load XpLoRe', error);
       }
       this.render();
       return;
@@ -230,13 +230,13 @@ const updatesView = {
   },
 
   renderLoading() {
-    return `<div class="com-empty"><p>Loading Updates…</p></div>`;
+    return `<div class="com-empty"><p>Loading XpLoRe…</p></div>`;
   },
 
   renderMissing() {
     return `
       <div class="com-empty">
-        <h3>Updates are not set up yet</h3>
+        <h3>XpLoRe are not set up yet</h3>
         <p>Run <code>sql/community.sql</code> in the Supabase SQL Editor, then reload.</p>
       </div>
     `;
@@ -245,7 +245,7 @@ const updatesView = {
   renderError() {
     return `
       <div class="com-empty">
-        <h3>Could not load Updates</h3>
+        <h3>Could not load XpLoRe</h3>
         <p>Check your connection and reload.</p>
       </div>
     `;
@@ -274,7 +274,7 @@ const updatesView = {
     const f = this.filter;
     const head = `
       <header class="com-head">
-        <h1 class="com-h1">Updates</h1>
+        <h1 class="com-h1">XpLoRe</h1>
       </header>
     `;
 

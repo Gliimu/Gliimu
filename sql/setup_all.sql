@@ -186,19 +186,12 @@ create table if not exists public.contact_info (
 create table if not exists public.feed_submissions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  kind text not null check (kind in ('book','audiolite')),
+  type text not null check (type in ('book','audiolite')),
   title text not null,
   description text,
+  price integer,
   cover_url text,
   file_url text,
-  audio_url text,
-  author text,
-  language text,
-  pages integer,
-  duration_minutes integer,
-  publisher text,
-  isbn text,
-  tags text[],
   blocks jsonb,
   bundle_items jsonb,
   category text,
@@ -206,8 +199,7 @@ create table if not exists public.feed_submissions (
   reviewed_by uuid,
   reviewed_at timestamptz,
   review_note text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  created_at timestamptz not null default now()
 );
 create index if not exists idx_feed_submissions_user on public.feed_submissions(user_id);
 create index if not exists idx_feed_submissions_status on public.feed_submissions(status);
@@ -216,27 +208,20 @@ create index if not exists idx_feed_submissions_category on public.feed_submissi
 -- 4b. feed_items (was library_items)
 create table if not exists public.feed_items (
   id uuid primary key default gen_random_uuid(),
-  submission_id uuid references public.feed_submissions(id) on delete set null,
-  kind text not null check (kind in ('book','audiolite')),
+  type text not null check (type in ('book','audiolite')),
   title text not null,
   description text,
+  price integer,
   cover_url text,
-  file_url text,
-  audio_url text,
+  cover_color text,
+  sales integer,
   author text,
-  language text,
-  pages integer,
-  duration_minutes integer,
-  publisher text,
-  isbn text,
-  tags text[],
+  author_avatar text,
   owner_id uuid references auth.users(id) on delete set null,
   category text,
-  price_gp integer,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  created_at timestamptz not null default now()
 );
-create index if not exists idx_feed_items_kind on public.feed_items(kind);
+create index if not exists idx_feed_items_type on public.feed_items(type);
 create index if not exists idx_feed_items_owner on public.feed_items(owner_id);
 create index if not exists idx_feed_items_category on public.feed_items(category);
 
@@ -1225,13 +1210,15 @@ begin
      set status = p_status,
          reviewed_by = v_caller,
          reviewed_at = now(),
-         review_note = p_note,
-         updated_at = now()
+         review_note = p_note
    where id = p_id;
 
   if p_status = 'approved' then
-    insert into public.feed_items (submission_id, kind, title, description, cover_url, file_url, audio_url, author, language, pages, duration_minutes, publisher, isbn, tags, owner_id, category)
-    values (v_submission.id, v_submission.kind, v_submission.title, v_submission.description, v_submission.cover_url, v_submission.file_url, v_submission.audio_url, v_submission.author, v_submission.language, v_submission.pages, v_submission.duration_minutes, v_submission.publisher, v_submission.isbn, v_submission.tags, v_submission.user_id, v_submission.category)
+    insert into public.feed_items (type, title, description, price, cover_url, author, author_avatar, owner_id, category)
+    select v_submission.type, v_submission.title, v_submission.description, v_submission.price, v_submission.cover_url,
+           p.full_name, p.avatar_url, v_submission.user_id, v_submission.category
+    from public.profiles p
+    where p.id = v_submission.user_id
     returning id into v_item_id;
 
     if v_submission.blocks is not null or v_submission.bundle_items is not null then
@@ -1905,23 +1892,22 @@ $$;
 
 -- 23b. related_publications(p_item_id, p_limit)
 create or replace function public.related_publications(p_item_id uuid, p_limit integer default 5)
-returns table(id uuid, title text, cover_url text, kind text, author text)
+returns table(id uuid, title text, cover_url text, type text, author text)
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_tags text[];
   v_category text;
 begin
-  select tags, category into v_tags, v_category
+  select category into v_category
   from public.feed_items where id = p_item_id;
 
   return query
-  select fi.id, fi.title, fi.cover_url, fi.kind, fi.author
+  select fi.id, fi.title, fi.cover_url, fi.type, fi.author
   from public.feed_items fi
   where fi.id <> p_item_id
-    and (fi.category = v_category or fi.tags && v_tags)
+    and fi.category = v_category
   order by fi.created_at desc
   limit p_limit;
 end;
@@ -2182,6 +2168,144 @@ create trigger trg_enforce_live_subscription
   for each row execute function public.enforce_live_subscription();
 
 -- ============================================================
+-- 30b. LANDING HIGHLIGHTS — trending content + contest/cohort/top3
+-- ============================================================
+
+create or replace function public.landing_highlights()
+returns jsonb
+language plpgsql
+stable
+set search_path to 'public'
+as $$
+declare
+  v_contest       jsonb;
+  v_cohort        jsonb;
+  v_top3          jsonb;
+  v_trending_book jsonb;
+  v_trending_audio jsonb;
+  v_trending_bundle jsonb;
+begin
+  -- 1. Most recently started active contest
+  select jsonb_build_object(
+    'id', c.id,
+    'title', c.title,
+    'description', c.description,
+    'metric', c.metric,
+    'starts_at', c.starts_at,
+    'ends_at', c.ends_at,
+    'prize_text', c.prize_text,
+    'entries_count', coalesce(e.cnt, 0)
+  ) into v_contest
+  from public.contests c
+  left join (
+    select contest_id, count(*)::bigint as cnt
+    from public.contest_entries
+    group by contest_id
+  ) e on e.contest_id = c.id
+  where c.is_archived = false
+    and c.starts_at <= now()
+    and (c.ends_at is null or c.ends_at > now())
+  order by c.starts_at desc
+  limit 1;
+
+  -- 2. Latest created cohort (not archived)
+  select jsonb_build_object(
+    'id', co.id,
+    'title', co.title,
+    'description', co.description,
+    'seats', co.seats,
+    'seats_taken', coalesce(cr.cnt, 0),
+    'starts_at', co.starts_at
+  ) into v_cohort
+  from public.cohorts co
+  left join (
+    select cohort_id, count(*)::bigint as cnt
+    from public.cohort_requests
+    where status = 'approved'
+    group by cohort_id
+  ) cr on cr.cohort_id = co.id
+  where co.is_archived = false
+  order by co.created_at desc
+  limit 1;
+
+  -- 3. Top 3 all-time users by GP
+  select coalesce(jsonb_agg(r), '[]'::jsonb) into v_top3
+  from (
+    select jsonb_build_object(
+      'user_id', p.id,
+      'full_name', p.full_name,
+      'avatar_url', p.avatar_url,
+      'total_gp', p.total_gp
+    ) as r
+    from public.profiles p
+    where p.total_gp is not null and p.total_gp > 0
+    order by p.total_gp desc
+    limit 3
+  ) r;
+
+  -- 4. Trending book: approved book with most unique readers (all-time)
+  select jsonb_build_object(
+    'id', fi.id,
+    'title', fi.title,
+    'cover_url', fi.cover_url,
+    'author', fi.author,
+    'readers', coalesce(rp.cnt, 0)
+  ) into v_trending_book
+  from public.feed_items fi
+  left join (
+    select item_id, count(distinct user_id)::bigint as cnt
+    from public.reading_progress
+    group by item_id
+  ) rp on rp.item_id = fi.id
+  where fi.type = 'book'
+  order by coalesce(rp.cnt, 0) desc, fi.created_at desc
+  limit 1;
+
+  -- 5. Trending audiolite: approved audiolite with most unique listeners (all-time)
+  select jsonb_build_object(
+    'id', fi.id,
+    'title', fi.title,
+    'cover_url', fi.cover_url,
+    'author', fi.author,
+    'readers', coalesce(rp.cnt, 0)
+  ) into v_trending_audio
+  from public.feed_items fi
+  left join (
+    select item_id, count(distinct user_id)::bigint as cnt
+    from public.reading_progress
+    group by item_id
+  ) rp on rp.item_id = fi.id
+  where fi.type = 'audiolite'
+  order by coalesce(rp.cnt, 0) desc, fi.created_at desc
+  limit 1;
+
+  -- 6. Trending gliim: approved post with most views (all-time)
+  select jsonb_build_object(
+    'id', g.id,
+    'title', g.title,
+    'cover_url', g.cover_url,
+    'views', g.views
+  ) into v_trending_bundle
+  from public.feed_gliims g
+  where g.status = 'approved'
+  order by g.views desc
+  limit 1;
+
+  return jsonb_build_object(
+    'contest', v_contest,
+    'cohort', v_cohort,
+    'top3', v_top3,
+    'trending_book', v_trending_book,
+    'trending_audiolite', v_trending_audio,
+    'trending_bundle', v_trending_bundle
+  );
+end $$;
+
+grant execute on function public.landing_highlights() to anon;
+grant execute on function public.landing_highlights() to authenticated;
+grant execute on function public.landing_highlights() to service_role;
+
+-- ============================================================
 -- 31. RLS — ENABLE ON ALL TABLES
 -- ============================================================
 
@@ -2218,6 +2342,9 @@ grant select on public.contest_entries to anon, authenticated;
 grant select on public.cohorts         to anon, authenticated;
 grant select on public.cohort_requests to anon, authenticated;
 grant select on public.profiles        to anon;
+-- landing_highlights() trending queries need these too
+grant select on public.reading_progress to anon, authenticated;
+grant select on public.feed_gliims     to anon, authenticated;
 
 alter table public.live_requests enable row level security;
 alter table public.reading_progress enable row level security;

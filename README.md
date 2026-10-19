@@ -1,6 +1,6 @@
 # Gliimu Platform
 
-Full-stack media technology and business services platform enabling creators to publish, monetize, and distribute digital content (books, audiolites, bundles) with integrated billing, live sessions, and community features.
+**Home of ideas that inspire.** Gliimu is a publishing library focused on books and audiolites, with periodic contests, cohorts, and talks. Think Wattpad meets TEDx — a platform for sharing knowledge and ideas that inspire.
 
 ## Architecture
 
@@ -85,7 +85,7 @@ gliimu/
 │   │   │   │   │   ├── ping.js       # Messages + support
 │   │   │   │   │   ├── live.js       # Live sessions
 │   │   │   │   │   ├── wallet.js     # Billing + wallet
-│   │   │   │   │   ├── updates.js    # Arena (contests/leaderboards)
+│   │   │   │   │   ├── updates.js    # XpLoRe (trending/contests/cohorts)
 │   │   │   │   │   ├── support.js    # Support desk
 │   │   │   │   │   ├── profile.js    # User profile/portfolio
 │   │   │   │   │   ├── settings.js   # App settings
@@ -136,7 +136,7 @@ gliimu/
 
 **Core Tables (43 total)**
 
-**Feed System** (content publishing)
+**Feed System** (publishing library)
 - `feed_submissions` — book/audiolite submissions (CRM review)
 - `feed_items` — approved publications (books, audiolites)
 - `feed_gliims` — user posts/bundles (auto-approved)
@@ -156,10 +156,10 @@ gliimu/
 - `support_reads` — read tracking
 - `admin_chat` — staff room
 
-**Community**
+**Community** (periodic)
 - `contests` — leaderboard contests
 - `contest_entries` — contest participants
-- `cohorts` — user cohorts
+- `cohorts` — training cohorts (periodic)
 - `cohort_requests` — join requests
 
 **User System**
@@ -348,9 +348,9 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 ### Member Dashboard
 
 **Feed** (`#/feed`)
-- Interleaved grid of gliims (posts) and publications (books/audiolites)
+- Publishing library: books, audiolites, and bundles
 - CRM approval workflow for publications
-- Auto-approved gliims
+- Auto-approved gliims (social posts)
 - @mention support with deep links
 - Premium content gating (Pro tier or per-item purchase)
 
@@ -374,10 +374,11 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 - Paystack card payments
 - User-to-user transfers
 
-**Updates** (`#/updates`)
-- Arena with contests, cohorts, leaderboards
-- Per-filter leaderboards (GP/referrals/cohorts)
-- Contest tracking
+**XpLoRe** (`#/updates`)
+- Trending content: most-read book, audiolite, and most-viewed bundle
+- Active contests and cohorts
+- Top Gliimaits leaderboard
+- Four pillars: Talks (TEDx-style), Publications (Wattpad-style), Contests (GoodNovel-style), Cohorts (Andela-style)
 
 **Support** (`#/support`)
 - Member ↔ staff support threads
@@ -445,9 +446,11 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 
 ## Content Reader
 
-**Supported Formats:**
+**Primary formats (publishing library):**
 - Books: EPUB, DOCX (rendered client-side)
 - Audiolites: MP3/M4A (sequential playback)
+
+**Bundle format:**
 - Bundles: mixed (books + audiolites + PDFs)
 
 **Features:**
@@ -514,7 +517,7 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 The dashboard uses ES modules with `?v=` query params for cache busting:
 
 ```
-index.html → app.js?v=31 → router.js?v=30 → feed.js?v=35 → reader.js?v=30
+index.html → app.js?v=33 → router.js?v=30 → feed.js?v=35 → reader.js?v=30
 ```
 
 **When editing JS/CSS:**
@@ -523,9 +526,9 @@ index.html → app.js?v=31 → router.js?v=30 → feed.js?v=35 → reader.js?v=3
 3. Continue up the chain to `index.html`
 4. Hard-refresh browser (Ctrl+Shift+R)
 
-Current chain: **v=31** (index.html) → **v=30** (app.js) → **v=30** (router.js) → **v=35** (feed.js) → **v=30** (reader.js)
+Current chain: **v=33** (index.html) → **v=33** (app.js) → **v=30** (router.js) → **v=35** (feed.js) → **v=30** (reader.js)
 
-Admin chain: **v=13**
+Admin chain: **v=11**
 
 ## SQL Script Organization
 
@@ -541,6 +544,8 @@ Admin chain: **v=13**
 - `operations.sql` — landing/settings RPCs
 - `admin.sql` — admin users + roles
 - `registrar.sql` — finance RPCs
+- `landing_trending.sql` — trending content (extends landing_highlights RPC)
+- `faq_display_order.sql` — drag-to-reorder FAQs
 
 **Migration scripts:**
 - `rename_tables.sql` — library_* → feed_* rename (already applied)

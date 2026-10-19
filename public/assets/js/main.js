@@ -295,13 +295,25 @@ async function loadHubHighlights() {
   const contest = data.contest;
   const cohort = data.cohort;
   const top3 = Array.isArray(data.top3) ? data.top3 : [];
+  const tBook = data.trending_book;
+  const tAudio = data.trending_audiolite;
+  const tBundle = data.trending_bundle;
   let cards = '';
+  let delay = 0.05;
+  const step = 0.05;
 
-  // Card 1: Active contest
+  // Trending book
+  cards += trendingCard('Book', tBook, delay); delay += step;
+  // Trending audiolite
+  cards += trendingCard('Audiolite', tAudio, delay); delay += step;
+  // Trending bundle/gliim
+  cards += trendingCard('Gliim', tBundle, delay); delay += step;
+
+  // Active contest
   if (contest) {
     const metric = (contest.metric || '').replace(/_/g, ' ');
     cards += `
-      <div class="hub-card reveal" style="transition-delay: 0.1s;">
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
         <div class="hub-card-meta">
           <span class="hub-card-author">Live Contest</span>
         </div>
@@ -317,18 +329,19 @@ async function loadHubHighlights() {
     `;
   } else {
     cards += `
-      <div class="hub-card reveal" style="transition-delay: 0.1s;">
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
         <div class="hub-card-meta"><span class="hub-card-author">Live Contest</span></div>
         <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No active contest right now.</p>
       </div>
     `;
   }
+  delay += step;
 
-  // Card 2: Latest cohort
+  // Latest cohort
   if (cohort) {
     const pct = cohort.seats ? Math.round((cohort.seats_taken / cohort.seats) * 100) : 0;
     cards += `
-      <div class="hub-card reveal" style="transition-delay: 0.2s;">
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
         <div class="hub-card-meta">
           <span class="hub-card-author">Cohort</span>
         </div>
@@ -348,14 +361,15 @@ async function loadHubHighlights() {
     `;
   } else {
     cards += `
-      <div class="hub-card reveal" style="transition-delay: 0.2s;">
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
         <div class="hub-card-meta"><span class="hub-card-author">Cohort</span></div>
         <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No cohort available.</p>
       </div>
     `;
   }
+  delay += step;
 
-  // Card 3: Top 3 all-time by GP
+  // Top 3 all-time by GP
   if (top3.length) {
     const rows = top3.map((u, i) => {
       const avatar = safeUrl(u.avatar_url);
@@ -373,7 +387,7 @@ async function loadHubHighlights() {
     }).join('');
 
     cards += `
-      <div class="hub-card reveal" style="transition-delay: 0.3s;">
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
         <div class="hub-card-meta">
           <span class="hub-card-author">Top Gliimait</span>
         </div>
@@ -382,7 +396,7 @@ async function loadHubHighlights() {
     `;
   } else {
     cards += `
-      <div class="hub-card reveal" style="transition-delay: 0.3s;">
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
         <div class="hub-card-meta"><span class="hub-card-author">Top Gliimait</span></div>
         <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">No GP earned yet.</p>
       </div>
@@ -391,6 +405,30 @@ async function loadHubHighlights() {
 
   grid.innerHTML = cards;
   initScrollReveal();
+}
+
+function trendingCard(label, item, delay) {
+  if (!item || !item.title) {
+    return `
+      <div class="hub-card reveal" style="transition-delay: ${delay}s;">
+        <div class="hub-card-meta"><span class="hub-card-author">Trending ${escapeHtml(label)}</span></div>
+        <p style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;">Nothing trending yet.</p>
+      </div>`;
+  }
+  const cover = safeUrl(item.cover_url);
+  const readers = item.readers != null ? `${item.readers} readers today` : '';
+  const views = item.views != null ? `${Number(item.views).toLocaleString()} views` : '';
+  const stat = readers || views;
+  return `
+    <div class="hub-card reveal" style="transition-delay: ${delay}s;">
+      <div class="hub-card-meta"><span class="hub-card-author">Trending ${escapeHtml(label)}</span></div>
+      ${cover
+        ? `<img class="lh-cover" src="${cover}" alt="">`
+        : `<div class="lh-cover-empty"></div>`}
+      <h3 style="font-size:16px; font-weight:700; margin:0 0 4px;">${escapeHtml(item.title)}</h3>
+      ${item.author ? `<p style="font-size:13px; color:var(--text-muted); margin:0 0 8px;">${escapeHtml(item.author)}</p>` : ''}
+      ${stat ? `<span class="lh-tag">${escapeHtml(stat)}</span>` : ''}
+    </div>`;
 }
 
 // ============================================
