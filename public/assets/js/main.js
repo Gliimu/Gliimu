@@ -309,7 +309,7 @@ async function loadHubHighlights() {
   }).join('');
 
   container.innerHTML = `
-    <a class="xplore-card xplore-card-audio" href="#" data-xplore="audiolite">
+    <a class="xplore-card xplore-card-audio" href="#" data-xplore="audiolite" ${audio?.id ? `data-item-id="${audio.id}"` : ''}>
       <div class="xplore-card-cover">
         ${audioCover
           ? `<img src="${audioCover}" alt="">`
@@ -321,7 +321,7 @@ async function loadHubHighlights() {
       <h3>Audiolites</h3>
       <p>Creating spark in minds through spoken words</p>
     </a>
-    <a class="xplore-card xplore-card-book" href="#" data-xplore="book">
+    <a class="xplore-card xplore-card-book" href="#" data-xplore="book" ${book?.id ? `data-item-id="${book.id}"` : ''}>
       <div class="xplore-card-cover">
         ${bookCover
           ? `<img src="${bookCover}" alt="">`
@@ -345,7 +345,15 @@ async function loadHubHighlights() {
         window.location.href = '/auth.html';
         return;
       }
-      window.location.href = '/dashboard/';
+      const type = el.dataset.xplore;
+      const itemId = el.dataset.itemId;
+      if (type === 'events') {
+        window.location.href = '/dashboard/#/xplore';
+      } else if (itemId) {
+        window.location.href = `/dashboard/#/feed?open=${itemId}`;
+      } else {
+        window.location.href = '/dashboard/#/feed';
+      }
     });
   });
 }
