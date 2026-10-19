@@ -8,7 +8,7 @@ import hubView from './feed-gliims.js?v=35';
 // Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
 function typeLabel(type) {
-  if (type === 'publication') return 'Book';
+  if (type === 'book') return 'Book';
   if (type === 'audiolite') return 'Audiolite';
   return type || 'Item';
 }
@@ -134,9 +134,7 @@ export default {
     fab.addEventListener('click', () => this.openKindChooser());
   },
 
-  // Step 1 of publishing: pick the kind. Bundle delegates to the hub gliim
-  // composer (posts + CRM); Book and Audiolite write feed_submissions and
-  // are approved by CRM into feed_items + feed_contents.
+  // Step 1 of publishing: pick the kind. All three publish instantly.
   openKindChooser() {
     document.querySelector('.modal-overlay')?.remove();
     const modal = document.createElement('div');
@@ -145,7 +143,7 @@ export default {
       <div class="modal-content kind-chooser">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
         <h2 style="margin-bottom: 4px;">Publish to the Feed</h2>
-        <p class="text-muted" style="margin-bottom: 20px;">Choose what you're uploading. Books and audiolites are reviewed by the team before they go live. Bundles appear instantly.</p>
+        <p class="text-muted" style="margin-bottom: 20px;">Choose what you're uploading. Everything publishes instantly to the Feed.</p>
         <div class="kind-options">
           <button type="button" class="kind-option" id="kind-bundle">
             <span class="kind-ico">${KIND_ICONS.bundle}</span>
@@ -223,7 +221,7 @@ export default {
     modal.innerHTML = `
       <div class="modal-content lib-submission-form">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
-        <h2 style="margin-bottom: 4px;">Submit a Book</h2>
+        <h2 style="margin-bottom: 4px;">Publish a Book</h2>
         <p class="text-muted" style="margin-bottom: 20px;">Only the cover shows on the shelf. Upload one EPUB or DOCX — readers open it in-page.</p>
         ${this.submissionHeadFields('book')}
         ${this.coverUploadField()}
@@ -237,7 +235,7 @@ export default {
           <div class="upload-status" id="sub-doc-status" style="font-size: 12px; margin-top: 8px;"></div>
           <input type="hidden" id="sub-doc-url">
         </div>
-        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Submit for review</button>
+        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Publish Book</button>
       </div>`;
     document.body.appendChild(modal);
 
@@ -267,25 +265,40 @@ export default {
       if (!fileUrl) return appAlert('Upload the EPUB or DOCX document.');
 
       const btn = document.getElementById('sub-submit');
-      btn.disabled = true; btn.textContent = 'Submitting...';
-      const { error } = await supabase.from('feed_submissions').insert({
-        user_id: store.user.id,
+      btn.disabled = true; btn.textContent = 'Publishing...';
+
+      const { data: itemRow, error: itemError } = await supabase.from('feed_items').insert({
+        type: 'book',
         title,
-        type: 'publication',
         description: document.getElementById('sub-description').value.trim(),
         price: Math.max(0, parseInt(document.getElementById('sub-price').value, 10) || 0),
         category: document.getElementById('sub-category').value,
         cover_url: modal.dataset.coverUrl || null,
-        file_url: fileUrl,
-        blocks: [],
-        bundle_items: []
-      });
-      if (error) {
-        btn.disabled = false; btn.textContent = 'Submit for review';
-        return appAlert('Submission failed: ' + error.message);
+        author: store.profile.full_name || null,
+        author_avatar: store.profile.avatar_url || null,
+        owner_id: store.user.id
+      }).select('id').single();
+
+      if (itemError) {
+        btn.disabled = false; btn.textContent = 'Publish Book';
+        return appAlert('Publish failed: ' + itemError.message);
       }
+
+      const { error: contentError } = await supabase.from('feed_contents').insert({
+        item_id: itemRow.id,
+        blocks: [],
+        files: [{ url: fileUrl, title }]
+      });
+
+      if (contentError) {
+        await supabase.from('feed_items').delete().eq('id', itemRow.id);
+        btn.disabled = false; btn.textContent = 'Publish Book';
+        return appAlert('Publish failed: ' + contentError.message);
+      }
+
       modal.remove();
-      appAlert('Your book was submitted for review. It appears on the shelf once the Gliimu team approves it.');
+      this.loadShelf();
+      appAlert('Your book is now live on the Feed.');
     });
   },
 
@@ -296,7 +309,7 @@ export default {
     modal.innerHTML = `
       <div class="modal-content lib-submission-form">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
-        <h2 style="margin-bottom: 4px;">Submit an Audiolite</h2>
+        <h2 style="margin-bottom: 4px;">Publish an Audiolite</h2>
         <p class="text-muted" style="margin-bottom: 20px;">Add one audio file per chapter. They play in order, one after another.</p>
         ${this.submissionHeadFields('audiolite')}
         ${this.coverUploadField()}
@@ -305,7 +318,7 @@ export default {
           <div id="sub-chapters" style="display: flex; flex-direction: column; gap: 12px;"></div>
           <button type="button" class="btn-secondary" id="sub-add-chapter" style="margin-top: 12px;">+ Add chapter</button>
         </div>
-        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Submit for review</button>
+        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Publish Audiolite</button>
       </div>`;
     document.body.appendChild(modal);
 
@@ -359,34 +372,50 @@ export default {
       const title = document.getElementById('sub-title').value.trim();
       if (!title) return appAlert('Give your audiolite a title.');
 
-      const bundleItems = [];
+      const chapters = [];
       chaptersEl.querySelectorAll('.chapter-row').forEach((row, i) => {
         const url = row.querySelector('.chapter-url').value;
         if (!url) return;
         const chapterTitle = row.querySelector('.chapter-title').value.trim() || `Chapter ${i + 1}`;
-        bundleItems.push({ title: chapterTitle, url });
+        chapters.push({ title: chapterTitle, url });
       });
-      if (!bundleItems.length) return appAlert('Upload at least one audio chapter.');
+      if (!chapters.length) return appAlert('Upload at least one audio chapter.');
 
       const btn = document.getElementById('sub-submit');
-      btn.disabled = true; btn.textContent = 'Submitting...';
-      const { error } = await supabase.from('feed_submissions').insert({
-        user_id: store.user.id,
-        title,
+      btn.disabled = true; btn.textContent = 'Publishing...';
+
+      const { data: itemRow, error: itemError } = await supabase.from('feed_items').insert({
         type: 'audiolite',
+        title,
         description: document.getElementById('sub-description').value.trim(),
         price: Math.max(0, parseInt(document.getElementById('sub-price').value, 10) || 0),
         category: document.getElementById('sub-category').value,
         cover_url: modal.dataset.coverUrl || null,
-        bundle_items: bundleItems,
-        blocks: []
-      });
-      if (error) {
-        btn.disabled = false; btn.textContent = 'Submit for review';
-        return appAlert('Submission failed: ' + error.message);
+        author: store.profile.full_name || null,
+        author_avatar: store.profile.avatar_url || null,
+        owner_id: store.user.id
+      }).select('id').single();
+
+      if (itemError) {
+        btn.disabled = false; btn.textContent = 'Publish Audiolite';
+        return appAlert('Publish failed: ' + itemError.message);
       }
+
+      const { error: contentError } = await supabase.from('feed_contents').insert({
+        item_id: itemRow.id,
+        blocks: [],
+        files: chapters
+      });
+
+      if (contentError) {
+        await supabase.from('feed_items').delete().eq('id', itemRow.id);
+        btn.disabled = false; btn.textContent = 'Publish Audiolite';
+        return appAlert('Publish failed: ' + contentError.message);
+      }
+
       modal.remove();
-      appAlert('Your audiolite was submitted for review. It appears on the shelf once the Gliimu team approves it.');
+      this.loadShelf();
+      appAlert('Your audiolite is now live on the Feed.');
     });
   },
 

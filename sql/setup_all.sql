@@ -251,8 +251,11 @@ create index if not exists idx_feed_gliims_created on public.feed_gliims(created
 -- 4d. feed_gliim_contents (was post_contents)
 create table if not exists public.feed_gliim_contents (
   post_id uuid primary key references public.feed_gliims(id) on delete cascade,
-  blocks jsonb
+  blocks jsonb not null default '[]'::jsonb
 );
+alter table public.feed_gliim_contents enable row level security;
+revoke all on public.feed_gliim_contents from anon;
+grant select, insert, update, delete on public.feed_gliim_contents to authenticated;
 
 -- 4e. feed_contents (was library_contents)
 create table if not exists public.feed_contents (
@@ -1350,6 +1353,8 @@ end;
 $$;
 
 -- 17b. contest_leaderboard(p_contest_id, p_limit)
+drop function if exists public.contest_leaderboard(uuid, integer) cascade;
+drop function if exists public.contest_leaderboard(uuid) cascade;
 create or replace function public.contest_leaderboard(p_contest_id uuid, p_limit integer default 50)
 returns table(rank bigint, user_id uuid, score numeric)
 language plpgsql
@@ -1383,6 +1388,7 @@ end;
 $$;
 
 -- 17d. contest_join(p_contest_id)
+drop function if exists public.contest_join(uuid) cascade;
 create or replace function public.contest_join(p_contest_id uuid)
 returns void
 language plpgsql
@@ -1397,6 +1403,7 @@ end;
 $$;
 
 -- 17e. cohort_request(p_cohort_id)
+drop function if exists public.cohort_request(uuid) cascade;
 create or replace function public.cohort_request(p_cohort_id uuid)
 returns void
 language plpgsql
@@ -1499,6 +1506,7 @@ end;
 $$;
 
 -- 18d. admin_revoke_role(p_user_id)
+drop function if exists public.admin_revoke_role(uuid) cascade;
 create or replace function public.admin_revoke_role(p_user_id uuid)
 returns void
 language plpgsql
@@ -2552,6 +2560,8 @@ grant select on public.profiles        to anon;
 -- landing_highlights() trending queries need these too
 grant select on public.reading_progress to anon, authenticated;
 grant select on public.feed_gliims     to anon, authenticated;
+grant select, insert, update, delete on public.feed_items     to authenticated;
+grant select, insert, update, delete on public.feed_contents  to authenticated;
 
 alter table public.live_requests enable row level security;
 alter table public.reading_progress enable row level security;
@@ -2649,6 +2659,10 @@ create policy feed_submissions_admin on public.feed_submissions for all to authe
 drop policy if exists feed_items_read on public.feed_items;
 create policy feed_items_read on public.feed_items for select to authenticated
   using (true);
+
+drop policy if exists feed_items_insert_own on public.feed_items;
+create policy feed_items_insert_own on public.feed_items for insert to authenticated
+  with check (owner_id = auth.uid());
 
 drop policy if exists feed_items_admin on public.feed_items;
 create policy feed_items_admin on public.feed_items for all to authenticated
