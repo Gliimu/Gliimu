@@ -434,17 +434,10 @@ section:not(.hero-video-section):not(.contact-faq-section) { position: relative;
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
-  background: var(--bg-primary);
+  background: url('/pictures/404.png') center center / cover no-repeat;
 }
 .error-container {
   text-align: center;
-  max-width: 500px;
-}
-.error-image {
-  width: 100%;
-  max-width: 320px;
-  height: auto;
-  margin: 0 auto var(--space-8);
 }
 .error-page .btn-primary {
   display: inline-flex;
