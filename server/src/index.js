@@ -885,29 +885,29 @@ app.post('/api/r2-sweep', async (req, res) => {
     const referencedUrls = new Set();
 
     // feed_items: cover_url
-    const { data: feedItems } = await supabaseAdmin.from('feed_items').select('cover_url, file_url');
+    const { data: feedItems } = await supabaseAdmin.from('feed_items').select('cover_url');
     feedItems?.forEach(item => {
       if (item.cover_url) referencedUrls.add(item.cover_url);
-      if (item.file_url) referencedUrls.add(item.file_url);
     });
 
     // feed_contents: blocks and files (JSON with URLs)
     const { data: feedContents } = await supabaseAdmin.from('feed_contents').select('blocks, files');
     feedContents?.forEach(fc => {
-      if (fc.blocks) collectUrlsFromBlocks(fc.blocks, referencedUrls);
-      if (fc.files) collectUrlsFromFiles(fc.files, referencedUrls);
+      if (fc.blocks) collectUrlsFromBlocks(fc.blocks).forEach(u => referencedUrls.add(u));
+      if (fc.files) collectUrlsFromFiles(fc.files).forEach(u => referencedUrls.add(u));
     });
 
-    // feed_gliims: cover_url
-    const { data: feedGliims } = await supabaseAdmin.from('feed_gliims').select('cover_url');
+    // feed_gliims: cover_url, media_url
+    const { data: feedGliims } = await supabaseAdmin.from('feed_gliims').select('cover_url, media_url');
     feedGliims?.forEach(g => {
       if (g.cover_url) referencedUrls.add(g.cover_url);
+      if (g.media_url) referencedUrls.add(g.media_url);
     });
 
-    // feed_gliim_contents: body (JSON with URLs)
-    const { data: gliimContents } = await supabaseAdmin.from('feed_gliim_contents').select('body');
+    // feed_gliim_contents: blocks (JSON with URLs)
+    const { data: gliimContents } = await supabaseAdmin.from('feed_gliim_contents').select('blocks');
     gliimContents?.forEach(gc => {
-      if (gc.body) collectUrlsFromBlocks(gc.body, referencedUrls);
+      if (gc.blocks) collectUrlsFromBlocks(gc.blocks).forEach(u => referencedUrls.add(u));
     });
 
     // profiles: avatar_url, portfolio_image_url
@@ -919,7 +919,7 @@ app.post('/api/r2-sweep', async (req, res) => {
 
     // site_settings: various URL columns
     const { data: settings } = await supabaseAdmin.from('site_settings').select(`
-      hero_video_url, hero_fallback_image_url, squad_bg_url,
+      hero_video_url, hero_fallback_image_url, squad_bg_url, earnings_image_url,
       app_download_bg_url, app_windows_url, app_mac_url, app_linux_url,
       app_android_url, app_ios_url, app_mobile_qr_url
     `);
