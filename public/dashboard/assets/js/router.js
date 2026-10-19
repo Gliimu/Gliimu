@@ -1,7 +1,7 @@
 const routes = {
   '/support': () => import('./views/support.js?v=30').then(m => m.default),
   '/feed': () => import('./views/feed.js?v=35').then(m => m.default),
-  '/updates': () => import('./views/updates.js?v=35').then(m => m.default),
+  '/xplore': () => import('./views/updates.js?v=35').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=36').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=30').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
