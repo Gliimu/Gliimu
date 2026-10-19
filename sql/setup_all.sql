@@ -585,6 +585,7 @@ end;
 $$;
 
 -- 14d. top_uploader() — uses feed_gliims, feed_submissions
+drop function if exists public.top_uploader();
 create or replace function public.top_uploader()
 returns table(user_id uuid, post_count bigint, submission_count bigint, total bigint)
 language plpgsql

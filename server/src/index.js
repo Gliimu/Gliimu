@@ -842,6 +842,144 @@ app.delete('/api/content/:id', async (req, res) => {
   }
 });
 
+// R2 ORPHAN SWEEP — Find and delete files in R2 with no DB references
+// POST /api/r2-sweep  { dryRun: true }  — list orphans without deleting
+// POST /api/r2-sweep  { dryRun: false } — delete orphans
+app.post('/api/r2-sweep', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+    const callerId = authData.user.id;
+
+    const { data: isSuper } = await supabaseAdmin.rpc('admin_has_role', {
+      p_user: callerId, p_role: 'super'
+    });
+    if (!isSuper) return res.status(403).json({ error: 'Super admin only.' });
+
+    if (!r2Ready()) return res.json({ error: 'R2_NOT_CONFIGURED' });
+
+    const dryRun = req.body.dryRun !== false;
+    const { ListObjectsV2Command } = require('@aws-sdk/client-s3');
+    const s3 = r2S3();
+
+    // 1. List all R2 objects
+    let allR2Keys = [];
+    let continuationToken;
+    do {
+      const cmd = { Bucket: R2.bucket };
+      if (continuationToken) cmd.ContinuationToken = continuationToken;
+      const result = await s3.send(new ListObjectsV2Command(cmd));
+      if (result.Contents) {
+        allR2Keys.push(...result.Contents.map(obj => obj.Key));
+      }
+      continuationToken = result.IsTruncated ? result.NextContinuationToken : null;
+    } while (continuationToken);
+
+    // 2. Collect all referenced URLs from DB
+    const referencedUrls = new Set();
+
+    // feed_items: cover_url
+    const { data: feedItems } = await supabaseAdmin.from('feed_items').select('cover_url, file_url');
+    feedItems?.forEach(item => {
+      if (item.cover_url) referencedUrls.add(item.cover_url);
+      if (item.file_url) referencedUrls.add(item.file_url);
+    });
+
+    // feed_contents: blocks and files (JSON with URLs)
+    const { data: feedContents } = await supabaseAdmin.from('feed_contents').select('blocks, files');
+    feedContents?.forEach(fc => {
+      if (fc.blocks) collectUrlsFromBlocks(fc.blocks, referencedUrls);
+      if (fc.files) collectUrlsFromFiles(fc.files, referencedUrls);
+    });
+
+    // feed_gliims: cover_url
+    const { data: feedGliims } = await supabaseAdmin.from('feed_gliims').select('cover_url');
+    feedGliims?.forEach(g => {
+      if (g.cover_url) referencedUrls.add(g.cover_url);
+    });
+
+    // feed_gliim_contents: body (JSON with URLs)
+    const { data: gliimContents } = await supabaseAdmin.from('feed_gliim_contents').select('body');
+    gliimContents?.forEach(gc => {
+      if (gc.body) collectUrlsFromBlocks(gc.body, referencedUrls);
+    });
+
+    // profiles: avatar_url, portfolio_image_url
+    const { data: profiles } = await supabaseAdmin.from('profiles').select('avatar_url, portfolio_image_url');
+    profiles?.forEach(p => {
+      if (p.avatar_url) referencedUrls.add(p.avatar_url);
+      if (p.portfolio_image_url) referencedUrls.add(p.portfolio_image_url);
+    });
+
+    // site_settings: various URL columns
+    const { data: settings } = await supabaseAdmin.from('site_settings').select(`
+      hero_video_url, hero_fallback_image_url, squad_bg_url,
+      app_download_bg_url, app_windows_url, app_mac_url, app_linux_url,
+      app_android_url, app_ios_url, app_mobile_qr_url
+    `);
+    settings?.forEach(s => {
+      Object.values(s).forEach(val => {
+        if (val && typeof val === 'string' && val.startsWith(R2.publicBase)) {
+          referencedUrls.add(val);
+        }
+      });
+    });
+
+    // partners: logo_url
+    const { data: partners } = await supabaseAdmin.from('partners').select('logo_url');
+    partners?.forEach(p => {
+      if (p.logo_url) referencedUrls.add(p.logo_url);
+    });
+
+    // feed_submissions: cover_url, file_url
+    const { data: submissions } = await supabaseAdmin.from('feed_submissions').select('cover_url, file_url');
+    submissions?.forEach(s => {
+      if (s.cover_url) referencedUrls.add(s.cover_url);
+      if (s.file_url) referencedUrls.add(s.file_url);
+    });
+
+    // 3. Convert referenced URLs to R2 keys
+    const referencedKeys = new Set();
+    referencedUrls.forEach(url => {
+      if (url && url.startsWith(R2.publicBase)) {
+        const key = url.substring(R2.publicBase.length + 1);
+        referencedKeys.add(key);
+      }
+    });
+
+    // 4. Find orphans
+    const orphans = allR2Keys.filter(key => !referencedKeys.has(key));
+
+    // 5. Delete if not dry run
+    let deleted = 0, failed = 0;
+    if (!dryRun && orphans.length > 0) {
+      const result = await deleteR2Objects(orphans);
+      deleted = result.deleted;
+      failed = result.failed;
+    }
+
+    res.json({
+      ok: true,
+      dryRun,
+      totalR2Files: allR2Keys.length,
+      referencedFiles: referencedKeys.size,
+      orphans: orphans.length,
+      deleted,
+      failed,
+      orphanKeys: dryRun ? orphans : undefined
+    });
+  } catch (error) {
+    console.error('R2 sweep error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`Gliimu Server running on port ${PORT}`);

@@ -11,7 +11,7 @@ const STAFF = 'crm operations registrar captain super';
 
 const routes = {
   '/dashboard': { role: 'crm', title: 'Dashboard', load: () => import('./views/dashboard.js?v=1').then(m => m.default) },
-  '/submissions': { role: 'crm', title: 'Submissions', load: () => import('./views/submissions.js?v=14').then(m => m.default) },
+  '/submissions': { role: 'crm', title: 'Submissions', load: () => import('./views/submissions.js?v=15').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js?v=1').then(m => m.default) },
   '/crm-members': { role: 'crm', title: 'Members', load: () => import('./views/crm.js?v=14').then(m => m.default) },

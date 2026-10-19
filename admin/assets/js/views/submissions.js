@@ -312,7 +312,7 @@ export default {
 
   async review(id, action, note, close) {
     const { data, error } = await supabase.rpc('admin_review_submission', {
-      p_submission: id, p_action: action, p_note: note || null
+      p_id: id, p_status: action, p_note: note || null
     });
 
     if (error) return appAlert(rpcError({ code: error.code, detail: error.message }, 'Review failed: ' + error.message));
