@@ -164,6 +164,9 @@ section:not(.hero-video-section) { position: relative; z-index: 1; }
 
 /* Hub Highlights */
 .hub-highlights-section { background: rgba(248, 250, 252, 0.9); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 104px 0; }
+@media (min-width: 1440px) {
+  .hub-highlights-section { padding: 115px 0; }
+}
 
 [data-theme="dark"] .hub-highlights-section {
   background: rgba(17, 24, 39, 0.9);
@@ -199,10 +202,11 @@ section:not(.hero-video-section) { position: relative; z-index: 1; }
 }
 
 /* XpLoRe pillar cards */
-.xplore-pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 220px)); gap: var(--space-6); margin-top: 48px; justify-content: center; }
+.xplore-pillars { display: grid; grid-template-columns: repeat(3, 220px); gap: var(--space-6); margin-top: 48px; justify-content: center; }
 .xplore-card { text-align: center; text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s; }
 .xplore-card:hover { transform: translateY(-4px); }
 .xplore-card-cover { width: 120px; height: 120px; margin: 0 auto var(--space-4); position: relative; border-radius: var(--radius-md); overflow: hidden; }
+.xplore-card-book .xplore-card-cover { height: 160px; }
 .xplore-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .xplore-card-cover-empty { width: 100%; height: 100%; background: var(--gradient-primary); opacity: 0.15; }
 .xplore-play-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); }
@@ -383,7 +387,7 @@ section:not(.hero-video-section) { position: relative; z-index: 1; }
 /* Partners empty state */
 .partners-empty { text-align: center; color: var(--text-muted); font-size: var(--fs-sm); margin: 40px 0; }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
   .download-section { padding: 72px 0; }
   .download-panel-body { padding: 40px 20px; gap: 24px; }
   .download-desktop { display: none; }

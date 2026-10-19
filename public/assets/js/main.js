@@ -227,7 +227,9 @@ function applyDownloadSection(settings) {
     || safeUrl(settings.app_android_url)
     || safeUrl(settings.app_ios_url);
   if (!qrWrap || !qrTarget) return;
-  if (!window.matchMedia('(min-width: 769px)').matches) return;
+  const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  const isWideScreen = window.matchMedia('(min-width: 769px)').matches;
+  if (!isWideScreen || isTouchDevice) return;
 
   qrWrap.style.display = 'flex';
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(qrTarget)}`;
