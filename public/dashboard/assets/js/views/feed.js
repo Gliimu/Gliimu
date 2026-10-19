@@ -1003,7 +1003,11 @@ export default {
     const password = await appPrompt(`To permanently delete this ${label.toLowerCase()}, please enter your password:`, { inputType: 'password', okText: 'Delete', danger: true });
     if (!password) return;
 
-    const { data, error } = await supabase.rpc('user_delete_feed_item', { p_item_id: itemId, p_password: password });
+    const fakeEmail = `${store.profile.username}@gliimu.app`;
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+    if (signInError) return alert('Incorrect password. Deletion cancelled.');
+
+    const { data, error } = await supabase.rpc('user_delete_feed_item', { p_item_id: itemId });
     if (error) return alert('Delete failed: ' + error.message);
     if (data && data.error) return alert('Delete failed: ' + data.error);
 

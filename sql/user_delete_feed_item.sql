@@ -1,10 +1,9 @@
 -- Owner-initiated delete for feed_items (books / audiolites).
--- Cleans up related rows that lack ON DELETE CASCADE, then removes the item.
--- Password-gated, matching the existing admin_delete_feed_item pattern.
+-- Password is verified client-side via signInWithPassword (same pattern as
+-- gliim delete). This RPC only checks ownership and cleans up related rows.
 
 create or replace function public.user_delete_feed_item(
-  p_item_id uuid,
-  p_password text
+  p_item_id uuid
 )
 returns jsonb
 language plpgsql
@@ -27,14 +26,6 @@ begin
     raise exception 'NOT_OWNER';
   end if;
 
-  if not exists (
-    select 1 from auth.users u
-    where u.id = v_caller
-      and u.encrypted_password = crypt(p_password, u.encrypted_password)
-  ) then
-    raise exception 'INVALID_PASSWORD';
-  end if;
-
   delete from public.saved_items where item_id = p_item_id;
   delete from public.purchases where item_id = p_item_id;
   delete from public.billing_events where event_type in ('premium_unlock','library_unlock') and item_id = p_item_id::text;
@@ -49,12 +40,12 @@ exception
 end;
 $$;
 
-grant execute on function public.user_delete_feed_item(uuid, text) to authenticated;
+grant execute on function public.user_delete_feed_item(uuid) to authenticated;
 
 -- SELF CHECK
 select '01. user_delete_feed_item exists' as check_item,
        case when exists (select 1 from pg_proc where proname = 'user_delete_feed_item') then 'OK' else 'MISSING' end as result
 union all
 select '02. grant to authenticated',
-       case when has_function_privilege('authenticated', 'public.user_delete_feed_item(uuid, text)', 'execute') then 'OK' else 'MISSING' end
+       case when has_function_privilege('authenticated', 'public.user_delete_feed_item(uuid)', 'execute') then 'OK' else 'MISSING' end
 order by 1;

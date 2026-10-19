@@ -266,15 +266,14 @@ create table if not exists public.feed_interactions (
   id bigserial primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   post_id uuid not null references public.feed_gliims(id) on delete cascade,
-  kind text not null check (kind in ('like','comment','share','save')),
-  content text,
-  parent_id bigint references public.feed_interactions(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  unique(user_id, post_id, kind, content, parent_id)
+  interaction_type text not null check (interaction_type in ('like','comment','share','save','support')),
+  comment_text text,
+  amount integer,
+  created_at timestamptz not null default now()
 );
 create index if not exists idx_feed_interactions_post on public.feed_interactions(post_id);
 create index if not exists idx_feed_interactions_user on public.feed_interactions(user_id);
-create index if not exists idx_feed_interactions_kind on public.feed_interactions(kind);
+create index if not exists idx_feed_interactions_type on public.feed_interactions(interaction_type);
 
 
 -- ============================================================
@@ -1991,9 +1990,10 @@ $$;
 grant execute on function public.admin_delete_feed_item(uuid, text) to authenticated;
 
 -- 26b. user_delete_feed_item — owner-initiated delete for books / audiolites
+-- Password is verified client-side via signInWithPassword (same pattern as
+-- gliim delete). This RPC only checks ownership and cleans up related rows.
 create or replace function public.user_delete_feed_item(
-  p_item_id uuid,
-  p_password text
+  p_item_id uuid
 )
 returns jsonb
 language plpgsql
@@ -2016,14 +2016,6 @@ begin
     raise exception 'NOT_OWNER';
   end if;
 
-  if not exists (
-    select 1 from auth.users u
-    where u.id = v_caller
-      and u.encrypted_password = crypt(p_password, u.encrypted_password)
-  ) then
-    raise exception 'INVALID_PASSWORD';
-  end if;
-
   delete from public.saved_items where item_id = p_item_id;
   delete from public.purchases where item_id = p_item_id;
   delete from public.billing_events where event_type in ('premium_unlock','library_unlock') and item_id = p_item_id::text;
@@ -2038,7 +2030,7 @@ exception
 end;
 $$;
 
-grant execute on function public.user_delete_feed_item(uuid, text) to authenticated;
+grant execute on function public.user_delete_feed_item(uuid) to authenticated;
 
 -- ============================================================
 -- 27. FUNCTIONS — CONTACT
