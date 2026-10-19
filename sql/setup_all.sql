@@ -663,6 +663,7 @@ end;
 $$;
 
 -- 15b. billing_access(p_kind, p_action, p_table, p_item_id)
+drop function if exists public.billing_access(text, text, text, uuid);
 create or replace function public.billing_access(
   p_kind text, p_action text, p_table text, p_item_id uuid default null
 )
