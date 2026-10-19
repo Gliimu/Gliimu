@@ -660,6 +660,188 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
+// ==========================================
+// CONTENT DELETION — DB + R2 CLEANUP
+// ==========================================
+// One endpoint for member and admin deletes. Collects every R2 URL attached to
+// the item (cover, files, block media), removes the objects from the bucket,
+// then wipes the DB rows. Also cleans up the matching feed_submissions record
+// so deleted items disappear from the admin dashboard immediately.
+//
+// Auth: Bearer token. Ownership check for members; admin_has_role('crm') for
+// admins. The caller never chooses the table — the endpoint probes all three
+// (feed_items, feed_gliims, feed_submissions) and deletes from whichever holds
+// the row.
+
+function extractR2Keys(urls) {
+  if (!r2Ready()) return [];
+  const base = R2.publicBase;
+  const keys = [];
+  for (const raw of urls) {
+    if (!raw || typeof raw !== 'string') continue;
+    if (raw.startsWith(base + '/')) {
+      keys.push(raw.slice(base.length + 1));
+    } else if (raw.startsWith('http')) {
+      try {
+        const u = new URL(raw);
+        if (u.hostname === new URL(base).hostname) {
+          keys.push(u.pathname.replace(/^\//, ''));
+        }
+      } catch (_) { /* skip malformed */ }
+    }
+  }
+  return [...new Set(keys)];
+}
+
+function collectUrlsFromBlocks(blocks) {
+  const urls = [];
+  if (!Array.isArray(blocks)) return urls;
+  for (const b of blocks) {
+    if (!b || typeof b !== 'object') continue;
+    if (b.url) urls.push(b.url);
+    if (b.content && typeof b.content === 'string' && /^https?:\/\//.test(b.content)) urls.push(b.content);
+    if (b.src) urls.push(b.src);
+  }
+  return urls;
+}
+
+function collectUrlsFromFiles(files) {
+  const urls = [];
+  if (!Array.isArray(files)) return urls;
+  for (const f of files) {
+    if (!f || typeof f !== 'object') continue;
+    if (f.url) urls.push(f.url);
+    if (f.file_url) urls.push(f.file_url);
+  }
+  return urls;
+}
+
+async function deleteR2Objects(keys) {
+  if (!keys.length || !r2Ready()) return { deleted: 0, failed: 0 };
+  const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+  const s3 = r2S3();
+  let deleted = 0, failed = 0;
+  for (const key of keys) {
+    try {
+      await s3.send(new DeleteObjectCommand({ Bucket: R2.bucket, Key: key }));
+      deleted++;
+    } catch (err) {
+      console.warn(`R2 delete failed for ${key}:`, err.message);
+      failed++;
+    }
+  }
+  return { deleted, failed };
+}
+
+app.delete('/api/content/:id', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+    const callerId = authData.user.id;
+    const itemId = req.params.id;
+
+    const { data: isCrm } = await supabaseAdmin.rpc('admin_has_role', {
+      p_user: callerId, p_role: 'crm'
+    });
+    const isAdmin = isCrm === true;
+
+    let type = null;
+    let owner = null;
+    let allUrls = [];
+
+    const { data: item } = await supabaseAdmin
+      .from('feed_items').select('id, owner_id, cover_url, type, title')
+      .eq('id', itemId).maybeSingle();
+
+    if (item) {
+      type = 'feed_item';
+      owner = item.owner_id;
+      allUrls.push(item.cover_url);
+
+      const { data: contents } = await supabaseAdmin
+        .from('feed_contents').select('blocks, files').eq('item_id', itemId).maybeSingle();
+      if (contents) {
+        allUrls.push(...collectUrlsFromBlocks(contents.blocks));
+        allUrls.push(...collectUrlsFromFiles(contents.files));
+      }
+    }
+
+    if (!type) {
+      const { data: gliim } = await supabaseAdmin
+        .from('feed_gliims').select('id, user_id, description')
+        .eq('id', itemId).maybeSingle();
+      if (gliim) {
+        type = 'feed_gliim';
+        owner = gliim.user_id;
+
+        const { data: gc } = await supabaseAdmin
+          .from('feed_gliim_contents').select('body').eq('post_id', itemId).maybeSingle();
+        if (gc?.body && typeof gc.body === 'string') {
+          const imgMatches = gc.body.match(/https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|gif|webp|svg)/gi);
+          if (imgMatches) allUrls.push(...imgMatches);
+        }
+      }
+    }
+
+    if (!type) {
+      const { data: sub } = await supabaseAdmin
+        .from('feed_submissions').select('id, user_id, cover_url, file_url, blocks, bundle_items')
+        .eq('id', itemId).maybeSingle();
+      if (sub) {
+        type = 'feed_submission';
+        owner = sub.user_id;
+        allUrls.push(sub.cover_url, sub.file_url);
+        allUrls.push(...collectUrlsFromBlocks(sub.blocks));
+        allUrls.push(...collectUrlsFromFiles(sub.bundle_items));
+      }
+    }
+
+    if (!type) return res.status(404).json({ error: 'Item not found.' });
+    if (!isAdmin && owner !== callerId) return res.status(403).json({ error: 'Not authorized.' });
+
+    const r2Keys = extractR2Keys(allUrls.filter(Boolean));
+    const r2Result = await deleteR2Objects(r2Keys);
+
+    if (type === 'feed_item') {
+      await supabaseAdmin.from('saved_items').delete().eq('item_id', itemId);
+      await supabaseAdmin.from('purchases').delete().eq('item_id', itemId);
+      await supabaseAdmin.from('billing_events').delete().in('event_type', ['premium_unlock', 'library_unlock']).eq('item_id', itemId);
+      await supabaseAdmin.from('reports').delete().eq('target_type', 'library_item').eq('target_id', itemId);
+      await supabaseAdmin.from('feed_contents').delete().eq('item_id', itemId);
+      await supabaseAdmin.from('feed_items').delete().eq('id', itemId);
+
+      if (item) {
+        await supabaseAdmin.from('feed_submissions').delete()
+          .eq('user_id', item.owner_id).eq('title', item.title).eq('type', item.type).eq('status', 'approved');
+      }
+    } else if (type === 'feed_gliim') {
+      await supabaseAdmin.from('feed_interactions').delete().eq('post_id', itemId);
+      await supabaseAdmin.from('billing_events').delete().eq('event_type', 'premium_unlock').eq('item_id', itemId);
+      await supabaseAdmin.from('reports').delete().eq('target_type', 'post').eq('target_id', itemId);
+      await supabaseAdmin.from('feed_gliim_contents').delete().eq('post_id', itemId);
+      await supabaseAdmin.from('feed_gliims').delete().eq('id', itemId);
+    } else {
+      await supabaseAdmin.from('feed_submissions').delete().eq('id', itemId);
+    }
+
+    res.json({
+      deleted: true,
+      type,
+      r2_deleted: r2Result.deleted,
+      r2_failed: r2Result.failed
+    });
+  } catch (error) {
+    console.error('Content delete error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`Gliimu Server running on port ${PORT}`);

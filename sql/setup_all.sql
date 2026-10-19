@@ -481,7 +481,7 @@ end;
 $$;
 
 -- 13c. admin_has_role(p_user_id, p_role)
-create or replace function public.admin_has_role(p_user_id uuid, p_role text)
+create or replace function public.admin_has_role(p_user uuid, p_role text)
 returns boolean
 language plpgsql
 security definer
@@ -490,7 +490,7 @@ as $$
 declare
   v_role text;
 begin
-  select role into v_role from public.admin_users where user_id = p_user_id;
+  select role into v_role from public.admin_users where user_id = p_user;
   if v_role is null then return false; end if;
   if v_role = 'super' then return true; end if;
   return v_role = p_role;
@@ -1959,6 +1959,9 @@ declare
   v_can_delete boolean;
   v_is_gliim boolean;
   v_is_feed_item boolean;
+  v_owner_id uuid;
+  v_title text;
+  v_type text;
 begin
   select (public.is_admin() or public.admin_has_role(v_caller, 'crm')) into v_can_delete;
   if not v_can_delete then
@@ -1986,11 +1989,17 @@ begin
     delete from public.feed_gliims where id = p_item_id;
     return jsonb_build_object('deleted', true, 'item_id', p_item_id, 'type', 'gliim');
   else
+    select fi.owner_id, fi.title, fi.type into v_owner_id, v_title, v_type
+      from public.feed_items fi where fi.id = p_item_id;
     delete from public.saved_items where item_id = p_item_id;
     delete from public.purchases where item_id = p_item_id;
     delete from public.billing_events where event_type = 'premium_unlock' and item_id = p_item_id::text;
     delete from public.reports where target_type = 'library_item' and target_id = p_item_id;
     delete from public.feed_items where id = p_item_id;
+    if v_owner_id is not null then
+      delete from public.feed_submissions
+        where user_id = v_owner_id and title = v_title and type = v_type and status = 'approved';
+    end if;
     return jsonb_build_object('deleted', true, 'item_id', p_item_id, 'type', 'feed_item');
   end if;
 
@@ -2016,8 +2025,10 @@ as $$
 declare
   v_caller uuid := auth.uid();
   v_owner  uuid;
+  v_title  text;
+  v_type   text;
 begin
-  select fi.owner_id into v_owner
+  select fi.owner_id, fi.title, fi.type into v_owner, v_title, v_type
   from public.feed_items fi
   where fi.id = p_item_id;
 
@@ -2034,6 +2045,8 @@ begin
   delete from public.billing_events where event_type in ('premium_unlock','library_unlock') and item_id = p_item_id::text;
   delete from public.reports where target_type = 'library_item' and target_id = p_item_id;
   delete from public.feed_items where id = p_item_id;
+  delete from public.feed_submissions
+    where user_id = v_owner and title = v_title and type = v_type and status = 'approved';
 
   return jsonb_build_object('deleted', true, 'item_id', p_item_id);
 

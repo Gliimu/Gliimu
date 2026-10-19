@@ -1,4 +1,4 @@
-import { supabase } from '../config.js';
+import { supabase, API_BASE_URL } from '../config.js';
 import { escapeHtml, money, timeAgo, badge, empty, avatar, rpcError } from '../ui.js';
 import { appAlert, appConfirm } from '../dialog.js';
 
@@ -171,22 +171,24 @@ export default {
     });
     if (!ok) return;
 
-    const { data, error } = await supabase.rpc('admin_delete_feed_item', {
-      p_item_id: id
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return alert('Session expired. Please sign in again.');
 
-    if (error || !data) {
-      alert('Deletion failed: ' + (error?.message || 'Unknown error'));
-      return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/content/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      const result = await res.json();
+      if (!res.ok || !result.deleted) {
+        return alert('Deletion failed: ' + (result.error || 'Unknown error'));
+      }
+      alert('Item deleted successfully.');
+      this.load();
+      window.adminApp?.refreshCounts();
+    } catch (err) {
+      alert('Deletion failed: ' + err.message);
     }
-
-    if (!data.deleted) {
-      alert('Deletion failed: ' + (data.error || 'Unknown error'));
-      return;
-    }
-
-    alert('Item deleted successfully.');
-    this.load();
   },
 
   previewBody(item) {

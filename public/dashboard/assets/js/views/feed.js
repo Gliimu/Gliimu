@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
@@ -1007,12 +1007,23 @@ export default {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
     if (signInError) return alert('Incorrect password. Deletion cancelled.');
 
-    const { data, error } = await supabase.rpc('user_delete_feed_item', { p_item_id: itemId });
-    if (error) return alert('Delete failed: ' + error.message);
-    if (data && data.error) return alert('Delete failed: ' + data.error);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return alert('Session expired.');
 
-    alert(`${label} deleted successfully.`);
-    this.loadShelf();
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/content/${itemId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      const result = await res.json();
+      if (!res.ok || !result.deleted) {
+        return alert('Delete failed: ' + (result.error || 'Unknown error'));
+      }
+      alert(`${label} deleted successfully.`);
+      this.loadShelf();
+    } catch (err) {
+      alert('Delete failed: ' + err.message);
+    }
   },
 
   promptRate(itemId) {
