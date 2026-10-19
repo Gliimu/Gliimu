@@ -71,6 +71,6 @@ export async function router() {
       view.init();
     }
   } else {
-    app.innerHTML = '<h1>404 - Page Not Found</h1>';
+    window.location.href = '/404.html';
   }
 }
