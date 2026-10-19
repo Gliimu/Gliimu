@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 - Page Not Found | Gliimu</title>
+  <link rel="icon" type="image/png" href="/icons/icon.png">
+  <script>
+    (function() {
+      const saved = localStorage.getItem('gliimu-theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = saved || (prefersDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/shared/css/design-system.css">
+  <link rel="stylesheet" href="/assets/css/public.css?v=40">
+</head>
+<body>
+
+  <div class="error-page">
+    <div class="error-container">
+      <img src="/pictures/404.png" alt="404" class="error-image">
+      <h1 class="error-title">Page Not Found</h1>
+      <p class="error-subtitle">The page you're looking for doesn't exist or has been moved.</p>
+      <a href="/dashboard/#/feed" class="btn-primary btn-lg">
+        <i class="fas fa-compass"></i> Xplore Feed
+      </a>
+    </div>
+  </div>
+
+</body>
+</html>
