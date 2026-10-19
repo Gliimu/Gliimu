@@ -171,85 +171,22 @@ export default {
     });
     if (!ok) return;
 
-    // Show password modal
-    this.showPasswordModal(id);
-  },
-
-  showPasswordModal(itemId) {
-    const overlay = document.createElement('div');
-    overlay.className = 'drawer-overlay';
-    overlay.innerHTML = `
-      <div class="drawer" style="max-width: 400px;">
-        <div class="drawer-head">
-          <h2>Enter your password</h2>
-          <button class="drawer-close" aria-label="Close">×</button>
-        </div>
-        <div class="drawer-body">
-          <p class="muted small">To confirm this deletion, enter your password.</p>
-          <input type="password" id="delete-password" class="input" placeholder="Your password" autocomplete="current-password" style="margin-top: 12px;">
-          <div id="delete-error" class="error-msg" style="display: none; margin-top: 8px;"></div>
-        </div>
-        <div class="drawer-foot">
-          <button class="btn-secondary" id="cancel-delete-btn">Cancel</button>
-          <button class="btn-danger" id="confirm-delete-btn">Delete</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-    overlay.querySelector('.drawer-close').addEventListener('click', close);
-    overlay.querySelector('#cancel-delete-btn').addEventListener('click', close);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
-    const input = overlay.querySelector('#delete-password');
-    const errorDiv = overlay.querySelector('#delete-error');
-    const confirmBtn = overlay.querySelector('#confirm-delete-btn');
-
-    const attemptDelete = async () => {
-      const password = input.value.trim();
-      if (!password) {
-        errorDiv.textContent = 'Password is required.';
-        errorDiv.style.display = 'block';
-        return;
-      }
-
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Deleting...';
-
-      const { data, error } = await supabase.rpc('admin_delete_feed_item', {
-        p_item_id: itemId,
-        p_password: password
-      });
-
-      if (error || !data) {
-        errorDiv.textContent = error?.message || 'Deletion failed.';
-        errorDiv.style.display = 'block';
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Delete';
-        return;
-      }
-
-      if (!data.deleted) {
-        errorDiv.textContent = data.error || 'Deletion failed.';
-        errorDiv.style.display = 'block';
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Delete';
-        return;
-      }
-
-      close();
-      await this.load();
-      window.adminApp?.refreshCounts();
-      appAlert('Deleted successfully.');
-    };
-
-    confirmBtn.addEventListener('click', attemptDelete);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') attemptDelete();
+    const { data, error } = await supabase.rpc('admin_delete_feed_item', {
+      p_item_id: id
     });
 
-    setTimeout(() => input.focus(), 100);
+    if (error || !data) {
+      alert('Deletion failed: ' + (error?.message || 'Unknown error'));
+      return;
+    }
+
+    if (!data.deleted) {
+      alert('Deletion failed: ' + (data.error || 'Unknown error'));
+      return;
+    }
+
+    alert('Item deleted successfully.');
+    this.load();
   },
 
   previewBody(item) {

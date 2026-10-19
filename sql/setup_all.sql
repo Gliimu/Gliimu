@@ -324,22 +324,24 @@ create index if not exists idx_billing_events_user on public.billing_events(user
 
 -- 6a. support_messages
 create table if not exists public.support_messages (
-  id bigserial primary key,
-  thread_id uuid not null,
+  id uuid primary key default gen_random_uuid(),
+  thread_user uuid not null,
   sender_id uuid references auth.users(id) on delete set null,
   kind text not null default 'message' check (kind in ('message','system','escalation','handover')),
-  body text,
+  content text,
+  attachment_url text,
+  attachment_type text,
   context jsonb,
   created_at timestamptz not null default now()
 );
-create index if not exists idx_support_messages_thread on public.support_messages(thread_id, created_at);
+create index if not exists idx_support_messages_thread on public.support_messages(thread_user, created_at);
 
 -- 6b. support_reads
 create table if not exists public.support_reads (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  thread_id uuid not null,
+  thread_user uuid not null,
+  reader_id uuid not null references auth.users(id) on delete cascade,
   last_read_at timestamptz not null default now(),
-  primary key (user_id, thread_id)
+  primary key (thread_user, reader_id)
 );
 
 -- 6c. admin_chat
@@ -898,10 +900,10 @@ declare
   v_post_count integer;
   v_interaction_count integer;
 begin
-  -- Create or reuse thread (thread_id = user_id for simplicity)
+  -- Create or reuse thread (thread_user = user_id for simplicity)
   v_thread := v_user;
 
-  insert into public.support_messages (thread_id, sender_id, kind, body, context)
+  insert into public.support_messages (thread_user, sender_id, kind, content, context)
   values (v_thread, v_user, 'message', p_body, p_context);
 
   -- Include user stats in context
@@ -916,21 +918,21 @@ begin
 end;
 $$;
 
--- 16b. transfer_to_user(p_thread, p_target)
-create or replace function public.transfer_to_user(p_thread uuid, p_target uuid)
+-- 16b. support_handover(p_thread, p_target)
+create or replace function public.support_handover(p_thread uuid, p_target uuid)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  insert into public.support_messages (thread_id, sender_id, kind, body)
+  insert into public.support_messages (thread_user, sender_id, kind, content)
   values (p_thread, auth.uid(), 'handover', jsonb_build_object('to', p_target)::text);
 end;
 $$;
 
--- 16c. support_can_view(p_thread)
-create or replace function public.support_can_view(p_thread uuid)
+-- 16c. support_can_view(p_user)
+create or replace function public.support_can_view(p_user uuid)
 returns boolean
 language plpgsql
 security definer
@@ -940,7 +942,7 @@ declare
   v_user uuid := auth.uid();
 begin
   -- Thread owner can always view
-  if v_user = p_thread then return true; end if;
+  if v_user = p_user then return true; end if;
   -- All admin roles can view support threads
   return public.admin_has_role(v_user, 'crm')
       or public.admin_has_role(v_user, 'super')
@@ -950,86 +952,114 @@ begin
 end;
 $$;
 
--- 16d. support_thread_unread(p_thread)
-create or replace function public.support_thread_unread(p_thread uuid)
+-- 16d. support_thread_unread(p_thread_user)
+create or replace function public.support_thread_unread(p_thread_user uuid)
 returns integer
-language plpgsql
-security definer
+language sql
+stable
 set search_path = public
 as $$
-declare
-  v_last_read timestamptz;
-  v_count integer;
-begin
-  select last_read_at into v_last_read
-  from public.support_reads
-  where user_id = auth.uid() and thread_id = p_thread;
-
-  if v_last_read is null then
-    select count(*) into v_count
-    from public.support_messages
-    where thread_id = p_thread;
-  else
-    select count(*) into v_count
-    from public.support_messages
-    where thread_id = p_thread and created_at > v_last_read;
-  end if;
-  return v_count;
-end;
+  select count(*)::integer
+    from public.support_messages m
+   where m.thread_user = p_thread_user
+     and m.sender_id <> auth.uid()
+     and m.created_at > coalesce(
+           (select r.last_read_at from public.support_reads r
+             where r.thread_user = p_thread_user and r.reader_id = auth.uid()),
+           '-infinity'::timestamptz);
 $$;
 
--- 16e. support_mark_read(p_thread)
-create or replace function public.support_mark_read(p_thread uuid)
+-- 16e. support_mark_read(p_thread_user)
+create or replace function public.support_mark_read(p_thread_user uuid)
 returns void
 language plpgsql
-security definer
 set search_path = public
 as $$
 begin
-  insert into public.support_reads (user_id, thread_id, last_read_at)
-  values (auth.uid(), p_thread, now())
-  on conflict (user_id, thread_id)
-  do update set last_read_at = now();
+  if auth.uid() is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  update public.support_reads
+     set last_read_at = now()
+   where thread_user = p_thread_user
+     and reader_id = auth.uid()
+     and last_read_at < now();
+
+  insert into public.support_reads (thread_user, reader_id, last_read_at)
+  values (p_thread_user, auth.uid(), now())
+  on conflict (thread_user, reader_id) do nothing;
 end;
 $$;
 
 -- 16f. support_inbox()
 create or replace function public.support_inbox()
 returns table(
-  thread_id uuid,
-  last_message_at timestamptz,
-  last_body text,
-  last_sender uuid,
-  unread_count integer,
-  total_messages bigint,
-  first_message_at timestamptz,
-  has_escalation boolean,
-  last_staff_at timestamptz
+  thread_user uuid,
+  member_name text,
+  member_avatar text,
+  last_content text,
+  last_is_staff boolean,
+  last_created_at timestamptz,
+  unread integer,
+  message_count integer,
+  escalations integer
 )
-language plpgsql
-security definer
+language sql
+stable security definer
 set search_path = public
 as $$
-begin
-  return query
-  select
-    m.thread_id,
-    max(m.created_at) as last_message_at,
-    (array_agg(m.body order by m.created_at desc))[1] as last_body,
-    (array_agg(m.sender_id order by m.created_at desc))[1] as last_sender,
-    public.support_thread_unread(m.thread_id) as unread_count,
-    count(*) as total_messages,
-    min(m.created_at) as first_message_at,
-    exists (select 1 from public.support_messages sm where sm.thread_id = m.thread_id and sm.kind = 'escalation') as has_escalation,
-    (select max(sm2.created_at) from public.support_messages sm2 where sm2.thread_id = m.thread_id and sm2.sender_id in (select user_id from public.admin_users)) as last_staff_at
-  from public.support_messages m
-  group by m.thread_id
-  order by last_message_at desc;
-end;
+  select m.thread_user,
+         coalesce(p.full_name, 'Gliimait'),
+         p.avatar_url,
+         last_msg.content,
+         last_msg.is_staff,
+         last_msg.created_at,
+         unread.n::integer,
+         cnt.n::integer,
+         esc.n::integer
+    from (select distinct thread_user from public.support_messages) m
+    left join public.profiles p on p.id = m.thread_user
+    cross join lateral (
+      select s.content,
+             coalesce(s.sender_id <> s.thread_user, false) as is_staff,
+             s.created_at
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+       order by s.created_at desc
+       limit 1
+    ) last_msg
+    cross join lateral (
+      select count(*) n
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+    ) cnt
+    cross join lateral (
+      select count(*) n
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+         and s.kind = 'message'
+         and s.sender_id <> auth.uid()
+         and s.created_at > coalesce(
+               (select r.last_read_at from public.support_reads r
+                 where r.thread_user = m.thread_user and r.reader_id = auth.uid()),
+               '-infinity'::timestamptz)
+    ) unread
+    cross join lateral (
+      select count(*) n
+        from public.support_messages s
+       where s.thread_user = m.thread_user
+         and s.kind = 'escalation'
+         and s.created_at > coalesce(
+               (select r.last_read_at from public.support_reads r
+                 where r.thread_user = m.thread_user and r.reader_id = auth.uid()),
+               '-infinity'::timestamptz)
+    ) esc
+   where public.support_can_view(auth.uid());
 $$;
 
--- 16g. support_last_staff_at(p_thread)
-create or replace function public.support_last_staff_at(p_thread uuid)
+-- 16g. support_last_staff_at(p_thread_user)
+create or replace function public.support_last_staff_at(p_thread_user uuid)
 returns timestamptz
 language plpgsql
 security definer
@@ -1038,14 +1068,14 @@ as $$
 begin
   return (
     select max(created_at) from public.support_messages
-    where thread_id = p_thread
+    where thread_user = p_thread_user
       and sender_id in (select user_id from public.admin_users)
   );
 end;
 $$;
 
--- 16h. gliimpa_paused(p_thread)
-create or replace function public.gliimpa_paused(p_thread uuid)
+-- 16h. gliimpa_paused(p_thread_user)
+create or replace function public.gliimpa_paused(p_thread_user uuid)
 returns boolean
 language plpgsql
 security definer
@@ -1054,22 +1084,22 @@ as $$
 declare
   v_last_staff timestamptz;
 begin
-  select public.support_last_staff_at(p_thread) into v_last_staff;
+  select public.support_last_staff_at(p_thread_user) into v_last_staff;
   -- Bot is paused if staff responded within last 5 minutes
   return v_last_staff is not null and v_last_staff > now() - interval '5 minutes';
 end;
 $$;
 
--- 16i. gliimpa_escalate(p_thread)
-create or replace function public.gliimpa_escalate(p_thread uuid)
+-- 16i. gliimpa_escalate(p_thread_user)
+create or replace function public.gliimpa_escalate(p_thread_user uuid)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  insert into public.support_messages (thread_id, sender_id, kind, body)
-  values (p_thread, auth.uid(), 'escalation', 'Escalated to human agent');
+  insert into public.support_messages (thread_user, sender_id, kind, content)
+  values (p_thread_user, auth.uid(), 'escalation', 'Escalated to human agent');
 end;
 $$;
 
@@ -1917,8 +1947,7 @@ $$;
 -- ============================================================
 
 create or replace function public.admin_delete_feed_item(
-  p_item_id uuid,
-  p_password text
+  p_item_id uuid
 )
 returns jsonb
 language plpgsql
@@ -1941,14 +1970,6 @@ begin
 
   if not v_is_gliim and not v_is_feed_item then
     if exists (select 1 from public.feed_submissions where id = p_item_id) then
-      if not exists (
-        select 1 from auth.users u
-        where u.id = v_caller
-          and u.encrypted_password = crypt(p_password, u.encrypted_password)
-      ) then
-        raise exception 'INVALID_PASSWORD';
-      end if;
-
       delete from public.feed_submissions where id = p_item_id;
       return jsonb_build_object('deleted', true, 'item_id', p_item_id, 'type', 'submission');
     end if;
@@ -1956,14 +1977,6 @@ begin
 
   if not v_is_gliim and not v_is_feed_item then
     raise exception 'ITEM_NOT_FOUND';
-  end if;
-
-  if not exists (
-    select 1 from auth.users u
-    where u.id = v_caller
-      and u.encrypted_password = crypt(p_password, u.encrypted_password)
-  ) then
-    raise exception 'INVALID_PASSWORD';
   end if;
 
   if v_is_gliim then
@@ -1987,7 +2000,7 @@ exception
 end;
 $$;
 
-grant execute on function public.admin_delete_feed_item(uuid, text) to authenticated;
+grant execute on function public.admin_delete_feed_item(uuid) to authenticated;
 
 -- 26b. user_delete_feed_item — owner-initiated delete for books / audiolites
 -- Password is verified client-side via signInWithPassword (same pattern as
@@ -2522,7 +2535,7 @@ create policy billing_events_admin on public.billing_events for all to authentic
 
 drop policy if exists support_messages_read on public.support_messages;
 create policy support_messages_read on public.support_messages for select to authenticated
-  using (public.support_can_view(thread_id));
+  using (public.support_can_view(thread_user));
 
 drop policy if exists support_messages_insert on public.support_messages;
 create policy support_messages_insert on public.support_messages for insert to authenticated
@@ -2534,7 +2547,7 @@ create policy support_messages_admin on public.support_messages for all to authe
 
 drop policy if exists support_messages_thread_owner on public.support_messages;
 create policy support_messages_thread_owner on public.support_messages for all to authenticated
-  using (thread_id = auth.uid());
+  using (thread_user = auth.uid());
 
 -- ============================================================
 -- 46. RLS POLICIES — SUPPORT READS
@@ -2542,7 +2555,7 @@ create policy support_messages_thread_owner on public.support_messages for all t
 
 drop policy if exists support_reads_own on public.support_reads;
 create policy support_reads_own on public.support_reads for all to authenticated
-  using (user_id = auth.uid());
+  using (reader_id = auth.uid());
 
 drop policy if exists support_reads_admin on public.support_reads;
 create policy support_reads_admin on public.support_reads for all to authenticated
@@ -2832,7 +2845,7 @@ declare
     'make_referral_code()','profiles_assign_referral_code()',
     'apply_referral(text)','referral_vest_due()','referral_summary()',
     'complete_reading(uuid)','related_publications(uuid,integer)',
-    'admin_delete_feed_item(uuid,text)',
+    'admin_delete_feed_item(uuid)',
     'crm_contact(uuid)','crm_set_contact(text,text,text,text,text,text,text)',
     'post_content_unlocked(uuid)','library_item_unlocked(uuid)',
     'profiles_protect_sensitive()','enforce_live_subscription()'

@@ -643,7 +643,7 @@ const hubView = {
       supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }).limit(20),
       supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
-      supabase.from('saved_items').select('post_id').eq('user_id', store.user.id)
+      supabase.from('saved_items').select('item_id').eq('user_id', store.user.id)
     ]);
 
     let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsFull);
@@ -659,7 +659,7 @@ const hubView = {
     // only approved gliims reach the feed.
     const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved');
     this.currentPosts = this.orderFeed(visible);
-    this.savedPosts = new Set(saved?.map(s => s.post_id) || []);
+    this.savedPosts = new Set(saved?.map(s => s.item_id) || []);
     this.feedLoaded = true;
     this.renderPosts(this.currentPosts);
   },
@@ -1034,11 +1034,11 @@ const hubView = {
 
   async toggleSavePost(postId) {
     if (this.savedPosts.has(postId)) {
-      await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('post_id', postId);
+      await supabase.from('saved_items').delete().eq('user_id', store.user.id).eq('item_id', postId);
       this.savedPosts.delete(postId);
       alert("Gliim unsaved.");
     } else {
-      await supabase.from('saved_items').insert({ user_id: store.user.id, post_id: postId });
+      await supabase.from('saved_items').insert({ user_id: store.user.id, item_id: postId });
       this.savedPosts.add(postId);
       alert("Gliim saved! Find it in the 'Saved Gliims' filter.");
     }
