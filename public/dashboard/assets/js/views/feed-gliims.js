@@ -1470,15 +1470,22 @@ const hubView = {
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
 
-    // Audiolites render as 1:1 squares: the title sits on the card color,
-    // left-aligned, with the text shade picked for best contrast (theme
-    // colors when the gliim carries no cover_color).
+    // Audiolites render as 1:1 squares: the first image in the composer
+    // becomes the cover background; title + EQ badge overlay it.
     if (this.cardKinds && this.cardKinds[post.id] === 'audiolite') {
+      const eqSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
+      const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 21 12 6 21 6 3"></polygon></svg>';
+      if (post.cover_url) {
+        const cardStyle = `background-image: url('${post.cover_url}');`;
+        return `<article class="audiolite-card audiolite-cover-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${cardStyle}" onclick="hubInstance.openReadView('${post.id}')">
+          <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${eqSvg}Audiolite</span><span class="audiolite-play">${playSvg}</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+          <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
+          <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
+        </article>`;
+      }
       const color = String(post.cover_color || '').trim();
       const onColor = readableOn(color);
       const cardStyle = color && onColor ? ` style="background:${escapeHtml(color)};color:${onColor};"` : '';
-      const eqSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
-      const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 21 12 6 21 6 3"></polygon></svg>';
       return `<article class="audiolite-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
         <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${eqSvg}Audiolite</span><span class="audiolite-play">${playSvg}</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
@@ -1486,12 +1493,18 @@ const hubView = {
       </article>`;
     }
 
-    // Books render as 1:1 squares with the cover image as the card background.
-    if (this.cardKinds && this.cardKinds[post.id] === 'book') {
-      const bookCover = post.cover_url ? `background-image: url('${post.cover_url}');` : '';
-      const bookSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
-      return `<article class="audiolite-card book-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${bookCover}" onclick="hubInstance.openReadView('${post.id}')">
-        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bookSvg}Book</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+    // Books: just the cover image as a square — no title, no author, no stats.
+    if (this.cardKinds && this.cardKinds[post.id] === 'book' && post.cover_url) {
+      return `<article class="book-cover-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
+        ${draftBadge ? `<div class="book-cover-badges">${draftBadge}${premiumBadge}</div>` : (premiumBadge ? `<div class="book-cover-badges">${premiumBadge}</div>` : '')}
+      </article>`;
+    }
+
+    // Bundles: square card with cover image background + gradient + title/author/stats.
+    if (this.cardKinds && this.cardKinds[post.id] === 'bundle' && post.cover_url) {
+      const bundleSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
+      return `<article class="audiolite-card bundle-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
+        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bundleSvg}Bundle</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;

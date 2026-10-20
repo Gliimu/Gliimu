@@ -222,6 +222,73 @@
 .book-card .blog-stat, .image-only-card .blog-stat { color: rgba(255,255,255,.8); }
 .book-card .audiolite-kind, .image-only-card .audiolite-kind { color: #fff; }
 
+/* Book cover card: JUST the cover image as a square — no title, no author, no stats.
+   Only draft/premium badges shown in the corner. */
+.book-cover-card {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--bg-tertiary);
+  border-radius: 16px;
+  cursor: pointer;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  break-inside: avoid;
+}
+.book-cover-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.book-cover-card.ambassador-card { border: 1.5px solid var(--text-primary); }
+[data-theme="dark"] .book-cover-card.ambassador-card { border-color: var(--text-inverse); }
+
+.book-cover-badges {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+/* Bundle card: cover image background + gradient overlay + title/author/stats (white text). */
+.bundle-card {
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+}
+.bundle-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.15) 50%, rgba(0,0,0,.35) 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.bundle-card > * { position: relative; z-index: 1; }
+.bundle-card .blog-footer { border-top-color: rgba(255,255,255,.2); color: rgba(255,255,255,.85); }
+.bundle-card .blog-stat { color: rgba(255,255,255,.8); }
+.bundle-card .audiolite-kind { color: #fff; }
+
+/* Audiolite with cover image: same gradient treatment as bundle/book cards. */
+.audiolite-cover-card {
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+}
+.audiolite-cover-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.15) 50%, rgba(0,0,0,.35) 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.audiolite-cover-card > * { position: relative; z-index: 1; }
+.audiolite-cover-card .blog-footer { border-top-color: rgba(255,255,255,.2); color: rgba(255,255,255,.85); }
+.audiolite-cover-card .blog-stat { color: rgba(255,255,255,.8); }
+.audiolite-cover-card .audiolite-kind { color: #fff; }
+
 /* PDF block in the read view: price label + open/download link (label-only
    for now — checkout is a later pass). */
 .read-block-pdf { display: flex; align-items: center; gap: 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 24px; }

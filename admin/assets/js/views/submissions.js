@@ -24,7 +24,9 @@ export default {
       console.error('Failed to load gliims:', postErr);
     }
 
-    this.items = (posts && posts.posts ? posts.posts : []).map(p => ({ ...p, type: 'post' }));
+    this.items = (posts && posts.posts ? posts.posts : [])
+      .filter(p => p.status !== 'draft')
+      .map(p => ({ ...p, type: 'post' }));
 
     const ids = [...new Set(this.items.map(i => i.user_id).filter(Boolean))];
     if (ids.length) {

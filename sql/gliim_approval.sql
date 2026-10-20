@@ -199,12 +199,13 @@ begin
              'author_avatar', pr.avatar_url,
              'blocks',        coalesce(pc.blocks, '[]'::jsonb))
              order by p.created_at desc)
-      from public.posts p
+      from public.feed_gliims p
       left join public.profiles pr      on pr.id = p.user_id
-      left join public.post_contents pc on pc.post_id = p.id
+      left join public.feed_gliim_contents pc on pc.post_id = p.id
      where (
-       p_status = 'all'
-       or p.status = coalesce(nullif(btrim(p_status), ''), 'pending')
+       p.status is distinct from 'draft'
+       and (p_status = 'all'
+            or p.status = coalesce(nullif(btrim(p_status), ''), 'pending'))
      )
   ), '[]'::jsonb));
 end $$;
