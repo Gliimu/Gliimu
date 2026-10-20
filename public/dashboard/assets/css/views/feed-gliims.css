@@ -144,9 +144,51 @@
 .read-block-list { font-size: 18px; color: var(--text-primary); line-height: 1.8; margin-bottom: 24px; padding-left: 0; }
 .read-block-list-item { display: block; }
 .read-block-media { width: 100%; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border); }
-.read-block-audio-wrapper { background: var(--bg-tertiary); padding: 16px; border-radius: 12px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; }
-.read-block-audio-wrapper i { font-size: 24px; color: var(--brand-primary); }
-.read-block-audio { flex: 1; height: 40px; }
+.read-block-audio-wrapper { background: var(--bg-tertiary); padding: 16px; border-radius: 12px; margin-bottom: 24px; }
+.read-audio-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.read-audio-head .lib-eq { height: 22px; margin: 0; }
+.read-audio-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.read-block-audio { width: 100%; height: 40px; }
+
+/* Custom video player in the read view: poster-style big play button and a
+   slim gradient control bar instead of the browser's default chrome. */
+.read-video-player { position: relative; margin: 0 0 24px; border-radius: 12px; overflow: hidden; background: #000; }
+.read-video-player video { display: block; width: 100%; }
+.rvp-big { position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 50%; border: none; background: rgba(0,0,0,.55); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity .2s; }
+.rvp-big:hover { background: rgba(0,0,0,.7); }
+.rvp-big.hidden { opacity: 0; pointer-events: none; }
+.rvp-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #fff; }
+.rvp-bar button { background: none; border: none; color: #fff; cursor: pointer; display: flex; padding: 0; }
+.rvp-bar button:hover { opacity: .85; }
+.rvp-bar input[type=range] { flex: 1; accent-color: var(--brand-primary); height: 4px; cursor: pointer; }
+.rvp-time { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; opacity: .9; }
+
+/* Audiolite square card: solid cover_color (or theme surface when none) with
+   the title left-aligned on it; text shade is chosen for contrast in JS. */
+.audiolite-card {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border-radius: 16px;
+  cursor: pointer;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  break-inside: avoid;
+}
+.audiolite-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.audiolite-card.ambassador-card { border: 1.5px solid currentColor; }
+.audiolite-card .blog-meta { margin-bottom: auto; border-top: none; }
+.audiolite-kind { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; opacity: .75; }
+.audiolite-kind svg { flex-shrink: 0; }
+.audiolite-play { width: 30px; height: 30px; border-radius: 50%; background: rgba(127,127,127,.22); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.audiolite-spacer { flex: 1; }
+.audiolite-title { font-size: 19px; font-weight: 800; line-height: 1.25; margin: 10px 0 14px; text-align: left; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.audiolite-card .blog-footer { border-top-color: rgba(127,127,127,.25); }
 
 /* PDF block in the read view: price label + open/download link (label-only
    for now — checkout is a later pass). */

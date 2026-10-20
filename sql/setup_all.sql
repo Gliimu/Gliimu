@@ -239,7 +239,10 @@ create table if not exists public.feed_gliims (
   media_type text,
   tags text[],
   is_premium boolean not null default false,
-  status text not null default 'approved' check (status in ('approved','pending','rejected')),
+  price integer,
+  category text,
+  cover_color text,
+  status text not null default 'approved' check (status in ('approved','pending','rejected','draft')),
   reviewed_by uuid,
   reviewed_at timestamptz,
   review_note text,
@@ -250,6 +253,12 @@ create table if not exists public.feed_gliims (
 create index if not exists idx_feed_gliims_user on public.feed_gliims(user_id);
 create index if not exists idx_feed_gliims_status on public.feed_gliims(status);
 create index if not exists idx_feed_gliims_created on public.feed_gliims(created_at desc);
+create index if not exists idx_feed_gliims_category on public.feed_gliims(category);
+-- drift patch: tables created before these columns existed
+alter table public.feed_gliims add column if not exists price integer;
+alter table public.feed_gliims add column if not exists category text;
+alter table public.feed_gliims add column if not exists cover_color text;
+alter table public.feed_gliims add column if not exists updated_at timestamptz not null default now();
 
 -- 4d. feed_gliim_contents (was post_contents)
 create table if not exists public.feed_gliim_contents (
@@ -372,6 +381,7 @@ create table if not exists public.contests (
   ends_at timestamptz not null,
   prize_pool integer,
   status text not null default 'draft' check (status in ('draft','active','ended')),
+  is_archived boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -385,14 +395,15 @@ create table if not exists public.contest_entries (
   unique(contest_id, user_id)
 );
 
--- 7c. cohorts
+-- 7c. cohorts — community.sql shape (title/seats/starts_at), which is what
+-- the member XpLoRe page and community_board() read
 create table if not exists public.cohorts (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  title text not null,
   description text,
-  captain_id uuid references auth.users(id) on delete set null,
-  max_size integer not null default 10,
-  status text not null default 'open' check (status in ('open','closed','archived')),
+  seats integer not null default 10,
+  starts_at timestamptz not null default now(),
+  is_archived boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -430,7 +441,8 @@ create index if not exists idx_live_requests_user on public.live_requests(user_i
 create table if not exists public.reading_progress (
   id bigserial primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
-  item_id uuid not null references public.feed_items(id) on delete cascade,
+  -- no FK: item ids live in feed_gliims after the feed unification
+  item_id uuid not null,
   progress numeric not null default 0,
   completed boolean not null default false,
   started_at timestamptz not null default now(),
@@ -635,12 +647,37 @@ security definer
 set search_path = public
 as $$
 begin
-  -- Bundles (gliims) auto-publish without approval.
-  -- Books and audiolites go through feed_submissions review flow.
+  -- Members publish instantly; only an explicit draft stays a draft.
+  if new.status = 'draft' then
+    return new;
+  end if;
   new.status := 'approved';
   new.reviewed_by := null;
   new.reviewed_at := null;
   new.review_note := null;
+  return new;
+end;
+$$;
+
+-- UPDATE guard: creators move their own posts between draft and approved
+-- (the update RLS policy already limits members to their own rows);
+-- admins keep full control.
+create or replace function public.guard_feed_gliim_status()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.is_admin() or public.admin_has_role(auth.uid(), 'crm') then
+    return new;
+  end if;
+  if new.status not in ('draft','approved') then
+    new.status := old.status;
+  end if;
+  new.reviewed_by := old.reviewed_by;
+  new.reviewed_at := old.reviewed_at;
+  new.review_note := old.review_note;
   return new;
 end;
 $$;
@@ -931,7 +968,8 @@ begin
 end;
 $$;
 
--- 15d. purchase_library_item(p_item_id) — uses feed_items
+-- 15d. purchase_library_item(p_item) — wallet-tier persistent unlock,
+--      price read from feed_gliims (one storage system).
 drop function if exists public.purchase_library_item(uuid);
 create or replace function public.purchase_library_item(p_item uuid)
 returns jsonb
@@ -940,30 +978,50 @@ security definer
 set search_path = public
 as $$
 declare
-  v_user uuid := auth.uid();
+  uid uuid := auth.uid();
   v_price integer;
-  v_balance integer;
+  v_title text;
+  v_wallet integer;
 begin
-  select price into v_price from public.feed_items where id = p_item;
-  if v_price is null then
-    return jsonb_build_object('ok', false, 'error', 'ITEM_NOT_FOUND');
+  if uid is null then
+    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
   end if;
 
-  select wallet_balance into v_balance from public.profiles where id = v_user;
-  if coalesce(v_balance, 0) < v_price then
-    return jsonb_build_object('ok', false, 'error', 'INSUFFICIENT_FUNDS');
+  select g.price, g.title into v_price, v_title
+    from public.feed_gliims g where g.id = p_item;
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
+
+  perform pg_advisory_xact_lock(hashtext('lib_purchase:' || uid::text || ':' || p_item::text));
+
+  if exists (select 1 from public.purchases pu
+              where pu.user_id = uid and pu.item_id = p_item) then
+    return jsonb_build_object('ok', true, 'already_owned', true);
+  end if;
+
+  v_price := greatest(coalesce(v_price, 0), 0);
 
   update public.profiles
-     set wallet_balance = wallet_balance - v_price
-   where id = v_user;
+     set wallet_balance = coalesce(wallet_balance, 0) - v_price
+   where id = uid and coalesce(wallet_balance, 0) >= v_price;
+  if not found then
+    select coalesce(wallet_balance, 0) into v_wallet from public.profiles where id = uid;
+    return jsonb_build_object('ok', false, 'code', 'INSUFFICIENT_FUNDS',
+                              'price', v_price, 'balance', v_wallet);
+  end if;
 
-  insert into public.billing_events (user_id, event_type, item_id, gp_amount)
-  values (v_user, 'library_unlock', p_item::text, v_price);
+  insert into public.purchases (user_id, item_id) values (uid, p_item);
 
-  return jsonb_build_object('ok', true, 'item_id', p_item);
-end;
-$$;
+  insert into public.transactions (user_id, amount, points, type, status, description)
+  values (uid, -v_price, 0, 'purchase', 'success',
+          'Library Unlock: ' || left(coalesce(v_title, 'item'), 60));
+
+  return jsonb_build_object('ok', true, 'charged', v_price);
+end $$;
+
+revoke execute on function public.purchase_library_item(uuid) from public, anon;
+grant execute on function public.purchase_library_item(uuid) to authenticated, service_role;
 
 -- 15e. activate_plan(p_plan)
 drop function if exists public.activate_plan(text) cascade;
@@ -1574,27 +1632,71 @@ begin
 end;
 $$;
 
--- 17c. community_board()
+-- 17c. community_board() — matches the XpLoRe page contract (ok:true,
+-- contests with joined/entries, cohorts with seats_taken/my_status)
 drop function if exists public.community_board() cascade;
 create or replace function public.community_board()
 returns jsonb
 language plpgsql
+stable
 security definer
 set search_path = public
 as $$
+declare
+  uid uuid := auth.uid();
 begin
+  if uid is null then
+    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
+  end if;
+
   return jsonb_build_object(
-    'contests', (select jsonb_agg(jsonb_build_object('id', c.id, 'title', c.title, 'status', c.status, 'metric', c.metric))
-                 from public.contests c where c.status = 'active'),
+    'ok', true,
+    'contests', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id',          c.id,
+               'title',       c.title,
+               'description', c.description,
+               'metric',      c.metric,
+               'starts_at',   c.starts_at,
+               'ends_at',     c.ends_at,
+               'status',      c.status,
+               'joined',      exists (select 1 from public.contest_entries e
+                                       where e.contest_id = c.id and e.user_id = uid),
+               'entries',     (select count(*) from public.contest_entries e2
+                                where e2.contest_id = c.id))
+             order by c.created_at desc)
+      from public.contests c
+     where coalesce(c.is_archived, false) = false), '[]'::jsonb),
+    'leaderboard', jsonb_build_object(
+                     'contest_id', null::uuid,
+                     'title',      null::text,
+                     'metric',     null::text,
+                     'rows',       '[]'::jsonb),
+    'cohorts', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id',          co.id,
+               'title',       co.title,
+               'description', co.description,
+               'seats',       co.seats,
+               'starts_at',   co.starts_at,
+               'seats_taken', (select count(*) from public.cohort_requests rq
+                                where rq.cohort_id = co.id and rq.status = 'approved'),
+               'pending',     (select count(*) from public.cohort_requests rq2
+                                where rq2.cohort_id = co.id and rq2.status = 'pending'),
+               'my_status',   (select rq3.status from public.cohort_requests rq3
+                                where rq3.cohort_id = co.id and rq3.user_id = uid limit 1))
+             order by co.created_at desc)
+      from public.cohorts co
+     where coalesce(co.is_archived, false) = false), '[]'::jsonb),
     'events', '[]'::jsonb,
     'news', '[]'::jsonb
   );
 end;
 $$;
 
--- 17d. contest_join(p_contest_id)
+-- 17d. contest_join(p_contest) — param name matches the page's exact call
 drop function if exists public.contest_join(uuid) cascade;
-create or replace function public.contest_join(p_contest_id uuid)
+create or replace function public.contest_join(p_contest uuid)
 returns void
 language plpgsql
 security definer
@@ -1602,14 +1704,14 @@ set search_path = public
 as $$
 begin
   insert into public.contest_entries (contest_id, user_id)
-  values (p_contest_id, auth.uid())
+  values (p_contest, auth.uid())
   on conflict (contest_id, user_id) do nothing;
 end;
 $$;
 
--- 17e. cohort_request(p_cohort_id)
+-- 17e. cohort_request(p_cohort) — param name matches the page's exact call
 drop function if exists public.cohort_request(uuid) cascade;
-create or replace function public.cohort_request(p_cohort_id uuid)
+create or replace function public.cohort_request(p_cohort uuid)
 returns void
 language plpgsql
 security definer
@@ -1617,7 +1719,7 @@ set search_path = public
 as $$
 begin
   insert into public.cohort_requests (cohort_id, user_id)
-  values (p_cohort_id, auth.uid())
+  values (p_cohort, auth.uid())
   on conflict (cohort_id, user_id) do nothing;
 end;
 $$;
@@ -1626,9 +1728,9 @@ $$;
 -- 18. FUNCTIONS — ADMIN RPCs
 -- ============================================================
 
--- 18a. admin_review_submission(p_id, p_status, p_note)
+-- 18a. admin_review_submission(p_submission, p_action, p_note)
 drop function if exists public.admin_review_submission(uuid, text, text) cascade;
-create or replace function public.admin_review_submission(p_id uuid, p_status text, p_note text default null)
+create or replace function public.admin_review_submission(p_submission uuid, p_action text, p_note text default null)
 returns jsonb
 language plpgsql
 security definer
@@ -1643,30 +1745,26 @@ begin
     raise exception 'PERMISSION_DENIED';
   end if;
 
-  select * into v_submission from public.feed_submissions where id = p_id;
+  select * into v_submission from public.feed_submissions where id = p_submission;
   if v_submission is null then
     return jsonb_build_object('ok', false, 'error', 'NOT_FOUND');
   end if;
 
   update public.feed_submissions
-     set status = p_status,
+     set status = p_action,
          reviewed_by = v_caller,
          reviewed_at = now(),
          review_note = p_note
-   where id = p_id;
+   where id = p_submission;
 
-  if p_status = 'approved' then
-    insert into public.feed_items (type, title, description, price, cover_url, author, author_avatar, owner_id, category)
-    select v_submission.type, v_submission.title, v_submission.description, v_submission.price, v_submission.cover_url,
-           p.full_name, p.avatar_url, v_submission.user_id, v_submission.category
-    from public.profiles p
-    where p.id = v_submission.user_id
+  if p_action = 'approved' then
+    insert into public.feed_gliims (user_id, title, description, cover_url, category, status)
+    values (v_submission.user_id, v_submission.title, v_submission.description,
+            v_submission.cover_url, v_submission.category, 'approved')
     returning id into v_item_id;
 
-    if v_submission.blocks is not null or v_submission.bundle_items is not null then
-      insert into public.feed_contents (item_id, blocks, files)
-      values (v_item_id, v_submission.blocks, v_submission.bundle_items);
-    end if;
+    insert into public.feed_gliim_contents (post_id, blocks)
+    values (v_item_id, coalesce(v_submission.blocks, '[]'::jsonb));
   end if;
 
   return jsonb_build_object('ok', true, 'item_id', v_item_id);
@@ -1816,16 +1914,25 @@ begin
     'total_users', (select count(*) from public.profiles),
     'total_gp', (select coalesce(sum(total_gp), 0) from public.profiles),
     'total_wallet', (select coalesce(sum(wallet_balance), 0) from public.profiles),
-    'feed_items', (select count(*) from public.feed_items),
-    'feed_gliims', (select count(*) from public.feed_gliims where status = 'approved'),
+    'feed_items', (
+      select count(*) from public.feed_gliims g
+      join public.feed_gliim_contents gc on gc.post_id = g.id
+      where public.gliim_kind(gc.blocks) in ('book','audiolite')
+    ),
+    'feed_gliims', (
+      select count(*) from public.feed_gliims g
+      join public.feed_gliim_contents gc on gc.post_id = g.id
+      where g.status = 'approved'
+        and public.gliim_kind(gc.blocks) = 'bundle'
+    ),
     'pending_submissions', (select count(*) from public.feed_submissions where status = 'pending')
   );
 end;
 $$;
 
--- 19b. registrar_member(p_user_id)
+-- 19b. registrar_member(p_user)
 drop function if exists public.registrar_member(uuid) cascade;
-create or replace function public.registrar_member(p_user_id uuid)
+create or replace function public.registrar_member(p_user uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -1843,11 +1950,22 @@ begin
       'wallet_balance', coalesce(p.wallet_balance, 0),
       'total_gp', coalesce(p.total_gp, 0),
       'tier', p.tier,
-      'feed_items', (select count(*) from public.feed_items where owner_id = p.id),
-      'feed_gliims', (select count(*) from public.feed_gliims where user_id = p.id and status = 'approved'),
+      'feed_items', (
+        select count(*) from public.feed_gliims g
+        join public.feed_gliim_contents gc on gc.post_id = g.id
+        where g.user_id = p.id
+          and public.gliim_kind(gc.blocks) in ('book','audiolite')
+      ),
+      'feed_gliims', (
+        select count(*) from public.feed_gliims g
+        join public.feed_gliim_contents gc on gc.post_id = g.id
+        where g.user_id = p.id
+          and g.status = 'approved'
+          and public.gliim_kind(gc.blocks) = 'bundle'
+      ),
       'joined_at', p.created_at
     )
-    from public.profiles p where p.id = p_user_id
+    from public.profiles p where p.id = p_user
   );
 end;
 $$;
@@ -2323,9 +2441,9 @@ $$;
 -- 23. FUNCTIONS — READING
 -- ============================================================
 
--- 23a. complete_reading(p_item_id)
+-- 23a. complete_reading(p_item) — param name matches the client
 drop function if exists public.complete_reading(uuid) cascade;
-create or replace function public.complete_reading(p_item_id uuid)
+create or replace function public.complete_reading(p_item uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -2337,15 +2455,15 @@ declare
 begin
   select completed into v_already
   from public.reading_progress
-  where user_id = v_user and item_id = p_item_id;
+  where user_id = v_user and item_id = p_item;
 
   if v_already is null then
     insert into public.reading_progress (user_id, item_id, progress, completed, completed_at)
-    values (v_user, p_item_id, 100, true, now());
+    values (v_user, p_item, 100, true, now());
   elsif not v_already then
     update public.reading_progress
        set progress = 100, completed = true, completed_at = now()
-     where user_id = v_user and item_id = p_item_id;
+     where user_id = v_user and item_id = p_item;
   else
     return jsonb_build_object('ok', true, 'already_completed', true);
   end if;
@@ -2359,9 +2477,10 @@ begin
 end;
 $$;
 
--- 23b. related_publications(p_item_id, p_limit)
+-- 23b. related_publications(p_item, p_limit) — "Read next" shelf,
+--      param name matches the client; kind read from blocks.
 drop function if exists public.related_publications(uuid, integer) cascade;
-create or replace function public.related_publications(p_item_id uuid, p_limit integer default 5)
+create or replace function public.related_publications(p_item uuid, p_limit integer default 5)
 returns table(id uuid, title text, cover_url text, type text, author text)
 language plpgsql
 security definer
@@ -2371,14 +2490,19 @@ declare
   v_category text;
 begin
   select category into v_category
-  from public.feed_items where id = p_item_id;
+  from public.feed_gliims where id = p_item;
 
   return query
-  select fi.id, fi.title, fi.cover_url, fi.type, fi.author
-  from public.feed_items fi
-  where fi.id <> p_item_id
-    and fi.category = v_category
-  order by fi.created_at desc
+  select g.id, g.title, g.cover_url,
+         public.gliim_kind(gc.blocks), p.full_name
+  from public.feed_gliims g
+  join public.feed_gliim_contents gc on gc.post_id = g.id
+  left join public.profiles p on p.id = g.user_id
+  where g.id <> p_item
+    and g.status = 'approved'
+    and g.category is not distinct from v_category
+    and public.gliim_kind(gc.blocks) in ('book','audiolite')
+  order by g.created_at desc
   limit p_limit;
 end;
 $$;
@@ -2453,53 +2577,8 @@ $$;
 
 grant execute on function public.admin_delete_feed_item(uuid) to authenticated;
 
--- 26b. user_delete_feed_item — owner-initiated delete for books / audiolites
--- Password is verified client-side via signInWithPassword (same pattern as
--- gliim delete). This RPC only checks ownership and cleans up related rows.
-drop function if exists public.user_delete_feed_item(uuid) cascade;
-create or replace function public.user_delete_feed_item(
-  p_item_id uuid
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_caller uuid := auth.uid();
-  v_owner  uuid;
-  v_title  text;
-  v_type   text;
-begin
-  select fi.owner_id, fi.title, fi.type into v_owner, v_title, v_type
-  from public.feed_items fi
-  where fi.id = p_item_id;
-
-  if not found then
-    raise exception 'ITEM_NOT_FOUND';
-  end if;
-
-  if v_owner is distinct from v_caller then
-    raise exception 'NOT_OWNER';
-  end if;
-
-  delete from public.saved_items where item_id = p_item_id;
-  delete from public.purchases where item_id = p_item_id;
-  delete from public.billing_events where event_type in ('premium_unlock','library_unlock') and item_id = p_item_id::text;
-  delete from public.reports where target_type = 'library_item' and target_id = p_item_id;
-  delete from public.feed_items where id = p_item_id;
-  delete from public.feed_submissions
-    where user_id = v_owner and title = v_title and type = v_type and status = 'approved';
-
-  return jsonb_build_object('deleted', true, 'item_id', p_item_id);
-
-exception
-  when others then
-    return jsonb_build_object('deleted', false, 'error', sqlerrm);
-end;
-$$;
-
-grant execute on function public.user_delete_feed_item(uuid) to authenticated;
+-- 26b. (user_delete_feed_item removed — deletes go through the
+--       server endpoint, which cleans both tables.)
 
 -- ============================================================
 -- 27. FUNCTIONS — CONTACT
@@ -2599,9 +2678,9 @@ begin
 end;
 $$;
 
--- 28b. library_item_unlocked(p_item_id) — uses feed_items
+-- 28b. library_item_unlocked(p_item) — uses feed_gliims
 drop function if exists public.library_item_unlocked(uuid) cascade;
-create or replace function public.library_item_unlocked(p_item_id uuid)
+create or replace function public.library_item_unlocked(p_item uuid)
 returns boolean
 language plpgsql
 security definer
@@ -2613,7 +2692,7 @@ begin
   if v_user is null then return false; end if;
 
   -- Owner always has access
-  if exists (select 1 from public.feed_items where id = p_item_id and owner_id = v_user) then
+  if exists (select 1 from public.feed_gliims where id = p_item and user_id = v_user) then
     return true;
   end if;
 
@@ -2625,7 +2704,7 @@ begin
     select 1 from public.billing_events
     where user_id = v_user
       and event_type = 'library_unlock'
-      and item_id = p_item_id::text
+      and item_id = p_item::text
   );
 end;
 $$;
@@ -2684,6 +2763,8 @@ create trigger trg_enforce_live_subscription
 
 -- ============================================================
 -- 30b. LANDING HIGHLIGHTS — top book, audiolite, gliimaits
+--      (from feed_gliims; kind read from blocks. SECURITY
+--      DEFINER so logged-out visitors still get names/avatars.)
 -- ============================================================
 
 drop function if exists public.landing_highlights() cascade;
@@ -2691,7 +2772,8 @@ create or replace function public.landing_highlights()
 returns jsonb
 language plpgsql
 stable
-set search_path to 'public'
+security definer
+set search_path = public
 as $$
 declare
   v_top_book    jsonb;
@@ -2700,38 +2782,44 @@ declare
 begin
   -- 1. Top book: approved book with most unique readers (all-time)
   select jsonb_build_object(
-    'id', fi.id,
-    'title', fi.title,
-    'cover_url', fi.cover_url,
-    'author', fi.author,
+    'id', g.id,
+    'title', g.title,
+    'cover_url', g.cover_url,
+    'author', p.full_name,
     'readers', coalesce(rp.cnt, 0)
   ) into v_top_book
-  from public.feed_items fi
+  from public.feed_gliims g
+  join public.feed_gliim_contents gc on gc.post_id = g.id
   left join (
     select item_id, count(distinct user_id)::bigint as cnt
     from public.reading_progress
     group by item_id
-  ) rp on rp.item_id = fi.id
-  where fi.type = 'book'
-  order by coalesce(rp.cnt, 0) desc, fi.created_at desc
+  ) rp on rp.item_id = g.id
+  left join public.profiles p on p.id = g.user_id
+  where g.status = 'approved'
+    and public.gliim_kind(gc.blocks) = 'book'
+  order by coalesce(rp.cnt, 0) desc, g.created_at desc
   limit 1;
 
   -- 2. Top audiolite: approved audiolite with most unique listeners (all-time)
   select jsonb_build_object(
-    'id', fi.id,
-    'title', fi.title,
-    'cover_url', fi.cover_url,
-    'author', fi.author,
+    'id', g.id,
+    'title', g.title,
+    'cover_url', g.cover_url,
+    'author', p.full_name,
     'readers', coalesce(rp.cnt, 0)
   ) into v_top_audio
-  from public.feed_items fi
+  from public.feed_gliims g
+  join public.feed_gliim_contents gc on gc.post_id = g.id
   left join (
     select item_id, count(distinct user_id)::bigint as cnt
     from public.reading_progress
     group by item_id
-  ) rp on rp.item_id = fi.id
-  where fi.type = 'audiolite'
-  order by coalesce(rp.cnt, 0) desc, fi.created_at desc
+  ) rp on rp.item_id = g.id
+  left join public.profiles p on p.id = g.user_id
+  where g.status = 'approved'
+    and public.gliim_kind(gc.blocks) = 'audiolite'
+  order by coalesce(rp.cnt, 0) desc, g.created_at desc
   limit 1;
 
   -- 3. Top 3 gliimaits by GP (for Events card profile pictures)
@@ -3257,6 +3345,11 @@ create trigger trg_set_feed_gliim_status
   before insert on public.feed_gliims
   for each row execute function public.set_feed_gliim_status();
 
+drop trigger if exists trg_guard_feed_gliim_status on public.feed_gliims;
+create trigger trg_guard_feed_gliim_status
+  before update on public.feed_gliims
+  for each row execute function public.guard_feed_gliim_status();
+
 -- ============================================================
 -- 61. BOOTSTRAP — FIRST SUPER ADMIN
 -- ============================================================
@@ -3325,6 +3418,7 @@ declare
     'make_referral_code()','profiles_assign_referral_code()',
     'apply_referral(text)','referral_vest_due()','referral_summary()',
     'complete_reading(uuid)','related_publications(uuid,integer)',
+    'gliim_kind(jsonb)',
     'admin_delete_feed_item(uuid)',
     'crm_contact(uuid)','crm_set_contact(text,text,text,text,text,text,text)',
     'post_content_unlocked(uuid)','library_item_unlocked(uuid)',

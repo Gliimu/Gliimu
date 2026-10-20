@@ -1,6 +1,6 @@
 const routes = {
   '/support': () => import('./views/support.js?v=31').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=45').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=46').then(m => m.default),
   '/xplore': () => import('./views/updates.js?v=35').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=36').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=30').then(m => m.default),
@@ -8,7 +8,7 @@ const routes = {
   '/terms': () => import('./views/terms.js').then(m => m.default),
   // Deep links only: Live is folded into Ping, Profile opens from the avatar
   '/live': () => import('./views/live.js').then(m => m.default),
-  '/profile': () => import('./views/profile.js?v=35').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=36').then(m => m.default),
 };
 
 // Routes with no sidebar entry borrow another tab's highlight

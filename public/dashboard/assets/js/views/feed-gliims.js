@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=29';
+import { renderFileInto } from '../reader.js?v=31';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -11,6 +11,28 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Client mirror of the gliim_kind classifier (sql/unify_feed.sql): video →
+// bundle; audio (no video) → audiolite; document (no video/audio) → book.
+// Cards use it to style audiolites, without ever loading the body.
+function gliimKindOf(blocks) {
+  const types = new Set((blocks || []).map(b => b && b.type).filter(Boolean));
+  if (types.has('video')) return 'bundle';
+  if (types.has('audio')) return 'audiolite';
+  if (types.has('document')) return 'book';
+  if (types.has('pdf')) return 'bundle';
+  return null;
+}
+
+// Best-contrast text shade for a solid card color (null when the value isn't
+// a plain hex — the caller then keeps the theme's own colors).
+function readableOn(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const lum = 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+  return lum > 150 ? '#111827' : '#ffffff';
 }
 
 const hubView = {
@@ -429,7 +451,7 @@ const hubView = {
     modal.innerHTML = `
       <div class="modal-content gliim-builder">
         <button class="modal-close" onclick="hubInstance.closeModal()">×</button>
-        <h2 style="margin-bottom: 24px;">Publish a Bundle</h2>
+        <h2 style="margin-bottom: 24px;">Publish to the Feed</h2>
         <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
         <div class="form-row" style="gap: 16px;">
           <div class="form-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
@@ -449,11 +471,11 @@ const hubView = {
             <input type="checkbox" id="post-premium-toggle" style="width: 18px; height: 18px; accent-color: var(--brand-primary); flex-shrink: 0;">
             <span><strong>Premium lock</strong>${premiumPrice ? ` — viewers pay ₦${premiumPrice.toLocaleString()} per open` : ' — viewers pay per open'}</span>
           </label>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn 70% of every unlock. Leave it unchecked and the bundle stays free to open.</p>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn 70% of every unlock. Leave it unchecked and the gliim stays free to open.</p>
         </div>
         ` : `
         <div class="form-group">
-          <p style="font-size: 12px; color: var(--text-muted);">Reach <strong>1000 GP</strong> to premium-lock a bundle and charge viewers per open. You're at ${userGP.toLocaleString()} GP.</p>
+          <p style="font-size: 12px; color: var(--text-muted);">Reach <strong>1000 GP</strong> to premium-lock a gliim and charge viewers per open. You're at ${userGP.toLocaleString()} GP.</p>
         </div>
         `}
         <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
@@ -467,13 +489,14 @@ const hubView = {
             <div onclick="hubInstance.addBlock('image')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Image</div>
             <div onclick="hubInstance.addBlock('video')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg> Video</div>
             <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
+            <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
             <div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> PDF</div>
           </div>
         </div>
 
         <div style="display: flex; gap: 12px; margin-top: 32px;">
           <button id="save-draft-btn" class="btn-secondary" style="flex: 1;">Save Draft</button>
-          <button id="submit-post-btn" class="btn-primary" style="flex: 1;">Publish Bundle</button>
+          <button id="submit-post-btn" class="btn-primary" style="flex: 1;">Publish</button>
         </div>
       </div>
     `;
@@ -511,7 +534,7 @@ const hubView = {
         if (content) {
           const blockData = { type, content };
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image') {
+          if (type === 'image' || type === 'audio' || type === 'document') {
             const capEl = b.querySelector('.block-caption-input');
             const cap = capEl ? capEl.value.trim() : '';
             if (cap) blockData.caption = cap;
@@ -535,7 +558,6 @@ const hubView = {
         id: newId,
         title, category, description,
         cover_url: coverUrl,
-        content: description,
         user_id: store.user.id
       };
       const premiumToggle = document.getElementById('post-premium-toggle');
@@ -547,7 +569,7 @@ const hubView = {
 
       if (error) {
         alert("Failed: " + error.message);
-        btn.innerText = "Publish Bundle";
+        btn.innerText = "Publish";
         btn.disabled = false;
         return;
       }
@@ -559,7 +581,7 @@ const hubView = {
       if (bodyError) {
         await supabase.from('feed_gliims').delete().eq('id', newId);
         alert("Failed to save your content: " + bodyError.message);
-        btn.innerText = "Publish Bundle";
+        btn.innerText = "Publish";
         btn.disabled = false;
         return;
       }
@@ -594,7 +616,7 @@ const hubView = {
         if (content) {
           const blockData = { type, content };
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image') {
+          if (type === 'image' || type === 'audio' || type === 'document') {
             const capEl = b.querySelector('.block-caption-input');
             const cap = capEl ? capEl.value.trim() : '';
             if (cap) blockData.caption = cap;
@@ -616,7 +638,6 @@ const hubView = {
         id: newId,
         title, category, description,
         cover_url: coverUrl,
-        content: description,
         user_id: store.user.id,
         status: 'draft'
       };
@@ -701,6 +722,8 @@ const hubView = {
           blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
         }
         if (block.type === 'video' || block.type === 'audio') {
+          const capEl = blockDiv.querySelector('.block-caption-input');
+          if (capEl && block.caption) capEl.value = block.caption;
           const preview = blockDiv.querySelector('.block-preview');
           if (preview) {
             const mediaEl = block.type === 'video'
@@ -709,6 +732,15 @@ const hubView = {
             preview.innerHTML = mediaEl;
           }
           blockDiv.querySelector('.block-file-name').innerText = 'Loaded media';
+          blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
+          blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
+        }
+        if (block.type === 'document') {
+          const capEl = blockDiv.querySelector('.block-caption-input');
+          if (capEl && block.caption) capEl.value = block.caption;
+          const preview = blockDiv.querySelector('.block-preview');
+          if (preview) preview.innerHTML = '<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">Document loaded</div>';
+          blockDiv.querySelector('.block-file-name').innerText = 'Loaded document';
           blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
           blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
         }
@@ -769,7 +801,7 @@ const hubView = {
         if (content) {
           const blockData = { type, content };
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image') {
+          if (type === 'image' || type === 'audio' || type === 'document') {
             const capEl = b.querySelector('.block-caption-input');
             const cap = capEl ? capEl.value.trim() : '';
             if (cap) blockData.caption = cap;
@@ -791,7 +823,6 @@ const hubView = {
       const payload = {
         title, category, description,
         cover_url: coverUrl,
-        content: description,
         status: 'approved'
       };
       const premiumToggle = document.getElementById('post-premium-toggle');
@@ -855,7 +886,7 @@ const hubView = {
         if (content) {
           const blockData = { type, content };
           if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image') {
+          if (type === 'image' || type === 'audio' || type === 'document') {
             const capEl = b.querySelector('.block-caption-input');
             const cap = capEl ? capEl.value.trim() : '';
             if (cap) blockData.caption = cap;
@@ -875,7 +906,6 @@ const hubView = {
       const payload = {
         title, category, description,
         cover_url: coverUrl,
-        content: description,
         status: 'draft'
       };
 
@@ -921,6 +951,7 @@ const hubView = {
     if (type === 'image') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
+    if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
     if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
@@ -951,7 +982,7 @@ const hubView = {
         </div>`;
       inputHtml = `<div class="pdf-slot-row">${pdfSlot(0)}${pdfSlot(1)}</div><input type="hidden" class="block-content-input">`;
     } else {
-      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '*/*';
+      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : type === 'document' ? '.pdf,.doc,.docx,.epub' : '*/*';
       inputHtml = `
         <label class="custom-file-upload">
           <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
@@ -960,7 +991,7 @@ const hubView = {
         </label>
         <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
         <div class="block-preview"></div>
-        ${type === 'image' ? `<input type="text" class="input block-caption-input" placeholder="Caption (optional)" style="margin-top: 8px;">` : ''}
+        ${['image', 'audio', 'document'].includes(type) ? `<input type="text" class="input block-caption-input" placeholder="${type === 'image' ? 'Caption (optional)' : type === 'audio' ? 'Chapter title (optional)' : 'Document title (optional)'}" style="margin-top: 8px;">` : ''}
         <input type="hidden" class="block-content-input">
       `;
     }
@@ -1109,7 +1140,9 @@ const hubView = {
         const file = e.target.files[0];
         if (!file) return;
         blockDiv.querySelector('.block-file-name').innerText = file.name;
-        runUpload(file, 'media', blockDiv.querySelector('.upload-status'), blockDiv.querySelector('.block-content-input'), e.target, (fileUrl) => {
+        // EPUB/DOCX/PDF masters ride the 'library' kind — the 'media' presign
+        // only accepts images, audio and video.
+        runUpload(file, type === 'document' ? 'library' : 'media', blockDiv.querySelector('.upload-status'), blockDiv.querySelector('.block-content-input'), e.target, (fileUrl) => {
           const preview = blockDiv.querySelector('.block-preview');
           preview.innerHTML = type === 'image' ? `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>`;
         });
@@ -1179,6 +1212,19 @@ const hubView = {
     const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved' || (p.status === 'draft' && p.user_id === store.user.id));
     this.currentPosts = this.orderFeed(visible);
     this.savedPosts = new Set(saved?.map(s => s.item_id) || []);
+
+    // Card kind detection: read only the block shapes of the listed posts
+    // (never the bodies — RLS withholds premium rows here just the same, so
+    // a locked post simply falls back to the default card).
+    this.cardKinds = {};
+    try {
+      const ids = (feed_gliims || []).map(p => p.id);
+      if (ids.length) {
+        const { data: kindRows } = await supabase.from('feed_gliim_contents').select('post_id, blocks').in('post_id', ids);
+        for (const row of kindRows || []) this.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+      }
+    } catch { /* cards keep the default style */ }
+
     this.feedLoaded = true;
     this.renderPosts(this.currentPosts);
   },
@@ -1232,6 +1278,23 @@ const hubView = {
     const draftBadge = post.status === 'draft' ? `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(107,114,128,.15);color:#4B5563;font-size:11px;font-weight:700;">Draft</span>` : '';
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+
+    // Audiolites render as 1:1 squares: the title sits on the card color,
+    // left-aligned, with the text shade picked for best contrast (theme
+    // colors when the gliim carries no cover_color).
+    if (this.cardKinds && this.cardKinds[post.id] === 'audiolite') {
+      const color = String(post.cover_color || '').trim();
+      const onColor = readableOn(color);
+      const cardStyle = color && onColor ? ` style="background:${escapeHtml(color)};color:${onColor};"` : '';
+      const eqSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
+      const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 21 12 6 21 6 3"></polygon></svg>';
+      return `<article class="audiolite-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
+        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${eqSvg}Audiolite</span><span class="audiolite-play">${playSvg}</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+        <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
+        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
+      </article>`;
+    }
+
     return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
@@ -1426,8 +1489,19 @@ const hubView = {
           const cap = b.caption ? `<figcaption class="read-block-caption">${escapeHtml(b.caption)}</figcaption>` : '';
           return `<figure class="read-block-figure"><img src="${escapeHtml(b.content)}" class="read-block-media" data-lightbox data-caption="${escapeHtml(b.caption || '')}">${cap}</figure>`;
         }
-        if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
-        if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><i class="fas fa-podcast"></i><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
+        if (b.type === 'video') {
+          return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
+        }
+        if (b.type === 'audio') {
+          const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
+          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata"></audio></div>`;
+        }
+        if (b.type === 'document') {
+          // Reflowable book file — hydrated in-page below via renderFileInto
+          // (pdf.js/mammoth/epub.js), never a new browser tab.
+          const cap = b.caption ? `<h3 class="read-block-subtitle">${escapeHtml(b.caption)}</h3>` : '';
+          return `${cap}<div class="rdr-inline-file" data-file-src="${escapeHtml(b.content)}"></div>`;
+        }
         if (b.type === 'pdf') {
           let items = [];
           try {
@@ -1541,12 +1615,72 @@ const hubView = {
       </div>
     `;
     document.body.appendChild(modal);
-    // Hydrate PDF blocks in-page (pdf.js) so they never open a new browser tab.
+    this.setupMediaBlocks(modal);
+    // Hydrate document/PDF blocks in-page (pdf.js/mammoth/epub.js) so they
+    // never leave the read view for a new browser tab.
     modal.querySelectorAll('.rdr-inline-file[data-file-src]').forEach(el => {
       const src = el.getAttribute('data-file-src');
       if (src) renderFileInto(src, el);
     });
     this.setupMentionPicker(post.id);
+  },
+
+  // Read-view media wiring: the equalizer dances while an audio chapter
+  // plays, and every video gets the custom chrome (big play, seek, time,
+  // mute, fullscreen) instead of the bare browser controls.
+  setupMediaBlocks(root) {
+    root.querySelectorAll('.read-block-audio').forEach(a => {
+      const eq = a.closest('.read-block-audio-wrapper')?.querySelector('.lib-eq');
+      if (!eq) return;
+      a.addEventListener('play', () => eq.classList.add('playing'));
+      a.addEventListener('pause', () => eq.classList.remove('playing'));
+      a.addEventListener('ended', () => eq.classList.remove('playing'));
+    });
+
+    root.querySelectorAll('.read-video-player').forEach(fig => {
+      const video = fig.querySelector('video');
+      if (!video) return;
+      const big = fig.querySelector('.rvp-big');
+      const playBtn = fig.querySelector('.rvp-play');
+      const seek = fig.querySelector('.rvp-seek');
+      const time = fig.querySelector('.rvp-time');
+      const muteBtn = fig.querySelector('.rvp-mute');
+      const fullBtn = fig.querySelector('.rvp-full');
+      const ICON_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>';
+      const ICON_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
+      const ICON_VOL = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+      const ICON_MUTED = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+      const fmt = (s) => !isFinite(s) ? '0:00' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+      playBtn.innerHTML = ICON_PLAY;
+      muteBtn.innerHTML = video.muted ? ICON_MUTED : ICON_VOL;
+      const syncPlay = () => {
+        big.classList.toggle('hidden', !video.paused);
+        playBtn.innerHTML = video.paused ? ICON_PLAY : ICON_PAUSE;
+      };
+      const toggle = () => (video.paused ? video.play() : video.pause());
+      big.addEventListener('click', toggle);
+      playBtn.addEventListener('click', toggle);
+      video.addEventListener('click', toggle);
+      video.addEventListener('play', syncPlay);
+      video.addEventListener('pause', syncPlay);
+      video.addEventListener('timeupdate', () => {
+        if (video.duration) seek.value = Math.round((video.currentTime / video.duration) * 1000);
+        time.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
+      });
+      seek.addEventListener('input', () => {
+        if (video.duration) video.currentTime = (seek.value / 1000) * video.duration;
+      });
+      muteBtn.addEventListener('click', () => {
+        video.muted = !video.muted;
+        muteBtn.innerHTML = video.muted ? ICON_MUTED : ICON_VOL;
+      });
+      fullBtn.addEventListener('click', () => {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else if (fig.requestFullscreen) fig.requestFullscreen().catch(() => {});
+      });
+      syncPlay();
+    });
   },
 
   // Shown when RLS withheld a premium body (gate skipped or unlock stale).
