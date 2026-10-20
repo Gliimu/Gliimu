@@ -1910,8 +1910,213 @@ const hubView = {
   },
 
   async openEventPage(eventId) {
-    // TODO: Implement event page with leaderboard and posts tabs
-    alert(`Event page for ${eventId} - Coming soon!`);
+    // Fetch event details
+    const { data: event, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        profiles:profiles!host_id(full_name, avatar_url, total_gp)
+      `)
+      .eq('id', eventId)
+      .single();
+
+    if (error || !event) {
+      alert('Event not found.');
+      return;
+    }
+
+    // Fetch leaderboard
+    const { data: leaderboardData } = await supabase.rpc('event_leaderboard', { p_event_id: eventId });
+    const leaderboard = leaderboardData?.leaderboard || [];
+
+    // Fetch posts
+    const { data: posts } = await supabase
+      .from('event_posts')
+      .select(`
+        *,
+        profiles:profiles!author_id(full_name, avatar_url, total_gp)
+      `)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false });
+
+    // Check if user is participant
+    const { data: participation } = await supabase
+      .from('event_participants')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('user_id', store.user.id)
+      .maybeSingle();
+
+    const isParticipant = !!participation;
+    const isHost = event.host_id === store.user.id;
+    const canPost = isParticipant && event.status === 'active';
+
+    const prizePool = (event.prize_1st || 0) + (event.prize_2nd || 0) + (event.prize_3rd || 0);
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'event-page-modal';
+    modal.style.zIndex = '9999';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 900px; max-height: 95vh; overflow-y: auto; padding: 0;">
+        <div class="event-page-header" style="background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); padding: 32px; color: white; position: relative;">
+          <button class="modal-close" onclick="document.getElementById('event-page-modal').remove()" style="position: absolute; top: 16px; right: 16px; color: white;">×</button>
+          
+          ${event.cover_url ? `<img src="${event.cover_url}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.3;">` : ''}
+          
+          <div style="position: relative; z-index: 1;">
+            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+              <span style="background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;">${event.status === 'recruiting' ? 'Recruiting' : event.status === 'active' ? 'Live' : 'Ended'}</span>
+              ${event.team_mode ? '<span style="background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;">Team Event</span>' : ''}
+            </div>
+            
+            <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 12px 0;">${escapeHtml(event.title)}</h1>
+            <p style="font-size: 16px; opacity: 0.9; margin: 0 0 24px 0;">${escapeHtml(event.description)}</p>
+            
+            <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+              <div>
+                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Prize Pool</div>
+                <div style="font-size: 24px; font-weight: 800;">₦${prizePool.toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Participants</div>
+                <div style="font-size: 24px; font-weight: 800;">${event.current_participants}/${event.max_participants}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Duration</div>
+                <div style="font-size: 24px; font-weight: 800;">${event.duration_days} days</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Time Left</div>
+                <div style="font-size: 24px; font-weight: 800;">${this.getEventTimeLeft(event)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="event-page-tabs" style="display: flex; border-bottom: 2px solid var(--border); background: var(--surface);">
+          <button class="event-tab active" data-tab="leaderboard" style="flex: 1; padding: 16px; border: none; background: none; font-size: 15px; font-weight: 700; cursor: pointer; border-bottom: 3px solid var(--brand-primary); color: var(--brand-primary);">Leaderboard</button>
+          <button class="event-tab" data-tab="posts" style="flex: 1; padding: 16px; border: none; background: none; font-size: 15px; font-weight: 700; cursor: pointer; color: var(--text-muted);">Posts</button>
+        </div>
+
+        <div class="event-page-content" style="padding: 24px;">
+          <div id="event-tab-leaderboard" class="event-tab-content">
+            ${leaderboard.length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No rankings yet. Be the first to post!</p>' : ''}
+            ${leaderboard.map((entry, i) => `
+              <div class="leaderboard-entry" style="display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; ${i < 3 ? 'background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(99,102,241,0.1));' : ''}">
+                <div style="font-size: 24px; font-weight: 800; color: ${i === 0 ? '#F59E0B' : i === 1 ? '#9CA3AF' : i === 2 ? '#CD7F32' : 'var(--text-muted)'}; min-width: 40px;">#${entry.rank}</div>
+                ${event.team_mode ? `
+                  <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 16px;">${escapeHtml(entry.team_name)}</div>
+                    <div style="font-size: 13px; color: var(--text-muted);">${entry.members?.length || 0} members</div>
+                  </div>
+                ` : `
+                  <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                    ${entry.avatar_url ? `<img src="${entry.avatar_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">` : '<div style="width: 40px; height: 40px; border-radius: 50%; background: var(--gradient-primary);"></div>'}
+                    <div style="font-weight: 700; font-size: 16px;">${escapeHtml(entry.full_name)}</div>
+                  </div>
+                `}
+                <div style="font-size: 20px; font-weight: 800; color: var(--brand-primary);">${entry.total_gp} GP</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div id="event-tab-posts" class="event-tab-content" style="display: none;">
+            ${canPost ? `
+              <div style="margin-bottom: 24px; padding: 20px; border: 2px solid var(--border); border-radius: 12px;">
+                <textarea id="event-post-content" class="input" rows="4" placeholder="Share your progress, ideas, or submission..."></textarea>
+                <button class="btn-primary" style="margin-top: 12px; width: 100%;" onclick="hubInstance.createEventPost('${eventId}')">Post</button>
+              </div>
+            ` : !isParticipant ? `
+              <div style="text-align: center; padding: 40px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 24px;">
+                <p style="color: var(--text-muted); margin-bottom: 16px;">Join this event to participate and post.</p>
+                ${event.status === 'recruiting' ? `<button class="btn-primary" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>` : ''}
+              </div>
+            ` : ''}
+            
+            ${(posts || []).length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No posts yet.</p>' : ''}
+            ${(posts || []).map(post => `
+              <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                  ${post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">` : '<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--gradient-primary);"></div>'}
+                  <div>
+                    <div style="font-weight: 700;">${escapeHtml(post.profiles?.full_name || 'Gliimait')}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleString()}</div>
+                  </div>
+                </div>
+                <div style="color: var(--text-secondary); line-height: 1.6;">${escapeHtml(JSON.stringify(post.content_blocks))}</div>
+                <div style="display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                  <button style="background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;" onclick="hubInstance.likeEventPost('${post.id}')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    ${post.total_likes}
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Tab switching
+    modal.querySelectorAll('.event-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        modal.querySelectorAll('.event-tab').forEach(t => {
+          t.classList.remove('active');
+          t.style.borderBottom = 'none';
+          t.style.color = 'var(--text-muted)';
+        });
+        tab.classList.add('active');
+        tab.style.borderBottom = '3px solid var(--brand-primary)';
+        tab.style.color = 'var(--brand-primary)';
+
+        modal.querySelectorAll('.event-tab-content').forEach(c => c.style.display = 'none');
+        modal.querySelector(`#event-tab-${tab.dataset.tab}`).style.display = 'block';
+      });
+    });
+  },
+
+  async createEventPost(eventId) {
+    const content = document.getElementById('event-post-content').value.trim();
+    if (!content) {
+      alert('Please write something.');
+      return;
+    }
+
+    const contentBlocks = [{ type: 'text', content }];
+
+    const { data, error } = await supabase.rpc('event_post_create', {
+      p_event_id: eventId,
+      p_content_blocks: contentBlocks
+    });
+
+    if (error || !data || !data.ok) {
+      alert(`Failed to create post: ${data?.code || error?.message || 'Unknown error'}`);
+      return;
+    }
+
+    // Refresh event page
+    document.getElementById('event-page-modal').remove();
+    this.openEventPage(eventId);
+  },
+
+  async likeEventPost(postId) {
+    const { data, error } = await supabase.rpc('event_post_like', { p_post_id: postId });
+
+    if (error || !data || !data.ok) {
+      alert(`Failed to like post: ${data?.code || error?.message || 'Unknown error'}`);
+      return;
+    }
+
+    // Find the event ID from the post and refresh
+    // For now, just refresh the page
+    const modal = document.getElementById('event-page-modal');
+    if (modal) {
+      // Extract event ID from the modal (we'd need to store it)
+      // For simplicity, just reload
+      location.reload();
+    }
   },
 
   async joinEvent(eventId) {
@@ -2505,6 +2710,8 @@ window.hubInstance = {
   removeEventCategory: (index) => hubView.removeEventCategory(index),
   openEventPage: (id) => hubView.openEventPage(id),
   joinEvent: (id) => hubView.joinEvent(id),
+  createEventPost: (id) => hubView.createEventPost(id),
+  likeEventPost: (id) => hubView.likeEventPost(id),
   saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
