@@ -493,6 +493,7 @@ const hubView = {
             <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
             <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
             <div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> PDF</div>
+            <div onclick="hubInstance.openEventCreator()" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg> Event</div>
           </div>
         </div>
 
@@ -1164,6 +1165,366 @@ const hubView = {
     }
   },
 
+  async openEventCreator() {
+    // Close the current composer modal
+    document.querySelector('.modal-overlay')?.remove();
+
+    // Fetch categories and pricing
+    const [catRes, pricingRes] = await Promise.all([
+      supabase.rpc('event_categories_list', {}),
+      supabase.rpc('event_pricing_get', {})
+    ]);
+
+    const categories = catRes.data || [];
+    const pricing = pricingRes.data || {};
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'event-creator-modal';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+        <button class="modal-close" onclick="document.getElementById('event-creator-modal').remove()">×</button>
+        <h2 style="margin-bottom: 24px;">Create Event</h2>
+        
+        <div class="form-group">
+          <label>Event Title *</label>
+          <input type="text" id="event-title" class="input" placeholder="e.g., Tech Innovation Challenge 2026">
+        </div>
+
+        <div class="form-group">
+          <label>Description *</label>
+          <textarea id="event-description" class="input" rows="4" placeholder="Describe the event concept, goals, and what participants will do..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Categories * (select up to 2)</label>
+          <div class="hub-tag-picker">
+            <div class="hub-tag-chips" id="event-category-chips"></div>
+            <input type="text" id="event-category-search" class="input" placeholder="Search categories..." autocomplete="off">
+            <div class="hub-tag-results" id="event-category-results"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Cover Image *</label>
+          <label class="custom-file-upload" style="display: block;">
+            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+            <span id="event-cover-name">Choose cover image</span>
+            <input type="file" id="event-cover-input" accept="image/*" hidden>
+          </label>
+          <div id="event-cover-status" style="font-size: 12px; margin-top: 8px;"></div>
+          <div id="event-cover-preview" style="margin-top: 8px;"></div>
+          <input type="hidden" id="event-cover-url">
+        </div>
+
+        <div class="form-row" style="gap: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label>Start Date & Time *</label>
+            <input type="datetime-local" id="event-start-date" class="input">
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label>Duration *</label>
+            <select id="event-duration" class="input">
+              <option value="7">1 week</option>
+              <option value="14">2 weeks</option>
+              <option value="30" selected>1 month</option>
+              <option value="60">2 months</option>
+              <option value="90">3 months</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Budget / Prize Pool * (minimum ₦${Number(pricing.min_budget || 10000).toLocaleString()})</label>
+          <input type="number" id="event-budget" class="input" min="${pricing.min_budget || 10000}" step="1000" placeholder="e.g., 50000">
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+            Max participants: <strong id="event-max-participants">-</strong> | 
+            Prize pool: <strong id="event-prize-pool">₦0</strong>
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <input type="checkbox" id="event-team-mode" style="width: 18px; height: 18px; accent-color: var(--brand-primary);">
+            <span><strong>Team Mode</strong> — allow participants to form teams</span>
+          </label>
+          <div id="event-team-size-group" style="display: none; margin-top: 12px;">
+            <label>Max team size (1-3)</label>
+            <input type="number" id="event-max-team-size" class="input" min="1" max="3" value="3">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Rules & Guidelines (optional)</label>
+          <textarea id="event-rules" class="input" rows="3" placeholder="Any specific rules for participants..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 32px;">
+          <button id="event-preview-btn" class="btn-secondary" style="flex: 1;">Preview</button>
+          <button id="event-create-btn" class="btn-primary" style="flex: 1;">Create Event</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Initialize category picker
+    this.eventSelectedCategories = [];
+    this.eventAllCategories = categories;
+    this.setupEventCategoryPicker();
+
+    // Cover image upload
+    const coverInput = document.getElementById('event-cover-input');
+    coverInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById('event-cover-status');
+      const urlEl = document.getElementById('event-cover-url');
+      statusEl.style.color = 'var(--brand-primary)';
+      statusEl.textContent = 'Uploading... 0%';
+      try {
+        const fileUrl = await uploadFile(file, 'media', (percent) => {
+          statusEl.textContent = `Uploading... ${percent}%`;
+        });
+        urlEl.value = fileUrl;
+        statusEl.textContent = 'Upload complete!';
+        statusEl.style.color = 'var(--success)';
+        document.getElementById('event-cover-name').textContent = 'Cover uploaded';
+        document.getElementById('event-cover-preview').innerHTML = `<img src="${fileUrl}" style="max-width: 200px; border-radius: 8px;">`;
+      } catch (err) {
+        statusEl.style.color = 'var(--error)';
+        statusEl.textContent = err.message || 'Upload failed.';
+      }
+    });
+
+    // Team mode toggle
+    document.getElementById('event-team-mode').addEventListener('change', (e) => {
+      document.getElementById('event-team-size-group').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // Budget calculation
+    const budgetInput = document.getElementById('event-budget');
+    const durationSelect = document.getElementById('event-duration');
+    const updateCalc = () => {
+      const budget = Number(budgetInput.value) || 0;
+      const duration = Number(durationSelect.value);
+      const perParticipantCost = this.calcParticipantCost(duration, pricing);
+      const maxParticipants = Math.floor(budget / perParticipantCost);
+      document.getElementById('event-max-participants').textContent = maxParticipants > 0 ? maxParticipants : '-';
+      const prizePool = budget * (1 - (pricing.gliimu_fee_percent || 15) / 100);
+      document.getElementById('event-prize-pool').textContent = `₦${prizePool.toLocaleString()}`;
+    };
+    budgetInput.addEventListener('input', updateCalc);
+    durationSelect.addEventListener('change', updateCalc);
+
+    // Preview button
+    document.getElementById('event-preview-btn').addEventListener('click', () => {
+      this.showEventPreview();
+    });
+
+    // Create button
+    document.getElementById('event-create-btn').addEventListener('click', () => {
+      this.createEvent();
+    });
+  },
+
+  setupEventCategoryPicker() {
+    const searchInput = document.getElementById('event-category-search');
+    const resultsDiv = document.getElementById('event-category-results');
+    const chipsDiv = document.getElementById('event-category-chips');
+
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.toLowerCase().trim();
+      if (!query) {
+        resultsDiv.style.display = 'none';
+        return;
+      }
+
+      const matches = this.eventAllCategories.filter(c =>
+        c.name.toLowerCase().includes(query) &&
+        !this.eventSelectedCategories.find(sc => sc.id === c.id)
+      ).slice(0, 5);
+
+      if (matches.length === 0) {
+        resultsDiv.style.display = 'none';
+        return;
+      }
+
+      resultsDiv.innerHTML = matches.map(c => `
+        <div class="hub-tag-result" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
+          ${c.icon_url ? `<img src="${c.icon_url}" alt="" style="width: 20px; height: 20px; border-radius: 4px;">` : ''}
+          <div>
+            <div style="font-weight: 500;">${escapeHtml(c.name)}</div>
+            ${c.description ? `<div style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.description)}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+      resultsDiv.style.display = 'block';
+
+      resultsDiv.querySelectorAll('.hub-tag-result').forEach(el => {
+        el.addEventListener('click', () => {
+          if (this.eventSelectedCategories.length >= 2) {
+            alert('You can select up to 2 categories.');
+            return;
+          }
+          const id = el.dataset.id;
+          const name = el.dataset.name;
+          this.eventSelectedCategories.push({ id, name });
+          this.renderEventCategoryChips();
+          searchInput.value = '';
+          resultsDiv.style.display = 'none';
+        });
+      });
+    });
+
+    searchInput.addEventListener('blur', () => {
+      setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
+    });
+  },
+
+  renderEventCategoryChips() {
+    const chipsDiv = document.getElementById('event-category-chips');
+    chipsDiv.innerHTML = this.eventSelectedCategories.map((c, i) => `
+      <span class="hub-tag-chip">
+        ${escapeHtml(c.name)}
+        <button type="button" onclick="hubView.removeEventCategory(${i})" style="background: none; border: none; color: inherit; cursor: pointer; padding: 0; margin-left: 4px;">×</button>
+      </span>
+    `).join('');
+  },
+
+  removeEventCategory(index) {
+    this.eventSelectedCategories.splice(index, 1);
+    this.renderEventCategoryChips();
+  },
+
+  calcParticipantCost(durationDays, pricing) {
+    if (durationDays <= 7) return Number(pricing.cost_1_week || 4000);
+    if (durationDays <= 14) return Number(pricing.cost_2_weeks || 3000);
+    if (durationDays <= 30) return Number(pricing.cost_1_month || 2000);
+    if (durationDays <= 60) return Number(pricing.cost_2_months || 1500);
+    return Number(pricing.cost_3_months || 1000);
+  },
+
+  async showEventPreview() {
+    // Validate required fields
+    const title = document.getElementById('event-title').value.trim();
+    const description = document.getElementById('event-description').value.trim();
+    const coverUrl = document.getElementById('event-cover-url').value;
+    const startDate = document.getElementById('event-start-date').value;
+    const duration = Number(document.getElementById('event-duration').value);
+    const budget = Number(document.getElementById('event-budget').value);
+
+    if (!title || !description || !coverUrl || !startDate || !budget) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    if (this.eventSelectedCategories.length === 0) {
+      alert('Please select at least one category.');
+      return;
+    }
+
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + duration);
+
+    const { data: pricing } = await supabase.rpc('event_pricing_get', {});
+    const perParticipantCost = this.calcParticipantCost(duration, pricing);
+    const maxParticipants = Math.floor(budget / perParticipantCost);
+    const prizePool = budget * (1 - pricing.gliimu_fee_percent / 100);
+
+    const previewModal = document.createElement('div');
+    previewModal.className = 'modal-overlay';
+    previewModal.id = 'event-preview-modal';
+    previewModal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px;">
+        <button class="modal-close" onclick="document.getElementById('event-preview-modal').remove()">×</button>
+        <h2 style="margin-bottom: 24px;">Event Preview</h2>
+        
+        <div class="event-card-preview" style="border: 2px solid var(--border); border-radius: 12px; overflow: hidden;">
+          <div style="height: 200px; background: url('${coverUrl}') center/cover no-repeat;"></div>
+          <div style="padding: 20px;">
+            <h3 style="margin: 0 0 12px;">${escapeHtml(title)}</h3>
+            <p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 16px;">${escapeHtml(description.substring(0, 150))}${description.length > 150 ? '...' : ''}</p>
+            
+            <div style="display: flex; gap: 16px; font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+              <div><strong>${duration}</strong> days</div>
+              <div><strong>${maxParticipants}</strong> participants max</div>
+            </div>
+
+            <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Prize Pool</div>
+              <div style="font-size: 20px; font-weight: 700; color: var(--brand-primary);">₦${prizePool.toLocaleString()}</div>
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+              ${this.eventSelectedCategories.map(c => `<span style="background: var(--brand-primary); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">${escapeHtml(c.name)}</span>`).join('')}
+            </div>
+
+            <button class="btn-primary" style="width: 100%;">Join Event</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: 8px; font-size: 13px;">
+          <div style="margin-bottom: 8px;"><strong>Start:</strong> ${new Date(startDate).toLocaleString()}</div>
+          <div style="margin-bottom: 8px;"><strong>End:</strong> ${endDate.toLocaleString()}</div>
+          <div><strong>Budget:</strong> ₦${budget.toLocaleString()}</div>
+        </div>
+
+        <button class="btn-secondary" style="width: 100%; margin-top: 20px;" onclick="document.getElementById('event-preview-modal').remove()">Close Preview</button>
+      </div>
+    `;
+    document.body.appendChild(previewModal);
+  },
+
+  async createEvent() {
+    // Validate
+    const title = document.getElementById('event-title').value.trim();
+    const description = document.getElementById('event-description').value.trim();
+    const coverUrl = document.getElementById('event-cover-url').value;
+    const startDate = document.getElementById('event-start-date').value;
+    const duration = Number(document.getElementById('event-duration').value);
+    const budget = Number(document.getElementById('event-budget').value);
+    const teamMode = document.getElementById('event-team-mode').checked;
+    const maxTeamSize = teamMode ? Number(document.getElementById('event-max-team-size').value) : null;
+    const rules = document.getElementById('event-rules').value.trim();
+
+    if (!title || !description || !coverUrl || !startDate || !budget) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    if (this.eventSelectedCategories.length === 0) {
+      alert('Please select at least one category.');
+      return;
+    }
+
+    const categoryIds = this.eventSelectedCategories.map(c => c.id);
+
+    // Create event via RPC
+    const { data, error } = await supabase.rpc('event_create', {
+      p_title: title,
+      p_description: description,
+      p_cover_url: coverUrl,
+      p_category_ids: categoryIds,
+      p_start_date: new Date(startDate).toISOString(),
+      p_duration_days: duration,
+      p_budget_naira: budget,
+      p_team_mode: teamMode,
+      p_max_team_size: maxTeamSize,
+      p_rules_text: rules || null
+    });
+
+    if (error || !data || !data.ok) {
+      alert(`Failed to create event: ${data?.code || error?.message || 'Unknown error'}`);
+      return;
+    }
+
+    document.getElementById('event-creator-modal').remove();
+    alert('Event created successfully! It will appear in the feed once enough participants join.');
+    
+    // Refresh feed
+    this.fetchPosts();
+  },
+
   // Autosave: serialize composer state to localStorage so a refresh doesn't
   // wipe the user's work-in-progress.
   saveComposerState() {
@@ -1320,18 +1681,25 @@ const hubView = {
       supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }),
       supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
-      supabase.from('saved_items').select('item_id').eq('user_id', store.user.id)
+      supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
+      supabase.from('events').select(`
+        id, host_id, title, description, cover_url, status, start_date, end_date,
+        duration_days, budget_naira, max_participants, current_participants,
+        team_mode, prize_1st, prize_2nd, prize_3rd, created_at,
+        profiles:profiles!host_id(full_name, avatar_url, total_gp)
+      `).in('status', ['recruiting', 'active']).order('created_at', { ascending: false })
     ]);
 
-    let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsFull);
+    let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }, { data: events }] = await load(colsFull);
     if (error) {
       // Pre-migration fallback: feed_gliims.is_premium / feed_gliims.status may not exist yet.
-      [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsLegacy);
+      [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }, { data: events }] = await load(colsLegacy);
     }
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
+    this.currentEvents = events || [];
     // A row with no status predates moderation and stays visible; approved gliims
     // reach the feed; drafts are visible to their owners.
     const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved' || (p.status === 'draft' && p.user_id === store.user.id));
@@ -1465,9 +1833,100 @@ const hubView = {
     const container = document.getElementById('feed_gliims-container');
     if (!container) return;
     const filtered = this.filterPosts(feed_gliims);
-    if (filtered.length === 0) { container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; return; }
+    
+    // Render events first (if any), then regular posts
+    const eventsHtml = (this.currentEvents || []).map(event => this.renderEventCard(event)).join('');
+    const postsHtml = filtered.map(post => this.renderPostCard(post)).join('');
+    
+    if (!eventsHtml && filtered.length === 0) { 
+      container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; 
+      return; 
+    }
+    
     container.className = 'blog-feed';
-    container.innerHTML = filtered.map(post => this.renderPostCard(post)).join('');
+    container.innerHTML = eventsHtml + postsHtml;
+  },
+
+  renderEventCard(event) {
+    const isHost = event.host_id === store.user.id;
+    const isParticipant = false; // TODO: Check if user is participant
+    const timeLeft = this.getEventTimeLeft(event);
+    const prizePool = (event.prize_1st || 0) + (event.prize_2nd || 0) + (event.prize_3rd || 0);
+    
+    const statusBadge = event.status === 'recruiting' 
+      ? `<span style="background: #F59E0B; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Recruiting</span>`
+      : `<span style="background: #10B981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Live</span>`;
+
+    const coverHtml = event.cover_url 
+      ? `<div class="event-card-cover" style="background-image: url('${event.cover_url}');"></div>`
+      : `<div class="event-card-cover" style="background: var(--gradient-primary);"></div>`;
+
+    return `
+      <article class="event-card" onclick="hubInstance.openEventPage('${event.id}')">
+        ${coverHtml}
+        <div class="event-card-body">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+            <h3 class="event-card-title">${escapeHtml(event.title)}</h3>
+            ${statusBadge}
+          </div>
+          <p class="event-card-desc">${escapeHtml((event.description || '').substring(0, 100))}${event.description && event.description.length > 100 ? '...' : ''}</p>
+          
+          <div class="event-card-stats">
+            <div class="event-stat">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span>${timeLeft}</span>
+            </div>
+            <div class="event-stat">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              <span>${event.current_participants}/${event.max_participants}</span>
+            </div>
+            <div class="event-stat">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              <span>₦${prizePool.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <button class="btn-primary event-card-btn" onclick="event.stopPropagation(); hubInstance.joinEvent('${event.id}')">
+            ${event.status === 'recruiting' ? 'Join Event' : 'View Event'}
+          </button>
+        </div>
+      </article>
+    `;
+  },
+
+  getEventTimeLeft(event) {
+    if (event.status === 'recruiting') {
+      return `${event.max_participants - event.current_participants} spots left`;
+    }
+    const end = new Date(event.end_date);
+    const now = new Date();
+    const diff = end - now;
+    if (diff <= 0) return 'Ended';
+    const days = Math.floor(diff / 86400000);
+    if (days > 30) return Math.floor(days / 30) + 'mo left';
+    if (days > 0) return days + 'd left';
+    const hrs = Math.floor(diff / 3600000);
+    return hrs + 'h left';
+  },
+
+  async openEventPage(eventId) {
+    // TODO: Implement event page with leaderboard and posts tabs
+    alert(`Event page for ${eventId} - Coming soon!`);
+  },
+
+  async joinEvent(eventId) {
+    const { data, error } = await supabase.rpc('event_join', {
+      p_event_id: eventId,
+      p_team_id: null
+    });
+
+    if (error || !data || !data.ok) {
+      alert(`Failed to join event: ${data?.code || error?.message || 'Unknown error'}`);
+      return;
+    }
+
+    alert('You have joined the event!');
+    this.fetchPosts(); // Refresh to update participant count
   },
 
   parseTags(text) {
@@ -2042,6 +2501,10 @@ window.hubInstance = {
   toggleReadMenu: (id) => hubView.toggleReadMenu(id),
   closeModal: () => hubView.closeModal(),
   addBlock: (type) => hubView.addBlock(type),
+  openEventCreator: () => hubView.openEventCreator(),
+  removeEventCategory: (index) => hubView.removeEventCategory(index),
+  openEventPage: (id) => hubView.openEventPage(id),
+  joinEvent: (id) => hubView.joinEvent(id),
   saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
