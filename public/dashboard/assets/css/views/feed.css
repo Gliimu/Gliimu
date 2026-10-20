@@ -42,6 +42,9 @@
    Wide screens: multi-column grid of cards. Mobile: single-column list.
    ============================================ */
 .libmerge.hub-layout { max-width: 1240px; }
+@media (max-width: 768px) {
+  .libmerge.hub-layout { padding-left: 8px; padding-right: 8px; }
+}
 /* True Pinterest masonry: rows are 8px slices and each item spans exactly its
    own height (set by JS), so short tiles pack tight under tall cards instead
    of leaving a row-sized gap. Vertical spacing is baked into each span. */
@@ -301,14 +304,6 @@
 
   /* Touch-friendly close button on modals */
   .modal-content .modal-close { width: 40px; height: 40px; font-size: 20px; }
-}
-
-/* Very small mobile: single column for better readability */
-@media (max-width: 480px) {
-  .library-feed { grid-template-columns: 1fr; }
-  .feed-item--gliim:has(.book-cover-card),
-  .feed-item--gliim:has(.audiolite-card:not(.bundle-card)),
-  .feed-item--gliim:has(.image-only-card) { grid-column: 1 / -1; }
 }
 
 /* Fix Filter SVG stealing clicks */
