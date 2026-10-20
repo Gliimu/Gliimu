@@ -308,14 +308,16 @@ async function loadHubHighlights() {
       : `<div class="xplore-events-ava xplore-events-ava-empty"></div>`;
   }).join('');
 
+  const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
+
   container.innerHTML = `
     <a class="xplore-card xplore-card-audio" href="#" data-xplore="audiolite" ${audio?.id ? `data-item-id="${audio.id}"` : ''}>
       <div class="xplore-card-cover">
         ${audioCover
           ? `<img src="${audioCover}" alt="">`
           : `<div class="xplore-card-cover-empty"></div>`}
-        <div class="xplore-play-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <div class="xplore-center-icon">
+          ${headsetSvg}
         </div>
       </div>
       <h3>Audiolites</h3>

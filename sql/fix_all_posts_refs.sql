@@ -67,7 +67,7 @@ revoke execute on function public.admin_review_post(uuid, text, text) from publi
 grant execute on function public.admin_review_post(uuid, text, text) to authenticated, service_role;
 
 -- 2. post_content_unlocked — checks if a gliim's content should be unlocked
-drop function if exists public.post_content_unlocked(uuid);
+drop function if exists public.post_content_unlocked(uuid) cascade;
 
 create function public.post_content_unlocked(p_post uuid)
 returns boolean language plpgsql stable security definer set search_path = public as $$

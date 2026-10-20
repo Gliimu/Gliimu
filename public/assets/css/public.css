@@ -210,7 +210,7 @@ section:not(.hero-video-section):not(.contact-faq-section) { position: relative;
 .xplore-card-book .xplore-card-cover { height: 160px; }
 .xplore-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .xplore-card-cover-empty { width: 100%; height: 100%; background: var(--gradient-primary); opacity: 0.15; }
-.xplore-play-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--brand-primary); }
+.xplore-center-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-primary); opacity: 0.85; pointer-events: none; }
 .xplore-card h3 { font-size: var(--fs-lg); font-weight: var(--fw-bold); margin: 0 0 var(--space-2); }
 .xplore-card p { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.5; margin: 0; }
 .xplore-events-avatars { display: flex; justify-content: center; margin-bottom: var(--space-4); height: 120px; align-items: center; }

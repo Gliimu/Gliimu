@@ -2042,6 +2042,7 @@ window.hubInstance = {
   toggleReadMenu: (id) => hubView.toggleReadMenu(id),
   closeModal: () => hubView.closeModal(),
   addBlock: (type) => hubView.addBlock(type),
+  saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
   replyToUser: (postId, fullName, userId) => hubView.replyToUser(postId, fullName, userId),
