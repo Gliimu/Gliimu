@@ -219,9 +219,12 @@ create table if not exists public.feed_items (
   author_avatar text,
   owner_id uuid references auth.users(id) on delete set null,
   category text,
+  status text default 'approved',
   created_at timestamptz not null default now()
 );
 create index if not exists idx_feed_items_type on public.feed_items(type);
+-- Drafts for books/audiolites (same model as feed_gliims.status)
+alter table public.feed_items add column if not exists status text default 'approved';
 create index if not exists idx_feed_items_owner on public.feed_items(owner_id);
 create index if not exists idx_feed_items_category on public.feed_items(category);
 
@@ -2712,10 +2715,15 @@ create policy feed_submissions_admin on public.feed_submissions for all to authe
 
 drop policy if exists feed_items_read on public.feed_items;
 create policy feed_items_read on public.feed_items for select to authenticated
-  using (true);
+  using (status is distinct from 'draft' or owner_id = auth.uid());
 
 drop policy if exists feed_items_insert_own on public.feed_items;
 create policy feed_items_insert_own on public.feed_items for insert to authenticated
+  with check (owner_id = auth.uid());
+
+drop policy if exists feed_items_update_own on public.feed_items;
+create policy feed_items_update_own on public.feed_items for update to authenticated
+  using (owner_id = auth.uid())
   with check (owner_id = auth.uid());
 
 drop policy if exists feed_items_delete_own on public.feed_items;

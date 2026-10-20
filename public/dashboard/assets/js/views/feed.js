@@ -90,7 +90,8 @@ export default {
       rateItem: (id) => this.promptRate(id),
       logInteraction: (id, type) => this.logInteraction(id, type),
       toggleTileMenu: (id) => this.toggleTileMenu(id),
-      promptDeleteItem: (id) => this.promptDeleteItem(id)
+      promptDeleteItem: (id) => this.promptDeleteItem(id),
+      publishDraftItem: (id) => this.publishDraftItem(id)
     };
 
     this.setupTopbar();
@@ -242,7 +243,10 @@ export default {
           <div class="upload-status" id="sub-doc-status" style="font-size: 12px; margin-top: 8px;"></div>
           <input type="hidden" id="sub-doc-url">
         </div>
-        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Publish Book</button>
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <button class="btn-secondary" id="sub-save-draft" style="flex: 1;">Save Draft</button>
+          <button class="btn-primary" id="sub-submit" style="flex: 1;">Publish Book</button>
+        </div>
       </div>`;
     document.body.appendChild(modal);
 
@@ -306,6 +310,49 @@ export default {
       this.loadShelf();
       appAlert('Your book is now live on the Feed.');
     });
+
+    // Save as draft — everything uploaded so far is kept, nothing goes live.
+    document.getElementById('sub-save-draft').addEventListener('click', async () => {
+      const title = document.getElementById('sub-title').value.trim();
+      const fileUrl = document.getElementById('sub-doc-url').value;
+      if (!title) return appAlert('Give your book a title before saving the draft.');
+
+      const btn = document.getElementById('sub-save-draft');
+      btn.disabled = true; btn.textContent = 'Saving...';
+
+      const { data: itemRow, error: itemError } = await supabase.from('feed_items').insert({
+        type: 'book',
+        title,
+        description: document.getElementById('sub-description').value.trim(),
+        category: document.getElementById('sub-category').value,
+        cover_url: modal.dataset.coverUrl || null,
+        author: store.profile.full_name || null,
+        author_avatar: store.profile.avatar_url || null,
+        owner_id: store.user.id,
+        status: 'draft'
+      }).select('id').single();
+
+      if (itemError) {
+        btn.disabled = false; btn.textContent = 'Save Draft';
+        return appAlert('Draft save failed: ' + itemError.message);
+      }
+
+      if (fileUrl) {
+        const { error: contentError } = await supabase.from('feed_contents').insert({
+          item_id: itemRow.id,
+          blocks: [],
+          files: [{ url: fileUrl, title }]
+        });
+        if (contentError) {
+          await supabase.from('feed_items').delete().eq('id', itemRow.id);
+          btn.disabled = false; btn.textContent = 'Save Draft';
+          return appAlert('Draft save failed: ' + contentError.message);
+        }
+      }
+
+      modal.remove();
+      appAlert('Draft saved. Find it under the filter menu → Drafts.');
+    });
   },
 
   openAudioliteComposer() {
@@ -324,7 +371,10 @@ export default {
           <div id="sub-chapters" style="display: flex; flex-direction: column; gap: 12px;"></div>
           <button type="button" class="btn-secondary" id="sub-add-chapter" style="margin-top: 12px;">+ Add chapter</button>
         </div>
-        <button class="btn-primary" id="sub-submit" style="width: 100%; margin-top: 24px;">Publish Audiolite</button>
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <button class="btn-secondary" id="sub-save-draft" style="flex: 1;">Save Draft</button>
+          <button class="btn-primary" id="sub-submit" style="flex: 1;">Publish Audiolite</button>
+        </div>
       </div>`;
     document.body.appendChild(modal);
 
@@ -421,6 +471,56 @@ export default {
       modal.remove();
       this.loadShelf();
       appAlert('Your audiolite is now live on the Feed.');
+    });
+
+    // Save as draft — chapters uploaded so far are kept, nothing goes live.
+    document.getElementById('sub-save-draft').addEventListener('click', async () => {
+      const title = document.getElementById('sub-title').value.trim();
+      if (!title) return appAlert('Give your audiolite a title before saving the draft.');
+
+      const chapters = [];
+      chaptersEl.querySelectorAll('.chapter-row').forEach((row, i) => {
+        const url = row.querySelector('.chapter-url').value;
+        if (!url) return;
+        const chapterTitle = row.querySelector('.chapter-title').value.trim() || `Chapter ${i + 1}`;
+        chapters.push({ title: chapterTitle, url });
+      });
+
+      const btn = document.getElementById('sub-save-draft');
+      btn.disabled = true; btn.textContent = 'Saving...';
+
+      const { data: itemRow, error: itemError } = await supabase.from('feed_items').insert({
+        type: 'audiolite',
+        title,
+        description: document.getElementById('sub-description').value.trim(),
+        category: document.getElementById('sub-category').value,
+        cover_url: modal.dataset.coverUrl || null,
+        author: store.profile.full_name || null,
+        author_avatar: store.profile.avatar_url || null,
+        owner_id: store.user.id,
+        status: 'draft'
+      }).select('id').single();
+
+      if (itemError) {
+        btn.disabled = false; btn.textContent = 'Save Draft';
+        return appAlert('Draft save failed: ' + itemError.message);
+      }
+
+      if (chapters.length) {
+        const { error: contentError } = await supabase.from('feed_contents').insert({
+          item_id: itemRow.id,
+          blocks: [],
+          files: chapters
+        });
+        if (contentError) {
+          await supabase.from('feed_items').delete().eq('id', itemRow.id);
+          btn.disabled = false; btn.textContent = 'Save Draft';
+          return appAlert('Draft save failed: ' + contentError.message);
+        }
+      }
+
+      modal.remove();
+      appAlert('Draft saved. Find it under the filter menu → Drafts.');
     });
   },
 
@@ -541,10 +641,17 @@ export default {
   visibleItems() {
     const f = hubView.currentFilter || 'all';
     let items = this.allItems || [];
-    if (f === 'saved') items = items.filter(i => this.savedItems.has(i.id));
-    else if (f === 'mine') items = items.filter(i => i.owner_id === store.user.id);
-    else if (f === 'tagged') items = [];
-    else if (f !== 'all') items = items.filter(i => i.category === f);
+
+    if (f === 'drafts') {
+      // Only the owner's unpublished books/audiolites appear here
+      items = items.filter(i => i.status === 'draft' && i.owner_id === store.user.id);
+    } else {
+      items = items.filter(i => i.status !== 'draft');
+      if (f === 'saved') items = items.filter(i => this.savedItems.has(i.id));
+      else if (f === 'mine') items = items.filter(i => i.owner_id === store.user.id);
+      else if (f === 'tagged') items = [];
+      else if (f !== 'all') items = items.filter(i => i.category === f);
+    }
 
     const q = this.searchQuery;
     if (q) {
@@ -629,6 +736,9 @@ export default {
     const savedBadge = (isSaved && !isOwned)
       ? '<span class="lib-saved-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>'
       : '';
+    const draftBadge = (isOwner && item.status === 'draft')
+      ? '<span style="position:absolute;top:8px;left:8px;padding:2px 8px;border-radius:999px;background:rgba(107,114,128,.85);color:#fff;font-size:10px;font-weight:700;letter-spacing:.5px;z-index:2;">DRAFT</span>'
+      : '';
 
     const playIcon = item.type === 'audiolite'
       ? `<div class="lib-play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>`
@@ -640,6 +750,12 @@ export default {
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
         </button>
         <div class="lib-tile-menu" id="tile-menu-${item.id}">
+          ${item.status === 'draft' ? `
+          <div class="lib-tile-menu-item" onclick="event.stopPropagation(); event.preventDefault(); libraryInstance.publishDraftItem('${item.id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
+            Publish
+          </div>
+          ` : ''}
           <div class="lib-tile-menu-item danger" onclick="event.stopPropagation(); event.preventDefault(); libraryInstance.promptDeleteItem('${item.id}')">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             Delete
@@ -652,7 +768,7 @@ export default {
       <div class="lib-tile lib-${item.type}" onclick="libraryInstance.openDetails('${item.id}')">
         ${thumb}
         ${playIcon}
-        ${ownedBadge}${savedBadge}
+        ${ownedBadge}${savedBadge}${draftBadge}
         ${ownerMenu}
         <div class="lib-overlay"><h4>${escapeHtml(item.title)}</h4></div>
       </div>
@@ -1037,6 +1153,20 @@ export default {
       };
       document.addEventListener('click', this._tileMenuClose, true);
     }
+  },
+
+  async publishDraftItem(itemId) {
+    document.querySelectorAll('.lib-tile-menu.active').forEach(m => m.classList.remove('active'));
+
+    const { error } = await supabase.from('feed_items')
+      .update({ status: 'approved' })
+      .eq('id', itemId)
+      .eq('owner_id', store.user.id);
+
+    if (error) return appAlert('Publish failed: ' + error.message);
+
+    appAlert('Published. Your item is now live on the Feed.');
+    this.loadShelf();
   },
 
   async promptDeleteItem(itemId) {
