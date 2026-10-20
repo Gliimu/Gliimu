@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { openReader } from '../reader.js?v=30';
-import hubView from './feed-gliims.js?v=35';
+import hubView from './feed-gliims.js?v=36';
 
 // Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
@@ -1026,8 +1026,10 @@ export default {
     const password = await appPrompt(`To permanently delete this ${label.toLowerCase()}, please enter your password:`, { inputType: 'password', okText: 'Delete', danger: true });
     if (!password) return;
 
-    const fakeEmail = `${store.profile.username}@gliimu.app`;
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+    const email = store.user && store.user.email;
+    if (!email) return alert('Account information not available. Please sign in again.');
+    
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) return alert('Incorrect password. Deletion cancelled.');
 
     const { data: { session } } = await supabase.auth.getSession();

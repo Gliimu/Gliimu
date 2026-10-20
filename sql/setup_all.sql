@@ -2718,6 +2718,10 @@ drop policy if exists feed_items_insert_own on public.feed_items;
 create policy feed_items_insert_own on public.feed_items for insert to authenticated
   with check (owner_id = auth.uid());
 
+drop policy if exists feed_items_delete_own on public.feed_items;
+create policy feed_items_delete_own on public.feed_items for delete to authenticated
+  using (owner_id = auth.uid());
+
 drop policy if exists feed_items_admin on public.feed_items;
 create policy feed_items_admin on public.feed_items for all to authenticated
   using (public.is_admin());
@@ -2736,6 +2740,10 @@ create policy feed_gliims_insert on public.feed_gliims for insert to authenticat
 
 drop policy if exists feed_gliims_update_own on public.feed_gliims;
 create policy feed_gliims_update_own on public.feed_gliims for update to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists feed_gliims_delete_own on public.feed_gliims;
+create policy feed_gliims_delete_own on public.feed_gliims for delete to authenticated
   using (user_id = auth.uid());
 
 drop policy if exists feed_gliims_admin on public.feed_gliims;

@@ -397,8 +397,10 @@ const hubView = {
     const password = await appPrompt("To permanently delete this Gliim, please enter your password:", { inputType: 'password', okText: 'Delete', danger: true });
     if (!password) return;
 
-    const fakeEmail = `${store.profile.username}@gliimu.app`;
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+    const email = store.user && store.user.email;
+    if (!email) return alert('Account information not available. Please sign in again.');
+    
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
       return alert("Incorrect password. Deletion cancelled.");
