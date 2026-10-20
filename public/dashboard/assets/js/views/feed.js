@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=52';
+import hubView from './feed-gliims.js?v=53';
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view
@@ -98,10 +98,18 @@ export default {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const cards = hubView.filterPosts().map(post => ({
+    // Events render at the top of the feed, interleaved with gliim posts
+    const eventCards = (hubView.currentEvents || []).map(event => ({
+      at: Date.parse(event.start_date) || Date.parse(event.created_at) || 0,
+      html: this.wrapItem(hubView.renderEventCard(event), 'event')
+    }));
+
+    const gliimCards = hubView.filterPosts().map(post => ({
       at: Date.parse(post.created_at) || 0,
       html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
-    }))
+    }));
+
+    const cards = [...eventCards, ...gliimCards]
       .sort((a, b) => b.at - a.at)
       .map(c => c.html);
 

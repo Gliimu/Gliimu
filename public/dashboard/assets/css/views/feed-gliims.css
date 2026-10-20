@@ -687,8 +687,12 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   box-shadow: var(--shadow-md);
   display: grid;
   grid-template-columns: 300px 1fr;
-  grid-column: span 2;
   min-height: 200px;
+}
+
+/* The feed-item wrapper spans 2 grid columns on desktop */
+.feed-item--event {
+  grid-column: span 2;
 }
 
 .event-card:hover {
@@ -756,11 +760,10 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   margin-top: auto;
 }
 
-/* Mobile: stack vertically */
+/* Mobile: stack vertically, full width */
 @media (max-width: 768px) {
   .event-card {
     grid-template-columns: 1fr;
-    grid-column: span 1;
   }
   
   .event-card-cover {
@@ -774,5 +777,13 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   
   .event-card-stats {
     gap: 12px;
+  }
+  
+  .event-card-body {
+    padding: 16px;
+  }
+  
+  .event-card-desc {
+    font-size: 13px;
   }
 }
