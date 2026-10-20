@@ -145,72 +145,6 @@ const hubView = {
     document.querySelector('.modal-overlay')?.remove();
     this.isModalOpen = false;
     sessionStorage.removeItem('openReadViewId');
-    this.stopReadAloud();
-  },
-
-  // Read-aloud TTS: collects all visible text blocks in the read view and
-  // speaks them via the Web Speech API. Tapping again stops.
-  toggleReadAloud(btn) {
-    if (!('speechSynthesis' in window)) {
-      return alert('Read aloud is not supported in this browser.');
-    }
-    if (speechSynthesis.speaking || speechSynthesis.pending) {
-      this.stopReadAloud();
-      return;
-    }
-
-    const body = document.querySelector('.read-body');
-    if (!body) return;
-
-    const textEls = body.querySelectorAll('.read-block-title, .read-block-subtitle, .read-block-text, .read-block-list-item, .read-block-caption');
-    if (!textEls.length) return alert('No text to read aloud.');
-
-    const utterances = [];
-    textEls.forEach(el => {
-      const text = (el.textContent || '').trim();
-      if (!text) return;
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.rate = 1;
-      utt.pitch = 1;
-      utterances.push({ utt, el });
-    });
-    if (!utterances.length) return alert('No text to read aloud.');
-
-    this._readAloudActive = true;
-    btn.classList.add('active');
-    btn.querySelector('span').textContent = 'Stop';
-
-    let idx = 0;
-    const speakNext = () => {
-      if (!this._readAloudActive || idx >= utterances.length) {
-        this.stopReadAloud();
-        return;
-      }
-      utterances[idx].el.classList.add('read-aloud-highlight');
-      utterances[idx].utt.onend = () => {
-        utterances[idx].el.classList.remove('read-aloud-highlight');
-        idx++;
-        speakNext();
-      };
-      utterances[idx].utt.onerror = () => {
-        utterances[idx].el.classList.remove('read-aloud-highlight');
-        idx++;
-        speakNext();
-      };
-      speechSynthesis.speak(utterances[idx].utt);
-    };
-    speakNext();
-  },
-
-  stopReadAloud() {
-    this._readAloudActive = false;
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
-    document.querySelectorAll('.read-aloud-highlight').forEach(el => el.classList.remove('read-aloud-highlight'));
-    const btn = document.getElementById('read-aloud-btn');
-    if (btn) {
-      btn.classList.remove('active');
-      btn.querySelector('span').textContent = 'Read Aloud';
-    }
   },
 
   closeUserMenu() {
@@ -1470,15 +1404,15 @@ const hubView = {
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
 
-    // Audiolites render as 1:1 squares: the first image in the composer
-    // becomes the cover background; title + EQ badge overlay it.
+    // Audiolites: cover image background with a centered headset icon,
+    // title + author + stats at the bottom, badges in the corner.
     if (this.cardKinds && this.cardKinds[post.id] === 'audiolite') {
-      const eqSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
-      const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 21 12 6 21 6 3"></polygon></svg>';
+      const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
       if (post.cover_url) {
         const cardStyle = `background-image: url('${post.cover_url}');`;
         return `<article class="audiolite-card audiolite-cover-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${cardStyle}" onclick="hubInstance.openReadView('${post.id}')">
-          <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${eqSvg}Audiolite</span><span class="audiolite-play">${playSvg}</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+          ${draftBadge || premiumBadge ? `<div class="book-cover-badges">${draftBadge}${premiumBadge}</div>` : ''}
+          <div class="audiolite-center-icon">${headsetSvg}</div>
           <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
           <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
         </article>`;
@@ -1487,7 +1421,8 @@ const hubView = {
       const onColor = readableOn(color);
       const cardStyle = color && onColor ? ` style="background:${escapeHtml(color)};color:${onColor};"` : '';
       return `<article class="audiolite-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
-        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${eqSvg}Audiolite</span><span class="audiolite-play">${playSvg}</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+        ${draftBadge || premiumBadge ? `<div class="book-cover-badges">${draftBadge}${premiumBadge}</div>` : ''}
+        <div class="audiolite-center-icon">${headsetSvg}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;
@@ -1799,13 +1734,6 @@ const hubView = {
                 <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span>
                 <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
               </div>
-            </div>
-
-            <div class="read-aloud-bar" id="read-aloud-bar">
-              <button class="read-aloud-btn" id="read-aloud-btn" onclick="hubInstance.toggleReadAloud(this)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
-                <span>Read Aloud</span>
-              </button>
             </div>
 
             ${blocksHtml}

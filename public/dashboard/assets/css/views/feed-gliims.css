@@ -137,17 +137,6 @@
 .read-body { padding: 40px; }
 .read-title { font-size: 32px; font-weight: 800; color: var(--text-primary); margin: 12px 0 24px; line-height: 1.2; letter-spacing: -0.5px; }
 
-/* Read Aloud bar: a small pill button above the content */
-.read-aloud-bar { margin-bottom: 24px; }
-.read-aloud-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
-.read-aloud-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-.read-aloud-btn.active { background: var(--brand-primary); color: #fff; border-color: var(--brand-primary); }
-.read-aloud-btn.active:hover { opacity: 0.9; }
-.read-aloud-btn svg { flex-shrink: 0; }
-
-/* Highlight the currently-spoken text block */
-.read-aloud-highlight { background: rgba(99, 102, 241, 0.12); border-radius: 6px; transition: background 0.3s ease; }
-
 /* Read View Blocks */
 .read-block-title { font-size: 28px; font-weight: 800; color: var(--text-primary); margin: 32px 0 16px; }
 .read-block-subtitle { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 24px 0 12px; }
@@ -201,6 +190,15 @@
 .audiolite-title { font-size: 19px; font-weight: 800; line-height: 1.25; margin: 10px 0 14px; text-align: left; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .audiolite-card .blog-footer { border-top-color: rgba(127,127,127,.25); }
 
+/* Centered headset icon on audiolite cards */
+.audiolite-center-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  opacity: .7;
+}
+
 /* Book and image-only cards: cover image fills the square, with a gradient
    scrim so the title stays readable on any photo. */
 .book-card, .image-only-card {
@@ -226,7 +224,7 @@
    Only draft/premium badges shown in the corner. */
 .book-cover-card {
   position: relative;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 4;
   background-size: cover;
   background-position: center;
   background-color: var(--bg-tertiary);
@@ -505,6 +503,21 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   
   .blog-card * {
     box-sizing: border-box;
+  }
+
+  /* Mobile: book-cover-card, audiolite-card, bundle-card sizing */
+  .book-cover-card, .audiolite-card, .bundle-card, .image-only-card {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .audiolite-title {
+    font-size: 15px;
+  }
+  .blog-footer {
+    font-size: 12px;
+  }
+  .blog-author span {
+    font-size: 12px;
   }
 }
 
