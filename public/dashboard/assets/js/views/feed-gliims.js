@@ -1383,7 +1383,7 @@ const hubView = {
     const colsFull = `id, title, category, description, cover_url, views, created_at, user_id, is_premium, status, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
     const colsLegacy = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
     const load = (cols) => Promise.all([
-      supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }).limit(20),
+      supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }),
       supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id)
