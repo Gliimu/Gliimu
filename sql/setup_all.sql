@@ -457,6 +457,7 @@ create index if not exists idx_referrals_referrer on public.referrals(referrer_i
 -- ============================================================
 
 -- 13a. is_admin() — checks admin_users table
+drop function if exists public.is_admin() cascade;
 create or replace function public.is_admin()
 returns boolean
 language plpgsql
@@ -472,6 +473,7 @@ end;
 $$;
 
 -- 13b. admin_role()
+drop function if exists public.admin_role() cascade;
 create or replace function public.admin_role()
 returns text
 language plpgsql
@@ -484,6 +486,7 @@ end;
 $$;
 
 -- 13c. admin_has_role(p_user_id, p_role)
+drop function if exists public.admin_has_role(uuid, text) cascade;
 create or replace function public.admin_has_role(p_user uuid, p_role text)
 returns boolean
 language plpgsql
@@ -501,6 +504,7 @@ end;
 $$;
 
 -- 13d. current_admin_role()
+drop function if exists public.current_admin_role() cascade;
 create or replace function public.current_admin_role()
 returns text
 language plpgsql
@@ -718,6 +722,7 @@ end;
 $$;
 
 -- 15c. billing_summary()
+drop function if exists public.billing_summary() cascade;
 create or replace function public.billing_summary()
 returns jsonb
 language plpgsql
@@ -775,6 +780,7 @@ end;
 $$;
 
 -- 15e. activate_plan(p_plan)
+drop function if exists public.activate_plan(text) cascade;
 create or replace function public.activate_plan(p_plan text)
 returns jsonb
 language plpgsql
@@ -847,6 +853,7 @@ end;
 $$;
 
 -- 15g. billing_close_due_cycles()
+drop function if exists public.billing_close_due_cycles() cascade;
 create or replace function public.billing_close_due_cycles()
 returns jsonb
 language plpgsql
@@ -997,6 +1004,7 @@ end;
 $$;
 
 -- 15i. billing_enforce_deadlines()
+drop function if exists public.billing_enforce_deadlines() cascade;
 create or replace function public.billing_enforce_deadlines()
 returns jsonb
 language plpgsql
@@ -1091,6 +1099,7 @@ $$;
 -- ============================================================
 
 -- 16a. send_support(p_body, p_context)
+drop function if exists public.send_support(text, jsonb) cascade;
 create or replace function public.send_support(p_body text, p_context jsonb default null)
 returns jsonb
 language plpgsql
@@ -1122,6 +1131,7 @@ end;
 $$;
 
 -- 16b. support_handover(p_thread, p_target)
+drop function if exists public.support_handover(uuid, uuid) cascade;
 create or replace function public.support_handover(p_thread uuid, p_target uuid)
 returns void
 language plpgsql
@@ -1135,6 +1145,7 @@ end;
 $$;
 
 -- 16c. support_can_view(p_user)
+drop function if exists public.support_can_view(uuid) cascade;
 create or replace function public.support_can_view(p_user uuid)
 returns boolean
 language plpgsql
@@ -1156,6 +1167,7 @@ end;
 $$;
 
 -- 16d. support_thread_unread(p_thread_user)
+drop function if exists public.support_thread_unread(uuid) cascade;
 create or replace function public.support_thread_unread(p_thread_user uuid)
 returns integer
 language sql
@@ -1173,6 +1185,7 @@ as $$
 $$;
 
 -- 16e. support_mark_read(p_thread_user)
+drop function if exists public.support_mark_read(uuid) cascade;
 create or replace function public.support_mark_read(p_thread_user uuid)
 returns void
 language plpgsql
@@ -1196,6 +1209,7 @@ end;
 $$;
 
 -- 16f. support_inbox()
+drop function if exists public.support_inbox() cascade;
 create or replace function public.support_inbox()
 returns table(
   thread_user uuid,
@@ -1262,6 +1276,7 @@ as $$
 $$;
 
 -- 16g. support_last_staff_at(p_thread_user)
+drop function if exists public.support_last_staff_at(uuid) cascade;
 create or replace function public.support_last_staff_at(p_thread_user uuid)
 returns timestamptz
 language plpgsql
@@ -1278,6 +1293,7 @@ end;
 $$;
 
 -- 16h. gliimpa_paused(p_thread_user)
+drop function if exists public.gliimpa_paused(uuid) cascade;
 create or replace function public.gliimpa_paused(p_thread_user uuid)
 returns boolean
 language plpgsql
@@ -1294,6 +1310,7 @@ end;
 $$;
 
 -- 16i. gliimpa_escalate(p_thread_user)
+drop function if exists public.gliimpa_escalate(uuid) cascade;
 create or replace function public.gliimpa_escalate(p_thread_user uuid)
 returns void
 language plpgsql
@@ -1312,6 +1329,7 @@ $$;
 -- ============================================================
 
 -- 17a. contest_score(p_contest_id)
+drop function if exists public.contest_score(uuid) cascade;
 create or replace function public.contest_score(p_contest_id uuid)
 returns table(user_id uuid, score numeric)
 language plpgsql
@@ -1371,6 +1389,7 @@ end;
 $$;
 
 -- 17c. community_board()
+drop function if exists public.community_board() cascade;
 create or replace function public.community_board()
 returns jsonb
 language plpgsql
@@ -1422,6 +1441,7 @@ $$;
 -- ============================================================
 
 -- 18a. admin_review_submission(p_id, p_status, p_note)
+drop function if exists public.admin_review_submission(uuid, text, text) cascade;
 create or replace function public.admin_review_submission(p_id uuid, p_status text, p_note text default null)
 returns jsonb
 language plpgsql
@@ -1468,6 +1488,7 @@ end;
 $$;
 
 -- 18b. admin_resolve_report(p_report_id, p_status)
+drop function if exists public.admin_resolve_report(bigint, text) cascade;
 create or replace function public.admin_resolve_report(p_report_id bigint, p_status text)
 returns void
 language plpgsql
@@ -1488,6 +1509,7 @@ end;
 $$;
 
 -- 18c. admin_grant_role(p_user_id, p_role)
+drop function if exists public.admin_grant_role(uuid, text) cascade;
 create or replace function public.admin_grant_role(p_user_id uuid, p_role text)
 returns void
 language plpgsql
@@ -1523,6 +1545,7 @@ end;
 $$;
 
 -- 18e. admin_list_admins()
+drop function if exists public.admin_list_admins() cascade;
 create or replace function public.admin_list_admins()
 returns table(user_id uuid, role text, granted_at timestamptz)
 language plpgsql
@@ -1542,6 +1565,7 @@ end;
 $$;
 
 -- 18f. admin_list_pending_posts()
+drop function if exists public.admin_list_pending_posts() cascade;
 create or replace function public.admin_list_pending_posts()
 returns table(id uuid, title text, user_id uuid, status text, created_at timestamptz)
 language plpgsql
@@ -1562,6 +1586,7 @@ end;
 $$;
 
 -- 18g. admin_review_post(p_id, p_status, p_note)
+drop function if exists public.admin_review_post(uuid, text, text) cascade;
 create or replace function public.admin_review_post(p_id uuid, p_status text, p_note text default null)
 returns jsonb
 language plpgsql
@@ -1589,6 +1614,7 @@ $$;
 -- ============================================================
 
 -- 19a. registrar_overview()
+drop function if exists public.registrar_overview() cascade;
 create or replace function public.registrar_overview()
 returns jsonb
 language plpgsql
@@ -1612,6 +1638,7 @@ end;
 $$;
 
 -- 19b. registrar_member(p_user_id)
+drop function if exists public.registrar_member(uuid) cascade;
 create or replace function public.registrar_member(p_user_id uuid)
 returns jsonb
 language plpgsql
@@ -1640,6 +1667,7 @@ end;
 $$;
 
 -- 19c. registrar_revenue(p_days)
+drop function if exists public.registrar_revenue(integer) cascade;
 create or replace function public.registrar_revenue(p_days integer default 30)
 returns jsonb
 language plpgsql
@@ -1674,6 +1702,7 @@ end;
 $$;
 
 -- 19d. registrar_adjustment helpers
+drop function if exists public.registrar_adjust_gp(uuid, integer, text) cascade;
 create or replace function public.registrar_adjust_gp(p_user_id uuid, p_delta integer, p_note text)
 returns void
 language plpgsql
@@ -1695,6 +1724,7 @@ end;
 $$;
 
 -- 19e. registrar_adjust_wallet
+drop function if exists public.registrar_adjust_wallet(uuid, integer, text) cascade;
 create or replace function public.registrar_adjust_wallet(p_user_id uuid, p_delta integer, p_note text)
 returns void
 language plpgsql
@@ -1716,6 +1746,7 @@ end;
 $$;
 
 -- 19f. registrar_adjust_tier
+drop function if exists public.registrar_adjust_tier(uuid, text, text) cascade;
 create or replace function public.registrar_adjust_tier(p_user_id uuid, p_new_tier text, p_note text)
 returns void
 language plpgsql
@@ -1741,6 +1772,7 @@ $$;
 -- ============================================================
 
 -- 20a. is_safe_url(p_url)
+drop function if exists public.is_safe_url(text) cascade;
 create or replace function public.is_safe_url(p_url text)
 returns boolean
 language plpgsql
@@ -1754,6 +1786,7 @@ end;
 $$;
 
 -- 20b. operations_get_settings()
+drop function if exists public.operations_get_settings() cascade;
 create or replace function public.operations_get_settings()
 returns jsonb
 language plpgsql
@@ -1789,6 +1822,7 @@ end;
 $$;
 
 -- 20c. operations_update_setting
+drop function if exists public.operations_update_setting(text, text) cascade;
 create or replace function public.operations_update_setting(p_key text, p_value text)
 returns void
 language plpgsql
@@ -1809,6 +1843,7 @@ end;
 $$;
 
 -- 20d. operations_landing_data()
+drop function if exists public.operations_landing_data() cascade;
 create or replace function public.operations_landing_data()
 returns jsonb
 language plpgsql
@@ -1829,7 +1864,9 @@ end;
 $$;
 
 -- 20e. operations_partner_upsert
-create or replace function public.operations_partner_upsert(p_id bigint default null, p_name text, p_logo_url text, p_website_url text, p_sort integer default 0)
+drop function if exists public.operations_partner_upsert(bigint, text, text, text, integer) cascade;
+drop function if exists public.operations_partner_upsert(text, text, text, integer, bigint) cascade;
+create or replace function public.operations_partner_upsert(p_name text, p_logo_url text, p_website_url text, p_sort integer default 0, p_id bigint default null)
 returns void
 language plpgsql
 security definer
@@ -1852,6 +1889,7 @@ end;
 $$;
 
 -- 20f. operations_partner_delete
+drop function if exists public.operations_partner_delete(bigint) cascade;
 create or replace function public.operations_partner_delete(p_id bigint)
 returns void
 language plpgsql
@@ -1868,7 +1906,9 @@ end;
 $$;
 
 -- 20g. operations_faq_upsert
-create or replace function public.operations_faq_upsert(p_id bigint default null, p_question text, p_answer text, p_sort integer default 0)
+drop function if exists public.operations_faq_upsert(bigint, text, text, integer) cascade;
+drop function if exists public.operations_faq_upsert(text, text, integer, bigint) cascade;
+create or replace function public.operations_faq_upsert(p_question text, p_answer text, p_sort integer default 0, p_id bigint default null)
 returns void
 language plpgsql
 security definer
@@ -1891,6 +1931,7 @@ end;
 $$;
 
 -- 20h. operations_faq_delete
+drop function if exists public.operations_faq_delete(bigint) cascade;
 create or replace function public.operations_faq_delete(p_id bigint)
 returns void
 language plpgsql
@@ -1979,6 +2020,7 @@ end $$;
 -- ============================================================
 
 -- 22a. make_referral_code()
+drop function if exists public.make_referral_code() cascade;
 create or replace function public.make_referral_code()
 returns text
 language plpgsql
@@ -2018,6 +2060,7 @@ create trigger trg_profiles_assign_referral_code
   for each row execute function public.profiles_assign_referral_code();
 
 -- 22c. apply_referral(p_code)
+drop function if exists public.apply_referral(text) cascade;
 create or replace function public.apply_referral(p_code text)
 returns jsonb
 language plpgsql
@@ -2045,6 +2088,7 @@ end;
 $$;
 
 -- 22d. referral_vest_due()
+drop function if exists public.referral_vest_due() cascade;
 create or replace function public.referral_vest_due()
 returns integer
 language plpgsql
@@ -2067,6 +2111,7 @@ end;
 $$;
 
 -- 22e. referral_summary()
+drop function if exists public.referral_summary() cascade;
 create or replace function public.referral_summary()
 returns jsonb
 language plpgsql
@@ -2093,6 +2138,7 @@ $$;
 -- ============================================================
 
 -- 23a. complete_reading(p_item_id)
+drop function if exists public.complete_reading(uuid) cascade;
 create or replace function public.complete_reading(p_item_id uuid)
 returns jsonb
 language plpgsql
@@ -2128,6 +2174,7 @@ end;
 $$;
 
 -- 23b. related_publications(p_item_id, p_limit)
+drop function if exists public.related_publications(uuid, integer) cascade;
 create or replace function public.related_publications(p_item_id uuid, p_limit integer default 5)
 returns table(id uuid, title text, cover_url text, type text, author text)
 language plpgsql
@@ -2154,6 +2201,7 @@ $$;
 -- 24. FUNCTIONS — ADMIN DELETE FEED ITEM
 -- ============================================================
 
+drop function if exists public.admin_delete_feed_item(uuid) cascade;
 create or replace function public.admin_delete_feed_item(
   p_item_id uuid
 )
@@ -2222,6 +2270,7 @@ grant execute on function public.admin_delete_feed_item(uuid) to authenticated;
 -- 26b. user_delete_feed_item — owner-initiated delete for books / audiolites
 -- Password is verified client-side via signInWithPassword (same pattern as
 -- gliim delete). This RPC only checks ownership and cleans up related rows.
+drop function if exists public.user_delete_feed_item(uuid) cascade;
 create or replace function public.user_delete_feed_item(
   p_item_id uuid
 )
@@ -2271,6 +2320,7 @@ grant execute on function public.user_delete_feed_item(uuid) to authenticated;
 -- ============================================================
 
 -- 27a. crm_contact(p_user_id)
+drop function if exists public.crm_contact(uuid) cascade;
 create or replace function public.crm_contact(p_user_id uuid)
 returns jsonb
 language plpgsql
@@ -2297,6 +2347,7 @@ end;
 $$;
 
 -- 27b. crm_set_contact(p_full_name, p_phone, p_email, p_whatsapp, p_telegram, p_discord, p_preferred)
+drop function if exists public.crm_set_contact(text, text, text, text, text, text, text) cascade;
 create or replace function public.crm_set_contact(
   p_full_name text default null,
   p_phone text default null,
@@ -2333,6 +2384,7 @@ $$;
 -- ============================================================
 
 -- 28a. post_content_unlocked(p_post_id) — uses feed_gliims
+drop function if exists public.post_content_unlocked(uuid) cascade;
 create or replace function public.post_content_unlocked(p_post_id uuid)
 returns boolean
 language plpgsql
@@ -2362,6 +2414,7 @@ end;
 $$;
 
 -- 28b. library_item_unlocked(p_item_id) — uses feed_items
+drop function if exists public.library_item_unlocked(uuid) cascade;
 create or replace function public.library_item_unlocked(p_item_id uuid)
 returns boolean
 language plpgsql
@@ -2447,6 +2500,7 @@ create trigger trg_enforce_live_subscription
 -- 30b. LANDING HIGHLIGHTS — top book, audiolite, gliimaits
 -- ============================================================
 
+drop function if exists public.landing_highlights() cascade;
 create or replace function public.landing_highlights()
 returns jsonb
 language plpgsql
@@ -3064,9 +3118,9 @@ declare
     'registrar_adjust_tier(uuid,text,text)',
     'is_safe_url(text)','operations_get_settings()',
     'operations_update_setting(text,text)','operations_landing_data()',
-    'operations_partner_upsert(bigint,text,text,text,integer)',
+    'operations_partner_upsert(text,text,text,integer,bigint)',
     'operations_partner_delete(bigint)',
-    'operations_faq_upsert(bigint,text,text,integer)',
+    'operations_faq_upsert(text,text,integer,bigint)',
     'operations_faq_delete(bigint)',
     'increment_wallet(uuid,integer)','add_gp(uuid,integer)',
     'make_referral_code()','profiles_assign_referral_code()',

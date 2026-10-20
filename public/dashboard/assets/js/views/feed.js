@@ -172,10 +172,7 @@ export default {
   submissionHeadFields(kindLabel) {
     return `
       <div class="form-group"><label>Title</label><input type="text" id="sub-title" class="input" placeholder="Give your ${kindLabel} a title..."></div>
-      <div class="form-row" style="gap: 16px;">
-        <div class="form-group" style="flex: 1;"><label>Category</label><select id="sub-category" class="input">${CATEGORY_OPTIONS}</select></div>
-        <div class="form-group" style="flex: 1;"><label>Price (₦) — 0 for free</label><input type="number" id="sub-price" class="input" min="0" step="1" value="0"></div>
-      </div>
+      <div class="form-group"><label>Category</label><select id="sub-category" class="input">${CATEGORY_OPTIONS}</select></div>
       <div class="form-group"><label>Description</label><textarea id="sub-description" class="input" rows="3" placeholder="A short summary readers see before opening..."></textarea></div>`;
   },
 
@@ -271,7 +268,6 @@ export default {
         type: 'book',
         title,
         description: document.getElementById('sub-description').value.trim(),
-        price: Math.max(0, parseInt(document.getElementById('sub-price').value, 10) || 0),
         category: document.getElementById('sub-category').value,
         cover_url: modal.dataset.coverUrl || null,
         author: store.profile.full_name || null,
@@ -388,7 +384,6 @@ export default {
         type: 'audiolite',
         title,
         description: document.getElementById('sub-description').value.trim(),
-        price: Math.max(0, parseInt(document.getElementById('sub-price').value, 10) || 0),
         category: document.getElementById('sub-category').value,
         cover_url: modal.dataset.coverUrl || null,
         author: store.profile.full_name || null,
@@ -676,7 +671,6 @@ export default {
           <h2>${item.title}</h2>
           <p class="lib-modal-author">by ${authorName}</p>
           <p class="lib-modal-desc">${item.description}</p>
-          ${!isOwned && !this.subscriber ? `<div class="lib-modal-price">Price: <strong>₦${item.price?.toLocaleString() || 0}</strong></div>` : ''}
           ${!isOwned && this.subscriber ? `<div class="lib-modal-price">Included with your subscription</div>` : ''}
 
           <div class="lib-action-row">
@@ -687,7 +681,7 @@ export default {
                 </button>`
               : `<button class="btn-primary lib-action-btn" onclick="libraryInstance.purchase('${item.id}')">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  ${balance >= item.price ? 'Unlock' : 'Insufficient'}
+                  ${balance >= (item.price || 0) ? 'Unlock' : 'Insufficient'}
                 </button>`
             }
             <div class="lib-modal-menu">
