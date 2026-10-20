@@ -1702,6 +1702,17 @@ const hubView = {
     this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
     this.currentEvents = events || [];
+    
+    // Fetch top 3 participants for full events
+    this.eventLeaderboards = {};
+    const fullEvents = this.currentEvents.filter(e => e.current_participants >= e.max_participants);
+    for (const event of fullEvents) {
+      const { data: leaderboardData } = await supabase.rpc('event_leaderboard', { p_event_id: event.id });
+      if (leaderboardData?.leaderboard) {
+        this.eventLeaderboards[event.id] = leaderboardData.leaderboard.slice(0, 3);
+      }
+    }
+    
     // A row with no status predates moderation and stays visible; approved gliims
     // reach the feed; drafts are visible to their owners.
     const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved' || (p.status === 'draft' && p.user_id === store.user.id));
@@ -1851,17 +1862,41 @@ const hubView = {
 
   renderEventCard(event) {
     const isHost = event.host_id === store.user.id;
-    const isParticipant = false; // TODO: Check if user is participant
+    const isFull = event.current_participants >= event.max_participants;
     const timeLeft = this.getEventTimeLeft(event);
     const prizePool = (event.prize_1st || 0) + (event.prize_2nd || 0) + (event.prize_3rd || 0);
     
-    const statusBadge = event.status === 'recruiting' 
+    // Hide recruiting badge when event is full
+    const statusBadge = (!isFull && event.status === 'recruiting') 
       ? `<span style="background: #F59E0B; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Recruiting</span>`
       : `<span style="background: #10B981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Live</span>`;
 
     const coverHtml = event.cover_url 
       ? `<div class="event-card-cover" style="background-image: url('${event.cover_url}');"></div>`
       : `<div class="event-card-cover" style="background: var(--gradient-primary);"></div>`;
+
+    // Show top 3 participants when event is full
+    const topParticipants = this.eventLeaderboards?.[event.id] || [];
+    const topParticipantsHtml = isFull && topParticipants.length > 0 ? `
+      <div style="margin: 16px 0; padding: 12px; background: var(--surface-secondary, #f8f9fa); border-radius: 8px;">
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Top Participants</div>
+        ${topParticipants.map((p, i) => `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: ${i < topParticipants.length - 1 ? '6px' : '0'};">
+            <div style="width: 20px; height: 20px; border-radius: 50%; background: ${i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : '#CD7F32'}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white;">${i + 1}</div>
+            <img src="${p.avatar_url || '/icon.png'}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/icon.png'">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${escapeHtml(p.full_name)}</span>
+            <span style="font-size: 12px; color: var(--text-muted); margin-left: auto;">${Number(p.total_gp || 0).toLocaleString()} GP</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
+    // Hide join button when event is full
+    const actionButton = isFull ? '' : `
+      <button class="btn-primary event-card-btn" onclick="event.stopPropagation(); hubInstance.joinEvent('${event.id}')">
+        ${event.status === 'recruiting' ? 'Join Event' : 'View Event'}
+      </button>
+    `;
 
     return `
       <article class="event-card" onclick="hubInstance.openEventPage('${event.id}')">
@@ -1872,6 +1907,8 @@ const hubView = {
             ${statusBadge}
           </div>
           <p class="event-card-desc">${escapeHtml((event.description || '').substring(0, 100))}${event.description && event.description.length > 100 ? '...' : ''}</p>
+          
+          ${topParticipantsHtml}
           
           <div class="event-card-stats">
             <div class="event-stat">
@@ -1888,16 +1925,16 @@ const hubView = {
             </div>
           </div>
 
-          <button class="btn-primary event-card-btn" onclick="event.stopPropagation(); hubInstance.joinEvent('${event.id}')">
-            ${event.status === 'recruiting' ? 'Join Event' : 'View Event'}
-          </button>
+          ${actionButton}
         </div>
       </article>
     `;
   },
 
   getEventTimeLeft(event) {
-    if (event.status === 'recruiting') {
+    const isFull = event.current_participants >= event.max_participants;
+    // Show countdown when event is full/active, not spots left
+    if (event.status === 'recruiting' && !isFull) {
       return `${event.max_participants - event.current_participants} spots left`;
     }
     const end = new Date(event.end_date);
@@ -1961,36 +1998,39 @@ const hubView = {
     modal.style.zIndex = '9999';
     modal.innerHTML = `
       <div class="modal-content" style="max-width: 900px; max-height: 95vh; overflow-y: auto; padding: 0;">
-        <div class="event-page-header" style="background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); padding: 32px; color: white; position: relative;">
-          <button class="modal-close" onclick="document.getElementById('event-page-modal').remove()" style="position: absolute; top: 16px; right: 16px; color: white;">×</button>
+        <div class="event-page-header" style="background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); padding: 32px; color: white; position: relative; overflow: hidden;">
+          <button class="modal-close" onclick="document.getElementById('event-page-modal').remove()" style="position: absolute; top: 16px; right: 16px; color: white; z-index: 2; background: rgba(0,0,0,0.3); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
           
-          ${event.cover_url ? `<img src="${event.cover_url}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.3;">` : ''}
+          ${event.cover_url ? `<img src="${event.cover_url}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">` : ''}
           
-          <div style="position: relative; z-index: 1;">
-            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-              <span style="background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;">${event.status === 'recruiting' ? 'Recruiting' : event.status === 'active' ? 'Live' : 'Ended'}</span>
-              ${event.team_mode ? '<span style="background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;">Team Event</span>' : ''}
+          <!-- Dark overlay for better text contrast in both modes -->
+          <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4)); z-index: 1;"></div>
+          
+          <div style="position: relative; z-index: 2;">
+            <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+              <span style="background: rgba(255,255,255,0.25); backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.3);">${event.status === 'recruiting' ? 'Recruiting' : event.status === 'active' ? 'Live' : 'Ended'}</span>
+              ${event.team_mode ? '<span style="background: rgba(255,255,255,0.25); backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.3);">Team Event</span>' : ''}
             </div>
             
-            <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 12px 0;">${escapeHtml(event.title)}</h1>
-            <p style="font-size: 16px; opacity: 0.9; margin: 0 0 24px 0;">${escapeHtml(event.description)}</p>
+            <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 12px 0; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">${escapeHtml(event.title)}</h1>
+            <p style="font-size: 16px; margin: 0 0 24px 0; text-shadow: 0 1px 4px rgba(0,0,0,0.5); line-height: 1.5;">${escapeHtml(event.description)}</p>
             
             <div style="display: flex; gap: 32px; flex-wrap: wrap;">
               <div>
-                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Prize Pool</div>
-                <div style="font-size: 24px; font-weight: 800;">₦${prizePool.toLocaleString()}</div>
+                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Prize Pool</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">₦${prizePool.toLocaleString()}</div>
               </div>
               <div>
-                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Participants</div>
-                <div style="font-size: 24px; font-weight: 800;">${event.current_participants}/${event.max_participants}</div>
+                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Participants</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${event.current_participants}/${event.max_participants}</div>
               </div>
               <div>
-                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Duration</div>
-                <div style="font-size: 24px; font-weight: 800;">${event.duration_days} days</div>
+                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Duration</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${event.duration_days} days</div>
               </div>
               <div>
-                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">Time Left</div>
-                <div style="font-size: 24px; font-weight: 800;">${this.getEventTimeLeft(event)}</div>
+                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Time Left</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${this.getEventTimeLeft(event)}</div>
               </div>
             </div>
           </div>

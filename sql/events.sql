@@ -41,6 +41,7 @@ drop function if exists public.event_categories_list CASCADE;
 drop function if exists public.event_category_manage CASCADE;
 drop function if exists public.event_pricing_get CASCADE;
 drop function if exists public.event_pricing_set CASCADE;
+drop function if exists public.event_notify_participants CASCADE;
 
 -- ============================================================
 -- EVENT CATEGORIES (admin-managed)
@@ -789,11 +790,14 @@ begin
   set current_participants = current_participants + 1
   where id = p_event_id;
 
-  -- Check if event should start
-  if (select current_participants from public.events where id = p_event_id) >= v_event.min_participants then
+  -- Check if event is now full and should start
+  if (select current_participants from public.events where id = p_event_id) >= v_event.max_participants then
     update public.events
     set status = 'active', started_at = now()
     where id = p_event_id and status = 'recruiting';
+    
+    -- Notify all participants via support page
+    perform public.event_notify_participants(p_event_id);
   end if;
 
   return jsonb_build_object('ok', true);
@@ -981,6 +985,34 @@ begin
   end if;
 
   return jsonb_build_object('ok', true);
+end $$;
+
+-- Notify all participants when event starts (via support page)
+create or replace function public.event_notify_participants(p_event_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_event public.events%rowtype;
+  v_participant record;
+  v_message text;
+begin
+  select * into v_event from public.events where id = p_event_id;
+  if not found then
+    return;
+  end if;
+
+  v_message := 'The event "' || v_event.title || '" is now LIVE! All spots are filled and the countdown has started. You can now start posting your submissions. Good luck!';
+
+  -- Send notification to each participant via support_messages
+  for v_participant in
+    select user_id from public.event_participants where event_id = p_event_id
+  loop
+    insert into public.support_messages (thread_user, sender_id, content, kind)
+    values (v_participant.user_id, v_event.host_id, v_message, 'answer');
+  end loop;
 end $$;
 
 -- Get leaderboard
