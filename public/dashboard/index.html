@@ -30,7 +30,6 @@
   <link rel="stylesheet" href="/dashboard/assets/css/views/reader.css?v=23">
   <link rel="stylesheet" href="/dashboard/assets/css/views/assistant.css?v=30">
   <link rel="stylesheet" href="/dashboard/assets/css/views/support.css?v=30">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/updates.css?v=36">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=1"></script>
@@ -48,27 +47,18 @@
 
         <nav class="sidebar-nav">
           <div class="nav-section">
-            <span class="nav-label">Main</span>
-            <a href="#/feed" class="nav-item" data-route="feed" title="Feed">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-              <span class="nav-text">Feed</span>
+            <a href="#/xplore" class="nav-item" data-route="xplore" title="XpLoRe">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+              <span class="nav-text">XpLoRe</span>
             </a>
             <a href="#/ping" class="nav-item" data-route="ping" title="Ping">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
               <span class="nav-text">Ping</span>
             </a>
-            <a href="#/xplore" class="nav-item" data-route="xplore" title="Xplore">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
-              <span class="nav-text">Xplore</span>
-            </a>
             <a href="#/support" class="nav-item" data-route="support" title="Support">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a8 8 0 0 1 16 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"></path><path d="M21 16v2a4 4 0 0 1-4 4h-4"></path></svg>
               <span class="nav-text">Support</span>
             </a>
-          </div>
-
-          <div class="nav-section">
-            <span class="nav-label">Account</span>
             <a href="#/wallet" class="nav-item" data-route="wallet" title="Billing">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
               <span class="nav-text">Billing</span>

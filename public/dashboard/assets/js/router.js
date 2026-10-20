@@ -1,9 +1,9 @@
 const routes = {
   '/support': () => import('./views/support.js?v=31').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=47').then(m => m.default),
-  '/xplore': () => import('./views/updates.js?v=35').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=48').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=48').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=36').then(m => m.default),
-  '/wallet': () => import('./views/wallet.js?v=30').then(m => m.default),
+  '/wallet': () => import('./views/wallet.js?v=31').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   // Deep links only: Live is folded into Ping, Profile opens from the avatar
@@ -12,14 +12,14 @@ const routes = {
 };
 
 // Routes with no sidebar entry borrow another tab's highlight
-const NAV_ALIAS = { '/live': '/ping' };
+const NAV_ALIAS = { '/live': '/ping', '/feed': '/xplore' };
 
 let previousHash = window.location.hash;
 let currentView = null;
 let navigationRequest = 0;
 
 export async function router() {
-  const hash = window.location.hash.slice(1) || '/feed';
+  const hash = window.location.hash.slice(1) || '/xplore';
   // Deep links may carry a query string (e.g. #/ping?chat=<id>)
   const path = hash.split('?')[0];
   const routeHandler = routes[path];

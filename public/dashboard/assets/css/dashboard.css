@@ -162,6 +162,8 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-width: 0;
+  overflow-x: hidden;
   transition: margin-left var(--transition-base);
 }
 
@@ -227,7 +229,7 @@
 [data-theme="dark"] .menu-toggle .sidebar-toggle-icon { filter: brightness(0) invert(1); opacity: 0.85; }
 .menu-toggle:hover .sidebar-toggle-icon { opacity: 1; }
 
-.view-container { padding: var(--space-8); flex: 1; }
+.view-container { padding: var(--space-8); flex: 1; min-width: 0; box-sizing: border-box; }
 
 /* Mobile-only hint shown in the bottom bar on pages with no search/actions */
 .mobile-bar-hint { display: none; }
@@ -379,12 +381,32 @@
    UNIFIED SIDEBAR RESPONSIVE LOGIC
    ============================================ */
 
-/* Desktop (769px and up) */
+/* Large desktop (1024px and up) — full sidebar */
+@media (min-width: 1024px) {
+  .sidebar { width: 200px; }
+  .main-content { margin-left: 200px; }
+}
+
+/* Tablet to small desktop (769px-1023px) — auto-collapsed sidebar (icon rail) */
+@media (min-width: 769px) and (max-width: 1023px) {
+  .sidebar { width: 64px; }
+  .main-content { margin-left: 64px; }
+  .sidebar-header { padding: var(--space-4) 0; justify-content: center; }
+  .sidebar-nav { padding: var(--space-4) var(--space-2); }
+  .nav-label, .nav-text { display: none; }
+  .nav-item { justify-content: center; padding: var(--space-3) 0; }
+  .nav-item svg { margin-right: 0; }
+  .nav-badge { top: 2px; right: 6px; min-width: 14px; line-height: 14px; padding: 0 3px; border-width: 1px; }
+  .user-card { justify-content: center; padding: var(--space-2) 0; }
+  .user-info { display: none; }
+}
+
+/* Desktop (769px and up) — manual collapse override */
 @media (min-width: 769px) {
   /* Hide mobile elements */
   .mobile-only { display: none !important; }
 
-  /* Collapsed sidebar: icon rail (desktop only) */
+  /* Manually collapsed sidebar: icon rail (desktop only) */
   body.sidebar-collapsed .sidebar { width: 64px; }
   body.sidebar-collapsed .main-content { margin-left: 64px; }
 

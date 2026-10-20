@@ -42,7 +42,10 @@ export default {
       selectTransferUser: (id) => this.selectTransferUser(id),
       clearTransferUser: () => this.clearTransferUser(),
       activatePlan: (id) => this.activatePlan(id),
-      payBill: (id) => this.payBill(id)
+      payBill: (id) => this.payBill(id),
+      openReferralModal: () => this.openReferralModal(),
+      copyReferralCode: (code) => this.copyReferralCode(code),
+      copyReferralLink: (link) => this.copyReferralLink(link)
     };
 
     this.currentTab = 'summary'; // Default view
@@ -187,6 +190,10 @@ export default {
             </div>
           </div>
         </div>
+        <button class="btn-primary" style="width: 100%; margin-top: 24px; padding: 14px;" onclick="walletInstance.openReferralModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+          Refer & earn GP
+        </button>
       `;
     }
 
@@ -955,5 +962,78 @@ export default {
     document.getElementById('wallet-fund-modal')?.remove();
     await this.fetchData();
     this.render();
+  },
+
+  // ============================================
+  // REFERRAL — simple modal with code and link
+  // ============================================
+  async openReferralModal() {
+    const { data: summary } = await supabase.rpc('referral_summary', {})
+      .then((r) => (r.error ? null : r.data), () => null);
+
+    const code = summary?.code || '';
+    const fullLink = code ? `https://gliimu.com/?ref=${code}` : '';
+    const pending = summary?.pending || 0;
+    const vested = summary?.vested || 0;
+    const gpEarned = Number(summary?.gp_earned || 0).toLocaleString();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'referral-modal';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 420px;">
+        <button class="modal-close" id="close-referral-modal">&times;</button>
+        <h2 style="margin-bottom: 8px;">Refer & earn</h2>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">Invite friends to Gliimu and earn GP when they sign up.</p>
+        ${!code ? '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Sign in to get your referral code.</p>' : `
+          <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Your code</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="flex: 1; font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: 1px;">${escapeHtml(code)}</div>
+              <button class="btn-secondary" style="padding: 8px 12px; font-size: 13px;" onclick="walletInstance.copyReferralCode('${escapeHtml(code)}')">Copy</button>
+            </div>
+          </div>
+          <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Your link</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="flex: 1; font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(fullLink)}</div>
+              <button class="btn-secondary" style="padding: 8px 12px; font-size: 13px;" onclick="walletInstance.copyReferralLink('${escapeHtml(fullLink)}')">Copy</button>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center;">
+            <div>
+              <div style="font-size: 20px; font-weight: 800; color: var(--text-primary);">${pending}</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Pending</div>
+            </div>
+            <div>
+              <div style="font-size: 20px; font-weight: 800; color: var(--text-primary);">${vested}</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Vested</div>
+            </div>
+            <div>
+              <div style="font-size: 20px; font-weight: 800; color: var(--brand-primary);">${gpEarned}</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">GP earned</div>
+            </div>
+          </div>
+        `}
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('close-referral-modal').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  },
+
+  async copyReferralCode(code) {
+    try {
+      await navigator.clipboard.writeText(code);
+      await appAlert('Referral code copied.');
+    } catch { await appAlert('Could not copy to clipboard.'); }
+  },
+
+  async copyReferralLink(link) {
+    try {
+      await navigator.clipboard.writeText(link);
+      await appAlert('Referral link copied.');
+    } catch { await appAlert('Could not copy to clipboard.'); }
   }
 };

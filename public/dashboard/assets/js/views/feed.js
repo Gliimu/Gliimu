@@ -5,7 +5,7 @@ import hubView from './feed-gliims.js?v=54';
 // owns the shell (topbar search, category tabs, FAB, masonry layout); hubView
 // owns the data, the cards, the unified composer and the read view.
 export default {
-  title: 'Feed',
+  title: 'XpLoRe',
   template: `
     <div class="libmerge hub-layout" id="library-container">
       <div class="hub-category-tabs" id="hub-category-tabs">
