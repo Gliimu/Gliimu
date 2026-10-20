@@ -55,34 +55,64 @@ async function presign(kind, file) {
   return data;
 }
 
-async function supabaseFallback(kind, file) {
+async function supabaseFallback(kind, file, onProgress = null) {
   const bucket = FALLBACK_BUCKET[kind] || 'media';
   const who = (store.user && store.user.id) || 'anon';
   const path = `${who}/${Date.now()}_${file.name}`;
+  
+  // Supabase storage doesn't provide progress events, so we simulate
+  if (onProgress) {
+    onProgress(0);
+    setTimeout(() => onProgress(50), 100);
+  }
+  
   const { error } = await supabase.storage.from(bucket)
     .upload(path, file, { cacheControl: '3600', upsert: true });
   if (error) throw new Error(error.message);
+  
+  if (onProgress) onProgress(100);
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
 // Uploads a file and resolves with its public URL.
 // kind: 'media' | 'library' | 'avatar' | 'chat' | 'site'
-export async function uploadFile(file, kind = 'media') {
+// onProgress: optional callback(percent) where percent is 0-100
+export async function uploadFile(file, kind = 'media', onProgress = null) {
   if (!file) throw new Error('No file selected.');
 
   if (!r2Unavailable) {
     const signed = await presign(kind, file);
     if (signed) {
-      const put = await fetch(signed.url, {
-        method: 'PUT',
-        headers: { 'Content-Type': signed.contentType || file.type || 'application/octet-stream' },
-        body: file
+      // Use XMLHttpRequest for progress tracking
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', signed.url);
+        xhr.setRequestHeader('Content-Type', signed.contentType || file.type || 'application/octet-stream');
+        
+        if (onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percent = Math.round((e.loaded / e.total) * 100);
+              onProgress(percent);
+            }
+          };
+        }
+        
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            if (onProgress) onProgress(100);
+            resolve(signed.publicUrl);
+          } else {
+            reject(new Error('The upload did not complete. Please try again.'));
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error('The upload failed. Please try again.'));
+        xhr.send(file);
       });
-      if (!put.ok) throw new Error('The upload did not complete. Please try again.');
-      return signed.publicUrl;
     }
     r2Unavailable = true;
   }
 
-  return supabaseFallback(kind, file);
+  return supabaseFallback(kind, file, onProgress);
 }

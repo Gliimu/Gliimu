@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { openReader } from '../reader.js?v=30';
-import hubView from './feed-gliims.js?v=41';
+import hubView from './feed-gliims.js?v=42';
 
 // Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
